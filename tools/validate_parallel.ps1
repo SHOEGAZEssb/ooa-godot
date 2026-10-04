@@ -6,6 +6,8 @@ param(
     [string]$ValidateOnly,
     [string]$Rom,
     [switch]$SkipRomValidation,
+    [switch]$ContinueOnFailure,
+    [string]$TimingProfile,
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600
 )
@@ -40,8 +42,28 @@ if ($Rom) {
 if ($SkipRomValidation) {
     $validationArguments += '--skip-rom-validation'
 }
+if ($ContinueOnFailure) {
+    $validationArguments += '--validate-continue-on-failure'
+}
 $logRoot = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($logRoot)
+$defaultTimingProfile = Join-Path $projectRoot '.godot/validation-timings.tsv'
+if (-not $ValidateOnly) {
+    $profile = if ($TimingProfile) {
+        $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($TimingProfile)
+    } else { $defaultTimingProfile }
+    if ($TimingProfile -and -not [IO.File]::Exists($profile)) {
+        throw "Timing profile does not exist: $profile"
+    }
+    if ([IO.File]::Exists($profile)) {
+        # All workers consume one immutable snapshot, including when a later
+        # run refreshes the default profile from its completion timings.
+        $snapshot = Join-Path $logRoot 'timing-profile.tsv'
+        [IO.File]::Copy($profile, $snapshot)
+        $validationArguments += '"--validate-timing-profile=' + $snapshot + '"'
+        Write-Host "Balancing workers from timing profile: $profile"
+    }
+}
 $processes = [Collections.Generic.List[object]]::new()
 $timer = [Diagnostics.Stopwatch]::StartNew()
 Write-Host "Running $Workers validation workers. Logs: $logRoot"
@@ -76,12 +98,14 @@ try {
     $failed = $false
     $executed = 0
     $skipped = 0
+    $failedScenarios = 0
     $registered = $null
+    $timings = [Collections.Generic.Dictionary[string, double]]::new([StringComparer]::Ordinal)
     foreach ($worker in $processes) {
         $worker.Process.WaitForExit()
         $output = [string](Get-Content -LiteralPath $worker.Out -Raw)
-        $pattern = "(?m)^VALIDATION_COMPLETE shard=$($worker.Index)/$Workers executed=(\d+) skipped=(\d+) registered=(\d+)\r?$"
-        if ($worker.Process.ExitCode -ne 0 -or $output -notmatch $pattern) {
+        $pattern = "(?m)^VALIDATION_COMPLETE shard=$($worker.Index)/$Workers executed=(\d+) skipped=(\d+) registered=(\d+)(?: failed=(\d+))?\r?$"
+        if ($output -notmatch $pattern) {
             $failed = $true
             Write-Host "Worker $($worker.Index) failed (exit $($worker.Process.ExitCode))."
             Write-Host $output
@@ -91,8 +115,15 @@ try {
         $workerExecuted = [int]$Matches[1]
         $workerSkipped = [int]$Matches[2]
         $total = [int]$Matches[3]
+        $workerFailed = if ($Matches[4]) { [int]$Matches[4] } else { 0 }
+        $failedScenarios += $workerFailed
         $executed += $workerExecuted
         $skipped += $workerSkipped
+        if ($worker.Process.ExitCode -ne 0 -or $workerFailed -gt 0) {
+            $failed = $true
+            Write-Host "Worker $($worker.Index): $workerFailed failed scenarios (exit $($worker.Process.ExitCode))."
+            Get-Content -LiteralPath $worker.Err | Write-Host
+        }
         if ($workerSkipped -gt 0 -and -not $SkipRomValidation) {
             $failed = $true
             Write-Host "Worker $($worker.Index) skipped scenarios without -SkipRomValidation."
@@ -103,12 +134,30 @@ try {
         $registered = $total
         foreach ($line in ($output -split '\r?\n')) {
             if ($line.StartsWith('VALIDATION_SKIPPED ')) { Write-Host $line }
+            if ($line -match '^VALIDATION_TIMING name=(\S+) setup_ms=\S+ total_ms=(\S+)$') {
+                $milliseconds = [double]::Parse($Matches[2], [Globalization.CultureInfo]::InvariantCulture)
+                if ([double]::IsNaN($milliseconds) -or [double]::IsInfinity($milliseconds) -or $milliseconds -lt 0 -or $timings.ContainsKey($Matches[1])) {
+                    throw "Invalid or duplicate validation timing: $line"
+                }
+                $timings.Add($Matches[1], $milliseconds)
+            }
         }
         Write-Host "Worker $($worker.Index): $workerExecuted scenarios passed, $workerSkipped skipped."
     }
     $expected = if ($ValidateOnly) { 1 } else { $registered }
-    if ($failed -or $executed + $skipped -ne $expected) {
-        throw "Parallel validation incomplete: $executed passed, $skipped skipped, $registered registered. Logs: $logRoot"
+    if (-not $ValidateOnly -and -not $SkipRomValidation -and -not $TimingProfile -and
+        $executed + $failedScenarios -eq $registered -and $timings.Count -eq $registered) {
+        $lines = [Collections.Generic.List[string]]::new()
+        $lines.Add("name`ttotal_ms")
+        foreach ($name in ($timings.Keys | Sort-Object)) {
+            $lines.Add($name + "`t" + $timings[$name].ToString('F3', [Globalization.CultureInfo]::InvariantCulture))
+        }
+        [void][IO.Directory]::CreateDirectory((Split-Path $defaultTimingProfile -Parent))
+        [IO.File]::WriteAllLines($defaultTimingProfile, $lines, [Text.UTF8Encoding]::new($false))
+    }
+    if ($failed -or $executed + $skipped + $failedScenarios -ne $expected) {
+        Write-Host ("Validation elapsed: {0:N1}s with {1} workers; {2} passed, {3} skipped, {4} failed, {5} registered." -f $timer.Elapsed.TotalSeconds, $Workers, $executed, $skipped, $failedScenarios, $registered)
+        throw "Parallel validation incomplete: $executed passed, $skipped skipped, $failedScenarios failed, $registered registered. Logs: $logRoot"
     }
     if ($ValidateOnly) {
         if ($skipped -gt 0) {

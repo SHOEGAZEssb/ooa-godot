@@ -12,11 +12,14 @@ public sealed partial class ValidationRoot : GameRoot
     private int _neutralInputFrames;
     private int _executedValidationCount;
     private int _skippedValidationCount;
+    private int _failedValidationCount;
+    private bool _continueOnFailure;
     private bool _skipRomValidation;
     private string? _validationFilter;
     private int _validationOrdinal;
     private int _shardIndex;
     private int _shardCount = 1;
+    private readonly List<(Action Run, bool RequiresRom)> _registeredValidations = [];
     private ValidationCutsceneTrace? _enterPastCommandTrace;
     private ValidationCombatEffectAudit _combatEffectAudit = null!;
 
@@ -74,6 +77,7 @@ public sealed partial class ValidationRoot : GameRoot
         try
         {
             _skipRomValidation = OS.GetCmdlineUserArgs().Contains("--skip-rom-validation");
+            _continueOnFailure = OS.GetCmdlineUserArgs().Contains("--validate-continue-on-failure");
             foreach (string argument in OS.GetCmdlineUserArgs())
             {
                 const string prefix = "--validate-shard=";
@@ -98,10 +102,20 @@ public sealed partial class ValidationRoot : GameRoot
             // AudioServer mixer/update handoff. Let those engine phases run
             // before quitting a suite that creates and tears down output.
             _scene.ProcessMode = ProcessModeEnum.Disabled;
-            await CaptureSaveOptionsScreens();
-            await CaptureBootLoadingScreen();
+            if (_failedValidationCount == 0)
+            {
+                await CaptureSaveOptionsScreens();
+                await CaptureBootLoadingScreen();
+            }
+            // Finalize unused managed image/texture readers while Godot is
+            // alive, then let it drain their deferred native references. Do
+            // this once per worker, outside scenario execution and timing.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (_failedValidationCount != 0)
+                throw new InvalidOperationException($"{_failedValidationCount} validation scenarios failed; all assigned scenarios were attempted.");
             GetTree().Quit(0);
         }
         catch (Exception exception)
@@ -141,13 +155,27 @@ public sealed partial class ValidationRoot : GameRoot
         Input.IsActionJustPressed("map") || Input.IsActionJustPressed("inventory");
 
     private void RunIsolatedValidation(Action validation, bool requiresRom = false)
-    {
-        // Partition the authoritative registration stream, preserving its order
-        // within each process. Godot objects and static observers stay on that
-        // process's main thread.
-        if (_validationOrdinal++ % _shardCount != _shardIndex)
-            return;
+        => _registeredValidations.Add((validation, requiresRom));
 
+    private void RunRegisteredValidations()
+    {
+        Dictionary<string, double>? weights = null;
+        const string prefix = "--validate-timing-profile=";
+        foreach (string argument in OS.GetCmdlineUserArgs())
+            if (argument.StartsWith(prefix, StringComparison.Ordinal))
+                weights = ValidationShardPlanner.ParseWeights(File.ReadLines(argument[prefix.Length..]), argument[prefix.Length..]);
+        int[] assignments = ValidationShardPlanner.Assign(
+            _registeredValidations.Select(scenario => scenario.Run.Method.Name).ToArray(), _shardCount, weights);
+        GD.Print($"VALIDATION_SCHEDULING mode={(weights is null ? "round-robin" : "timings")} registered={assignments.Length}");
+        foreach (var scenario in _registeredValidations)
+        {
+            int ordinal = _validationOrdinal++;
+            if (assignments[ordinal] == _shardIndex) ExecuteIsolatedValidation(scenario.Run, scenario.RequiresRom);
+        }
+    }
+
+    private void ExecuteIsolatedValidation(Action validation, bool requiresRom)
+    {
         if (_validationFilter is not null &&
             !string.Equals(
                 validation.Method.Name,
@@ -186,6 +214,15 @@ public sealed partial class ValidationRoot : GameRoot
         }
         catch (Exception exception)
         {
+            if (_continueOnFailure)
+            {
+                _executedValidationCount--;
+                _failedValidationCount++;
+                GD.Print(FormattableString.Invariant(
+                    $"VALIDATION_TIMING name={validation.Method.Name} setup_ms={setupMs:F3} total_ms={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F3}"));
+                GD.PushError($"Isolated validation {validation.Method.Name} failed.\n{exception}");
+                return;
+            }
             throw new InvalidOperationException(
                 $"Isolated validation {validation.Method.Name} failed.",
                 exception);
@@ -256,6 +293,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateAnimationGameplayRom, requiresRom: true);
         RunIsolatedValidation(ValidateTreasureArithmeticRom, requiresRom: true);
         RunIsolatedValidation(ValidateTreasureGrantsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingGrantCapacityRom, requiresRom: true);
         RunIsolatedValidation(ValidateTreasureGameplayRom, requiresRom: true);
         RunIsolatedValidation(ValidateItemSlotAllocationRom, requiresRom: true);
         RunIsolatedValidation(ValidateItemButtonDispatchRom, requiresRom: true);
@@ -338,6 +376,178 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateFrontendFixedUpdates);
         RunIsolatedValidation(ValidateMainMenu);
         RunIsolatedValidation(ValidateMainMenuRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventoryFramePixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventoryMissingEssenceTextRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventoryEssenceReplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventoryItemFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventoryPassiveFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventoryQuestFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventoryRingFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventorySubmenuFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventorySharedSlotFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventoryRetainedPaletteRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventorySubmenuPositionsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventorySubmenuAvailabilityRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventorySubmenuInitialSelectionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInventorySubmenuHudPixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMapFramePixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateInteriorMapFramePixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLargeInteriorMapFramePixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRetainedDungeonMapFramePixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleMapFramePixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDungeonMapFramePixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAlternateDungeonMapFramePixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMapBackgroundSubstitutionsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMapCellsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDungeonMapRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingListMenuRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingListTextSpeedsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingScrollPixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingAllIconsPixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudHeartBeepRingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSaveQuitMenuRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSaveIntegrityRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSavedHealthInitializationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateContinueInitializationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShopCheckpointInitializationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShieldLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShieldAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShieldWaterRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShieldUnderwaterRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBoomerangLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBoomerangTerrainRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBoomerangAllocationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBoomerangDropsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBoomerangAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftBoomerangRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartBoomerangRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwitchHookLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwitchHookTileExchangeRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwitchHookWaterExchangeRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwitchHookAllocationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwitchHookAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShovelLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShovelTilesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShovelDropsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShovelClearingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShovelWaterRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShovelSwimEntryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShovelAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMermaidSwimmingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMermaidDivingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMermaidSeaSwimmingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMermaidSeaDivingGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDeepWaterDiveRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDeepWaterDungeonDiveRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMermaidUnderwaterRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterSurfacingMasksRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterSurfaceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterDungeonSurfaceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuFloodedTilesetsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuWaterTilesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuWaterTilePairsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterHoleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterWarpHoleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterWaterRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterCliffCoastRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterCurrentRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterFloorRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterConveyorRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterCurrentEdgesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateConveyorMovementRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLavaRecoveryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLedgeJumpRom, requiresRom: true);
+        RunIsolatedValidation(ValidateOutdoorLedgeTilesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateIndoorLedgeTilesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterLedgeTilesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterIndoorLedgeTilesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateWallSquishRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftMountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftWaterTilesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftDismountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftSwordARom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftSwordBRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftShieldARom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftShieldBRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftSatchelARom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftSatchelBRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftPegasusARom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftPegasusBRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftFeatherRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRaftSeedShooterRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartMountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartTracksRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartApproachRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartSwordMountRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartShieldRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartPegasusRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartSeedShooterRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartDoorsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartDoorControllersRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMinecartShutterRespawnRom, requiresRom: true);
+        RunIsolatedValidation(ValidateIndoorLavaRecoveryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterLavaRecoveryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterIndoorLavaRecoveryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterWhirlpoolRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePegasusLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePegasusAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedSatchelLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedSatchelAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedSatchelCapacityRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedSatchelClearingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedSatchelReflectorRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleSatchelIndoorRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleSatchelAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleCaptureRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleMenuAcceptRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleAcceptedArrivalRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleAllDestinationsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleArrivalMenuGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleArrivalMenuResumeRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGalePromptFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMapAreaTextFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMapFadeFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMapConditionalTextFramesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingMenuLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleCaptureGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateGaleMenuNavigationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedSatchelWaterRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterLifecycleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterAirborneRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterCapacityRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterEyeRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterAmmoRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterGalePegasusRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterExclusiveAndClearRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterReflectorRom, requiresRom: true);
+        RunIsolatedValidation(ValidateShieldProjectileRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudItemPixelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudVisibilityRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudHeartBeepRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudHeartBeepRecoveryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudHeartBeepMountedRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudHeartBeepInstrumentRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuFluteTextCompletionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudHeartBeepShockRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuFadeColorsRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuChordPromotionRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuHarpGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuFluteGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuHarpCompletionRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuDeathGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuScrollGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudHeartBeepScrollRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuShockGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuGaleGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuToggleGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateHudHeartBeepToggleRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePauseMenuLockMasksRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingAppraisalTextSpeedsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingAppraisalRetentionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRingAppraisalRepeatedRemovalRom, requiresRom: true);
         RunIsolatedValidation(ValidateNameEntryKeyboardRom, requiresRom: true);
         RunIsolatedValidation(ValidateNameEntryEditingRom, requiresRom: true);
         RunIsolatedValidation(ValidateNameEntryAutofireRom, requiresRom: true);
@@ -779,10 +989,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePlayerDamageAndDeath);
         RunIsolatedValidation(ValidateChests);
         RunIsolatedValidation(ValidateInventoryFoundation);
-        RunIsolatedValidation(ValidateInventoryMenu);
         RunIsolatedValidation(ValidateSaveOptions);
         RunIsolatedValidation(ValidateSaveMenuBackgroundIsolation);
-        RunIsolatedValidation(ValidateInventoryFidelity);
         RunIsolatedValidation(ValidateInventoryIconFidelity);
         RunIsolatedValidation(ValidateRingFunctionality);
         RunIsolatedValidation(ValidateBraceletChestAndPushGate);
@@ -954,7 +1162,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDungeonKeyDoors);
         RunIsolatedValidation(ValidateSpiritsGrave);
         RunIsolatedValidation(ValidateMapScreen);
-        RunIsolatedValidation(ValidateMapDisassemblyFidelity);
+        RunIsolatedValidation(ValidateMapPresentationContract);
         RunIsolatedValidation(ValidateLynnaShopInteractions);
         RunIsolatedValidation(ValidateSyrupShopInteractions);
         RunIsolatedValidation(ValidateSyrupShopGraphics);
@@ -981,16 +1189,17 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateWingDungeon);
         RunIsolatedValidation(ValidateHeadThwompFidelity);
 
+        RunRegisteredValidations();
         if (_validationFilter is not null &&
-            _executedValidationCount + _skippedValidationCount == 0)
+            _executedValidationCount + _skippedValidationCount + _failedValidationCount == 0)
         {
             throw new InvalidOperationException(
                 $"No validation method named '{_validationFilter}' was registered.");
         }
         GD.Print($"Validation finished: {_executedValidationCount} passed, " +
-            $"{_skippedValidationCount} skipped.");
+            $"{_skippedValidationCount} skipped, {_failedValidationCount} failed.");
         GD.Print($"VALIDATION_COMPLETE shard={_shardIndex + 1}/{_shardCount} " +
             $"executed={_executedValidationCount} skipped={_skippedValidationCount} " +
-            $"registered={_validationOrdinal}");
+            $"registered={_validationOrdinal} failed={_failedValidationCount}");
     }
 }

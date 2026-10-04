@@ -7,9 +7,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCompanionMountRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (int cancel in new[] { 0, 1, 2 })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom(); _entities.Clear();
             Vector2 position = new(72, 64);
@@ -66,9 +67,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionMovementGameplayRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (bool wall in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom(); _entities.Clear();
             if (wall)

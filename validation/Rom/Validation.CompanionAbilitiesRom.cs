@@ -143,8 +143,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateMooshAbilitiesRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase7 = 0;
         foreach (int held in new[] { 1, 32, 60, 160 })
+        foreach (bool batched in RomHostSchedules(hostCase7++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(0x0d);
             StepCompanionRom(actor, rom, held, Vector2.Zero, batched, attack: true, edge: true);
@@ -156,8 +157,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriAbilitiesRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase6 = 0;
         foreach (int direction in new[] { 0, 1, 2, 3 })
+        foreach (bool batched in RomHostSchedules(hostCase6++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(0x0c, direction);
             for (int repeat = 0; repeat < 2; repeat++)
@@ -176,16 +178,18 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionTraversalRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase5 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
+        foreach (bool batched in RomHostSchedules(hostCase5++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(id);
             SetCompanionRomTile(rom, 4, 4, 0xd4, 3);
             StepCompanionRom(actor, rom, 45, Vector2.Down, batched);
             StepCompanionRom(actor, rom, 25, Vector2.Zero, batched);
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase4 = 0;
         foreach (byte tile in new byte[] { 0xfe, 0xff })
+        foreach (bool batched in RomHostSchedules(hostCase4++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(0x0c, 0);
             for (int y = 1; y < 7; y++) SetCompanionRomTile(rom, 4, y, tile);
@@ -198,11 +202,12 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionHazardsRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (byte tile in new byte[] { 0xf3, 0xfe })
         foreach (bool mounted in new[] { false, true })
         foreach (bool fallback in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             if (id == 0x0c && tile == 0xfe) continue;
             var (actor, rom) = PrepareMountedCompanionRom(id);
@@ -227,8 +232,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateRickyLongJumpsRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (int terrain in new[] { 0, 1, 2 })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(0x0b, terrain == 0 ? 1 : 0);
             Vector2 movement = terrain == 0 ? Vector2.Right : Vector2.Up;
@@ -267,11 +273,12 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionFluteArrivalRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (int direction in new[] { 0, 1, 2, 3 })
         foreach (bool offscreen in new[] { false, true })
         foreach (bool blocked in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom(); _entities.Clear();
             Vector2 p = direction switch { 0 => new(72, 112), 1 => new(24, 64), 2 => new(72, 24), _ => new(136, 64) };

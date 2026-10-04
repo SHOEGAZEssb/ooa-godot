@@ -9,6 +9,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateApplicationValidationFixture()
     {
+        ValidateShardPlanning();
         List<(long Update, bool Held, bool Edge)>? split = null;
         foreach (bool batched in new[] { false, true })
         {

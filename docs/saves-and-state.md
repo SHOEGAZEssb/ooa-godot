@@ -50,6 +50,18 @@ Restart and death behavior must distinguish:
 Do not create an autosave, arbitrary-position checkpoint, or event-local
 recovery copy.
 
+Game initialization preserves positive saved health. Zero or negative health
+returns at half the maximum, rounded down to whole hearts, with a three-heart
+minimum. This repairs the live image after the save/continue decision; it does
+not rewrite the depleted image that was explicitly committed.
+Ordinary saved-game initialization also gives Link 120 non-flashing object
+updates of protection. Continue consumes the initialization dispatch; the
+restored room's first object update starts on the following dispatch.
+Saved-spawn initialization uses the CGB gameplay profile and applies the native
+Advance Shop checkpoint correction before restoring companions or loading the
+room. Imported preset masks preserve fields the original does not write.
+Presentation brightness does not select a different hardware gameplay profile.
+
 Development savestates are separate versioned clone-side files. They capture
 the required live/runtime/RNG/room context only at stable gameplay boundaries
 and reconstruct transient actors from room data on load. They never change a

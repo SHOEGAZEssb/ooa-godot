@@ -9,8 +9,9 @@ public sealed partial class ValidationRoot
     private void ValidateAnimationGameplayRom()
     {
         var ticks = typeof(NpcCharacter).GetField("_animationTicks", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool text in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x66);

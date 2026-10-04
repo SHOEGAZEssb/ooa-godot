@@ -11,8 +11,9 @@ public sealed partial class ValidationRoot
     private void ValidateScrollHandoffRom()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool retainedSword in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x34); _entities.Clear();

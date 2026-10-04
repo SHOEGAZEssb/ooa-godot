@@ -6,8 +6,9 @@ public sealed partial class ValidationRoot
 {
     private void ValidateLinkTerrainBoundaryRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (byte tile in new byte[] { 0xf3, 0xfa })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x33);

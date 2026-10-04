@@ -17,6 +17,7 @@ public sealed class OracleWorldData
     private readonly byte[] _presentRoomPacks;
     private readonly byte[] _pastRoomPacks;
     private readonly byte[] _roomsInAltWorld;
+    private readonly byte[] _jabuFloodedFloors;
     private readonly Dictionary<int, byte[]> _groupTilesets = new();
     private readonly Dictionary<(int Group, int Room, int DataGroup, int LayoutGroup), OracleRoomData> _rooms = new();
     private readonly Dictionary<int, Image> _graphics = new();
@@ -44,6 +45,7 @@ public sealed class OracleWorldData
         _presentRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPresent.bin", 256);
         _pastRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPast.bin", 256);
         _roomsInAltWorld = ReadBytes("res://assets/oracle/metadata/rooms_in_alt_world.bin", 256);
+        _jabuFloodedFloors = ReadBytes("res://assets/oracle/metadata/jabu_flooded_floors.bin", 3);
         Color[] commonBgPalette0 = LoadFourColorPalette(
             "res://assets/oracle/metadata/commonBgPalette0.bin");
         Color[,] textboxBgPalette1 = LoadPaletteSet(
@@ -79,13 +81,30 @@ public sealed class OracleWorldData
         (save.GetRoomFlags(_makuLayout.FlagGroup, _makuLayout.FlagRoom) & _makuLayout.Mask) != 0
             ? _makuLayout.LayoutGroup : null;
 
+    internal int? ResolveJabuTilesetOverride(int group, int room, OracleSaveData save, DungeonMapDatabase maps)
+    {
+        int tileset = GetTilesetId(group, room);
+        int offset = tileset * TilesetRecordSize;
+        // loadTilesetData.s:@checkJabuFlooded skips side-view rooms, finds the
+        // actual map floor, and increments the base tileset on flooded floors.
+        if (GetDungeonIndex(group, room) != 7 ||
+            (_tilesetMetadata[offset + 7] & (int)TilesetFlags.Sidescroll) != 0)
+            return null;
+        int level = save.ReadWramByte(WramAddress.wJabuWaterLevel) & 7;
+        if (level >= _jabuFloodedFloors.Length)
+            throw new NotSupportedException($"loadTilesetData.s:@checkJabuFlooded: room {group:x1}:{room:x2}, unsupported water level ${level:x2}.");
+        if (!maps.GetDungeon(7).TryGetRoom(room, out DungeonCell cell))
+            throw new InvalidOperationException($"loadTilesetData.s:@checkJabuFlooded: room {group:x1}:{room:x2} has no imported dungeon floor.");
+        return (_jabuFloodedFloors[level] & (1 << cell.Floor)) != 0 ? tileset + 1 : null;
+    }
+
     public OracleRoomData LoadRoom(int group, int room, int dataGroup, int? animalCompanion = null,
-        int? layoutGroupOverride = null)
+        int? layoutGroupOverride = null, int? tilesetOverride = null)
     {
         if (!HasRoom(dataGroup, room))
             throw new InvalidOperationException($"Room {group:x1}:{room:x2} is not available.");
 
-        int tileset = GetTilesetId(dataGroup, room);
+        int tileset = tilesetOverride ?? GetTilesetId(dataGroup, room);
         int metadataOffset = tileset * TilesetRecordSize;
         int layoutGroup = layoutGroupOverride ?? _tilesetMetadata[metadataOffset + 1];
         // ages/loadTilesetData.s:checkTilesetOverride selects tilesets

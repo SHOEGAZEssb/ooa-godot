@@ -29,6 +29,10 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
     private int _pendingRefund;
     private int _delay;
     private bool _pageTransitionStartPending;
+    private bool _listResumePending;
+    private int _ringNameTextIndex;
+    private int _ringDescriptionTextIndex;
+    private int _ringTextDelay;
 
     string IOracleMenuLifecycleClient.MenuName => _mode == RingMenuMode.Appraisal
         ? "MENU_RING_APPRAISAL"
@@ -67,6 +71,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         _delay = 0;
         _pendingRefund = 0;
         _pageTransitionStartPending = false;
+        _listResumePending = false;
         return true;
     }
 
@@ -77,26 +82,53 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         if (!_lifecycle.IsOpenFor(this))
         {
             _lifecycle.Update(this, delta);
-            return;
+            // The palette thread precedes bank2.runRingMenu. Its state 1
+            // dispatch runs on the update that clears the opening fade.
+            if (!_lifecycle.IsOpenFor(this)) return;
         }
 
+        _screen.BeginSpriteUpdate(_screen.PageTransitionActive);
         if (_screen.PageTransitionActive)
         {
             if (_pageTransitionStartPending)
             {
                 _pageTransitionStartPending = false;
+                bool replacedDescription = _screen.InitializePageTransition();
                 _playSound(SoundId.SndOpenMenu);
+                if (replacedDescription) _dialogue.Close();
+                if (_mode == RingMenuMode.List)
+                {
+                    _ringNameTextIndex = 0;
+                    _screen.SetRingName(null);
+                }
                 return;
             }
             _screen.AdvanceAnimation(delta, out bool completed);
             if (completed && _mode == RingMenuMode.List)
-                RefreshListText();
+            {
+                // ringMenu_setState clears wSubmenuState. The following
+                // ringMenu_ringList_substate0 consumes an update restoring
+                // the list because its box flicker counter is still zero.
+                _screen.SetSelectingList(false, resetBoxFlicker: false);
+                _listResumePending = true;
+            }
+            return;
+        }
+        if (_listResumePending)
+        {
+            _listResumePending = false;
+            _screen.SetSelectingList(true);
+            _screen.SetRingNumberComparator(0x80);
+            _ringDescriptionTextIndex = 0xff;
             return;
         }
         _screen.AdvanceAnimation(delta, out _);
 
         if (_mode == RingMenuMode.Appraisal)
+        {
+            _screen.SubmitListSprites();
             UpdateAppraisal(delta);
+        }
         else
             UpdateList();
     }
@@ -154,7 +186,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             _dialogue.Close();
             _dialogue.ShowChoiceMessage(
                 _database.Text(HasObtainedRingBox() ? 0x3005 : 0x3011),
-                0, textPosition: 2);
+                DialogueScreenContext.FullScreen(0), textPosition: 2, textboxFlags: 0x0b);
             PositionAppraisalDialogue();
             _appraisalState = AppraisalState.Confirm;
             return;
@@ -169,14 +201,14 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
 
     private void UpdateAppraisalConfirmation()
     {
-        if (_dialogue.IsOpen)
+        if (!_dialogue.PrintingComplete)
             return;
         if (!_dialogue.TryTakeChoiceResult(out int choice))
             throw new InvalidOperationException(
                 "Ring appraisal confirmation closed without an option result.");
         if (choice != 0)
         {
-            EnterAppraisalBrowse();
+            EnterAppraisalBrowse(retainPresentation: true);
             return;
         }
 
@@ -192,10 +224,10 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         string name = RingName(_appraisedRing);
         string reveal = _database.Text(0x301c).Replace("\\call(0xfd)", name,
             StringComparison.Ordinal);
-        _dialogue.ShowMessage(reveal, 0, 2);
+        _dialogue.ShowMessage(reveal, DialogueScreenContext.FullScreen(0), 2, textboxFlags: 0x09);
         PositionAppraisalDialogue();
         _appraisalState = AppraisalState.RingName;
-        _screen.QueueRedraw();
+        _screen.RefreshAppraisalGraphics();
     }
 
     private void FinishAppraisalDescription()
@@ -204,7 +236,6 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             _inventory.CompleteRingAppraisal(
                 _appraisalIndex, _database.DuplicateRefund);
         _pendingRefund = result.Refund;
-        _screen.RecalculateAppraisalPages();
         if (!HasObtainedRingBox())
         {
             BeginClosing();
@@ -222,6 +253,8 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             _inventory.ApplyRingAppraisalRefund(_pendingRefund);
             _pendingRefund = 0;
         }
+        _inventory.RefreshUnappraisedRingCount();
+        bool replacedDescription = _screen.RefreshAppraisalGraphics();
         if (_inventory.RingsAppraised == 100)
         {
             _save.SetGlobalFlag(_database.GlobalAppraisedHundredth);
@@ -231,32 +264,35 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         }
         if (_inventory.UnappraisedRingCount > 0)
         {
-            EnterAppraisalBrowse();
+            EnterAppraisalBrowse(retainPresentation: !replacedDescription);
             return;
         }
         ShowPassive(_database.Text(0x3002), 2);
         BeginDelay(_database.MenuExitWait, AppraisalState.ExitDelay);
     }
 
-    private void EnterAppraisalBrowse()
+    private void EnterAppraisalBrowse(bool showText = false, bool retainPresentation = false)
     {
         _appraisalState = AppraisalState.Browse;
         _delay = 0;
         _updates.Reset();
-        ShowPassive(_database.Text(0x3004), 2);
+        if (retainPresentation) _dialogue.CloseRetainingPresentation();
+        else _dialogue.Close();
+        // ringMenu_state1_restart clears text and returns. Its next Browse
+        // dispatch requests TX_3004; it cannot print on the restart update.
+        if (showText) ShowPassive(_database.Text(0x3004), 2);
     }
 
     private bool TickDelayAfterText(double delta)
     {
-        if (!_dialogue.IsOpen || !_dialogue.IsPageComplete)
+        if (!_dialogue.PrintingComplete)
             return false;
         int updates = _updates.Consume(delta);
         for (int update = 0; update < updates; update++)
         {
-            if (_delay > 0)
-                _delay--;
             if (_delay == 0)
                 return true;
+            _delay--;
         }
         return false;
     }
@@ -272,6 +308,16 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
     {
         if (!_screen.SelectingList)
         {
+            // Box text is dispatched before input. A name replacement starts
+            // inventory text and a one-update delay; its later description
+            // uses the standard non-exitable thread (bank2.updateRingText).
+            if (_ringTextDelay != 0) _ringTextDelay--;
+            else
+            {
+                int ring = _inventory.RingAt(_screen.BoxCursor);
+                bool replacedDescription = _screen.UpdateDisplayedRingNumber(ring, ring);
+                UpdateRingText(ring, retainDescription: !replacedDescription);
+            }
             if (Input.IsActionJustPressed("item"))
             {
                 _inventory.DeactivateRingIfMissingFromBox();
@@ -281,13 +327,15 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             if (Input.IsActionJustPressed("attack"))
             {
                 _screen.SetSelectingList(true);
-                RefreshListText();
+                _screen.SetRingNumberComparator(0x80);
+                _ringDescriptionTextIndex = 0xff;
                 return;
             }
-            if (Input.IsActionJustPressed("move_left"))
-                MoveBoxCursor(-1);
-            else if (Input.IsActionJustPressed("move_right"))
+            int directions = _lifecycle.DirectionInputWithAutofire();
+            if ((directions & 1) != 0)
                 MoveBoxCursor(1);
+            else if ((directions & 2) != 0)
+                MoveBoxCursor(-1);
             return;
         }
 
@@ -308,22 +356,27 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         }
         if (Input.IsActionJustPressed("map"))
         {
+            _screen.SetRingNumberComparator(1);
             ScrollPage(1);
             return;
         }
         HandleListDirection();
+        bool replacedListDescription = _screen.UpdateDisplayedRingNumber(_screen.SelectedListRing & 0x0f, _screen.SelectedListRing);
+        _screen.SubmitListSprites();
+        UpdateRingText(_screen.SelectedListRing, retainDescription: !replacedListDescription);
     }
 
     private void HandleListDirection()
     {
+        int directions = _lifecycle.DirectionInputWithAutofire();
         Vector2I direction;
-        if (Input.IsActionJustPressed("move_right"))
+        if ((directions & 1) != 0)
             direction = Vector2I.Right;
-        else if (Input.IsActionJustPressed("move_left"))
+        else if ((directions & 2) != 0)
             direction = Vector2I.Left;
-        else if (Input.IsActionJustPressed("move_up"))
+        else if ((directions & 4) != 0)
             direction = Vector2I.Up;
-        else if (Input.IsActionJustPressed("move_down"))
+        else if ((directions & 8) != 0)
             direction = Vector2I.Down;
         else
             return;
@@ -348,7 +401,6 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         else
             _screen.SetPageAndCursor(_screen.Page, cursor);
         _playSound(SoundId.SndMenuMove);
-        RefreshListText();
     }
 
     private void ScrollPage(int direction, int cursor = 0)
@@ -359,8 +411,8 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         if (!_screen.BeginPageTransition(page, cursor, direction))
             return;
         _pageTransitionStartPending = true;
-        _screen.SetRingName(null);
-        _dialogue.Close();
+        _ringDescriptionTextIndex = 0xff;
+        _dialogue.CloseRetainingPresentation();
     }
 
     private void MoveBoxCursor(int delta)
@@ -370,45 +422,35 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
             return;
         _screen.SetBoxCursor(next);
         _playSound(SoundId.SndMenuMove);
-        RefreshBoxText();
     }
 
     private void ReturnToBox()
     {
         _screen.SetSelectingList(false);
-        RefreshBoxText();
+        _ringNameTextIndex = _ringDescriptionTextIndex = 0xff;
+        _dialogue.RequestClosing();
     }
 
-    private void RefreshListText()
+    private void UpdateRingText(int ring, bool retainDescription)
     {
-        if (_mode == RingMenuMode.Appraisal)
+        bool owned = ring != 0xff && _inventory.HasAppraisedRing(ring);
+        // checkFlag leaves A=$00 for an unowned ring. That requests the
+        // blank inventory name, not a treasure text indexed by the ring ID.
+        int nameIndex = owned ? ring | 0x80 : 0;
+        if (nameIndex != _ringNameTextIndex)
+        {
+            _ringNameTextIndex = nameIndex;
+            _screen.SetRingName(owned ? RingName(ring) : null);
+            if (retainDescription) _dialogue.CloseRetainingPresentation();
+            else _dialogue.Close();
+            _ringTextDelay = 1;
             return;
-        int ring = _screen.Page * 16 + _screen.ListCursor;
-        if (_inventory.HasAppraisedRing(ring))
-        {
-            _screen.SetRingName(RingName(ring));
-            ShowRingDescription(ring, exitable: false);
         }
-        else
-        {
-            _screen.SetRingName(null);
-            _dialogue.Close();
-        }
-    }
-
-    private void RefreshBoxText()
-    {
-        int ring = _inventory.RingAt(_screen.BoxCursor);
-        if (ring == 0xff)
-        {
-            _screen.SetRingName(null);
-            _dialogue.Close();
-        }
-        else
-        {
-            _screen.SetRingName(RingName(ring));
-            ShowRingDescription(ring, exitable: false);
-        }
+        int descriptionIndex = owned ? 0x80 + ring : 0xc0;
+        if (descriptionIndex == _ringDescriptionTextIndex) return;
+        _ringDescriptionTextIndex = descriptionIndex;
+        if (owned) ShowRingDescription(ring, exitable: false);
+        else ShowPassive(string.Empty, 4);
     }
 
     private string RingName(int ring)
@@ -427,7 +469,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         string description = newline < 0 ? string.Empty : message[(newline + 1)..];
         if (exitable)
         {
-            _dialogue.ShowMessage(description, 0, 2);
+            _dialogue.ShowMessage(description, DialogueScreenContext.FullScreen(0), 2, textboxFlags: 0x09);
             PositionAppraisalDialogue();
         }
         else
@@ -455,19 +497,29 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
 
     private void BeginClosing()
     {
-        _dialogue.Close();
+        _dialogue.CloseRetainingPresentation();
+        _playSound(SoundId.SndCloseMenu);
         _lifecycle.BeginClosing(this);
     }
 
     void IOracleMenuLifecycleClient.OpenAtWhite()
     {
+        // bank2.menuStateFadeIntoMenu@openMenu requests SND_OPENMENU $54
+        // before dispatching either ring menu's graphics initialization.
+        _playSound(SoundId.SndOpenMenu);
+        if (_mode == RingMenuMode.Appraisal) _inventory.PrepareRingAppraisal();
         _screen.Open(_mode);
+        _listResumePending = false;
         if (_mode == RingMenuMode.Appraisal)
-            EnterAppraisalBrowse();
+            // State 0 only clears the name strip. The first eligible state-1
+            // Browse dispatch opens TX_3004 after the opening fade.
+            EnterAppraisalBrowse(showText: false);
         else
         {
             _screen.SetSelectingList(false);
-            RefreshBoxText();
+            _ringNameTextIndex = _ringDescriptionTextIndex = _ringTextDelay = 0;
+            _screen.SetRingName(null);
+            _dialogue.Close();
         }
     }
 
@@ -476,6 +528,7 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         _dialogue.Close();
         _screen.Close();
         _pageTransitionStartPending = false;
+        _listResumePending = false;
     }
 
     void IOracleMenuLifecycleClient.LifecycleClosed()

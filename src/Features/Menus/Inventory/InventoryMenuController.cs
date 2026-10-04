@@ -156,6 +156,9 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
 
     private void UpdateInventoryInput(double delta)
     {
+        // runInventoryMenu clears OAM before dispatch. State changes do not
+        // submit a selection cursor until their actual source handler runs.
+        _screen.BeginPresentationUpdate();
         if (_screen.PageTransitionActive)
         {
             bool pending = _screen.PageTransitionPending;
@@ -171,13 +174,19 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             // State 2/substate 1 draws the completed panel and returns;
             // substate 2 cannot consume input until the following update.
             if (!wasReady)
+            {
+                // The independent native inventory text thread keeps its
+                // current request scrolling while state 2 expands the panel.
+                _screen.UpdateInventoryText(delta, refreshSelection: false);
                 return;
+            }
             _screen.UpdateInventoryText(delta);
             if (Input.IsActionJustPressed("inventory") ||
                 Input.IsActionJustPressed("attack") ||
                 Input.IsActionJustPressed("item"))
             {
                 ConfirmItemSubmenu();
+                _screen.SubmitCursorForUpdate(); // Native confirmation falls through finalizeEquip's cursor draw.
                 return;
             }
             int submenuDirections = DirectionInputWithAutofire();
@@ -187,7 +196,11 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
                 MoveItemSubmenu(-1);
             return;
         }
-        _screen.UpdateInventoryText(delta);
+        // inventoryMenuState1@subscreen0 branches on A/B before dispatching
+        // the selected item's text. Its existing text thread still advances.
+        bool equippingItem = _screen.Subscreen == InventorySubscreen.Items &&
+            (Input.IsActionJustPressed("item") || Input.IsActionJustPressed("attack"));
+        _screen.UpdateInventoryText(delta, refreshSelection: !equippingItem);
         if (Input.IsActionJustPressed("inventory"))
         {
             BeginClosing();
@@ -204,11 +217,13 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             if (Input.IsActionJustPressed("item"))
             {
                 EquipToB();
+                if (!_screen.ItemSubmenuActive) _screen.SubmitCursorForUpdate();
                 return;
             }
             if (Input.IsActionJustPressed("attack"))
             {
                 EquipToA();
+                if (!_screen.ItemSubmenuActive) _screen.SubmitCursorForUpdate();
                 return;
             }
         }
@@ -222,10 +237,12 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             if (_screen.Subscreen == InventorySubscreen.SecondaryItems)
             {
                 EquipSelectedRing();
+                _screen.SubmitCursorForUpdate();
                 return;
             }
         }
         HandleDirectionInput();
+        _screen.SubmitCursorForUpdate();
     }
 
     private void UpdateSaveInput()
@@ -242,6 +259,18 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             }
             return;
         }
+        // saveQuitMenu_state1 consumes Up/Down even at a cursor boundary,
+        // before B and then A/Start. This handler has no autofire.
+        if (Input.IsActionJustPressed("move_up"))
+        {
+            MoveSaveCursor(-1);
+            return;
+        }
+        if (Input.IsActionJustPressed("move_down"))
+        {
+            MoveSaveCursor(1);
+            return;
+        }
         if (Input.IsActionJustPressed("item"))
         {
             CancelSaveMenu();
@@ -252,10 +281,6 @@ public sealed class InventoryMenuController : IOracleMenuLifecycleClient
             SelectSaveOption();
             return;
         }
-        if (Input.IsActionJustPressed("move_up"))
-            MoveSaveCursor(-1);
-        else if (Input.IsActionJustPressed("move_down"))
-            MoveSaveCursor(1);
     }
 
     private void UpdateSaveSelectionDelay(double delta)

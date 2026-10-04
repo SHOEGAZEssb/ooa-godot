@@ -8,9 +8,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateFrontendIntroRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (FrontendIntroStage? skipAt in new FrontendIntroStage?[]
             { FrontendIntroStage.Horse, FrontendIntroStage.Temple, FrontendIntroStage.PreTitle, null })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             using var root = new FrontendValidationRoot();
             AddChild(root);

@@ -51,8 +51,11 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
         _direction = direction;
         _sound = sound;
         _controller = controller;
-        _precisePosition = position.Floor(); // itemCreateChild/objectCopyPosition copies high bytes.
-        Position = _precisePosition;
+        // itemCreateChildWithID copies all eight direction/angle/XYZ bytes,
+        // including Link's X/Y fractions. applyOffsetTableHL changes only
+        // the high bytes during state00 initialization.
+        _precisePosition = position;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _animation = new EnemyAnimationPlayer(this, 6);
         _animation.Load(OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_switch_hook.png"),
             database.HookGraphics.Select(g => g.Animation).ToArray(), 0, database.Graphic(0).OamFlags & 7);
@@ -92,9 +95,10 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
         if (State == 0)
         {
             var offset = _database.Offset(_direction);
-            _precisePosition = new(((int)_precisePosition.X + offset.Position.X) & 0xff,
-                ((int)_precisePosition.Y + offset.Position.Y) & 0xff);
-            Position = _precisePosition;
+            _precisePosition = new Vector2(((int)_precisePosition.X + offset.Position.X) & 0xff,
+                ((int)_precisePosition.Y + offset.Position.Y) & 0xff) +
+                _precisePosition - _precisePosition.Floor();
+            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             State = 1;
             Counter = _level.ExtensionFrames;
             Angle = _direction * 8;
@@ -156,7 +160,7 @@ internal partial class SwitchHookItem : TransitionOffsetNode2D
             else
             {
                 _precisePosition = linkPosition.Floor() + _precisePosition - _precisePosition.Floor();
-                Position = _precisePosition;
+                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
                 if (--Counter == 0) Delete();
             }
         }

@@ -28,7 +28,6 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
     private const int FairyCollisionDelay = 5;
     private const int LifetimeTicks = 240;
     private const int FlickerTicks = 60;
-    private const int CombinedCollisionRadius = 10;
     private const int CollisionRadius = 4;
     private const int ZCollisionRadius = 7;
     private const int SwordZ = -2;
@@ -57,6 +56,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
     private bool _sideScrollWater;
     private HazardType _pendingHazardEffect;
     private int _counter;
+    private int _partSlot;
+    internal void SetPartSlot(int slot) => _partSlot = slot;
     private bool _collisionEnabled;
     private Vector2 _precisePosition;
     private OracleRuntimeState? _movementMemory;
@@ -258,7 +259,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
             return;
         }
 
-        if (_collisionEnabled && _state != DropState.Attached && OverlapsLink(player.Position))
+        if (_collisionEnabled && _state != DropState.Attached && OverlapsLink(player))
         {
             Collect(player);
             return;
@@ -321,9 +322,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
         }
 
         // itemDrop_countdownToDisappear decrements only when
-        // (wFrameCounter XOR the object's slot page) is odd. The managed
-        // object has no WRAM page, so use the odd global-frame phase.
-        if ((globalFrameCounter & 1) != 0)
+        // (wFrameCounter XOR the object's slot page) is odd. Native PART
+        // pages start at even $d0, so the allocated slot retains this phase.
+        if (((globalFrameCounter ^ _partSlot) & 1) != 0)
         {
             if (SubId == ItemDropDatabase.Fairy && _fairyCollisionDelay > 0)
             {
@@ -416,7 +417,9 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
 
         if (_speedZ < StopBounceSpeed)
         {
-            _speedZ = 0;
+            // objectNegateAndHalveSpeedZ returns carry without storing a
+            // replacement when the bounce would be below SPEED_100.
+            // PART$01 state2/state3 retain that final downward speed byte.
             _state = DropState.Grounded;
             ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex; // @doneBouncing: visiblec3.
             _counter = LifetimeTicks;
@@ -602,12 +605,13 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
         IsOutsideRoom(point) ||
         _room.IsSolid(point);
 
-    private bool OverlapsLink(Vector2 linkPosition)
+    private bool OverlapsLink(Player player)
     {
-        int zPixel = _zFixed >> 8;
-        return Mathf.Abs(zPixel) < ZCollisionRadius &&
-            Mathf.Abs(linkPosition.X - Position.X) < CombinedCollisionRadius &&
-            Mathf.Abs(linkPosition.Y - Position.Y) < CombinedCollisionRadius;
+        // objectCheckCollidedWithLink compares high bytes, including the
+        // negative XY boundary and Link's signed Z instead of absolute Z.
+        return RoomEntityManager.ObjectCollisionZOverlaps(
+                unchecked((sbyte)player.ObjectZHigh), _zFixed >> 8, ZCollisionRadius) &&
+            Player.EnemyCollisionOverlaps(player.ActiveLinkObjectPosition, CollisionBounds);
     }
 
     internal bool TryCollectWithSword(Rect2 hitbox)

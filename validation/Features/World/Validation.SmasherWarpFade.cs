@@ -32,7 +32,7 @@ public sealed partial class ValidationRoot
             ball = arrivals.Single(actor => actor.IsBall);
             parent = arrivals.Single(actor => !actor.IsBall);
             expiration = ball.ExpirationCounter;
-            Step(31);
+            Step(32);
             FailIf(ball.State != 8 || parent.State != 8 || ball.ExpirationCounter != expiration ||
                 ball.Position != new Vector2(88, 88) || parent.Position != new Vector2(120, 88),
                 "Destination Smasher must remain frozen through the visually transparent, nonterminal fade update.");

@@ -34,9 +34,9 @@ public sealed class RoomTileChangeDatabase
             int room = row.HexByte(1);
             Condition[] conditions = ParseConditions(row.RequiredString(2));
             Operation[] operations = ParseOperations(row.RequiredString(3));
-            row.RequiredString(4);
+            string source = row.RequiredString(4);
 
-            _rules.Add((group, room), new Rule(conditions, operations));
+            _rules.Add((group, room), new Rule(conditions, operations, source));
             count++;
         }
         RuleCount = count;
@@ -48,7 +48,8 @@ public sealed class RoomTileChangeDatabase
         OracleSaveData save,
         OracleWorldData world,
         long animationTick,
-        OracleRuntimeState? runtimeState = null)
+        OracleRuntimeState? runtimeState = null,
+        int? dungeonFloor = null)
     {
         var writes = new Dictionary<int, byte>();
         if (_rules.TryGetValues(
@@ -56,7 +57,7 @@ public sealed class RoomTileChangeDatabase
         {
             foreach (Rule rule in rules)
             {
-                if (!Matches(rule.Conditions, group, room.Id, save, runtimeState))
+                if (!Matches(rule.Conditions, group, room.Id, save, runtimeState, dungeonFloor, rule.Source))
                     continue;
                 foreach (Operation operation in rule.Operations)
                     ApplyOperation(operation, group, room, save, world, writes);
@@ -71,7 +72,9 @@ public sealed class RoomTileChangeDatabase
         int group,
         int room,
         OracleSaveData save,
-        OracleRuntimeState? runtimeState)
+        OracleRuntimeState? runtimeState,
+        int? dungeonFloor,
+        string source)
     {
         foreach (Condition condition in conditions)
         {
@@ -91,6 +94,10 @@ public sealed class RoomTileChangeDatabase
                     (save.ReadWramByte(condition.A) & condition.B) == condition.C,
                 ConditionKind.WramMaskNotEquals =>
                     (save.ReadWramByte(condition.A) & condition.B) != condition.C,
+                ConditionKind.WramMaskEqualsDungeonFloor =>
+                    (save.ReadWramByte(condition.A) & condition.B) ==
+                    (dungeonFloor ?? throw new InvalidOperationException(
+                        $"{source}: room {group:x1}:{room:x2} requires its native dungeon floor.")),
                 ConditionKind.RuntimeMaskEquals =>
                     ((runtimeState ?? throw new InvalidOperationException(
                         $"Room {group:x1}:{room:x2} tile change requires live WRAM ${condition.A:x4}."))
@@ -277,6 +284,8 @@ public sealed class RoomTileChangeDatabase
                 "wram_mask_ne" when fields.Length == 4 =>
                     new Condition(
                         ConditionKind.WramMaskNotEquals, Hex(fields[1]), Hex(fields[2]), Hex(fields[3])),
+                "wram_mask_eq_floor" when fields.Length == 3 =>
+                    new Condition(ConditionKind.WramMaskEqualsDungeonFloor, Hex(fields[1]), Hex(fields[2]), 0),
                 "runtime_mask_eq" when fields.Length == 4 =>
                     new Condition(
                         ConditionKind.RuntimeMaskEquals, Hex(fields[1]), Hex(fields[2]), Hex(fields[3])),
@@ -370,7 +379,7 @@ public sealed class RoomTileChangeDatabase
     private static int Hex(string value) => Convert.ToInt32(value, 16);
 }
 
-internal readonly record struct Rule(Condition[] Conditions, Operation[] Operations);
+internal readonly record struct Rule(Condition[] Conditions, Operation[] Operations, string Source);
 
 internal enum OperationKind
 {
@@ -395,6 +404,7 @@ internal enum ConditionKind
     TreasureSet,
     WramMaskEquals,
     WramMaskNotEquals,
+    WramMaskEqualsDungeonFloor,
     RuntimeMaskEquals
 }
 

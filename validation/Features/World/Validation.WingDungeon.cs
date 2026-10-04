@@ -1126,15 +1126,22 @@ public sealed partial class ValidationRoot
             "rightward boarding jump independently of its upward rail.");
 
         int mountJumpUpdates = 0;
-        while (!minecart.Riding && mountJumpUpdates < 60)
+        while (!minecart.AllocationPending && mountJumpUpdates < 60)
         {
             _player.AdvanceMinecartJumpUpdateForValidation();
             Step();
             mountJumpUpdates++;
         }
         FailIf(
+            !minecart.AllocationPending || mountJumpUpdates != 26 ||
+            minecart.Riding || !_player.MinecartJumpActive,
+            "INTERAC_MINECART must allocate the companion after Link's " +
+            "26th boarding update without initializing its special object.");
+        // Allocation occurs in the interaction pass, after special objects.
+        // The next pass initializes SPECIALOBJECT_MINECART before Link.
+        Step();
+        FailIf(
             !minecart.Riding ||
-            mountJumpUpdates != 26 ||
             _player.MinecartJumpActive ||
             minecart.ZIndex != ObjectDrawPriority.BehindLinkZIndex ||
             _player.ZIndex != Player.NormalZIndex ||
@@ -1181,7 +1188,9 @@ public sealed partial class ValidationRoot
         _player.AdvanceSwordForValidation(6, buttonHeld: false);
         FailIf(
             _player.SwordState != SwordActionState.Swing ||
-            _player.SwordStateFrame != 6 ||
+            // The preceding Link update advances the existing parent before
+            // reading immobilization, then these six parent updates follow.
+            _player.SwordStateFrame != 7 ||
             _player.AttackSpriteOrigin != new Vector2(-8, -8),
             "Minecart LINK_ANIM_MODE_26 did not retain its standard body " +
             "origin through the $cc phase " +
@@ -1338,10 +1347,10 @@ public sealed partial class ValidationRoot
             !sawDestinationShutterReopening ||
             !sawReturnShutterClosing ||
             !sawReturnShutterClosed ||
-            // doorController calls objectCheckWithinScreenBoundary before
-            // updateAllObjects performs its one-pixel camera update. Two of
-            // this loop's interleave boundaries are therefore offscreen.
-            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 6,
+            // The opener's initialization update and the layout script's
+            // command yields put both boundaries of all four lifecycles
+            // inside the screen: two opens and two closes, two cues each.
+            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 8,
             "Minecart shutters did not perform the source two-stage audible " +
             "open/close lifecycle around the complete room loop " +
             $"(sourceOpen={sawSourceShutterOpening}, " +

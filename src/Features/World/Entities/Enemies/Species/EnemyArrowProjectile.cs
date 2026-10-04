@@ -4,7 +4,7 @@ namespace oracleofages;
 
 /// <summary>PART_ENEMY_ARROW $1a fired by Moblin archers.</summary>
 public partial class EnemyArrowProjectile
-    : TransitionOffsetNode2D, IHostileProjectile
+    : TransitionOffsetNode2D, IHostileProjectile, ILinkContactEntity
 {
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private Texture2D _texture = null!;
@@ -75,6 +75,7 @@ public partial class EnemyArrowProjectile
         UpdateFrame(player);
     bool IHostileProjectile.DeflectWithSword() =>
         DeflectWithSword();
+    void ILinkContactEntity.HandleLinkContact(Player player) => _lifecycle.HandleLinkContact(player);
 
     public override void _Draw()
     {

@@ -265,6 +265,7 @@ public sealed class RoomEntityManager : IDisposable
     public bool ScreenTransitionActive => _screenTransitionActive;
     internal SwitchHookController? SwitchHook { get; set; }
     internal SomariaController? Somaria { get; set; }
+    internal ShovelController? Shovel { get; set; }
     internal BoomerangParent BoomerangParent { get; } = new();
     internal DungeonToggleController? FloorToggle { get; set; }
     private readonly HashSet<IRoomEntity> _deferredSwitchHookContacts = [];
@@ -773,11 +774,13 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (entity is not (RickyCompanionRoomEntity or DimitriCompanionRoomEntity or MooshCompanionRoomEntity) &&
-                entity is not RaftRoomEntity { UsesSpecialObjectSlot: true })
+                entity is not RaftRoomEntity { UsesSpecialObjectSlot: true } &&
+                entity is not MinecartRoomEntity { UsesSpecialObjectSlot: true })
                 continue;
             // updateSpecialObjects dispatches w1Companion before w1Link.
             _specialObjectsUpdatedBeforePlayer.Add(entity);
-            if (!frozen || entity is IRoomInitializedCompanion { RoomInitialization.Pending: true })
+            if (!frozen || entity is IRoomInitializedCompanion { RoomInitialization.Pending: true } ||
+                entity is MinecartRoomEntity { AllocationPending: true })
                 ((IFixedRoomEntity)entity).UpdateFrame(frame, _pendingSpawns);
         }
         // Clear after the companion, before Link/item parents/interactions can
@@ -864,6 +867,8 @@ public sealed class RoomEntityManager : IDisposable
             foreach (IRoomEntity entity in _activeEntities.ToArray())
             {
                 if ((!textActive || UpdatesDuringDialogue(entity)) &&
+                    entity is not MinecartRoomEntity { Riding: true } &&
+                    entity is not RaftRoomEntity { LinkRiding: true } &&
                     !(player.ElectricShockActive && entity is IPlayerRideableRoomEntity) &&
                     (!roomEntityFreezeActive ||
                      UpdatesDuringRoomEntityFreeze(entity)) &&
@@ -898,6 +903,7 @@ public sealed class RoomEntityManager : IDisposable
             // updateItems clears wScentSeedActive, updates every item slot,
             // and only then begins the enemy pass. Visit the live native slots
             // so reuse does not substitute scene insertion order for $d7-$db.
+            Shovel?.UpdateChild(textActive || roomEntityFreezeActive);
             SwitchHook?.UpdateItem(player, textActive || roomEntityFreezeActive);
             Somaria?.UpdateItem(player, textActive || roomEntityFreezeActive);
             foreach (object owner in _dynamicItems.LiveOwners())
@@ -931,7 +937,10 @@ public sealed class RoomEntityManager : IDisposable
                 foreach (var child in _activeEntities.OfType<IBraceletChildRoomEntity>().ToArray())
                     child.UpdateBraceletChild(player);
             foreach (var dust in _activeEntities.OfType<PegasusDustRoomEntity>().ToArray())
-                if (!dust.Finished && (dust.Substate == 0 || !textActive && !roomEntityFreezeActive))
+                // ITEM_DUST changes substate, never state. updateItems treats
+                // its zero state as uninitialized on every pass, so text and
+                // object/palette masks never suppress this reserved item.
+                if (!dust.Finished)
                     dust.UpdateFrame(frame, _pendingSpawns);
             if (!textActive && !roomEntityFreezeActive)
                 ResolveSeedCollisions(preMovement: false);
@@ -1038,6 +1047,12 @@ public sealed class RoomEntityManager : IDisposable
                 }
             }
             ProcessSpawns(frame);
+            // bank0.updateAllObjects calls func_410d after interactions.
+            // Door respawn checks must observe Link before this rider copy.
+            foreach (MinecartRoomEntity cart in _activeEntities.OfType<MinecartRoomEntity>())
+                if (cart.Riding) cart.UpdatePlayerForcedMovement(player);
+            foreach (RaftRoomEntity raft in _activeEntities.OfType<RaftRoomEntity>())
+                if (raft.LinkRiding) raft.UpdatePlayerForcedMovement(player);
             UpdateScreenShake();
             _specialObjectsUpdatedBeforePlayer.Clear();
             anyButtonJustPressed = false;
@@ -1101,10 +1116,12 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
 
-    public bool BlocksLink(Vector2 linkCenter)
+    public bool BlocksLink(Vector2 linkCenter, bool beforeInteractions = false)
     {
         foreach (IRoomEntity entity in _activeEntities)
         {
+            // INTERAC $16 clamps Link during its own dispatch, after movement.
+            if (beforeInteractions && entity is MinecartRoomEntity) continue;
             if (entity is IRoomBlocker blocker && blocker.BlocksLink(linkCenter))
                 return true;
         }
@@ -1787,6 +1804,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         // bank0.s:clearAllItemsAndPutLinkOnGround clears the physical Item
         // slots without collision, explosion, loot, or ordinary finish effects.
+        Shovel?.ClearChild();
         Somaria?.Cancel();
         BoomerangParent.Clear();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
@@ -1796,8 +1814,8 @@ public sealed class RoomEntityManager : IDisposable
                 somaria.ClearPhysicalItem();
                 continue;
             }
-            // Ember's free flame / attached burning-enemy phase represents a
-            // Part slot; clearing Items must not strand its burn target.
+            // An attached burning-enemy flame represents PART$12; clearing
+            // Items must not strand its burn target. Free flames remain Items.
             if (entity is EmberSeedRoomEntity { IsFlamePart: true }) continue;
             if (entity is not (IPlayerProjectileRoomEntity or ISeedProjectileRoomEntity or BombRoomEntity or BoomerangRoomEntity))
                 continue;
@@ -1852,6 +1870,7 @@ public sealed class RoomEntityManager : IDisposable
 
     public void Clear()
     {
+        Shovel?.ClearChild();
         _platformRiding.BeginUpdate(0);
         ReservedKeyDoor?.Cancel();
         ReservedPushBlock?.Cancel();
@@ -2174,6 +2193,8 @@ public sealed class RoomEntityManager : IDisposable
             if (entity.Node is VolcanoRock rock) rock.SetPartSlot(slot);
             if (entity.Node is FallingBoulder boulder) boulder.SetPartSlot(slot);
         }
+        if (entity.Node is ItemDropEffect partDrop && _partSlots.TryGetValue(entity, out int dropSlot))
+            partDrop.SetPartSlot(dropSlot);
         if (_activeObjectPaletteOverride is not null) ApplyObjectPaletteOverride(entity);
         // Children created by enemy handlers also occupy the shared pool.
         // Placed entities and itemDrop_spawnEnemy already registered their slot.

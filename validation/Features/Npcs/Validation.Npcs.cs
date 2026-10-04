@@ -442,7 +442,8 @@ public sealed partial class ValidationRoot
             ["cutscenes/shooting_gallery_result_script.tsv|\\num1"] = 2,
             ["cutscenes/symmetry_commands.tsv|\\secret1"] = 1,
             ["map/texts.tsv|\\call(0xfd)"] = 1,
-            ["map/texts.tsv|\\jump(TX_0560)"] = 1,
+            // Named map calls/jumps are now resolved by import. Executed-ROM
+            // conditional map text verifies their content and control flow.
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
@@ -2343,13 +2344,13 @@ public sealed partial class ValidationRoot
                 _sound.PlayRequestsFor(SoundId.SndEnterCave) != 1,
                 $"Room 1:76 flag ${record.RoomFlagMask:x2}={flagSet} did not enter 4:{destination:x2} through $93/$ff/$01 with SND_ENTERCAVE.");
 
-            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
+            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
             FailIf(
                 _transitions.IsTransitioning ||
                 _player.Position != new Vector2(
                     0x78, _currentRoom.Height - RoomTransitionController.WarpEnterFrames) ||
                 _player.FacingVector != Vector2I.Up,
-                "The room 1:76 destination did not complete its 28-update middle-bottom entrance within the 32-update fade.");
+                "The room 1:76 destination did not complete its 28-update middle-bottom entrance within the 33-update fade.");
         }
 
         _saveData.SetRoomFlag(

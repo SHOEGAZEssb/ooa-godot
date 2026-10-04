@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_SHOVELDEBRIS ($0a): one 14-update directional frame moving at
+/// INTERAC_SHOVELDEBRIS ($0a): initialization, a 14-update directional frame moving at
 /// SPEED_80 with speedZ=-$240 and gravity $60.
 /// </summary>
 internal partial class ShovelDebrisEffect : FixedEffectNode2D
@@ -29,6 +29,7 @@ internal partial class ShovelDebrisEffect : FixedEffectNode2D
     private int _zFixed;
     private int _speedZ;
     private int _elapsedFrames;
+    private bool _initialized;
 
     internal override bool Finished { get; private protected set; }
     internal int ElapsedFrames => _elapsedFrames;
@@ -54,8 +55,15 @@ internal partial class ShovelDebrisEffect : FixedEffectNode2D
     {
         if (Finished)
             return;
+        // breakTileDebris.s state0 loads graphics/speed and returns. State1
+        // observes the animation terminator before movement on a later update.
+        if (!_initialized)
+        {
+            _initialized = true;
+            return;
+        }
         _elapsedFrames++;
-        if (_elapsedFrames >= LifetimeFrames)
+        if (_elapsedFrames > LifetimeFrames)
         {
             Finished = true;
             Visible = false;

@@ -147,7 +147,8 @@ public partial class ValidationRoot
             {
                 Visible = false, MaxHealthQuarters = layout == 0 ? 20 : 60,
                 HealthQuarters = layout == 0 ? 17 : 57, Rupees = 3,
-                EquippedB = 5, EquippedA = 0x11, DungeonIndex = layout == 0 ? -1 : 0
+                EquippedB = 5, EquippedA = 0x11, DungeonIndex = layout == 0 ? -1 : 0,
+                TilesetFlags = (byte)(layout == 0 ? 0 : 0x08)
             };
             AddChild(hud);
             hud.Initialize(_treasures, inventory);

@@ -2376,7 +2376,7 @@ public sealed partial class ValidationRoot
             $"tileset={_currentRoom.TilesetId:x2}, " +
             $"tile24={_currentRoom.GetMetatile(new Vector2(0x48, 0x28)):x2}).");
 
-        for (int frame = 0; frame < RoomTransitionController.WarpFadeFrames; frame++)
+        for (int frame = 0; frame < RoomTransitionController.WarpFadeInFrames; frame++)
             UpdateRoomWarpTransition(1.0 / 60.0);
         FailIf(
             IsTransitioning || _player.Position != new Vector2(0x58, 0x48),
@@ -4282,7 +4282,7 @@ public sealed partial class ValidationRoot
             ralph.Position != new Vector2(0x18, 0x28),
             "Room 0:39 did not retain Ralph at $28/$18 while entering from the left.");
 
-        UpdateRoomWarpTransition(31.0 / 60.0);
+        UpdateRoomWarpTransition(32.0 / 60.0);
         StepRoomEventFrames(1);
         FailIf(
             !ralphEvent.WaitingForScroll || ralphEvent.Counter != 0,

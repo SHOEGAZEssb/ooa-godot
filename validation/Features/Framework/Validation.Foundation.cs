@@ -529,7 +529,7 @@ public sealed partial class ValidationRoot
         OracleRoomData room = rooms.CurrentRoom;
 
         FailIf(
-            changes.RuleCount != 64 || changes.RoomCount != 45 ||
+            changes.RuleCount != 70 || changes.RoomCount != 51 ||
             singleTileChanges.RecordCount != 56 ||
             room.GetPackedPosition(doorPoint) != 0x23 ||
             room.GetOriginalMetatile(doorPoint) != 0xa7 ||
@@ -1081,6 +1081,7 @@ public sealed partial class ValidationRoot
 
     private static void ValidateGraphicsCache()
     {
+        ValidateBulkPaletteShades();
         // PALH_97's first OBJ palette is shared by the palace and post-D3
         // scenes. Preserve both the single-palette transparent black and the
         // bank loader's original RGB beneath alpha zero, including slot 6.

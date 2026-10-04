@@ -36,9 +36,10 @@ public sealed partial class ValidationRoot
 
     private void CompareBraceletHazardsRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (byte tile in new byte[] { 0xf3, 0xfa, 0x61 })
         foreach (bool airborneWall in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             BraceletRom rom = PrepareBraceletRom();
             StepBraceletRom(rom, 1, batched, held: true, pressed: true);

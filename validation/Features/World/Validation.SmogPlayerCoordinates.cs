@@ -51,7 +51,7 @@ public partial class ValidationRoot
         }
         _player.BeginGale();
         FailIf(!_player.NativeNormalStateForInteraction,"Gale item pass queues state$07 without immediately replacing Link state$01.");
-        typeof(Player).GetField("_galePending",flags)!.SetValue(_player,false);
+        typeof(Player).GetField("_galePending",flags)!.SetValue(_player,0);
         FailIf(_player.NativeNormalStateForInteraction,"Consumed gale request must expose a non-normal Link state.");
         LoadValidationRoom(0,0x60); _entities.Clear();
         foreach (string field in new[] { "_deathAnimationActive", "_enemyGrabSubstate", "_forcedState08Phase" })

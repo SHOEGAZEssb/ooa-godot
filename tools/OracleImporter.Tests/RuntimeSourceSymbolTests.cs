@@ -10,7 +10,7 @@ internal static class RuntimeSourceSymbolTests
     internal static void Verify(string projectRoot, string disassemblyRoot)
     {
         var repository = new AssemblySourceRepository(disassemblyRoot,
-            ["ROM_AGES", "REGION_US", "AGES_ENGINE", "BUILD_VANILLA"]);
+            ["ROM_AGES", "REGION_US", "AGES_ENGINE", "BUILD_VANILLA", "ENABLE_US_BUGFIXES"]);
         var sources = new Dictionary<string, IReadOnlyDictionary<string, int>>();
         var declaration = new Regex(
             @"// (?<path>(?:constants|include)/[\w/]+\.s): (?<symbol>[\w.]+)[^\r\n]*\r?\n\s*(?:public const int )?(?<member>\w+) = 0x(?<value>[0-9a-f]+)[;,]");

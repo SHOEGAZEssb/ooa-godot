@@ -7,8 +7,8 @@ namespace oracleofages;
 /// <summary>
 /// INTERAC_DOOR_CONTROLLER subids $00 and $0c-$0f for layout minecart
 /// shutters $7c-$7f. The one-shot subid $00 opens the door ahead of a moving
-/// cart; the persistent directional controller observes the layout track and
-/// closes it once the cart has cleared the doorway.
+/// cart; the layout directional controller runs its yielding native script,
+/// closes once after the cart clears the doorway, and deletes itself.
 /// </summary>
 internal sealed partial class MinecartShutterRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
@@ -21,6 +21,7 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
     private readonly int _closedTile;
     private readonly int _openTile;
     private readonly bool _oneShotOpener;
+    private readonly Action<bool>? _shutterSignal;
     private MinecartShutterState _state;
     private int _counter;
 
@@ -37,7 +38,8 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
         DungeonMechanicDatabase data,
         Func<Vector2, Vector2> worldToScreen,
         Func<long> animationTick,
-        Action<int> playSound)
+        Action<int> playSound,
+        Action<bool>? shutterSignal = null)
     {
         if (closedTile is < DungeonShutterEntry.FirstMinecartShutterTile or
             > DungeonShutterEntry.LastMinecartShutterTile)
@@ -53,13 +55,12 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
         _worldToScreen = worldToScreen;
         _animationTick = animationTick;
         _playSound = playSound;
+        _shutterSignal = shutterSignal;
         Position = PointFor(packedPosition);
         Name = oneShotOpener
             ? $"MinecartShutterOpener_{packedPosition:x2}"
             : $"MinecartShutter_{closedTile:x2}_{packedPosition:x2}";
-        _state = oneShotOpener
-            ? MinecartShutterState.ReadyToOpen
-            : MinecartShutterState.Initialize;
+        _state = MinecartShutterState.Initialize;
     }
 
     public void UpdateFrame(
@@ -69,31 +70,50 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
         switch (_state)
         {
             case MinecartShutterState.Initialize:
-                _state = IsOpenTrack()
-                    ? MinecartShutterState.WaitingForCartClear
-                    : MinecartShutterState.WaitingForCartCollision;
+                // Native state zero runs doorOpenerScript's incstate, then
+                // returns. State two starts interleaving on the next update.
+                if (!_oneShotOpener && _room.GetTerrainInfo(Position).Collision == 0)
+                    _shutterSignal?.Invoke(true);
+                _state = _oneShotOpener ? MinecartShutterState.ReadyToOpen : MinecartShutterState.InitializeAngle;
+                return;
+
+            case MinecartShutterState.InitializeAngle:
+                // setcollisionradii and setangle each yield one update.
+                _state = MinecartShutterState.SelectTrack;
+                return;
+
+            case MinecartShutterState.SelectTrack:
+                // The script's jumptable_memoryaddress also yields. It selects
+                // this branch once, not again when another opener changes it.
+                _state = IsOpenTrack() ? MinecartShutterState.CallClearanceCheck : MinecartShutterState.WaitingForCartCollision;
                 return;
 
             case MinecartShutterState.WaitingForCartCollision:
-                if (IsOpenTrack())
-                {
-                    _state = MinecartShutterState.WaitingForCartClear;
-                    return;
-                }
                 if (OverlapsRidingCart(frame.Player))
-                    _state = MinecartShutterState.ReadyToOpen;
+                    _state = MinecartShutterState.PendingOpen;
+                return;
+
+            case MinecartShutterState.PendingOpen:
+                _state = MinecartShutterState.ReadyToOpen;
+                return;
+
+            case MinecartShutterState.CallClearanceCheck:
+                _state = MinecartShutterState.WaitingForCartClear;
                 return;
 
             case MinecartShutterState.WaitingForCartClear:
-                if (!IsOpenTrack())
-                {
-                    _state = MinecartShutterState.WaitingForCartCollision;
-                    return;
-                }
                 if (OverlapsRidingCart(frame.Player))
                     return;
+                _state = MinecartShutterState.UpdateRespawn;
+                return;
+
+            case MinecartShutterState.UpdateRespawn:
                 frame.Player.MoveLocalRespawnOffShutter(
                     _room, PackedPosition, _closedTile - 0x70);
+                _state = MinecartShutterState.SetCloseState;
+                return;
+
+            case MinecartShutterState.SetCloseState:
                 _state = MinecartShutterState.ReadyToClose;
                 return;
 
@@ -110,6 +130,7 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
             case MinecartShutterState.OpeningInterleaved:
                 if (--_counter != 0)
                     return;
+                if (!_oneShotOpener) _shutterSignal?.Invoke(true);
                 _room.SetPositionTileAndCollision(
                     Position, checked((byte)_openTile), null,
                     _animationTick());
@@ -120,7 +141,7 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
             case MinecartShutterState.ReadyToClose:
                 if (_room.IsSolid(Position))
                 {
-                    _state = MinecartShutterState.WaitingForCartCollision;
+                    Finished = true;
                     return;
                 }
                 BeginInterleave(opening: false);
@@ -135,11 +156,14 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
                 {
                     frame.Player.RequestForcedRespawn();
                 }
+                _shutterSignal?.Invoke(false);
                 _room.SetPositionTileAndCollision(
                     Position, checked((byte)_closedTile), null,
                     _animationTick());
                 PlayDoorSoundIfVisible();
-                _state = MinecartShutterState.WaitingForCartCollision;
+                // setstate $03 leaves scriptend next. The terminal handler
+                // resumes it immediately and deletes this layout controller.
+                Finished = true;
                 return;
 
             default:
@@ -192,8 +216,8 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
         // w1Companion retains zero collision radii when INTERAC_MINECART
         // writes the special-object slot, so only the controller radii enter
         // objectCheckCollidedWithLink_ignoreZ here.
-        return Mathf.Abs(delta.Y) < radiusY &&
-            Mathf.Abs(delta.X) < radiusX;
+        return (((int)delta.Y + radiusY) & 0xff) < radiusY * 2 &&
+            (((int)delta.X + radiusX) & 0xff) < radiusX * 2;
     }
 
     private void PlayDoorSoundIfVisible()
@@ -213,8 +237,14 @@ internal sealed partial class MinecartShutterRoomEntity : Node2D,
 internal enum MinecartShutterState
 {
     Initialize,
+    InitializeAngle,
+    SelectTrack,
     WaitingForCartCollision,
+    PendingOpen,
+    CallClearanceCheck,
     WaitingForCartClear,
+    UpdateRespawn,
+    SetCloseState,
     ReadyToOpen,
     OpeningInterleaved,
     ReadyToClose,

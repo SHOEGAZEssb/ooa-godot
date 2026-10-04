@@ -84,9 +84,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateFeatherJumpPhysicsRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (float fraction in new[] { 0f, 255 / 256f })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             FeatherRom rom = PrepareFeatherRom(primary, fraction);
             var sounds = _sound.AttachPlayRequestAudit();

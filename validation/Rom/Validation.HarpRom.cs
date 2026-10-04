@@ -131,7 +131,10 @@ public sealed partial class ValidationRoot
         FailIf(_player.IsUsingHarp, "Rejected instrument input retried without a new button edge.");
         Step(1);
         Step(1, button, button);
-        Step(1, 0xfc | (primary ? 2 : 1), button | 0x40, Vector2.Up);
+        // An empty Harp writes instrument $00 and allows pause menus. Its
+        // menu handoff is covered by ValidatePauseMenuHarpGatesRom; keep this
+        // playback-only boundary on direction/opposite-item input for song 0.
+        Step(1, (song == 0 ? 0xf0 : 0xfc) | (primary ? 2 : 1), button | 0x40, Vector2.Up);
         Step(257, held: primary ? 1 : 2);
         FailIf(!_player.IsUsingHarp, "Harp finished before its native animation terminal parameter.");
         Step(1);

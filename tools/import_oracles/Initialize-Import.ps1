@@ -33,8 +33,11 @@ function Start-AssemblySourceHost {
     $start.RedirectStandardError = $true
     $start.EnvironmentVariables['OOA_DISASSEMBLY_ROOT'] = (
         Resolve-Path -LiteralPath $Disassembly).Path
+    # constants/common/version.s derives ENABLE_US_BUGFIXES from REGION_US.
+    # The source host parses files independently, so supply the derived symbol
+    # explicitly as well as the selected region.
     $start.EnvironmentVariables['OOA_ASSEMBLY_SYMBOLS'] = (
-        'ROM_AGES;REGION_US;AGES_ENGINE;BUILD_VANILLA')
+        'ROM_AGES;REGION_US;AGES_ENGINE;BUILD_VANILLA;ENABLE_US_BUGFIXES')
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $start
     if (-not $process.Start()) {

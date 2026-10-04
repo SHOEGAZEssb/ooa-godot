@@ -6,9 +6,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateChangedTileGraphicsRom()
     {
+        int hostCase1 = 0;
         foreach (var location in new[] { (0, 0x33), (4, 0xbf) })
-        foreach (bool batched in new[] { false, true })
         foreach (bool allBuffers in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(location.Item1, location.Item2); _entities.Clear();

@@ -151,11 +151,12 @@ public sealed partial class ValidationRoot
 
     private void ValidateSomariaCarryThrowRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int direction in Enumerable.Range(0, 4))
         foreach (int ring in new[] { 0xff, 0x12 })
         foreach (bool drop in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             SomariaRom rom = PrepareSomariaMotionRom(direction, ring: ring, primary: primary);
             var audit = _sound.AttachPlayRequestAudit();
@@ -211,9 +212,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateSomariaPushRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (int level in new[] { 1, 2 })
         foreach (int direction in Enumerable.Range(0, 4))
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             SomariaRom rom = PrepareSomariaMotionRom(direction, level, pushRoute: true);
             var audit = _sound.AttachPlayRequestAudit();
@@ -253,9 +255,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateSomariaCarryCancellationRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int liftUpdates in new[] { 0, 6, 13 })
         foreach (bool damage in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             SomariaRom rom = PrepareSomariaMotionRom(0);
             void Step(int count, int angle = 0xff, int held = 0, int pressed = 0) =>

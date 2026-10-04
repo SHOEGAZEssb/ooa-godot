@@ -7,10 +7,11 @@ public sealed partial class ValidationRoot
 {
     private void CompareFeatherHazardsRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (byte tile in new byte[] { 0xf3, 0xfa })
         foreach (bool flippers in new[] { false, true })
         foreach (bool primary in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             FeatherRom rom = PrepareFeatherRom(primary);
             var sounds = _sound.AttachPlayRequestAudit();

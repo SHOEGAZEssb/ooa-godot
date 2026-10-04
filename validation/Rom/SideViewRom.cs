@@ -70,8 +70,8 @@ internal sealed class SideViewRom
         this[0xcc29] = (byte)held; this[0xcc2a] = (byte)pressed; this[0xcc2b] = (byte)angle;
         // code/specialObjects.s: Link consumes the preceding interaction rider
         // before the tail clears it. Climbing is cleared before Link dispatch.
-        this[0xcc64] = this[0xcc92] = this[0xcc66] = this[0xcc68] = 0;
-        this[0xcc95] |= 0x7f; this[0xcc60] &= 0x7f;
+        _rom.UpdateSpecialObjectPrelude();
+        this[0xcc68] = 0; // After the omitted empty companion slot.
         CallLink(0x49b6);
         CallLink(0x4279);
         this[0xcc96] = this[0xcc98];

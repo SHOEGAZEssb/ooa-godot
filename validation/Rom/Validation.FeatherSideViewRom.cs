@@ -27,12 +27,13 @@ public sealed partial class ValidationRoot
 
     private void ValidateFeatherSideViewRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (float fraction in new[] { 0f, 255 / 256f })
         foreach (int turn in new[] { 8, 24, 0xff })
         foreach (bool ice in new[] { false, true })
         foreach (bool ceiling in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             FeatherRom rom = PrepareFeatherSideViewRom(primary, fraction, ice);
             if (ceiling)

@@ -6,9 +6,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateFeatherGameplayRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int pauseAfter in new[] { 1, 9, 15, 24 })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             FeatherRom rom = PrepareFeatherRom(primary);
             StepFeatherRom(rom, pauseAfter, batched, held: true, pressed: true, primary: primary);
@@ -26,9 +27,10 @@ public sealed partial class ValidationRoot
             StepFeatherRom(rom, 1, batched, primary: primary);
             StepFeatherRom(rom, 31, batched, held: true, pressed: true, primary: primary);
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int cancelAfter in new[] { 1, 14, 30 })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             FeatherRom rom = PrepareFeatherRom(primary);
             StepFeatherRom(rom, cancelAfter, batched, held: true, pressed: true, primary: primary);
@@ -47,8 +49,9 @@ public sealed partial class ValidationRoot
             StepFeatherRom(rom, 2, batched, primary: primary);
             StepFeatherRom(rom, 31, batched, held: true, pressed: true, primary: primary);
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             FeatherRom rom = PrepareFeatherRom(primary);
             // Declared carry ownership isolates the Feather parent gate; the

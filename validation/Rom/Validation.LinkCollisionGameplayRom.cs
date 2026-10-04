@@ -6,9 +6,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateLinkCollisionGameplayRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int collision in new[] { 0x03, 0x0c, 0x0f, 0x11, 0x1a })
         foreach (Vector2 input in new[] { Vector2.Down, new Vector2(1, 1).Normalized(), Vector2.Right })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x33);

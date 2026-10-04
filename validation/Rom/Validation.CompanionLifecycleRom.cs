@@ -7,9 +7,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCompanionUpdateGatesRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (int gate in new[] { 0, 1, 2 })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(id, 1);
             var restriction = new CompanionUpdateGate();
@@ -38,8 +39,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriWaterDismountRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (int direction in new[] { 0, 1, 2, 3 })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(0x0c, direction);
             SetCompanionRomTile(rom, 4, 4, 0xfe);
@@ -98,8 +100,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateRickyTornadoAllocationRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int used in new[] { 0, 4, 5 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(0x0b);
             var pool = CompanionField<DynamicItemSlotPool>(_entities, "_dynamicItems");

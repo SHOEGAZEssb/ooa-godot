@@ -7,8 +7,9 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCompanionDeparturesRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             int room = id == 0x0b ? 0x79 : id == 0x0c ? 0x98 : 0x6b;

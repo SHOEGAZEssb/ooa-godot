@@ -99,8 +99,8 @@ Write-GeneratedTable(
 # Import the save-backed subset of applyRoomSpecificTileChanges as declarative
 # conditions and layout operations. The dispatcher is parsed rather than
 # repeating group/room IDs, so shared routines automatically expand to every
-# room that calls them. Transient switch, water, and encounter state is kept
-# out until its owning runtime systems exist. The save-backed vine positions
+# room that calls them. Transient switch and encounter state is kept out until
+# its owning runtime systems exist. Save-backed water levels and vine positions
 # are imported below with the Tokay Island and Talus Peaks routines that read them.
 $roomTileChangeSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s')
@@ -202,6 +202,83 @@ Add-RoomTileChangeRule 'tileReplacement_group5Mapc3' 'current_room_set:40' `
     'set:31:a2,32:a1,33:a2,34:a1,35:a2,41:a1,42:a2,43:a1,44:a2,45:a1,51:a2,52:a1,53:a2,54:a1,55:a2'
 Add-RoomTileChangeRule 'tileReplacement_group7Map4a' 'current_room_set:80' `
     'fill:0d:0a:01:18'
+
+# Jabu's water byte drives six dispatch entries through four routines. Read
+# their rectangles in source order and preserve the floor comparison rather
+# than hard-coding the two upper-floor aliases to a particular water level.
+$jabuRoomChangePath = Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s'
+foreach ($jabuSpec in @(
+    @{ Label = 'tileReplacement_group5Map4c'; Lower = $true; Stair = $true },
+    @{ Label = 'tileReplacement_group5Map4d'; Lower = $true; Stair = $false },
+    @{ Label = 'tileReplacement_group5Map5c'; Lower = $false; Stair = $false },
+    @{ Label = 'tileReplacement_group5Map5d'; Lower = $false; Stair = $false })) {
+    $jabuInstructions = @(Read-AssemblyInstructions $jabuRoomChangePath $jabuSpec.Label)
+    $jabuExpected = if ($jabuSpec.Lower) {
+        @('ld a,(wJabuWaterLevel)', 'and $07', 'ret z', 'ld hl,@rect') +
+            $(if ($jabuSpec.Stair) {
+                @('call fillRectInRoomLayout', 'ld l,$57', 'ld (hl),$45', 'ret')
+            } else { @('jp fillRectInRoomLayout') })
+    } else {
+        @('ld a,(wDungeonFloor)', 'ld b,a', 'ld a,(wJabuWaterLevel)',
+            'and $07', 'cp b', 'ret nz', 'ld de,@platformRect', 'jp drawRectInRoomLayout')
+    }
+    if ($jabuInstructions.Count -ne $jabuExpected.Count) {
+        throw "roomSpecificTileChanges.s:$($jabuSpec.Label) instruction count changed."
+    }
+    for ($jabuIndex = 0; $jabuIndex -lt $jabuExpected.Count; $jabuIndex++) {
+        if (($jabuInstructions[$jabuIndex].Code -replace '\s', '') -cne
+            ($jabuExpected[$jabuIndex] -replace '\s', '')) {
+            throw "roomSpecificTileChanges.s:$($jabuSpec.Label):$($jabuInstructions[$jabuIndex].Line) " +
+                "expected '$($jabuExpected[$jabuIndex])', found '$($jabuInstructions[$jabuIndex].Code)'."
+        }
+    }
+    $jabuRect = @(Read-AssemblyLiteralValues $jabuRoomChangePath $jabuSpec.Label)
+    $jabuRectCount = if ($jabuSpec.Lower) { 4 } else { 28 }
+    if ($jabuRect.Count -ne $jabuRectCount -or $jabuRect[1] -ne 5 -or $jabuRect[2] -ne 5) {
+        throw "roomSpecificTileChanges.s:$($jabuSpec.Label) expected a complete five-by-five rectangle."
+    }
+    $jabuOperation = if ($jabuSpec.Lower) {
+        'fill:' + (($jabuRect | ForEach-Object { $_.ToString('x2') }) -join ':')
+    } else {
+        'draw:' + (($jabuRect[0..2] | ForEach-Object { $_.ToString('x2') }) -join ':') + ':' +
+            (($jabuRect[3..27] | ForEach-Object { $_.ToString('x2') }) -join ',')
+    }
+    if ($jabuSpec.Stair) { $jabuOperation += '|set:57:45' }
+    $jabuCondition = if ($jabuSpec.Lower) { 'wram_mask_ne:c6e9:07:00' }
+        else { 'wram_mask_eq_floor:c6e9:07' }
+    Add-RoomTileChangeRule $jabuSpec.Label $jabuCondition $jabuOperation
+}
+
+$jabuSubstitutionPath = Join-Path $Disassembly 'code\ages\tileSubstitutions.s'
+$jabuSubstitutionLabel = 'replaceJabuTilesIfUnderwater'
+$jabuSubstitutionInstructions = @(Read-AssemblyInstructions $jabuSubstitutionPath $jabuSubstitutionLabel)
+$jabuSubstitutionExpected = @('ld a,(wDungeonIndex)', 'cp $07', 'ret nz',
+    'ld a,(wTilesetFlags)', 'and TILESETFLAG_SIDESCROLL', 'ret nz',
+    'ld a,(wDungeonFloor)', 'ld b,a', 'ld a,(wJabuWaterLevel)', 'and $07',
+    'cp b', 'ret nz', 'ld de,@data1', 'call replaceTiles', 'ld de,@data2', 'jp replaceTiles')
+if ($jabuSubstitutionInstructions.Count -ne $jabuSubstitutionExpected.Count) {
+    throw 'tileSubstitutions.s:replaceJabuTilesIfUnderwater instruction count changed.'
+}
+for ($jabuIndex = 0; $jabuIndex -lt $jabuSubstitutionExpected.Count; $jabuIndex++) {
+    if (($jabuSubstitutionInstructions[$jabuIndex].Code -replace '\s', '') -cne
+        ($jabuSubstitutionExpected[$jabuIndex] -replace '\s', '')) {
+        throw "tileSubstitutions.s:${jabuSubstitutionLabel}:$($jabuSubstitutionInstructions[$jabuIndex].Line) " +
+            "expected '$($jabuSubstitutionExpected[$jabuIndex])', found '$($jabuSubstitutionInstructions[$jabuIndex].Code)'."
+    }
+}
+$jabuSubstitutionValues = @(Read-AssemblyLiteralValues $jabuSubstitutionPath $jabuSubstitutionLabel)
+if ($jabuSubstitutionValues.Count -ne 20 -or $jabuSubstitutionValues[10] -ne 0 -or $jabuSubstitutionValues[19] -ne 0) {
+    throw 'tileSubstitutions.s:replaceJabuTilesIfUnderwater expected five and four terminated replacement pairs.'
+}
+$jabuSubstitutionRows = [Collections.Generic.List[string]]::new()
+$jabuSubstitutionRows.Add("# index`treplacement`toriginal`tsource")
+$jabuPair = 0
+foreach ($jabuOffset in @(0, 2, 4, 6, 8, 11, 13, 15, 17)) {
+    $jabuSubstitutionRows.Add("$jabuPair`t$($jabuSubstitutionValues[$jabuOffset].ToString('x2'))" +
+        "`t$($jabuSubstitutionValues[$jabuOffset + 1].ToString('x2'))`ttileSubstitutions.s:$jabuSubstitutionLabel")
+    $jabuPair++
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\jabu_water_tile_substitutions.tsv'), $jabuSubstitutionRows)
 Add-RoomTileChangeRule 'tileReplacement_group0Map5c' 'current_room_set:80' `
     'set:34:3a,43:3a,44:3a,45:3a'
 Add-RoomTileChangeRule 'tileReplacement_group0Map73' 'current_room_set:80' `
@@ -491,8 +568,8 @@ foreach ($block in $flagTileChangeBlocks) {
         throw "Flag-backed room tile-change routine $label was not imported."
     }
 }
-if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 45) {
-    throw "Expected 34 flag-backed and 45 total supported tile-change routines; " +
+if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 49) {
+    throw "Expected 34 flag-backed and 49 total supported tile-change routines; " +
         "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
 }
 $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'
@@ -631,6 +708,12 @@ $makuOverrideSource = Read-ImportText (Join-Path $Disassembly 'code\ages\loadTil
 $makuOverride = [regex]::Match($makuOverrideSource,
     '(?ms)^@checkMakuTreeSaved:.*?wActiveGroup.*?or a\s+ret nz.*?cp <ROOM_AGES_(?<room>038).*?wPastRoomFlags \+ \(<ROOM_AGES_(?<flagroom>148)\).*?and \$(?<mask>01)\s+ret z.*?ld hl,hFF8D\s+inc \(hl\)\s+inc \(hl\)\s+scf')
 if (-not $makuOverride.Success) { throw 'checkTilesetOverride:@checkMakuTreeSaved layout gate changed.' }
+$jabuFloorMasks = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'code\ages\loadTilesetData.s') '@@jabuBitset')
+if ($jabuFloorMasks.Count -ne 3 -or ($jabuFloorMasks -join ',') -ne '0,1,3' -or
+    $makuOverrideSource -notmatch '(?ms)^@checkJabuFlooded:.*?wDungeonIndex.*?cp \$07.*?TILESETFLAG_SIDESCROLL.*?wJabuWaterLevel.*?and \$07.*?wDungeonFloor.*?and \(hl\).*?ret z.*?ldh a,\(<hFF8D\)\s+inc a\s+ldh \(<hFF8D\),a') {
+    throw 'loadTilesetData.s:@checkJabuFlooded floor masks or tileset increment changed.'
+}
+Write-GeneratedBytes((Join-Path $destination 'metadata\jabu_flooded_floors.bin'), [byte[]]$jabuFloorMasks)
 $makuBase = @($tilesets | Where-Object { $_.Groups['id'].Value -eq '22' })[0]
 $makuSaved = @($tilesets | Where-Object { $_.Groups['id'].Value -eq '24' })[0]
 foreach ($field in @('properties', 'flags', 'palette', 'layout', 'animation')) {

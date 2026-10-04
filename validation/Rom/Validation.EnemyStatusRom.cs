@@ -129,10 +129,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyHitRecoveryRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (string gate in new[] { "text", "palette", "disabled" })
         foreach (int invincibility in new[] { -0x20, -1, 0, 1, 0x15, 0x7f })
         foreach (int stun in new[] { 0, 1, 2, 29, 30, 31 })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             EnemyStatusRom rom = PrepareEnemyStatusRom(out var enemy);
             enemy.InvincibilityCounter = invincibility;
@@ -168,9 +169,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyKnockbackRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (string mode in new[] { "normal", "high", "wall", "full" })
         foreach (int angle in new[] { 0, 8, 16, 24 })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             EnemyStatusRom rom = PrepareEnemyStatusRom(out var enemy);
             Vector2 position = mode == "wall" ? angle switch
@@ -227,10 +229,11 @@ public sealed partial class ValidationRoot
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         int replacements = 0, emptyDrops = 0;
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool full in new[] { false, true })
         foreach (EnemyKnockbackStrength strength in new[] { EnemyKnockbackStrength.Low, EnemyKnockbackStrength.Normal, EnemyKnockbackStrength.High })
         foreach (int seed in new[] { 0x0d37, 0x1234, 0x80ff, 0xffff })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             EnemyStatusRom rom = PrepareEnemyStatusRom(out var enemy);
             _random.RestoreState(_random.CaptureState() with { Rng1 = (byte)seed, Rng2 = (byte)(seed >> 8) });

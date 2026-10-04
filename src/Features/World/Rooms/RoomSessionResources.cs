@@ -9,6 +9,7 @@ public sealed class RoomSessionResources
     internal DungeonKeyDoorDatabase KeyDoors { get; } = new();
     internal StandardTileSubstitutionDatabase StandardTileSubstitutions { get; } = new();
     internal DungeonToggleTileDatabase ToggleTiles { get; } = new();
+    internal JabuWaterTileDatabase JabuWaterTiles { get; } = new();
     internal GashaSpotDatabase GashaSpots { get; } = new();
     internal DungeonMapDatabase DungeonMaps { get; } = new();
 }

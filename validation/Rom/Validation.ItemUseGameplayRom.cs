@@ -22,9 +22,10 @@ public sealed partial class ValidationRoot
             for (int x = 8; x < 240; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase4 = 0;
         foreach (int other in new[] { TreasureId.Shovel, TreasureId.Bombs, TreasureId.CaneOfSomaria, TreasureId.Boomerang })
         foreach (bool swordA in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase4++))
         {
             int a = swordA ? TreasureId.Sword : other;
             int b = swordA ? other : TreasureId.Sword;
@@ -37,8 +38,9 @@ public sealed partial class ValidationRoot
                 _player.IsUsingBoomerang != (rom[0xd301] == TreasureId.Boomerang) || _inventory.Bombs != bombs,
                 $"ROM simultaneous A=${a:x2}, B=${b:x2}, batch={batched}: parent2=${rom[0xd201]:x2}, sword={_player.IsAttacking}, shovel={_player.IsUsingShovel}, bomb={_playerWorld.BombParentActive}, ammo={_inventory.Bombs:x2}/{bombs:x2}.");
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (bool bombA in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             int a = bombA ? TreasureId.Bombs : TreasureId.CaneOfSomaria;
             int b = bombA ? TreasureId.CaneOfSomaria : TreasureId.Bombs;
@@ -52,9 +54,10 @@ public sealed partial class ValidationRoot
             FailIf(rom[0xd200] != 0 || _playerWorld.BombParentActive || _player.IsUsingSomaria || _inventory.Bombs != rom[0xc6b0],
                 "An empty bomb parent must clear after allocation; a displaced/rejected cane cannot run as fallback.");
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int item in new[] { TreasureId.Bombs, TreasureId.Boomerang })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             Room(primary ? item : 0, primary ? 0 : item);
             string button = primary ? "attack" : "item";
@@ -81,8 +84,9 @@ public sealed partial class ValidationRoot
             FailIf(item == TreasureId.Bombs ? !_playerWorld.BombParentActive || _inventory.Bombs != 0x09 : !_player.IsUsingBoomerang,
                 "Releasing and pressing again must permit a fresh allocation and spend exactly one bomb when applicable.");
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (string state in new[] { "ground", "air", "hurt", "carry", "swim", "dialogue" })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             Room(TreasureId.Sword, TreasureId.Bombs);
             rom.Reset([]);

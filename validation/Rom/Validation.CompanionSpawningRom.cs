@@ -44,10 +44,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionSpawnInitializationRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (bool occupied in new[] { false, true })
         foreach (bool frozen in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom();
             _saveData.WriteWramByte(WramAddress.wEssencesObtained, 0x40);
@@ -92,8 +93,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionSpawnScrollRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom(); _entities.Clear();
             Vector2 point = new(72, 64);
@@ -225,10 +227,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionRememberedSpawnRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (int collision in new[] { 0, 1, 0x0c, 0x0f, 0x10, 0x11 })
         foreach (int fallbackCollision in new[] { 0, 1, 15 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom();
             Vector2 position = new(72, 60), fallback = new(104, 88);

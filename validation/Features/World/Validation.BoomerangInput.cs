@@ -134,9 +134,11 @@ public sealed partial class ValidationRoot
                 _entities.BoomerangParent.Graphic != (raft ? 0xb0 : 0xcc),
                 $"Minecart throws use mode$25; the raft exception retains mode$21: raft={raft}, active={_entities.BoomerangParent.Active}, mode={_entities.BoomerangParent.Mode:x2}, graphic={_entities.BoomerangParent.Graphic:x2}, A={_inventory.EquippedA:x2}, riding={_player.RaftRideActive}, swimming={_player.TopDownSwimming}, child={_entities.Entities<BoomerangItem>().Count}.");
             StepGameplayUpdates(8, Vector2.Left, batched: true);
-            FailIf(_player.FacingVector != Vector2I.Right ||
+            // linkState01's mounted @updateDirection branch bypasses the
+            // parent's turning-disable byte while retaining its throw pose.
+            FailIf(_player.FacingVector != Vector2I.Left ||
                 _entities.BoomerangParent.Graphic != (raft ? 0xb0 : 0x58),
-                "Mounted terminal graphics and turning lock must survive through update9.");
+                "Mounted turning must remain available while terminal throw graphics survive through update9.");
             var mountedChild = _entities.Entities<BoomerangItem>().Single();
             int catchLimit = 140;
             while (mountedChild.State != 4 && catchLimit-- > 0)

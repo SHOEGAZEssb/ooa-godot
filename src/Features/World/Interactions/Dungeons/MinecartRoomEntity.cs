@@ -43,6 +43,8 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
     public Vector2 ScreenTransitionPosition => _precisePosition;
     internal bool Riding => LinkRiding;
     internal bool Mounting => _phase == MinecartPhase.Mounting;
+    internal bool AllocationPending => _phase == MinecartPhase.Allocated;
+    internal bool UsesSpecialObjectSlot => _phase is MinecartPhase.Allocated or MinecartPhase.Riding;
     internal bool Dismounting => _phase == MinecartPhase.Dismounting;
     internal int Direction => _direction;
     internal int Angle => _angle;
@@ -120,6 +122,15 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
             case MinecartPhase.Mounting:
                 UpdateMount(frame.Player);
                 break;
+            case MinecartPhase.Allocated:
+                // INTERAC $16 allocated the companion after its pass. Native
+                // SPECIALOBJECT_MINECART state zero runs before Link now.
+                _phase = MinecartPhase.Riding;
+                ZIndex = ObjectDrawPriority.BehindLinkZIndex;
+                _soundCounter = 0;
+                SetAnimation(AnimationForCurrentState());
+                frame.Player.FinishMinecartMount(_precisePosition, _direction, AnimationParameter);
+                break;
             case MinecartPhase.Riding:
                 UpdateRide(frame.Player, spawns);
                 break;
@@ -139,13 +150,14 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
     private void UpdateStationary(Player player)
     {
         UpdateStationaryDrawPriority(player);
-        Vector2I pushDirection = player.FacingVector;
+        bool touching = LinkObjectBlocking.PreventPassing(player, Position, 6, 6);
+        // The no-collision return precedes @resetCounter. Contact loss retains
+        // an incomplete push; failed eligibility while touching resets it.
+        if (!touching)
+            return;
         Vector2 delta = Position - player.Position;
         bool pushing =
-            !player.TopDownAirborne &&
-            pushDirection != Vector2I.Zero &&
-            player.IsAttemptingObjectPush(pushDirection) &&
-            delta.Dot((Vector2)pushDirection) is >= 8 and < 20 &&
+            player.IsAttemptingMinecartPush &&
             (Math.Abs(delta.X) <= 4 || Math.Abs(delta.Y) <= 4);
         if (!pushing)
         {
@@ -170,16 +182,9 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         if (!player.MinecartJumpReadyToRide)
             return;
 
-        _phase = MinecartPhase.Riding;
-        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
-        _soundCounter = 0;
-        SetAnimation(AnimationForCurrentState());
+        _phase = MinecartPhase.Allocated;
         MinecartRuntimeState.BeginRide(
             _runtime, _slot, _roomId, Position, _direction);
-        player.FinishMinecartMount(
-            _precisePosition,
-            _direction,
-            AnimationParameter);
     }
 
     private void UpdateRide(
@@ -202,11 +207,9 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         MinecartRuntimeState.UpdateRide(
             _runtime, _roomId, Position, _direction);
         AdvanceAnimation();
-        player.SetMinecartRidePosition(
-            _precisePosition,
-            _direction,
-            AnimationParameter,
-            Vector2.Zero);
+        // Interactions read the current cart through wLinkObjectIndex, but
+        // w1Link keeps its previous sprite coordinates until func_410d.
+        player.SetMinecartMainObjectPosition(_precisePosition);
     }
 
     private bool UpdateTrackAtCenter(
@@ -481,6 +484,7 @@ internal enum MinecartPhase
 {
     Stationary,
     Mounting,
+    Allocated,
     Riding,
     Dismounting
 }

@@ -28,6 +28,7 @@ internal sealed class MenuPresentationDatabase
 
     internal IReadOnlyList<MenuOamPart> InventoryMakuSeed => _inventoryOam["maku-seed"];
     internal IReadOnlyList<MenuOamPart> InventoryHarp(int song) => _inventoryOam[$"harp-{song}"];
+    internal IReadOnlyList<MenuOamPart> InventorySubmenuMask(int index) => _inventoryOam[$"submenu-mask-{index}"];
 
     public static MenuPresentationDatabase Shared => LazyShared.Value;
 
@@ -100,7 +101,8 @@ internal sealed class MenuPresentationDatabase
             new Dictionary<string, int>(StringComparer.Ordinal)
             {
                 ["maku-seed"] = 4, ["harp-0"] = 1, ["harp-1"] = 2,
-                ["harp-2"] = 2, ["harp-3"] = 2
+                ["harp-2"] = 2, ["harp-3"] = 2,
+                ["submenu-mask-0"] = 8, ["submenu-mask-1"] = 2, ["submenu-mask-2"] = 6
             });
     }
 

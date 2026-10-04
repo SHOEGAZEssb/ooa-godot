@@ -13,6 +13,7 @@ public sealed class RoomSession
     private readonly DungeonKeyDoorDatabase _keyDoors;
     private readonly StandardTileSubstitutionDatabase _standardTileSubstitutions;
     private readonly DungeonToggleTileDatabase _toggleTiles;
+    private readonly JabuWaterTileDatabase _jabuWaterTiles;
     private readonly Func<byte> _toggleState;
     private readonly GashaSpotDatabase _gashaSpots;
     private readonly ChangedTileQueue _changedTiles = new();
@@ -64,6 +65,7 @@ public sealed class RoomSession
         _keyDoors = resources.KeyDoors;
         _standardTileSubstitutions = resources.StandardTileSubstitutions;
         _toggleTiles = resources.ToggleTiles;
+        _jabuWaterTiles = resources.JabuWaterTiles;
         _gashaSpots = resources.GashaSpots;
         DungeonMaps = resources.DungeonMaps;
         ActiveGroup = startingGroup;
@@ -163,13 +165,18 @@ public sealed class RoomSession
             ? group + 2
             : group;
         OracleRoomData loaded = World.LoadRoom(group, room, dataGroup, _saveData.ReadWramByte(WramAddress.wAnimalCompanion),
-            World.ResolveLayoutOverride(group, room, _saveData));
+            World.ResolveLayoutOverride(group, room, _saveData),
+            World.ResolveJabuTilesetOverride(group, room, _saveData, DungeonMaps));
         byte roomFlags = _saveData.GetRoomFlags(group, room);
         _singleTileChanges.Apply(
             group, loaded, _saveData, _animationTick());
         _standardTileSubstitutions.Apply(loaded, roomFlags, _animationTick());
         _toggleTiles.Apply(group, World.GetDungeonIndex(group, room), _toggleState(), loaded, _animationTick());
-        _tileChanges.Apply(group, loaded, _saveData, World, _animationTick(), _runtimeState);
+        int dungeon = World.GetDungeonIndex(group, room);
+        int? floor = dungeon == 7 && DungeonMaps.GetDungeon(7).TryGetRoom(room, out DungeonCell cell)
+            ? cell.Floor : null;
+        _jabuWaterTiles.Apply(group, dungeon, floor, loaded, _saveData, _animationTick());
+        _tileChanges.Apply(group, loaded, _saveData, World, _animationTick(), _runtimeState, floor);
         _gashaSpots.ApplyRoomState(
             group, loaded, _saveData, _animationTick());
         return loaded;

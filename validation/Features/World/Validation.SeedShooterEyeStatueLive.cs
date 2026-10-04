@@ -34,6 +34,9 @@ public partial class ValidationRoot
                 Step();
                 FailIf(!eye.Visible || eye.Counter != 0x2c || eye.Invincibility != -27 || (_entities.ActiveTriggers & 1) == 0,
                     "Eye activation must consume pending status after updating signed invincibility.");
+                // Isolate expiry from further contacts: a wall-activated Ember
+                // remains collidable and can hit again after the $1c lockout.
+                _entities.ClearPhysicalPlayerItems();
                 var text = _entities.TextActiveSource;
                 try
                 {

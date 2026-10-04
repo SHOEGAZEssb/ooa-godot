@@ -114,8 +114,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateSideViewLaddersRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (float fraction in new[] { 0f, 255 / 256f })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             var rom = PrepareSideViewRom(6, 0x10, new(200 + fraction, 136 + fraction));
             // room0410.bin: right ladder $18, top $19; source top clamp is
@@ -204,8 +205,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateSideViewPitsRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (float fraction in new[] { 0f, 255 / 256f })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             var rom = PrepareSideViewRom(6, 0x68, new(56 + fraction, 25 + fraction));
             FailIf(_currentRoom.GetMetatile(new(72, 168)) != 0xf4,
@@ -269,13 +271,14 @@ public sealed partial class ValidationRoot
         // Every placed $a1 subid $00-$0e, including 30-update waits and
         // four-direction scripts, executes its native ROM program. Link waits
         // on each room's actual ladder/floor; source enemies are isolated.
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (var test in new (int Group, int Room, Vector2 Start)[] { (6, 0x29, new Vector2(24,56)),
             (6, 0x2a, new Vector2(216,24)), (6, 0x68, new Vector2(24,24)),
             (6, 0x95, new Vector2(40,56)), (6, 0x96, new Vector2(24,89)),
             (6, 0x97, new Vector2(24,56)), (7, 0x02, new Vector2(184,24)),
             (7, 0x06, new Vector2(24,56)), (7, 0x11, new Vector2(200,24)),
             (7, 0xe7, new Vector2(56,105)) })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             // Independent rows traced from objects/ages/mainData.s, including
             // $7:$e7's preceding $b8 object and hence source order1.

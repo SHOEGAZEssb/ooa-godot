@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
                 "Room 5:F6 did not load 1:13 after its exit walk.");
 
             AssertDestinationPalette();
-            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
+            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
             FailIf(IsTransitioning, "Room 5:F6 -> 1:13 did not finish its arrival fade.");
             AssertDestinationPalette();
 

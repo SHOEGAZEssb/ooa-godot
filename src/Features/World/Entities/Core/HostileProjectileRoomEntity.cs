@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class HostileProjectileRoomEntity<TProjectile>(
+internal class HostileProjectileRoomEntity<TProjectile>(
     TProjectile projectile)
     : RoomEntityAdapter<TProjectile>(
         projectile,

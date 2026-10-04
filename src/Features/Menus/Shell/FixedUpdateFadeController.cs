@@ -9,6 +9,7 @@ internal sealed class FixedUpdateFadeController
     private readonly ColorRect _overlay;
     private Direction _direction;
     private int _duration;
+    private int _initialFadeOffset;
 
     internal int Update { get; private set; }
 
@@ -17,11 +18,13 @@ internal sealed class FixedUpdateFadeController
         _overlay = overlay;
     }
 
-    internal void Begin(Direction direction, int duration = OracleMenuLifecycle.FastFadeUpdates)
+    internal void Begin(Direction direction, int duration = OracleMenuLifecycle.FastFadeUpdates,
+        int initialFadeOffset = 32)
     {
         if (duration is not (11 or 32)) throw new ArgumentOutOfRangeException(nameof(duration));
         _duration = duration;
         _direction = direction;
+        _initialFadeOffset = initialFadeOffset;
         Update = 0;
         SetAlpha(direction == Direction.ToWhite ? 0.0f : 1.0f);
     }
@@ -34,7 +37,7 @@ internal sealed class FixedUpdateFadeController
         // starting at $00/$20. The scene's additive material saturates each
         // component independently instead of interpolating toward white.
         int speed = _duration == 11 ? 3 : 1;
-        int offset = _direction == Direction.ToWhite ? Update * speed : 32 - Update * speed;
+        int offset = _direction == Direction.ToWhite ? Update * speed : _initialFadeOffset - Update * speed;
         SetAlpha(Math.Clamp(offset, 0, 31) / 31.0f);
         return Update == _duration;
     }

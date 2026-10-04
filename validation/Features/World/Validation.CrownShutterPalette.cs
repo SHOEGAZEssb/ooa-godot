@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
                 FailIf(ReferenceEquals(sourceDoor, destinationDoor) || !_transitions.PaletteFadeActive,
                     "Warp load must replace source objects and begin the destination palette thread.");
                 state.SetValue(destinationDoor, DoorState.ReadyToOpen);
-                Step(31);
+                Step(32);
                 FailIf(!_transitions.PaletteFadeActive ||
                     (DoorState)state.GetValue(destinationDoor)! != DoorState.ReadyToOpen,
                     "Destination shutter must not open merely because the fade already looks transparent.");

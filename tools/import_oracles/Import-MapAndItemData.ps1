@@ -37,6 +37,68 @@ for ($group = 0; $group -lt 8; $group++) {
 }
 Write-GeneratedBytes((Join-Path $destination 'metadata\rooms_in_alt_world.bin'), $altWorldBytes.ToArray())
 
+# checkLinkCanSurface_isUnderwater indexes contiguous words, including the
+# unlabeled alternate rows following pollution/Jabu masks. Keep that arena
+# intact and resolve consecutive table labels as aliases.
+$surfacePath = Join-Path $Disassembly 'data\ages\underwaterSurfaceData.s'
+$surfaceNodes = @(Read-AssemblyNodes $surfacePath)
+$surfaceOffsets = @{}
+$surfaceMasks = [Collections.Generic.List[string]]::new()
+$surfaceMasks.Add('# index`tmask`tsource')
+$surfaceStarted = $false
+$surfaceIndex = 0
+foreach ($node in $surfaceNodes) {
+    if ($node.Kind -eq 'Label' -and $node.Name -match '^underWaterSurfaceData_[0-9a-f]{4}$') {
+        $surfaceStarted = $true
+        $surfaceOffsets[$node.Name] = $surfaceIndex
+    } elseif ($surfaceStarted -and $node.Kind -eq 'Data') {
+        if ($node.Name -ne '.dw' -or $node.Operands.Count -ne 1 -or
+            $node.Operands[0] -notmatch '^%[01]{16}$') {
+            throw "$surfacePath`:$($node.Line): expected one 16-bit surfacing mask."
+        }
+        $mask = [Convert]::ToInt32($node.Operands[0].Substring(1), 2)
+        $surfaceMasks.Add("$surfaceIndex`t$($mask.ToString('x4'))`tunderwaterSurfaceData.s:$($node.Line)")
+        $surfaceIndex++
+    } elseif ($surfaceStarted -and $node.Kind -notin @('Blank', 'Comment', 'Directive')) {
+        throw "$surfacePath`:$($node.Line): unsupported surfacing data node '$($node.Code)'."
+    }
+}
+if ($surfaceIndex -ne 529) { throw "$surfacePath`: expected 529 contiguous clean-US surfacing words, got $surfaceIndex." }
+$surfaceRooms = [Collections.Generic.List[string]]::new()
+$surfaceRooms.Add('# group`troom`tmask-index`tsource')
+$surfaceGroupLabels = @(Read-AssemblyLabels $surfacePath | Where-Object { $_.Name -match '^underWaterSurfaceTableGroup[0-7]$' })
+$surfacePointers = @(Read-AssemblyDataDirectives $surfacePath 'underWaterSurfaceTable' '.dw')
+if ($surfacePointers.Count -ne 8) { throw "$surfacePath`: expected eight surfacing group pointers." }
+for ($group = 0; $group -lt 8; $group++) {
+    if ($surfacePointers[$group].Operands.Count -ne 1 -or
+        $surfacePointers[$group].Operands[0] -ne "underWaterSurfaceTableGroup$group") {
+        throw "$surfacePath`: unexpected surfacing pointer for group $group."
+    }
+    $labelIndex = 0
+    while ($labelIndex -lt $surfaceGroupLabels.Count -and $surfaceGroupLabels[$labelIndex].Name -ne "underWaterSurfaceTableGroup$group") { $labelIndex++ }
+    $rows = @()
+    while ($labelIndex -lt $surfaceGroupLabels.Count -and $rows.Count -eq 0) {
+        $rows = @(Read-AssemblyDataDirectives $surfacePath $surfaceGroupLabels[$labelIndex].Name)
+        $labelIndex++
+    }
+    $room = -1
+    $terminated = $false
+    foreach ($node in $rows) {
+        if ($terminated -or $node.Operands.Count -ne 1) { throw "$surfacePath`:$($node.Line): malformed surfacing room table." }
+        if ($node.Name -eq '.db' -and $room -eq -1) {
+            $room = Convert-AssemblyInteger $node.Operands[0]
+            if ($room -eq 0) { $terminated = $true; $room = -1 }
+        } elseif ($node.Name -eq '.dw' -and $room -gt 0 -and $surfaceOffsets.ContainsKey($node.Operands[0])) {
+            $surfaceRooms.Add("$group`t$($room.ToString('x2'))`t$($surfaceOffsets[$node.Operands[0]])`t$($node.Operands[0])")
+            $room = -1
+        } else { throw "$surfacePath`:$($node.Line): expected room byte followed by a surfacing mask pointer." }
+    }
+    if (-not $terminated -or $room -ne -1) { throw "$surfacePath`: unterminated surfacing table for group $group." }
+}
+if ($surfaceRooms.Count -ne 220) { throw "$surfacePath`: expected 219 aliased surfacing room records, got $($surfaceRooms.Count - 1)." }
+Write-GeneratedTable((Join-Path $destination 'metadata\underwater_surface_masks.tsv'), $surfaceMasks)
+Write-GeneratedTable((Join-Path $destination 'metadata\underwater_surface_rooms.tsv'), $surfaceRooms)
+
 function Read-MinimapPopups([string]$label) {
     $result = @{}
     foreach ($node in Read-AssemblyDataDirectives `
@@ -82,10 +144,42 @@ Write-GeneratedTable($mapMetadataPath, $mapRows)
 
 $mapTextRows = [Collections.Generic.List[string]]::new()
 $mapTextRows.Add('# text-id`tposition`tmessage-base64')
+function Resolve-MapText([int]$textId, [Collections.Generic.HashSet[int]]$visited) {
+    if (-not $allTexts.ContainsKey($textId) -or -not $visited.Add($textId)) {
+        throw "text/ages/text.yaml: missing or recursive map TX_$($textId.ToString('x4'))."
+    }
+    try {
+        $remaining = [string]$allTexts[$textId]
+        $message = ''
+        # Resolve commands in execution order. A jump ends the current stream;
+        # calls return to its suffix. Dynamic \call(0xfd) remains symbolic for
+        # the Gale owner, which supplies the selected area's resolved message.
+        while ($true) {
+            $command = [regex]::Match($remaining, '\\(?<kind>call|jump)\(TX_(?<id>[0-9a-f]{4})\)')
+            if (-not $command.Success) { break }
+            $target = [Convert]::ToInt32($command.Groups['id'].Value, 16)
+            $message += $remaining.Substring(0, $command.Index) + (Resolve-MapText $target $visited)
+            if ($command.Groups['kind'].Value -eq 'jump') { return $message }
+            $remaining = $remaining.Substring($command.Index + $command.Length)
+        }
+        $message += $remaining
+        if ($allTextFallthroughIds.ContainsKey($textId)) {
+            # The trailing source newline is a text control, not a terminator.
+            if ($message.EndsWith('\n', [StringComparison]::Ordinal)) {
+                $message = $message.Substring(0, $message.Length - 2) + "`n"
+            }
+            $message += Resolve-MapText $allTextFallthroughIds[$textId] $visited
+        }
+        return $message
+    } finally {
+        [void]$visited.Remove($textId)
+    }
+}
 foreach ($textId in @($allTexts.Keys | Sort-Object)) {
     if ($textId -lt 0x0200 -or $textId -ge 0x0600) { continue }
     $position = if ($allTextPositions.ContainsKey($textId)) { $allTextPositions[$textId] } else { 0 }
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$textId]))
+    $message = Resolve-MapText $textId ([Collections.Generic.HashSet[int]]::new())
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
     $mapTextRows.Add("$($textId.ToString('x4'))`t$position`t$encoded")
 }
 $mapTextsPath = Join-Path $destination 'map\texts.tsv'
@@ -1632,10 +1726,22 @@ if (-not $linkItemSourceValid) {
 }
 
 $linkItemConstantRows = [Collections.Generic.List[string]]::new()
+$minecartSwing = [regex]::Match($specialObjectAnimationsSource,
+    '(?ms)^animationData1a019:\s*\.db \$(?<duration1>[0-9a-f]{2}) \$c8 \$(?<first>[0-9a-f]{2})\s*^animationData1a01c:\s*\.db \$(?<duration2>[0-9a-f]{2}) \$cc \$(?<second>[0-9a-f]{2})\s*\.db \$(?<duration3>[0-9a-f]{2}) \$cc \$(?<third>[0-9a-f]{2})\s*\.db \$7f \$58 \$(?<last>[0-9a-f]{2})')
+if (-not $minecartSwing.Success) { throw 'LINK_ANIM_MODE_26 sword arc parameters are missing from animationData1a019/1a01c.' }
+# updateSwingableItemAnimation masks the parameter to $1f and divides by
+# two before selecting swordArcData. These parameters survive dismount.
+$minecartSwingArcPhases = (@('first', 'second', 'third', 'last') | ForEach-Object {
+    ([Convert]::ToInt32($minecartSwing.Groups[$_].Value, 16) -band 0x1f) -shr 1
+}) -join ','
+$minecartSwordSwingFrames = 0
+foreach ($duration in @('duration1', 'duration2', 'duration3')) {
+    $minecartSwordSwingFrames += [Convert]::ToInt32($minecartSwing.Groups[$duration].Value, 16)
+}
 $linkItemConstantRows.Add(
-    '# sword-swing-frames`tsword-tile-hit-frame`tsword-restart-frame`tsword-charge-counter`tsword-poke-frames`tsword-spin-frames`tshovel-action-frames`tshovel-dig-frame`tshovel-second-pose-frame`tswing-phase-starts`tspin-phase-starts`tshield-sound`tshield-collision-effect`tshield-link-response`tshield-projectile-response`tprojectile-collision-mode`tring-projectile-collision-mode`tsource')
+    '# sword-swing-frames`tsword-tile-hit-frame`tsword-restart-frame`tsword-charge-counter`tsword-poke-frames`tsword-spin-frames`tshovel-action-frames`tshovel-dig-frame`tshovel-second-pose-frame`tswing-phase-starts`tspin-phase-starts`tshield-sound`tshield-collision-effect`tshield-link-response`tshield-projectile-response`tprojectile-collision-mode`tring-projectile-collision-mode`tminecart-swing-arc-phases`tminecart-sword-swing-frames`tsource')
 $linkItemConstantRows.Add(
-    "17`t6`t3`t40`t12`t23`t23`t4`t8`t0,3,6,14`t0,3,5,8,10,13,15,18,20`t$($soundIds['SND_SHIELD'].ToString('x2'))`t1f`t20`t34`t06`t07`tcode/collisionEffects.s:collisionEffect1f")
+    "17`t6`t3`t40`t12`t23`t23`t4`t8`t0,3,6,14`t0,3,5,8,10,13,15,18,20`t$($soundIds['SND_SHIELD'].ToString('x2'))`t1f`t20`t34`t06`t07`t$minecartSwingArcPhases`t$minecartSwordSwingFrames`tcode/collisionEffects.s:collisionEffect1f;data/ages/specialObjectAnimationData.s:animationData1a019")
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\link_item_constants.tsv'),
     $linkItemConstantRows)
@@ -2810,6 +2916,30 @@ $topDownSwimConstantRows = @(
     "dive-updates`t$topDownDiveUpdates`tlink.s:linkUpdateDiving@dive",
     "dive-animation-frame-0`t$topDownDiveDuration0`tspecialObjectAnimationData.s:animationData19eeb",
     "dive-animation-frame-1`t$topDownDiveDuration1`tspecialObjectAnimationData.s:animationData19eeb"
+)
+$mermaidEntryMatch = [regex]::Match($linkSource,
+    '(?ms)^overworldSwimmingState1:.*?ld l,SpecialObject.var2f\s+bit 6,\(hl\).*?ld \(hl\),\$0a.*?jr z,\+\s+ld \(hl\),\$(?<entry>[0-9a-f]{2})')
+$mermaidVelocityMatch = [regex]::Match($linkSource,
+    '(?ms)^@mermaidSuit:\s+ld c,\$98\s+call updateLinkSpeed_withParam.*?and \(BTN_UP \| BTN_RIGHT \| BTN_DOWN \| BTN_LEFT\).*?ld l,SpecialObject.var3e\s+dec \(hl\).*?@directionButtonPressed:.*?ld \(hl\),\$(?<impulse>[0-9a-f]{2}).*?ld l,SpecialObject.var12\s+ld \(hl\),\$(?<counter>[0-9a-f]{2})')
+$mermaidSpeedMatch = [regex]::Match($linkSource,
+    '(?m)^\s*\.db SPEED_000, \$(?<interval>[0-9a-f]{2}), SPEED_120, SPEED_120, SPEED_120, SPEED_120, SPEED_120, SPEED_120\s*$')
+if (-not $mermaidEntryMatch.Success -or -not $mermaidVelocityMatch.Success -or -not $mermaidSpeedMatch.Success) {
+    throw 'Could not trace Mermaid Suit entry delay, direction-edge impulse and shared velocity speed table.'
+}
+$mermaidEntry = [Convert]::ToInt32($mermaidEntryMatch.Groups['entry'].Value, 16)
+$mermaidImpulse = [Convert]::ToInt32($mermaidVelocityMatch.Groups['impulse'].Value, 16)
+$mermaidCounter = [Convert]::ToInt32($mermaidVelocityMatch.Groups['counter'].Value, 16)
+$mermaidInterval = [Convert]::ToInt32($mermaidSpeedMatch.Groups['interval'].Value, 16)
+if ($mermaidEntry -ne 2 -or $mermaidImpulse -ne 4 -or $mermaidCounter -ne 0x14 -or $mermaidInterval -ne 5) {
+    throw 'Mermaid Suit entry/impulse/velocity counter boundaries changed in link.s.'
+}
+$topDownSwimConstantRows += @(
+    "mermaid-entry-updates`t$mermaidEntry`tlink.s:overworldSwimmingState1",
+    "mermaid-impulse-updates`t$mermaidImpulse`tlink.s:linkUpdateVelocity@directionButtonPressed",
+    "mermaid-impulse-counter`t$mermaidCounter`tlink.s:linkUpdateVelocity@directionButtonPressed",
+    "mermaid-velocity-interval`t$mermaidInterval`tlink.s:updateLinkSpeed_withParam@speedTable",
+    "mermaid-target-speed`t$(Resolve-SideObjectSpeed 'SPEED_120')`tlink.s:updateLinkSpeed_withParam@speedTable",
+    "mermaid-fast-target-speed`t$(Resolve-SideObjectSpeed 'SPEED_160')`tlink.s:linkUpdateVelocity@mermaidSuit"
 )
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\top_down_swim_constants.tsv'),

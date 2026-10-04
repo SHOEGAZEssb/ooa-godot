@@ -156,8 +156,8 @@ public sealed partial class ValidationRoot
             _player.KnockbackFrames != 0 || !_player.IsDying || _player.DeathAnimationActive,
             "Full loading must clear native recoil while retaining wLinkDeathTrigger.");
         StepGameplayUpdates(32, Vector2.Zero, batched: batched);
-        FailIf(IsTransitioning || _player.DeathAnimationActive,
-            "Destination palette updates must finish before death resumes.");
+        FailIf(!IsTransitioning || _player.DeathAnimationActive,
+            "Visible-zero destination palette must retain the death freeze before the terminal borrow.");
         StepGameplayUpdates(1, Vector2.Zero);
         FailIf(!_player.DeathAnimationActive || _player.DeathAnimationFrame != 2 ||
             _player.DeathAnimationCounter != 8 || _player.DeathSpinLoopsRemaining != 4 ||

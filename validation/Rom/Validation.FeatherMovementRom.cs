@@ -7,10 +7,11 @@ public sealed partial class ValidationRoot
 {
     private void ValidateFeatherAirMovementRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (int startAngle in Enumerable.Range(0, 9).Select(i => i == 8 ? 0xff : i * 4))
         foreach (int change in new[] { 0, 8, 16, 0xff })
         foreach (int pegasus in new[] { 0, 0x80, 20 })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             FeatherRom rom = PrepareFeatherRom(fraction: 255 / 256f);
             _runtimeState.SetWramByte(0xcc6c, (byte)pegasus);
@@ -30,9 +31,10 @@ public sealed partial class ValidationRoot
                 _runtimeState.ReadWramByte(0xcc6d) != rom[0xcc6d],
                 "Feather flight and landing must retain native Pegasus timer ownership.");
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int angle in Enumerable.Range(0, 8).Select(i => i * 4))
         foreach (byte collision in new byte[] { 0x0f, 0x03 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             FeatherRom rom = PrepareFeatherRom(fraction: 0.5f);
             Vector2 input = OracleObjectMovement.Shared.Delta(0x28, angle).Normalized();

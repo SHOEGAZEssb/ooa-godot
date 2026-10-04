@@ -180,7 +180,9 @@ internal sealed class OracleMenuLifecycle
                         break;
                     }
                     CurrentPhase = Phase.ClosingFadeIn;
-                    _fade.Begin(Direction.FromWhite);
+                    // fastFadeinFromWhiteToRoom starts at $1e, unlike the
+                    // ordinary menu fade-in's $20. Both stop on update 11.
+                    _fade.Begin(Direction.FromWhite, initialFadeOffset: 0x1e);
                     break;
 
                 case Phase.ClosingFadeIn:

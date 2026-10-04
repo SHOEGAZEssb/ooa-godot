@@ -168,7 +168,8 @@ internal sealed class LinkItemDatabase
                     "spin-phase-starts", "shield-sound",
                     "shield-collision-effect", "shield-link-response",
                     "shield-projectile-response", "projectile-collision-mode",
-                    "ring-projectile-collision-mode", "source"
+                    "ring-projectile-collision-mode", "minecart-swing-arc-phases",
+                    "minecart-sword-swing-frames", "source"
                 ],
                 ["source"],
                 headerRequired: true));
@@ -191,7 +192,9 @@ internal sealed class LinkItemDatabase
             row.HexByte(14),
             row.HexByte(15),
             row.HexByte(16),
-            row.RequiredString(17));
+            ParseCsv(row.RequiredString(17)),
+            row.UnsignedDecimal(18),
+            row.RequiredString(19));
     }
 
     private void LoadOffsets(string path)
@@ -466,6 +469,7 @@ internal sealed class LinkItemDatabase
         if (Constants is not
             {
                 SwordSwingFrames: 17,
+                MinecartSwordSwingFrames: 14,
                 SwordTileHitFrame: 6,
                 SwordRestartFrame: 3,
                 SwordChargeCounter: 40,
@@ -482,6 +486,7 @@ internal sealed class LinkItemDatabase
                 RingProjectileCollisionMode: 0x07
             } ||
             !Constants.SwingPhaseStarts.SequenceEqual([0, 3, 6, 14]) ||
+            !Constants.MinecartSwingArcPhases.SequenceEqual([0, 1, 3, 3]) ||
             !Constants.SpinPhaseStarts.SequenceEqual(
                 [0, 3, 5, 8, 10, 13, 15, 18, 20]))
         {
@@ -621,6 +626,8 @@ internal readonly record struct LinkItemConstants(
     int ShieldProjectileResponse,
     int ProjectileCollisionMode,
     int RingProjectileCollisionMode,
+    int[] MinecartSwingArcPhases,
+    int MinecartSwordSwingFrames,
     string Source);
 
 internal readonly record struct LinkGraphicRecord(

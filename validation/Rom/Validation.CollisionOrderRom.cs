@@ -11,9 +11,10 @@ public sealed partial class ValidationRoot
     private void ValidateCollisionOrderRom()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool reverse in new[] { false, true })
         foreach (int subid in new[] { 0, 1 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x60);

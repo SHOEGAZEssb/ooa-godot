@@ -17,6 +17,10 @@ public sealed class ShovelController
     private readonly OracleSaveData _saveData;
     private readonly Action<int> _playSound;
     private readonly Func<long> _animationTick;
+    private bool _childCreatedThisUpdate;
+    internal int ChildCounter { get; private set; }
+    internal bool ChildActive => ChildCounter != 0;
+    internal Vector2 ChildPosition { get; private set; }
 
     public ShovelController(
         RoomSession rooms,
@@ -34,6 +38,30 @@ public sealed class ShovelController
         _saveData = saveData;
         _playSound = playSound;
         _animationTick = animationTick;
+        entities.Shovel = this;
+    }
+
+    internal bool CreateChild(Vector2 point, Vector2I direction)
+    {
+        // shovelParent creates ITEM$15 separately from its parent. State 0
+        // digs once; four eligible item updates then retire the child even
+        // if clearAllParentItems has already removed the parent animation.
+        ChildPosition = point;
+        ChildCounter = 4;
+        _childCreatedThisUpdate = true;
+        return TryDig(point, direction);
+    }
+
+    internal void UpdateChild(bool frozen)
+    {
+        if (_childCreatedThisUpdate) _childCreatedThisUpdate = false;
+        else if (!frozen && ChildActive) ChildCounter--;
+    }
+
+    internal void ClearChild()
+    {
+        ChildCounter = 0;
+        _childCreatedThisUpdate = false;
     }
 
     public bool TryDig(Vector2 point, Vector2I direction)

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Typed runtime view of the non-side-view linkUpdateSwimming Flippers path,
+/// Typed runtime view of non-side-view Flippers/Mermaid linkUpdateSwimming,
 /// normal-water linkUpdateDiving, and their animation data.
 /// </summary>
 internal sealed class TopDownSwimmingDatabase
@@ -20,6 +20,12 @@ internal sealed class TopDownSwimmingDatabase
         BaseSpeed: Constant("base-speed"),
         FastSpeed: Constant("fast-speed"),
         EntryUpdates: Constant("entry-updates"),
+        MermaidEntryUpdates: Constant("mermaid-entry-updates"),
+        MermaidImpulseUpdates: Constant("mermaid-impulse-updates"),
+        MermaidImpulseCounter: Constant("mermaid-impulse-counter"),
+        MermaidVelocityInterval: Constant("mermaid-velocity-interval"),
+        MermaidTargetSpeed: Constant("mermaid-target-speed"),
+        MermaidFastTargetSpeed: Constant("mermaid-fast-target-speed"),
         VelocityInterval: Constant("velocity-interval"),
         BurstTurnUpdates: Constant("burst-turn-updates"),
         BurstAccelerateUpdates: Constant("burst-accelerate-updates"),
@@ -127,11 +133,17 @@ internal sealed class TopDownSwimmingDatabase
     private void Validate()
     {
         TopDownSwimmingParameters parameters = Parameters;
-        if (_constants.Count != 14 || _frames.Count != 8 ||
+        if (_constants.Count != 20 || _frames.Count != 8 ||
             _diveFrames.Count != 2 ||
             parameters.BaseSpeed != 0x14 ||
             parameters.FastSpeed != 0x23 ||
             parameters.EntryUpdates != 0x0a ||
+            parameters.MermaidEntryUpdates != 2 ||
+            parameters.MermaidImpulseUpdates != 4 ||
+            parameters.MermaidImpulseCounter != 0x14 ||
+            parameters.MermaidVelocityInterval != 5 ||
+            parameters.MermaidTargetSpeed != 0x2d ||
+            parameters.MermaidFastTargetSpeed != 0x37 ||
             parameters.VelocityInterval != 0x03 ||
             parameters.BurstTurnUpdates != 0x08 ||
             parameters.BurstAccelerateUpdates != 0x0d ||
@@ -196,6 +208,12 @@ internal readonly record struct TopDownSwimmingParameters(
     int BaseSpeed,
     int FastSpeed,
     int EntryUpdates,
+    int MermaidEntryUpdates,
+    int MermaidImpulseUpdates,
+    int MermaidImpulseCounter,
+    int MermaidVelocityInterval,
+    int MermaidTargetSpeed,
+    int MermaidFastTargetSpeed,
     int VelocityInterval,
     int BurstTurnUpdates,
     int BurstAccelerateUpdates,

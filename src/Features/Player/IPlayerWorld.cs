@@ -7,6 +7,8 @@ public interface IPlayerWorld
 {
     int FrameCounter { get; }
     bool IsTransitioning { get; }
+    bool RequestDeepWaterDive(Player player, int packedPosition) => false;
+    bool RequestUnderwaterSurface(Player player, ActiveTerrainInfo terrain) => false;
     bool DeathUpdatesSuspendedByWarp => false;
     bool PassesNpcs => false;
     bool InteractionMenusDisabled => false;
@@ -100,9 +102,11 @@ public interface IPlayerWorld
     void CompleteHarp(Player player, int song) { }
     void CancelHarp() { }
     bool DigWithShovel(Vector2 point, Vector2I direction);
+    bool ShovelChildActive => false;
     bool Collides(Vector2 playerPosition);
     Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide);
-    Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide) =>
+    Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide,
+        int? adjacentWalls = null) =>
         (angle & 0x80) != 0 ? Vector2.Zero :
         ResolveMovement(position, OracleObjectMovement.Shared.Delta(speed, angle), allowWallSlide);
     bool IsPushingAgainstWall(
@@ -118,7 +122,6 @@ public interface IPlayerWorld
     SideScrollTerrainState GetSideScrollTerrain(Vector2 playerPosition);
     int GetAdjacentWallsBitset(Vector2 playerPosition);
     bool SideScrollTileBlocksPoint(Vector2 point) => false;
-    Vector2 GetTerrainPush(Vector2 playerPosition);
     bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement);
     bool ApplyLandedTileHit(Vector2 playerPosition);
     void BeginLedgeScreenTransition(Player player);

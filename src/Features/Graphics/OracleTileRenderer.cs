@@ -146,7 +146,9 @@ internal static class OracleTileRenderer
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static byte[] CaptureBackgroundShades(Image source)
+    private static byte[] CaptureBackgroundShades(Image source) => CapturePaletteShades(source, false);
+
+    internal static byte[] CapturePaletteShades(Image source, bool spriteEncoding)
     {
         int width = source.GetWidth();
         int height = source.GetHeight();
@@ -155,7 +157,7 @@ internal static class OracleTileRenderer
         {
             byte[] rgba = source.GetData();
             for (int pixel = 0; pixel < shades.Length; pixel++)
-                shades[pixel] = (byte)((255 - rgba[pixel * 4] + 42) / 85);
+                shades[pixel] = (byte)(((spriteEncoding ? rgba[pixel * 4] : 255 - rgba[pixel * 4]) + 42) / 85);
         }
         else
         {
@@ -163,7 +165,7 @@ internal static class OracleTileRenderer
             // quantizing them first could change a shade at its boundary.
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
-                shades[y * width + x] = (byte)OracleGraphicsData.TwoBitShade(source.GetPixel(x, y));
+                shades[y * width + x] = (byte)OracleGraphicsData.PaletteShade(source.GetPixel(x, y), spriteEncoding);
         }
         return shades;
     }
@@ -286,7 +288,7 @@ internal static class OracleTileRenderer
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Vector2I SourceTileOrigin(
+    internal static Vector2I SourceTileOrigin(
         Image source,
         int sourceTile,
         bool interleaved)

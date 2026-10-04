@@ -65,6 +65,9 @@ public partial class DialogueBox : Node2D
 
     private readonly List<TextSegment> _segments = new();
     private Texture2D _fontTexture = null!;
+    private ImageTexture? _composedTexture;
+    private Image? _retainedPresentation;
+    private Image? _scrollStartPresentation;
     private Texture2D _symbolTexture = null!;
     private Image? _tradeItemSource;
     private Texture2D? _tradeItemTexture;
@@ -104,7 +107,8 @@ public partial class DialogueBox : Node2D
     private int _choicePhase = -1;
     private int _choiceDelay;
     private int _choiceClosingUpdates;
-    private bool _passive;
+    private bool _nonExitableReady;
+    private bool _ownerClosing;
     private int _textboxFlags;
     private int _visiblePanelHeight = PanelHeight;
     private int _selectedChoice;
@@ -142,6 +146,9 @@ public partial class DialogueBox : Node2D
         (((int)_arrowFrameCounter >> 4) & 1) != 0;
     internal bool HasNextMessage => _open && HasContinuation;
     internal bool IsPageComplete => _open && CurrentWindowGlyphCount == _visibleGlyphs;
+    // wTextIsActive=$80 retains the textbox while menu handlers may consume
+    // its completed printing/choice result (textbox.s states f and option 2).
+    internal bool PrintingComplete => !_open || _nonExitableReady;
     internal int VisibleLinesPerPage => LinesPerPage;
     internal int TextLineSpacing => LineSpacing;
     internal int CharacterDisplayFrameLength => CharacterDisplayFrames[_messageSpeed];
@@ -152,7 +159,8 @@ public partial class DialogueBox : Node2D
     internal string CurrentMessage => _currentMessage;
     internal bool ChoiceActive => _choiceActive;
     internal bool ChoiceCursorVisible => _choiceActive &&
-        (_choicePhase == 2 || _choiceClosingUpdates >= 2);
+        (_choicePhase == 2 || _choiceClosingUpdates >= 2 ||
+            _choicePhase == 3 && _nonExitableReady);
     internal int TextboxFlagsForValidation => _textboxFlags;
     internal int VisiblePanelHeight => _visiblePanelHeight;
     internal int SelectedChoice => _selectedChoice;
@@ -277,6 +285,10 @@ public partial class DialogueBox : Node2D
         int? sourceTextId = null)
     {
         ArgumentNullException.ThrowIfNull(message);
+        _retainedPresentation?.Dispose();
+        _retainedPresentation = null;
+        _scrollStartPresentation?.Dispose();
+        _scrollStartPresentation = null;
         SourceTextId = sourceTextId;
         // checkInitialTextCommands recognizes $0c:$20-$23 only at the
         // beginning of the resolved text, after initTextbox's automatic side.
@@ -315,7 +327,8 @@ public partial class DialogueBox : Node2D
         _choiceActive = false;
         _choicePhase = -1;
         _choiceDelay = _choiceClosingUpdates = 0;
-        _passive = false;
+        _nonExitableReady = false;
+        _ownerClosing = false;
         _textboxFlags = textboxFlags;
         _backgroundPaletteState?.LoadTextboxPalette(textboxFlags);
         _alternatePalettePriorityChanged(UsesAlternatePalette1);
@@ -413,14 +426,13 @@ public partial class DialogueBox : Node2D
     /// </summary>
     internal void ShowPassiveMessage(string message, float linkY, int textPosition)
     {
-        ShowMessage(message, linkY, textPosition);
-        _passive = true;
+        ShowMessage(message, DialogueScreenContext.FullScreen(linkY), textPosition, textboxFlags: 0x0b);
     }
 
     internal bool TryTakeChoiceResult(out int choice)
     {
         choice = _choiceResult ?? 0;
-        if (_open || !_choiceResult.HasValue)
+        if ((_open && !_nonExitableReady) || !_choiceResult.HasValue)
             return false;
         _choiceResult = null;
         return true;
@@ -437,8 +449,24 @@ public partial class DialogueBox : Node2D
         Close();
     }
 
+    // updateTextbox treats the owner's wTextIsActive=$ff request as standard
+    // state $0f on every dispatch. It restores the underlying menu, but the
+    // thread stays active until the owner replaces or clears that request.
+    internal void RequestClosing()
+    {
+        if (!_open) return;
+        _nonExitableReady = false;
+        _choicePhase = -1;
+        _ownerClosing = true;
+        Visible = false;
+    }
+
     public void Close()
     {
+        _retainedPresentation?.Dispose();
+        _retainedPresentation = null;
+        _scrollStartPresentation?.Dispose();
+        _scrollStartPresentation = null;
         _closing = false;
         _open = false;
         _scrollingText = false;
@@ -448,11 +476,24 @@ public partial class DialogueBox : Node2D
         _pendingSegmentAdvance = false;
         _choicePhase = -1;
         _choiceDelay = _choiceClosingUpdates = 0;
-        _passive = false;
+        _nonExitableReady = false;
+        _ownerClosing = false;
         _textboxFlags = 0;
         _alternatePalettePriorityChanged(false);
         ResetHeartPieceDisplay();
         Visible = false;
+    }
+
+    internal void CloseRetainingPresentation()
+    {
+        // showItemText2 replaces the text thread without restoring the
+        // existing textbox map. Its published pixels survive until a later
+        // standard-text initialization or a menu map upload replaces them.
+        Image retained = ComposeImage();
+        Close();
+        _retainedPresentation = retained;
+        Visible = true;
+        QueueRedraw();
     }
 
     public override void _Process(double delta)
@@ -474,6 +515,8 @@ public partial class DialogueBox : Node2D
 
         if (!_open)
             return;
+        if (_nonExitableReady || _ownerClosing)
+            return;
 
         if (_choiceClosingUpdates > 0)
         {
@@ -489,7 +532,7 @@ public partial class DialogueBox : Node2D
             return;
         }
 
-        if (!_passive && _initialTextUpdates > 0)
+        if (_initialTextUpdates > 0)
         {
             if (_pendingSegmentAdvance)
                 AdvancePendingTextSegment();
@@ -497,7 +540,7 @@ public partial class DialogueBox : Node2D
             return;
         }
 
-        if (!_passive && _prepareNextLine)
+        if (_prepareNextLine)
         {
             // Standard state 3 consumes its own update preparing the lower
             // row. A/B can expire the delay but cannot display that row yet.
@@ -559,8 +602,14 @@ public partial class DialogueBox : Node2D
             _choicePhase = 0;
             return;
         }
-        if (_passive || !pageWasComplete)
+        if (!pageWasComplete)
             return;
+        if ((_textboxFlags & 2) != 0 && !HasContinuation)
+        {
+            _textboxFlags &= ~2;
+            _nonExitableReady = true;
+            return;
+        }
         // Standard text's final @checkShouldExit accepts any pressed key.
         // Continuations and option prompts retain their narrower controls.
         bool finalMenuPress = !HasContinuation && !_choiceActive &&
@@ -634,6 +683,8 @@ public partial class DialogueBox : Node2D
 
     private void BeginTextScroll(bool automaticNextLine)
     {
+        _scrollStartPresentation?.Dispose();
+        _scrollStartPresentation = ComposeImage();
         // State 5 jumps into state b's code, which increments the CURRENT
         // state to 6 (not c). States 6-9/a draw the first new line; a then
         // enters b-c-d-e/3/4 to draw the second without another button press.
@@ -648,19 +699,32 @@ public partial class DialogueBox : Node2D
 
     public override void _Draw()
     {
-        if (!_open)
+        if (!_open && _retainedPresentation is null)
             return;
 
-        DrawRect(
-            new Rect2(PanelX, 0, PanelWidth, _visiblePanelHeight),
-            BackgroundColor);
+        using Image output = ComposeImage();
+        if (_composedTexture is null) _composedTexture = ImageTexture.CreateFromImage(output);
+        else _composedTexture.Update(output);
+        DrawTexture(_composedTexture, Vector2.Zero);
+    }
+
+    internal Image ComposeImage()
+    {
+        if (_retainedPresentation is not null) return (Image)_retainedPresentation.Duplicate();
+        if (_scrollingText && _textScrollState == 0 && _scrollStartPresentation is not null)
+            return (Image)_scrollStartPresentation.Duplicate();
+        Image output = Image.CreateEmpty(160, PanelHeight, false, Image.Format.Rgba8);
+        output.Fill(Colors.Transparent);
+        if (!_open || _ownerClosing) return output;
+        output.FillRect(new Rect2I(PanelX, 0, PanelWidth, _visiblePanelHeight), BackgroundColor);
 
         if (_scrollingText)
         {
-            DrawFontLineClipped(CurrentLine(0), new Vector2(16, -_textScrollOffset),
-                CurrentLine(0).Glyphs.Count);
-            DrawFontLineClipped(CurrentLine(1),
-                new Vector2(16, LineSpacing - _textScrollOffset),
+            // State b shifts the map and clears its top tile row without
+            // publishing it. State 6/c publishes that map; 7/d edits it
+            // again, and only 8/e publishes the final whole-line position.
+            DrawFontLineClipped(output, CurrentLine(1),
+                new Vector2(16, 8),
                 CurrentLine(1).Glyphs.Count);
         }
         else
@@ -670,7 +734,7 @@ public partial class DialogueBox : Node2D
             {
                 TextLine line = CurrentLine(lineIndex);
                 int lineVisible = Math.Min(visible, line.Glyphs.Count);
-                DrawFontLine(line, new Vector2(16, lineIndex * LineSpacing), lineVisible);
+                DrawFontLine(output, line, new Vector2(16, lineIndex * LineSpacing), lineVisible);
                 visible = Math.Max(0, visible - line.Glyphs.Count);
             }
         }
@@ -679,12 +743,17 @@ public partial class DialogueBox : Node2D
         // every 16 updates. It runs only while state $05 is waiting for more
         // text, so the final message of a dialogue never receives an arrow.
         if (ArrowVisible)
-            DrawTextureRect(_continueMarkerTexture, ContinueMarkerRect, false, RedTextColor);
+            BlitDialogueTexture(output, _continueMarkerTexture, ContinueMarkerRect,
+                new Rect2(0, 0, 8, 8), RedTextColor);
 
-        if (ChoiceCursorVisible)
-            DrawChoiceCursor();
+        // standardTextStatef restores the WRAM map without publishing it.
+        // Its state $10 update performs the DMA and releases text, so the
+        // last published option cursor survives that intervening update.
+        if (ChoiceCursorVisible || _choiceClosingUpdates == 1)
+            DrawChoiceCursor(output);
 
-        DrawHeartPieceDisplay();
+        DrawHeartPieceDisplay(output);
+        return output;
     }
 
     internal void AdvanceArrowClockForValidation(double delta)
@@ -843,6 +912,12 @@ public partial class DialogueBox : Node2D
         _choiceResult = _selectedChoice;
         _choicePhase = 3;
         _choiceClosingUpdates = 3;
+        if ((_textboxFlags & 2) != 0)
+        {
+            _textboxFlags &= ~2;
+            _nonExitableReady = true;
+            _choiceClosingUpdates = 0;
+        }
         _consumeClosingInput = true;
     }
 
@@ -919,7 +994,7 @@ public partial class DialogueBox : Node2D
         QueueRedraw();
     }
 
-    private void DrawChoiceCursor()
+    private void DrawChoiceCursor(Image output)
     {
         int optionIndex = 0;
         for (int lineIndex = 0; lineIndex < LinesPerPage; lineIndex++)
@@ -930,11 +1005,9 @@ public partial class DialogueBox : Node2D
                     continue;
                 // updateSelectedTextPosition writes HUD tile $04 into
                 // textbox-map row $20/$60: the lower half of the text line.
-                DrawTexture(
-                    _choiceCursorTexture,
-                    new Vector2(16 + column * 8,
-                        lineIndex * LineSpacing + 8),
-                    ColorFor(0));
+                BlitDialogueTexture(output, _choiceCursorTexture,
+                    new Rect2(16 + column * 8, lineIndex * LineSpacing + 8, 8, 8),
+                    new Rect2(0, 0, 8, 8), ColorFor(0));
                 return;
             }
         }
@@ -961,7 +1034,7 @@ public partial class DialogueBox : Node2D
                 if (_textSlowdownTimer > 0)
                     faceInputBlocked = true;
             }
-            bool skip = !_passive && !faceInputBlocked &&
+            bool skip = !faceInputBlocked &&
                 (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"));
             if (!skip && --_characterDisplayTimer > 0)
                 continue;
@@ -1151,6 +1224,8 @@ public partial class DialogueBox : Node2D
             switch (_textScrollState++)
             {
                 case 0: // state 6/c: DMA after standardTextStateb's first shift
+                    _scrollStartPresentation?.Dispose();
+                    _scrollStartPresentation = null;
                     break;
                 case 1: // state 7/d: shift the second 8px tile row
                     _textScrollOffset = 16.0f;
@@ -1176,7 +1251,7 @@ public partial class DialogueBox : Node2D
             : TextLine.Empty;
     }
 
-    private void DrawFontLineClipped(TextLine line, Vector2 destination, int visibleGlyphs)
+    private void DrawFontLineClipped(Image output, TextLine line, Vector2 destination, int visibleGlyphs)
     {
         int length = Math.Min(Math.Min(line.Glyphs.Count, visibleGlyphs), CharactersPerLine);
         float visibleTop = Mathf.Max(0.0f, destination.Y);
@@ -1201,12 +1276,11 @@ public partial class DialogueBox : Node2D
                 visibleTop,
                 8,
                 visibleHeight);
-            DrawTextureRectRegion(
-                TextureFor(glyph), target, source, ModulationFor(glyph));
+            BlitDialogueTexture(output, TextureFor(glyph), target, source, ModulationFor(glyph));
         }
     }
 
-    private void DrawFontLine(TextLine line, Vector2 destination, int visibleGlyphs)
+    private void DrawFontLine(Image output, TextLine line, Vector2 destination, int visibleGlyphs)
     {
         int length = Math.Min(Math.Min(line.Glyphs.Count, visibleGlyphs), CharactersPerLine);
         for (int column = 0; column < length; column++)
@@ -1220,15 +1294,14 @@ public partial class DialogueBox : Node2D
                 (glyph.Code >> 4) * 16,
                 8,
                 16);
-            DrawTextureRectRegion(
-                TextureFor(glyph),
+            BlitDialogueTexture(output, TextureFor(glyph),
                 new Rect2(destination + new Vector2(column * 8, 0), new Vector2(8, 16)),
                 source,
                 ModulationFor(glyph));
         }
     }
 
-    private void DrawHeartPieceDisplay()
+    private void DrawHeartPieceDisplay(Image output)
     {
         if (_heartPieceLine < _firstLineIndex ||
             _heartPieceLine >= _firstLineIndex + LinesPerPage)
@@ -1237,7 +1310,31 @@ public partial class DialogueBox : Node2D
         Vector2 destination = new(
             16 + _heartPieceColumn * 8,
             (_heartPieceLine - _firstLineIndex) * LineSpacing);
-        DrawTexture(_heartPieceTextures[_heartPieceDisplayCount], destination);
+        Texture2D texture = _heartPieceTextures[_heartPieceDisplayCount];
+        BlitDialogueTexture(output, texture, new Rect2(destination, texture.GetSize()),
+            new Rect2(Vector2.Zero, texture.GetSize()), Colors.White);
+    }
+
+    private static void BlitDialogueTexture(Image output, Texture2D texture,
+        Rect2 target, Rect2 sourceRectangle, Color modulation)
+    {
+        Image source = texture.GetImage();
+        for (int y = 0; y < (int)target.Size.Y; y++)
+        for (int x = 0; x < (int)target.Size.X; x++)
+        {
+            int destinationX = (int)target.Position.X + x;
+            int destinationY = (int)target.Position.Y + y;
+            if ((uint)destinationX >= output.GetWidth() || (uint)destinationY >= output.GetHeight()) continue;
+            Color ink = source.GetPixel((int)sourceRectangle.Position.X + x,
+                (int)sourceRectangle.Position.Y + y) * modulation;
+            if (ink.A == 0) continue;
+            Color background = output.GetPixel(destinationX, destinationY);
+            float alpha = ink.A + background.A * (1 - ink.A);
+            output.SetPixel(destinationX, destinationY, new Color(
+                (ink.R * ink.A + background.R * background.A * (1 - ink.A)) / alpha,
+                (ink.G * ink.A + background.G * background.A * (1 - ink.A)) / alpha,
+                (ink.B * ink.A + background.B * background.A * (1 - ink.A)) / alpha, alpha));
+        }
     }
 
     private Texture2D TextureFor(TextGlyph glyph) => glyph.Source switch

@@ -19,11 +19,25 @@ Grounded top-down movement and jumping share one planar velocity state. Ice
 changes its convergence cadence, and a jump inherits the existing momentum;
 current input alone cannot reconstruct takeoff velocity. Landing returns that
 state to terrain handling in the original update order.
+Cliff eligibility compares current cardinal input with the retained object angle
+before velocity convergence. Landing retains the cliff's planar speed for the
+next terrain update, including underwater and ice movement.
+
+Currents and conveyors apply imported fixed-point velocity before item use and
+ordinary input movement. That terrain step consumes Link's retained wall probes;
+the later movement phase refreshes them. Keep the active foot tile from before
+terrain displacement for the update's swimming and other terrain decisions.
+Currents still move Link while an interaction supports him; conveyors reject
+that riding signal. The water entry gate has its own support check.
 
 Room caches distinguish source layout variants. Resolve destination variants
 through `RoomSession` before preload, and reapply live persistent substitutions
 when loading cached data. Keep logical layout, underlying terrain, collision,
 and displayed tile mappings distinct.
+Water-level reconstruction resolves the effective tileset and dungeon floor
+before replaying tile substitutions and room-specific platform changes in their
+source order. Cached rooms must restore earlier layouts when that save byte
+changes back.
 
 ## Ordered room objects and RNG
 
@@ -52,6 +66,34 @@ paths. Re-entry and preload consume RNG only at their traced boundaries.
 Animal companions and the raft run in the shared special-object phase before
 Link. Mounting can therefore start Link's jump in that same update; dismounting
 resets Link and preserves his initialization update before airborne movement.
+Raft dismounting instead requests Link's forced-walk state. Consuming that request
+does not move Link, and the terminal countdown update returns to normal control
+without another step. Recreating the waiting raft copies its whole-pixel position
+into a fresh interaction and clears its fractional bytes.
+Raft dismount consumes the forced-walk request before initializing Link's new
+state. Existing item parents survive that request update; initialization clears
+them before the first forced movement, and ordinary item allocation resumes
+after the walk finishes.
+Stationary minecarts clamp Link in their interaction dispatch after ordinary
+movement; the boarding countdown starts only after that contact. Its boarding
+gate accepts diagonal directional input through its own source checks;
+do not substitute push-block eligibility. Losing contact retains an incomplete
+countdown, while failed eligibility during contact resets it. Allocating the
+ridden cart leaves Link's current update intact, and its special-object
+initialization runs before Link on the next update. Rider synchronization copies
+whole-pixel coordinates while preserving Link's fractions and keeps scrolling
+offsets in presentation.
+The cart and raft update before Link, but their rider copies run after
+interactions. Item parents and door checks therefore see Link's preceding
+sprite position, including the raft's preceding animation offset. Link retains
+his normal-state dispatch while riding and can
+consume a forced respawn without stopping the cart.
+Minecart-created door openers initialize in their first interaction update and
+start the interleaved door frame on the next. Layout changes before collision;
+the final tile publication releases collision after the source countdown.
+Layout door controllers preserve the native script's command yields and choose
+their initial track branch once. After clearance they relocate the local respawn
+point, close the door, update the shared shutter count, and delete themselves.
 The mount-prohibition signal is consumed and cleared after the companion pass,
 before Link, item parents, and interactions can publish it for the next update.
 Companion attacks resolve contacts after item updates. Dimitri's reserved
@@ -117,7 +159,11 @@ it, including while dialogue freezes the actors. A platform's retained local
 boarding state does not itself preserve that shared support signal.
 
 Item parents, physical children, reserved-item movement, post-object handlers,
-and post-object collisions have separate lifetimes. Native melee and projectile
+and post-object collisions have separate lifetimes. Existing sword parents
+advance before Link reads movement restrictions; airborne allocation gates
+still permit those parents to update. The animation selected at item
+initialization retains its timing and arc parameters across vehicle handoffs.
+Native melee and projectile
 contacts resolve after movement, in native item/target order; their signals
 are consumed by later eligible handlers. The first accepted overlap can end a
 scan even when its effect is a no-op. Cancellation and room replacement retire

@@ -7,9 +7,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSwordContactHandoffRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int subid in new[] { 0, 1 })
         foreach (bool heldContact in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             SwordRom rom = PrepareSwordGameplayRom(1);
             // Isolate the weapon handoff from Link's independently validated

@@ -29,10 +29,11 @@ public sealed partial class ValidationRoot
 
     private void CompareBraceletRoomCancellationRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int cancelAfter in new[] { 1, 7, 12, 20 })
         foreach (bool finishLift in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             BraceletRom rom = PrepareBraceletRom(primary: primary);
             StepBraceletRom(rom, 1, batched, held: true, pressed: true, primary: primary);
@@ -62,9 +63,10 @@ public sealed partial class ValidationRoot
 
     private void CompareBraceletWallImpactRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int direction in new[] { 0, 1, 2, 3 })
         foreach (byte tile in new byte[] { 0xff, 0xb0, 0x90 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             BraceletRom rom = PrepareBraceletRom(direction);
             StepBraceletRom(rom, 1, batched, held: true, pressed: true);

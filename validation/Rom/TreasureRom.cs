@@ -53,5 +53,8 @@ internal sealed class TreasureRom
         if (Allowed(address)) { _memory[address] = (byte)value; return; }
         throw new InvalidDataException($"Treasure ROM ${_cpu.InstructionAddress:x4}: undeclared write ${address:x4}.");
     }
-    private static bool Allowed(int address) => address is >= 0xc000 and < 0xe000 or >= 0xff80 and < 0xffc0;
+    // Ring overflow counts duplicates in bank-4 w4TmpRingBuffer $d3a0;
+    // this bounded helper uses no other bank's storage at that address.
+    private static bool Allowed(int address) => address == 0xff70 ||
+        address is >= 0xc000 and < 0xe000 or >= 0xff80 and < 0xffc0;
 }

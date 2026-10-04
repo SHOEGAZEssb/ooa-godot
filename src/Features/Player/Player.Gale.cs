@@ -7,8 +7,9 @@ public partial class Player
     private IntroSpriteFrame[]? _galeFrames;
     private int _galeFrame;
     private int _galeFrameTicks;
-    private bool _galePending;
+    private int _galePending;
     private bool _galeReturning;
+    private bool _galeReturnPending;
     internal bool GaleActive { get; private set; }
     internal int GaleZFixed => _topDownAirborne ? _topDownAirZFixed : 0;
     internal int GaleCollisionZ => GaleZFixed >> 8;
@@ -22,7 +23,9 @@ public partial class Player
     internal void BeginGale()
     {
         GaleActive = true;
-        _galePending = true;
+        // The next state01 dispatch consumes wLinkForceState and returns;
+        // linkState07 substate 0 initializes on the following dispatch.
+        _galePending = 2;
         _galeReturning = false;
     }
 
@@ -37,13 +40,20 @@ public partial class Player
     {
         if (_galeReturning)
         {
+            // linkState07 substate 2 dispatches warpTransition5_00, which
+            // initializes the fall and returns before its first gravity step.
+            if (_galeReturnPending)
+            {
+                _galeReturnPending = false;
+                return;
+            }
             AdvanceRoomWarpFall();
             if (!IsRoomWarpFalling) EndGale();
             return;
         }
-        if (_galePending)
+        if (_galePending != 0)
         {
-            _galePending = false;
+            if (--_galePending != 0) return;
             _world.InterruptBracelet(this, discard: false);
             _world.InterruptBomb(this, discard: false);
             _world.InterruptSeedShooter();
@@ -67,6 +77,7 @@ public partial class Player
     internal void ReturnFromGale(int? gameplayScreenY = null)
     {
         _galeReturning = true;
+        _galeReturnPending = true;
         SetCutsceneSpriteFrame(null);
         SetCutsceneDrawZFixed(0);
         // linkState07 adds $04; warpTransition5 destInit subtracts it again.
@@ -76,8 +87,9 @@ public partial class Player
     private void EndGale()
     {
         GaleActive = false;
-        _galePending = false;
+        _galePending = 0;
         _galeReturning = false;
+        _galeReturnPending = false;
         SetCutsceneSpriteFrame(null);
         SetCutsceneDrawZFixed(0);
     }

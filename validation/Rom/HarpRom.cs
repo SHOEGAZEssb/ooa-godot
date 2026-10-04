@@ -21,6 +21,7 @@ internal sealed class HarpRom
     internal int[] Notes => _noteOrder.Keys.Where(address => this[address] != 0 && this[address + 1] == 0xa0)
         .OrderBy(address => _noteOrder[address]).ToArray();
     internal int NoteSerial(int address) => _noteOrder[address];
+    internal MenuRom CreateMenuFixture() => new(_rom);
 
     internal HarpRom(OracleSaveData save, OracleRandomState random, int group, int room, byte flags, int x, int y)
     {

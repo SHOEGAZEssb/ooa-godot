@@ -16,7 +16,7 @@ public partial class Player
             // consuming the request. State0b restores state01 on counter zero.
             if (_getItemStatePhase >= 2 || _forcedRespawnPhase >= 2 || _forcedRoomEntryMovement || _ledgeJumpState != LedgeJumpState.None ||
                 _deathAnimationActive || EnemyGrabActive || _squishAnimation is not null ||
-                GaleActive && !_galePending || _forcedState08Phase >= 2 ||
+                GaleActive && _galePending < 2 || _forcedState08Phase >= 2 ||
                 _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0 ||
                 _fallingInHole || _drowning && _topDownDrownPhase >= 2)
                 return false;
@@ -34,11 +34,13 @@ public partial class Player
                 _newGameSlowFalling ||
                 _roomWarpFallActive || _roomWarpFallCollapsed ||
                 _drowning && !_world.SideScrolling && _topDownDrownPhase == 0 ||
-                _companionRideControlled || _minecartRideControlled || _raftRideControlled)
+                _companionRideControlled || _raftRideControlled)
                 throw new NotSupportedException("INTERAC$33 Link state gate reached a control mode whose native state boundary is not represented.");
             // Pending death/grab/gale/state08 requests do not change state
             // until Link consumes them. Shock, normal item use, knockback,
-            // swimming and jumping are all owned by linkState01.
+            // swimming, jumping and minecart riding are owned by linkState01.
+            // Minecart movement stays in w1Companion; Link can consume a
+            // forced state02 request while that cart keeps updating.
             return true;
         }
     }
@@ -49,7 +51,7 @@ public partial class Player
         {
             if (!NativeNormalStateForInteraction) return;
             // These owners publish wLinkForceState before Link consumes it.
-            if (_enemyGrabRequested || _galePending || _forcedState08Phase == 1 || _sideScrollSquishPending ||
+            if (_enemyGrabRequested || _galePending == 2 || _forcedState08Phase == 1 || _sideScrollSquishPending ||
                 _topDownDrownPhase == 1 || _forcedRespawnPhase == 1 || _getItemStatePhase == 1)
                 return;
             // interactiondc_subid17 does not read wLinkDeathTrigger. A lethal

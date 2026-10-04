@@ -20,6 +20,21 @@ truthful view of the runtime owner. Do not add validation-only state machines,
 public compatibility properties, permanent trace lists, sound request counts,
 or cache histories to production classes.
 
+Register the strongest comparison for a fixture. When a complete-frame ROM
+scenario also checks state, OAM and the unobscured background, retire wrappers
+that only replay those same checks. Retain independent import goldens,
+unsupported-input diagnostics, save persistence and port-specific behavior.
+
+Keep matrices focused on source branches and boundaries. Check independent
+inputs separately instead of multiplying every data row by every button,
+message speed and host schedule. ROM matrices use `RomHostSchedules` to repeat
+their first case with multiple updates in one host frame; their remaining
+cases use individual host frames. All cases still observe each gameplay update.
+Keep additional batching fixtures when the behavior depends on the host-frame
+boundary. Check before, during, at completion, after completion, cancellation
+and repeated use. Bound waits by an observed completion state, and avoid
+repeated pixel checks of a completed message solely to consume a fixed delay.
+
 Use `ApplicationValidationFixture` to supply host input and advance the real
 application loop, including frontend scenarios. It drives the host's input
 buffer and fixed-update scheduler through typed internal operations. Its
@@ -114,11 +129,20 @@ For a serial run when debugging:
 
 The launcher uses separate headless Godot processes; each keeps scene-tree,
 input, RNG, and static cache access on its own main thread. The runner partitions
-the ordered scenario registrations round-robin with `--validate-shard=INDEX/COUNT`
+the ordered scenario registrations with `--validate-shard=INDEX/COUNT`
 (one-based). Sharding cannot be combined with `--validate-only`. No separate
 scenario list needs maintenance. Save regressions use unique temporary paths,
 and each worker has separate engine and console logs in the printed temporary
 directory. Build once before launching; do not rebuild or import during a run.
+Complete local runs record scenario costs in `.godot/validation-timings.tsv`.
+The next full run snapshots that profile and assigns long scenarios first to
+the least-loaded worker; each worker still executes in registration order.
+Without timing history, assignment remains round-robin. New scenarios use the
+median cost of known current registrations; removed scenarios are ignored.
+This changes distribution only, preserving every scenario, assertion and update.
+Use `-TimingProfile PATH` to freeze a profile for repeated measurements; an
+explicit profile is read without refreshing the default. Focused runs and ROM
+skip runs do not overwrite complete-suite timing history.
 Use this launcher for focused runs too: `-ValidateOnly` selects one scenario
 in one worker. Each run uses a writable, unique engine log instead of Godot's
 shared user-log rotation. On Windows, workers inherit an error mode that
@@ -133,6 +157,18 @@ without requiring a game build.
 completion marker, or incomplete scenario count, and stops remaining processes
 on exit. A successful parallel run covers the complete suite and satisfies the
 full-suite handoff check. The serial command remains available for debugging.
+
+Use `-ContinueOnFailure` when measuring complete-suite performance in a worktree
+with known scenario failures. Each failed scenario retains its diagnostic and
+timing, then the worker resets the fixture and runs its remaining scenarios.
+Passed, skipped, and failed counts remain separate; any failure still makes the
+run fail. Setup failures and process crashes remain fatal. Use the same mode,
+worker count, and scenario coverage for before/after measurements.
+
+When deliberately simplifying coverage, also report removed registrations and
+sampled dimensions. Such measurements describe a reduced suite and must not
+be presented as an improvement with unchanged coverage. Preserve failure
+diagnostics; a shorter run with a remaining failure is still a failing run.
 
 Worker stdout logs include `VALIDATION_TIMING` records with invariant-culture
 milliseconds for each scenario. `setup_ms` measures the initial gameplay graph

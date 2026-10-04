@@ -33,10 +33,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateLinkDamageGameplayRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int ring in new[] { 0, (int)RingId.ArmorL3, (int)RingId.Steadfast })
         foreach (int outcome in new[] { 0, 1, 2 }) // survive, lethal, potion
         foreach (int angle in new[] { 0, 4, 8, 12, 16, 20, 24, 28 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x33);

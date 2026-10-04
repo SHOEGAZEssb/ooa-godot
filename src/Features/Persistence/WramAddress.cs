@@ -4,6 +4,8 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class WramAddress
 {
+    // include/wram.s: wDisableScreenTransitions (all bits gate underwater travel).
+    public const int wDisableScreenTransitions = 0xcc91;
     // include/wram.s: wSoundFadeCounter
     public const int wSoundFadeCounter = 0xc014;
     // include/wram.s: wSoundFadeDirection

@@ -46,8 +46,9 @@ public sealed partial class ValidationRoot
 
     private void CompareBraceletPullCancellationRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             BraceletRom rom = PrepareBraceletRom(primary: primary, underlying: 0xa1);
             StepBraceletRom(rom, 1, batched, held: true, pressed: true, primary: primary);

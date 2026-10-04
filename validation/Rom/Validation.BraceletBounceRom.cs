@@ -7,9 +7,10 @@ public sealed partial class ValidationRoot
 {
     private void CompareBraceletObjectBounceRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool drop in new[] { false, true })
         foreach (int ring in new[] { 0xff, 0x12 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(4, 0xb4);

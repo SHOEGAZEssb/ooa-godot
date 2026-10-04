@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using static oracleofages.OracleGraphicsData;
 using static oracleofages.OracleTileRenderer;
 
@@ -29,6 +30,8 @@ public partial class RingMenuScreen : Node2D
     private Image _inventoryHud2 = null!;
     private Image _emptyTextTiles = null!;
     private byte[] _ringMap = null!;
+    private byte[] _fontPixels = null!;
+    private int _fontStride;
     private Texture2D _fontTexture = null!;
     private Color[,] _bgPalette = null!;
     private Color[,] _spritePalette = null!;
@@ -38,6 +41,7 @@ public partial class RingMenuScreen : Node2D
     private OracleVramSource[] _listSignedBank0 = null!;
     private OracleVramSource[] _signedBank1 = null!;
     private Texture2D? _background;
+    private ImageTexture? _composedTexture;
     private InventoryState _inventory = null!;
     private MenuPresentationDatabase _layouts = null!;
     private readonly FixedUpdateAccumulator _animationUpdates = new();
@@ -47,7 +51,14 @@ public partial class RingMenuScreen : Node2D
     private int _transitionCursor;
     private int _transitionDirection;
     private int _transitionFrame;
+    private bool _transitionInitialized;
+    private int _tilemapIndex;
+    private readonly int[] _displayedAppraisalRings = new int[InventoryState.UnappraisedRingCapacity];
     private string _ringName = string.Empty;
+    private int _ringNumberComparator;
+    private int _displayedRing = 0xff;
+    private readonly List<MenuOamPart> _spriteOam = new();
+    internal IReadOnlyList<MenuOamPart> SpriteOam => _spriteOam;
 
     internal RingMenuMode Mode { get; private set; }
     internal int Page { get; private set; }
@@ -56,6 +67,9 @@ public partial class RingMenuScreen : Node2D
     internal int BoxCursor { get; private set; }
     internal bool SelectingList { get; private set; }
     internal bool PageTransitionActive => _transitionDirection != 0;
+    internal int RequestedPage => PageTransitionActive ? _transitionPage : Page;
+    internal int SelectedListRing => PageTransitionActive
+        ? _transitionPage * 16 + _transitionCursor : Page * 16 + ListCursor;
     internal ulong BackgroundHashForValidation { get; private set; }
     internal Vector2I BackgroundSizeForValidation => _background is null
         ? Vector2I.Zero
@@ -89,6 +103,11 @@ public partial class RingMenuScreen : Node2D
         _inventoryHud2 = LoadPng(
             "res://assets/oracle/inventory/gfx_inventory_hud_2.png");
         _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font.png");
+        using (Image font = _fontTexture.GetImage())
+        {
+            _fontPixels = font.GetData();
+            _fontStride = font.GetWidth() * 4;
+        }
         _emptyTextTiles = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
         _emptyTextTiles.Fill(Colors.Black);
         _ringMap = ReadBytes("res://assets/oracle/inventory/map_rings.bin", 68 * 8);
@@ -153,7 +172,9 @@ public partial class RingMenuScreen : Node2D
         Page = 0;
         PageCount = mode == RingMenuMode.List
             ? 4
-            : Math.Max(1, (_inventory.UnappraisedRingCount + 15) / 16);
+            // bank2.ringMenu_calculateNumPagesForUnappraisedRings returns
+            // without writing when empty; the cleared menu union keeps zero.
+            : (_inventory.UnappraisedRingCount + 15) / 16;
         ListCursor = 0;
         BoxCursor = 0;
         SelectingList = mode == RingMenuMode.Appraisal;
@@ -161,9 +182,15 @@ public partial class RingMenuScreen : Node2D
         _boxCursorFlickerCounter = 0x80;
         _transitionDirection = 0;
         _transitionFrame = 0;
+        _transitionInitialized = false;
+        _tilemapIndex = 0;
         _ringName = string.Empty;
+        _ringNumberComparator = 0xfe;
+        _displayedRing = 0xff;
+        _spriteOam.Clear();
         _animationUpdates.Reset();
         BuildBackground();
+        if (Mode == RingMenuMode.Appraisal) RefreshAppraisalGraphics();
         Visible = true;
         QueueRedraw();
     }
@@ -172,6 +199,7 @@ public partial class RingMenuScreen : Node2D
     {
         Visible = false;
         _background = null;
+        _spriteOam.Clear();
         _transitionDirection = 0;
     }
 
@@ -190,9 +218,19 @@ public partial class RingMenuScreen : Node2D
         _transitionCursor = cursor & 0x0f;
         _transitionDirection = Math.Sign(direction);
         _transitionFrame = 0;
+        _transitionInitialized = false;
         _animationUpdates.Reset();
         QueueRedraw();
         return true;
+    }
+
+    internal bool InitializePageTransition()
+    {
+        _transitionInitialized = true;
+        _tilemapIndex ^= 1;
+        if (Mode == RingMenuMode.Appraisal) RefreshAppraisalGraphics();
+        QueueRedraw();
+        return _tilemapIndex == 0;
     }
 
     /// <summary>
@@ -205,14 +243,6 @@ public partial class RingMenuScreen : Node2D
         int updates = _animationUpdates.Consume(delta);
         for (int update = 0; update < updates; update++)
         {
-            if (SelectingList)
-                _listCursorFlickerCounter = (_listCursorFlickerCounter + 1) & 0xff;
-            else if (Mode == RingMenuMode.List)
-            {
-                _boxCursorFlickerCounter =
-                    ((_boxCursorFlickerCounter + 1) & 0xef) | 0x80;
-            }
-
             if (!PageTransitionActive)
                 continue;
             _transitionFrame++;
@@ -229,13 +259,15 @@ public partial class RingMenuScreen : Node2D
         return PageTransitionActive || transitionCompleted;
     }
 
-    internal void RecalculateAppraisalPages()
+    internal bool RefreshAppraisalGraphics()
     {
-        if (Mode != RingMenuMode.Appraisal)
-            return;
-        PageCount = Math.Max(1, (_inventory.UnappraisedRingCount + 15) / 16);
-        Page = Math.Min(Page, PageCount - 1);
+        // ringMenu_drawUnappraisedRings publishes icons at explicit menu
+        // boundaries. Removing an entry retains its revealed icon through
+        // the result delay or closing fade until the next native redraw.
+        for (int index = 0; index < _displayedAppraisalRings.Length; index++)
+            _displayedAppraisalRings[index] = _inventory.UnappraisedRingAt(index);
         QueueRedraw();
+        return _tilemapIndex == 0;
     }
 
     internal void SetBoxCursor(int cursor)
@@ -244,10 +276,10 @@ public partial class RingMenuScreen : Node2D
         QueueRedraw();
     }
 
-    internal void SetSelectingList(bool selectingList)
+    internal void SetSelectingList(bool selectingList, bool resetBoxFlicker = true)
     {
         SelectingList = Mode == RingMenuMode.Appraisal || selectingList;
-        if (Mode == RingMenuMode.List)
+        if (Mode == RingMenuMode.List && resetBoxFlicker)
             _boxCursorFlickerCounter = SelectingList ? 0 : 0x80;
         QueueRedraw();
     }
@@ -263,44 +295,95 @@ public partial class RingMenuScreen : Node2D
         QueueRedraw();
     }
 
+    internal void SetRingNumberComparator(int comparator) => _ringNumberComparator = comparator;
+
+    internal bool UpdateDisplayedRingNumber(int comparator, int selectedRing)
+    {
+        // bank2.ringMenu_updateDisplayedRingNumberWithGivenComparator writes
+        // retained BG digits only on a changed comparator. Cursor ownership
+        // and page completion alone do not refresh those tiles.
+        if (_ringNumberComparator == comparator) return false;
+        _ringNumberComparator = comparator;
+        _displayedRing = selectedRing;
+        QueueRedraw();
+        // This refresh uploads the entire map. Only $9800 replaces the
+        // ring-list IRQ's fixed description background below line $47.
+        return _tilemapIndex == 0;
+    }
+
     public override void _Draw()
     {
         if (!Visible || _background is null || _inventory is null)
             return;
-        DrawTexture(_background, Vector2.Zero);
-        if (Mode == RingMenuMode.List)
-            DrawRingBox();
-        if (PageTransitionActive)
-        {
-            float travel = _transitionFrame * PageScrollPixelsPerUpdate;
-            float currentX = -_transitionDirection * travel;
-            float incomingX = currentX + _transitionDirection * OracleRoomData.ViewportWidth;
-            DrawSelectionRings(Page, currentX);
-            DrawSelectionRings(_transitionPage, incomingX);
-            DrawPageCounter(Page, currentX);
-            DrawPageCounter(_transitionPage, incomingX);
-            if (Mode == RingMenuMode.List)
-            {
-                DrawEquippedMarker();
-                DrawBoxCursor();
-            }
-            return;
-        }
-        DrawSelectionRings(Page, 0);
-        DrawPageCounter(Page, 0);
-        if (Mode == RingMenuMode.List)
-        {
-            DrawRingNumber();
-            DrawRingName();
-            DrawListMarkers();
-            DrawEquippedMarker();
-            DrawBoxCursor();
-        }
-        if (SelectingList)
-            DrawListCursorAndArrows();
+        using Image frame = ComposeImage();
+        if (_composedTexture is null) _composedTexture = ImageTexture.CreateFromImage(frame);
+        else _composedTexture.Update(frame);
+        DrawTexture(_composedTexture, Vector2.Zero);
     }
 
-    private void DrawSelectionRings(int page, float xOffset)
+    internal Image ComposeImage()
+    {
+        Image output = (Image)_background!.GetImage().Duplicate();
+        if (Mode == RingMenuMode.List)
+            DrawRingBox(output);
+        if (PageTransitionActive)
+        {
+            if (_transitionInitialized)
+            {
+                using Image current = (Image)_background.GetImage().Duplicate();
+                using Image incoming = (Image)_background.GetImage().Duplicate();
+                DrawSelectionRings(current, Page, 0);
+                DrawSelectionRings(incoming, _transitionPage, 0);
+                DrawPageCounter(current, Page, 0);
+                DrawPageCounter(incoming, _transitionPage, 0);
+                int travel = _transitionFrame * PageScrollPixelsPerUpdate;
+                int firstLine = Mode == RingMenuMode.List ? 32 : 24;
+                int lastLine = Mode == RingMenuMode.List ? 72 : 88;
+                for (int y = firstLine; y < lastLine; y++)
+                for (int x = 0; x < 160; x++)
+                {
+                    // ringMenu_state2 moves BG by 8 and WX through $9f..$07.
+                    // WX's hardware bias puts the incoming edge at 152,
+                    // while the window wins over the underlying BG page.
+                    bool window = x >= (_transitionDirection > 0 ? 152 - travel : travel);
+                    Image source = _transitionDirection > 0
+                        ? (window ? incoming : current) : (window ? current : incoming);
+                    int sourceX = _transitionDirection > 0
+                        ? (window ? x - (152 - travel) : x + travel)
+                        : (window ? x - travel : x + 152 - travel);
+                    output.SetPixel(x, y, source.GetPixel(sourceX, y));
+                }
+            }
+            else
+            {
+                DrawSelectionRings(output, Page, 0);
+                DrawPageCounter(output, Page, 0);
+            }
+            if (Mode == RingMenuMode.List)
+            {
+                // lcdInterrupt_ringMenu fixes SCX=$00/LCDC=$87 below $47;
+                // both alternating upload headers keep its digits in $9800.
+                DrawPageCounter(output, _transitionInitialized ? _transitionPage : Page, 0);
+                DrawRingNumber(output);
+            }
+            // The scroll request retains the published name. Only the next
+            // state-2 initialization clears it through showItemText2.
+            if (Mode == RingMenuMode.List) DrawRingName(output);
+            DrawSubmittedSprites(output);
+            return output;
+        }
+        DrawSelectionRings(output, Page, 0);
+        DrawPageCounter(output, Page, 0);
+        if (Mode == RingMenuMode.List)
+        {
+            DrawRingNumber(output);
+            DrawRingName(output);
+        }
+        DrawSubmittedSprites(output);
+        return output;
+    }
+
+    private void DrawSelectionRings(Image output, int page, float xOffset)
     {
         int first = page * 16;
         for (int index = 0; index < 16; index++)
@@ -308,7 +391,7 @@ public partial class RingMenuScreen : Node2D
             int ring;
             if (Mode == RingMenuMode.Appraisal)
             {
-                ring = _inventory.UnappraisedRingAt(first + index);
+                ring = _displayedAppraisalRings[first + index];
                 if (ring == 0xff)
                     continue;
             }
@@ -318,13 +401,13 @@ public partial class RingMenuScreen : Node2D
                 if (!_inventory.HasAppraisedRing(ring))
                     continue;
             }
-            DrawRingGraphic(ring, ListRingPosition(index) + new Vector2(xOffset, 0));
+            DrawRingGraphic(output, ring, ListRingPosition(index) + new Vector2(xOffset, 0));
         }
     }
 
-    private void DrawRingBox()
+    private void DrawRingBox(Image output)
     {
-        DrawRingGraphic(0x40 + Math.Clamp(_inventory.RingBoxLevel, 1, 3),
+        DrawRingGraphic(output, 0x40 + Math.Clamp(_inventory.RingBoxLevel, 1, 3),
             new Vector2(8, 0), preserveBoxGraphic: true);
         for (int slot = 0; slot < 5; slot++)
         {
@@ -332,129 +415,140 @@ public partial class RingMenuScreen : Node2D
                 ? _inventory.RingAt(slot)
                 : 0xff;
             if (ring != 0xff)
-                DrawRingGraphic(ring, BoxRingPosition(slot));
+                DrawRingGraphic(output, ring, BoxRingPosition(slot));
         }
     }
 
-    private void DrawPageCounter(int page, float xOffset)
+    private void DrawPageCounter(Image output, int page, float xOffset)
     {
-        DrawVramBackgroundTile(0, 0x11 + page, 0x07,
+        DrawVramBackgroundTile(output, 0, 0x11 + page, 0x07,
             new Vector2(120 + xOffset, 80));
-        DrawVramBackgroundTile(0, 0x10 + PageCount, 0x07,
+        DrawVramBackgroundTile(output, 0, 0x10 + PageCount, 0x07,
             new Vector2(136 + xOffset, 80));
     }
 
-    private void DrawRingNumber()
+    private void DrawRingNumber(Image output)
     {
-        int selected = SelectingList
-            ? Page * 16 + ListCursor
-            : _inventory.RingAt(BoxCursor);
+        int selected = _displayedRing;
         if (selected == 0xff)
         {
-            DrawVramBackgroundTile(0, 0xe8, 0x07, new Vector2(32, 80));
-            DrawVramBackgroundTile(0, 0xe8, 0x07, new Vector2(40, 80));
+            DrawVramBackgroundTile(output, 0, 0xe8, 0x07, new Vector2(32, 80));
+            DrawVramBackgroundTile(output, 0, 0xe8, 0x07, new Vector2(40, 80));
             return;
         }
         int number = selected + 1;
-        DrawVramBackgroundTile(0, 0x10 + number / 10, 0x07, new Vector2(32, 80));
-        DrawVramBackgroundTile(0, 0x10 + number % 10, 0x07, new Vector2(40, 80));
+        DrawVramBackgroundTile(output, 0, 0x10 + number / 10, 0x07, new Vector2(32, 80));
+        DrawVramBackgroundTile(output, 0, 0x10 + number % 10, 0x07, new Vector2(40, 80));
     }
 
-    private void DrawRingName()
+    private void DrawRingName(Image output)
     {
+        if (_ringName.Length == 0) return;
         Vector2 position = RingNamePosition(_ringName.Length);
-        Color color = _bgPalette[0, 2];
+        // BuildMonochromeFontTexture produces white glyphs with binary alpha.
+        // BG0's ink is opaque, so the original Lerp/SetPixel is an exact RGBA
+        // replacement. Keep the composed background and upload once.
+        using Image colors = Image.CreateEmpty(1, 1, false, Image.Format.Rgba8);
+        colors.SetPixel(0, 0, _bgPalette[0, 2]);
+        byte[] ink = colors.GetData();
+        byte[] pixels = output.GetData();
         for (int index = 0; index < _ringName.Length; index++)
         {
             int glyph = _ringName[index] <= 0xff ? _ringName[index] : 0x3f;
-            Rect2 source = new((glyph & 0x0f) * 8, (glyph >> 4) * 16, 8, 16);
-            Rect2 destination = new(
-                position + new Vector2(index * 8, 0), new Vector2(8, 16));
-            DrawTextureRectRegion(_fontTexture, destination, source, color);
+            for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                int read = ((glyph >> 4) * 16 + y) * _fontStride + ((glyph & 0x0f) * 8 + x) * 4;
+                int destinationX = (int)position.X + index * 8 + x;
+                int destinationY = (int)position.Y + y;
+                if (_fontPixels[read + 3] == 0 || (uint)destinationX >= 160 || (uint)destinationY >= 144) continue;
+                ink.AsSpan().CopyTo(pixels.AsSpan((destinationY * 160 + destinationX) * 4, 4));
+            }
+        }
+        output.SetData(160, 144, false, Image.Format.Rgba8, pixels);
+    }
+
+    // Capture OAM at the native dispatch boundary. Box markers precede input;
+    // list arrows/cursor follow ordinary list navigation, but not A/B/Select.
+    internal void BeginSpriteUpdate(bool scrolling)
+    {
+        _spriteOam.Clear();
+        if (Mode != RingMenuMode.List) return;
+        SubmitBoxCursor();
+        SubmitEquippedMarker();
+        if (!scrolling) SubmitListMarkers();
+    }
+
+    private void AddSprite(MenuOamPart part, int yOffset = 0, int xOffset = 0) =>
+        _spriteOam.Add(part with { Y = (part.Y + yOffset) & 0xff, X = (part.X + xOffset) & 0xff });
+
+    private void DrawSubmittedSprites(Image output)
+    {
+        // Earlier OAM slots win pixel priority, so submit painter operations
+        // in reverse order. This menu never reaches ten sprites on a scanline.
+        for (int index = _spriteOam.Count - 1; index >= 0; index--)
+        {
+            MenuOamPart part = _spriteOam[index];
+            DrawRawOamTile(output, 0, part.Tile, part.Attributes & 7,
+                FileMenuPresentation.OamScreenPosition(part),
+                flipX: (part.Attributes & 0x20) != 0);
         }
     }
 
-    private void DrawListMarkers()
+    private void SubmitListMarkers()
     {
         int first = Page * 16;
-        for (int slot = 0; slot < _inventory.RingBoxCapacity; slot++)
+        for (int slot = 4; slot >= 0; slot--)
         {
             int ring = _inventory.RingAt(slot);
             if (ring < first || ring >= first + 16)
                 continue;
             int index = ring - first;
             MenuOamPart marker = _layouts.RingOam("list-box-marker")[0];
-            DrawRawOamTile(
-                0,
-                marker.Tile,
-                marker.Attributes & 0x07,
-                FileMenuPresentation.OamScreenPosition(
-                    marker,
-                    yOffset: index < 8 ? 0x30 : 0x48,
-                    xOffset: (index & 7) * 16),
-                flipX: (marker.Attributes & 0x20) != 0);
+            AddSprite(marker, yOffset: index < 8 ? 0x30 : 0x48,
+                xOffset: (index & 7) * 16);
         }
     }
 
-    private void DrawEquippedMarker()
+    private void SubmitEquippedMarker()
     {
         if (_inventory.ActiveRing == 0xff)
             return;
-        for (int slot = 0; slot < _inventory.RingBoxCapacity; slot++)
+        for (int slot = 4; slot >= 0; slot--)
         {
             if (_inventory.RingAt(slot) != _inventory.ActiveRing)
                 continue;
             MenuOamPart marker = _layouts.RingOam("equipped-marker")[0];
-            DrawRawOamTile(
-                0,
-                marker.Tile,
-                marker.Attributes & 0x07,
-                FileMenuPresentation.OamScreenPosition(
-                    marker,
-                    xOffset: _layouts.RingBoxOffsets[slot].XOffset),
-                flipX: (marker.Attributes & 0x20) != 0);
+            AddSprite(marker, xOffset: _layouts.RingBoxOffsets[slot].XOffset);
             break;
         }
     }
 
-    private void DrawBoxCursor()
+    private void SubmitBoxCursor()
     {
-        if (Mode != RingMenuMode.List ||
-            (!SelectingList && (_boxCursorFlickerCounter & 0x08) != 0))
-            return;
+        if ((_boxCursorFlickerCounter & 0x80) != 0)
+        {
+            _boxCursorFlickerCounter = (_boxCursorFlickerCounter + 1) & 0xef;
+            if ((_boxCursorFlickerCounter & 0x08) != 0) return;
+        }
         MenuOamPart cursor = _layouts.RingOam("box-cursor")[0];
-        DrawRawOamTile(
-            0,
-            cursor.Tile,
-            cursor.Attributes & 0x07,
-            FileMenuPresentation.OamScreenPosition(
-                cursor,
-                xOffset: _layouts.RingBoxOffsets[BoxCursor].XOffset),
-            flipX: (cursor.Attributes & 0x20) != 0);
+        AddSprite(cursor, xOffset: _layouts.RingBoxOffsets[BoxCursor].XOffset);
     }
 
-    private void DrawListCursorAndArrows()
+    internal void SubmitListSprites()
     {
+        // ringMenu_drawSprites skips arrows only for exactly one page.
+        if (PageCount != 1)
+            foreach (MenuOamPart arrow in _layouts.RingOam("page-arrows")) AddSprite(arrow);
+        _listCursorFlickerCounter = (_listCursorFlickerCounter + 1) & 0xff;
         if ((_listCursorFlickerCounter & 0x08) == 0)
         {
+            // A horizontal wrap writes the incoming cursor before drawing
+            // OAM, on the dispatch which selects the page-scroll state.
+            int index = PageTransitionActive ? _transitionCursor : ListCursor;
             MenuOamPart cursor = _layouts.RingOam("list-cursor")[0];
-            DrawRawOamTile(
-                0,
-                cursor.Tile,
-                cursor.Attributes & 0x07,
-                ListCursorPosition(ListCursor),
-                flipX: (cursor.Attributes & 0x20) != 0);
-        }
-        if (PageCount <= 1)
-            return;
-        foreach (MenuOamPart arrow in _layouts.RingOam("page-arrows"))
-        {
-            DrawRawOamTile(
-                0,
-                arrow.Tile,
-                arrow.Attributes & 0x07,
-                FileMenuPresentation.OamScreenPosition(arrow),
-                flipX: (arrow.Attributes & 0x20) != 0);
+            AddSprite(cursor, yOffset: index < 8 ? 0x3e : 0x56,
+                xOffset: 0x20 + (index & 7) * 16);
         }
     }
 
@@ -555,7 +649,7 @@ public partial class RingMenuScreen : Node2D
     }
 
     private void DrawRingGraphic(
-        int graphic, Vector2 position, bool preserveBoxGraphic = false)
+        Image output, int graphic, Vector2 position, bool preserveBoxGraphic = false)
     {
         int normalized = !preserveBoxGraphic && (graphic & 0x40) != 0
             ? 0x40
@@ -567,42 +661,52 @@ public partial class RingMenuScreen : Node2D
         {
             byte tile = _ringMap[offset + cell * 2];
             byte flags = _ringMap[offset + cell * 2 + 1];
-            DrawVramBackgroundTile((flags & 0x08) != 0 ? 1 : 0, tile, flags,
+            DrawVramBackgroundTile(output, (flags & 0x08) != 0 ? 1 : 0, tile, flags,
                 position + new Vector2((cell & 1) * 8, (cell >> 1) * 8));
         }
     }
 
     private void DrawRawOamTile(
-        int bank, int tile, int palette, Vector2 position, bool flipX = false)
+        Image output, int bank, int tile, int palette, Vector2 position, bool flipX = false)
     {
-        for (int y = 0; y < 16; y++)
-        for (int x = 0; x < 8; x++)
+        for (int half = 0; half < 2; half++)
         {
-            int sx = flipX ? 7 - x : x;
-            if (!TryGetVramPixel(bank, (tile & 0xfe) + y / 8, sx, y & 7,
-                out Color pixel, out _))
-                continue;
-            int shade = TwoBitShade(pixel);
-            if (shade != 0 && palette < _spritePalette.GetLength(0))
-                DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                    _spritePalette[palette, shade]);
+            if (!TrySelectVramTile(bank, (tile & 0xfe) + half, out Image source,
+                out int sourceTile, out bool interleaved, out _, signedAddressing: false)) continue;
+            Vector2I origin = SourceTileOrigin(source, sourceTile, interleaved);
+            for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                int sx = flipX ? 7 - x : x;
+                int shade = TwoBitShade(source.GetPixel(origin.X + sx, origin.Y + y));
+                if (shade != 0 && palette < _spritePalette.GetLength(0))
+                    SetMenuPixel(output, position + new Vector2(x, half * 8 + y),
+                        _spritePalette[palette, shade]);
+            }
         }
     }
 
-    private void DrawVramBackgroundTile(int bank, int tile, int flags, Vector2 position)
+    private void DrawVramBackgroundTile(Image output, int bank, int tile, int flags, Vector2 position)
     {
         bool flipX = (flags & 0x20) != 0;
         bool flipY = (flags & 0x40) != 0;
         int palette = flags & 7;
+        if (!TrySelectVramTile(bank, tile, out Image source, out int sourceTile,
+            out bool interleaved, out bool spriteEncoding, signedAddressing: false)) return;
+        Vector2I origin = SourceTileOrigin(source, sourceTile, interleaved);
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
         {
-            if (!TryGetVramPixel(bank, tile, flipX ? 7 - x : x,
-                flipY ? 7 - y : y, out Color pixel, out bool spriteEncoding))
-                continue;
-            DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
+            Color pixel = source.GetPixel(origin.X + (flipX ? 7 - x : x), origin.Y + (flipY ? 7 - y : y));
+            SetMenuPixel(output, position + new Vector2(x, y),
                 _bgPalette[palette, PaletteShade(pixel, spriteEncoding)]);
         }
+    }
+
+    private static void SetMenuPixel(Image output, Vector2 position, Color color)
+    {
+        int x = (int)position.X, y = (int)position.Y;
+        if ((uint)x < 160 && (uint)y < 144) output.SetPixel(x, y, color);
     }
 
     private void DrawVramTileToImage(
@@ -615,12 +719,6 @@ public partial class RingMenuScreen : Node2D
         DrawTileToImage(output, source, sourceTile, flags, _bgPalette, x, y,
             interleaved, spriteEncoding);
     }
-
-    private bool TryGetVramPixel(
-        int bank, int tile, int x, int y, out Color pixel, out bool spriteEncoding)
-        => OracleTileRenderer.TryGetVramPixel(
-            UnsignedSources(bank), tile, x, y,
-            out pixel, out spriteEncoding);
 
     private bool TrySelectVramTile(
         int bank, int tile, out Image source, out int sourceTile,
@@ -646,13 +744,6 @@ public partial class RingMenuScreen : Node2D
         spriteEncoding = result.SpriteEncoding;
         return true;
     }
-
-    private OracleVramSource[] UnsignedSources(int bank) =>
-        bank == 1
-            ? []
-            : Mode == RingMenuMode.Appraisal
-                ? _appraisalUnsignedBank0
-                : _listUnsignedBank0;
 
     private static Vector2 ListRingPosition(int index) =>
         new(16 + (index & 7) * 16, index < 8 ? 32 : 56);

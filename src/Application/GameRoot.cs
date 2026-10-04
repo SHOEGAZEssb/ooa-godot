@@ -515,6 +515,7 @@ public partial class GameRoot : Node2D
                 initialRoomLoadKind == InitialRoomLoadKind.LinkSummonedCutscene)));
         if (useSavedSpawn)
         {
+            DeathRespawnInitialization.Apply(_saveData);
             CompanionRuntimeState.RestoreRememberedFromDeathRespawn(
                 _runtimeState, _saveData);
         }
@@ -566,8 +567,10 @@ public partial class GameRoot : Node2D
         _dialogue.MessageSpeed = _saveData.TextSpeed;
         _hud.Initialize(_treasures, _inventory);
         _rooms.RoomChanged += SyncHudToRoom;
-        _statusBar = new StatusBarController(_inventory, _hud, _sound.PlaySound);
-        _mapScreen.Initialize(_rooms, _inventory);
+        _statusBar = new StatusBarController(_inventory, _hud, _sound.PlaySound,
+            () => _saveData.ReadWramByte(WramAddress.wPlaytimeCounter));
+        _mapScreen.Initialize(_rooms, _inventory,
+            () => _saveData.ReadWramByte(WramAddress.wPlaytimeCounter));
         _inventoryScreen.Initialize(_treasures, _inventory,
             () => (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Past) != 0, _hud);
         _ringMenuScreen.Initialize(_inventory);
@@ -605,6 +608,13 @@ public partial class GameRoot : Node2D
         if (!useSavedSpawn && !useDebugSavestate)
             spawn = FindSpawn();
         _player.Initialize(_playerWorld, _inventory, spawn, _random);
+        if (useSavedSpawn && initialRoomLoadKind == InitialRoomLoadKind.Ordinary)
+        {
+            // bank1.initializeGame sets signed invincibility $88: 120
+            // non-flashing object updates. Pregame cutscenes have already
+            // consumed that interval before their separate arrival handoff.
+            _player.ApplyInteractionInvincibility(0x78);
+        }
         if (useSavedSpawn)
         {
             // loadingRoom/func_5c18 call setEnteredWarpPosition before
@@ -810,13 +820,41 @@ public partial class GameRoot : Node2D
         // consumes that update, so do not also decrement his post-menu wait
         // on the frame where ownership is released.
         if (ringMenuOwnedFrame || _ringMenu.IsActive)
+        {
+            // runRingMenu updates the status bar after its state dispatch
+            // only for appraisal, including the visible opening fade-in.
+            if (_ringMenuScreen.Visible && _ringMenuScreen.Mode == RingMenuMode.Appraisal)
+                _statusBar.Update(delta);
             return;
+        }
         // cutscene02 advances before updateAllObjects. Its pending trigger
         // already blocks opening a menu between selection and state0.
         bool toggleOwnedUpdate = _entities.FloorToggle?.Active == true;
         _entities.FloorToggle?.AdvanceBeforeObjects();
-        if (!arrivalOwnsUpdate) _inventoryMenu.Update(delta);
-        if (_mainMenu is not null)
+        // bank1.s cutscene01 advances shock before updateMenus, including
+        // its terminal update. Loading/warp and toggle cutscenes omit it.
+        if (!arrivalOwnsUpdate && _transitions.GameplayMenusAvailable && !toggleOwnedUpdate)
+            _player.AdvanceElectricShock();
+        // b2_updateMenus warns only on its idle, eligible dispatch. IntroDone
+        // rejects a fresh Start/Select edge before this cue; active menus and
+        // their final closing update bypass it entirely.
+        bool menuEdge = Input.IsActionJustPressed("inventory") || Input.IsActionJustPressed("map");
+        if (_menuLifecycle.IsActive) _transitions.HandOffArrivalPaletteToMenu();
+        if (!arrivalOwnsUpdate && !toggleOwnedUpdate && !_menuLifecycle.IsActive &&
+            _transitions.GameplayMenusAvailable && !DialogueOpen && !_player.IsDying && _harp.PlayingInstrument == 0 &&
+            !_interactions.GameplayMenuActive && !_roomEvents.MenusDisabled &&
+            !_entities.PlayerMenusDisabled && !_player.ElectricShockActive && !_player.GaleActive &&
+            (!menuEdge || _saveData.HasGlobalFlag(GlobalFlag.IntroDone)))
+            _statusBar.UpdateLowHealthWarning();
+        // b2_updateMenus checks scrolling, active text, death and instrument
+        // before the IntroDone error cue. Active menus retain their dispatch.
+        InventoryMenuController inventoryOwner = _inventoryMenu;
+        if (!arrivalOwnsUpdate && !toggleOwnedUpdate && (_inventoryMenu.IsActive ||
+            _transitions.GameplayMenusAvailable && !DialogueOpen && !_player.IsDying && _harp.PlayingInstrument == 0))
+            _inventoryMenu.Update(delta);
+        // Game Over restarts THREAD_1 into initializeGame. Its room's first
+        // object update belongs to the following dispatch, not this old pass.
+        if (_mainMenu is not null || !ReferenceEquals(inventoryOwner, _inventoryMenu))
             return;
         if (_inventoryMenu.IsActive)
         {
@@ -827,7 +865,12 @@ public partial class GameRoot : Node2D
             }
             return;
         }
-        if (!arrivalOwnsUpdate) _mapMenu.Update(delta);
+        bool mapOwnedUpdate = _mapMenu.IsActive;
+        bool transitioningBeforeMap = IsTransitioning;
+        if (!arrivalOwnsUpdate && !toggleOwnedUpdate) _mapMenu.Update(delta);
+        // Accepted Gale travel loads the destination at white. cutscene03
+        // consumes that update; its new Link object starts on the next pass.
+        if (mapOwnedUpdate && !transitioningBeforeMap && _transitions.IsTransitioning) return;
         // updateMenus returns the post-update wOpenedMenuType. Completing
         // menuStateFadeIntoGame resumes cutscene01 on this same update.
         if (_mapMenu.IsActive)
@@ -845,6 +888,7 @@ public partial class GameRoot : Node2D
         if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnedUpdate && !_roomEvents.OwnsGameLogic)
             (_pirateShipCourse ??= new PirateShipCourse()).Update(
                 _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
+        bool arrivalPaletteAdvanced = _transitions.AdvanceBasicArrivalPaletteBeforeObjects(delta);
         if (!IsTransitioning && !_harp.IsPlaying)
             _entities.UpdateSpecialObjectsBeforePlayer(_player);
         // updateAllObjects begins with updateSpecialObjects (companion, then
@@ -852,14 +896,16 @@ public partial class GameRoot : Node2D
         // replayed here before enemies, parts, and interactions.
         bool scrollOwnedUpdate = _transitions.ScrollActive;
         bool roomTransitionOwnedUpdate = IsTransitioning;
-        _harp.BeginObjectUpdate();
+        // linkState01 returns for active text before clearing the shared
+        // instrument byte. A completed Flute/Harp signal survives that text.
+        if (!DialogueOpen) _harp.BeginObjectUpdate();
         _transitions.BeginObjectUpdate();
         // warpTransitionB's final state initializes normal Link and returns;
         // movement/input starts at the following cutscene00 object update.
-        if (!initializingArrival) _player.AdvanceApplicationUpdate();
+        if (!initializingArrival) _player.AdvanceApplicationUpdate(advanceElectricShock: false);
         _roomEvents.UpdateSpecialObjects();
         _entities.ClearSignalsAfterPlayer();
-        _transitions.UpdateWarpAndEffects(delta);
+        if (!arrivalPaletteAdvanced) _transitions.UpdateWarpAndEffects(delta);
         if (!_transitions.TimeWarpActive)
         {
             _deathRespawnPoints.Update();
@@ -949,8 +995,12 @@ public partial class GameRoot : Node2D
         // Interactions and moving platforms can move Link after his own state
         // handler, so check the final object-authored position as well. This is
         // required for side-view edge warps reached on a moving platform.
-        if (!IsTransitioning && !_transitions.CheckRequestedTileWarp(_player))
-            _transitions.CheckRoomExit(_player);
+        if (!IsTransitioning)
+        {
+            bool tileWarpStarted = _transitions.CheckRequestedTileWarp(_player);
+            bool deepWaterStarted = _transitions.BeginRequestedDeepWaterDive(_player);
+            if (!tileWarpStarted && !deepWaterStarted) _transitions.CheckRoomExit(_player);
+        }
 
         // The camera likewise observes the final post-object Link position.
         // RoomTransitionController.Update still advances active warps and
@@ -1217,8 +1267,8 @@ public partial class GameRoot : Node2D
         _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
         _mapMenu = new MapMenuController(
             _mapScreen, _dialogue, _menuLifecycle,
-            () => !IsTransitioning && !DialogueOpen && !InventoryMenuOpen &&
-                !_player.GaleActive && !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
+            () => _transitions.GameplayMenusAvailable && !DialogueOpen && !InventoryMenuOpen &&
+                !_player.GaleActive && !_player.IsDying && _harp.PlayingInstrument == 0 && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone),
@@ -1233,8 +1283,8 @@ public partial class GameRoot : Node2D
             _inventoryScreen, _saveQuitScreen, _menuLifecycle,
             () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone),
             () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone) &&
-                !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !_player.GaleActive && !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
+                _transitions.GameplayMenusAvailable && !DialogueOpen && !MapMenuOpen &&
+                !_player.GaleActive && !_player.IsDying && _harp.PlayingInstrument == 0 && !_roomEvents.Active &&
                 !_roomEvents.MenusDisabled &&
                 !_entities.PlayerMenusDisabled && !_player.ElectricShockActive,
             SaveActiveFile, ReturnToTitle, _sound.PlaySound,

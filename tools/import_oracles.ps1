@@ -58,6 +58,7 @@ $stageContracts = @(
         -outputs @(
             'globalFlagValues', 'singleTileChangeRecords', 'tilesets',
             'paletteHeaderSource', 'paletteDataSource', 'tilesetRecordSize', 'tilesetMetadata')
+    New-ImportStageContract 'save-initialization' 'Import-SaveInitializationData.ps1'
     New-ImportStageContract 'menus' 'Import-MenuAssets.ps1' `
         -inputs @('paletteDataSource') `
         -outputs @('textYaml') `
@@ -72,7 +73,7 @@ $stageContracts = @(
             'allTextFallthroughIds', 'objectGfxHeaderSource') `
         -functionInputs @('Normalize-DialogueText')
     New-ImportStageContract 'map-and-items' 'Import-MapAndItemData.ps1' `
-        -inputs @('allTextIdsByName', 'allTextPositions', 'allTexts') `
+        -inputs @('allTextIdsByName', 'allTextPositions', 'allTexts', 'allTextFallthroughIds') `
         -outputs @(
             'enemyUnspawnableTileCount', 'soundIds', 'treasureIds',
             'treasureObjectRecords', 'treasureObjectSource') `

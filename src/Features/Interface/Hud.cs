@@ -14,6 +14,7 @@ public partial class Hud : Node2D
     private const int VisibleColumns = 20;
 
     private Texture2D _background = null!;
+    private ImageTexture? _composedTexture;
     private Image _hudTiles = null!;
     private Image _itemIcons1 = null!;
     private Image _itemIcons2 = null!;
@@ -57,32 +58,42 @@ public partial class Hud : Node2D
 
     public override void _Draw()
     {
-        if (_statusBarHidden)
+        DrawTexture(GetComposedTexture(includeVisibility: true), Vector2.Zero);
+        if (_statusBarHidden && _hiddenStatusBarFade.A > 0.0f)
         {
             var bounds = new Rect2(
                 Vector2.Zero,
                 new Vector2(
                     OracleRoomData.ViewportWidth,
                     OracleRoomData.GameplayScreenTop));
-            DrawRect(bounds, HudPalette[2]);
-            if (_hiddenStatusBarFade.A > 0.0f)
-                DrawRect(bounds, _hiddenStatusBarFade);
-            return;
+            DrawRect(bounds, _hiddenStatusBarFade);
         }
-
-        DrawTexture(_background, Vector2.Zero);
-
-        if (_treasures == null || _inventory == null)
-            return;
-
-        DrawEquippedItems();
     }
 
     internal Image ComposeImage()
     {
-        Image result = _background.GetImage();
+        Image result = (Image)_background.GetImage().Duplicate();
         DrawEquippedItems(result);
         return result;
+    }
+
+    internal Image ComposeDisplayImage()
+    {
+        if (!_statusBarHidden) return ComposeImage();
+        // hideStatusBar_body replaces the complete strip with tile $00's
+        // palette-0 shade 2. Supported callers clear HUD OAM or retain the
+        // background priority that hides equipped-item sprites.
+        Image result = Image.CreateEmpty(160, 16, false, Image.Format.Rgba8);
+        result.Fill(HudPalette[2]);
+        return result;
+    }
+
+    internal Texture2D GetComposedTexture(bool includeVisibility = false)
+    {
+        using Image frame = includeVisibility ? ComposeDisplayImage() : ComposeImage();
+        if (_composedTexture is null) _composedTexture = ImageTexture.CreateFromImage(frame);
+        else _composedTexture.Update(frame);
+        return _composedTexture;
     }
 
     private void DrawEquippedItems(Image? output = null)
@@ -271,7 +282,7 @@ public partial class Hud : Node2D
 
         if (display.ExtraMode == 1)
         {
-            int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
+            int amount = _inventory.TreasureQuantityDisplayValue(display.TreasureId);
             DrawHudOverlayTile(0x10 + ((amount >> 4) & 0x0f), position, output);
             DrawHudOverlayTile(0x10 + (amount & 0x0f), position + new Vector2(8, 0), output);
             return;
@@ -332,13 +343,13 @@ public partial class Hud : Node2D
         DisplayRecord display = _treasures.GetButtonDisplay(item, _inventory);
         if (display.ExtraMode != 1)
             return null;
-        int amount = _inventory.BcdAmountForInventoryDisplay(display.TreasureId);
+        int amount = _inventory.TreasureQuantityDisplayValue(display.TreasureId);
         return (0x10 + ((amount >> 4) & 0x0f), 0x10 + (amount & 0x0f),
             isA ? new Vector2(56, 8) : new Vector2(16, 8));
     }
 
     internal bool DungeonKeyDisplayActive =>
-        DungeonIndex is >= 0 and < 16 && (TilesetFlags & (int)oracleofages.TilesetFlags.LargeIndoors) == 0;
+        DungeonIndex is >= 0 and < 16 && (TilesetFlags & 0x18) == 0x08;
     internal bool StatusBarHidden => _statusBarHidden;
     internal float HiddenStatusBarFadeAlphaForValidation =>
         _hiddenStatusBarFade.A;

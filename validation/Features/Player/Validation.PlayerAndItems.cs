@@ -1058,7 +1058,9 @@ public sealed partial class ValidationRoot
                 Vector2.Right,
                 diveJustPressed: true);
             FailIf(
-                player.TopDownDiving || player.TopDownDiveCounter != 0 ||
+                // linkUpdateDiving@surface preserves counter2 when B is
+                // pressed; ZORA_RING has retained its original $78 value.
+                player.TopDownDiving || player.TopDownDiveCounter != 0x78 ||
                 player.ZIndex != Player.NormalZIndex ||
                 world.DrowningSplashes.Count != transitionSplashCount + 2,
                 "B did not surface immediately from a Zora Ring dive " +
@@ -2095,7 +2097,8 @@ public sealed partial class ValidationRoot
             enemies.OctorokProjectile, _currentRoom, shieldCenter, angle: ObjectAngle.Up);
         rock.UpdateFrame(player); // State 0 setup-only update.
         int healthBeforeBlock = player.HealthQuarters;
-        rock.UpdateFrame(player);
+        ((ILinkContactEntity)rock).HandleLinkContact(player);
+        rock.UpdateFrame(player); // Consume the preceding post-object contact.
         FailIf(
             rock.State != HostileProjectileState.Bouncing ||
             rock.Angle != 0x10 || rock.Counter != 0x20 || rock.ZFixed != 0 ||
@@ -2107,6 +2110,7 @@ public sealed partial class ValidationRoot
         arrow.Initialize(enemies.EnemyArrow, _currentRoom, Vector2.Zero, angle: ObjectAngle.Up);
         arrow.Position = shieldCenter;
         arrow.UpdateFrame(player); // State 0 setup-only update.
+        ((ILinkContactEntity)arrow).HandleLinkContact(player);
         arrow.UpdateFrame(player);
         FailIf(
             arrow.State != HostileProjectileState.Bouncing ||
@@ -2123,6 +2127,7 @@ public sealed partial class ValidationRoot
         unblockedRock.Initialize(
             enemies.OctorokProjectile, _currentRoom, player.Position, angle: ObjectAngle.Up);
         unblockedRock.UpdateFrame(player);
+        ((ILinkContactEntity)unblockedRock).HandleLinkContact(player);
         unblockedRock.UpdateFrame(player);
         FailIf(
             !unblockedRock.Finished || player.HealthQuarters >= healthBeforeBlock ||
@@ -2222,6 +2227,14 @@ public sealed partial class ValidationRoot
 
     private void ValidateShovel()
     {
+        void AdvanceShovel(int frames)
+        {
+            for (int frame = 0; frame < frames; frame++)
+            {
+                _player.AdvanceShovelForValidation(1);
+                _shovel.UpdateChild(frozen: false);
+            }
+        }
         LoadBushValidationRoom();
         Vector2 tileCenter = new(24, 56);
         _player.WarpTo(tileCenter + Vector2.Down * 8.0f);
@@ -2233,21 +2246,21 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         int debrisBefore = _entities.Entities<ShovelDebrisEffect>().Count;
 
-        _player.StartShovelActionForValidation(Vector2.Up);
+        _player.StartShovelAction();
         FailIf(
             !_player.IsUsingShovel || _player.ShovelFrame != 0 ||
             _player.ShovelChildActive ||
             _player.ShovelChildOffset != new Vector2(0, -8),
             "ITEM_SHOVEL did not initialize LINK_ANIM_MODE_DIG_2 at its up-facing offset.");
 
-        _player.AdvanceShovelForValidation(3);
+        AdvanceShovel(3);
         FailIf(
             _player.ShovelFrame != 3 || _currentRoom.GetMetatile(tileCenter) != 0x01 ||
             _sound.PlayRequestsFor(SoundId.SndDig) != 0 ||
             _sound.PlayRequestsFor(SoundId.SndClink) != 0,
             "ITEM_SHOVEL attempted its tile collision before animation update 4.");
 
-        _player.AdvanceShovelForValidation(1);
+        AdvanceShovel(1);
         List<ShovelDebrisEffect> debris = _entities.Entities<ShovelDebrisEffect>();
         FailIf(
             _player.ShovelFrame != 4 || !_player.ShovelChildActive ||
@@ -2262,34 +2275,37 @@ public sealed partial class ValidationRoot
         ShovelDebrisEffect chip = debris[^1];
         Vector2 debrisStart = chip.PrecisePosition;
         chip.UpdateFrame();
+        FailIf(chip.ElapsedFrames != 0 || chip.PrecisePosition != debrisStart || chip.ZFixed != 0 || chip.SpeedZ != -0x240,
+            "INTERAC_SHOVELDEBRIS initialization moved or advanced gravity.");
+        chip.UpdateFrame();
         FailIf(
             chip.ElapsedFrames != 1 || chip.PrecisePosition != debrisStart + Vector2.Up * 0.5f ||
             chip.SpeedZ != -0x1e0 || chip.ZFixed != -0x240,
             "INTERAC_SHOVELDEBRIS did not apply SPEED_80 and its original 8.8 Z integration.");
-        for (int frame = 1; frame < 14; frame++)
+        for (int frame = 1; frame < 15; frame++)
             chip.UpdateFrame();
         FailIf(
-            !chip.Finished || chip.ElapsedFrames != 14,
-            "INTERAC_SHOVELDEBRIS did not end with its 14-update animation.");
+            !chip.Finished || chip.ElapsedFrames != 15,
+            "INTERAC_SHOVELDEBRIS did not delete after observing its 14-update animation terminator.");
 
-        _player.AdvanceShovelForValidation(3);
+        AdvanceShovel(3);
         FailIf(
             _player.ShovelFrame != 7 || !_player.ShovelChildActive,
             "ITEM_SHOVEL's four-update collision child ended before update 8.");
-        _player.AdvanceShovelForValidation(1);
+        AdvanceShovel(1);
         FailIf(
             _player.ShovelFrame != 8 || _player.ShovelChildActive,
             "ITEM_SHOVEL did not enter graphics $fc and remove its collision child on update 8.");
-        _player.AdvanceShovelForValidation(14);
+        AdvanceShovel(14);
         FailIf(
             !_player.IsUsingShovel || _player.ShovelFrame != 22,
             "LINK_ANIM_MODE_DIG_2 ended before update 23.");
-        _player.AdvanceShovelForValidation(1);
+        AdvanceShovel(1);
         FailIf(_player.IsUsingShovel, "LINK_ANIM_MODE_DIG_2 did not end on update 23.");
 
         _sound.ClearPlayRequestAudit();
         _player.StartShovelAction();
-        _player.AdvanceShovelForValidation(4);
+        AdvanceShovel(4);
         FailIf(
             _currentRoom.GetMetatile(tileCenter) != 0x1c ||
             _saveData.GashaMaturity != 1 ||
@@ -2307,7 +2323,7 @@ public sealed partial class ValidationRoot
         _saveData.SetRoomFlag(_activeGroup, _currentRoom.Id, OracleSaveData.RoomFlag80, false);
         _sound.ClearPlayRequestAudit();
         _player.StartShovelAction();
-        _player.AdvanceShovelForValidation(4);
+        AdvanceShovel(4);
         FailIf(
             _currentRoom.GetMetatile(tileCenter) != 0xd2 ||
             _saveData.GashaMaturity != 51 ||
@@ -2638,7 +2654,8 @@ public sealed partial class ValidationRoot
         int beforeAmount = _inventory.EmberSeeds;
         int beforeEntities = _entities.Entities<EmberSeedEffect>().Count;
         _player.WarpTo(linkPosition);
-        _player.StartSeedSatchelActionForValidation(Vector2.Right);
+        _player.Face(Vector2I.Right);
+        _player.StartSeedSatchelAction();
         int expectedAmount = ((beforeAmount >> 4) * 10 + (beforeAmount & 0x0f)) - 1;
         expectedAmount = ((expectedAmount / 10) << 4) | expectedAmount % 10;
         FailIf(
@@ -2666,11 +2683,14 @@ public sealed partial class ValidationRoot
             !_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 7,
             "LINK_ANIM_MODE_21 ended before its eighth update.");
         _player.AdvanceSeedSatchelForValidation(1);
-        FailIf(_player.IsUsingSeedSatchel, "LINK_ANIM_MODE_21 did not end on update 8.");
+        FailIf(!_player.IsUsingSeedSatchel, "Satchel parent did not retain the animation terminator on update 8.");
+        _player.AdvanceSeedSatchelForValidation(1);
+        FailIf(_player.IsUsingSeedSatchel, "Satchel parent did not clear on update 9 after observing the terminator.");
 
         int activeSeedAmount = _inventory.EmberSeeds;
         int activeSeedCount = _entities.Entities<EmberSeedEffect>().Count;
-        _player.StartSeedSatchelActionForValidation(Vector2.Left);
+        _player.Face(Vector2I.Left);
+        _player.StartSeedSatchelAction();
         FailIf(
             _player.IsUsingSeedSatchel ||
             _inventory.EmberSeeds != activeSeedAmount ||
@@ -2819,7 +2839,8 @@ public sealed partial class ValidationRoot
         int activeSeedsBeforeUse =
             _entities.Entities<EmberSeedEffect>().Count;
         _player.WarpTo(linkPosition);
-        _player.StartSeedSatchelActionForValidation(Vector2.Right);
+        _player.Face(Vector2I.Right);
+        _player.StartSeedSatchelAction();
         FailIf(
             !_player.IsUsingSeedSatchel ||
             _inventory.ScentSeeds != expectedScentSeeds ||
@@ -3997,7 +4018,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _player.HealthQuarters != 11 || _hud.HealthQuarters != 12,
             "Direct quarter-heart damage changed the HUD before its update.");
-        _statusBar.Update(1.0 / 60.0);
+        AdvanceStatusBarUpdates(1);
         FailIf(_hud.HealthQuarters != 11, "Displayed damage did not subtract one quarter per update.");
 
         _player.Heal(1);
@@ -4005,7 +4026,7 @@ public sealed partial class ValidationRoot
             _player.HealthQuarters != 12 || _hud.HealthQuarters != 11,
             "Direct healing changed the HUD before its divisor-4 update.");
         for (int update = 0; update < 4 && _hud.HealthQuarters != 12; update++)
-            _statusBar.Update(1.0 / 60.0);
+            AdvanceStatusBarUpdates(1);
         FailIf(_hud.HealthQuarters != 12, "Displayed healing did not add a quarter on a divisor-4 update.");
 
         _activeGroup = 0;
@@ -4020,7 +4041,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _player.HealthQuarters != 10 || _hud.HealthQuarters != 12,
             "Lava hazard changed displayed health before updateStatusBar_body.");
-        _statusBar.Update(2.0 / 60.0);
+        AdvanceStatusBarUpdates(2);
         FailIf(
             _hud.HealthQuarters != 10,
             "Lava hazard did not synchronize its delayed half-heart damage to the HUD.");

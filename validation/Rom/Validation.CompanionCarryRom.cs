@@ -57,10 +57,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriThrowRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool drop in new[] { false, true })
         foreach (Vector2I direction in new[] { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left })
         foreach (int terrain in new[] { 0, 1, 2 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom(); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.Bracelet, 1);

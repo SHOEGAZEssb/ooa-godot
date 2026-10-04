@@ -113,10 +113,11 @@ public sealed partial class ValidationRoot
     private void ValidateBombPickupThrowRom()
     {
         int cases = 0;
-        foreach (bool batched in new[] { false, true })
+        int hostCase4 = 0;
         foreach (int direction in Enumerable.Range(0, 4))
         foreach (int ring in new[] { 0xff, 0x12, 0x30 }) // ordinary, Toss, Bombproof
         foreach (bool drop in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase4++))
         {
             BombRom rom = PrepareBombGameplayRom(direction, ring);
             var audit = _sound.AttachPlayRequestAudit();
@@ -156,8 +157,9 @@ public sealed partial class ValidationRoot
     {
         // Blast remains away from Link: isolate explosion collision geometry
         // and cleanup from Link recoil, which receives separate edge probes.
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (int ring in new[] { 0xff, 0x0c, 0x30 })
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             BombRom rom = PrepareBombGameplayRom(0, ring);
             int update = 0;
@@ -190,9 +192,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateBombGameplayRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int ring in new[] { 0xff, 0x19, 0x3b, 0x30, 0x0c }) // ordinary, Bomber's, Peace, Bombproof, Blast
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             BombRom rom = PrepareBombGameplayRom(0, ring, primary);
             string button = primary ? "attack" : "item";
@@ -235,9 +238,10 @@ public sealed partial class ValidationRoot
 
     private void CompareBombAllocationRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int ring in new[] { 0xff, 0x19 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             BombRom rom = PrepareBombGameplayRom(1, ring, primary);
             string button = primary ? "attack" : "item";

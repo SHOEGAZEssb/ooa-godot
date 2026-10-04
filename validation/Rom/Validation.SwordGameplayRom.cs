@@ -44,9 +44,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateSwordGameplayRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int ring in new[] { 0xff, 0x16, 0x2f, 0x31 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             SwordRom rom = PrepareSwordGameplayRom(2, ring);
             if (!primary) { _inventory.EquipA(0); _inventory.EquipB(TreasureId.Sword); }

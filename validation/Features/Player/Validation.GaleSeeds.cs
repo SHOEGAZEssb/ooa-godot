@@ -179,8 +179,14 @@ public sealed partial class ValidationRoot
             "Confirmed gale warp transferred before the 32-update normal fade completed.");
         _mapMenu.Update(1.0 / 60.0);
         FailIf(_mapMenu.IsActive || _rooms.ActiveGroup != 0 || _currentRoom.Id != 0xac ||
-            !_player.IsRoomWarpFalling || _player.Position != new Vector2(72, 84),
+            _player.IsRoomWarpFalling || _player.Position != new Vector2(72, 88),
             "Confirmed gale warp did not transfer at white to room 0:ac, position $54, transition $05.");
+        // cutscene03 loads packed XY and force state $0a at white. The next
+        // object update consumes it and runs warpTransition5_00 before gravity.
+        _transitions.Update(1.0 / 60.0);
+        FailIf(!_player.IsRoomWarpFalling || _player.Position != new Vector2(72, 84) ||
+            _player.ObjectZHigh != 0xa0,
+            "Gale destination did not initialize its fall on the first object update after loading.");
         for (int i = 0; i < 150 && _transitions.IsTransitioning; i++) _transitions.Update(1.0 / 60.0);
         FailIf(_transitions.IsTransitioning || _player.IsRoomWarpFalling,
             "Gale destination did not complete falling arrival and release transition ownership.");

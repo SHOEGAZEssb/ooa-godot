@@ -22,12 +22,17 @@ public sealed partial class ValidationRoot
 
     private void ValidateFeatherIceMomentumRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (bool primary in new[] { false, true })
         foreach (int takeoff in new[] { 0, 8, 16, 24, 0xff })
         foreach (int steering in new[] { 0, 8, 16, 24, 0xff })
         foreach (int groundUpdates in new[] { 1, 13 })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
+            // Keep every steering relation on the canonical takeoff, and
+            // every absolute takeoff with released steering. Movement ROM
+            // tests independently cover rotation and coordinate arithmetic.
+            if (takeoff != 0 && steering != 0xff) continue;
             FeatherRom rom = PrepareFeatherRom(primary, 0.5f);
             // The fractional warp in PrepareFeatherRom clears velocity.
             // Both loops enter ice from rest and generate their own momentum.
@@ -49,9 +54,10 @@ public sealed partial class ValidationRoot
             StepFeatherRom(rom, 1, batched, primary: primary);
             StepFeatherRom(rom, 31, batched, held: true, pressed: true, primary: primary);
         }
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool snowshoe in new[] { false, true })
         foreach (int pegasus in new[] { 0, 0x80, 20 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             FeatherRom rom = PrepareFeatherRom();
             if (snowshoe)

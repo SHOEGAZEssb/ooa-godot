@@ -60,7 +60,7 @@ public sealed partial class ValidationRoot
                             $"Room 0:{target:x2} retained outgoing base graphics at VRAM $8c00.");
                     StepGameplayUpdates(31, Vector2.Zero, batched: batched);
                     FailIf(!IsTransitioning, "Room-pack fade-in completed before its terminal update.");
-                    StepGameplayUpdates(1, Vector2.Zero);
+                    StepGameplayUpdates(2, Vector2.Zero, batched: batched);
                     FailIf(IsTransitioning || _player.PrecisePosition != arrival,
                         "Room-pack fade did not release Link at the preserved arrival coordinate.");
                     StepGameplayUpdates(1, Vector2.Zero);

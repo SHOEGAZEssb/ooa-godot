@@ -48,7 +48,7 @@ static void RunSourceModelTests(string root)
 
     var repository = new AssemblySourceRepository(
         root,
-        new[] { "ROM_AGES", "REGION_US", "AGES_ENGINE", "BUILD_VANILLA" });
+        new[] { "ROM_AGES", "REGION_US", "AGES_ENGINE", "BUILD_VANILLA", "ENABLE_US_BUGFIXES" });
     AssemblySourceFile file = repository.Open("fixture.s");
     Assert(ReferenceEquals(file, repository.Open(sourcePath)), "repository did not cache source");
     Assert(repository.PhysicalReadCount == 1, "source was physically read more than once");
@@ -102,6 +102,13 @@ static void RunSourceModelTests(string root)
     Assert(file.PositionAt(source.IndexOf("ld a", StringComparison.Ordinal)).Line == 6,
         "line-start offsets changed");
     repository.AssertReadOnce();
+
+    string regionalPath = Path.Combine(root, "regional.s");
+    File.WriteAllText(regionalPath,
+        "mask:\n.ifndef ENABLE_US_BUGFIXES\n.dw %1001100000000000\n.else\n.dw %1001000000000000\n.endif\n",
+        new UTF8Encoding(false));
+    Assert(repository.Open(regionalPath).GetDataDirectives("mask").Single().Operands[0] == "%1001000000000000",
+        "supported clean-US symbols selected the pre-US surfacing mask");
 
     bool escaped = false;
     try

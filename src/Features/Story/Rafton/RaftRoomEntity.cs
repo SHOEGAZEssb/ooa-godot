@@ -42,6 +42,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     private int _dismountCounter;
     private int _stateCounter;
     private int _forcedWalkCounter;
+    private bool _forcedWalkRequestPending;
     private RaftPhase _phase;
     private bool _cutsceneControlled;
     private bool _supportsLink;
@@ -116,11 +117,19 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         }
         else if (_forcedWalkCounter > 0)
         {
+            // The raft publishes state $0b before Link. That Link dispatch
+            // consumes the request and returns; initialization is next update.
+            if (_forcedWalkRequestPending)
+            {
+                _forcedWalkRequestPending = false;
+                return;
+            }
             Vector2I direction = DirectionVector(_direction);
-            player.AdvanceForcedRoomEntryMovement(direction);
             _forcedWalkCounter--;
             if (_forcedWalkCounter == 0)
                 player.EndForcedRoomEntryMovement();
+            else
+                player.AdvanceForcedRoomEntryMovement(direction);
         }
     }
 
@@ -138,6 +147,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
                 // pass. State $00 initializes it on the following update.
                 _phase = RaftPhase.Riding;
                 _stateCounter = _behavior.DismountWaitFrames;
+                _angle = 0;
                 _dismountCounter = 0;
                 _dismountAngle = 0;
                 _mountedAnimation.SetAnimation(0);
@@ -157,6 +167,9 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
                     // State $02 falls through to $03 on its zero update;
                     // the replacement interaction initializes later that pass.
                     CompanionRuntimeState.Clear(_runtime, CompanionRuntimeState.RaftId);
+                    // objectCreateInteraction copies only yh/xh into the
+                    // freshly cleared INTERAC $e6:$02 slot.
+                    _precisePosition = OracleObjectMath.ToPixelPosition(_precisePosition);
                     _phase = RaftPhase.Waiting;
                     _supportsLink = false;
                     ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
@@ -298,9 +311,10 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         _angle = direction * 8;
         _phase = RaftPhase.Dismounting;
         _forcedWalkCounter = _behavior.DismountWalkFrames;
+        _forcedWalkRequestPending = true;
         Vector2I movement = DirectionVector(direction);
         player.EndRaftRide(player.PrecisePosition, direction);
-        player.BeginForcedRoomEntryMovement(movement);
+        player.BeginForcedRoomEntryMovement(movement, deferInitialization: true);
         SavePosition(player);
         return true;
     }
@@ -327,9 +341,9 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         CompanionRuntimeState.Update(
             _runtime, CompanionRuntimeState.RaftId, _roomId,
             _precisePosition, _direction);
-        player.SetRaftRidePosition(
-            _precisePosition,
-            _mountedAnimation.CurrentParameter, Vector2.Zero);
+        // The companion updates before Link, but func_410d copies its
+        // current position/animation offset only after the item and
+        // interaction passes. Item parents consume Link's preceding copy.
     }
 
     internal void BeginRaftwreckControl(Player player, Vector2 position)

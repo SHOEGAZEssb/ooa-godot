@@ -45,12 +45,16 @@ public sealed class SeedSatchelController
 
     public int TryUse(Player player)
     {
+        // Satchel state 0 rejects underwater/swimming before selecting a
+        // seed; Pegasus is subject to the same parent gate as physical seeds.
+        if ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0 ||
+            player.TopDownSwimming || player.SideScrollSwimming)
+            return 0;
         int seedItem = TreasureId.EmberSeeds +
             _inventory.SatchelSelectedSeeds;
         if (seedItem == ItemId.PegasusSeed)
         {
-            if ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) == 0 && !player.TopDownSwimming && !player.SideScrollSwimming)
-                Pegasus.TryUse();
+            Pegasus.TryUse();
             return 0; // This branch clears the parent without immobilizing Link.
         }
         if (_entities.HasActiveSeed(seedItem, SeedLaunchKind.Satchel) ||
@@ -67,8 +71,10 @@ public sealed class SeedSatchelController
         }
 
         _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
-            player.Position, player.FacingVector, record, _rooms.ActiveGroup,
-            LinkZFixed: seedItem == ItemId.GaleSeed ? player.GaleZFixed : 0));
+            player.PrecisePosition, player.FacingVector, record, _rooms.ActiveGroup,
+            // itemCreateChildWithID copies all eight direction/position bytes,
+            // including both Z bytes before Link's following gravity update.
+            LinkZFixed: player.ItemCreationZFixed));
         if (!_inventory.TryConsumeSelectedSatchelSeed(out int consumed) ||
             consumed != seedItem)
         {
@@ -121,6 +127,13 @@ public sealed class SeedSatchelController
             return true;
         }
 
+        // Shooter state 1 calls clearSelfIfNoSeeds on every parent update,
+        // before checking held input or turning the aiming animation.
+        if (!_inventory.HasSelectedShooterSeed())
+        {
+            ClearShooter();
+            return true;
+        }
         bool held = _shooterPrimaryButton ? primaryHeld : secondaryHeld;
         if (!held)
         {
@@ -153,14 +166,18 @@ public sealed class SeedSatchelController
             ClearShooter();
             return;
         }
-        _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
-            player.Position,
-            DirectionForAngle(_shooterAngle),
-            record,
-            _rooms.ActiveGroup,
-            SeedLaunchKind.Shooter,
-            _shooterAngle,
-            seedItem == ItemId.GaleSeed ? player.GaleZFixed : 0));
+        // Unlike Satchel, parentItemCode_shooter does not test the carry flag
+        // from itemCreateChildWithID: a full pool still consumes ammo and enters
+        // the twelve-update post-shot state, without creating a projectile.
+        if (_entities.DynamicItemSlotAvailable)
+            _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
+                player.PrecisePosition,
+                DirectionForAngle(_shooterAngle),
+                record,
+                _rooms.ActiveGroup,
+                SeedLaunchKind.Shooter,
+                _shooterAngle,
+                player.ItemCreationZFixed));
         if (!_inventory.TryConsumeSelectedShooterSeed(out int consumed) ||
             consumed != seedItem)
         {

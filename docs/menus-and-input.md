@@ -16,6 +16,8 @@ white; it must not briefly resume gameplay between screens. Timing-critical
 fades use the fixed-update controller, not a generic tween.
 The white fade adds and saturates integer 5-bit color-channel offsets using
 the source speed and an additive scene material; it does not interpolate RGB.
+Menu fade-in starts its counter at $20; returning to the room starts at $1e.
+Both retain the eleven-update lifecycle, with distinct intermediate colors.
 
 `GameplayPauseController` provides an exclusive, owner-checked lease. It saves
 the exact processing/input state it suspends and restores that state on
@@ -28,6 +30,9 @@ lifecycle; preserve its update masks, fade, and screen boundary.
 Normal map and inventory closing resume gameplay on the update that releases
 menu ownership. The post-menu return value observes the cleared menu state,
 so an eligible stair can activate on that same update.
+Toggle-floor cutscenes bypass normal menu dispatch throughout their handler,
+including the update that releases the object freeze. Fresh menu input becomes
+eligible on the following normal gameplay update.
 
 ## Screen-space boundaries
 
@@ -36,6 +41,13 @@ only visited destinations from the imported ordered tree table, including the
 present scent tree's planting flag. Confirming a destination transfers at white
 to the room transition owner; canceling restores Link's falling state in the
 existing room. Neither path uses development fast travel.
+Accepted travel retains the map presentation during the ordinary warp fade.
+Destination loading consumes the white update; the first following Link update
+consumes its forced warping state and initializes the fall, before gravity starts.
+That first object pass restores the ordinary menu caller. Falling and collapsed
+Link can therefore pause during the remaining arrival fade. Opening a menu
+replaces the arrival palette thread; closing completes the menu's room fade and
+resumes the retained fall on that same update.
 
 Full-screen menus and their fade use 160 by 144 screen space, including the
 HUD. A room-warp fade covers only the gameplay field, normally at y=16-143. Ordinary room
@@ -53,9 +65,67 @@ cursor transitions, state changes, modal phases, and update timing. Apply Game
 Boy OAM offsets, signed byte wrap, and hardware coordinate biases at the
 rendering boundary instead of baking corrected coordinates into imported data.
 
+The palette thread completes before ring-menu dispatch, so the update that
+finishes opening also processes ring-menu input, text and sprites.
+Ring menus capture sprite commands at their source dispatch boundaries. Box
+cursors and C/E markers precede input, while list arrows and cursors follow
+ordinary navigation. Confirmation, cancellation and page-selection dispatches
+may omit the list sprites. Scroll updates freeze the list flicker counter;
+closing fades retain the final captured OAM until the room is restored.
+Ring number digits are retained background state. The source comparator
+controls their refresh; changing cursor ownership or completing a page scroll
+does not itself redraw them. Ring presentation composes the background, icons,
+name and ordered OAM into the image used for drawing.
+The same map upload can replace the fixed description background when it
+targets $9800; uploading the alternating map retains those pixels. Replacing
+the text thread does not itself erase the published panel. Closing retains
+the final panel until the screen changes at white. Appraisal icon graphics
+likewise refresh at the source redraw calls, preserving a removed ring's icon
+through its result delay or closing fade.
+Appraisal removes raw entries in place. Its delayed result redraw publishes the
+new BCD count while retaining the original page count; reopening compacts the
+entries and recalculates pages. Preserve these separate write boundaries rather
+than deriving every displayed value from the current number of entries.
+Page scrolling preserves the native window/BG split and window priority.
+The window's hardware X bias places the incoming edge at 152 pixels. The
+ring list's signed background below its text interrupt remains fixed while
+the selection field moves; appraisal scrolls its page counter with the field.
+Inventory composition also follows its IRQ's signed footer graphics and fixed
+$9800 map while retaining SCX/WINX. Cursor submission follows the actual input
+handler; page completion alone does not submit a cursor.
+
 Map and inventory presentation read authoritative room, visit, inventory, and
 HUD state. Keep cursor/repeat state and display animation with the menu owner;
 initialization resets only source-defined fields.
+Native map screens compose their background and ordered sprites into one
+160-by-144 image for drawing, including the ten-sprite scanline limit. The
+reusable background remains immutable between compositions; modal fade remains
+owned by the shared lifecycle.
+Inventory screens likewise compose their complete image before upload, keeping
+the reusable backgrounds immutable and the HUD bound to its authoritative owner.
+Inventory sprites preserve source submission order, background shade/priority
+and the ten-sprite scanline limit. Submenu masks remain submitted on the
+confirmation update, even after the panel closes. Empty storage cells still
+redraw their source background tiles, whose shades control those masks.
+Passive treasure rows all draw in table order; shared text slots do not merge
+their graphics. Inventory's palette load retains OBJ6/7, so sprites using those
+palettes read the live palette bytes from the authoritative runtime state.
+Dialogue also composes the image used for drawing. Text scrolling preserves
+the last published pixels while the source edits its map, clears the top tile
+row on the next publication, then publishes the final whole-line position.
+Completed non-exitable choices retain their published cursor until replacement.
+
+Map marker and HUD recovery phases use the live playtime byte, including time
+spent in menus that suspend their presentation updates. Inventory and ring
+appraisal continue updating the status bar; maps, ring lists, and hidden status
+bars suspend it without synchronizing away pending health or rupee animation.
+The low-health warning uses live health and that same global phase. Eligible
+normal-menu dispatch requests it before opening input; active menus, text,
+instruments, death and the original disable masks suppress it. Its cadence
+resumes on the retained global phase after closing.
+Gameplay and inventory use the same composed HUD texture, including item OAM
+and its background priority overlays. Inventory does not redraw equipped icons
+through its storage-item renderer.
 
 ## Input contract
 
@@ -81,6 +151,14 @@ modal input lock.
   not see the same presses.
 - Opening predicates include dialogue, transitions, story locks, room events,
   and other modal ownership.
+- Normal menus read the retained playing-instrument byte before the IntroDone
+  cue gate. An empty Harp writes zero, allowing menu opening while its parent
+  animation remains active; closing resumes that retained parent.
+  Completed instrument bytes survive active dialogue until a subsequent normal
+  Link update clears them, so closing text does not immediately permit menus.
+- Normal gameplay advances electrical shock before menu dispatch. Its final
+  counter update releases the shock restriction before that update's input;
+  menu ownership does not suspend this cutscene phase.
 - Menu input starts only after opening completes. A long host frame must not
   leak the opening press into the newly visible screen.
 - Every controller in an original update reads the same immutable
@@ -89,7 +167,7 @@ modal input lock.
 - Accepted and rejected navigation, selection, and opening actions request
   their original sounds at the traced update, not at an approximate visual
   moment.
-- Map and inventory direction handlers share the retained autofire counter.
+- Map, inventory, and ring direction handlers share the retained autofire counter.
   Opening fades may transfer a held Start/Select chord to Save/Quit while keeping
   the same pause lease and fade progress. Closing map fades retain their last OAM.
 - Presentation-only animation may use `AnimationPlayer`; original counters may
@@ -121,11 +199,39 @@ other row. Confirmation publishes the selection while text remains active throug
 the option exit and ordinary closing updates. Consumers take the result once
 text releases ownership.
 
+Non-exitable text retains its panel after publishing the source's `$80`
+completed-printing signal. Menu-owned consumers may take a choice at that signal
+and replace the panel before ordinary text closing. Appraisal waits begin only
+after this signal; their decrement-to-zero update still returns before the
+following update performs the result or exit action.
+
+Inventory marquees retain their centered-name pause and character cadence
+through description scrolling, blank spacing and name replay. A name that
+fills all sixteen columns leaves its separator for the first scrolling update.
+Presentation follows published glyphs; a staging-buffer shift without a
+graphics upload must leave the displayed strip intact.
+Item equip input bypasses selection-text dispatch for that update. Opening an
+item submenu retains the existing request while its panel expands; the text
+thread keeps advancing until ready-state input dispatches the option's text.
+
+Ring-list name and description requests remain separate. Box text dispatches
+before navigation, a changed name consumes its own dispatch and delay, and
+unchanged descriptions continue printing without restarting. An owner's `$ff`
+text cancellation restores the underlying menu while retaining the text thread
+until its owner replaces or clears the request.
+
 Text color commands select both glyph shades and palette attributes. Alternate
 palette flags determine the initial attribute; an explicit color reset still
 selects palette 0. NOCOLORS suppresses color commands. A/B line skipping bypasses
 the skipped glyphs' individual sound effects and requests the ending character
 cue subject to the shared text-sound cooldown.
+
+Map palette headers write the authoritative background slots at the white
+screen swap: present/past replace all eight, while dungeon maps replace only
+slots 2-5. NoColors map text reads those live colors. Closing restores the
+saved room palettes at white before gameplay resumes. Choice closing likewise
+retains its published cursor while the text thread restores the WRAM map;
+the following restore DMA removes the displayed panel and cursor together.
 
 ## Frontend ownership
 

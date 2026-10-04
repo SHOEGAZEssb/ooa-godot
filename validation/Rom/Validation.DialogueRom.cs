@@ -130,10 +130,14 @@ public sealed partial class ValidationRoot
         string essence = new CrownDungeonDatabase().Essence.Message;
         var advice = new MakuTreeAdviceDatabase();
         FailIf(!advice.TryGet(3, false, out var maku), "Maku TX_0500 fixture is missing.");
-        foreach (bool batched in new[] { false, true })
+        int hostCase = 0;
         for (int speed = 0; speed < 5; speed++)
+        foreach (bool batched in RomHostSchedules(hostCase++))
         {
             RunDialogueRom(0x0102, impa.Text, speed, batched, accelerate: true);
+            // All formatting/control streams run at the fastest speed; the
+            // canonical stream independently checks every speed's cadence.
+            if (speed != 4) continue;
             RunDialogueRom(0x0103, impa.LinkedText, speed, batched, accelerate: false);
             foreach (int subid in new[] { 3, 4 })
                 RunDialogueRom(0x320a + subid, birds.Get(subid).Tutorial, speed, batched, accelerate: true);

@@ -52,6 +52,8 @@ The assembly source repository is the only component allowed to read `.s`
 files. It retains ordered nodes, aliases, source spans, and actionable parse
 errors. Feature importers interpret those nodes; they should not rebuild ad hoc
 regex parsers over raw lines when the shared model can represent the syntax.
+Files are parsed independently, so the configured clean-US symbol set also
+includes the `ENABLE_US_BUGFIXES` symbol derived by `constants/common/version.s`.
 
 ## Generated-data contract
 

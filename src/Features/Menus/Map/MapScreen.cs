@@ -36,6 +36,7 @@ public partial class MapScreen : Node2D
     private MapPresentationState _presentation = null!;
     private readonly GashaSpotDatabase _gashaSpots = new();
     private Texture2D _background = null!;
+    private ImageTexture? _composedTexture;
     private Image _commonTiles = null!;
     private Image _presentTiles1 = null!;
     private Image _presentTiles2 = null!;
@@ -49,6 +50,7 @@ public partial class MapScreen : Node2D
     private Color[,] _dungeonPalette = null!;
     private Color[,] _spritePalette = null!;
     private Color[,] _dungeonSpritePalette = null!;
+    private Color[,]? _roomPalettesBeforeMenu;
     private int _cursorRoom;
     private int[] _galeRooms = [];
     private int _interiorGroup = FirstInteriorGroup;
@@ -156,10 +158,12 @@ public partial class MapScreen : Node2D
         _layouts = MenuPresentationDatabase.Shared;
         _presentation = new MapPresentationState(rooms.SaveData, inventory);
         _frameCounterSource = frameCounter ?? (() => (int)(Input.TimingFrame & 0xff));
+        _roomPalettesBeforeMenu = null;
     }
 
     public void Open(bool debugFastTravel = false)
     {
+        _roomPalettesBeforeMenu ??= _rooms.World.BackgroundPalettes.Capture();
         _frameCounter = _frameCounterSource();
         _popupFrameAccumulator = 0.0;
         _popupState = 0;
@@ -178,6 +182,7 @@ public partial class MapScreen : Node2D
             if (_rooms.ActiveGroup is >= FirstInteriorGroup and <= LastInteriorGroup)
                 _interiorCursors[_rooms.ActiveGroup - FirstInteriorGroup] = _rooms.CurrentRoom.Id;
             PrepareOverworld(revealAll: true, forcedMode: mode);
+            PublishMapBackgroundPalettes();
             Visible = true;
             QueueRedraw();
             return;
@@ -188,6 +193,7 @@ public partial class MapScreen : Node2D
             PrepareDungeon(dungeon);
         else
             PrepareOverworld(revealAll: false);
+        PublishMapBackgroundPalettes();
         Visible = true;
         // mapMenu_state0 draws sprites once before starting its fade-in.
         if (Mode != MapMode.Dungeon) UpdatePopupAnimation();
@@ -199,6 +205,11 @@ public partial class MapScreen : Node2D
         _galeRooms = [];
         DebugFastTravel = false;
         Visible = false;
+        if (_roomPalettesBeforeMenu is { } palettes)
+        {
+            _roomPalettesBeforeMenu = null;
+            _rooms.World.BackgroundPalettes.Restore(palettes);
+        }
     }
 
     public void CycleDebugPage()
@@ -222,7 +233,27 @@ public partial class MapScreen : Node2D
             default:
                 return;
         }
+        PublishMapBackgroundPalettes();
         QueueRedraw();
+    }
+
+    private void PublishMapBackgroundPalettes()
+    {
+        // mapMenu_state0 loads PALH_07/$08 over all eight BG slots for
+        // present/past. The dungeon header replaces only slots 2-5. Map
+        // text uses NOCOLORS and therefore reads these live slots unchanged.
+        Color[,] source = Mode switch
+        {
+            MapMode.Present => _presentPalette,
+            MapMode.Past => _pastPalette,
+            _ => _dungeonPalette
+        };
+        Color[,] live = _rooms.World.BackgroundPalettes.Capture();
+        int first = Mode is MapMode.Present or MapMode.Past ? 0 : 2;
+        int count = Mode is MapMode.Present or MapMode.Past ? 8 : 4;
+        for (int palette = first; palette < first + count; palette++)
+        for (int shade = 0; shade < 4; shade++) live[palette, shade] = source[palette, shade];
+        _rooms.World.BackgroundPalettes.Restore(live);
     }
 
     public bool TryGetFastTravelTarget(out int group, out int room)
@@ -354,18 +385,33 @@ public partial class MapScreen : Node2D
     {
         if (!Visible || _background == null)
             return;
+        if (Mode == MapMode.Interior)
+        {
+            DrawTexture(_background, Vector2.Zero);
+            DrawInteriorBrowser();
+            return;
+        }
+        using Image frame = ComposeImage();
+        if (_composedTexture is null) _composedTexture = ImageTexture.CreateFromImage(frame);
+        else _composedTexture.Update(frame);
+        DrawTexture(_composedTexture, Vector2.Zero);
+    }
+
+    internal Image ComposeImage()
+    {
+        // The headless texture backend can retain the supplied Image. Keep
+        // sprite composition from changing the reusable background pixels.
+        Image frame = (Image)_background.GetImage().Duplicate();
         _sprites.Clear();
-        DrawTexture(_background, Vector2.Zero);
         if (Mode == MapMode.Dungeon)
             DrawDungeonMarkers();
-        else if (Mode == MapMode.Interior)
-            DrawInteriorBrowser();
         else
             DrawOverworldMarkers();
         Vector2[] positions = new Vector2[_sprites.Count];
         for (int i = 0; i < positions.Length; i++) positions[i] = _sprites[i].Position;
         ushort[] scanlines = SelectOamScanlines(positions);
-        for (int i = 0; i < _sprites.Count; i++) RenderMapSprite(_sprites[i], scanlines[i]);
+        for (int i = 0; i < _sprites.Count; i++) BlitMapSprite(frame, _sprites[i], scanlines[i]);
+        return frame;
     }
 
     private void PrepareOverworld(bool revealAll, MapMode? forcedMode = null)
@@ -1018,7 +1064,7 @@ public partial class MapScreen : Node2D
 
     private readonly record struct MapSprite(int Tile, int Palette, Vector2 Position, bool FlipX, bool FlipY);
 
-    private void RenderMapSprite(MapSprite sprite, ushort scanlines)
+    private void BlitMapSprite(Image output, MapSprite sprite, ushort scanlines)
     {
         int tile = sprite.Tile;
         int palette = sprite.Palette;
@@ -1046,6 +1092,8 @@ public partial class MapScreen : Node2D
         for (int x = 0; x < 8; x++)
         {
             if ((scanlines & (1 << y)) == 0) continue;
+            int destinationX = (int)position.X + x, destinationY = (int)position.Y + y;
+            if (destinationX is < 0 or >= 160 || destinationY is < 0 or >= 144) continue;
             int spriteY = flipY ? 15 - y : y;
             int readX;
             int readY;
@@ -1070,8 +1118,7 @@ public partial class MapScreen : Node2D
             Color[,] paletteData = Mode == MapMode.Dungeon
                 ? _dungeonSpritePalette
                 : _spritePalette;
-            DrawRect(new Rect2(position + new Vector2(x, y), Vector2.One),
-                paletteData[palette, shade]);
+            output.SetPixel(destinationX, destinationY, paletteData[palette, shade]);
         }
     }
 

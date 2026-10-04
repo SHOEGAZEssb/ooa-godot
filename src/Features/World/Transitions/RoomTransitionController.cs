@@ -14,6 +14,9 @@ public sealed class RoomTransitionController
     // The 32nd handler update only stops the thread; the visible palette is
     // already completely white on update 31.
     public const float WarpFadeMaximumOffset = 31.0f;
+    // fadeinFromWhite(ToRoom) starts at $20, displays $1f through
+    // $00 on 32 updates, then stops on the 33rd subtraction's borrow.
+    public const float WarpFadeInFrames = 33.0f;
     // applyWarpTransition2 bit 7 calls fadeoutToWhiteWithDelay(4). The palette
     // offset advances on updates 1,5,...121 and stops when it reaches $20 on 125.
     public const float DelayedWarpFadeFrames = 125.0f;
@@ -86,6 +89,7 @@ public sealed class RoomTransitionController
     private bool _suppressDestinationMusic;
     private WarpPhase _warpPhase;
     private Warp _pendingWarp;
+    private bool _deepWaterDiveRequested;
     private float _warpFrame;
     private double _warpTickAccumulator;
     private float _warpFadeOutFrames = WarpFadeFrames;
@@ -95,6 +99,7 @@ public sealed class RoomTransitionController
     private Vector2 _warpWalkEnd;
     private bool _destinationWalk;
     private bool _destinationFall;
+    private bool _destinationFallInitializationPending;
     private bool _timeWarp;
     private int _timeWarpPhaseFrame;
     private int _timeWarpGlobalFrame;
@@ -120,6 +125,13 @@ public sealed class RoomTransitionController
     };
 
     public bool IsTransitioning => _warpActive || _scrollActive || _roomView.IsTransitioning;
+    // cutscene00 becomes cutscene01 after the first destination object
+    // pass. cutscene03's func_131f already loads the complete tilemap and
+    // sets screenTransitionState2/$01, so falling arrivals keep normal
+    // menu dispatch during the remaining palette and collapse updates.
+    internal bool GameplayMenusAvailable => !IsTransitioning ||
+        _warpActive && _warpPhase == WarpPhase.FadeIn && _destinationFall &&
+        !_destinationFallInitializationPending;
     internal bool AwaitingLinkWarpState => _warpActive && _warpPhase == WarpPhase.AwaitingLinkState;
     internal bool DeathUpdatesSuspendedByWarp => _warpActive && !AwaitingLinkWarpState;
     internal bool SuppressesDestinationMusic => _warpActive && _suppressDestinationMusic;
@@ -145,7 +157,7 @@ public sealed class RoomTransitionController
     internal bool PaletteFadeActive => _warpActive && (_warpPhase switch
     {
         WarpPhase.FadeOut => _warpFrame < _warpFadeOutFrames,
-        WarpPhase.FadeIn => _warpFrame < WarpFadeFrames,
+        WarpPhase.FadeIn => _warpFrame < WarpFadeInFrames,
         WarpPhase.TimeWarpInitialize => true,
         WarpPhase.TimeWarpDissolve => TimeWarpInitializeFrames + _timeWarpPhaseFrame < FastPaletteFadeFrames,
         WarpPhase.TimeWarpBlackFadeIn => _timeWarpPhaseFrame < FastPaletteFadeFrames,
@@ -234,9 +246,89 @@ public sealed class RoomTransitionController
             UpdateCamera();
     }
 
+    internal bool AdvanceBasicArrivalPaletteBeforeObjects(double delta)
+    {
+        // The palette thread precedes cutscene01/updateAllObjects. Basic
+        // arrivals initialize Link during the fade; its terminal borrow
+        // therefore permits the first normal Link update on this same tick.
+        if (!_warpActive || _warpPhase != WarpPhase.FadeIn || _destinationWalk ||
+            _destinationFall || _roomPackArrival is not null || _timeWarp ||
+            _pendingWarp.DestinationTransition != WarpDestinationTransition.Basic)
+            return false;
+        UpdateWarpAndEffects(delta);
+        return true;
+    }
+
+    internal void HandOffArrivalPaletteToMenu()
+    {
+        if (!_warpActive || _warpPhase != WarpPhase.FadeIn || !_destinationFall)
+            return;
+        // openMenu replaces the single native palette thread. Its closing
+        // fastFadeinFromWhiteToRoom finishes that replacement; the interrupted
+        // ordinary arrival fade is never resumed. Link's fall remains intact.
+        _warpFrame = Mathf.Max(_warpFrame, WarpFadeInFrames);
+        SetFade(0.0f);
+    }
+
     internal void BeginObjectUpdate() => _tileWarpCheckRequested = false;
 
     internal void RequestTileWarpCheck() => _tileWarpCheckRequested = true;
+
+    internal bool RequestDeepWaterDive(Player player, int packedPosition)
+        => RequestUnderwaterTravel(player, packedPosition, surface: false);
+
+    internal bool RequestUnderwaterSurface(Player player, ActiveTerrainInfo terrain)
+    {
+        if (UnderwaterTravelDisabled() ||
+            (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) == 0 ||
+            terrain.Terrain.Type == TerrainType.Whirlpool)
+            return false;
+        if (terrain.Terrain.Type == TerrainType.WarpHole)
+            return RequestUnderwaterTravel(player, terrain.PackedPosition, surface: false);
+        if (!UnderwaterSurfacingDatabase.Shared.CanSurface(
+            _rooms.ActiveGroup, _rooms.CurrentRoom.Id, _rooms.CurrentRoom.TilesetFlags,
+            terrain.PackedPosition, _rooms.SaveData.HasGlobalFlag(GlobalFlag.WaterPollutionFixed),
+            _rooms.CurrentDungeonIndex, _rooms.SaveData.ReadWramByte(WramAddress.wJabuWaterLevel)))
+            return false;
+        return RequestUnderwaterTravel(player, terrain.PackedPosition, surface: true);
+    }
+
+    private bool UnderwaterTravelDisabled() =>
+        IsTransitioning || AllScreenTransitionsDisabledSource() || ScreenTransitionsDisabledSource() ||
+        _entities.RuntimeState.ReadWramByte(WramAddress.wDisableScreenTransitions) != 0;
+
+    private bool RequestUnderwaterTravel(Player player, int packedPosition, bool surface)
+    {
+        // link.s:checkForUnderwaterTransition@levelDown writes a direct
+        // warp before the rest of this object pass. cutscene01 consumes it
+        // after func_60e9, rather than advancing a fade inside Link's update.
+        if (UnderwaterTravelDisabled()) return false;
+        int group = _rooms.ActiveGroup, room = _rooms.CurrentRoom.Id;
+        int destinationGroup = (group + (surface ? -2 : 2)) & 7;
+        int destinationRoom = room;
+        if ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Dungeon) != 0)
+        {
+            destinationGroup = group;
+            destinationRoom = surface
+                ? _rooms.DungeonMaps.DungeonStairDestination(_rooms.CurrentDungeonIndex, room, floorDelta: 1).Room
+                : _rooms.DungeonMaps.DungeonHoleDestination(_rooms.CurrentDungeonIndex, room).Room;
+        }
+        if (!_rooms.World.HasRoom(destinationGroup, destinationRoom))
+            throw new NotSupportedException($"checkForUnderwaterTransition {(surface ? "@dungeon" : "@levelDown")}: room {group:x1}:{room:x2} " +
+                $"position ${packedPosition:x2} has unavailable destination {destinationGroup:x1}:{destinationRoom:x2}.");
+        _pendingWarp = new(group, room, packedPosition, 0, WarpSourceTransition.FadeOut,
+            destinationGroup, destinationRoom, packedPosition, 0, WarpDestinationTransition.Basic, DirectFadeOut: true);
+        _deepWaterDiveRequested = true;
+        return true;
+    }
+
+    internal bool BeginRequestedDeepWaterDive(Player player)
+    {
+        if (!_deepWaterDiveRequested) return false;
+        _deepWaterDiveRequested = false;
+        if (!IsTransitioning) BeginWarp(player, _pendingWarp, delayedFadeOut: false);
+        return true;
+    }
 
     internal bool CheckRequestedTileWarp(Player player)
     {
@@ -972,6 +1064,7 @@ public sealed class RoomTransitionController
             return;
         _dialogue.Close();
         _pendingWarp = warp;
+        _deepWaterDiveRequested = false;
         _roomPackArrival = null;
         _suppressDestinationMusic = suppressDestinationMusic;
         _timeWarp = false;
@@ -985,6 +1078,7 @@ public sealed class RoomTransitionController
             !delayedFadeOut && UsesRoomLoadColumnReveal(warp);
         _destinationWalk = false;
         _destinationFall = false;
+        _destinationFallInitializationPending = false;
         // initiateWarp requests wLinkForceState=$0a; it does not dispatch
         // warpTransition2 itself. State03 never calls checkLinkForceState,
         // so lethal recoil can select a stair but cannot start its fade.
@@ -1093,19 +1187,15 @@ public sealed class RoomTransitionController
                 break;
             case WarpPhase.FadeIn:
                 bool destinationReady =
-                    !_destinationFall || _player.AdvanceRoomWarpFall();
+                    !_destinationFall || AdvanceDestinationFall();
                 if (_destinationWalk)
                 {
                     float enterFrame = Mathf.Min(_warpFrame, WarpEnterFrames);
                     _player.SetRoomWarpWalkPosition(
                         _warpWalkStart.Lerp(_warpWalkEnd, enterFrame / WarpEnterFrames));
                 }
-                // fadeinFromWhite starts at offset $20, displays $1f through
-                // $00, then consumes one final update to stop the thread.
-                SetFade(1.0f -
-                    Math.Min(_warpFrame, WarpFadeMaximumOffset) /
-                    WarpFadeMaximumOffset);
-                if (_warpFrame >= WarpFadeFrames && destinationReady)
+                SetFade((WarpFadeFrames - _warpFrame) / WarpFadeMaximumOffset);
+                if (_warpFrame >= WarpFadeInFrames && destinationReady)
                     FinishWarp();
                 break;
             case WarpPhase.RoomLoadColumnReveal:
@@ -1523,14 +1613,15 @@ public sealed class RoomTransitionController
             Vector2 shortPosition = new(
                 tileX * OracleRoomData.MetatileSize + 8,
                 tileY * OracleRoomData.MetatileSize + 8);
-            int screenY = Mathf.FloorToInt(
-                shortPosition.Y - GetCameraOrigin(room, shortPosition).Y);
-            spawn = shortPosition + new Vector2(0, -4);
+            spawn = shortPosition;
             _destinationFall = true;
+            // Full loading leaves LINK_STATE_00 and a forced $0a request.
+            // linkSetState dispatches warpTransition5_00 immediately when
+            // the first object update consumes that forced state request.
+            _destinationFallInitializationPending = true;
             ClearDeactivatedWarp();
             _player.WarpTo(spawn);
-            _player.BeginRoomWarpFall(
-                Player.RoomWarpFallInitialZ(screenY));
+            _player.Face(Vector2I.Up); // clearScreenVariablesAndWramBank1.
         }
         else
         {
@@ -1615,6 +1706,20 @@ public sealed class RoomTransitionController
         return true;
     }
 
+    private bool AdvanceDestinationFall()
+    {
+        if (!_destinationFallInitializationPending)
+            return _player.AdvanceRoomWarpFall();
+        _destinationFallInitializationPending = false;
+        // objectGetZAboveScreen samples the packed destination before
+        // warpTransition5_00 subtracts $04 from Link's Y.
+        int screenY = Mathf.FloorToInt(WorldToGameplayScreen(_player.PrecisePosition).Y);
+        _player.SetScriptedPosition(_player.PrecisePosition + new Vector2(0, -4));
+        _player.BeginRoomWarpFall(Player.RoomWarpFallInitialZ(screenY));
+        return false;
+    }
+
+
     internal bool TryHandOffStationaryArrivalFade()
     {
         // Native destination interactions can replace fadeinFromWhiteToRoom
@@ -1631,7 +1736,9 @@ public sealed class RoomTransitionController
     {
         bool finishedTimeWarp = _timeWarp;
         _player.FinishRoomWarpTransition(_destinationWalk ? _warpWalkEnd :
-            _roomPackArrival is not null ? _player.PrecisePosition : _player.Position);
+            _roomPackArrival is not null ? _player.PrecisePosition : _player.Position,
+            freshlyLoadedBasicRoom: !_timeWarp && !_destinationWalk && !_destinationFall &&
+                _roomPackArrival is null && _pendingWarp.DestinationTransition == WarpDestinationTransition.Basic);
         _deathRespawnPoints.RecordWarpDestination(_pendingWarp.DestinationTransition);
         if (finishedTimeWarp)
         {
@@ -1947,6 +2054,7 @@ void fragment() {
         else player.Face(Vector2I.Down);
     }
 }
+
 
 internal enum WarpPhase
 {

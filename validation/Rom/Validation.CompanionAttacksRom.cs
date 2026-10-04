@@ -11,9 +11,10 @@ public sealed partial class ValidationRoot
         var data = new DimitriDatabase();
         int type = Enumerable.Range(0, 128).First(data.AcceptsMouthCollision);
         int mode = Enumerable.Range(0, 125).First(data.CanSwallow);
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (bool vulnerable in new[] { false, true })
         foreach (int direction in new[] { 0, 1, 2, 3 })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(0x0c, direction);
             Vector2 p = new Vector2(72, 64) + OracleObjectMath.StrictCardinalVector(direction * 8) * 16;
@@ -59,9 +60,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionAttackTilesRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (int direction in new[] { 0, 1, 2, 3 })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             var (actor, rom) = PrepareMountedCompanionRom(id, direction);
             for (int y = 2; y <= 5; y++)

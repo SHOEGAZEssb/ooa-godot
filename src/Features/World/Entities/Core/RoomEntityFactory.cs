@@ -1343,7 +1343,8 @@ internal sealed class RoomEntityFactory
             Resources.DungeonMechanics,
             owner.ToScreen,
             _animationTick,
-            owner.OnSoundRequested);
+            owner.OnSoundRequested,
+            owner.UpdateBossShutterSignal);
 
     private IRoomEntity? CreateWingDungeonInteraction(
         DungeonObjectRecord record,
@@ -3746,7 +3747,7 @@ internal sealed class RoomEntityFactory
     {
         var rock = new OctorokRockProjectile { Name = "OctorokRock", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
         rock.Initialize(enemies.OctorokProjectile, room, spawn.Position, spawn.Angle);
-        return new HostileProjectileRoomEntity<OctorokRockProjectile>(rock);
+        return new PostObjectHostileProjectileRoomEntity<OctorokRockProjectile>(rock);
     }
 
     private IRoomEntity CreateMaskedMoblin(
@@ -3863,7 +3864,7 @@ internal sealed class RoomEntityFactory
     {
         var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
         arrow.Initialize(enemies.EnemyArrow, room, spawn.Position, spawn.Angle);
-        return new HostileProjectileRoomEntity<EnemyArrowProjectile>(arrow);
+        return new PostObjectHostileProjectileRoomEntity<EnemyArrowProjectile>(arrow);
     }
 
     private IRoomEntity CreateStalfosBone(StalfosBoneSpawn spawn, OracleRoomData room)

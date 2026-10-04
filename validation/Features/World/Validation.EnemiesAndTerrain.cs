@@ -5676,7 +5676,9 @@ public sealed partial class ValidationRoot
         bounceDrop.UpdateFrame(_player, 36);
         FailIf(
             bounceDrop.State != DropState.Grounded ||
-            bounceDrop.ZFixed != 0 || bounceDrop.SpeedZ != 0 ||
+            // Executed PART$01 update36 retains speedZ $00b0 when
+            // objectNegateAndHalveSpeedZ returns before its store.
+            bounceDrop.ZFixed != 0 || bounceDrop.SpeedZ != 0xb0 ||
             bounceDrop.Counter != 240 || !bounceDrop.CollisionEnabled,
             "PART_ITEM_DROP did not complete its original fixed-point bounce and start counter `$f0 on update 36.");
         bounceDrop.Free();
@@ -5736,7 +5738,7 @@ public sealed partial class ValidationRoot
         int previousDisplayedHealth = _hud.HealthQuarters;
         for (int update = 1; update <= 16; update++)
         {
-            _statusBar.Update(1.0 / 60.0);
+            AdvanceStatusBarUpdates(1);
             if (_hud.HealthQuarters != previousDisplayedHealth)
             {
                 healthDisplayUpdates.Add(update);
@@ -6100,7 +6102,7 @@ public sealed partial class ValidationRoot
             "while leaving wDisplayedRupees and SND_RUPEE pending for updateStatusBar_body.");
         for (int update = 1; update <= amount; update++)
         {
-            _statusBar.Update(1.0 / 60.0);
+            AdvanceStatusBarUpdates(1);
             FailIf(
                 _hud.Rupees != displayedBefore + update ||
                 _sound.PlayRequestsFor(SoundId.SndRupee) != soundRequests + update,
@@ -6118,7 +6120,7 @@ public sealed partial class ValidationRoot
         _inventory.AddRupees(-3);
         for (int update = 1; update <= 3; update++)
         {
-            _statusBar.Update(1.0 / 60.0);
+            AdvanceStatusBarUpdates(1);
             FailIf(
                 _hud.Rupees != displayedBefore - update ||
                 _sound.PlayRequestsFor(SoundId.SndRupee) != soundRequests + update,
@@ -6145,7 +6147,7 @@ public sealed partial class ValidationRoot
             drop.UpdateFrame(_player, frame);
         _player.WarpTo(position, recordSafe: false);
         drop.UpdateFrame(_player, 37);
-        _statusBar.Update(1.0 / 60.0);
+        AdvanceStatusBarUpdates(1);
         FailIf(
             !drop.Collected || _player.Rupees != 999 || _hud.Rupees != 999 ||
             _sound.PlayRequestsFor(SoundId.SndRupee) != soundRequests + 1,

@@ -98,6 +98,8 @@ public static class SoundId
     public const int SndGetSeed = 0x5e;
     // constants/common/music.s: SND_DAMAGE_LINK
     public const int SndDamageLink = 0x5f;
+    // constants/common/music.s: SND_HEARTBEEP
+    public const int SndHeartBeep = 0x60;
     // constants/common/music.s: SND_RUPEE
     public const int SndRupee = 0x61;
     // constants/common/music.s: SND_BOSS_DAMAGE

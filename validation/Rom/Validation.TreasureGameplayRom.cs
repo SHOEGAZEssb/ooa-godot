@@ -7,9 +7,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateTreasureGameplayRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool cancel in new[] { false, true })
         foreach (string name in new[] { "TREASURE_OBJECT_SEED_SATCHEL_00", "TREASURE_OBJECT_HEART_CONTAINER_00", "TREASURE_OBJECT_BOMBS_00", "TREASURE_OBJECT_RUPEES_05" })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x60);

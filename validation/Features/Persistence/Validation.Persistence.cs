@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
             _scene.IsQueuedForDeletion() ||
             _scene.GetParent() != this ||
             _saveWriteRequests != saveWrites ||
-            _inventory.HealthQuarters != _inventory.MaxHealthQuarters ||
+            _inventory.HealthQuarters != Math.Max(0x0c, (_inventory.MaxHealthQuarters >> 1) & 0xfc) ||
             _rooms.ActiveGroup != respawnGroup ||
             _rooms.CurrentRoom.Id != respawnRoom ||
             _player.Position != new Vector2(respawnX, respawnY) ||
@@ -93,7 +93,7 @@ public sealed partial class ValidationRoot
 
         GD.Print(
             "Validated collapsed-Link root handoff, MUS_GAMEOVER and BCD death " +
-            "count, unsaved Continue, one-root scene replacement, full-health " +
+            "count, unsaved Continue, one-root scene replacement, restored-health " +
             "initialization, maintained-checkpoint respawn, saved doorway warp " +
             "deactivation, and disposed entity subscription cleanup.");
     }
@@ -347,7 +347,7 @@ public sealed partial class ValidationRoot
             deathSave.DeathCount != 999 ||
             deathSave.ReadWramByte(WramAddress.wDeathCounter) != 0x99 ||
             deathSave.ReadWramByte(0xc61f) != 0x09 ||
-            deathSave.ReadWramByte(WramAddress.wLinkHealth) != deathSave.MaxHealthQuarters ||
+            deathSave.ReadWramByte(WramAddress.wLinkHealth) != Math.Max(0x0c, (deathSave.MaxHealthQuarters >> 1) & 0xfc) ||
             !OracleSaveData.TryDeserialize(
                 depletedImage,
                 out OracleSaveData? persistedDepleted) ||

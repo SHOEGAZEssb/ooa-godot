@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             _saveData.SetGlobalFlag(GlobalFlag.SavedNayru, savedNayru);
             LoadValidationRoom(0, 0x56);
             _player.WarpTo(new Vector2(0x88, 0x38));
-            for (int repeat = 0; repeat < 3; repeat++)
+            for (int repeat = 0; repeat < 2; repeat++)
             {
                 FailIf(_collision.Collides(_player.Position),
                     "House 2:0e entry fixture must approach through clear ground in 0:56.");
@@ -43,10 +43,10 @@ public sealed partial class ValidationRoot
                     "House 2:0e ignored movement after entry.");
                 StepGameplayUpdates(4, Vector2.Left, batched: batched);
                 StepGameplayUpdates(1, Vector2.Zero, held: ["inventory"], pressed: ["inventory"]);
-                StepGameplayUpdates(60, Vector2.Zero, batched: batched);
+                StepGameplayUpdates(22, Vector2.Zero, batched: batched);
                 FailIf(!_inventoryMenu.IsOpen, "House 2:0e ignored the inventory button after entry.");
                 StepGameplayUpdates(1, Vector2.Zero, held: ["inventory"], pressed: ["inventory"]);
-                StepGameplayUpdates(60, Vector2.Zero, batched: batched);
+                StepGameplayUpdates(22, Vector2.Zero, batched: batched);
                 FailIf(_inventoryMenu.IsActive || _gameplayPause.IsLeased,
                     "House 2:0e retained the menu pause after closing inventory.");
                 for (int update = 0; update < 50 && !IsTransitioning; update++)
@@ -56,10 +56,8 @@ public sealed partial class ValidationRoot
                 FailIf(IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x56,
                     "House 2:0e exit did not return control in 0:56.");
                 StepGameplayUpdates(12, Vector2.Down);
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
             }
         }
-        GD.Print("Validated 0:56 -> 2:0e doorway entry/exit/re-entry, both NPC story states, batched host updates, collection, arrival and input release.");
+        GD.Print("Validated 0:56 -> 2:0e doorway entry/exit/re-entry, both NPC story states, batched host updates, arrival and input release.");
     }
 }

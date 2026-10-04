@@ -40,7 +40,7 @@ public partial class Player
         }
         if (_getItemStatePhase == 2)
         {
-            CancelNativeItemsForSquishRespawn();
+            CancelNativeItemUsage();
             _getItemSavedAnimationMode = _scriptedLinkAnimationMode;
             _getItemSavedWalking = _walking;
             _getItemSavedPushing = _pushing;

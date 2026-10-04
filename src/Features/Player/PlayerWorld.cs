@@ -28,6 +28,10 @@ public sealed class PlayerWorld : IPlayerWorld
     public void UpdateElectricShockPresentation(int counter) =>
         _entities.UpdateElectricShockPresentation(counter);
     public bool IsTransitioning => _transitions.IsTransitioning;
+    public bool RequestDeepWaterDive(Player player, int packedPosition) =>
+        _transitions.RequestDeepWaterDive(player, packedPosition);
+    public bool RequestUnderwaterSurface(Player player, ActiveTerrainInfo terrain) =>
+        _transitions.RequestUnderwaterSurface(player, terrain);
     public bool DeathUpdatesSuspendedByWarp => _transitions.DeathUpdatesSuspendedByWarp;
     public bool PassesNpcs => _transitions.TimeWarpDestinationActive || _entities.PlayerPassesNpcs;
     public bool InteractionMenusDisabled => _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled;
@@ -235,18 +239,20 @@ public sealed class PlayerWorld : IPlayerWorld
         _harp.Complete(player, song);
     public void CancelHarp() => _harp.Cancel();
     public bool DigWithShovel(Vector2 point, Vector2I direction) =>
-        _shovel.TryDig(point, direction);
+        _shovel.CreateChild(point, direction);
+    public bool ShovelChildActive => _shovel.ChildActive;
     public bool Collides(Vector2 position) =>
         !_collisionsDisabled() && _collision.Collides(position);
     public Vector2 ResolveMovement(Vector2 position, Vector2 movement, bool allowWallSlide) =>
         _collisionsDisabled()
             ? movement
             : _collision.ResolveMovement(position, movement, allowWallSlide);
-    public Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide)
+    public Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide,
+        int? adjacentWalls = null)
     {
         if ((angle & 0x80) != 0) return Vector2.Zero;
         if (!_collisionsDisabled())
-            return _collision.ResolveNativeMovement(position, speed, angle, allowWallSlide);
+            return _collision.ResolveNativeMovement(position, speed, angle, allowWallSlide, adjacentWalls);
         var velocity = NativeObjectMovement.Velocity(_entities.RuntimeState, speed, angle);
         return new(velocity.XFixed / 256.0f, velocity.YFixed / 256.0f);
     }
@@ -290,8 +296,6 @@ public sealed class PlayerWorld : IPlayerWorld
         _collision.AdjacentWallsBitset(position);
     public bool SideScrollTileBlocksPoint(Vector2 point) =>
         _collision.TileBlocksPointForSidePlatform(point);
-    public Vector2 GetTerrainPush(Vector2 position) =>
-        RidingObject ? Vector2.Zero : _terrain.GetTerrainPush(position);
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 movement) =>
         _terrain.TryStartLedgeHop(player, from, movement);
     public bool ApplyLandedTileHit(Vector2 position) =>

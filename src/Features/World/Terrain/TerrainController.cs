@@ -71,20 +71,6 @@ public sealed class TerrainController
             _sideScroll.TileType(belowTile));
     }
 
-    public Vector2 GetTerrainPush(Vector2 playerPosition)
-    {
-        TerrainType terrain = GetTerrainInfo(playerPosition).Type;
-        const float pushSpeed = 32.0f;
-        return terrain switch
-        {
-            TerrainType.UpCurrent or TerrainType.UpConveyor => new Vector2(0, -pushSpeed),
-            TerrainType.RightCurrent or TerrainType.RightConveyor => new Vector2(pushSpeed, 0),
-            TerrainType.DownCurrent or TerrainType.DownConveyor => new Vector2(0, pushSpeed),
-            TerrainType.LeftCurrent or TerrainType.LeftConveyor => new Vector2(-pushSpeed, 0),
-            _ => Vector2.Zero
-        };
-    }
-
     public bool TryStartLedgeHop(Player player, Vector2 from, Vector2 attemptedMovement)
     {
         if (!TryGetCardinalDirection(attemptedMovement, out Vector2I direction) ||

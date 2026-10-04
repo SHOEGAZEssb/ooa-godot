@@ -548,6 +548,10 @@ for ($song = 0; $song -lt 4; $song++) {
     Add-MenuOamRows $inventoryOamRows "harp-$song" `
         'seedAndHarpSpriteTable' "@sprite$($song + 4)"
 }
+for ($mask = 0; $mask -lt 3; $mask++) {
+    Add-MenuOamRows $inventoryOamRows "submenu-mask-$mask" `
+        'createBlankSpritesForItemSubmenu' "@sprites$mask"
+}
 Write-GeneratedTable(
     (Join-Path $destination 'menu\inventory_oam.tsv'),
     $inventoryOamRows)

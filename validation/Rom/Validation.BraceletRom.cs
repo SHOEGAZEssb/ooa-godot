@@ -111,8 +111,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateBraceletGrabLiftRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase3 = 0;
         foreach (int direction in Enumerable.Range(0, 4))
+        foreach (bool batched in RomHostSchedules(hostCase3++))
         {
             BraceletRom rom = PrepareBraceletRom(direction);
             StepBraceletRom(rom, 1, batched, held: true, pressed: true);
@@ -133,10 +134,11 @@ public sealed partial class ValidationRoot
 
     private void ValidateBraceletCarryThrowRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase2 = 0;
         foreach (int direction in Enumerable.Range(0, 4))
         foreach (int ring in new[] { 0xff, 0x12 })
         foreach (bool drop in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             BraceletRom rom = PrepareBraceletRom(direction, ring);
             var sounds = _sound.AttachPlayRequestAudit();
@@ -158,8 +160,9 @@ public sealed partial class ValidationRoot
 
     private void ValidateBraceletGameplayRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             BraceletRom rom = PrepareBraceletRom(primary: primary);
             StepBraceletRom(rom, 1, batched, held: true, pressed: true, primary: primary);

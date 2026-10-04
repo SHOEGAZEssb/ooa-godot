@@ -12,11 +12,40 @@ internal sealed class SomariaRom
     private readonly FrontendRom _rom = new();
     internal byte this[int address] { get => _rom[address]; set => _rom[address] = value; }
     internal int RandomCalls => _rom.RandomCalls;
+    internal bool HostilePartsEnabled { get; set; }
+    internal bool CompanionDispatchEnabled { get; set; }
     internal IReadOnlyList<int> Sounds => _rom.Sounds;
     internal int[] Blocks => Enumerable.Range(0xd7, 5).Select(page => page << 8)
         .Where(slot => this[slot] != 0 && this[slot + 1] == 0x18).ToArray();
     internal int Word(int address) => _rom.Word(address);
     internal byte Underlying(int packed) => _rom.BankByte(3, 0xdf00 + packed);
+    internal MenuRom CreateMenuView() => new(_rom);
+    internal void AdvanceDeathPrelude() => _rom.UpdateDeathPrelude();
+    internal void ApplyLinkDamage(byte rawDamage)
+    {
+        this[0xd025] = rawDamage;
+        CallLink(0x46bb, 6); // linkApplyDamage, including native death publication.
+    }
+    internal void AdvanceWarpPalette() => _rom.AdvancePalette();
+    internal void ApplyRequestedWarp() => _rom.Call(0x5e0e, 1); // applyWarpTransition2, after objects.
+    internal void UpdateFadeOutWarp() => _rom.Call(0x5bd8, 1); // cutscene03, including native room load.
+    internal void CompleteGaleMenuHandoff() => _rom.Call(0x5de8, 1); // cutscene16 after updateMenus/ret nz.
+    internal void AdvanceArrivalRoomControl()
+    {
+        // updateAllObjects' native screen-transition pass, followed by
+        // cutscene00's continuation when that caller still owns the room.
+        _rom.Call(0x4000, 1);
+        if (this[0xc2ef] == 0) _rom.Call(0x5b2c, 1);
+    }
+    internal void UpdateGaleCancelGameplay(int pressed, int held, int frameCounter)
+    {
+        // cutscene16 consumes wWarpTransition2 before updateAllObjects.
+        // This fixture supplies that object pass via UpdateGameplay, then
+        // executes its native CUTSCENE_INGAME/lock-clearing epilogue.
+        this[0xcc4b] = 0;
+        UpdateGameplay(pressed, held, 0xff, frameCounter);
+        _rom.Call(0x5df6, 1);
+    }
 
     internal SomariaRom(OracleSaveData save, OracleRandomState random, OracleRoomData room,
         int direction, int x, int y)
@@ -51,6 +80,16 @@ internal sealed class SomariaRom
     }
 
     internal void ClearPhysicalItems() => _rom.Call(0x19ad, 0);
+    internal void ClearItemParents() => _rom.Call(0x4878, 6); // clearAllParentItems_body.
+    internal void DeleteDynamicItem(int slot)
+    {
+        if (slot < 0xd700 || slot > 0xdb00 || (slot & 0xff) != 0)
+            throw new ArgumentOutOfRangeException(nameof(slot));
+        // Native itemDelete with the caller's D register pointing at its slot.
+        byte[] caller = [0x16, (byte)(slot >> 8), 0xcd, 0xe2, 0x2c, 0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
+        _rom.Call(0xc100, 7);
+    }
 
     internal void CopyRoom(OracleRoomData room)
     {
@@ -61,7 +100,9 @@ internal sealed class SomariaRom
             Godot.Vector2 point = new(column * 16 + 8, row * 16 + 8);
             this[0xcf00 + packed] = room.GetMetatile(point);
             this[0xce00 + packed] = (byte)room.GetTerrainInfo(point).Collision;
-            _rom.SetBankByte(3, 0xdf00 + packed, room.GetUnderlyingStorageMetatile(packed));
+            // Runtime small-room storage has ten columns; live native WRAM
+            // tile buffers always use the sixteen-byte row stride.
+            _rom.SetBankByte(3, 0xdf00 + packed, room.GetUnderlyingMetatile(point));
         }
     }
 
@@ -82,11 +123,16 @@ internal sealed class SomariaRom
         // updateSpecialObjects preparation/tail, with no companion or physical
         // controller input. The actual Link dispatch owns tile interaction,
         // item parents, wall probes, movement, facing and grab eligibility.
-        this[0xcc64] = this[0xcc92] = this[0xcc66] = 0;
-        this[0xcc95] |= 0x7f;
-        this[0xcc60] &= 0x7f;
-        CallLink(0x49b6);
+        _rom.UpdateSpecialObjectPrelude();
+        if (CompanionDispatchEnabled)
+        {
+            CallSpecialObject(0xd1);
+            this[0xcc68] = this[0xcc98] = 0;
+            CallSpecialObject(0xd0);
+        }
+        else CallLink(0x49b6);
         CallLink(0x4279); // updateLinkInvincibilityCounter.
+        if (CompanionDispatchEnabled) this[0xcc96] = this[0xcc8d];
         this[0xcc61] &= 0x0f;
         this[0xd02a] = this[0xcc67] = this[0xccd8] = 0;
         if (this[0xcc6b] != 0) this[0xcc6b]--;
@@ -94,20 +140,34 @@ internal sealed class SomariaRom
         // state3 republishes later in this update, including after a push.
         for (int address = 0xcc74; address < 0xcc84; address++) this[address] = 0;
         _rom.Call(0x4872, 7);
+        if (HostilePartsEnabled) _rom.Call(0x5e58, 0x11); // updateParts, before interactions.
         _rom.Call(0x3b36, 0);
         if ((this[0xcc5a] & 0x80) != 0) _rom.Call(0x54df, 6);
+        if (CompanionDispatchEnabled && (this[0xcc2c] & 1) != 0)
+            CallLink(0x410d); // Native bank0.updateAllObjects post-object rider copy.
         // This late graphics pass publishes wLinkPushingDirection for the
         // following Link update, using its retained adjacent-wall probes.
         _rom.Call(0x2b25, 0);
         _rom.Call(0x491a, 7);
+        if (HostilePartsEnabled && this[0xcba0] == 0)
+            _rom.Call(0x41d1, 7); // Original post-object collision publication.
     }
 
-    private void CallLink(int address)
+    private void CallLink(int address, int bank = 5)
     {
         this[0xffae] = 0; this[0xffaf] = 0xd0;
         // Supply D/H as updateSpecialObjects does; no native instruction is
         // replaced. FrontendRom keeps the stack in unbanked WRAM.
         byte[] caller = [0x16, 0xd0, 0x62, 0xcd, (byte)address, (byte)(address >> 8), 0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
+        _rom.Call(0xc100, bank);
+    }
+
+    private void CallSpecialObject(int page)
+    {
+        // updateSpecialObjects @updateSpecialObject ($05:$407d), including
+        // enabled gates, original ID dispatch and its banked vehicle handler.
+        byte[] caller = [0x21, 0, (byte)page, 0xcd, 0x7d, 0x40, 0xc9];
         for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
         _rom.Call(0xc100, 5);
     }

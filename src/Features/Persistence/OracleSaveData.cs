@@ -442,6 +442,17 @@ public sealed class OracleSaveData
             PublishChange();
     }
 
+    internal void ApplyDeathRespawnPreset(byte mask, ReadOnlySpan<byte> values)
+    {
+        if (values.Length != 7 || (mask & 1) != 0)
+            throw new ArgumentException("bank1.loadDeathRespawnBufferPreset requires seven bytes and a terminating mask bit.");
+        bool changed = false;
+        for (int offset = 0; offset < values.Length; offset++)
+            if ((mask & (0x80 >> offset)) != 0)
+                changed |= WriteWramByte(WramAddress.wDeathRespawnBuffer + offset, values[offset]);
+        if (changed) PublishChange();
+    }
+
     public void IncrementDeathCount()
     {
         int next = Math.Min(999, DeathCount + 1);
@@ -468,7 +479,10 @@ public sealed class OracleSaveData
         byte health = ReadWramByte(WramAddress.wLinkHealth);
         if (health != 0 && (health & 0x80) == 0)
             return;
-        if (WriteWramByte(WramAddress.wLinkHealth, ReadWramByte(WramAddress.wLinkMaxHealth)))
+        // bank1.initializeGame: SRL / AND $fc rounds half the maximum to
+        // whole hearts; CP $0c imposes a three-heart minimum after depletion.
+        byte restored = (byte)Math.Max(0x0c, (ReadWramByte(WramAddress.wLinkMaxHealth) >> 1) & 0xfc);
+        if (WriteWramByte(WramAddress.wLinkHealth, restored))
             PublishChange();
     }
 

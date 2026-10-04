@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 public partial class OctorokRockProjectile
-    : TransitionOffsetNode2D, IHostileProjectile
+    : TransitionOffsetNode2D, IHostileProjectile, ILinkContactEntity
 {
     private Texture2D _normalTexture = null!;
     private Texture2D _bounceTexture = null!;
@@ -61,6 +61,7 @@ public partial class OctorokRockProjectile
         UpdateFrame(player);
     bool IHostileProjectile.DeflectWithSword() =>
         DeflectWithSword();
+    void ILinkContactEntity.HandleLinkContact(Player player) => _lifecycle.HandleLinkContact(player);
 
     public override void _Draw()
     {

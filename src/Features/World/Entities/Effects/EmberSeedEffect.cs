@@ -50,9 +50,12 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private int _angle;
     private int _bouncesRemaining;
     private SeedShooterRecord _shooter;
+    // collisionEffect2a stores the PART index in Item.knockbackCounter.
+    // Separation never clears it; func_50f4's unchanged-angle path does.
     private ISeedBounceTarget? _lastBounceTarget;
     private bool _skipShooterTerrainCollision;
     private bool _collisionUpdatePending;
+    private bool _burningReflectorHit;
     private SeedHitResult _pendingNativeCollision;
     internal bool HasPendingNativeCollision => _pendingNativeCollision != SeedHitResult.None;
     private ItemCliffDatabase? _itemCliffs;
@@ -62,6 +65,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
 
     public bool Finished => _state == EmberState.Finished;
     internal EmberState State => _state;
+    internal bool IsBurningEnemy => _state == EmberState.Burning && _burnTarget is not null;
     internal int ElapsedFrames { get; private set; }
     internal int ZFixed => _zFixed;
     internal int SpeedZ => _speedZ;
@@ -73,6 +77,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     internal int CollisionZ => _zFixed >> 8;
     internal SeedLaunchKind LaunchKind => _launchKind;
     internal int Angle => _angle;
+    internal int NativeAngle => _angle < 0 ? 0xff : _angle * 4;
     internal int BouncesRemaining => _bouncesRemaining;
     internal byte ShooterElevation => _shooterElevation;
     internal int SeedItem => _record.SeedItem;
@@ -126,6 +131,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _group = group;
         _launchKind = launchKind;
         _angle = launchKind == SeedLaunchKind.Shooter ? angle : DirectionAngle(direction) / 4;
+        // seeds.s state 0 overrides a Satchel Gale's angle with $ff, which
+        // objectApplySpeed treats as stationary independently of speed.
+        if (launchKind == SeedLaunchKind.Satchel && record.SeedItem == ItemId.GaleSeed)
+            _angle = -1;
         _shooter = SeedShooterRecord.Load();
         _itemCliffs = launchKind == SeedLaunchKind.Shooter ? new ItemCliffDatabase() : null;
         _shooterElevation = 0;
@@ -144,7 +153,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
                 : record.Offset(direction));
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _zFixed = ((launchKind == SeedLaunchKind.Shooter ? -2 : record.InitialZ) << 8) + linkZFixed;
-        _speedZ = launchKind == SeedLaunchKind.Shooter ? 0 : record.SpeedZ;
+        // seeds.s state 0 sets speedZ to $ffe0 before dispatching either launch.
+        _speedZ = record.SpeedZ;
         _collisionEnabled = true;
 
         LoadSeedGraphics(record);
@@ -256,8 +266,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             _movementMemory,
             ref _precisePosition,
             _record.SpeedRaw,
-            _angle * 4);
-        ClearSeparatedBounceTarget();
+            NativeAngle);
         if (_skipShooterTerrainCollision)
         {
             // seedItemState1 jumps directly to @updatePosition after a
@@ -337,6 +346,17 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         {
             if (bounceTarget is null)
                 throw new ArgumentNullException(nameof(bounceTarget));
+            if (ReferenceEquals(_lastBounceTarget, bounceTarget)) return;
+            if (_state != EmberState.Flying)
+            {
+                _lastBounceTarget = bounceTarget;
+                // Only seedItemState1 dispatches func_50f4. A live Ember
+                // flame consumes the contact after counter/animation; other
+                // effect states keep their ordinary animation dispatch.
+                if (_state == EmberState.Burning && _burnTarget is null)
+                    _burningReflectorHit = true;
+                return;
+            }
             // Vanilla func_50f4 has no subid gate: Satchel seeds reflect too.
             BounceFrom(bounceTarget, spawns);
             _collisionUpdatePending = beforeItemUpdate && _record.SeedItem != ItemId.GaleSeed && _state != EmberState.Flying;
@@ -551,6 +571,16 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             return;
         }
         AdvanceAnimation();
+        if (_burningReflectorHit)
+        {
+            _burningReflectorHit = false;
+            _collisionEnabled = false;
+            if ((_frames[_frameIndex].Parameter & 0x80) != 0)
+            {
+                Finish();
+                return;
+            }
+        }
         if (_zFixed != 0)
         {
             OracleObjectMath.UpdateSpeedZ(
@@ -611,7 +641,6 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         {
             _skipShooterTerrainCollision = false;
             MoveShooterSeed();
-            ClearSeparatedBounceTarget();
             QueueRedraw();
             return;
         }
@@ -653,7 +682,6 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         if (!hitX && !hitY)
         {
             MoveShooterSeed();
-            ClearSeparatedBounceTarget();
             QueueRedraw();
             return;
         }
@@ -675,13 +703,12 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         // Moving on this same update takes the seed back out of the collided
         // tile; leaving it there consumes the remaining bounces in place.
         MoveShooterSeed();
-        ClearSeparatedBounceTarget();
         QueueRedraw();
     }
 
     private void MoveShooterSeed() => Position =
         NativeObjectMovement.ApplySpeed(
-            _movementMemory, ref _precisePosition, _shooter.SpeedRaw, _angle * 4);
+            _movementMemory, ref _precisePosition, _shooter.SpeedRaw, NativeAngle);
 
     private void BounceFrom(ISeedBounceTarget target, ICollection<RoomEntitySpawn>? spawns)
     {
@@ -711,18 +738,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _skipShooterTerrainCollision = true;
     }
 
-    private void ClearSeparatedBounceTarget()
-    {
-        if (_lastBounceTarget is not null &&
-            !_lastBounceTarget.IntersectsSeed(CollisionBounds))
-        {
-            _lastBounceTarget = null;
-        }
-    }
-
     private void ActivateShooterSeed(ICollection<RoomEntitySpawn>? spawns = null)
     {
-        _collisionEnabled = false;
+        // The wall path retains Ember's collisionType; each other seed's
+        // activation handler clears it. Enemy collisions clear it separately.
         // @seedCollidedWithWall performs exactly one itemAnimate call. The
         // moving shooter path itself never animates the seed.
         AdvanceAnimation();

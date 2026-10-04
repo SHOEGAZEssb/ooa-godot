@@ -7,9 +7,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateLinkHazardRecoveryRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (float fraction in new[] { 0.0f, 0.5f })
         foreach ((byte tile, bool flippers) in new (byte, bool)[] { (0xf3, false), (0xfa, false), (0xfc, false), (0xfc, true) })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x33);

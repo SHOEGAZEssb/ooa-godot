@@ -99,14 +99,17 @@ public sealed class RoomCollision
         return ResolveMaskedMovement(playerPosition, movement, angle, walls);
     }
 
-    internal Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide)
+    internal Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide,
+        int? adjacentWalls = null)
     {
         // specialObjectUpdatePositionGivenVelocity rejects bit7 before the
         // lookup, then adjusts the angle before publishing its velocity.
         if ((angle & 0x80) != 0) return Vector2.Zero;
         if (angle is < 0 or > 31)
             throw new ArgumentOutOfRangeException(nameof(angle), angle, "Link movement requires a source angle $00-$1f or bit7 set.");
-        int walls = CalculateAdjacentWallsBitset(position);
+        // Terrain motion consumes the preceding Link wall publication before
+        // linkState01 refreshes it for ordinary movement and item contacts.
+        int walls = adjacentWalls ?? CalculateAdjacentWallsBitset(position);
         if (allowWallSlide && SpecialObjectMovement.TryAdjustCardinalAngle(angle, walls, out int adjustedAngle))
         {
             angle = adjustedAngle;
@@ -235,7 +238,7 @@ public sealed class RoomCollision
         // here adds a one-update lag compared with synchronized partners.
         return position.X >= 0 && position.X < room.Width &&
             position.Y >= 0 && position.Y < room.Height &&
-            !_entities.BlocksLink(position);
+            !_entities.BlocksLink(position, beforeInteractions: true);
     }
 
     private bool TileBlocksPoint(Vector2 point)

@@ -20,7 +20,8 @@ focused validations; NPC classifications live in the
 - Core movement, sword combat, common terrain, hazards, treasures, drops,
   blocks, breakable objects, and a growing shared enemy roster.
 - Substantial item and ring support, including seeds, bombs, shovel, Feather,
-  Harp, Flippers, Switch Hook, and partial Cane of Somaria behavior.
+  Harp, Flippers, Mermaid Suit swimming and underwater travel, Switch Hook, and partial
+  Cane of Somaria behavior.
 - Spirit's Grave (`$01`) and Wing Dungeon (`$02`) are playable end to end.
 - Moonlit Grotto (`$03`) has selected puzzles, both boss encounters, rewards,
   and its Essence/story handoff; full dungeon fidelity remains incomplete.
@@ -42,7 +43,7 @@ focused validations; NPC classifications live in the
 - Full story/world progression, remaining dungeons and bosses, enemy variants,
   NPC scripts, and room mechanisms.
 - Remaining item upgrades and terrain-specific player states, including
-  top-down Mermaid Suit movement, deep-water transitions, Roc's Cape, and
+  remaining underwater terrain gates, Roc's Cape, and
   incomplete seed and grabbable-object consumers.
 - Remaining companion terrain states, thrown-NPC collisions, and exhaustive
   native initialization, slot reuse, and cross-object signal parity.

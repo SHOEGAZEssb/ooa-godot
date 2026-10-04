@@ -54,10 +54,11 @@ public sealed partial class ValidationRoot
                 "Update8 must publish the dust bit and use cloud slot0 at Link Y+5, even while standing.");
             _dialogue.ShowMessage("Pegasus timer.", _player.Position.Y);
             int frozen = pegasus.RawCounter;
-            byte cloudCounter = dust.Clouds[0];
             Step(20);
-            FailIf(pegasus.RawCounter != frozen || dust.Clouds[0] != cloudCounter,
-                "Text must freeze initialized dust and Link's Pegasus decrement.");
+            // ITEM_DUST never increments Item.state, so updateItems keeps
+            // dispatching its cloud substate while text freezes Link's timer.
+            FailIf(pegasus.RawCounter != frozen || dust.Clouds.ToArray().Any(value => value != 0),
+                "Text must retain the Pegasus counter while the existing dust cloud completes.");
             for (int i = 0; _dialogue.IsOpen && i < 180; i++) Step(attack: i % 12 == 0);
             FailIf(_dialogue.IsOpen, "Pegasus text fixture did not close through A input.");
             Step(2);

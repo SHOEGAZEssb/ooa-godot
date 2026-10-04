@@ -8,8 +8,9 @@ public sealed partial class ValidationRoot
 {
     private void CompareBombHazardsRom()
     {
-        foreach (bool batched in new[] { false, true })
+        int hostCase1 = 0;
         foreach (byte tile in new byte[] { 0xf3, 0xfa, 0xfc })
+        foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x33);

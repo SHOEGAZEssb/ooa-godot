@@ -17,6 +17,8 @@ internal sealed class HostileProjectileLifecycle
     private readonly HostileProjectileProfile _profile;
     private Vector2 _collisionRadii;
     private int _speedZ;
+    private bool _shieldContactPending;
+    private bool _collisionEnabled = true;
     private OracleRuntimeState? _movementMemory;
 
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
@@ -58,6 +60,15 @@ internal sealed class HostileProjectileLifecycle
             return;
         ElapsedFrames++;
 
+        // ENEMYDMG_$34 publishes var2a in the post-object scan. The
+        // following eligible PART handler consumes it, even after release.
+        if (_shieldContactPending)
+        {
+            _shieldContactPending = false;
+            BeginBounce();
+            return;
+        }
+
         switch (State)
         {
             case HostileProjectileState.Initializing:
@@ -71,18 +82,11 @@ internal sealed class HostileProjectileLifecycle
                 return;
         }
 
-        if (player.TryBlockWithShield(CollisionBounds))
-        {
-            BeginBounce();
-            return;
-        }
-
+        // Body damage retains its legacy dispatch until the damage publication
+        // and Link's following consumption are migrated together.
         if (player.OverlapsEnemyCollision(CollisionBounds, ZFixed >> 8))
         {
-            player.ApplyEnemyContactDamage(
-                _entity.Position,
-                _profile.DamageQuarters,
-                _profile.DamageSource);
+            player.ApplyEnemyContactDamage(_entity.Position, _profile.DamageQuarters, _profile.DamageSource);
             Finish();
             return;
         }
@@ -127,6 +131,19 @@ internal sealed class HostileProjectileLifecycle
         _entity.QueueRedraw();
     }
 
+    internal void HandleLinkContact(Player player)
+    {
+        if (Finished || !_collisionEnabled || _shieldContactPending ||
+            !player.NativeObjectVulnerable ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(player.EnemyContactZ, ZFixed >> 8, 7))
+            return;
+        if (player.TryBlockWithShield(CollisionBounds))
+        {
+            _shieldContactPending = true;
+            return;
+        }
+    }
+
     public bool DeflectWithSword()
     {
         if (Finished)
@@ -146,6 +163,7 @@ internal sealed class HostileProjectileLifecycle
     private void BeginBounce()
     {
         State = HostileProjectileState.Bouncing;
+        _collisionEnabled = false; // partCommon_bounceWhenCollisionsEnabled.
         if (_profile.ClearCollisionOnBounce)
             _collisionRadii = Vector2.Zero;
         if (_profile.ResetZOnBounce)

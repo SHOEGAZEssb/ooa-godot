@@ -12,11 +12,12 @@ public sealed class InventoryState
     private const int RingsObtainedByteCount = 8;
     private const int GashaSpotCount = 0x10;
     private const int RememberedCompanionIdAddress = 0xc631;
-    private const int UnappraisedRingCapacity = 0x40;
+    internal const int UnappraisedRingCapacity = 0x40;
 
     private readonly TreasureDatabase _treasures;
     private readonly OracleSaveData? _saveData;
     private readonly OracleRuntimeState _runtimeState;
+    internal OracleRuntimeState RuntimeState => _runtimeState;
     private readonly Func<int> _currentDungeonIndex;
     private readonly byte[] _obtainedTreasureFlags = new byte[16];
     private readonly byte[] _inventoryStorage = new byte[InventoryCapacity];
@@ -29,6 +30,7 @@ public sealed class InventoryState
     private readonly byte[] _unappraisedRings = new byte[UnappraisedRingCapacity];
     private readonly HashSet<TreasureVariable> _dirtyAuxiliaryVariables = new();
     private int _dummyC608;
+    private byte _unappraisedRingCountBcd;
     private int _shortSecretIndex;
     private int _satchelSelectedSeeds;
     private int _shooterSelectedSeeds;
@@ -219,7 +221,6 @@ public sealed class InventoryState
         ring &= 0x3f;
         bool duplicate = HasAppraisedRing(ring);
         _unappraisedRings[index] = 0xff;
-        RealignUnappraisedRings();
         if (!duplicate)
             _ringsObtained[ring >> 3] |= (byte)(1 << (ring & 7));
         NotifyChanged();
@@ -232,6 +233,22 @@ public sealed class InventoryState
         if (amount <= 0)
             return;
         AddRupeesCore(amount);
+        NotifyChanged();
+    }
+
+    internal void PrepareRingAppraisal()
+    {
+        // ringMenu_state0 calls realignUnappraisedRings. Removal itself only
+        // writes $ff, retaining raw holes until this initialization or a grant.
+        RealignUnappraisedRings();
+        NotifyChanged();
+    }
+
+    internal void RefreshUnappraisedRingCount()
+    {
+        // getNumUnappraisedRings writes this BCD byte independently of raw
+        // entries; appraisal state 4 calls it after the result delay.
+        _unappraisedRingCountBcd = (byte)ToBcd(CountUnappraisedRings());
         NotifyChanged();
     }
 
@@ -302,10 +319,19 @@ public sealed class InventoryState
         TreasureId.PegasusSeeds => PegasusSeeds,
         TreasureId.GaleSeeds => GaleSeeds,
         TreasureId.MysterySeeds => MysterySeeds,
-        TreasureId.Ring => ToBcd(UnappraisedRingCount),
+        TreasureId.Ring => _unappraisedRingCountBcd,
         TreasureId.GashaSeed => GashaSeeds,
         _ => 0
     };
+
+    internal int TreasureQuantityDisplayValue(int treasure)
+    {
+        // checkTreasureObtained_body's absent-item return retains L from
+        // wObtainedTreasureFlags. Both menu and HUD callers still pass that
+        // $9a byte to drawTreasureExtraTiles, without testing carry.
+        return HasTreasure(treasure) ? BcdAmountForInventoryDisplay(treasure)
+            : WramAddress.wObtainedTreasureFlags & 0xff;
+    }
 
     internal bool HasSelectedSatchelSeed()
     {
@@ -935,6 +961,7 @@ public sealed class InventoryState
             _saveData.ReadWramByte(WramAddress.wTotalRupeesCollected) |
             _saveData.ReadWramByte(WramAddress.wTotalRupeesCollected + 1) << 8);
         _saveData.ReadWramBytes(WramAddress.wUnappraisedRings, _unappraisedRings);
+        _unappraisedRingCountBcd = _saveData.ReadWramByte(WramAddress.wNumUnappraisedRingsBcd);
         _dummyC608 = _saveData.ReadWramByte(WramAddress.wc608);
         AnimalCompanion = _saveData.ReadWramByte(WramAddress.wAnimalCompanion);
         RememberedCompanionId = _saveData.ReadWramByte(RememberedCompanionIdAddress);
@@ -1022,8 +1049,7 @@ public sealed class InventoryState
             _saveData.WriteWramByte(WramAddress.wActiveRing, (byte)ActiveRing);
             _saveData.WriteWramByte(WramAddress.wRingBoxLevel, (byte)RingBoxLevel);
             _saveData.WriteWramByte(WramAddress.wNumRingsAppraised, (byte)RingsAppraised);
-            _saveData.WriteWramByte(
-                WramAddress.wNumUnappraisedRingsBcd, (byte)ToBcd(UnappraisedRingCount));
+            _saveData.WriteWramByte(WramAddress.wNumUnappraisedRingsBcd, _unappraisedRingCountBcd);
             PersistAuxiliaryVariables();
             _saveData.CommitInventoryChange();
         }
@@ -1487,6 +1513,7 @@ public sealed class InventoryState
             _unappraisedRings[write++] = ring;
         }
         Array.Fill(_unappraisedRings, (byte)0xff, write, _unappraisedRings.Length - write);
+        _unappraisedRingCountBcd = (byte)ToBcd(write);
         return write;
     }
 

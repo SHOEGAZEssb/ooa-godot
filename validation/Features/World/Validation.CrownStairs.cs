@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
                     "4:$b7 ENEMY $3d:$00 must finish state0 and create PART $1d while white is opaque.");
                 int angle = moblin.Angle, animation = moblin.AnimationFrame;
                 var random = CaptureOracleRandomForValidation();
-                foreach (int updates in new[] { 1, 14, 16 })
+                foreach (int updates in new[] { 1, 14, 17 })
                 {
                     StepGameplayUpdates(updates, Vector2.Zero, batched: batch);
                     FailIf(!_transitions.PaletteFadeActive || !moblin.Visible ||
@@ -58,11 +58,11 @@ public sealed partial class ValidationRoot
                         moblin.AnimationFrame != animation ||
                         CaptureOracleRandomForValidation().Calls != random.Calls ||
                         _entities.EntityAdapters<EnemySwordRoomEntity>().Count() != 1,
-                        "4:$b7 initialized ENEMY $3d must retain visibility, position, counters, animation and RNG through fade update31.");
+                        "4:$b7 initialized ENEMY $3d must retain visibility, position, counters, animation and RNG through fade update32.");
                 }
                 StepGameplayUpdates(1, Vector2.Zero, batched: batch);
                 FailIf(IsTransitioning || !moblin.Visible || moblin.Counter2 != 0x13,
-                    "4:$b7 ENEMY $3d must resume on terminal fade update32 without popping in.");
+                    "4:$b7 ENEMY $3d must resume on terminal fade update33 without popping in.");
                 StepGameplayUpdates(1, Vector2.Zero, batched: batch);
                 FailIf(!moblin.Visible || moblin.Counter2 != 0x12,
                     "4:$b7 ENEMY $3d must continue normally after fade completion.");
@@ -121,7 +121,7 @@ public sealed partial class ValidationRoot
                 var angles = whisps.Select(w => w.Angle).ToArray();
                 var likePositions = likes.Select(l => l.Position).ToArray();
                 var random = CaptureOracleRandomForValidation();
-                foreach (int updates in new[] { 1, 14, 16 })
+                foreach (int updates in new[] { 1, 14, 17 })
                 {
                     StepGameplayUpdates(updates, Vector2.Zero, batched: batch);
                     var currentRandom = CaptureOracleRandomForValidation();
@@ -137,7 +137,7 @@ public sealed partial class ValidationRoot
                 FailIf(IsTransitioning || _transitions.PaletteFadeActive ||
                     whisps.Where((w, i) => !w.Visible || w.Position == positions[i]).Any() ||
                     likes.Any(l => !l.Visible || l.State != 10),
-                    "4:$9f enemies must resume state8 on terminal fade update32 without a delayed appearance.");
+                    "4:$9f enemies must resume state8 on terminal fade update33 without a delayed appearance.");
                 var afterFade = whisps.Select(w => w.Position).ToArray();
                 StepGameplayUpdates(1, Vector2.Zero, batched: batch);
                 FailIf(whisps.Where((w, i) => !w.Visible || w.Position == afterFade[i]).Any(),
