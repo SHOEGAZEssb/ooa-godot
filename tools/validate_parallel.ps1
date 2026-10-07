@@ -7,6 +7,7 @@ param(
     [string]$Rom,
     [switch]$SkipRomValidation,
     [switch]$ContinueOnFailure,
+    [switch]$FailOnEngineDiagnostics,
     [string]$TimingProfile,
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600
@@ -85,7 +86,7 @@ try {
         # Retain the native handle so Windows PowerShell can read ExitCode even
         # when the worker exits before we reach WaitForExit.
         $null = $process.Handle
-        $processes.Add([pscustomobject]@{ Process = $process; Index = $index; Out = $stdout; Err = $stderr })
+        $processes.Add([pscustomobject]@{ Process = $process; Index = $index; Out = $stdout; Err = $stderr; EngineLog = $engineLog })
     }
 
     while (@($processes | Where-Object { -not $_.Process.HasExited }).Count -gt 0) {
@@ -103,6 +104,16 @@ try {
     $timings = [Collections.Generic.Dictionary[string, double]]::new([StringComparer]::Ordinal)
     foreach ($worker in $processes) {
         $worker.Process.WaitForExit()
+        if ($FailOnEngineDiagnostics) {
+            $logs = @($worker.Out, $worker.Err, $worker.EngineLog) |
+                Where-Object { [IO.File]::Exists($_) }
+            $engineDiagnostics = Select-String -LiteralPath $logs -Pattern '^\s*(ERROR|WARNING):'
+            if ($engineDiagnostics) {
+                $failed = $true
+                Write-Host "Worker $($worker.Index): Godot emitted engine errors or warnings."
+                $engineDiagnostics | ForEach-Object { Write-Host "$($_.Path):$($_.LineNumber): $($_.Line)" }
+            }
+        }
         $output = [string](Get-Content -LiteralPath $worker.Out -Raw)
         $pattern = "(?m)^VALIDATION_COMPLETE shard=$($worker.Index)/$Workers executed=(\d+) skipped=(\d+) registered=(\d+)(?: failed=(\d+))?\r?$"
         if ($output -notmatch $pattern) {

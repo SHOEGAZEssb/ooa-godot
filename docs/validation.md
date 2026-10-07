@@ -79,9 +79,14 @@ to select another location; the launcher passes it as `--validation-rom=PATH`.
 Missing or unsupported ROMs fail explicitly when a ROM-backed scenario runs.
 Focused scenarios that do not execute the ROM do not require it.
 
-CI passes `--skip-rom-validation` to skip ROM-dependent scenarios. For an
-equivalent local run, use `tools/validate_parallel.ps1 -SkipRomValidation`.
-Mark these scenarios with `requiresRom: true` in the ordered registration.
+CI rebuilds the clean US ROM from a pinned disassembly revision, verifies its
+MD5, and passes it with `-Rom` to the complete 8-worker suite. Each worker also
+checks the ROM's size and SHA-256 before reference execution. CI uses
+`-FailOnEngineDiagnostics` to reject Godot errors or warnings in worker logs.
+
+Use `tools/validate_parallel.ps1 -SkipRomValidation` for an explicit run without
+ROM-dependent scenarios. Mark these scenarios with `requiresRom: true` in the
+ordered registration.
 Skipping preserves shard assignments and reports each excluded scenario plus
 separate passed/skipped totals; it never counts a skipped test as passed.
 Normal local runs continue to execute every registered scenario.
@@ -155,8 +160,11 @@ without requiring a game build.
 `-Godot` overrides the executable and `-TimeoutSeconds` sets the overall deadline
 (default 600 seconds). The launcher fails on a worker error, timeout, missing
 completion marker, or incomplete scenario count, and stops remaining processes
-on exit. A successful parallel run covers the complete suite and satisfies the
-full-suite handoff check. The serial command remains available for debugging.
+on exit. `-FailOnEngineDiagnostics` also rejects engine errors and warnings in
+each worker's stdout, stderr, and engine log, even with a successful exit and
+completion marker. A successful parallel run covers the complete suite and
+satisfies the full-suite handoff check. The serial command remains available
+for debugging.
 
 Use `-ContinueOnFailure` when measuring complete-suite performance in a worktree
 with known scenario failures. Each failed scenario retains its diagnostic and

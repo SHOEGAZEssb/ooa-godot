@@ -46,6 +46,9 @@ public static class ValidationLauncherFixture {
             Environment.FailFast("fixture deliberate crash");
         }
         if (selected == "ValidateMissingMarker") return 0;
+        if (selected == "ValidateStdoutWarning") Console.WriteLine("  WARNING: fixture stdout warning");
+        if (selected == "ValidateStderrError") Console.Error.WriteLine("ERROR: fixture stderr error");
+        if (selected == "ValidateEngineLogWarning") File.WriteAllText(args[log + 1], "WARNING: fixture engine-log warning\n");
         int workers = int.Parse(shard.Split('/')[1]);
         int executed = selected == null ? 8 / workers : 1;
         int skipped = 0;
@@ -71,7 +74,7 @@ public static class ValidationLauncherFixture {
 }
 '@
     # Load the launcher's interop type and exercise a successful focused run.
-    & $launcher -Godot $fixture -ValidateOnly ValidateFixture -TimeoutSeconds 15
+    & $launcher -Godot $fixture -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
     & $launcher -Godot $fixture -ValidateOnly ValidateRomArgument `
         -Rom (Join-Path $temporary 'reference ROM [US].gbc') -TimeoutSeconds 15
     & $launcher -Godot $fixture -ValidateOnly ValidateSkipRomArgument `
@@ -103,17 +106,19 @@ public static class ValidationLauncherFixture {
     $expected = $original -bor 0x8000
     [void][OracleValidation.ErrorMode]::SetErrorMode($expected)
     try {
-        & $launcher -Godot $fixture -TimeoutSeconds 15
+        & $launcher -Godot $fixture -FailOnEngineDiagnostics -TimeoutSeconds 15
         if ([OracleValidation.ErrorMode]::GetErrorMode() -ne $expected) {
             throw 'Successful validation changed the calling process error mode.'
         }
         foreach ($scenario in @(
             'ValidateCrash', 'ValidateMissingMarker',
-            'ValidateUnexpectedSkip', 'ValidateIncompleteSkip', 'ValidateReportedFailure'
+            'ValidateUnexpectedSkip', 'ValidateIncompleteSkip', 'ValidateReportedFailure',
+            'ValidateStdoutWarning', 'ValidateStderrError', 'ValidateEngineLogWarning'
         )) {
             $failure = $null
             try {
                 & $launcher -Godot $fixture -ValidateOnly $scenario -TimeoutSeconds 15 `
+                    -FailOnEngineDiagnostics `
                     -SkipRomValidation:($scenario -eq 'ValidateIncompleteSkip')
             }
             catch { $failure = $_.ToString() }
@@ -126,7 +131,7 @@ public static class ValidationLauncherFixture {
         }
     }
     finally { [void][OracleValidation.ErrorMode]::SetErrorMode($original) }
-    Write-Host 'Validation launcher tests passed (8 workers, focused selection, ROM path forwarding, timing snapshot forwarding, explicit skips, continued failure counts, incomplete/unexpected skip rejection, unique logs, crash exit, missing marker, inherited/restored error mode).'
+    Write-Host 'Validation launcher tests passed (8 workers, focused selection, ROM path forwarding, timing snapshot forwarding, explicit skips, continued failure counts, incomplete/unexpected skip rejection, stdout/stderr/engine-log diagnostic rejection, unique logs, crash exit, missing marker, inherited/restored error mode).'
 }
 finally {
     # Only this test's generated executable lives here; no recursive deletion.

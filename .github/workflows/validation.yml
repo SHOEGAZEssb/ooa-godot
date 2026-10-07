@@ -129,23 +129,14 @@ jobs:
         shell: pwsh
         run: dotnet build --configuration Debug -t:Rebuild -p:Optimize=true --warnaserror
 
-      - name: Run headless validation with ROM-dependent tests skipped
+      - name: Run complete headless validation
         shell: pwsh
         run: |
-          $log = Join-Path $env:RUNNER_TEMP 'headless-validation.log'
-          & $env:GODOT_CONSOLE --headless --path . --quit-after 10 -- `
-              --validate --skip-rom-validation 2>&1 |
-              Tee-Object -FilePath $log
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -ne 0) {
-              throw "Headless validation exited with code $exitCode."
-          }
-
-          $engineDiagnostics = Select-String -LiteralPath $log -Pattern '^\s*(ERROR|WARNING):'
-          if ($engineDiagnostics) {
-              $engineDiagnostics | ForEach-Object { Write-Error $_.Line }
-              throw 'Godot emitted engine errors or warnings during validation.'
-          }
+          & .\tools\validate_parallel.ps1 `
+              -Godot $env:GODOT_CONSOLE `
+              -Rom $env:ORACLES_ROM `
+              -Workers 8 `
+              -FailOnEngineDiagnostics
 
       - name: Check patch whitespace
         shell: pwsh
