@@ -70,6 +70,9 @@ public sealed partial class ValidationRoot
             // Isolate cart handoffs from combat; the native room geometry and
             // mechanisms remain active, including platforms, cube and gates.
             _player.SetBraceletLiftCollisionsDisabled(true);
+            // Complete source state0 writers before declaring the isolated
+            // solved-color input; cube initialization publishes its own color.
+            Step();
             if (c.Room == 0x78 && c.Blue)
                 _entities.Entities<ColoredCubeRoomEntity>().Single().ColoredCubePuzzleState.CubeColor = 0x82;
             var cart = _entities.Entities<MinecartRoomEntity>().Single();

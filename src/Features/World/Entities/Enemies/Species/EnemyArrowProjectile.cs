@@ -18,17 +18,29 @@ public partial class EnemyArrowProjectile
     internal int Counter => _lifecycle.Counter;
     internal int ZFixed => _lifecycle.ZFixed;
     internal int ElapsedFrames => _lifecycle.ElapsedFrames;
+    internal int SubId { get; private set; }
+    internal int NativeState => State switch
+    {
+        HostileProjectileState.Initializing => 0,
+        HostileProjectileState.Launching => 1,
+        HostileProjectileState.Bouncing => SubId == 0 ? 2 : 3,
+        _ => SubId == 0 ? 1 : 2
+    };
 
     internal void Initialize(
         EnemyArrowRecord record,
         OracleRoomData room,
         Vector2 position,
-        int angle)
+        int angle,
+        int subId = 0)
     {
+        if (subId is < 0 or > 1) throw new System.NotSupportedException($"enemyArrow.s: PART$1a subid${subId:x2}.");
+        SubId = subId;
+        var wall = _behavior.WallArrowShooter;
         int cardinalAngle = angle & ObjectAngle.CardinalMask;
         int direction = cardinalAngle / 8;
         Position =
-            position + _behavior.EnemyArrowSpawnOffsets[direction].Vector;
+            subId == 0 ? position + _behavior.EnemyArrowSpawnOffsets[direction].Vector : position.Floor();
         _lifecycle = new HostileProjectileLifecycle(
             this,
             room,
@@ -37,11 +49,14 @@ public partial class EnemyArrowProjectile
                 record.DamageQuarters,
                 record.SpeedRaw,
                 RingDamageSource.Generic,
-                _behavior.EnemyArrowCollisionRadii[direction].Vector,
+                subId == 0 ? _behavior.EnemyArrowCollisionRadii[direction].Vector : wall.ArrowRadii,
                 HostileProjectileTileProbe.CurrentPosition,
                 HostileProjectileSwordWindow.AnyActiveState,
                 ClearCollisionOnBounce: true,
-                ResetZOnBounce: false),
+                ResetZOnBounce: false,
+                LaunchDelay: subId == 0 ? 0 : wall.LaunchDelay,
+                NativePartBoundary: subId != 0,
+                LaunchBoundaryOffsets: subId == 0 ? null : wall.BoundaryOffsets),
             cardinalAngle);
         string animation = direction switch
         {
@@ -68,6 +83,7 @@ public partial class EnemyArrowProjectile
         _lifecycle.UpdateFrame(player);
 
     internal void BindMovementMemory(OracleRuntimeState memory) => _lifecycle.BindMovementMemory(memory);
+    internal void InitializeFlight() => _lifecycle.InitializeFlight();
 
     internal bool DeflectWithSword() => _lifecycle.DeflectWithSword();
 

@@ -1933,7 +1933,7 @@ void fragment() {
 
     public void UpdateCamera()
     {
-        if (_scrollActive)
+        if (_scrollActive || _entities.CameraUpdatesDisabledSource())
             return;
         Vector2 focusPosition =
             _entities.SwitchHook?.CameraFocus ??

@@ -256,6 +256,11 @@ $stageContracts = @(
     New-ImportStageContract 'moving-platforms' 'Import-MovingPlatforms.ps1'
     New-ImportStageContract 'crown-dungeon' 'Import-CrownDungeon.ps1' `
         -inputs @('allTexts', 'allTextPositions')
+    New-ImportStageContract 'mermaid-dungeon' 'Import-MermaidDungeon.ps1' `
+        -inputs @('allTexts', 'allTextPositions')
+    New-ImportStageContract 'octogon-effects' 'Import-OctogonEffects.ps1' `
+        -inputs @('gfxNames','interactionGraphics') `
+        -functionInputs @('Resolve-NpcAnimation','Copy-EnemySprite','Get-EnemySpriteSourceGrayscaleInverted')
     New-ImportStageContract 'pushblock-synchronizer' 'Import-PushblockSynchronizer.ps1'
     New-ImportStageContract 'puzzle-trap-reset' 'Import-PuzzleTrapReset.ps1'
     New-ImportStageContract 'link-squish' 'Import-LinkSquish.ps1' `

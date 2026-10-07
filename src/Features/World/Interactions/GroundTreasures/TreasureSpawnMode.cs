@@ -6,6 +6,8 @@ public static class TreasureSpawnMode
 {
     // constants/common/treasureSpawnModes.s: TREASURE_SPAWN_MODE_INSTANT
     public const int Instant = 0x00;
+    // constants/common/treasureSpawnModes.s: TREASURE_SPAWN_MODE_PUFF
+    public const int Puff = 0x01;
     // constants/common/treasureSpawnModes.s: TREASURE_SPAWN_MODE_FROM_SCREEN_TOP
     public const int FromScreenTop = 0x02;
     // constants/common/treasureSpawnModes.s: TREASURE_SPAWN_MODE_BURIED

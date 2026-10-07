@@ -203,13 +203,18 @@ public sealed partial class ValidationRoot
         Step(78);
         FailIf(_saveData.HasRoomFlag(4, 0x80, OracleSaveData.RoomFlag80), "Armos reward ran before the explosion terminal dispatch.");
         Step();
-        FailIf(!_saveData.HasRoomFlag(4, 0x80, OracleSaveData.RoomFlag80) || _entities.Entities<MinibossPortal>().Count != 0,
-            "Armos explosion must publish zero enemies to its reward in the same update.");
+        FailIf(_saveData.HasRoomFlag(4, 0x80, OracleSaveData.RoomFlag80) || _entities.Entities<MinibossPortal>().Count != 0,
+            "Armos explosion must complete checknoenemies and yield before publishing flag$80.");
+        Step();
+        FailIf(!_saveData.HasRoomFlag(4,0x80,OracleSaveData.RoomFlag80),"Armos reward must publish flag$80 on its next script update.");
+        Step(); // wait20
         Step(19);
         FailIf(_entities.Entities<MinibossPortal>().Count != 0, "Armos portal appeared before reward update20.");
         Step();
-        FailIf(_entities.Entities<MinibossPortal>().Count != 1 || _entities.LinkCollisionsAndMenuDisabled,
-            "Armos completion did not create the portal and restore Link.");
+        FailIf(_entities.Entities<MinibossPortal>().Count != 1 || !_entities.LinkCollisionsAndMenuDisabled,
+            "Armos wait20 must spawn the portal and yield before enabling Link.");
+        Step();
+        FailIf(_entities.LinkCollisionsAndMenuDisabled,"Armos reward must enable Link on the script update after portal allocation.");
         LoadValidationRoom(4, 0x80); Step(8);
         FailIf(_entities.Entities<ArmosWarriorActor>().Count != 0 || _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
             _entities.Entities<MinibossPortal>().Count != 1,

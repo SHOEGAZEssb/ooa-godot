@@ -193,6 +193,7 @@ public sealed partial class ValidationRoot
                 floor.Remove(0x84);
                 WalkTo(0x94);
                 Step(6, move: Vector2.Up);
+                ApproachTileWall();
                 Step(attack: true);
                 Step(60);
                 FailIf(!_saveData.HasRoomFlag(4, room, OracleSaveData.RoomFlagItem),
@@ -215,9 +216,12 @@ public sealed partial class ValidationRoot
             _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != 1,
             "4:90 re-entry must reset its cube and allocate the original pending chest before its item-flag deletion.");
         var holeCounter = typeof(ColoredCubeRoomEntity).GetField("_holeCounter", flags)!;
+        Step();
+        FailIf((int)holeCounter.GetValue(resetCube)! != 0x0a || _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != 0,
+            "Cube state0 must install its ten-update idle timer; the collected chest deletes in this first object pass.");
         Step(10);
         FailIf((int)holeCounter.GetValue(resetCube)! != 0 || _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != 0,
-            "Cube idle timer must reach zero after ten updates and the collected chest must delete in its first object pass.");
+            "Cube idle timer must reach zero after ten state1 updates.");
         Step();
         FailIf((int)holeCounter.GetValue(resetCube)! != 0xff, "Cube idle cracked-floor timer did not wrap from zero to $ff.");
         _currentRoom.SetPositionTileAndCollision(resetCube.Position, 0x4d, 0x0f, 0);

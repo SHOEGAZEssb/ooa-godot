@@ -4,6 +4,12 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class WramAddress
 {
+    // include/wram.s: Ages object dispatch mask and menu/warp gate.
+    public const int wDisabledObjects = 0xcc8a;
+    public const int wDisableLinkCollisionsAndMenu = 0xcbca;
+    public const int wMenuDisabled = 0xcc02;
+    // include/wram.s: copied by bank1.loadDungeonLayout_b01 from dungeonDataTable.
+    public const int wDungeonWallmasterDestRoom = 0xcc3e;
     // include/wram.s: wInformativeTextsShown (shared per-room hint masks).
     public const int wInformativeTextsShown = 0xccd7;
     // include/wram.s: Ages wInShop, written by room graphics and shop scripts.
@@ -216,6 +222,8 @@ public static class WramAddress
     public const int wActiveCollisions = 0xcc33;
     // include/wram.s: wSeedTreeRefilledBitset
     public const int wSeedTreeRefilledBitset = 0xcc4d;
+    // include/wram.s: decremented by checkUseItems, written by enemyCode15.
+    public const int wSwordDisabledCounter = 0xcc59;
     // include/wram.s: wLinkPushingDirection
     public const int wLinkPushingDirection = 0xcc65;
     // include/wram.s: shared interactWithTileBeforeLink countdown.
@@ -225,6 +233,8 @@ public static class WramAddress
 
     // include/wram.s: wDisallowMountingCompanion
     public const int wDisallowMountingCompanion = 0xcc98;
+    // include/wram.s: wWarpDestPos (Ages)
+    public const int wWarpDestPos = 0xcc4a;
     // include/wram.s: wActiveTilePos
     public const int wActiveTilePos = 0xcc99;
     // include/wram.s: wActiveTileIndex
@@ -264,6 +274,8 @@ public static class WramAddress
     public const int wcde0 = 0xcde0;
     // include/wram.s: wTmpcec0; shared movement, torch and placement scratch.
     public const int wTmpcec0 = 0xcec0;
+    // include/wram.s: eight packed-position/native-owner pairs.
+    public const int wWizzrobePositionReservations = 0xcee0;
     // include/wram.s: wTmpcfc0; this union's fields have subsystem-specific meanings.
     public const int wTmpcfc0 = 0xcfc0;
 }

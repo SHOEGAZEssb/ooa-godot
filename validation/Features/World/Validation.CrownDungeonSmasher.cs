@@ -67,17 +67,21 @@ public partial class ValidationRoot
             Step(78);
             FailIf(_entities.RoomEnemyCount != 1 || Completed(), "$74 terminal explosion animation must retain the room count through update78.");
             Step(1);
-            FailIf(_entities.RoomEnemyCount != 0 || !Completed() || !_entities.LinkCollisionsAndMenuDisabled ||
+            FailIf(_entities.RoomEnemyCount != 0 || Completed() || !_entities.LinkCollisionsAndMenuDisabled ||
                 _entities.Entities<MinibossPortal>().Count != 0 || _entities.Entities<ItemDropEffect>().Count != 1,
-                "$74 explosion retirement must set room flag$80, create the fairy and begin the reward wait before any portal.");
+                "$74 explosion retirement must create the fairy and complete checknoenemies before flag$80 publication.");
+            Step(1);
+            FailIf(!Completed(),"Miniboss orroomflag$80 must run on the update after checknoenemies completes.");
+            Step(1); // wait20 begins on its own script update.
             Step(19);
             FailIf(_entities.Entities<MinibossPortal>().Count != 0 || !_entities.LinkCollisionsAndMenuDisabled,
                 "dungeonScript_minibossDeath must wait the complete 20 updates before spawning the portal and unlocking Link.");
             Step(1);
-            FailIf(_entities.Entities<MinibossPortal>().Count != 1 || _entities.LinkCollisionsAndMenuDisabled,
-                "$4:$b4 reward update20 must spawn one portal and restore Link collision/menu access.");
+            FailIf(_entities.Entities<MinibossPortal>().Count != 1 || !_entities.LinkCollisionsAndMenuDisabled ||
+                !_entities.Entities<MinibossPortal>().Single().Visible,
+                "$4:$b4 wait20 must allocate and initialize one higher-slot portal before the next script command unlocks Link.");
             Step(1);
-            FailIf(!_entities.Entities<MinibossPortal>().Single().Visible, "$4:$b4 dynamically spawned portal must initialize on its next interaction update.");
+            FailIf(_entities.LinkCollisionsAndMenuDisabled,"$4:$b4 must unlock Link on the script update after portal creation.");
             LoadValidationRoom(4,0xb4); Step(2);
             FailIf(_entities.Entities<SmasherCharacter>().Count != 0 || _entities.Entities<MinibossPortal>().Count != 1 ||
                 !_entities.Entities<MinibossPortal>().Single().Visible || _entities.RoomEnemyCount != 0,
@@ -510,11 +514,15 @@ public partial class ValidationRoot
                 drop.ZFixed != -0x0c00 || drop.Position != explosion.Position.Floor(),
                 "$74 fairy replacement must reuse the explosion's slot and high XYZ without dispatching twice in one pass.");
             Step(1);
-            FailIf(drop.ElapsedFrames != 1 || drop.ZFixed != -0x0c00 || drop.SpeedZ != -0x160,
-                "$74 fairy state0 must retain inherited Z while initializing upward speed.");
+            FailIf(drop.ElapsedFrames != 1 || drop.ZFixed != 0 || drop.SpeedZ != -0x160 ||
+                drop.Position != explosion.Position.Floor()+Vector2.Up*12,
+                "$74 fairy state0 must convert inherited Z high into Y high and clear Z high, as itemDrop_initSpeed@fairy does.");
             Step(1);
-            FailIf(drop.ZFixed != -0x560 || drop.SpeedZ != -0x140 || drop.FairyCollisionDelayCounter != 5,
-                "$74 inherited-height fairy must preserve fractional Z on the source $fa height clamp after its first motion update.");
+            FailIf(drop.ZFixed != -0x160 || drop.SpeedZ != -0x140 || drop.FairyCollisionDelayCounter != 0,
+                "$74 fairy must begin its ordinary upward bounce from zero Z after the height conversion.");
+            Step(5);
+            FailIf(drop.ZFixed != -0x560 || drop.SpeedZ != -0xa0 || drop.FairyCollisionDelayCounter != 5,
+                "$74 fairy must reach the source $fa clamp on its sixth motion update, preserving fractional Z.");
         }
         _entities.Clear();
         GD.Print("Validated Smasher lifecycle in the application loop: linked count ownership, deferred ball death, puff/explosion height, same-slot fairy replacement and inherited-height motion.");

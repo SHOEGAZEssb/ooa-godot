@@ -112,6 +112,8 @@ public static class SoundId
     public const int SndText = 0x66;
     // constants/common/music.s: SND_BOSS_DEAD
     public const int SndBossDead = 0x67;
+    // constants/common/music.s: SND_UNKNOWN3 (Octogon charge splitting)
+    public const int SndUnknown3 = 0x68;
     // constants/common/music.s: SND_SLASH
     public const int SndSlash = 0x6a;
     // constants/common/music.s: SND_SWORDSPIN

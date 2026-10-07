@@ -52,7 +52,7 @@ public partial class ChestTreasureEffect : Node2D
         _frames = Mathf.Min((float)(_frames + delta * 60.0), RiseFrames);
         // SPEED_40 is one quarter-pixel per frame. Rendering uses the integer
         // object coordinate, so the sprite rises one pixel every four frames.
-        Position = _start + new Vector2(0, -Mathf.Floor((float)_frames / 4.0f));
+        Position = new Vector2(_start.X,Mathf.Floor(_start.Y - (float)_frames / 4.0f));
         QueueRedraw();
     }
 

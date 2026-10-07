@@ -65,6 +65,7 @@ public sealed partial class ValidationRoot
                         rom[0xffac] = (byte)camera.X;
                         rom.Update(held, pressed && updates == 0, primary);
                         CompareSwordRom(_player, rom, $"Gameplay ITEM $05 ring=${ring:x2}, A={primary}, batch={batched}, update={updates++}");
+                        FailIf(_player.NativeItemUseActive != (rom[0xcc5f] != 0),"Sword wLinkUsingItem1 must follow the live swing/charge parent through completion.");
                         int beams = Enumerable.Range(0xd7, 5).Count(page => rom[page * 256] != 0 && rom[page * 256 + 1] == 0x27);
                         FailIf(_entities.Entities<SwordBeamEffect>().Count != beams,
                             $"Gameplay sword beam $27 allocation/lifetime differs at update={updates}, ring=${ring:x2}: native={beams}, runtime={_entities.Entities<SwordBeamEffect>().Count}, camera={camera}.");

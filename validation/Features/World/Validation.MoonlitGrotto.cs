@@ -101,13 +101,15 @@ public sealed partial class ValidationRoot
         Step();
         FailIf(essence.SwirlActive, "Essence state5 must only install its script on the textbox-close update.");
         Step();
+        FailIf(essence.SwirlActive, "The state6 playsound dispatch must yield before creating energy.");
+        Step();
         FailIf(
             !essence.SwirlActive ||
             _roomEvents.Get<DungeonEssenceEvent>().Counter != 360 ||
             _sound.PlayRequestsFor(SoundId.MusEssence) != 1 ||
             _sound.PlayRequestsFor(SoundId.SndEnergyThing) != 1,
             "Echoing Howl did not begin the common 360-update inward-energy " +
-            "swirl on the state6 update after installing its script.");
+            "swirl after the state6 music dispatch.");
         for (int frame = 0;
              frame < 520 && !_transitions.IsTransitioning;
              frame++)
@@ -119,7 +121,7 @@ public sealed partial class ValidationRoot
             _roomEvents.Get<DungeonEssenceEvent>().TracksEssence ||
             !_player.IsHoldingItemTwoHands ||
             _sound.PlayRequestsFor(SoundId.SndFadeOut) != 4 ||
-            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1,
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 0,
             "Room 4:49 did not finish the common 360/20/20/40/30 Essence " +
             "cadence and begin its delayed white exit warp.");
 
@@ -549,25 +551,26 @@ public sealed partial class ValidationRoot
         // observe it on the terminal dispatch, 78 animation updates plus one.
         Step(79);
         FailIf(
-            !_saveData.HasRoomFlag(
+            _saveData.HasRoomFlag(
                 4, 0x4a, OracleSaveData.RoomFlag80) ||
-            _entities.Entities<GroundTreasurePickup>() is not
-                [{ Record: { TreasureObject:
-                    "TREASURE_OBJECT_HEART_CONTAINER_00" } }] ||
-            _entities.LinkCollisionsAndMenuDisabled ||
+            _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+            !_entities.LinkCollisionsAndMenuDisabled ||
             _entities.RoomEnemyCount != 0 ||
             !_currentRoom.IsSolid(Point(0x50)) ||
             !_currentRoom.IsSolid(Point(0x5e)) ||
             _sound.PlayRequestsFor(mechanics.SolveSound) != 0,
-            "Room 4:4a did not persist flag $80 and spawn its Heart " +
-            "Container and begin both enemy-shutter solve delays when the " +
-            "boss explosion released the enemy count.");
+            "Room 4:4a must yield its zero-enemy check before publishing " +
+            "flag$80 or creating the heart, while starting both shutter delays.");
         Step();
         FailIf(_sound.PlayRequestsFor(mechanics.SolveSound) != 2,
             $"Shadow Hag's shutters must play their solve commands after the successful count-check update: health={_player.HealthQuarters}, dying={_player.IsDying}, text={_dialogue.IsOpen}.");
         Step(); // wait8 loads its counter after playsound.
         Step(mechanics.SolveWait);
         FailIf(
+            !_saveData.HasRoomFlag(4,0x4a,OracleSaveData.RoomFlag80) ||
+            _entities.Entities<GroundTreasurePickup>() is not
+                [{ Record: { TreasureObject: "TREASURE_OBJECT_HEART_CONTAINER_00" } }] ||
+            _entities.LinkCollisionsAndMenuDisabled ||
             _currentRoom.GetMetatile(Point(0x50)) != 0x7b ||
             _currentRoom.GetMetatile(Point(0x5e)) != 0x79,
             "Room 4:4a changed either shutter before the post-solve ready " +
@@ -843,21 +846,23 @@ public sealed partial class ValidationRoot
             "death / PART_BOSS_DEATH_EXPLOSION sequence.");
         Step(79);
         FailIf(
-            !_saveData.HasRoomFlag(
+            _saveData.HasRoomFlag(
                 4, 0x4d, OracleSaveData.RoomFlag80) ||
             _entities.Entities<MinibossPortal>().Count != 0,
-            "Room 4:4d did not persist flag $80 and begin the standard " +
-            "20-update miniboss portal wait after the explosion released " +
-            "its enemy count.");
+            "Room $4:$4d must complete checknoenemies before publishing flag$80.");
+        Step();
+        FailIf(!_saveData.HasRoomFlag(4,0x4d,OracleSaveData.RoomFlag80),"Room $4:$4d must publish flag$80 on its next script update.");
+        Step(); // wait20
         Step(19);
         FailIf(_entities.Entities<MinibossPortal>().Count != 0,
             "Room 4:4d created its miniboss portal before update 20.");
         Step();
         FailIf(
             _entities.Entities<MinibossPortal>().Count != 1 ||
-            _entities.LinkCollisionsAndMenuDisabled,
-            "Room 4:4d did not create its paired portal and restore Link on " +
-            "the exact reward-wait boundary.");
+            !_entities.LinkCollisionsAndMenuDisabled,
+            "Room $4:$4d must create its portal at wait20 and yield before unlocking Link.");
+        Step();
+        FailIf(_entities.LinkCollisionsAndMenuDisabled,"Room $4:$4d must unlock Link on the next script update.");
 
         LoadValidationRoom(4, 0x4d);
         FailIf(

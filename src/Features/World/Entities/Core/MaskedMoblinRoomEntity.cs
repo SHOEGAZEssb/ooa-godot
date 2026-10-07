@@ -33,5 +33,5 @@ internal sealed class MaskedMoblinRoomEntity
     }
 }
 
-internal sealed record EnemyArrowSpawn(Vector2 Position, int Angle)
+internal sealed record EnemyArrowSpawn(Vector2 Position, int Angle, int SubId = 0)
     : RoomEntitySpawn(UpdateThisFrame: true);

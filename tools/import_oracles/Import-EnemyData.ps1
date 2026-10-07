@@ -366,6 +366,7 @@ function Get-EnemySpriteSourceGrayscaleInverted([string]$name) {
 }
 
 $commonEnemySprites = @{
+    0x7d = @($gfxNames[0xc8], $gfxNames[0xc9], $gfxNames[0xca])
     0x7c = @($gfxNames[0xc5], $gfxNames[0xc6])
     0x0a = @($gfxNames[0x91])
     0x0b = @($gfxNames[0x8f])
@@ -382,12 +383,20 @@ $commonEnemySprites = @{
 $commonEnemySpecs = @(
     @(0x7c, 0x00),
     @(0x74, 0x00), @(0x74, 0x01),
+    @(0x75, 0x00), @(0x75, 0x01),
+    @(0x7d, 0x00), @(0x7d, 0x01), @(0x7d, 0x02),
     @(0x4b, 0x00),
     @(0x24, 0x00),
     @(0x16, 0x00),
     @(0x39, 0x00),
     @(0x12, 0x00),
     @(0x0e, 0x01),
+    @(0x2a, 0x03),
+    @(0x15, 0x00),
+    @(0x3c, 0x00), @(0x3c, 0x01),
+    @(0x35, 0x00), @(0x35, 0x01), @(0x35, 0x02),
+    @(0x40, 0x00), @(0x40, 0x01), @(0x40, 0x02),
+    @(0x55, 0x00),
     @(0x21, 0x00), @(0x21, 0x01), @(0x2d, 0x00),
     @(0x2c, 0x00), @(0x2c, 0x01),
     @(0x08, 0x00), @(0x18, 0x00), @(0x25, 0x00), @(0x0b, 0x01),
@@ -398,6 +407,7 @@ $commonEnemySpecs = @(
     @(0x1a, 0x00), @(0x22, 0x00), @(0x22, 0x01), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x30, 0x00), @(0x30, 0x01), @(0x30, 0x02),
+    @(0x3a, 0x00),
     @(0x49, 0x01), @(0x4a, 0x00), @(0x4a, 0x01), @(0x4d, 0x00), @(0x5f, 0x00), @(0x4e, 0x00), @(0x4f, 0x00),
     @(0x3d, 0x00), @(0x3d, 0x01), @(0x48, 0x00), @(0x48, 0x01),
     @(0x52, 0x00), @(0x52, 0x02), @(0x38, 0x00), @(0x63,0x00)
@@ -437,7 +447,10 @@ $commonEnemyRows.Add(
 foreach ($spec in $commonEnemySpecs) {
     $id = [int]$spec[0]
     $subid = [int]$spec[1]
-    $definition = Get-EnemyDefinition $id $subid
+    # floorMaster stateC consumes parameters 1/2, then continues across the
+    # grab-to-sink label boundary until parameter3 stops further advances.
+    $fallthrough = if ($id -eq 0x35) { @(4,5) } else { @() }
+    $definition = Get-EnemyDefinition $id $subid $fallthrough
     $sprites = $commonEnemySprites[$id]
     if ($null -eq $sprites) {
         $sprites = @($gfxNames[$definition.Gfx])
@@ -457,7 +470,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations`t$($definition.RawDamage.ToString('x2'))")
 }
-if ($commonEnemyRows.Count -ne 68 -or
+if ($commonEnemyRows.Count -ne 85 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^74\t0[01]\tspr_smasher\t0\t3\t1\t6\t6\t2\t5\t'
     }).Count -ne 2 -or
@@ -1494,6 +1507,17 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '2d:00' = 'podoboo-tower'
     '10:00' = 'rope'
     '0e:01' = 'blade-trap'
+    '2a:03' = 'giant-blade-trap'
+    '15:00' = 'bubble'
+    '3c:00' = 'bari'
+    '3c:01' = 'bari'
+    '35:00' = 'floormaster'
+    '35:01' = 'floormaster'
+    '35:02' = 'floormaster'
+    '40:00' = 'wizzrobe'
+    '40:01' = 'wizzrobe'
+    '40:02' = 'wizzrobe'
+    '55:00' = 'candle'
     '12:00' = 'gibdo'
     '24:00' = 'like-like'
     '4b:00' = 'ball-chain-soldier'
@@ -1517,6 +1541,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '30:00' = 'tektite'
     '30:01' = 'tektite'
     '30:02' = 'tektite'
+    '3a:00' = 'water-tektite'
     '31:00' = 'stalfos'
     '31:02' = 'stalfos'
     '32:00' = 'keese'
@@ -1555,7 +1580,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 86 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 98 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1626,9 +1651,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 674 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 735 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 147) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 86) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -1645,6 +1670,7 @@ foreach ($key in @(
         $enemyHandlerKeys[$key] = @{ Id=0x5f; SubId=0 }
     }
     if($key -match '^63:0[0-4]$') { $enemyHandlerKeys[$key]=@{Id=0x63;SubId=[Convert]::ToInt32($key.Substring(3),16)} }
+    if($key -match '^35:0[12]$') { $enemyHandlerKeys[$key]=@{Id=0x35;SubId=[Convert]::ToInt32($key.Substring(3),16)} }
     if (-not $enemyHandlerKeys.ContainsKey($key)) {
         throw "Enemy implementation key $key has no ordered source placement."
     }
@@ -1834,7 +1860,7 @@ foreach ($record in $enemyHandlerKeys.Values |
         "$($enemyCollisionTableValues[$collisionRowOffset + 3].ToString('x2'))`t" +
         $shieldSource)
 }
-if ($enemyHandlerRows.Count -ne 130 -or
+if ($enemyHandlerRows.Count -ne 132 -or
     -not $enemyHandlerRows.Contains((
         "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
         'constants/common/enemies.s:ENEMY_OCTOROK' +
@@ -1867,6 +1893,8 @@ Write-GeneratedTable(
     $enemyHandlerRows)
 Write-GeneratedTable((Join-Path $destination 'objects\native_enemy_spawns.tsv'), @(
     '# id`tsubid`tsource', "5f`t00`tobject_code/ages/interactions/patch.s:@spawnBeetle"
+    "35`t01`tobject_code/common/enemies/floorMaster.s:floormaster_state1"
+    "35`t02`tobject_code/common/enemies/floorMaster.s:floormaster_state1"
     @(0..4|ForEach-Object{"63`t$($_.ToString('x2'))`tobjects/ages/extraData3.s:targetCartCrystals"})
 ))
 if ($paletteHeaderSource -notmatch '(?s)m_PaletteHeaderStart \$8d, PALH_8d\s+m_PaletteHeaderSpr 6, 1, paletteData4948') {
@@ -2777,6 +2805,106 @@ function Export-SmogProjectileData {
     Write-GeneratedTable((Join-Path $destination 'effects/smog_projectile_collisions.tsv'), $rows)
 }
 Export-SmogProjectileData
+function Export-WizzrobeProjectileData {
+    $bytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x1f]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if (($bytes -join ',') -ne '159,134,85,250,64,10,0,0') { throw 'PART_WIZZROBE_PROJECTILE $1f properties changed.' }
+    $labels = $zoraPartTables['part1fAnimations']
+    $pointers = $zoraPartPointers['part1fOamDataPointers']
+    if ($labels.Count -ne 5 -or $pointers.Count -ne 4) { throw 'PART$1f requires four directional held poses in its shared five-entry animation table.' }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# animation-index`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tsource")
+    for ($index = 0; $index -lt 4; $index++) {
+        $frames = @($zoraPartFrames[$labels[$index]].Frames)
+        if ($frames.Count -ne 1 -or $frames[0].Parameter -ne 0) { throw "PART$1f pose $index must remain a single held frame." }
+        $frame = $frames[0]
+        $pointer = [int]($frame.PointerOffset / 2)
+        if ($pointer -ge $pointers.Count) { throw 'PART$1f OAM pointer out of range.' }
+        $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])"
+        $rows.Add("$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6] -band 7)`t$([int](Get-EnemySpriteSourceGrayscaleInverted $gfxNames[$bytes[0]]))`t$animation`tdata/ages/partAnimations.s:$($labels[$index])")
+    }
+    Copy-EnemySprite $gfxNames[$bytes[0]]
+    Write-GeneratedTable((Join-Path $destination 'effects/wizzrobe_projectile.tsv'), $rows)
+}
+Export-WizzrobeProjectileData
+function Export-CandleFlameData {
+    $labels = $zoraPartTables['part36Animations']
+    $pointers = $zoraPartPointers['part36OamDataPointers']
+    if ($labels.Count -ne 2 -or $pointers.Count -ne 6) { throw 'PART_CANDLE_FLAME $36 requires two three-frame animations.' }
+    $rows = @("# animation-index`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tsource")
+    for ($index = 0; $index -lt 2; $index++) {
+        $frames = @($zoraPartFrames[$labels[$index]].Frames)
+        if ($frames.Count -ne 3) { throw "PART$36 animation $index must retain three frames." }
+        $animation = @($frames | ForEach-Object {
+            if ($_.Duration -ne 4 -or $_.Parameter -ne 0) { throw 'PART$36 frame timing/parameter changed.' }
+            "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $pointers[[int]($_.PointerOffset / 2)])"
+        }) -join '|'
+        $inverted = [int](Get-EnemySpriteSourceGrayscaleInverted 'spr_common_sprites')
+        $rows += "$index`tspr_common_sprites`t6`t2`t$inverted`t$animation`tdata/ages/partAnimations.s:$($labels[$index])"
+    }
+    Write-GeneratedTable((Join-Path $destination 'effects/candle_flame.tsv'), $rows)
+}
+Export-CandleFlameData
+function Export-VireProjectileData {
+    $bytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x3a]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if (($bytes -join ',') -ne '142,246,51,252,1,22,4,0') { throw 'PART_VIRE_PROJECTILE $3a properties changed.' }
+    # Animation index 1 falls through the part3a table into part1cAnimations.
+    $source = Read-ImportText (Join-Path $Disassembly 'data/ages/partAnimations.s')
+    if ($source -notmatch '(?s)part3aAnimations:\s+\.dw partAnimation5b970\s+part1cAnimations:\s+part22Animations:\s+part2dAnimations:\s+\.dw partAnimation5b98c') { throw 'PART$3a animation-table fallthrough changed.' }
+    $labels = @($zoraPartTables['part3aAnimations'][0], $zoraPartTables['part1cAnimations'][0])
+    $pointers = $zoraPartPointers['part3aOamDataPointers']
+    if ($pointers.Count -ne 4) { throw 'PART$3a requires four OAM pointers.' }
+    $rows = @("# animation-index`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tsource")
+    for ($index = 0; $index -lt 2; $index++) {
+        $definition = $zoraPartFrames[$labels[$index]]
+        $frames = @($definition.Frames | ForEach-Object {
+            $pointer = [int]($_.PointerOffset / 2)
+            if ($pointer -ge $pointers.Count) { throw 'PART$3a OAM pointer out of range.' }
+            "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])"
+        })
+        if ($frames.Count -ne $(if ($index -eq 0) { 4 } else { 2 }) -or $definition.LoopStart -ne 0) { throw 'PART$3a animation frame/loop contract changed.' }
+        $rows += "$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6])`t$([int](Get-EnemySpriteSourceGrayscaleInverted $gfxNames[$bytes[0]]))`t$($frames -join '|')`tdata/ages/partAnimations.s:$($labels[$index]);part3aAnimations+$(($index * 2).ToString('x2'))"
+    }
+    Copy-EnemySprite $gfxNames[$bytes[0]]
+    Write-GeneratedTable((Join-Path $destination 'effects/vire_projectile.tsv'), $rows)
+}
+Export-VireProjectileData
+function Export-OctogonPartData {
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# id`tanimation-index`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tpart-data`tsource")
+    $partRows = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')
+    $collisionRows = [Collections.Generic.List[string]]::new()
+    $collisionRows.Add("# id`tcollision`tenabled`teffect`tsource")
+    foreach ($id in @(0x48,0x55)) {
+        $hex = $id.ToString('x2')
+        $bytes = @($partRows[$id].Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+        $labels = $zoraPartTables["part${hex}Animations"]
+        $pointers = $zoraPartPointers["part${hex}OamDataPointers"]
+        if ($bytes.Count -ne 8 -or $labels.Count -ne 2) { throw "Octogon PART`$${hex} requires two animations and eight property bytes." }
+        $sprite = $gfxNames[$bytes[0]]
+        $mask = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')[$id]
+        $bits = ($mask.Operands -join '').Replace('%','')
+        if ($bits -notmatch '^[01]{32}$') { throw "PART`$${hex}: malformed active mask." }
+        for ($collision = 0; $collision -lt 32; $collision++) {
+            $effect = $enemyCollisionTableValues[($bytes[1] -band 0x7f)*32+$collision]
+            $collisionRows.Add("$hex`t$($collision.ToString('x2'))`t$($bits[$collision])`t$($effect.ToString('x2'))`tdata/ages/partActiveCollisions.s:part$hex;data/ages/objectCollisionTable.s:mode$($bytes[1] -band 0x7f)")
+        }
+        Copy-EnemySprite $sprite
+        for ($index = 0; $index -lt $labels.Count; $index++) {
+            $definition = $zoraPartFrames[$labels[$index]]
+            $frames = @($definition.Frames | ForEach-Object {
+                $pointer = [int]($_.PointerOffset / 2)
+                if ($pointer -ge $pointers.Count) { throw "PART`$${hex}: OAM pointer out of range." }
+                "$($_.Duration),$($_.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])"
+            })
+            $animation = $frames -join '|'
+            if ($definition.LoopStart -ne 0) { $animation += "~$($definition.LoopStart)" }
+            $rows.Add("$hex`t$index`t$sprite`t$($bytes[5])`t$($bytes[6])`t$([int](Get-EnemySpriteSourceGrayscaleInverted $sprite))`t$animation`t$($bytes -join ',')`tdata/ages/partAnimations.s:$($labels[$index]);data/ages/partData.s:part$hex")
+        }
+    }
+    Write-GeneratedTable((Join-Path $destination 'effects/octogon_parts.tsv'),$rows)
+    Write-GeneratedTable((Join-Path $destination 'effects/octogon_part_collisions.tsv'),$collisionRows)
+}
+Export-OctogonPartData
 function Export-SmogWallData {
     $relative = 'object_code/ages/enemies/smog.s'
     $path = Join-Path $Disassembly $relative
@@ -3593,6 +3721,41 @@ Add-EnemyBehaviorPairTable 'enemy-arrow' 'spawn-offsets' `
     $enemyArrowOffsetPairs $enemyArrowOffsetSources
 Add-EnemyBehaviorPairTable 'enemy-arrow' 'collision-radii' `
     $enemyArrowRadiusPairs $enemyArrowRadiusSources
+
+# PART$25 is an invisible wall arrow shooter, not a rotating spike.
+# Its checked allocation creates PART$1a:$01, which keeps the raw radii and
+# moves through its source wall for eight updates before testing terrain.
+$wallArrowPath = 'object_code/ages/parts/wallArrowShooter.s'
+$wallArrowSource = Read-ImportText (Join-Path $Disassembly $wallArrowPath)
+foreach ($pattern in @(
+    'ld l,\$c2\s+ld a,\(hl\)\s+swap a\s+rrca\s+ld l,\$c9\s+ld \(hl\),a',
+    'call partCommon_decCounter1IfNonzero\s+ret nz',
+    'bit 0,a\s+ld e,\$cd\s+ldh a,\(<hEnemyTargetX\)\s+jr z,\+\s+ld e,\$cb\s+ldh a,\(<hEnemyTargetY\)',
+    'sub b\s+add \$10\s+cp \$21\s+ret nc\s+ld e,\$c6\s+ld a,\$21\s+ld \(de\),a',
+    'call getFreePartSlot\s+ret nz\s+ld \(hl\),PART_ENEMY_ARROW\s+inc l\s+inc \(hl\)\s+call objectCopyPositionWithOffset'
+)) { if ($wallArrowSource -notmatch "(?s)$pattern") { throw "${wallArrowPath}: wall shooter source contract changed: $pattern" } }
+$wallArrowOffsets = @(Read-AssemblyDataDirectives (Join-Path $Disassembly $wallArrowPath) 'table_6080' '.db' | ForEach-Object {
+    ,@($_.Operands | ForEach-Object { $byte = Convert-AssemblyInteger $_; if ($byte -ge 128) { $byte - 256 } else { $byte } })
+})
+if ($wallArrowOffsets.Count -ne 4 -or ($wallArrowOffsets | ForEach-Object { $_ -join ',' }) -join ';' -ne '-4,0;0,4;4,0;0,-4') {
+    throw 'PART$25 directional arrow origins changed.'
+}
+$arrowSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/parts/enemyArrow.s')
+if ($arrowSource -notmatch '(?s)@subid1:.*?@@state0:.*?ld \(hl\),\$08.*?ld \(hl\),\$50.*?@@state1:\s+call partCommon_decCounter1IfNonzero\s+jr nz,\+\s+ld l,e\s+inc \(hl\)\s+jr @subid0@state1\s+\+\s+call partCommon_checkOutOfBounds\s+jr z,@partDelete') {
+    throw 'PART_ENEMY_ARROW $1a:$01 launch counter, speed, or terrain admission changed.'
+}
+$wallPartData = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x25]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+$wallArrowData = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x1a]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($wallPartData -join ',') -ne '0,0,0,0,64,0,0,0' -or ($wallArrowData -join ',') -ne '142,134,34,252,64,0,2,0') { throw 'Wall shooter/arrow PART properties changed.' }
+Add-EnemyBehaviorProfile 'wall-arrow-shooter' 'part-data' $wallPartData 'data/ages/partData.s:partData+$0128'
+Add-EnemyBehaviorProfile 'wall-arrow-shooter' 'arrow-part-data' $wallArrowData 'data/ages/partData.s:partData+$00d0'
+Add-EnemyBehaviorProfile 'wall-arrow-shooter' 'state-profile' @(0x21,0x10,0x21,8) "${wallArrowPath}:partCode25;object_code/common/parts/enemyArrow.s:@subid1"
+Add-EnemyBehaviorPairTable 'wall-arrow-shooter' 'spawn-offsets' $wallArrowOffsets @($wallArrowOffsets | ForEach-Object { "${wallArrowPath}:table_6080" })
+$wallArrowBoundary = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code/common/parts/commonCode.s') 'partCommon_anglePositionOffsets' '.db' | ForEach-Object {
+    ,@($_.Operands | ForEach-Object { $byte = Convert-AssemblyInteger $_; if ($byte -ge 128) { $byte - 256 } else { $byte } })
+})
+if ($wallArrowBoundary.Count -ne 8) { throw 'Wall arrow launch boundary table requires eight Y/X pairs.' }
+Add-EnemyBehaviorPairTable 'wall-arrow-shooter' 'boundary-offsets' $wallArrowBoundary @($wallArrowBoundary | ForEach-Object { 'object_code/common/parts/commonCode.s:partCommon_anglePositionOffsets' })
 
 $giantGhiniChildCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\enemies\giantGhiniChild.s')
@@ -4604,6 +4767,261 @@ foreach ($id in @(0x3d, 0x48, 0x49, 0x4a)) {
 Add-EnemyBehaviorProfile 'sword-enemy' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
     'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$3d/$48/$49/$4a'
 
+$floormasterSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\floorMaster.s')
+if ($floormasterSource -notmatch '(?ms)^enemyCode35:.*?ITEMCOLLISION_LINK.*?ld \(hl\),\$0c.*?ld \(hl\),\$fb.*?sra a.*?sra a' -or
+    $floormasterSource -notmatch '(?ms)^floormaster_state_uninitialized:.*?ld \(hl\),60.*?floormaster_initSpawner' -or
+    $floormasterSource -notmatch '(?ms)^floormaster_state1:.*?Enemy.var33.*?Enemy.var30.*?ret nc.*?dec \(hl\).*?ld \(hl\),\$01.*?cp \$03.*?ecom_spawnUncountedEnemyWithSubid01.*?Enemy.relatedObj1.*?inc \(hl\).*?ld \(hl\),\$80.*?decNumEnemies.*?markEnemyAsKilledInRoom.*?enemyDelete' -or
+    $floormasterSource -notmatch '(?ms)^floormaster_state8:.*?call c,getRandomNumber_noPreserveVars.*?w1Link.angle.*?and \$1f.*?ld a,\$50.*?sub \$10.*?cp \$80.*?cp LARGE_ROOM_HEIGHT<<4.*?objectGetTileCollisions.*?ld \(hl\),\$20.*?add \$04.*?and \$18' -or
+    $floormasterSource -notmatch '(?ms)^floormaster_stateA:.*?srl a\s+srl a.*?ld \(hl\),\$f0.*?set 7,\(hl\).*?bit 5,\(hl\).*?SPEED_60.*?SPEED_a0' -or
+    $floormasterSource -notmatch '(?ms)^floormaster_stateC:.*?w1Link.substate.*?objectSetInvisible.*?w1Link.visible.*?w1Link.yh.*?w1Link.xh.*?Enemy.zh' -or
+    $floormasterSource -notmatch '(?ms)^floormaster_checkLinkMoved8PixelsAway:.*?add \$08.*?cp \$10.*?add \$08.*?cp \$10' -or
+    $floormasterSource -notmatch '(?ms)^floormaster_initSpawner:.*?and \$f0\s+swap a.*?and \$f0\s+swap a\s+inc a' -or
+    $floormasterSource -notmatch '(?ms)^floormaster_getAdjacentWallsBitset:\s+ld a,\$02\s+jp ecom_getTopDownAdjacentWallsBitset') {
+    throw 'object_code/common/enemies/floorMaster.s: spawner, position selection, grab or boundary contract changed.'
+}
+$hoverZ = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $floormasterSource 'floormaster_stateA') $true)
+$chaseZ = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $floormasterSource 'floormaster_updateZPosition') $true)
+if (($hoverZ -join ',') -ne '-5,-4,-3,-3,-2,-2,-1,-1' -or ($chaseZ -join ',') -ne '-5,-4,-3,-4,-5,-6,-7,-6') {
+    throw 'floorMaster.s: hovering or chasing height table changed.'
+}
+Add-EnemyBehaviorProfile 'floormaster' 'state-profile' @(60,128,1,3,32,240,15,25,8,16,80,16,176,128,-5,2) `
+    'object_code/common/enemies/floorMaster.s:state-entry-operands'
+Add-EnemyBehaviorValueTable 'floormaster' 'hover-z' $hoverZ 'object_code/common/enemies/floorMaster.s:floormaster_stateA@zVals'
+Add-EnemyBehaviorValueTable 'floormaster' 'chase-z' $chaseZ 'object_code/common/enemies/floorMaster.s:floormaster_updateZPosition@zVals'
+Add-EnemyBehaviorProfile 'floormaster' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x25 * 32 + $_] }) `
+    'data/ages/objectCollisionTable.s:ENEMYCOLLISION_FLOORMASTER/$25'
+$bits = ($seedActiveRows[0x35].Operands -join '').Replace('%', '')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_FLOORMASTER $35 requires 32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'floormaster' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$35'
+$linkWallmaster = Get-AssemblyLabelBody (Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\link.s')) 'linkState0c'
+if ($linkWallmaster -notmatch '(?ms)ld \(wWarpsDisabled\),a.*?SpecialObject.collisionType.*?wScrollMode.*?linkCancelAllItemUsage.*?SND_BOSS_DEAD.*?wWarpsDisabled.*?wActiveGroup.*?or \$80.*?wDungeonWallmasterDestRoom.*?TRANSITION_DEST_FALL.*?ld a,\$87.*?ld \(hl\),\$03' -or
+    $galeCollisionCode -notmatch '(?ms)^collisionEffect37:.*?Object.invincibilityCounter.*?wWarpsDisabled.*?w1Link.state.*?LINK_STATE_NORMAL.*?Object.collisionType.*?LINK_STATE_GRABBED_BY_WALLMASTER.*?wLinkForceState.*?ENEMYDMG_1c') {
+    throw 'link.s:linkState0c or collisionEffects.s:collisionEffect37 handoff changed.'
+}
+Add-EnemyBehaviorProfile 'floormaster' 'link-return' @(1,0,12,5,0x87,3) 'object_code/common/specialObjects/link.s:linkState0c'
+
+$wizzrobeSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/enemies/wizzrobe.s')
+foreach ($pattern in @(
+    '^enemyCode40:\s+call ecom_checkHazardsNoAnimationForHoles.*?ENEMYSTATUS_NO_HEALTH.*?enemyDie.*?ecom_updateKnockbackAndCheckHazards',
+    '^@justHit:.*?Enemy.subid.*?dec a\s+ret nz.*?Enemy.stunCounter.*?ret nz.*?ITEMCOLLISION_LINK\|\$80.*?ret z.*?wizzrobe_removePositionReservation',
+    '^wizzrobe_state_uninitialized:.*?or \$42.*?ld \(hl\),\$50.*?wWizzrobePositionReservations\s+ld b,\$10.*?SPEED_80.*?ld \(hl\),\$08.*?ecom_setRandomCardinalAngle',
+    '^wizzrobe_subid0_state8:.*?ecom_decCounter1.*?ld \(hl\),75.*?objectSetVisiblec2',
+    '^wizzrobe_subid0_state9:.*?wizzrobe_checkFlickerVisibility.*?ld \(hl\),72.*?set 7,\(hl\).*?ecom_updateCardinalAngleTowardTarget',
+    '^wizzrobe_subid0_stateA:.*?cp 52.*?PART_WIZZROBE_PROJECTILE.*?ecom_spawnProjectile.*?res 7,\(hl\).*?xor a\s+jp enemySetAnimation',
+    '^wizzrobe_subid0_stateB:.*?inc \(hl\).*?cp 75.*?jp c,wizzrobe_checkFlickerVisibility.*?ld \(hl\),72.*?objectSetInvisible',
+    '^wizzrobe_subid1_state8:.*?wizzrobe_chooseSpawnPosition\s+ret nz.*?wizzrobe_markSpotAsTaken\s+ret z.*?Enemy.yh.*?Enemy.xh.*?ld \(hl\),60',
+    '^wizzrobe_subid1_state9:.*?ecom_flickerVisibility.*?ld \(hl\),72.*?set 7,\(hl\).*?objectSetVisiblec2',
+    '^wizzrobe_subid1_stateA:.*?cp 52.*?PART_WIZZROBE_PROJECTILE.*?ld \(hl\),180.*?res 7,\(hl\)',
+    '^wizzrobe_subid1_stateB:.*?cp 120.*?ret c.*?jp z,objectSetInvisible.*?ecom_flickerVisibility.*?@gotoState8:\s+ld l,e\s+ld \(hl\),\$08[^:]*wizzrobe_removePositionReservation:',
+    '^wizzrobe_removePositionReservation:.*?Enemy.var30.*?ld h,>wWizzrobePositionReservations.*?sub d\s+ret nz\s+ldd \(hl\),a\s+ld \(hl\),a',
+    '^wizzrobe_subid2_state8:.*?ecom_decCounter1.*?inc l\s+dec \(hl\).*?ecom_updateCardinalAngleTowardTarget.*?and \$3f\s+add \$20.*?wizzrobe_fireEvery32Frames.*?ecom_applyVelocityForSideviewEnemyNoHoles',
+    '^wizzrobe_subid2_state9:.*?wizzrobe_chooseSpawnPosition.*?ecom_flickerVisibility.*?Enemy.var31.*?Enemy.zh\s+dec \(hl\)',
+    '^wizzrobe_subid2_stateA:.*?wizzrobe_setAngleTowardTargetPosition.*?ecom_flickerVisibility.*?wizzrobe_checkReachedTargetPosition.*?jp nc,objectApplySpeed.*?ld \(hl\),\$08.*?Enemy.zh.*?ld \(hl\),\$00',
+    '^wizzrobe_subid2_stateB:.*?ld bc,\$7f3f.*?ecom_randomBitwiseAndBCE.*?add \$80.*?add \$10',
+    '^wizzrobe_checkFlickerVisibility:.*?cp 45\s+ret c',
+    '^wizzrobe_checkReachedTargetPosition:.*?inc a\s+cp \$03.*?inc a\s+cp \$03',
+    '^wizzrobe_chooseSpawnPosition:.*?and \$70.*?hCameraY.*?and \$f0\s+add \$08.*?call getRandomNumber\s+and \$f0\s+cp SCREEN_WIDTH<<4.*?hCameraX.*?and \$f0\s+add \$08.*?getTileCollisionsAtPosition',
+    '^wizzrobe_fireEvery32Frames:.*?and \$1f\s+ret nz',
+    '^wizzrobe_markSpotAsTaken:.*?ld b,\$08.*?wWizzrobePositionReservations.*?cp e\s+jr z,@ret.*?@fillBlankSpot:\s+ld \(hl\),e\s+inc l\s+ld \(hl\),d.*?Enemy.var30'
+)) { if ($wizzrobeSource -notmatch "(?ms)$pattern") { throw "wizzrobe.s: unsupported state, reservation or RNG contract: $pattern" } }
+$hookCounters = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $wizzrobeSource '@stateAndCounter1'))
+if (($hookCounters -join ',') -ne '11,30,11,150,9,0' -or $enemyCollisionModes[0x40] -ne 0x30) { throw 'Wizzrobe Switch Hook recovery / collision mode changed.' }
+Add-EnemyBehaviorProfile 'wizzrobe' 'state-profile' @(80,75,72,52,45,75,72,60,180,120,20,8,128,127,16,63,32,63,31,112,240,160,8,240,8,16,1,3,32,66) 'object_code/common/enemies/wizzrobe.s:state-entry-operands'
+Add-EnemyBehaviorValueTable 'wizzrobe' 'hook-recovery' $hookCounters 'object_code/common/enemies/wizzrobe.s:@stateAndCounter1'
+Add-EnemyBehaviorProfile 'wizzrobe' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x30 * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$0600'
+$bits = ($seedActiveRows[0x40].Operands -join '').Replace('%', '')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_WIZZROBE $40 active mask is malformed.' }
+Add-EnemyBehaviorProfile 'wizzrobe' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) 'data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$0100'
+$seedStatusSource = Read-ImportText (Join-Path $Disassembly 'code/collisionEffects.s')
+foreach ($damage in @('2c', '38')) {
+    $row = [regex]::Match($seedStatusSource, "(?m)^\s*\.db (?<bytes>[^;\r\n]+); ENEMYDMG_$damage\s*$")
+    if (-not $row.Success) { throw "Wizzrobe requires ENEMYDMG_$damage status." }
+    $values = @($row.Groups['bytes'].Value.Trim() -split '\s+' | ForEach-Object { Convert-AssemblyInteger $_ })
+    if ($values.Count -ne 4) { throw "Malformed Wizzrobe ENEMYDMG_$damage status." }
+    Add-EnemyBehaviorProfile 'wizzrobe' "seed-status-$damage" $values "code/collisionEffects.s:ENEMYDMG_$damage"
+}
+$partCode = Read-ImportText (Join-Path $Disassembly 'object_code/common/parts/wizzrobeProjectile.s')
+if ($partCode -notmatch '(?ms)^partCode1f:.*?jr nz,@normalStatus.*?objectCheckWithinScreenBoundary.*?partCommon_checkTileCollisionOrOutOfBounds.*?jp nc,objectApplySpeed.*?partDelete.*?func_5369:.*?ld \(hl\),\$50.*?swap a\s+rlca\s+call partSetAnimation\s+jp objectSetVisible81') { throw 'PART$1f initialization, motion or collision deletion changed.' }
+$partBytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x1f]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+Add-EnemyBehaviorValueTable 'wizzrobe-projectile' 'part-data' $partBytes 'data/ages/partData.s:partData+$00f8'
+Add-EnemyBehaviorProfile 'wizzrobe-projectile' 'state-profile' @(80,129) 'object_code/common/parts/wizzrobeProjectile.s:func_5369'
+Add-EnemyBehaviorProfile 'wizzrobe-projectile' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[6 * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$00c0'
+$partMask = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')[0x1f]
+$bits = ($partMask.Operands -join '').Replace('%', '')
+if ($bits -ne '10110000000000000000000000000000') { throw 'PART$1f must collide only with Link and L2/L3 shields.' }
+Add-EnemyBehaviorProfile 'wizzrobe-projectile' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) 'data/ages/partActiveCollisions.s:partActiveCollisions+$007c'
+
+$candleSource = Read-ImportText (Join-Path $Disassembly 'object_code/ages/enemies/candle.s')
+foreach ($pattern in @(
+    '^enemyCode55:\s+call ecom_checkHazards.*?sub ENEMYSTATUS_NO_HEALTH\s+ret c.*?ITEMCOLLISION_EMBER_SEED.*?cp \$0a.*?ld a,\$0a',
+    '^candle_state_uninitialized:.*?ld a,30.*?SPEED_40.*?ecom_setSpeedAndState8AndVisible',
+    '^candle_state8:.*?ecom_decCounter1.*?ld \(hl\),90.*?getRandomNumber_noPreserveVars\s+and \$18\s+add \$04.*?ld a,\$01\s+jp enemySetAnimation',
+    '^candle_state9:.*?ld \(hl\),30.*?dec \(hl\).*?call enemySetAnimation.*?ecom_applyVelocityForSideviewEnemyNoHoles',
+    '^candle_stateA:.*?PART_CANDLE_FLAME.*?ecom_spawnProjectile\s+ret nz.*?ld \(hl\),120.*?SPEED_100.*?ld a,\$02',
+    '^candle_stateB:.*?ld \(hl\),120.*?SPEED_200.*?ld a,\$03\s+call enemySetAnimation.*?candle_applySpeed:\s+call objectApplySpeed\s+call ecom_bounceOffWallsAndHoles',
+    '^candle_stateC:.*?ld \(hl\),60.*?inc \(hl\).*?candle_stateD:\s+call ecom_flickerVisibility\s+call ecom_decCounter1.*?inc \(hl\).*?INTERAC_EXPLOSION.*?objectCreateInteractionWithSubid00\s+ret nz.*?Enemy.relatedObj1.*?Interaction.start.*?ENEMYCOLLISION_PODOBOO.*?objectSetInvisible',
+    '^candle_stateE:.*?Object.animParameter.*?objectGetRelatedObject1Var.*?or a\s+ret z\s+rlca.*?ld \(hl\),\$00.*?ld a,\$0c.*?@done:\s+call markEnemyAsKilledInRoom\s+call decNumEnemies\s+jp enemyDelete'
+)) { if ($candleSource -notmatch "(?ms)$pattern") { throw "Candle `$55 source contract changed: $pattern" } }
+Add-EnemyBehaviorProfile 'candle' 'state-profile' @(30,90,120,60,10,40,80,24,4,4,12,-13) 'object_code/ages/enemies/candle.s:states8-E;constants/common/objectSpeed.s:SPEED_40/100/200'
+Add-EnemyBehaviorProfile 'candle' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x3e * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$07c0'
+Add-EnemyBehaviorProfile 'candle' 'explosion-collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[4 * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$0080'
+$bits = ($seedActiveRows[0x55].Operands -join '').Replace('%', '')
+if ($bits -ne '10001111110001100000011101111110') { throw 'ENEMY_CANDLE $55 active collision mask changed.' }
+Add-EnemyBehaviorProfile 'candle' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) 'data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$0154'
+$partBytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x36]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($partBytes -join ',') -ne '0,132,68,248,64,6,10,0') { throw 'PART_CANDLE_FLAME $36 properties changed.' }
+$flameSource = Read-ImportText (Join-Path $Disassembly 'object_code/ages/parts/candleFlame.s')
+if ($flameSource -notmatch '(?ms)^partCode36:.*?Object.id.*?ENEMY_CANDLE.*?partDelete.*?@state0:.*?objectSetVisible81.*?@state1:.*?Enemy.speed.*?SPEED_100.*?ld a,\$02.*?partSetAnimation.*?@state2:.*?Enemy.enemyCollisionMode.*?ENEMYCOLLISION_PODOBOO.*?partDelete.*?objectTakePosition.*?ld a,\$f3.*?partAnimate') { throw 'PART$36 live parent/animation/deletion contract changed.' }
+Add-EnemyBehaviorValueTable 'candle' 'flame-part-data' $partBytes 'data/ages/partData.s:partData+$01b0'
+$candleFlameMask = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')[0x36]
+if (($candleFlameMask.Operands -join '').Replace('%', '') -ne '10000000000000000000000000000000') { throw 'PART$36 must respond only to Link collision.' }
+
+$vireProjectileSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/parts/vireProjectile.s')
+foreach ($pattern in @(
+    '^partCode3a:.*?res 7,a\s+cp \$04\s+jp c,partDelete\s+jp func_6e4a',
+    '^@subid0_state0:.*?func_6e50.*?objectGetAngleTowardEnemyTarget.*?func_6e5d.*?objectSetVisible80',
+    '^@func_6d22:\s+call getFreePartSlot\s+ld \(hl\),PART_VIRE_PROJECTILE.*?inc \(hl\).*?ld l,\$d6.*?objectCopyPosition',
+    '^@subid2_state1:.*?add \$02\s+cp \$05.*?INTERAC_PUFF \$02.*?objectCreateInteraction\s+ret nz.*?ld a,\$02.*?objectSetInvisible',
+    '^@fimc_6d5e:.*?ld b,\$19.*?cp \$10.*?ld b,\$2d.*?cp \$0a.*?ld b,\$41',
+    '^@subid2_state2:.*?bit 7,\(hl\).*?ld b,\$05.*?checkBPartSlotsAvailable\s+ret nz.*?ld c,\$05.*?ld \(hl\),\$1d.*?func_6e5d',
+    '^@subid3:.*?partCommon_decCounter1IfNonzero.*?ld \(hl\),\$07.*?objectNudgeAngleTowards',
+    '^@subid3_state0:.*?ld \(hl\),\$f0.*?ld \(hl\),\$07.*?ld a,\$02.*?func_6e2f:',
+    '^func_6e2f:.*?ld b,\$1e.*?cp \$10.*?ld b,\$2d.*?cp \$0a.*?ld b,\$3c',
+    '^func_6e50:.*?inc \(hl\).*?ld l,\$cf.*?ld \(hl\),\$00.*?ld l,\$cb\s+add \(hl\)',
+    '^func_6e5d:.*?ld b,\$3c.*?cp \$10.*?ld b,\$5a.*?cp \$0a.*?ld b,\$78'
+)) { if ($vireProjectileSource -notmatch "(?ms)$pattern") { throw "PART_VIRE_PROJECTILE `$3a source contract changed: $pattern" } }
+$bytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x3a]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+Add-EnemyBehaviorValueTable 'vire-projectile' 'part-data' $bytes 'data/ages/partData.s:partData+$01d0'
+Add-EnemyBehaviorProfile 'vire-projectile' 'state-profile' @(240,7,2,2,5,29,16,10) 'object_code/common/parts/vireProjectile.s:state-entry-operands'
+Add-EnemyBehaviorProfile 'vire-projectile' 'speeds' @(60,90,120,30,45,60,25,45,65) 'object_code/common/parts/vireProjectile.s:func_6e5d/func_6e2f/@fimc_6d5e'
+Add-EnemyBehaviorValueTable 'vire-projectile' 'split-angles' @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $vireProjectileSource '@table_6df8')) 'object_code/common/parts/vireProjectile.s:@table_6df8'
+Add-EnemyBehaviorProfile 'vire-projectile' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x76 * 32 + $_] }) 'data/ages/objectCollisionTable.s:objectCollisionTable+$0ec0'
+$mask = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')[0x3a]
+$bits = ($mask.Operands -join '').Replace('%', '')
+if ($bits -ne '11111111110100000000001111111110') { throw 'PART$3a active collision mask changed.' }
+Add-EnemyBehaviorProfile 'vire-projectile' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) 'data/ages/partActiveCollisions.s:partActiveCollisions+$00e8'
+$rows = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code/common/parts/commonCode.s') 'partCommon_anglePositionOffsets' '.db')
+$pairs = @($rows | ForEach-Object { ,@(Convert-AssemblyInteger $_.Operands[0]; Convert-AssemblyInteger $_.Operands[1]) })
+Add-EnemyBehaviorPairTable 'vire-projectile' 'boundary-offsets' $pairs @(0..7 | ForEach-Object { "object_code/common/parts/commonCode.s:partCommon_anglePositionOffsets+$((2 * $_).ToString('x2'))" })
+
+$bariSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\enemies\bari.s')
+if ($bariSource -notmatch '(?ms)^enemyCode3c:.*?ITEMCOLLISION_GALE_SEED.*?Enemy.health.*?ENEMYCOLLISION_BARI_ELECTRIC_SHOCK.*?ITEMCOLLISION_L3_SHIELD.*?ld \(hl\),\$0a' -or
+    $bariSource -notmatch '(?ms)^bari_state_uninitialized:.*?SPEED_60.*?ld \(hl\),\$04.*?ld \(hl\),\$fc.*?Enemy.var32.*?SPEED_40' -or
+    $bariSource -notmatch '(?ms)^bari_subid0_state8:.*?ecom_decCounter2.*?ld \(hl\),60.*?ENEMYCOLLISION_BARI_ELECTRIC_SHOCK.*?and \$0e\s+add \$02.*?objectNudgeAngleTowards' -or
+    $bariSource -notmatch '(?ms)^bari_state9:.*?xor a\s+call enemySetAnimation\s+(?:;[^\r\n]*\r?\n\s*)*bari_setRandomAngleAndCounter2:' -or
+    $bariSource -notmatch '(?ms)^bari_subid0_stateA:.*?ld c,\$04.*?@spawnSmallBari.*?ld c,\$fc.*?@spawnSmallBari.*?decNumEnemies.*?enemyDelete' -or
+    $bariSource -notmatch '(?ms)^@spawnSmallBari:.*?ecom_spawnEnemyWithSubid01.*?Enemy.enabled.*?Enemy.angle.*?add c.*?objectCopyPositionWithOffset' -or
+    $bariSource -notmatch '(?ms)^@substate0:.*?INTERAC_KILLENEMYPUFF.*?res 7,\(hl\).*?ld \(hl\),\$04.*?SND_KILLENEMY' -or
+    $bariSource -notmatch '(?ms)^bari_subid1:.*?and \$1c\s+inc a.*?objectNudgeAngleTowards' -or
+    $bariSource -notmatch '(?ms)^bari_updateZPosition:.*?dec \(hl\).*?and \$30\s+swap a') {
+    throw 'object_code/ages/enemies/bari.s: movement, shock, bobbing or ordered split contract changed.'
+}
+$bariShockCounters = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $bariSource '@counter2Vals'))
+$bariZValues = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $bariSource '@zVals') $true)
+if (($bariShockCounters -join ',') -ne '60,90,120,150' -or ($bariZValues -join ',') -ne '-4,-3,-2,-3') {
+    throw 'object_code/ages/enemies/bari.s: shock-counter or bobbing lookup changed.'
+}
+$bariItemCollisionSymbols = Read-ImportText (Join-Path $Disassembly 'constants/common/itemCollisionTypes.s')
+if ($bariItemCollisionSymbols -notmatch '(?m)^\s*ITEMCOLLISION_ELECTRIC_SHOCK\s+db\s*;\s*\$20\s*$') {
+    throw 'constants/common/itemCollisionTypes.s: ITEMCOLLISION_ELECTRIC_SHOCK $20 changed.'
+}
+Add-EnemyBehaviorProfile 'bari' 'state-profile' @(0x0f,0x0a,4,60,4,0x0e,2,0x1c,1,0x30,4,0x2d,0x59,3,4,0x20) `
+    'object_code/ages/enemies/bari.s:state-entry-operands;constants/common/enemyCollisionModes.s;constants/common/itemCollisionTypes.s'
+Add-EnemyBehaviorValueTable 'bari' 'shock-counters' $bariShockCounters 'object_code/ages/enemies/bari.s:bari_setRandomAngleAndCounter2@counter2Vals'
+Add-EnemyBehaviorValueTable 'bari' 'z-values' $bariZValues 'object_code/ages/enemies/bari.s:bari_updateZPosition@zVals'
+foreach ($mode in @(0x2d,0x59)) {
+    Add-EnemyBehaviorProfile 'bari' ('collision-effects-' + $mode.ToString('x2')) `
+        @(0..31 | ForEach-Object { $enemyCollisionTableValues[$mode * 32 + $_] }) `
+        ('data/ages/objectCollisionTable.s:ENEMYCOLLISION_BARI/$' + $mode.ToString('x2'))
+}
+$bits = ($seedActiveRows[0x3c].Operands -join '').Replace('%', '')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_BARI $3c requires 32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'bari' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$3c'
+
+$bubbleSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\bubble.s')
+if ($bubbleSource -notmatch '(?ms)^enemyCode15:.*?sub ENEMYSTATUS_NO_HEALTH\s+ret c.*?cp \$80\|ITEMCOLLISION_LINK.*?WHISP_RING.*?ld a,180\s+ld \(wSwordDisabledCounter\),a' -or
+    $bubbleSource -notmatch '(?ms)^@state_uninitialized:.*?getRandomNumber_noPreserveVars\s+and \$18.*?SPEED_c0.*?ecom_setSpeedAndState8.*?objectSetVisible82' -or
+    $bubbleSource -notmatch '(?ms)^@state8:.*?@checkCenteredOnTile\s+call z,@chooseNewDirection\s+call ecom_applyVelocityForSideviewEnemyNoHoles\s+call z,@chooseNewDirection\s+jp enemyAnimate' -or
+    $bubbleSource -notmatch '(?ms)^@chooseNewDirection:\s+ldbc \$07,\$18\s+call ecom_randomBitwiseAndBCE\s+or b\s+ret nz' -or
+    $bubbleSource -notmatch '(?ms)^@checkCenteredOnTile:.*?or c\s+and \$07') {
+    throw 'object_code/common/enemies/bubble.s: $15 movement, RNG or deferred sword-jinx contract changed.'
+}
+$bubbleItemUseSource = Read-ImportText (Join-Path $Disassembly 'code\parentItemUsage.s')
+$bubbleSwordParentSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\itemParents\commonCode.s')
+if ($bubbleItemUseSource -notmatch '(?ms)^checkUseItems:\s+xor a\s+ld \(wUsingShield\),a\s+ld hl,wSwordDisabledCounter\s+ld a,\(hl\)\s+or a\s+jr z,\+\s+dec \(hl\)' -or
+    $bubbleSwordParentSource -notmatch '(?ms)^clearParentItemIfCantUseSword:.*?wSwordDisabledCounter\)\s+or b\s+ret z.*?SND_ERROR.*?call z,playSound') {
+    throw 'Bubble sword-jinx decrement/parent cancellation boundary changed.'
+}
+Add-EnemyBehaviorProfile 'bubble' 'state-profile' @(0x1e,0x18,7,7,180,25,7) `
+    'object_code/common/enemies/bubble.s:state-entry-operands;code/collisionEffects.s:LINKDMG_00'
+Add-EnemyBehaviorProfile 'bubble' 'collision-effects' `
+    @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x19 * 32 + $_] }) `
+    'data/ages/objectCollisionTable.s:ENEMYCOLLISION_BUBBLE/$19'
+$bits = ($seedActiveRows[0x15].Operands -join '').Replace('%', '')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_BUBBLE $15 requires 32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'bubble' 'active-collisions' `
+    @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$15'
+
+$giantTrapSource = Read-ImportText (Join-Path $Disassembly 'object_code\common\enemies\giantBladeTrap.s')
+if ($giantTrapSource -notmatch '(?ms)^giantBladeTrap_subid03_state8:.*?ld \(hl\),\$10.*?ld \(hl\),90' -or
+    $giantTrapSource -notmatch '(?ms)^giantBladeTrap_commonState9:.*?giantBladeTrap_updateSpeed.*?giantBladeTrap_checkCanMoveInDirection.*?objectApplySpeed.*?add \$02\s+and \$f8.*?ld \(hl\),\$10' -or
+    $giantTrapSource -notmatch '(?ms)^giantBladeTrap_subid03_stateA:.*?ecom_decCounter1.*?sub \$08\s+and \$1f.*?xor \$10.*?add \$08\s+and \$1f.*?ld \(hl\),90' -or
+    $giantTrapSource -notmatch '(?ms)^enemyCode2a:\s+;.*?dec a\s+ret z\s+dec a\s+ret z' -or
+    $giantTrapSource -notmatch '(?ms)^giantBladeTrap_checkCanMoveInDirection:.*?rrca.*?@positionOffsets.*?wRoomCollisions.*?@checkTileAtOffsetSolid.*?@checkTileAtOffsetSolid') {
+    throw 'object_code/common/enemies/giantBladeTrap.s: $2a:$03 initialization, acceleration, collision or turn contract changed.'
+}
+$giantTrapSpeeds = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $giantTrapSource '@speeds'))
+$giantTrapOffsets = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $giantTrapSource '@positionOffsets'))
+if (($giantTrapSpeeds -join ',') -ne '100,80,60,40,20,5' -or
+    ($giantTrapOffsets -join ',') -ne '239,248,239,7,248,16,7,16,16,248,16,7,248,239,7,239') {
+    throw 'object_code/common/enemies/giantBladeTrap.s: acceleration or paired collision probes changed.'
+}
+# rst_jumpTable leaves the destination low byte in A. State zero calls
+# ecom_setSpeedAndState8 without loading A: its otherwise unused initial
+# speed is the clean-US routine address low byte, not SPEED_00.
+$giantTrapSignature = @(0x3d,0xc8,0x3d,0xc8,0xcd,0x26,0x44,0x38,0x0a,0x78,0xc7,
+    0xaa,0x63,0xab,0x63,0xde,0x63,0x3d,0x64,0xc7,0xa3,0x63)
+for ($i = 0; $i -lt $giantTrapSignature.Count; $i++) {
+    if ($romBytes[0x3637f + $i] -ne $giantTrapSignature[$i]) {
+        throw 'Clean-US giantBladeTrap.s enemyCode2a dispatch at $0d:$637f changed.'
+    }
+}
+Add-EnemyBehaviorProfile 'giant-blade-trap' 'state-profile' @(90,16,0x10,28,[int]$romBytes[0x36393]) `
+    'object_code/common/enemies/giantBladeTrap.s:state-entry-operands;code/collisionEffects.s:ENEMYDMG_34;ROM:$0d:$6393/rst_jumpTable'
+Add-EnemyBehaviorValueTable 'giant-blade-trap' 'speeds' $giantTrapSpeeds `
+    'object_code/common/enemies/giantBladeTrap.s:giantBladeTrap_updateSpeed@speeds'
+Add-EnemyBehaviorValueTable 'giant-blade-trap' 'probe-offsets' $giantTrapOffsets `
+    'object_code/common/enemies/giantBladeTrap.s:giantBladeTrap_checkCanMoveInDirection@positionOffsets'
+Add-EnemyBehaviorProfile 'giant-blade-trap' 'collision-effects' `
+    @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x26 * 32 + $_] }) `
+    'data/ages/objectCollisionTable.s:ENEMYCOLLISION_GIANT_BLADE_TRAP/$26'
+$bits = ($seedActiveRows[0x2a].Operands -join '').Replace('%', '')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_GIANT_BLADE_TRAP $2a requires 32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'giant-blade-trap' 'active-collisions' `
+    @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$2a'
+
+$waterTektitePath = Join-Path $Disassembly 'object_code\common\enemies\waterTektite.s'
+$waterTektiteSource = Read-ImportText $waterTektitePath
+if ($waterTektiteSource -notmatch '(?ms)^waterTektike_decideNewAngle:.*?ld \(hl\),\$08.*?ld \(hl\),\$40.*?wScentSeedActive.*?and \$18\s+add \$04' -or
+    $waterTektiteSource -notmatch '(?ms)^waterTektike_state8:.*?ecom_decCounter1.*?ld \(hl\),\$08.*?waterTektike_setSpeedFromCounter1.*?waterTektite_getAdjacentWallsBitset.*?ecom_applyVelocityGivenAdjacentWalls.*?ecom_bounceOffScreenBoundary' -or
+    $waterTektiteSource -notmatch '(?ms)^waterTektite_getAdjacentWallsBitsetGivenAngle:.*?ecom_sideviewAdjacentWallOffsetTable.*?sub TILEINDEX_PUDDLE.*?cp TILEINDEX_FD-TILEINDEX_PUDDLE\+1' -or
+    $waterTektiteSource -notmatch '(?ms)^enemyCode3a:.*?ld a,SPEED_200.*?waterTektite_getAdjacentWallsBitsetGivenAngle.*?ecom_applyVelocityGivenAdjacentWalls' -or
+    $waterTektiteSource -notmatch '(?ms)^waterTektike_setSpeedFromCounter1:.*?srl a\s+srl a') {
+    throw 'object_code/common/enemies/waterTektite.s: water probes, state/counter, scent or recoil contract changed.'
+}
+$waterTektiteSpeeds = @(Read-EnemyBehaviorValues ((Get-AssemblyLabelBody $waterTektiteSource '@speedVals').Replace('SPEED_020','SPEED_20').Replace('SPEED_040','SPEED_40').Replace('SPEED_080','SPEED_80').Replace('SPEED_0c0','SPEED_c0')))
+if (($waterTektiteSpeeds -join ',') -ne '5,10,20,30,40,50,50,50,40,40,30,30,20,20,10,10') {
+    throw 'object_code/common/enemies/waterTektite.s:@speedVals changed.'
+}
+Add-EnemyBehaviorValueTable 'water-tektite' 'speeds' $waterTektiteSpeeds `
+    'object_code/common/enemies/waterTektite.s:waterTektike_setSpeedFromCounter1@speedVals'
+Add-EnemyBehaviorProfile 'water-tektite' 'state-profile' @(0x40,8,0x18,4,0xf9,5,0x50) `
+    'object_code/common/enemies/waterTektite.s:state-entry-operands;constants/common/tileIndices.s:TILEINDEX_PUDDLE/TILERANGE_WATER'
+
 $tektiteSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\tektite.s')
 if ($tektiteSource -notmatch
@@ -5035,8 +5453,95 @@ if ($smasherBits -notmatch '^[01]{32}$') { throw 'ENEMY_SMASHER $74 active colli
 Add-EnemyBehaviorProfile 'smasher' 'active-collisions' @($smasherBits.ToCharArray() | ForEach-Object {
     [int]::Parse([string]$_)
 }) 'data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$01d0'
-if ($enemyBehaviorRows.Count -ne 1939) {
-    throw "Expected 1938 enemy behavior-table rows, got " +
+$virePath = 'object_code/common/enemies/vire.s'
+$vireTexts = [Collections.Generic.List[string]]::new()
+$vireTexts.Add("# id`tmessage-base64`tsource")
+foreach ($id in 0x2f12..0x2f18) {
+    if (-not $allTexts.ContainsKey($id)) { throw "Vire text TX_$($id.ToString('x4')) is missing." }
+    $message = $allTexts[$id]
+    if ($allTextPositions.ContainsKey($id)) { $message = '\pos(' + $allTextPositions[$id] + ')' + $message }
+    $vireTexts.Add("$($id.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message)))`ttext/ages/text.yaml:TX_$($id.ToString('x4'))")
+}
+Write-GeneratedTable((Join-Path $destination 'objects/vire_text.tsv'),$vireTexts)
+$octogonPath = 'object_code/ages/enemies/octogon.s'
+$octogonSource = Read-ImportText (Join-Path $Disassembly $octogonPath)
+$octogonRows = [Collections.Generic.List[string]]::new()
+$octogonRows.Add("# table`tindex`tvalue`tsource")
+function Add-OctogonValues([string]$name,[int[]]$values,[string]$source) {
+    for ($index = 0; $index -lt $values.Count; $index++) { $octogonRows.Add("$name`t$index`t$($values[$index])`t$source") }
+}
+foreach ($spec in @(@('targets','@targetPositionList',96),@('body-offsets','@offsetData',8),@('projectile-offsets','@positionOffsets',8),@('shell','@data',16),@('compensation','@linkCompensationIndices',9))) {
+    if ($spec[0] -eq 'shell') {
+        $scope = Get-AssemblyLabelBody $octogonSource 'octogon_subid2'
+        $local = [regex]::Match($scope,'(?ms)^@data:\s*(?<data>(?:\s*\.db[^\r\n]*\r?\n)+)')
+        if (-not $local.Success) { throw 'Octogon shell lost its scoped @data rows.' }
+        $values = @(Read-EnemyBehaviorValues $local.Groups['data'].Value)
+    } else { $values = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $octogonSource $spec[1])) }
+    if ($values.Count -ne $spec[2]) { throw "${octogonPath}: $($spec[1]) requires $($spec[2]) values." }
+    Add-OctogonValues $spec[0] $values "${octogonPath}:$($spec[1])"
+}
+$fixing = Get-AssemblyLabelBody $octogonSource 'octogon_fixPositionAboveWater'
+$local = [regex]::Match($fixing,'(?ms)^@data:\s*(?<data>(?:\s*\.db[^\r\n]*\r?\n)+)')
+if (-not $local.Success) { throw 'Octogon surface fixing lost its scoped @data rows.' }
+$positions = @(Read-EnemyBehaviorValues $local.Groups['data'].Value)
+if ($positions.Count -ne 36) { throw 'Octogon surface fixing requires nine Y/X/index/unused rows.' }
+Add-OctogonValues 'surface-positions' $positions "${octogonPath}:octogon_fixPositionAboveWater@data"
+foreach ($pattern in @(
+    'Enemy.var35\s+ld \(hl\),\$0c.*?ld \(hl\),120',
+    '@subid1_1:.*?Enemy.counter1\s+ld \(hl\),90.*?ld \(hl\),150',
+    'octogon_subid0AboveWater_state9:.*?and \$03.*?dec \(hl\).*?ld c,\$08.*?objectCheckCenteredWithLink',
+    'octogon_subid1_belowWater_state8:.*?getRandomNumber\s+rrca.*?and \$03.*?dec \(hl\)',
+    'octogon_subid2:.*?call objectTakePositionWithOffset\s+pop hl\s+ret',
+    'octogon_fixPositionAboveWater:.*?cp l\s+ld a,l',
+    '@justHit:.*?cp \$0a.*?wGroup5RoomFlags.*?ROOM_AGES_52d.*?ROOM_AGES_536'
+)) { if ($octogonSource -notmatch "(?s)$pattern") { throw "${octogonPath}: unsupported state contract: $pattern" } }
+$octogonSpeed = @(Read-EnemyBehaviorValues '.db SPEED_100')[0]
+Add-OctogonValues 'state' @($octogonSpeed,12,120,90,150,60,30,8,6,24,40,16,0xc0,120,10,0x50,15,0x40,0x70,0x50,0xa0,0x58,0x78) "${octogonPath}:state-entry-operands"
+$depthPath = 'object_code/ages/parts/octogonDepthCharge.s'
+$depthSource = Read-ImportText (Join-Path $Disassembly $depthPath)
+$bubblePath = 'object_code/ages/parts/octogonBubble.s'
+$bubbleSource = Read-ImportText (Join-Path $Disassembly $bubblePath)
+Add-OctogonValues 'depth-positions' @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $depthSource '@positionCandidates')) "${depthPath}:@positionCandidates"
+Add-OctogonValues 'bubble-z' @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $bubbleSource '@zPositions')) "${bubblePath}:@zPositions"
+Add-OctogonValues 'part-state' (@(Read-EnemyBehaviorValues '.db SPEED_180 SPEED_80') + @(180,30,0x20,0x10,0xb8,2,0xd0,4,8)) "${depthPath};${bubblePath}:state-entry-operands"
+if ($depthSource -notmatch '(?s)@belowWater:.*?Part.counter1\s+inc \(hl\).*?ld \(hl\),\$b8.*?ld \(hl\),\$10.*?and \$06' -or
+    $depthSource -notmatch '(?s)@spawnNext:.*?getFreePartSlot\s+jr nz,\+\+.*?add \$08' -or
+    $bubbleSource -notmatch '(?s)@state0:.*?SPEED_80.*?ld \(hl\),180' -or
+    $bubbleSource -notmatch '(?s)@state2:\s+call partAnimate.*?inc a\s+ret nz\s+jp partDelete') { throw 'Octogon depth-charge/bubble state contract changed.' }
+foreach ($mode in @(0x4e,0x67)) {
+    Add-OctogonValues "effects-$($mode.ToString('x2'))" @(0..31 | ForEach-Object { $enemyCollisionTableValues[$mode * 32 + $_] }) "data/ages/objectCollisionTable.s:mode`$$($mode.ToString('x2'))"
+}
+$octogonBits = ($seedActiveRows[0x7d].Operands -join '').Replace('%','')
+if ($octogonBits -notmatch '^[01]{32}$' -or $enemyCollisionModes[0x7d] -ne 0xce) { throw 'Octogon must initialize active mode$4e with 32 collision bits.' }
+Add-OctogonValues 'active' @($octogonBits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) 'data/ages/enemyActiveCollisions.s:enemy$7d'
+Write-GeneratedTable((Join-Path $destination 'metadata/octogon_behavior.tsv'),$octogonRows)
+if ($paletteHeaderSource -notmatch '(?s)m_PaletteHeaderStart \$88, PALH_88\s+m_PaletteHeaderSpr 6, 1, paletteData4960\s+m_PaletteHeaderEnd') { throw 'Octogon PALH_88 must load sprite palette6 from paletteData4960.' }
+Write-GeneratedBytes((Join-Path $destination 'metadata/octogon_palette.bin'),(Read-PaletteBytes 'paletteData4960' 4))
+$vireSource = Read-ImportText (Join-Path $Disassembly $virePath)
+foreach ($pattern in @(
+    'enemyCode75:\s+jr z,@normalStatus\s+sub ENEMYSTATUS_NO_HEALTH\s+ret c',
+    'vire_state_uninitialized:\s+ld a,SPEED_c0\s+call ecom_setSpeedAndState8.*?Enemy.zh\s+ld \(hl\),\$fc',
+    '@substate0:\s+;[^\r\n]*\s+ldh a,\(<hEnemyTargetY\)\s+sub \$38\s+cp \$41.*?sub \$50\s+cp \$51',
+    'vire_mainForm_state9:.*?cp \$0a.*?cp \$10.*?and \$07',
+    'vire_mainForm_stateF:.*?ld b,\$02\s+call checkBEnemySlotsAvailable.*?ld \(hl\),\$02.*?ecom_spawnUncountedEnemyWithSubid01',
+    'vire_batForm_gotoStateA:.*?SPEED_80.*?getRandomNumber_noPreserveVars.*?Object.counter2.*?ld \(hl\),180',
+    'vire_checkOffScreen:.*?cp \(LARGE_ROOM_HEIGHT<<4\)\+8.*?cp \(LARGE_ROOM_WIDTH<<4\)',
+    'vire_mainForm_circleAroundScreen:.*?cp \$3e.*?sub \$42.*?cp \$08.*?SPEED_40.*?SPEED_e0'
+)) { if ($vireSource -notmatch "(?s)$pattern") { throw "${virePath}: source contract changed: $pattern" } }
+foreach ($table in @(@('@behaviourTable','behaviors',16),@('@spawnPositions','spawn-positions',24),@('@zVals','bat-z',8))) {
+    $values = @(Read-EnemyBehaviorValues (Get-AssemblyLabelBody $vireSource $table[0]))
+    if ($values.Count -ne $table[2]) { throw "${virePath}: $($table[0]) has $($values.Count) values." }
+    Add-EnemyBehaviorProfile 'vire' $table[1] $values "${virePath}:$($table[0])"
+}
+$vireMotion = @(Read-EnemyBehaviorValues '.db SPEED_100 SPEED_200 SPEED_300 SPEED_1c0 SPEED_e0 SPEED_40 SPEED_80')
+Add-EnemyBehaviorProfile 'vire' 'state-profile' (@(0x1e,90,24,8,20,120,28,12,20,2,60,16,120,0x80,16,180,8,12,20,30,0x3e,0x42,8,184,240,68,80,16,10,0xc0,8,0xfa,0xfe) + $vireMotion) "${virePath}:state-entry-operands"
+Add-EnemyBehaviorProfile 'vire' 'bat-offsets' @(0xf8,8) "${virePath}:vire_mainForm_stateF@initBat"
+Add-EnemyBehaviorProfile 'vire' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x46 * 32 + $_] }) 'data/ages/objectCollisionTable.s:mode$46'
+$vireBits = ($seedActiveRows[0x75].Operands -join '').Replace('%','')
+if ($vireBits -notmatch '^[01]{32}$' -or $enemyCollisionModes[0x75] -ne 0x46) { throw 'ENEMY_VIRE $75 must initialize inactive mode$46 with a complete collision mask.' }
+Add-EnemyBehaviorProfile 'vire' 'active-collisions' @($vireBits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) 'data/ages/enemyActiveCollisions.s:enemy$75'
+if ($enemyBehaviorRows.Count -ne 2932) {
+    throw "Expected 2931 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

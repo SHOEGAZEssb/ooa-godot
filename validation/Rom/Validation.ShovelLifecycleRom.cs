@@ -89,6 +89,7 @@ public sealed partial class ValidationRoot
                     string context = $"Shovel A={primary} dir={direction} tile=${tile:x2} clear={clearPhase}/{physical} jumpUpdates={jumpUpdates} update={++update}";
                     bool parent = Enumerable.Range(0xd2, 4).Any(page => rom[page << 8] != 0 && rom[(page << 8) + 1] == 0x15);
                     FailIf(_player.IsUsingShovel != parent, context + ": parent lifecycle differs.");
+                    FailIf(_player.NativeItemUseActive != (rom[0xcc5f] != 0),context + ": wLinkUsingItem1 must follow the live parent through completion and clearing.");
                     int[] children = Enumerable.Range(0xd6, 10).Select(page => page << 8)
                         .Where(slot => rom[slot] != 0 && rom[slot + 1] == 0x15).ToArray();
                     FailIf(_player.ShovelChildActive != (children.Length == 1),

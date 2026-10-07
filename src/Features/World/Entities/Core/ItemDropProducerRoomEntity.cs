@@ -9,11 +9,14 @@ internal sealed class ItemDropProducerRoomEntity(
     int killableEnemyIndex)
     : RoomEntityAdapter<ItemDropProducer>(producer, static _ => { }),
         IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyOutcomeSource,
-        IScreenTransitionPreloadRoomEntity
+        IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity,
+        IUpdatesDuringRoomEntityFreeze
 {
     private bool _outcomeTaken;
 
     public bool Finished => Entity.Finished;
+    public bool UpdatesDuringDialogue => !Entity.Initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !Entity.Initialized;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

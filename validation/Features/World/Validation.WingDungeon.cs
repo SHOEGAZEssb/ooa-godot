@@ -1333,7 +1333,7 @@ public sealed partial class ValidationRoot
             "Room 4:36 Sparks did not begin moving after scrolling finished.");
 
         // updateEnemies dispatches state 0 even while wScrollMode is active.
-        // Whisp state 0 consumes one RNG value per object, installs its angle,
+        // Whisp initialization consumes common var3d and angle RNG values,
         // and becomes visible; state-8 bouncing/movement remains frozen.
         PrepareRoom(0x2d);
         OracleRoomData whispRoom = _world.LoadRoom(4, 0x2c);

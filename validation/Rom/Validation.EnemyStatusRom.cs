@@ -124,7 +124,7 @@ public sealed partial class ValidationRoot
         }
     }
 
-    private static void SetEnemyStatusByte(ArrowMoblinCharacter enemy, string property, int value) =>
+    private static void SetEnemyStatusByte(EnemyCharacter enemy, string property, int value) =>
         typeof(EnemyCharacter).GetProperty(property, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(enemy, value);
 
     private void ValidateEnemyHitRecoveryRom()

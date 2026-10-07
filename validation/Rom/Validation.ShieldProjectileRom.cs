@@ -8,12 +8,14 @@ public sealed partial class ValidationRoot
     private void ValidateShieldProjectileRom()
     {
         int hostCase1 = 0;
-        foreach (bool arrow in new[] { false, true })
-        foreach (int level in new[] { 1, 2, 3 })
-        foreach (int direction in Enumerable.Range(0, 4))
-        foreach (int interruption in new[] { 0, 1, 2 })
+        foreach (int projectileForm in new[] { 0, 1, 2 })
+        foreach (int level in projectileForm == 2 ? new[] { 1 } : new[] { 1, 2, 3 })
+        foreach (int direction in projectileForm == 2 ? new[] { 0 } : Enumerable.Range(0, 4))
+        foreach (int interruption in projectileForm == 2 ? new[] { 1 } : new[] { 0, 1, 2 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
+            bool arrow = projectileForm != 0;
+            int arrowSubId = projectileForm == 2 ? 1 : 0;
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x33);
             _entities.Clear();
@@ -37,12 +39,13 @@ public sealed partial class ValidationRoot
                 () => rom.UpdateGameplay(button, button, 0xff, _entities.FrameCounter));
             int angle = (direction * 8) ^ 0x10;
             Vector2 start = _player.Position + OracleObjectMath.StrictCardinalVector(direction * 8) * 32;
-            if (arrow) start -= EnemyBehaviorTables.Shared.EnemyArrowSpawnOffsets[angle / 8].Vector;
+            if (arrow && arrowSubId == 0) start -= EnemyBehaviorTables.Shared.EnemyArrowSpawnOffsets[angle / 8].Vector;
             Node2D projectile = arrow
-                ? _entities.Spawn<EnemyArrowProjectile>(new EnemyArrowSpawn(start, angle))
+                ? _entities.Spawn<EnemyArrowProjectile>(new EnemyArrowSpawn(start, angle, arrowSubId))
                 : _entities.Spawn<OctorokRockProjectile>(new OctorokRockSpawn(start, angle));
             const int part = 0xd0c0;
             rom[part] = 1; rom[part + 1] = arrow ? (byte)0x1a : (byte)0x18;
+            rom[part + 2] = (byte)arrowSubId;
             rom[part + 9] = (byte)angle;
             rom[part + 0x0b] = (byte)start.Y; rom[part + 0x0d] = (byte)start.X;
             int update = 0;
@@ -65,7 +68,7 @@ public sealed partial class ValidationRoot
                     FailIf(snapshot.Finished != nativeFinished, context + ": deletion boundary differs.");
                     if (!nativeFinished)
                     {
-                        bool bouncing = rom[part + 4] == (arrow ? 2 : 3);
+                        bool bouncing = rom[part + 4] == (arrow && arrowSubId == 0 ? 2 : 3);
                         Vector2 nativePosition = new(rom.Word(part + 0x0c) / 256.0f, rom.Word(part + 0x0a) / 256.0f);
                         FailIf((snapshot.State == HostileProjectileState.Bouncing) != bouncing ||
                             snapshot.Angle != rom[part + 9] || snapshot.Counter != rom[part + 6] ||
@@ -79,7 +82,7 @@ public sealed partial class ValidationRoot
                 });
             }
             while (!collided && update < 40) Step();
-            FailIf(!collided || rom[part + 4] != 1 || rom[part + 0x2b] != 0xe4,
+            FailIf(!collided || rom[part + 4] != (arrowSubId == 0 ? 1 : 2) || rom[part + 0x2b] != 0xe4,
                 "Native shield contact must publish var2a/invincibility without dispatching the bounce in the same update.");
             if (interruption == 1)
             {
@@ -101,9 +104,10 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(1, Vector2.Zero, MenuRomActions(button), MenuRomActions(button), batched,
                 () => rom.UpdateGameplay(button, button, 0xff, _entities.FrameCounter));
             projectile = arrow
-                ? _entities.Spawn<EnemyArrowProjectile>(new EnemyArrowSpawn(start, angle))
+                ? _entities.Spawn<EnemyArrowProjectile>(new EnemyArrowSpawn(start, angle, arrowSubId))
                 : _entities.Spawn<OctorokRockProjectile>(new OctorokRockSpawn(start, angle));
             rom[part] = 1; rom[part + 1] = arrow ? (byte)0x1a : (byte)0x18;
+            rom[part + 2] = (byte)arrowSubId;
             rom[part + 9] = (byte)angle;
             rom[part + 0x0b] = (byte)start.Y; rom[part + 0x0d] = (byte)start.X;
             collided = false;
@@ -112,6 +116,6 @@ public sealed partial class ValidationRoot
             FailIf(!collided, "Repeated shield contact failed after projectile slot reuse.");
             Step(33);
         }
-        GD.Print("Validated clean-US Shield contacts with Octorok rocks and Moblin arrows at every level/direction: ordered flight/contact/bounce, fixed position/Z, clink/health, pending dialogue and release, exact deletion in split/batched application updates.");
+        GD.Print("Validated clean-US Shield contacts with Octorok rocks and Moblin arrows at every level/direction, plus a delayed wall arrow: ordered flight/contact/bounce, fixed position/Z, clink/health, pending dialogue and release, exact deletion in split/batched application updates.");
     }
 }

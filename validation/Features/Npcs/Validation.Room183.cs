@@ -122,7 +122,7 @@ public sealed partial class ValidationRoot
             !manager.OutgoingEntities<ItemDropProducer>()
                 .SequenceEqual(outgoingProducers) ||
             outgoingProducers.Any(producer => producer.Initialized) ||
-            manager.RandomCalls != 512,
+            manager.RandomCalls != 516,
             "Room 1:83 scrolling preload did not capture the four item-drop " +
             "producer tiles invisibly in source state 0 while freezing the " +
             "outgoing entities.");
@@ -168,7 +168,7 @@ public sealed partial class ValidationRoot
         FailIf(
             man.CurrentAnimationFrame != 0 ||
             man.CurrentAnimationPixelHash != initialFrameHash ||
-            manager.RandomCalls != 512,
+            manager.RandomCalls != 516,
             "Room 1:83's two-pose animation $02 did not loop after 32 " +
             "updates or consumed room RNG.");
 
@@ -280,7 +280,7 @@ public sealed partial class ValidationRoot
             man.Position != new Vector2(0x4e, 0x38) ||
             man.BaseRecord.TextId != 0x2606 ||
             manager.Entities<ItemDropProducer>().Count != 4 ||
-            manager.RandomCalls != 768,
+            manager.RandomCalls != 772,
             "Room 1:83 post-palace re-entry did not retain its suppressed " +
             "NPC record, four producers, and one room-parse RNG buffer.");
 

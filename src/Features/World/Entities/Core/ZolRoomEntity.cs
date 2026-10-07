@@ -84,7 +84,6 @@ internal sealed class ZolRoomEntity
     }
 }
 
-internal sealed record KillEnemyPuffSpawn(Vector2 Position) : RoomEntitySpawn;
 
 internal sealed record GelSpawn(
     Vector2 Position,

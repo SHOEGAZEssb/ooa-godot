@@ -42,6 +42,12 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool NativeTextActive => _entities.TextActiveSource();
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
+    public bool SwordJinxed => _entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter) != 0;
+    public void AdvanceSwordJinxCounter()
+    {
+        byte counter = _entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter);
+        if (counter != 0) _entities.RuntimeState.SetWramByte(WramAddress.wSwordDisabledCounter, (byte)(counter - 1));
+    }
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
     public bool InShop => _rooms.InShop;
     // Room scripts' $81 mask also freezes Link and item parents. Keep their
@@ -69,6 +75,14 @@ public sealed class PlayerWorld : IPlayerWorld
         _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled) != 0;
     public void SetNativeWarpsDisabled(bool disabled) =>
         _entities.RuntimeState.SetWramByte(WramAddress.wWarpsDisabled, disabled ? (byte)1 : (byte)0);
+    public void RequestWallmasterReturn()
+    {
+        var profile = EnemyBehaviorTables.Shared.Floormaster;
+        _entities.OnRoomWarpRequested(new Warp(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, -1, 0,
+            WarpSourceTransition.FadeOut, _rooms.ActiveGroup,
+            _entities.RuntimeState.ReadWramByte(WramAddress.wDungeonWallmasterDestRoom), profile.ReturnPosition,
+            0, profile.ReturnTransition, DirectFadeOut: true)); // wWarpDestTransition2=$03.
+    }
     public Vector2? MountedCompanionPosition => _entities.MountedCompanionPosition;
     public Vector2? MountedRaftPosition => _entities.MountedRaftPosition;
     public bool BombParentActive => _bomb.Active;

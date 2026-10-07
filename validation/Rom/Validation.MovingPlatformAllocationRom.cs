@@ -37,6 +37,15 @@ public partial class ValidationRoot
             int available = Enumerable.Range(0xd2,14).Count(page=>rom[page*256+0x40] == 0);
             rom[0xcd00] = 8;
             SomariaPrivate<FrontendRom>(rom,"_rom").Call(0x55b7,0x12);
+            // This platform fixture excludes hostile enemy dispatch. Retain
+            // its parsed ENEMY$59 tile producers in the bounded native pass:
+            // their state0 common draw runs during the preload as well.
+            var excludedEnemies=Enumerable.Range(0xd0,16).Select(page=>page*256+0x80)
+                .Where(slot=>rom[slot]!=0 && rom[slot+1]!=0x59)
+                .Select(slot=>(Slot:slot,Enabled:rom[slot])).ToArray();
+            foreach (var enemy in excludedEnemies) rom[enemy.Slot]=0;
+            frontend.Call(0x2ea5,0x0d);
+            foreach (var enemy in excludedEnemies) rom[enemy.Slot]=enemy.Enabled;
             _entities.BeginScreenTransition(4,_currentRoom,Vector2.Zero,_player);
             int[] native = Enumerable.Range(0xd2,14).Select(page=>page*256+0x40)
                 .Where(address=>rom[address] != 0 && rom[address+1] == 0x79).ToArray();
@@ -65,7 +74,7 @@ public partial class ValidationRoot
             var parsedRandom = _random.CaptureState();
             FailIf(parsedRandom.Rng1 != rom[0xff94] || parsedRandom.Rng2 != rom[0xff95] ||
                 parsedRandom.Calls-seed.Calls != rom.RandomCalls,
-                "Failed interaction placements must preserve full native room-parse RNG consumption.");
+                $"Failed interaction placements must preserve full native room-parse RNG consumption: room$4:${room:x2}, free={free}, runtime={parsedRandom.Calls-seed.Calls}/${parsedRandom.Rng1:x2}/${parsedRandom.Rng2:x2}, native={rom.RandomCalls}/${rom[0xff94]:x2}/${rom[0xff95]:x2}.");
             _entities.FinishScreenTransition(); rom.ClearOutgoingInteractions(); rom[0xcd00] = 4;
             var sounds = _sound.AttachPlayRequestAudit();
             StepGameplayUpdates(3,Vector2.Zero,batched:batch,afterUpdate:() => {

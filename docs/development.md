@@ -48,13 +48,16 @@ Run the normal game flow:
 Start directly in a hexadecimal room for development:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --group=4 --room=04
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --group=5 --room=26
 ```
 
 Project arguments must follow `--`. Direct room starts bypass retail file and
 checkpoint progression. For a side-scrolling dungeon room, name its source
 group (`4` or `5`); the development loader performs the retail active-group
 switch to `6` or `7`.
+
+`--skip-menu` without room arguments starts at Mermaid's Cave's entrance
+(`$5:$26`); normal file selection continues to use the saved checkpoint.
 
 After building, run all headless validations with the standard 8 workers,
 or one exact registered method:

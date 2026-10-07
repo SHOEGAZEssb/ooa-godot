@@ -7,7 +7,8 @@ namespace oracleofages;
 /// <summary>INTERAC_LEVER $61, shared upward/downward bracelet lever.</summary>
 internal sealed partial class LeverRoomEntity : NpcCharacter,
     IRoomEntity, IFixedRoomEntity,
-    IBraceletPullInteractableRoomEntity
+    IBraceletPullInteractableRoomEntity, IUpdatesDuringDialogueRoomEntity,
+    IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly LeverState _state;
     private readonly LeverBehavior _constants;
@@ -19,22 +20,29 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
     private bool _pullRequested;
     private bool _movedSincePause;
     private bool _releasedThisUpdate;
+    private readonly Func<LeverRoomEntity,LeverChildAllocation>? _createConnection;
+    private bool _connectionCreated;
+    private bool _initialized;
 
     public Node2D Node => this;
     internal bool Grabbed => _grabbed;
     internal int PullDistance => _state.PullDistance;
     internal int BaseY => _baseY;
     internal int DirectionSign => _sign;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     internal LeverRoomEntity(
         NpcRecord record,
         LeverState state,
         LeverBehavior constants,
-        Action<int> playSound)
+        Action<int> playSound, Func<LeverRoomEntity,LeverChildAllocation>? createConnection = null)
     {
         _state = state;
         _constants = constants;
         _playSound = playSound;
+        _createConnection = createConnection;
+        _initialized = createConnection is null;
         _baseY = record.Y;
         _sign = (record.SubId & 1) == 0 ? 1 : -1;
         _precisePosition = new Vector2(record.X, record.Y);
@@ -42,11 +50,12 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Initialize(record);
         SetCollisionRadii(constants.LeverRadiusY, constants.LeverRadiusX);
+        if (!_initialized) Visible = false;
     }
 
     public bool TryBeginBraceletPull(Player player)
     {
-        if (_grabbed || player.IsCarryingObject || player.CutsceneControlled ||
+        if (!_initialized || _grabbed || player.IsCarryingObject || player.CutsceneControlled ||
             player.FacingVector != (_sign > 0 ? Vector2I.Up : Vector2I.Down))
         {
             return false;
@@ -123,6 +132,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         ICollection<RoomEntitySpawn> spawns)
     {
         _ = spawns;
+        if (!_initialized) { InitializeConnection(); return; }
         if (_grabbed)
         {
             if (_pullRequested)
@@ -155,6 +165,26 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
         SetTransitionDrawOffset(offset);
+
+    private void InitializeConnection()
+    {
+        if (!_connectionCreated)
+        {
+            var result = _createConnection!(this);
+            if (result == LeverChildAllocation.Full) return;
+            _connectionCreated = true;
+            // The ROM exchanges the two objects' roles when the free slot is
+            // earlier. Its new parent has var03=1 and initializes next pass.
+            if (result == LeverChildAllocation.EarlierSlot) return;
+        }
+        _initialized = true; Visible = true;
+    }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_initialized) InitializeConnection();
+        return _initialized ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
 
     private void Pull(Player player)
     {
@@ -189,7 +219,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
 
     private void Retract()
     {
-        SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
+        SetStatePosition(NativeObjectMovement.ApplySpeed(_state.Runtime,
             ref _precisePosition, _constants.PullSpeed, _sign > 0 ? ObjectAngle.Up : ObjectAngle.Down));
         int y = Mathf.FloorToInt(Position.Y);
         // The native helper runs before the retraction cap and also sets bit
@@ -216,3 +246,5 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         _state.PullDistance = distance;
     }
 }
+
+internal enum LeverChildAllocation { Full, LaterSlot, EarlierSlot }

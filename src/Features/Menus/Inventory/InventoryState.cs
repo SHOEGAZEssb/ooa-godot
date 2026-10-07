@@ -99,6 +99,14 @@ public sealed class InventoryState
     }
 
     public bool HasDungeonBossKey(int dungeon) => HasDungeonBit(_dungeonBossKeys, dungeon);
+    internal void GrantDungeonBossKey(int dungeon)
+    {
+        if (dungeon is < 0 or >= 16)
+            throw new ArgumentOutOfRangeException(nameof(dungeon),$"Invalid boss-key dungeon${dungeon:x2}.");
+        if (HasDungeonBossKey(dungeon)) return;
+        SetBitVariable(TreasureVariable.DungeonBossKeys,dungeon);
+        NotifyChanged();
+    }
     public bool HasDungeonCompass(int dungeon) => HasDungeonBit(_dungeonCompasses, dungeon);
     public bool HasDungeonMap(int dungeon) => HasDungeonBit(_dungeonMaps, dungeon);
 

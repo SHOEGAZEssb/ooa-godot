@@ -13,6 +13,7 @@ public partial class ItemDropProducer : Node2D
     private OracleRoomData _room = null!;
     private OracleSaveData? _save;
     private InventoryState? _inventory;
+    private OracleRandom _random = null!;
     private int _subId;
     private byte _initialTile;
 
@@ -25,13 +26,15 @@ public partial class ItemDropProducer : Node2D
         Vector2 position,
         OracleRoomData room,
         InventoryState? inventory,
-        OracleSaveData? save)
+        OracleSaveData? save,
+        OracleRandom random)
     {
         _subId = subId;
         Position = position;
         _room = room;
         _inventory = inventory;
         _save = save;
+        _random = random;
         Visible = false;
     }
 
@@ -65,6 +68,9 @@ public partial class ItemDropProducer : Node2D
 
     private void CaptureInitialTile()
     {
+        // ENEMY$59 still passes enemyStandardUpdate's state0 initializer,
+        // including its shared var3d RNG draw, before capturing the tile.
+        _random.Next();
         _initialTile = _room.GetMetatile(Position);
         Initialized = true;
     }

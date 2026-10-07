@@ -126,6 +126,7 @@ public sealed partial class ValidationRoot
                 {
                     rom.UpdateGameplay(edge, held | directions, inputAngle, _entities.FrameCounter - (raft || minecart ? 1 : 0)); edge = 0;
                     string context = $"Boomerang terrain={terrain} A={primary} ring=${ring:x2} angle=${angle:x2} jumpUpdates={jumpUpdates} raft={raft} cart={minecart}/{cartDirection} update={++update}";
+                    FailIf(_player.NativeItemUseActive != (rom[0xcc5f] != 0),context + ": wLinkUsingItem1 must follow the live animation parent through return and repeat use.");
                     int[] nativeItems = Enumerable.Range(0xd7, 5).Select(page => page << 8)
                         .Where(slot => rom[slot] != 0 && rom[slot + 1] == 6).ToArray();
                     var items = _entities.Entities<BoomerangItem>();

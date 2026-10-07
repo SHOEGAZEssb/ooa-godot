@@ -30,6 +30,11 @@ focused validations; NPC classifications live in the
   playthrough and exhaustive ROM comparison remain unperformed.
 - Crown Dungeon (`$05`) has entrance, puzzle, item, boss, and reward paths.
   Complete combat, traversal, and dungeon parity remain unfinished.
+- Mermaid's Cave (`$06` and `$0c`) has its 55 source rooms, placed enemies,
+  both eras' puzzles, Mermaid Suit, mirrored Boss Key, Vire, Octogon, rewards,
+  and Bereft Peak Essence/Maku handoff. Major mechanics have clean-US ROM
+  comparisons; a complete manual playthrough and exhaustive parity comparison
+  remain unperformed.
 - Selected overworld dialogue, shops/trades, Gasha and Seed Trees, Maple,
   early story sequences, King Moblin's keep, Goron quests/minigames, Symmetry
   Village restoration, Patch's ceremony, the Library Key entrance, and the hidden

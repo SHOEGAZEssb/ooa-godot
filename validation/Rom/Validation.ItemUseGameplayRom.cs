@@ -128,10 +128,14 @@ public sealed partial class ValidationRoot
             }
             // Dialogue freezes Link before checkUseItems. Do not manufacture
             // a native checkUseItems call that the original caller cannot make.
+            _entities.RuntimeState.SetWramByte(WramAddress.wSwordDisabledCounter, 1);
+            rom[0xcc59] = 1;
             if (state != "dialogue") rom.Allocate(TreasureId.Sword, 0, 1, 1);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
             FailIf(_player.IsAttacking != (rom[0xd201] == TreasureId.Sword),
                 $"ROM shared item gate state={state}, batch={batched}: native sword={rom[0xd201] == TreasureId.Sword}, runtime={_player.IsAttacking}.");
+            FailIf(_entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter) != rom[0xcc59],
+                $"ROM jinx decrement before item gates state={state}, batch={batched}: runtime={_entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter)}, native={rom[0xcc59]}.");
             if (state == "hurt")
             {
                 rom[0xcc2c] = 0xd0;
@@ -141,6 +145,8 @@ public sealed partial class ValidationRoot
                 {
                     rom.Allocate(TreasureId.Sword, 0, 1, 0);
                     rom.UpdateParents();
+                    FailIf(_entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter) != rom[0xcc59],
+                        "Sword jinx must decrement once per eligible item pass throughout recoil and its completion update.");
                     FailIf(_player.IsAttacking != (rom[0xd200] != 0),
                         $"ROM item during/after recoil update={++updates}, batch={batched}: sword parent lifetime differs.");
                 });

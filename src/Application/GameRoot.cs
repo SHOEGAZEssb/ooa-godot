@@ -511,7 +511,7 @@ public partial class GameRoot : Node2D
         yield return false;
         bool useDebugSavestate = debugSavestate is not null;
         bool useSavedSpawn = !useDebugSavestate && (forceDeathRespawn ||
-            (!_launchOptions.HasWorldOverride && (_persistSaveData ||
+            (!_launchOptions.HasWorldOverride && !_launchOptions.Has("--skip-menu") && (_persistSaveData ||
                 initialRoomLoadKind == InitialRoomLoadKind.LinkSummonedCutscene)));
         if (useSavedSpawn)
         {
@@ -792,7 +792,7 @@ public partial class GameRoot : Node2D
     private GameplayObjectPass? _suspendedObjectPass;
     private readonly record struct GameplayObjectPass(
         bool ArrivalOwnsUpdate, bool FinishingArrival, bool ToggleOwnedUpdate,
-        bool RoomTransitionOwnedUpdate, bool ScrollOwnedUpdate);
+        bool RoomTransitionOwnedUpdate, bool ScrollOwnedUpdate, bool NativeCutsceneOwnedUpdate = false);
 
     private void AdvanceGameplayState(double delta)
     {
@@ -883,6 +883,7 @@ public partial class GameRoot : Node2D
             return;
         }
 
+        bool nativeCutsceneOwnedUpdate = _roomEvents.AdvanceNativeCutscenesBeforeObjects();
         // updateSpecialObjects runs w1Companion before w1Link. A waiting raft
         // remains in the later interaction pass until it allocates that slot.
         _player.AdvanceDeathPrelude();
@@ -936,13 +937,13 @@ public partial class GameRoot : Node2D
             if (_roomEvents.ObjectUpdateSuspended)
             {
                 _suspendedObjectPass = new(arrivalOwnsUpdate, finishingArrival, toggleOwnedUpdate,
-                    roomTransitionOwnedUpdate, scrollOwnedUpdate);
+                    roomTransitionOwnedUpdate, scrollOwnedUpdate, nativeCutsceneOwnedUpdate);
                 return;
             }
             _interactions.Update(delta, _player);
         }
         FinishGameplayObjectPass(delta, new(arrivalOwnsUpdate, finishingArrival, toggleOwnedUpdate,
-            roomTransitionOwnedUpdate, scrollOwnedUpdate));
+            roomTransitionOwnedUpdate, scrollOwnedUpdate, nativeCutsceneOwnedUpdate));
     }
 
     private void FinishGameplayObjectPass(double delta, GameplayObjectPass pass)
@@ -955,7 +956,7 @@ public partial class GameRoot : Node2D
         _entities.SwitchHook?.UpdatePost(_player);
         _entities.Somaria?.UpdatePost(_player);
         _entities.Biggoron?.UpdatePost(_player);
-        if (!arrivalOwnsUpdate && !IsTransitioning)
+        if (!arrivalOwnsUpdate && !IsTransitioning && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             _transitions.SampleRoomExit(_player);
         _entities.SynchronizeCompanionRiderAfterObjects(_player);
         _entities.UpdateHeldObjectPosition(_player);
@@ -977,12 +978,12 @@ public partial class GameRoot : Node2D
         // entities and room events; ordinary updates resume next tick.
         if (scrollOwnedUpdate)
             _transitions.UpdateScroll(delta);
-        else if (!arrivalOwnsUpdate && !toggleOwnsPostObjects)
+        else if (!arrivalOwnsUpdate && !toggleOwnsPostObjects && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             UpdatePostObjectPlayerState(roomExitSampled: true);
         _harp.Update(delta);
         _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
-        if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnsPostObjects)
+        if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnsPostObjects && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             _entities.ResolvePostObjectCollisions(_player);
         if (roomTransitionOwnedUpdate && !IsTransitioning)
             _entities.FloorToggle?.CompleteRoomInitialization();
@@ -1201,6 +1202,7 @@ public partial class GameRoot : Node2D
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);
         _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects;
+        _entities.CameraUpdatesDisabledSource = () => _roomEvents.CameraUpdatesDisabled;
         _entities.InitializedObjectsDisabledSource = () => _transitions.AwaitingLinkWarpState;
         _entities.TextAllowsScriptSource = () => _dialogue.AllowsNativeScriptCommands;
         _entities.FloorToggle = new DungeonToggleController(_rooms, _runtimeState, _entities,

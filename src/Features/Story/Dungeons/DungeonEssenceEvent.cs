@@ -80,6 +80,12 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
 
             case DungeonEssenceEventPhase.StartingScript:
                 _context.Sound.PlaySound(SoundId.MusEssence);
+                // scriptCmd_playSound returns playSound's cleared carry.
+                // The following asm/wait starts on the next script dispatch.
+                _phase = DungeonEssenceEventPhase.StartingSwirl;
+                return;
+
+            case DungeonEssenceEventPhase.StartingSwirl:
                 _essence?.StartEnergySwirl();
                 _counter = 360;
                 _phase = DungeonEssenceEventPhase.Swirl;
@@ -89,8 +95,13 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
                 if (--_counter != 0)
                     return;
                 _context.Sound.PlaySound(SoundId.SndFadeOut);
-                _counter = 20;
+                _counter = 0;
                 _fadeStep = 0;
+                _phase = DungeonEssenceEventPhase.StartingFadeWait;
+                return;
+
+            case DungeonEssenceEventPhase.StartingFadeWait:
+                _counter = _fadeStep == 2 ? 40 : 20;
                 _phase = DungeonEssenceEventPhase.FadeCadence;
                 return;
 
@@ -101,9 +112,13 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
                 _context.Sound.PlaySound(SoundId.SndFadeOut);
                 if (_fadeStep < 3)
                 {
-                    _counter = _fadeStep == 2 ? 40 : 20;
+                    _phase = DungeonEssenceEventPhase.StartingFadeWait;
                     return;
                 }
+                _phase = DungeonEssenceEventPhase.StoppingSwirl;
+                return;
+
+            case DungeonEssenceEventPhase.StoppingSwirl:
                 _essence?.StopEnergySwirl();
                 // state6 falls through state7 after scriptend:30 ->29 now.
                 _counter = 29;
@@ -137,7 +152,7 @@ internal sealed class DungeonEssenceEvent : IRoomEvent
     private void Finish()
     {
         _context.Player.EndCutsceneControl(this);
-        _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
+        _context.Sound.ClearActiveMusic();
         _context.Transitions.ApplyWarpWithDelayedFadeOut(
             _context.Player,
             _essence?.ExitWarp ?? throw new InvalidOperationException(
@@ -161,7 +176,10 @@ internal enum DungeonEssenceEventPhase
     AwaitingHeldPose,
     Dialogue,
     StartingScript,
+    StartingSwirl,
     Swirl,
+    StartingFadeWait,
     FadeCadence,
+    StoppingSwirl,
     WarpDelay
 }

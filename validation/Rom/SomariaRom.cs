@@ -14,6 +14,7 @@ internal sealed class SomariaRom
     internal int RandomCalls => _rom.RandomCalls;
     internal int TextGeneration => _rom.TextGeneration;
     internal bool HostilePartsEnabled { get; set; }
+    internal bool HostileEnemiesEnabled { get; set; }
     internal bool PostObjectCollisionsEnabled { get; set; } = true;
     internal bool CompanionDispatchEnabled { get; set; }
     internal IReadOnlyList<int> Sounds => _rom.Sounds;
@@ -28,6 +29,7 @@ internal sealed class SomariaRom
     internal byte FloorPermutation(int index) => _rom.BankByte(4,0xd000+index);
     internal byte BackgroundTile(int x, int y) => _rom.BankByte(3, 0xd800 + y * 32 + x);
     internal byte BackgroundAttribute(int x, int y) => _rom.BankByte(3, 0xdc00 + y * 32 + x);
+    internal byte TileCollision(int tile) => _rom.BankByte(3,0xdb00+tile);
     internal MenuRom CreateMenuView() => new(_rom);
     internal void AdvanceDeathPrelude() => _rom.UpdateDeathPrelude();
     internal void SelectToggleCutscene()
@@ -39,6 +41,8 @@ internal sealed class SomariaRom
     internal void CheckTileWarps() => _rom.Call(0x60e9,1); // cutscene01, after toggle selection.
     internal void SelectNextActiveRoom() => _rom.Call(0x5f45,1); // getNextActiveRoom, after warp lookup.
     internal void InitializeRoomSpecificInteractions() => _rom.Call(0x5872,0x12); // Original runRoomSpecificCode/group dispatch.
+    internal void ApplyRoomTileSubstitutions() => _rom.ApplyRoomTileSubstitutions();
+    internal void AdvanceWallRetraction() => _rom.Call(0x701d,3); // bank3Cutscenes.func_701d, before objects.
     internal void ApplyLinkDamage(byte rawDamage)
     {
         this[0xd025] = rawDamage;
@@ -239,6 +243,7 @@ internal sealed class SomariaRom
         for (int address = 0xcc74; address < 0xcc84; address++) this[address] = 0;
         _rom.Call(0x4872, 7);
         _rom.Call(0x3616, 0); // updateAllObjects publishes the post-Link target before interactions.
+        if (HostileEnemiesEnabled) _rom.Call(0x2ea5, 0x0d); // updateEnemies, before parts.
         if (HostilePartsEnabled) _rom.Call(0x5e58, 0x11); // updateParts, before interactions.
         beforeInteractions?.Invoke();
         _rom.Call(0x3b36, 0);
@@ -253,7 +258,7 @@ internal sealed class SomariaRom
         // following Link update, using its retained adjacent-wall probes.
         _rom.Call(0x2b25, 0);
         _rom.Call(0x491a, 7);
-        if (HostilePartsEnabled && PostObjectCollisionsEnabled && this[0xcba0] == 0)
+        if ((HostileEnemiesEnabled || HostilePartsEnabled) && PostObjectCollisionsEnabled && this[0xcba0] == 0)
             _rom.Call(0x41d1, 7); // Original post-object collision publication.
     }
 

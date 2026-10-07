@@ -49,11 +49,15 @@ public partial class ValidationRoot
                     "interactionRunScript must still return on counter2's 1->0 update.");
                 Step();
             }
+            FailIf(_entities.Entities<GroundTreasurePickup>().Count != 0 ||
+                _saveData.HasRoomFlag(4,0xbf,0x80) || !_entities.LinkCollisionsAndMenuDisabled,
+                "Smog's zero-count check must yield before the flag/reward commands.");
+            Step(4); // flag, coordinates, spawn, ROM jump/unlock
             var heart = _entities.Entities<GroundTreasurePickup>().Single();
             FailIf(!controller.Finished || !_saveData.HasRoomFlag(4,0xbf,0x80) ||
                 _saveData.HasRoomFlag(4,0xbf,0x20) || _entities.LinkCollisionsAndMenuDisabled ||
                 heart.Record.TreasureObject != "TREASURE_OBJECT_HEART_CONTAINER_00" || heart.Position != new Vector2(120,88),
-                "Same interaction pass must observe Smog's final decrement, set flag$80, spawn heart at$58,$78 and unlock collisions/menu.");
+                "Smog's reward must publish flag$80, spawn heart at$58,$78 and unlock collisions/menu across the source command boundaries.");
             int maxHealth = _inventory.MaxHealthQuarters;
             FailIf(_currentRoom.IsSolid(_player.Position),"Heart-container approach must start on actual room floor.");
             for (int i = 0; i < 40 && !_saveData.HasRoomFlag(4,0xbf,0x20); i++) Step(1,true);
@@ -85,7 +89,7 @@ public partial class ValidationRoot
             // Source jumps over checknoenemies when room flag$80 is set.
             Load(true,false);
             _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(56,104),2));
-            CollisionLock(); Step();
+            CollisionLock(); Step(3);
             FailIf(_entities.RoomEnemyCount != 1 || _entities.Entities<GroundTreasurePickup>().Count != 1 ||
                 _entities.LinkCollisionsAndMenuDisabled,
                 "Already-cleared boss room must respawn an uncollected heart even with a live enemy count.");
@@ -95,7 +99,7 @@ public partial class ValidationRoot
             Load(false,true); Step(); CollisionLock(); Step();
             FailIf(_saveData.HasRoomFlag(4,0xbf,0x80) || !_entities.LinkCollisionsAndMenuDisabled,
                 "Item flag alone must not skip the unresolved boss count or unlock Link.");
-            _entities.ReleaseSmogSentinelCount(); Step();
+            _entities.ReleaseSmogSentinelCount(); Step(3);
             FailIf(!_saveData.HasRoomFlag(4,0xbf,0x80) || _entities.Entities<GroundTreasurePickup>().Count != 0 ||
                 !_entities.LinkCollisionsAndMenuDisabled,
                 "Zero count must set flag$80 before stopifitemflagset ends without spawning or unlocking.");
@@ -104,8 +108,11 @@ public partial class ValidationRoot
             var uninitializedReward = _entities.EntityAdapters<DungeonRewardRoomEntity>().Single();
             if (aliasedCounter) uninitializedReward.WriteCounter2Alias(60);
             typeof(RoomEntityManager).GetMethod("PrepareIncomingEntitiesForScreenTransition",flags)!.Invoke(_entities,[_player]);
+            FailIf(_entities.Entities<GroundTreasurePickup>().Count != 0 || uninitializedReward.Counter2Alias != 0,
+                "State0 preload must clear the inherited counter and yield after setcoords.");
+            Step();
             FailIf(_entities.Entities<GroundTreasurePickup>().Count != 1 || _entities.RoomEnemyCount != 0,
-                "State0 reward script must recreate an uncollected heart during cleared-room preload.");
+                "Cleared-room reward must recreate its uncollected heart on the spawn update after preload.");
         }
         LoadValidationRoom(0,0x60);
         GD.Print("Validated Smog's isolated controller/reward handoff, real-floor heart collection, re-entry and source-ordered flag/count gates.");

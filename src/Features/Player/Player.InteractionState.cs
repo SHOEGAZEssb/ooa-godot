@@ -1,9 +1,22 @@
 using System;
 
+using Godot;
+
 namespace oracleofages;
 
 public partial class Player
 {
+    internal bool FacesTileWallForInteraction
+    {
+        get
+        {
+            // checkFacingBottomOfTile reads the preceding adjacentWalls
+            // publication, requiring both probes on the selected side.
+            int mask=FacingVector == Vector2I.Up ? 0xc0 : FacingVector == Vector2I.Right ? 0x03 :
+                FacingVector == Vector2I.Down ? 0x30 : 0x0c;
+            return (_tilePushWalls&mask) == mask;
+        }
+    }
     // INTERAC$33/$dc read w1Link.state, not whether movement/input is enabled.
     // Resolve represented owners without manufacturing a second state byte.
     internal bool NativeNormalStateForInteraction
@@ -15,7 +28,7 @@ public partial class Player
             // BossEntryMovement arms separately and sets this flag only when
             // consuming the request. State0b restores state01 on counter zero.
             if (_getItemStatePhase >= 2 || _forcedRespawnPhase >= 2 || _forcedRoomEntryMovement || _ledgeJumpState != LedgeJumpState.None ||
-                _deathAnimationActive || EnemyGrabActive || _squishAnimation is not null ||
+                _deathAnimationActive || EnemyGrabActive || WallmasterGrabActive || CollapsedActive || _squishAnimation is not null ||
                 GaleActive && _galePending < 2 || _forcedState08Phase >= 2 ||
                 _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0 ||
                 _fallingInHole || _drowning && _topDownDrownPhase >= 2)

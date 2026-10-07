@@ -78,6 +78,20 @@ public sealed partial class ValidationRoot
             Step(3, angle: (direction * 8 + 24) & 31);
             Step(1,button); Step(34);
             FailIf(rom[0xd600]!=0 || _entities.Biggoron.Weapon!=null,"Repeated Biggoron swing did not retire its reserved weapon.");
+            if (primary && direction == 0)
+            {
+                Step(1, button);
+                _entities.RuntimeState.SetWramByte(WramAddress.wSwordDisabledCounter, 4);
+                rom[0xcc59] = 4;
+                Step();
+                FailIf(_entities.Biggoron.Active || rom[0xd200] != 0 ||
+                    _entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter) != 3 || rom[0xcc59] != 3,
+                    "Bubble jinx must cancel an active Biggoron parent after the eligible item countdown.");
+                Step(3);
+                Step(1, button); Step(34);
+                FailIf(_entities.Biggoron.Active || rom[0xd200] != 0,
+                    "Biggoron must cast and complete again after the jinx expires.");
+            }
         }
         var collision=new ObjectCollisionRom(); var data=BiggoronSwordCollisionDatabase.Shared;
         for(int mode=0;mode<0x7d;mode++)

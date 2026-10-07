@@ -3,6 +3,10 @@
 ## Room identity and geometry
 
 `RoomSession` owns active room identity, data, layout state, and dungeon context.
+Dungeon layout admission publishes the imported return room to live
+`wDungeonWallmasterDestRoom`. Link's grab state requests the falling return warp
+after the hand's terminal animation signal; the entity manager dispatches it
+after the object pass through the existing transition owner.
 Rooms use a group plus hexadecimal room ID. Small rooms are 10 by 8 metatiles
 (160 by 128 pixels); large-room storage is 16 by 11 with a 16-byte row stride,
 but only 15 columns are playable. Dungeon neighbors come from imported floor
@@ -66,12 +70,30 @@ and scrolling; later spawning freezes until those gates clear. Falling treasures
 check visibility using their camera-relative ground coordinates; height only
 offsets the drawn sprite.
 
+Chest opening owns reserved interaction zero and publishes the room item flag
+before granting the treasure. Preserve its initialization and setup dispatches
+before the rise. Its object mask lasts through pickup text and the cleanup
+dispatch; inventory grants, including cross-era dungeon bits, use the shared
+inventory owner.
+
 Handler state zero runs in physical object order rather than during construction.
 Stateless floor/cube signal consumers read the active room throughout scrolling;
 initialized cube-color sources and minecart gates freeze during the scroll. A
 gate samples earlier signal writes on its first dispatch, while a later signal
 affects it on a subsequent eligible pass. Preserve whole-byte trigger writes
 separately from masked switch-bit changes.
+Dungeon signal scripts preserve command carry and wait boundaries. A bridge
+script publishes its completion flag and sound before its one checked allocation;
+pool failure still completes that script. Keep these semantics separate from
+controllers that retry allocation. Temporary button conjunctions change only
+their output bit and retain the shared button release timers.
+The interaction dispatcher samples its freeze gate at pass entry. A worker
+clearing the shared mask later in that pass does not resume initialized
+interactions until the following eligible pass.
+Native object masks apply separately to Link, items, enemies, parts,
+interactions and companions. A cutscene can freeze initialized actors while
+items and state-zero handlers continue; a single global freeze cannot represent
+that dispatch.
 
 Water-level reconstruction resolves the effective tileset and dungeon floor
 before replaying tile substitutions and room-specific platform changes in their
@@ -208,6 +230,17 @@ pass. Deletion frees capacity before scene-node cleanup. Do not substitute
 scene insertion order, a collection snapshot, or separate incoming/outgoing
 walks. Preserve checked and unchecked allocation-failure behavior explicitly.
 
+Levers allocate their graphical connection during state-zero dispatch and retry
+if the pool is full. An earlier free slot becomes the parent; initialization
+waits for that slot's next pass. Keep logical references attached to their roles
+when exchanging physical slots.
+
+Miniboss reward controllers preserve the native script's yields between commands,
+including its zero-enemy check, flag publication and wait initialization.
+Miniboss portal allocation occurs during the interaction walk; a higher slot
+initializes in that update. Collision/menu release is the following script
+command and occurs on its own update, even if portal allocation failed.
+
 Colored-floor parents latch a changed tile before checked child allocation;
 freeing capacity later does not retry that unchanged candidate. Landing children
 remain in state zero, so text, interaction masks and scrolling still admit their
@@ -314,6 +347,13 @@ parent animation offsets and child position fractions retain their own lifetimes
 `RoomTransitionController` owns scrolls, warps, destination placement, fades,
 and camera writes. Preload is not room entry: counters, RNG, music, checkpoints,
 events, and persistence change only at the original boundary.
+
+Native cutscene handlers that precede objects advance before Link and item
+dispatch, including their release update. Their ownership of post-object work
+lasts through that update. Camera admission also controls screen-shake counters
+and RNG. In-place layout reloads retain room identity and actor lifetime;
+layout, collision, underlying terrain and background mappings follow their
+separate source writes, including temporary collision-buffer scratch data.
 
 The object pass samples and clamps ordinary screen boundaries before cutscene
 selection. The transition owner retains an accepted exit direction while a

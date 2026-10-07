@@ -96,6 +96,7 @@ public sealed class RoomSession
         if (countAsRoomEntry)
             _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         CurrentRoom = GetRoom(startingGroup, startingRoom);
+        InitializeDungeonReturnState();
         InitializeShopState();
         World.SetCurrentPaletteRoom(CurrentRoom);
         if (countAsRoomEntry)
@@ -169,6 +170,8 @@ public sealed class RoomSession
 
     private void ClearActiveTileState()
     {
+        // clearMemoryOnScreenReload and func_49c9 both include this mask.
+        _runtimeState.SetWramByte(WramAddress.wDisabledObjects,0);
         // Both room reload's $cc5c clear and scroll's $cc8a clear include
         // these shared cube publications; outgoing state0 handlers see zero.
         _runtimeState.SetWramByte(WramAddress.wRotatingCubeColor,0);
@@ -232,6 +235,20 @@ public sealed class RoomSession
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap);
     }
 
+    // bank0.loadTilesetAndRoomLayout copies the substituted layout to the
+    // shared bank3 buffer without re-entering the room or parsing its objects.
+    internal void ReloadCurrentRoomLayout()
+    {
+        byte[] background=CurrentRoom.CaptureBackgroundMappings();
+        OracleRoomData room=GetRoom(ActiveGroup,CurrentRoom.Id);
+        if (!ReferenceEquals(room,CurrentRoom))
+            throw new InvalidOperationException($"Room${ActiveGroup:x}:${CurrentRoom.Id:x2}: native in-place layout reload changed backing room identity.");
+        for (int position=0;position<room.Layout.Length;position++)
+            room.SetUnderlyingStorageMetatile(position,room.Layout[position]);
+        // loadTilesetAndRoomLayout does not regenerate w3VramTiles/Attributes.
+        room.SetBackgroundMappingRectangle(Vector2I.Zero,room.WidthInTiles*2,background,_animationTick());
+    }
+
     internal bool IsLayoutSwapped(int group, int room) =>
         _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap);
 
@@ -242,6 +259,7 @@ public sealed class RoomSession
 
     private void MarkRoomVisited(int group, int room, bool updateMinimap = true)
     {
+        InitializeDungeonReturnState();
         _saveData.SetRoomFlag(group, room, OracleSaveData.RoomFlagVisited);
         // bank1.s:loadDungeonLayout_b01 and checkUpdateDungeonMinimap.
         // Side-view rooms retain the preceding top-down floor/cell.
@@ -254,6 +272,16 @@ public sealed class RoomSession
                 (byte)(_saveData.DungeonVisitedFloors(dungeon) | (1 << cell.Floor)));
         }
         if (updateMinimap) UpdateMinimapLocation();
+    }
+
+    private void InitializeDungeonReturnState()
+    {
+        // loadDungeonLayout_b01 copies all eight dungeon-property bytes,
+        // including $cc3e. Non-dungeon loads retain the previous properties.
+        int dungeon = CurrentDungeonIndex;
+        if (dungeon < 0) return;
+        _runtimeState.SetWramByte(WramAddress.wDungeonWallmasterDestRoom,
+            (byte)DungeonMaps.GetDungeon(dungeon).WallmasterDestinationRoom);
     }
 
     internal void UpdateMinimapLocation()

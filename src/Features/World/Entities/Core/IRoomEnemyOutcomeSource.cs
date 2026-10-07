@@ -65,11 +65,11 @@ internal readonly record struct RoomEnemyOutcome(
             AdvancesKillCounters: false,
             KillableEnemyIndex: 0);
 
-    internal static RoomEnemyOutcome WallmasterSpawnerCompletion(
+    internal static RoomEnemyOutcome SilentDefeat(
         int killableEnemyIndex,
         bool decrementsRoomCount) =>
         new(
-            RoomEnemyOutcomeKind.WallmasterSpawnerCompletion,
+            RoomEnemyOutcomeKind.SilentDefeat,
             decrementsRoomCount,
             MarksRecentDefeat: true,
             AdvancesKillCounters: false,
@@ -101,7 +101,7 @@ internal enum RoomEnemyOutcomeKind
     HazardDeletion,
     ReplacementDeletion,
     SilentDeletion,
-    WallmasterSpawnerCompletion,
+    SilentDefeat,
     BossTeardown,
     PlacementConsumed
 }

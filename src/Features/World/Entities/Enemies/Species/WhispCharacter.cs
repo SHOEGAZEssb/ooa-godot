@@ -82,7 +82,8 @@ internal partial class WhispCharacter : EnemyCharacter
     }
 
     /// <summary>
-    /// ENEMY_WHISP state 0 consumes one global RNG value for its angle,
+    /// ENEMY_WHISP initialization consumes a common var3d RNG value and
+    /// a second global RNG value for its angle,
     /// installs state $08/SPEED_c0, and becomes visible even while the enemy
     /// dispatcher is restricted by wScrollMode.
     /// </summary>
@@ -91,6 +92,9 @@ internal partial class WhispCharacter : EnemyCharacter
         if (_initialized)
             return;
         _initialized = true;
+        // bank0.enemyStandardUpdate initializes var3d before enemyCode19.
+        // Retain this call even though Whisp does not consume that byte.
+        _random.Next();
         _angle = _random.NextCardinalAngle() + 0x04;
         Visible = true;
         QueueRedraw();

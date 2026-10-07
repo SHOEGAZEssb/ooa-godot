@@ -24,8 +24,9 @@ internal sealed class LeverDatabase
                 throw row.Invalid(5, "the five native lever connection animations");
             _profiles.Add(row.HexByte(0), profile);
         }
-        if (_profiles.Count != 2 || !_profiles.ContainsKey(0x30) || !_profiles.ContainsKey(0x31))
-            throw new InvalidOperationException("Missing INTERAC_LEVER $30/$31 profiles.");
+        if (_profiles.Count != 4 || !_profiles.ContainsKey(0x30) || !_profiles.ContainsKey(0x31) ||
+            !_profiles.ContainsKey(0x06) || !_profiles.ContainsKey(0x46))
+            throw new InvalidOperationException("Missing INTERAC_LEVER $30/$31/$06/$46 profiles.");
     }
 
     internal LeverProfile Profile(int subid) => _profiles.TryGetValue(subid, out var profile) ? profile

@@ -18,6 +18,7 @@ internal sealed partial class InteractionExplosionEffect : FixedEffectNode2D
     internal int ElapsedUpdates { get; private set; }
     internal int AnimationFrame => _animation.FrameIndex;
     internal int AnimationParameter => _animation.CurrentParameter;
+    internal int ConsumeParameter() => _animation.ConsumeParameter();
     internal int ZOffset => _zOffset;
     internal Vector2 ObjectScreenPosition =>
         Position + new Vector2(0, _zOffset);

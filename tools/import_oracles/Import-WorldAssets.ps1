@@ -233,14 +233,21 @@ Add-RoomTileChangeRule 'tileReplacement_group4Map1b' `
 # Current-room flag changes.
 Add-RoomTileChangeRule 'tileReplacement_group4Mapc9' 'current_room_set:40' `
     'fill:27:01:04:6d'
-Add-RoomTileChangeRule 'tileReplacement_group4Map59' 'current_room_set:80' 'replace:09:08'
+# replaceTiles source pairs are new/old; generated operations are old/new.
+foreach ($torchRoom in @('tileReplacement_group4Map59','tileReplacement_group5Map43')) {
+    $torchBody = [regex]::Match($roomTileChangeSource,"(?ms)^${torchRoom}:(?<body>.*?)(?=^tileReplacement_|\z)").Groups['body'].Value
+    if ($torchBody -notmatch '(?ms)ld de,@(?:replacementTiles|tilesToReplace)\s*jp replaceTiles.*?\.db \$09 \$08[^\r\n]*\s*\.db \$00') {
+        throw "${torchRoom}: unsupported persistent unlit-to-lit torch replacement."
+    }
+}
+Add-RoomTileChangeRule 'tileReplacement_group4Map59' 'current_room_set:80' 'replace:08:09'
 Add-RoomTileChangeRule 'tileReplacement_group5Map38' 'current_room_set:40' `
     'set:39:6a,49:6a,59:6a,69:6a'
 Add-RoomTileChangeRule 'tileReplacement_group5Map25' 'current_room_clear:40' `
     'fill:17:09:04:a6|fill:1b:09:01:b3|fill:16:09:01:b1'
 Add-RoomTileChangeRule 'tileReplacement_group5Map43' 'current_room_clear:40' `
     'fill:17:09:04:a7|fill:1b:09:01:b3|fill:16:09:01:b1'
-Add-RoomTileChangeRule 'tileReplacement_group5Map43' 'current_room_set:40' 'replace:09:08'
+Add-RoomTileChangeRule 'tileReplacement_group5Map43' 'current_room_set:40' 'replace:08:09'
 Add-RoomTileChangeRule 'tileReplacement_group5Map95' 'current_room_clear:40' `
     'set:4d:b4,4e:b2|fill:5e:05:01:a7|fill:5d:05:01:b1'
 Add-RoomTileChangeRule 'tileReplacement_group5Mapc3' 'current_room_set:40' `

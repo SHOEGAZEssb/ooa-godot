@@ -158,7 +158,9 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
                 if (OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x08) ||
                     (Player.EnemyCollisionOverlaps(frame.Player.Position,
                         new Rect2(Position - new Vector2(6, 4), new Vector2(12, 8))) &&
-                     RoomEntityManager.ObjectCollisionZOverlaps(_zFixed >> 8, frame.Player.EnemyContactZ, 7)))
+                     // _checkCollidedWithLink subtracts object.zh from
+                     // Link.zh; unlike enemy/item collisions, -7 is excluded.
+                     RoomEntityManager.ObjectCollisionZOverlaps(frame.Player.EnemyContactZ, _zFixed >> 8, 7)))
                 {
                     _delay = 30;
                     _state = MotionState.Delay;
@@ -176,7 +178,9 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
                     _precisePosition = frame.Player.Position.Floor() + new Vector2(0, -14) +
                         _precisePosition - _precisePosition.Floor();
                     Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-                    _zFixed = 0;
+                    // State4's ldi/inc sequence clears zh and speed, leaving
+                    // the low Z byte from the fall untouched.
+                    _zFixed &= 0xff;
                     _state = MotionState.Held;
                 }
                 break;

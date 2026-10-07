@@ -73,11 +73,13 @@ public sealed class RoomEventController
         [
             () => new HarpOfAgesEvent(_context),
             () => new DungeonEssenceEvent(_context),
+            () => new WallRetractionEvent(_context),
             () => new DefeatedMoblinEvent(_context),
             () => new RemoteMakuFirstEssenceEvent(_context),
             () => new RemoteMakuSecondEssenceEvent(_context),
             () => new RemoteMakuFourthEssenceEvent(_context),
             () => new RemoteMakuFifthEssenceEvent(_context),
+            () => new RemoteMakuSixthEssenceEvent(_context),
             () => new RemoteMakuHarpEvent(_context),
             () => new RemoteMakuWingDungeonEvent(_context),
             () => new PostD3RemoteMakuEvent(_context, remoteMakuThirdEssence),
@@ -239,10 +241,20 @@ public sealed class RoomEventController
         Get<RemoteMakuFifthEssenceEvent>().SpawnTunnelGoron=Get<GoronCaveEvent>().SpawnTunnelGoron;
         _context.Entities.ObjectFellInHole += NotifyObjectFellInHole;
         _context.Entities.DungeonEssenceTriggered += Get<DungeonEssenceEvent>().Begin;
+        _context.Entities.WallRetractionTriggered += Get<WallRetractionEvent>().Begin;
     }
 
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
     internal bool OwnsGameLogic => _eventsByPriority.Any(roomEvent => roomEvent.OwnsGameLogic);
+    internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled;
+    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState;
+    internal bool AdvanceNativeCutscenesBeforeObjects()
+    {
+        var retraction=Get<WallRetractionEvent>();
+        bool owned=retraction.HasState;
+        retraction.AdvanceBeforeObjects();
+        return owned;
+    }
     internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);
     internal bool ObjectUpdateSuspended => _eventsByPriority.Any(roomEvent => roomEvent.ObjectUpdateSuspended);
     internal void ResumeObjectUpdate() =>

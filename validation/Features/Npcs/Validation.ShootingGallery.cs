@@ -144,6 +144,7 @@ public sealed partial class ValidationRoot
                 PointFor(0x52) + Vector2.Down * 15.0f;
             _player.WarpTo(signReadingPosition);
             _player.Face(Vector2I.Up);
+            ApproachTileWall();
             int pausedInitialCounter = controller.Counter;
             int pausedCommand = gallery.CurrentCommandIndex;
             int pausedKeeperAnimation = keeper.CurrentAnimationFrame;
@@ -214,7 +215,7 @@ public sealed partial class ValidationRoot
             strikeBall.Free();
 
             int randomCallsBeforeLayout = _entities.RandomCalls;
-            StepRoomEventFrames(record.InitialDelay - 2);
+            StepRoomEventFrames(pausedInitialCounter - 1);
             FailIf(
                 controller.State != 1 || controller.Counter != 1,
                 "$30:$03 initial delay did not retain its 120-update boundary.");
@@ -267,6 +268,7 @@ public sealed partial class ValidationRoot
 
             _player.WarpTo(signReadingPosition);
             _player.Face(Vector2I.Up);
+            ApproachTileWall();
             Vector2 pausedBallPosition = ball.Position;
             int pausedBallUpdates = ball.ElapsedUpdates;
             FailIf(
@@ -320,10 +322,11 @@ public sealed partial class ValidationRoot
                 "the hit, install the 3-update cooldown, and emit four " +
                 "$92:$05 debris objects.");
 
-            Vector2 reflectedPausePosition = ball.Position;
-            int reflectedPauseUpdates = ball.ElapsedUpdates;
             _player.WarpTo(signReadingPosition);
             _player.Face(Vector2I.Up);
+            int reflectedApproachUpdates = ApproachTileWall();
+            Vector2 reflectedPausePosition = ball.Position;
+            int reflectedPauseUpdates = ball.ElapsedUpdates;
             FailIf(
                 !_interactions.TryInteract(_player),
                 "The room 2:e9 prize sign stopped accepting A after a " +
@@ -333,7 +336,7 @@ public sealed partial class ValidationRoot
                 ball.Position != reflectedPausePosition ||
                 ball.ElapsedUpdates != reflectedPauseUpdates ||
                 _entities.Entities<ShootingGalleryTargetDebris>().Any(
-                    debris => debris.Counter != database.Debris.Lifetime - 2),
+                    debris => debris.Counter != database.Debris.Lifetime - reflectedApproachUpdates - 2),
                 "The textbox dispatcher did not freeze PART_BALL while " +
                 "continuing enabled-bit-7 INTERAC_FALLING_ROCK debris.");
             _dialogue.Close();

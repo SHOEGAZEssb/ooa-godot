@@ -18,6 +18,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     private Texture2D _texture = null!;
     private Vector2 _textureOffset;
     private Action<int> _soundRequested = static _ => { };
+    private Func<Vector2, bool>? _tryCreatePuff;
     private PickupState _state;
     private int _spawnSubstate;
     private int _spawnCounter;
@@ -49,16 +50,19 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         GroundTreasureDatabaseRecord record,
         Action<int> soundRequested,
         Func<Vector2, Vector2>? worldToScreen = null,
-        OracleRoomData? room = null)
+        OracleRoomData? room = null,
+        Func<Vector2, bool>? tryCreatePuff = null)
     {
         Record = record;
-        if (record.SpawnMode is not (TreasureSpawnMode.Instant or TreasureSpawnMode.FromScreenTop or TreasureSpawnMode.Buried) ||
+        if (record.SpawnMode is not (TreasureSpawnMode.Instant or TreasureSpawnMode.Puff or TreasureSpawnMode.FromScreenTop or TreasureSpawnMode.Buried) ||
             record.GrabMode is not (TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands or TreasureGrabMode.SpinSlash))
         {
             throw new InvalidOperationException(
                 $"Ground treasure from {record.Source} uses unsupported " +
                 $"spawn/grab mode ${record.SpawnMode:x2}/${record.GrabMode:x2}.");
         }
+        if (record.SpawnMode == TreasureSpawnMode.Puff && (tryCreatePuff is null || record.SpawnDelayFrames <= 0))
+            throw new InvalidOperationException($"{record.Source}: puff treasure requires its native allocation owner and imported wait.");
         if (record.SpawnMode == TreasureSpawnMode.FromScreenTop &&
             (record.SpawnDelayFrames <= 0 ||
              record.InitialZAboveScreen &&
@@ -78,6 +82,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         Position = new Vector2(record.X, record.Y);
         _precisePosition = Position;
         _soundRequested = soundRequested;
+        _tryCreatePuff = tryCreatePuff;
         _worldToScreen = worldToScreen ?? (static position => position);
         _room = room;
         Image source = OracleGraphicsCache.LoadImage(
@@ -129,6 +134,8 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
             case PickupState.Spawning:
                 if (Record.SpawnMode == TreasureSpawnMode.Instant)
                     _state = PickupState.Waiting;
+                else if (Record.SpawnMode == TreasureSpawnMode.Puff)
+                    UpdatePuffSpawn();
                 else if (Record.SpawnMode == TreasureSpawnMode.FromScreenTop)
                     UpdateFallingSpawn();
                 else
@@ -149,6 +156,23 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
                 QueueRedraw();
                 return;
         }
+    }
+
+    private void UpdatePuffSpawn()
+    {
+        // treasure.s:@spawnMode1 advances before checked puff allocation.
+        // Success falls through into the first decrement on this same update.
+        if (_spawnSubstate == 0)
+        {
+            _spawnSubstate = 1;
+            _spawnCounter = Record.SpawnDelayFrames;
+            if (!_tryCreatePuff!(Position.Floor())) return;
+        }
+        if (--_spawnCounter != 0) return;
+        _state = PickupState.Waiting;
+        _spawnSubstate = 0;
+        Visible = true;
+        QueueRedraw();
     }
 
     internal void InitializeGraphicsState()

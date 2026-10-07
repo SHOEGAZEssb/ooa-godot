@@ -446,6 +446,7 @@ Add-DungeonInteractionVisual 'ancient-wood' 0x7f 0 @(2) 4 0
 Add-DungeonInteractionVisual 'echoing-howl' 0x7f 0 @(2) 6 3
 Add-DungeonInteractionVisual 'burning-flame' 0x7f 0 @(2) 8 2
 Add-DungeonInteractionVisual 'sacred-soil' 0x7f 0 @(2) 10 0
+Add-DungeonInteractionVisual 'bereft-peak' 0x7f 0 @(2) 12 0
 Add-DungeonInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
 Add-DungeonInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
@@ -942,8 +943,8 @@ if ($eyeStatueVisual.Sprite -ne 'spr_polsvoice_hardhatbeetle_spikedbeetle_beamon
 Add-DungeonPartVisualRow 'seed-shooter-eye-statue' $eyeStatueVisual.Sprite $eyeStatueVisual.TileBase `
     $eyeStatueVisual.Palette $eyeStatueVisual.SourceGrayscaleInverted $eyeStatueVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 37) {
-    throw "Expected thirty-six imported shared dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 38) {
+    throw "Expected thirty-seven imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),
@@ -1172,6 +1173,11 @@ if ($objectSpeedSource -notmatch
 }
 $dungeonObjectConstantRows = [Collections.Generic.List[string]]::new()
 $dungeonObjectConstantRows.Add("# key`tvalue")
+$treasureSpawnSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/interactions/treasure.s')
+if ($treasureSpawnSource -notmatch '(?ms)^@spawnMode1:\s*ld e,Interaction.substate\s*ld a,\(de\)\s*or a\s*jr nz,\+\+\s*ld a,\$01\s*ld \(de\),a\s*ld e,Interaction.counter1\s*ld a,(?<wait>\d+)\s*ld \(de\),a\s*call objectCreatePuff\s*ret nz\s*\+\+\s*call interactionDecCounter1\s*ret nz\s*jr @spawnMode0') {
+    throw 'treasure.s: unsupported puff spawn allocation, counter or collection sequence.'
+}
+$dungeonObjectConstantRows.Add("treasure-puff-wait`t$($Matches['wait'])")
 foreach ($row in @(
     "platform-speed`t20"
     "platform-wait`t8"
@@ -1189,7 +1195,7 @@ for ($size = 0; $size -lt $platformRadiusMatches.Count; $size++) {
     $dungeonObjectConstantRows.Add(
         "platform-radius-$size-x`t$([Convert]::ToInt32($radius.Groups['x'].Value, 16))")
 }
-if ($dungeonObjectConstantRows.Count -ne 19 -or
+if ($dungeonObjectConstantRows.Count -ne 20 -or
     -not $dungeonObjectConstantRows.Contains("platform-radius-1-y`t16") -or
     -not $dungeonObjectConstantRows.Contains("platform-radius-1-x`t8") -or
     -not $dungeonObjectConstantRows.Contains("platform-radius-5-y`t16") -or

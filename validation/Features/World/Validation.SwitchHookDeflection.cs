@@ -13,8 +13,6 @@ public sealed partial class ValidationRoot
         var pending = typeof(SwitchHookItem).GetField("_objectCollisionPending", flags)!;
         void Step(int count = 1, bool press = false) =>
             StepGameplayUpdates(count, Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [], batched: true);
-        _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
-        _inventory.EquipA(TreasureId.SwitchHook);
         var random = CaptureOracleRandomForValidation();
 
         bool isolateTarget = true;
@@ -51,6 +49,12 @@ public sealed partial class ValidationRoot
 
             (Vector2 Enemy, int Invincibility, int Recoil, int State) Run(bool batch, bool repeat)
             {
+                // A preceding Spark/trap approach can leave a live Link
+                // status after the hook finishes. Isolate each species and
+                // batching run instead of carrying that unrelated status.
+                ReinitializeGameplayForValidation();
+                _inventory.GiveTreasure(TreasureId.SwitchHook, 1);
+                _inventory.EquipA(TreasureId.SwitchHook);
                 RestoreOracleRandomForValidation(random);
                 LoadValidationRoom(4, room);
                 isolateTarget = true;
@@ -68,6 +72,7 @@ public sealed partial class ValidationRoot
                 int health = enemy.Health;
                 Step(press: true);
                 var hook = _entities.SwitchHook!.Item!;
+                FailIf(hook is null, $"${id:x2} hook throw was blocked: Link={_player.Position}, recoil={_player.KnockbackFrames}, invincibility={_player.InvincibilityFrames}, swimming={_player.TopDownSwimming}, dialogue={_dialogue.IsOpen}, enemy={enemy.Position}.");
                 int ticks = 0;
                 while (!(bool)pending.GetValue(hook)! && hook.State == 1 && ticks++ < 40) Step();
                 FailIf(!(bool)pending.GetValue(hook)! || hook.State != 1 || !hook.CollisionEnabled ||

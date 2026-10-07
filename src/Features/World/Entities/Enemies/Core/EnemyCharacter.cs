@@ -541,6 +541,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         _collisionRadiusX = radiusX;
         _collisionRadiusY = radiusY;
     }
+    internal void SetNativeCollisionRadii(int radiusX, int radiusY) => SetCollisionRadii(radiusX, radiusY);
 
     protected void Finish()
     {
@@ -620,7 +621,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     private Vector2 CurrentKnockbackPosition =>
         _knockbackPosition?.Invoke() ?? Position;
 
-    private bool UpdateKnockback()
+    private protected virtual bool UpdateKnockback()
     {
         if (!HasActiveKnockback)
             return false;

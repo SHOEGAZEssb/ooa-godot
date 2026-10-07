@@ -24,8 +24,6 @@ internal sealed class SwitchHookController(Node worldRoot, RoomSession rooms, Ro
         if (Active || player.Inventory.SwitchHookLevel == 0 || player.TopDownAirborne || player.SideScrollAirborne ||
             player.IsFallingInHole || player.IsPullingIntoHole || player.CompanionRideActive ||
             player.MinecartRideActive || player.RaftRideActive) return false;
-        if ((rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0)
-            throw new NotSupportedException("Switch Hook underwater LINK_ANIM_MODE_2e presentation is not implemented.");
         if (Item is not null) { Item.Free(); Item = null; }
         player.SelectCarriedObjectReleaseDirection(input);
         int direction = player.FacingVector == Vector2I.Up ? 0 : player.FacingVector == Vector2I.Right ? 1 :

@@ -11,25 +11,31 @@ public sealed partial class ValidationRoot
     private void ValidateSwitchHookTileExchangeRom() => ValidateSwitchHookGameplayRom(true);
 
     private void ValidateSwitchHookWaterExchangeRom() => ValidateSwitchHookGameplayRom(true, true);
+    private void ValidateSwitchHookUnderwaterExchangeRom() => ValidateSwitchHookGameplayRom(true, underwater: true);
 
     private void ValidateSwitchHookAllocationRom() => ValidateSwitchHookGameplayRom(false, allocation: true);
     private void ValidateSwitchHookAirborneRom() => ValidateSwitchHookGameplayRom(false, airborne: true);
 
-    private void ValidateSwitchHookGameplayRom(bool exchange, bool water = false, bool allocation = false, bool airborne = false)
+    private void ValidateSwitchHookGameplayRom(bool exchange, bool water = false, bool allocation = false, bool airborne = false, bool underwater = false)
     {
         int hostCase1 = 0;
-        foreach (bool primary in new[] { false, true })
-        foreach (int level in new[] { 1, 2 })
-        foreach (int direction in Enumerable.Range(0, 4))
+        foreach (bool primary in underwater ? new[] { true } : new[] { false, true })
+        foreach (int level in underwater ? new[] { 1 } : new[] { 1, 2 })
+        foreach (int direction in underwater ? new[] { 0, 1 } : Enumerable.Range(0, 4))
         foreach (int terrain in airborne ? new[] { 0 } : allocation ? new[] { 4 } : exchange ? new[] { 3 } : new[] { 0, 1, 2 })
         foreach (int jumpUpdates in airborne ? new[] { 1, 15, 29 } : new[] { 0 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
-            LoadValidationRoom(0, 0x33); _entities.Clear();
+            LoadValidationRoom(underwater ? 5 : 0, underwater ? 0x2c : 0x33); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.SwitchHook, level);
             if (airborne) _inventory.GiveTreasure(TreasureId.Feather, 1);
             if (water) _inventory.GiveTreasure(TreasureId.Flippers, 0);
+            if (underwater)
+            {
+                _inventory.GiveTreasure(TreasureId.Flippers,0);
+                _inventory.GiveTreasure(TreasureId.MermaidSuit,0);
+            }
             _inventory.EquipA(primary ? TreasureId.SwitchHook : airborne ? TreasureId.Feather : 0);
             _inventory.EquipB(primary ? airborne ? TreasureId.Feather : 0 : TreasureId.SwitchHook);
             for (int y = 0; y < 8; y++)
@@ -75,12 +81,16 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(count, movement, MenuRomActions(itemsHeld | directions), MenuRomActions(edge), batched, () =>
                 {
                     rom.UpdateGameplay(edge, itemsHeld | directions, angle, _entities.FrameCounter); edge = 0;
-                    string context = $"Switch Hook L{level} A={primary} dir={direction} terrain={terrain} water={water} jumpUpdates={jumpUpdates} update={++update}";
+                    string context = $"Switch Hook L{level} A={primary} dir={direction} terrain={terrain} water={water} underwater={underwater} jumpUpdates={jumpUpdates} update={++update}";
                     var hook = _entities.SwitchHook!.Item;
                     bool nativeActive = rom[0xd600] != 0 && rom[0xd601] == 0x0a;
+                    FailIf(_player.NativeItemUseActive != (rom[0xcc5f] != 0),context + ": wLinkUsingItem1 must survive child deletion until the parent clears.");
                     FailIf((hook is { Finished: false }) != nativeActive ||
                         _player.IsUsingSwitchHook != (rom[0xd200] != 0 && rom[0xd201] == 0x0a),
                         context + $": reserved weapon/parent deletion or release differs: runtime={hook?.State}/{hook?.Substate}/{hook?.ZHigh}/finished={hook?.Finished}/parent={_player.IsUsingSwitchHook}, native=${rom[0xd604]:x2}/${rom[0xd605]:x2}/${rom[0xd60f]:x2}/enabled={rom[0xd600]}/parent={rom[0xd200]}.");
+                    if (underwater && _player.IsUsingSwitchHook)
+                        FailIf(rom[0xd032] != 0xc0 + CarriedObjectMotion.DirectionIndex(_player.FacingVector),
+                            context + ": underwater mode$2e must retain the source $c0-$c3 hook pose.");
                     if (nativeActive)
                     {
                         FailIf(hook!.State != rom[0xd604] || hook.Substate != rom[0xd605] || hook.Counter != rom[0xd606] ||
@@ -233,6 +243,6 @@ public sealed partial class ValidationRoot
                 "Switch Hook post-pass failed to delete its child after parent cancellation.");
             Step(1, true, direction * 8); Step(6);
         }
-        GD.Print($"Validated clean-US Switch Hook exchange={exchange}, water={water}, allocation={allocation}, Feather air gates={airborne}, A/B, both levels/four directions, fractional initialization, chain post-updates during dialogue, animation/sounds and parent lifecycle through split/batched application updates.");
+        GD.Print($"Validated clean-US Switch Hook exchange={exchange}, water={water}, underwater={underwater}, allocation={allocation}, Feather air gates={airborne}, fractional initialization, repeated exchange, chain post-updates during dialogue, animation/sounds and parent lifecycle through split/batched application updates.");
     }
 }

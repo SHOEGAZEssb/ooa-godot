@@ -46,6 +46,9 @@ internal sealed class EnemyStatusRom
         this[0xcdc0] = (byte)room.Id;
         this[0xcdd0] = 2;
         this[0xcdd1] = 1;
+        // setTileWithoutGfxReload reads the already-loaded tileset collision
+        // table in WRAM3, including tiles absent from the starting layout.
+        for (int tile = 0; tile < 256; tile++) _wram[3][0xb00+tile] = room.GetCollision((byte)tile);
         for (int x = 0; x < 16; x++)
             this[0xcef0 + x] = this[0xce00 + room.HeightInTiles * 16 + x] = 0xff;
         for (int y = 0; y < 11; y++)
@@ -66,30 +69,54 @@ internal sealed class EnemyStatusRom
         }
     }
 
+    internal void GeneratePlacementBuffer() => Call(0x3215,0); // bank0.generateRandomBuffer, before object parsing.
+
     internal void Update(int frame, Vector2 link)
     {
         this[0xcc00] = (byte)frame;
         this[0xffb2] = this[0xd00b] = (byte)link.Y;
         this[0xffb3] = this[0xd00d] = (byte)link.X;
+        // runGameLogic/setEnemyTargetToLinkPosition publishes the independent
+        // non-scent target before the enemy walk.
+        this[0xffb0] = (byte)link.Y;
+        this[0xffb1] = (byte)link.X;
         Call(0x2ea5, 0x0d); // bank0.updateEnemies
         Call(0x5e58, 0x11); // partCode.updateParts
         Call(0x3b36, 0x08); // bank0.updateInteractions
     }
 
-    internal void HitWithSword(int collisionType, int damage)
+    internal void HitWithSword(int collisionType, int damage, int enemySlot = 0)
     {
         // Declared overlapping ITEM, then the unmodified bank-$07 scan and
         // collision effect. The wrapper only supplies the caller registers.
         this[0xd724] = (byte)(0x80 | collisionType);
         this[0xd728] = unchecked((byte)-damage);
         this[0xd726] = this[0xd727] = 6;
-        this[0xd70b] = this[0xd08b];
-        this[0xd70d] = (byte)(this[0xd08d] - 1);
+        int address = 0xd080 + enemySlot * 256;
+        this[0xd70b] = this[address + 11];
+        this[0xd70d] = (byte)(this[address + 13] - 1);
         this[0xffae] = 0x80;
-        this[0xffaf] = 0xd0;
-        byte[] caller = [0x16, 0xd0, 0x21, 0x00, 0xd6, 0xcd, 0xd1, 0x41, 0xc9];
-        caller.CopyTo(_memory, 0xc100);
-        Call(0xc100, 7);
+        this[0xffaf] = (byte)(address >> 8);
+        byte[] caller = [0x16, (byte)(address >> 8), 0x21, 0x00, 0xd6, 0xcd, 0xd1, 0x41, 0xc9];
+        caller.CopyTo(_memory, 0xc200);
+        Call(0xc200, 7);
+        this[0xd724] = 0;
+    }
+
+    internal void ResolveLinkCollisions() => Call(0x41d1, 7);
+
+    internal void HitPartWithItem(int collisionType, int partSlot, int itemId = 0)
+    {
+        // collisionEffects.s:partCheckCollisions, clean-US $07:$4241.
+        // Supply one declared overlapping ITEM to the unmodified native scan.
+        int address = 0xd0c0 + partSlot * 256;
+        this[0xd701] = (byte)itemId;
+        this[0xd724] = (byte)(0x80 | collisionType);
+        this[0xd726] = this[0xd727] = 6;
+        this[0xd70b] = this[address + 11]; this[0xd70d] = (byte)(this[address + 13] - 1);
+        this[0xffae] = 0xc0; this[0xffaf] = (byte)(address >> 8);
+        byte[] caller = [0x16, (byte)(address >> 8), 0xcd, 0x41, 0x42, 0xc9];
+        caller.CopyTo(_memory, 0xc200); Call(0xc200, 7);
         this[0xd724] = 0;
     }
 
@@ -97,7 +124,9 @@ internal sealed class EnemyStatusRom
     {
         _bank = bank;
         this[0xff97] = (byte)bank;
-        _cpu.RunCall(entry);
+        // include/wram.s: wMainStackTop=$c110. Palette loads switch R_SVBK;
+        // the native stack is unbanked and must survive those switches.
+        _cpu.RunCall(entry,stackAddress:0xc10e);
     }
     private int Read(int address)
     {

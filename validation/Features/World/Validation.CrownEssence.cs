@@ -50,9 +50,12 @@ public partial class ValidationRoot
             Step(6);
             FailIf(essence.SwirlActive || IsTransitioning,"Crown Essence must wait for its textbox to close.");
             _dialogue.Close(); Step(); Step();
+            FailIf(essence.SwirlActive || _roomEvents.Get<DungeonEssenceEvent>().Counter!=0,
+                "Native playsound must end the music dispatch before the following asm/wait.");
+            Step();
             FailIf(!essence.SwirlActive || _roomEvents.Get<DungeonEssenceEvent>().Counter!=360,
                 "Crown Essence must enter the common360-update swirl after script initialization.");
-            Step(360); Step(20); Step(20); Step(40); Step(28);
+            Step(360); Step(); Step(20); Step(); Step(20); Step(); Step(40); Step(); Step(28);
             FailIf(IsTransitioning,"Crown Essence exited before the final warp-delay update.");
             Step();
             FailIf(!IsTransitioning,"Crown Essence did not begin its source exit warp.");

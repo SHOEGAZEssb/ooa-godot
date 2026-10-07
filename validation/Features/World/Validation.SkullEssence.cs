@@ -109,6 +109,9 @@ public sealed partial class ValidationRoot
             FailIf(essence.SwirlActive || _roomEvents.Get<DungeonEssenceEvent>().Counter != 0,
                 "Native Essence state5 must install its script before state6 executes music/energy/waits.");
             Step();
+            FailIf(essence.SwirlActive || _roomEvents.Get<DungeonEssenceEvent>().Counter != 0,
+                "Native playsound must end the music dispatch before the following asm/wait.");
+            Step();
             FailIf(!essence.SwirlActive || _roomEvents.Get<DungeonEssenceEvent>().Counter != 360,
                 "Burning Flame did not begin the shared two180-update energy waits.");
             var energyParts = _entities.Entities<BlueEnergyBeadRoomEntity>();
@@ -121,7 +124,9 @@ public sealed partial class ValidationRoot
             FailIf(_sound.PlayRequestsFor(SoundId.SndFadeOut) != 0, "Essence fade cadence started before360 swirl updates.");
             Step();
             FailIf(_sound.PlayRequestsFor(SoundId.SndFadeOut) != 1, "Essence fade cadence missed the360-update boundary.");
-            Step(20); Step(20); Step(40);
+            Step(); Step(20); Step(); Step(20); Step(); Step(40);
+            FailIf(!essence.SwirlActive, "The final playsound must end its dispatch before the stop-swirl asm.");
+            Step();
             FailIf(essence.SwirlActive || _sound.PlayRequestsFor(SoundId.SndFadeOut) != 4,
                 "Essence fade sound/stop-swirl cadence lost source20/20/40 waits.");
             FailIf(_roomEvents.Get<DungeonEssenceEvent>().Counter != 29,

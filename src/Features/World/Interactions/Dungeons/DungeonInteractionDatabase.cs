@@ -143,9 +143,10 @@ internal sealed class DungeonInteractionDatabase
 
     private void ValidateContract()
     {
-        if (_constants.Count != 102 ||
+        if (_constants.Count != 104 ||
             _platforms.Count != 15 ||
             Constant("red-toggle-floor") != 0xad ||
+            Constant("standard-floor") != 0xa0 ||
             Constant("blue-toggle-floor") != 0xaf ||
             Constant("enemy-chest-wait") != 30 ||
             Constant("platform-speed") != 0x14 ||

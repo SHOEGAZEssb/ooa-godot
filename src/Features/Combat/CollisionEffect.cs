@@ -28,6 +28,8 @@ public static class CollisionEffect
     public const int Bump = 0x0d;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_BUMP_HIGH_KNOCKBACK
     public const int BumpHighKnockback = 0x0e;
+    // constants/common/collisionEffects.s: COLLISIONEFFECT_SHIELD_BUMP
+    public const int ShieldBump = 0x0f;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_BUMP_WITH_CLINK_HIGH_KNOCKBACK
     public const int BumpWithClinkHighKnockback = 0x14;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_15

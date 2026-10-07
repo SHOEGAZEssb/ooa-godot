@@ -188,6 +188,7 @@ public sealed partial class ValidationRoot
 
             _player.WarpTo(new Vector2(0x28, 0x46), recordSafe: false);
             _player.Face(Vector2I.Up);
+            ApproachTileWall();
             FailIf(
                 !_interactions.TryInteract(_player) ||
                 !_dialogue.CurrentMessage.Contains(

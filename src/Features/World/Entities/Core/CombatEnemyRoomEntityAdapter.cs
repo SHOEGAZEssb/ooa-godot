@@ -77,7 +77,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             throw new InvalidOperationException($"Enemy${DimitriCollisionType:x2} rejected eligible boomerang damage effect${effect:x2}.");
         MarkBoomerangHit();
     }
-    public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
+    public virtual BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
         var data = BoomerangCollisionDatabase.Shared;
         if (!item.CollisionEnabled || !data.EnemyEnabled(DimitriCollisionType) || GaleCaught ||
@@ -281,7 +281,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         // suppresses ordinary Link contact while the enemy remains stunned.
         if (!Stunned) combatDescriptor.Combat.HandleLinkContact(player);
     }
-    public bool ApplyBiggoronSwordCollision(Rect2 bounds,Vector2 origin,int damage,ICollection<RoomEntitySpawn> spawns)
+    public virtual bool ApplyBiggoronSwordCollision(Rect2 bounds,Vector2 origin,int damage,ICollection<RoomEntitySpawn> spawns)
     {
         var data=BiggoronSwordCollisionDatabase.Shared;
         if(!Entity.CollisionEnabled || Entity.InvincibilityCounter!=0 || Entity.NativeHitPending ||

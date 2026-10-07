@@ -54,8 +54,9 @@ public partial class ValidationRoot
             for (int i = 0; _player.Position.Y > 100 && i < 30; i++) Step(move:Vector2.Up);
             FailIf(_currentRoom.IsSolid(_player.Position),"Crown chest approach entered solid geometry.");
             int keys = _inventory.GetDungeonSmallKeys(5);
+            ApproachTileWall(batch);
             FailIf(!TryInteract(_player) || !_interactions.ChestRewardActive,"Crown chest must open from its reachable south side.");
-            Step(32);
+            Step(34);
             FailIf(_inventory.GetDungeonSmallKeys(5) != keys + 1 || !_saveData.HasRoomFlag(4,0xba,0x20),
                 "Crown chest must grant its source small key and persist the collected-item flag.");
             _dialogue.Close(); Step();

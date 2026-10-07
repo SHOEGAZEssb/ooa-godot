@@ -130,6 +130,26 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
 
         switch (handler.Handler)
         {
+            case EnemyHandlerKind.Candle:
+                CandleRoomEntity? candleOwner = null;
+                var candle = new CandleCharacter { Name = $"Candle_{source.Order}_{instance}" };
+                candle.Initialize(enemies.ImportedEnemy(EnemyId.Candle), room, position, _random, _runtimeState,
+                    () => owner.TryCreateCandleFlame(candleOwner!, enemies.CandleFlame), owner.TryCreateCandleExplosion,
+                    owner.InteractionAnimationParameter, owner.ConsumeCandleExplosionSignal);
+                candleOwner = new CandleRoomEntity(candle, combatSource, owner.OnSoundRequested);
+                return candleOwner;
+            case EnemyHandlerKind.Floormaster:
+                FloormasterRoomEntity? floorOwner = null;
+                var floor = new FloormasterCharacter { Name = $"Floormaster_{source.Order}_{instance}" };
+                floor.Initialize(enemies.ImportedEnemy(EnemyId.Floormaster, source.SubId), room, position, _random,
+                    spawn: () => owner.TryAllocateEnemy(_ => CreateFloormasterChild(floorOwner!, room)) is not null);
+                floorOwner = new FloormasterRoomEntity(floor, combatSource, owner.OnSoundRequested, () => _random.Next().Value,
+                    () => owner.PartSlotAvailable);
+                return floorOwner;
+            case EnemyHandlerKind.Bari:
+                var bari = new BariCharacter { Name = $"Bari_{source.Order}_{instance}" };
+                bari.Initialize(enemies.ImportedEnemy(EnemyId.Bari, source.SubId), room, position, _random);
+                return new BariRoomEntity(bari, combatSource, owner.OnSoundRequested, () => _random.Next().Value);
             case EnemyHandlerKind.KingMoblin:
                 var king = new KingMoblinBoss();
                 king.Initialize(new KingMoblinEnvironment(resources.KingMoblin,room,_random,_saveData,
@@ -477,6 +497,29 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 tektite.Initialize(tektiteRecord, room, position, _random, owner.OnSoundRequested);
                 return new TektiteRoomEntity(tektite, combatSource, owner.OnSoundRequested);
 
+            case EnemyHandlerKind.WaterTektite:
+                var waterTektite = new WaterTektiteCharacter { Name = $"WaterTektite_{source.Order}_{instance}" };
+                waterTektite.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new WaterTektiteRoomEntity(waterTektite, combatSource, owner.OnSoundRequested,
+                    owner.ActiveScentSeedTarget);
+
+            case EnemyHandlerKind.Wizzrobe:
+                var wizzrobe = new WizzrobeCharacter { Name = $"Wizzrobe_{source.Order}_{instance}" };
+                wizzrobe.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random,
+                    _runtimeState, () => -owner.ToScreen(Vector2.Zero));
+                return new WizzrobeRoomEntity(wizzrobe, combatSource, owner.OnSoundRequested,
+                    () => _random.Next().Value, () => owner.PartSlotAvailable);
+
+            case EnemyHandlerKind.GiantBladeTrap:
+                var giantTrap = new GiantBladeTrapCharacter { Name = $"GiantBladeTrap_{source.Order}_{instance}" };
+                giantTrap.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
+                return new GiantBladeTrapRoomEntity(giantTrap, combatSource, owner.OnSoundRequested);
+
+            case EnemyHandlerKind.Bubble:
+                var bubble = new BubbleCharacter { Name = $"Bubble_{source.Order}_{instance}" };
+                bubble.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random, owner.RuntimeState);
+                return new BubbleRoomEntity(bubble, combatSource, owner.OnSoundRequested);
+
             case EnemyHandlerKind.ColorChangingGel:
                 if (!enemies.TryGetImportedEnemyDefinition(
                     source, out ImportedEnemyDefinition colorGelRecord))
@@ -750,6 +793,28 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 source: $"dynamic {spawn.Name} ENEMY_GEL");
         return new GelRoomEntity(
             gel, source, owner.OnSoundRequested);
+    }
+
+    internal IRoomEntity CreateBariChild(BariChildSpawn spawn, OracleRoomData room)
+    {
+        var child = new BariCharacter { Name = "Biri" };
+        child.Initialize(enemies.ImportedEnemy(EnemyId.Bari, 1), room, spawn.Position, _random, spawn.Angle, spawn.ZHigh);
+        var source = enemies.EnemyHandlers.ResolveHandler(EnemyId.Bari, 1, "ENEMY_BARI split")
+            .CombatSource(spawn.ObjectFlags, spawn.KillableEnemyIndex,
+                "object_code/ages/enemies/bari.s:@spawnSmallBari/ecom_spawnEnemyWithSubid01");
+        return new BariRoomEntity(child, source, owner.OnSoundRequested, () => _random.Next().Value);
+    }
+
+    private IRoomEntity CreateFloormasterChild(FloormasterRoomEntity parent, OracleRoomData room)
+    {
+        var child = new FloormasterCharacter { Name = "FloormasterHand" };
+        var spawner = (FloormasterCharacter)parent.Node;
+        child.Initialize(enemies.ImportedEnemy(EnemyId.Floormaster, spawner.ChildSubId), room, Vector2.Zero, _random,
+            parent: () => parent.ResolveSlot(parent.Slot)?.Node as FloormasterCharacter ??
+                throw new InvalidOperationException($"floorMaster.s: relatedObj1 slot ${parent.Slot:x2} lost its spawner."));
+        var source = enemies.EnemyHandlers.ResolveHandler(EnemyId.Floormaster, spawner.ChildSubId, "floorMaster.s:floormaster_state1")
+            .CombatSource(2, 0, "object_code/common/enemies/floorMaster.s:ecom_spawnUncountedEnemyWithSubid01");
+        return new FloormasterRoomEntity(child, source, owner.OnSoundRequested, () => _random.Next().Value, () => owner.PartSlotAvailable);
     }
 
     private (int Group, int Room) ResolveWallmasterDestination(

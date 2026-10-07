@@ -4,6 +4,10 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class EnemyId
 {
+    // constants/common/enemies.s: ENEMY_VIRE
+    public const int Vire = 0x75;
+    // constants/ages/enemies.s: ENEMY_CANDLE
+    public const int Candle = 0x55;
     // constants/common/enemies.s: ENEMY_STUB_00
     public const int Stub00 = 0x00;
     // constants/common/enemies.s: ENEMY_RIVER_ZORA
@@ -28,6 +32,13 @@ public static class EnemyId
     public const int Spark = 0x13;
     // constants/common/enemies.s: ENEMY_SPIKED_BEETLE
     public const int SpikedBeetle = 0x14;
+    // constants/common/enemies.s: ENEMY_BUBBLE
+    public const int Bubble = 0x15;
+    // constants/ages/enemies.s: ENEMY_BARI
+    public const int Bari = 0x3c;
+    public const int Floormaster = 0x35;
+    // constants/common/enemies.s: ENEMY_WIZZROBE
+    public const int Wizzrobe = 0x40;
     // constants/common/enemies.s: ENEMY_BEAMOS
     public const int Beamos = 0x16;
     // constants/common/enemies.s: ENEMY_GHINI
@@ -54,6 +65,8 @@ public static class EnemyId
     public const int GopongaFlower = 0x25;
     // constants/common/enemies.s: ENEMY_WALLMASTER
     public const int Wallmaster = 0x28;
+    // constants/common/enemies.s: ENEMY_GIANT_BLADE_TRAP
+    public const int GiantBladeTrap = 0x2a;
     // constants/common/enemies.s: ENEMY_CHEEP_CHEEP
     public const int CheepCheep = 0x2c;
     // constants/common/enemies.s: ENEMY_PODOBOO_TOWER
@@ -74,6 +87,8 @@ public static class EnemyId
     public const int GreatFairy = 0x38;
     // constants/common/enemies.s: ENEMY_FIRE_KEESE
     public const int FireKeese = 0x39;
+    // constants/common/enemies.s: ENEMY_WATER_TEKTITE
+    public const int WaterTektite = 0x3a;
     // constants/common/enemies.s: ENEMY_GIANT_CUCCO
     public const int GiantCucco = 0x3b;
     // constants/common/enemies.s: ENEMY_SWORD_MOBLIN
@@ -138,6 +153,8 @@ public static class EnemyId
     public const int Eyesoar = 0x7b;
     // constants/ages/enemies.s: ENEMY_SMOG
     public const int Smog = 0x7c;
+    // constants/ages/enemies.s: ENEMY_OCTOGON
+    public const int Octogon = 0x7d;
     // constants/ages/enemies.s: ENEMY_KING_MOBLIN
     public const int KingMoblin = 0x7f;
 }

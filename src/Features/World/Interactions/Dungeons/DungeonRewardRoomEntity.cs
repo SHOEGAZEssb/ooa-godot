@@ -15,6 +15,10 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     private readonly Func<int> _enemyCount;
     private readonly GroundTreasureGrantRequest? _treasure;
     private readonly Action _enableLinkCollisionsAndMenu;
+    private readonly Action? _spawnMinibossPortal;
+    private readonly Func<GroundTreasureGrantRequest, bool>? _trySpawnTreasure;
+    private int _minibossScriptStep;
+    private int _bossScriptStep;
     private int _counter = -1;
     private bool _initialized;
     internal byte Counter2Alias { get; private set; }
@@ -35,7 +39,8 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
         OracleSaveData? save,
         Func<int> enemyCount,
         GroundTreasureGrantRequest? treasure,
-        Action enableLinkCollisionsAndMenu)
+        Action enableLinkCollisionsAndMenu, Action? spawnMinibossPortal = null,
+        Func<GroundTreasureGrantRequest, bool>? trySpawnTreasure = null)
     {
         _record = record;
         _data = data;
@@ -43,6 +48,12 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
         _enemyCount = enemyCount;
         _treasure = treasure;
         _enableLinkCollisionsAndMenu = enableLinkCollisionsAndMenu;
+        _spawnMinibossPortal = spawnMinibossPortal;
+        _trySpawnTreasure = trySpawnTreasure;
+        if (record.Kind == DungeonObjectKind.MinibossReward && spawnMinibossPortal is null)
+            throw new InvalidOperationException("dungeonScript_minibossDeath requires the native interaction allocation owner.");
+        if (record.Kind == DungeonObjectKind.BossReward && (trySpawnTreasure is null || treasure is null))
+            throw new InvalidOperationException("dungeonScript_bossDeath requires the native treasure allocation owner.");
         Name = $"DungeonReward_{record.Group}_{record.Room:x2}_{record.Kind}";
         Visible = false;
     }
@@ -98,21 +109,56 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
         }
         if (_record.Kind == DungeonObjectKind.BossReward)
         {
-            // dungeonScript_bossDeath jumps over checknoenemies when flag$80
-            // is already set. stopifitemflagset occurs AFTER that branch and
-            // before spawnitem/enableLinkAndMenu, not at placement time.
-            if (_save?.HasRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlag80) != true)
+            // The flag branch runs once. Octogon's JUST_HIT handler sets $80
+            // while its counted death animation is still running; this must
+            // not redirect an already waiting checknoenemies command.
+            if (_bossScriptStep == 0)
             {
-                if (_enemyCount() != 0) return;
-                _save?.SetRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlag80);
+                _bossScriptStep = _save?.HasRoomFlag(
+                    _record.Group,_record.Room,OracleSaveData.RoomFlag80) == true ? 3 : 1;
             }
-            if (_save?.HasRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlagItem) == true)
+            switch (_bossScriptStep)
             {
-                Finished = true;
-                return;
+                case 1: // checknoenemies yields even when the count reaches 0.
+                    if (_enemyCount() == 0) _bossScriptStep++;
+                    return;
+                case 2: // orroomflag $80
+                    _save?.SetRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlag80);
+                    _bossScriptStep++; return;
+                case 3: // stopifitemflagset continues; setcoords then yields.
+                    if (_save?.HasRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlagItem) == true)
+                    { Finished = true; return; }
+                    _bossScriptStep++; return;
+                case 4: // spawnitem yields; allocation failure also advances.
+                    _trySpawnTreasure!(_treasure!.Value);
+                    _bossScriptStep++; return;
+                case 5: // ROM scriptjump and writememory continue into scriptend.
+                    _enableLinkCollisionsAndMenu(); Finished = true; return;
+                default: throw new InvalidOperationException("Invalid boss reward script position.");
             }
-            SpawnTreasure(spawns);
-            return;
+        }
+        if (_record.Kind == DungeonObjectKind.MinibossReward)
+        {
+            // Each of these commands returns with carry clear and yields.
+            // interactionRunScript continues on the counter1 1->0 update.
+            switch (_minibossScriptStep)
+            {
+                case 0: // checknoenemies
+                    if (_enemyCount() == 0) _minibossScriptStep++;
+                    return;
+                case 1: // orroomflag $80
+                    _save?.SetRoomFlag(_record.Group,_record.Room,OracleSaveData.RoomFlag80);
+                    _minibossScriptStep++; return;
+                case 2: // wait 20
+                    _counter = _data.Constant("miniboss-reward-wait");
+                    _minibossScriptStep++; return;
+                case 3: // spawninteraction $7e, then yield even on failure
+                    if (--_counter != 0) return;
+                    _spawnMinibossPortal!(); _minibossScriptStep++; return;
+                case 4: // writememory wDisableLinkCollisionsAndMenu,$00; scriptend
+                    _enableLinkCollisionsAndMenu(); Finished = true; return;
+                default: throw new InvalidOperationException("Invalid miniboss reward script position.");
+            }
         }
         if (_enemyCount() != 0)
             return;
@@ -123,17 +169,7 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
             return;
         }
 
-        if (_counter < 0)
-        {
-            _save?.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag80);
-            _counter = _data.Constant("miniboss-reward-wait");
-            return;
-        }
-        if (--_counter != 0)
-            return;
-        spawns.Add(new MinibossPortalSpawn());
-        _enableLinkCollisionsAndMenu();
-        Finished = true;
+        throw new NotSupportedException($"INTERAC${_record.Id:x2}:${_record.SubId:x2}: reward kind {_record.Kind} has no source script owner.");
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
@@ -142,8 +178,6 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     {
         if (_treasure.HasValue)
             spawns.Add(new GroundTreasureGrantSpawn(_treasure.Value));
-        if (_record.Kind == DungeonObjectKind.BossReward)
-            _enableLinkCollisionsAndMenu();
         Finished = true;
     }
 }

@@ -44,6 +44,7 @@ public sealed partial class ValidationRoot
             FailIf(_currentRoom.Layout[chest] != 0xf1 || _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != 0,
                 "Completed fill fixture must create its original chest.");
             StepGameplayUpdates(6, Vector2.Up, batched:true);
+            ApproachTileWall(true);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched:true);
             StepGameplayUpdates(60, Vector2.Zero, batched:true);
             FailIf(!_saveData.HasRoomFlag(4, room, OracleSaveData.RoomFlagItem),

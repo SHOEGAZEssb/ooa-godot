@@ -38,7 +38,8 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         new(-0x02, 0x0a)
     ];
 
-    private readonly DungeonSpinnerPlacement _placement;
+    private readonly int _stateMask;
+    private readonly string _source;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _playSound;
     private readonly Action<int> _beginScreenShake;
@@ -87,24 +88,36 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         DungeonInteractionVisual visual,
         Action<int> playSound,
         Action<int> beginScreenShake)
+        : this(placement.Group,placement.Room,placement.PackedPosition,placement.StateMask,placement.Source,
+            runtime,visual,playSound,beginScreenShake) { }
+
+    internal DungeonSpinnerRoomEntity(DungeonObjectRecord record,OracleRuntimeState runtime,
+        DungeonInteractionVisual visual,Action<int> playSound,Action<int> beginScreenShake)
+        : this(record.Group,record.Room,record.Y,record.X,record.Source,runtime,visual,playSound,beginScreenShake)
     {
-        _placement = placement;
+        if (record.Kind != DungeonObjectKind.Spinner || record.Id != 0x7d || record.SubId is not (0 or 1))
+            throw new InvalidOperationException($"{record.Source}: unsupported direct spinner INTERAC${record.Id:x2}:${record.SubId:x2}.");
+    }
+
+    private DungeonSpinnerRoomEntity(int group,int room,int packedPosition,int stateMask,string source,
+        OracleRuntimeState runtime,DungeonInteractionVisual visual,Action<int> playSound,Action<int> beginScreenShake)
+    {
+        _stateMask = stateMask; _source = source;
         _runtime = runtime;
         _playSound = playSound;
         _beginScreenShake = beginScreenShake;
         _visual = visual;
         Position = new Vector2(
-            (placement.PackedPosition & 0x0f) * 16 + 8,
-            (placement.PackedPosition >> 4) * 16 + 8);
-        Name = $"Spinner_{placement.Group}_{placement.Room:x2}_" +
-            $"{placement.PackedPosition:x2}";
+            (packedPosition & 0x0f) * 16 + 8,
+            (packedPosition >> 4) * 16 + 8);
+        Name = $"Spinner_{group}_{room:x2}_{packedPosition:x2}";
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
 
         _red = (_runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress) &
-            placement.StateMask) != 0;
-        Image source = EnemyVisualSource.LoadComposite(visual.Sprites);
-        _spinnerAnimation = CreateAnimation(source, visual);
+            _stateMask) != 0;
+        Image graphics = EnemyVisualSource.LoadComposite(visual.Sprites);
+        _spinnerAnimation = CreateAnimation(graphics, visual);
         _spinnerAnimation.SetAnimation(_red ? 1 : 0);
     }
 
@@ -115,10 +128,10 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
     {
         if (!_initializing) return;
         _initializing = false;
-        _red = (_runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress)&_placement.StateMask) != 0;
+        _red = (_runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress)&_stateMask) != 0;
         _spinnerAnimation.SetAnimation(_red ? 1 : 0);
         Visible = true;
-        Arrow = (_createArrow ?? throw new InvalidOperationException($"INTERAC$7d missing checked arrow allocator at {_placement.Source}."))(this,_visual);
+        Arrow = (_createArrow ?? throw new InvalidOperationException($"INTERAC$7d missing checked arrow allocator at {_source}."))(this,_visual);
     }
 
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
@@ -161,7 +174,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
                     break;
                 default:
                     throw new InvalidOperationException(
-                        $"Unsupported spinner phase {_phase} in {_placement.Source}.");
+                        $"Unsupported spinner phase {_phase} in {_source}.");
             }
         }
 
@@ -255,7 +268,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
             OracleRuntimeState.SpinnerStateAddress);
         _runtime.SetWramByte(
             OracleRuntimeState.SpinnerStateAddress,
-            (byte)(state ^ _placement.StateMask));
+            (byte)(state ^ _stateMask));
         _red = !_red;
         _phase = SpinnerPhase.Waiting;
         _waitNeedsStart = true;

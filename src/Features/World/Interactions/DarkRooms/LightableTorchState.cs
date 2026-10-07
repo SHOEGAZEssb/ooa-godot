@@ -9,29 +9,23 @@ namespace oracleofages;
 /// </summary>
 internal class LightableTorchState
 {
-    private bool _torchTotalInitialized;
-
     internal int LitCount { get; private set; }
     internal int TotalTorches { get; private set; }
 
     internal void SetTotalTorches(int count)
     {
-        if (count < 0 || _torchTotalInitialized)
+        if (count < 0)
         {
             throw new InvalidOperationException(
-                "The room-local torch total can only be initialized once.");
+                "The room-local torch total cannot be negative.");
         }
         TotalTorches = count;
-        _torchTotalInitialized = true;
     }
 
     internal void IncrementLitCount()
     {
-        if (LitCount >= TotalTorches)
-        {
-            throw new InvalidOperationException(
-                "The room-local lit count exceeded its torch total.");
-        }
-        LitCount++;
+        // partCode06 increments a shared byte. Recreating permanent torches
+        // (miscPuzzles_subid07) does not reset it or impose a room-total bound.
+        LitCount = (LitCount + 1) & 0xff;
     }
 }

@@ -6,6 +6,16 @@ namespace oracleofages;
 // here; placement and actor construction consume the same database instances.
 internal sealed class RoomEntityResources(RoomSession? rooms)
 {
+    private DungeonSignalScriptDatabase? _signalScripts;
+    internal DungeonSignalScriptDatabase SignalScripts => _signalScripts ??= new();
+    private DungeonBossKeyMirrorDatabase? _bossKeyMirrors;
+    internal DungeonBossKeyMirrorDatabase BossKeyMirrors => _bossKeyMirrors ??= new();
+    private MermaidTorchOrderDatabase? _mermaidTorchOrder;
+    internal MermaidTorchOrderDatabase MermaidTorchOrder => _mermaidTorchOrder ??= new();
+    private DungeonRoomFlagMirrorDatabase? _roomFlagMirrors;
+    internal DungeonRoomFlagMirrorDatabase RoomFlagMirrors => _roomFlagMirrors ??= new();
+    private MermaidChangingFloorDatabase? _mermaidChangingFloor;
+    internal MermaidChangingFloorDatabase MermaidChangingFloor => _mermaidChangingFloor ??= new();
     private KeyholeControllerDatabase? _keyholeControllers;
     internal KeyholeControllerDatabase KeyholeControllers => _keyholeControllers ??= new();
     // Factory construction must not parse assets for every later dungeon and
@@ -135,6 +145,10 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
     internal SkullDungeonDatabase SkullDungeon => _skullDungeonData ??= new();
     private CrownDungeonDatabase? _crownDungeonData;
     internal CrownDungeonDatabase CrownDungeon => _crownDungeonData ??= new();
+    private MermaidDungeonDatabase? _mermaidDungeon;
+    internal MermaidDungeonDatabase MermaidDungeon => _mermaidDungeon ??= new();
+    private VireDialogueDatabase? _vireDialogue;
+    internal VireDialogueDatabase VireDialogue => _vireDialogue ??= new();
     private PushBlockSynchronizerDatabase? _pushSynchronizersData;
     internal PushBlockSynchronizerDatabase PushSynchronizers => _pushSynchronizersData ??= new();
     private PuzzleTrapResetDatabase? _trapResetsData;

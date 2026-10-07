@@ -112,6 +112,13 @@ public partial class OracleSoundEngine : Node
         if (music != ActiveMusic) PlaySound(music == 0 ? SoundId.SndCtrlStopMusic : music);
     }
 
+    internal void ClearActiveMusic()
+    {
+        // essence.s state7 clears wActiveMusic to suppress room selection.
+        // This does not enqueue SNDCTRL_STOPMUSIC or interrupt the driver.
+        ActiveMusic = 0;
+    }
+
     public void SetMusicVolume(int volume)
     {
         // bank0.s:setMusicVolume writes hMusicVolume; timerInterrupt applies

@@ -6,7 +6,8 @@ namespace oracleofages;
 
 /// <summary>The source-created $61:$80 graphical lever connection.</summary>
 internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
-    IRoomEntity, IFixedRoomEntity
+    IRoomEntity, IFixedRoomEntity, IUpdatesDuringDialogueRoomEntity,
+    IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private static readonly int[] DownwardYOffsets = [0, 8, 16, 24, 32];
 
@@ -14,9 +15,12 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
     private readonly LeverRoomEntity _lever;
     private readonly int _connectionStep;
     private int _phase;
+    private bool _initialized;
 
     public Node2D Node => this;
     internal int Phase => _phase;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     internal LeverConnectionRoomEntity(
         NpcRecord record, IReadOnlyList<string> animations,
@@ -38,6 +42,7 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
         SetBlocksLink(false);
         SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
         SetScriptAnimation(animations[0]);
+        Visible = false;
     }
 
     public void UpdateFrame(
@@ -46,6 +51,12 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
     {
         _ = frame;
         _ = spawns;
+        Advance();
+    }
+
+    private void Advance()
+    {
+        _initialized = true; Visible = true;
         int distance = Math.Abs(
             Mathf.FloorToInt(_lever.Position.Y) - _lever.BaseY);
         int phase = Math.Clamp(
@@ -55,12 +66,12 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
         SetStatePosition(new Vector2(
             _lever.Position.X,
             _lever.BaseY + DownwardYOffsets[phase] * _lever.DirectionSign));
-        if (phase == _phase)
-            return;
-
         _phase = phase;
         SetScriptAnimation(_animations[_phase]);
     }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    { if (!_initialized) Advance(); return ScreenTransitionPresentation.Visible; }
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
         SetTransitionDrawOffset(offset);

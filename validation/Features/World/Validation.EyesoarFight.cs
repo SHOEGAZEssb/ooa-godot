@@ -120,7 +120,8 @@ public sealed partial class ValidationRoot
             if ((tick & 63) == 0) { _inventory.RefillHealth(); _inventory.ApplyDamage(4); }
         }
         FailIf(!body.IsDead || hooks == 0, $"Actual Eyesoar hook/sword fight did not finish: state={body.State}/{body.Substate}, hp={body.Health}, hooks={hooks}, Link={_player.Position}, boss={body.Position}.");
-        for (int i = 0; !_saveData.HasRoomFlag(4, 0x6b, OracleSaveData.RoomFlag80) && i < 300; i++) Step();
+        for (int i = 0; (!_saveData.HasRoomFlag(4, 0x6b, OracleSaveData.RoomFlag80) ||
+            _entities.LinkCollisionsAndMenuDisabled) && i < 300; i++) Step();
         FailIf(!_saveData.HasRoomFlag(4, 0x6b, OracleSaveData.RoomFlag80) || _entities.RoomEnemyCount != 0 ||
             _entities.Entities<EyesoarActor>().Count != 0 || _entities.LinkCollisionsAndMenuDisabled,
             "Eyesoar death failed to remove its children, finish the explosion, release controls and set the boss-room flag.");
@@ -128,14 +129,15 @@ public sealed partial class ValidationRoot
         {
             LoadValidationRoom(4, 0x6b);
             FailIf(_entities.Entities<EyesoarActor>().Count != 0, "Defeated Eyesoar respawned on boss-room reentry.");
-            Step();
+            Step(2); // cleared-room setcoords, then checked spawnitem
         }
         FailIf(_entities.Entities<GroundTreasurePickup>() is not [{ Record: { TreasureObject: "TREASURE_OBJECT_HEART_CONTAINER_00" } }],
             "dungeonScript_bossDeath must create or restore an uncollected heart container.");
         var heart = _entities.Entities<GroundTreasurePickup>().Single();
-        FailIf(heart.Position != new Vector2(120, 88) || heart.Record.SpawnMode != 0 || heart.Record.GrabMode != 2 ||
+        FailIf(heart.Position != new Vector2(120, 88) || heart.Record.SpawnMode != 1 ||
+            heart.Record.SpawnDelayFrames != 30 || heart.Record.GrabMode != 2 ||
             _saveData.HasRoomFlag(4, 0x6b, OracleSaveData.RoomFlagItem),
-            "Boss reward must use source setcoords $58,$78, instant spawn and two-hand grab without setting ROOMFLAG_ITEM yet.");
+            "Boss reward must use source setcoords $58,$78, puff spawn with wait30 and two-hand grab without setting ROOMFLAG_ITEM yet.");
         int maxHealthBefore = _inventory.MaxHealthQuarters;
         _inventory.ApplyDamage(8);
         _sound.ClearPlayRequestAudit();

@@ -873,6 +873,9 @@ if ($hookOffsets.Count -ne 12 -or $hookPlacementOffsets.Count -ne 4 -or
     $hookSource -notmatch '(?ms)^@s3subState1:.*?dec \(hl\).*?cp \$f1.*?call c,itemIncSubstate' -or
     $hookSource -notmatch '(?ms)^@s3subState3:.*?inc \(hl\).*?@updateOtherPositions' -or
     $hookParent -notmatch 'parentItemLoadAnimationAndIncState' -or
+    $hookParent -notmatch '(?ms)call isLinkUnderwater\s+ret z\s+ld a,LINK_ANIM_MODE_2e\s+jp specialObjectSetAnimationWithLinkData' -or
+    $leverLinkLabels[0x2e] -ne 'animationData1a063' -or
+    $specialObjectAnimationsSource -notmatch '(?ms)^animationData1a063:\s*\.db \$03 \$c0 \$06\s*\.db \$7f \$c0 \$86' -or
     $uncmpGfxHeadersSource -notmatch '(?ms)^uncmpGfxHeader1f:\s*m_GfxHeader spr_switch_hook, \$8521') {
     throw 'Switch Hook source offsets, flight/exchange counters, parent animation or graphics header changed.'
 }

@@ -85,6 +85,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _currentRoom.GetMetatile(new Vector2(88, 58)) != 0xf2,
             "Expected sign metatile $f2 in room 2a at $35.");
+        ApproachTileWall();
         FailIf(
             !TryInteract(_player) || !_dialogue.IsOpen,
             "The room 2a test sign did not open its dialogue.");
@@ -97,6 +98,7 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(88, 42), recordSafe: false);
         _player.Face(Vector2I.Down);
+        ApproachTileWall();
         FailIf(
             !TryInteract(_player) ||
             _dialogue.CurrentMessage != fallbacks.SignWrongSide.Message,
@@ -120,6 +122,7 @@ public sealed partial class ValidationRoot
             unmatchedSignPoint + Vector2.Down * 12.0f,
             recordSafe: false);
         _player.Face(Vector2I.Up);
+        ApproachTileWall();
         FailIf(
             !TryInteract(_player) ||
             _dialogue.CurrentMessage != fallbacks.SignNoMatch.Message ||
@@ -519,9 +522,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 5 || adjacentHeartControls != 2 || byteEscapes != 4,
+            slowControls != 11 || adjacentHeartControls != 2 || byteEscapes != 4,
             "The generated dialogue inventory no longer contains the expected " +
-            $"five \\slow() Essence introductions, two adjacent-heart, and four \\x20 source controls (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
+            $"six \\slow() Essence introductions and five Vire messages (TX_2f14..TX_2f18), two adjacent-heart, and four \\x20 source controls (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>
@@ -678,6 +681,7 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(0x28, 0x46));
         _player.Face(Vector2I.Up);
+        ApproachTileWall();
         FailIf(
             _entities.FindTalkTarget(_player) is not null ||
             !TryInteract(_player) ||
@@ -704,6 +708,9 @@ public sealed partial class ValidationRoot
         FailIf(
             villager.CurrentAnimationFrame != 1,
             "The room 0:48 villager did not advance its original 16-frame idle animation.");
+        // The real sign approach now dispatches the NPC before the talk test;
+        // let that original awareness cooldown expire before changing sides.
+        villager.UpdateNpc(30.0 / 60.0, _player.Position);
         villager.UpdateNpc(1.0 / 60.0, villager.Position + Vector2.Left * 20.0f);
         FailIf(
             villager.FacingVector != Vector2I.Left || villager.CurrentAnimationFrame != 0,

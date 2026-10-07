@@ -255,7 +255,19 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
                 _state = DropState.Bouncing;
             }
             if (SubId == ItemDropDatabase.Fairy)
+            {
+                // itemDrop_initSpeed@fairy converts only the inherited Z
+                // high byte into Y high, then clears Z high. Low bytes survive.
+                var source = OracleObjectMovement.Shared.PositionFromPixels(_precisePosition);
+                _fairyPosition = new OracleObjectPosition(
+                    unchecked((ushort)(((source.YFixed + (_zFixed & 0xff00)) & 0xff00) | (source.YFixed & 0xff))),
+                    source.XFixed);
+                _zFixed &= 0xff;
+                _precisePosition = _fairyPosition.PrecisePosition;
+                _sideScrollYFixed = _fairyPosition.YFixed;
+                Position = _fairyPosition.PixelPosition;
                 ChooseRandomFairyMovement();
+            }
             return;
         }
 

@@ -10,4 +10,6 @@ public static class PartId
     public const int ZoraFire = 0x19;
     // constants/common/parts.s: PART_GOPONGA_PROJECTILE
     public const int GopongaProjectile = 0x31;
+    // constants/ages/parts.s: PART_WALL_ARROW_SHOOTER
+    public const int WallArrowShooter = 0x25;
 }

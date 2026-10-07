@@ -342,8 +342,8 @@ internal sealed class NayruIntroEvent :
         UpdateNayruEffects();
         UpdateNayruSingingNotes();
         UpdateNayruRalphSword();
-        if (_nayruSwordEffect is not null && !_nayruSwordEffect.Finished)
-            _nayruSwordEffect.Advance(1.0 / 60.0);
+        // treasure.s grabMode1 retains the pickup at Link's hand. The shared
+        // visual's chest-only SPEED_40 rise does not run for this gift.
         switch (_nayruStage)
         {
             case NayruStage.Crowd:

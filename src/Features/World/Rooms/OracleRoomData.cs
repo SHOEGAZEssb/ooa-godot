@@ -481,6 +481,29 @@ public sealed class OracleRoomData
         return Layout[y*_layoutStride+x];
     }
 
+    internal byte[] CaptureStorageCollisions()
+    {
+        byte[] result=new byte[Layout.Length];
+        for (int index=0;index<result.Length;index++)
+            result[index]=_positionCollisionOverrides.TryGetValue(index,out byte value) ? value : Collisions[Layout[index]];
+        return result;
+    }
+
+    internal byte[] CaptureBackgroundMappings()
+    {
+        int width=WidthInTiles*2, height=HeightInTiles*2;
+        byte[] result=new byte[width*height*2];
+        for (int y=0;y<height;y++) for (int x=0;x<width;x++)
+        {
+            int index=y/2*_layoutStride+x/2, quarter=(y&1)*2+(x&1);
+            byte[] mapping=_positionMappingOverrides.TryGetValue(index,out byte[]? value) ? value :
+                _mappings[(GetRenderedMetatile(index)*8)..(GetRenderedMetatile(index)*8+8)];
+            int output=(y*width+x)*2;
+            result[output]=mapping[quarter]; result[output+1]=mapping[quarter+4];
+        }
+        return result;
+    }
+
     public byte GetOriginalMetatile(Vector2 localPoint)
     {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
@@ -1010,6 +1033,15 @@ public sealed class OracleRoomData
             mapping[quarter + 4] = pairs[source + 1];
             _positionVisualOverrides.Remove(index);
         }
+        Redraw(animationTick);
+    }
+
+    // generateW3VramTilesAndAttributes rebuilds mappings from the current
+    // layout without reloading layout, collision or shared underlying bytes.
+    internal void RegenerateBackgroundMappings(long animationTick)
+    {
+        _positionMappingOverrides.Clear();
+        _positionVisualOverrides.Clear();
         Redraw(animationTick);
     }
 

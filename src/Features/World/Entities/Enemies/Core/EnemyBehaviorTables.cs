@@ -22,6 +22,13 @@ internal sealed class EnemyBehaviorTables
     internal BallChainBehaviorProfile BallChain { get; }
     internal SmasherBehaviorProfile Smasher { get; }
     internal FireKeeseBehaviorProfile FireKeese { get; }
+    internal BariBehaviorProfile Bari { get; }
+    internal FloormasterBehaviorProfile Floormaster { get; }
+    internal WizzrobeBehaviorProfile Wizzrobe { get; }
+    internal CandleBehaviorProfile Candle { get; }
+    internal VireProjectileProfile VireProjectile { get; }
+    internal WallArrowShooterProfile WallArrowShooter { get; }
+    internal VireBehaviorProfile Vire { get; }
     internal IReadOnlyList<EnemyBehaviorValue> FireKeeseZOffsets { get; }
     internal IReadOnlyList<EnemyBehaviorValue> FireKeeseCollisionEffects { get; }
     internal IReadOnlyList<EnemyBehaviorValue> KeeseFireCollisionEffects { get; }
@@ -110,6 +117,9 @@ internal sealed class EnemyBehaviorTables
     private readonly Dictionary<int, IReadOnlyList<EnemyBehaviorValue>> _swordEnemyCollisions = new();
     internal int SwordEnemyCollisionEffect(int mode, int collision) => _swordEnemyCollisions[mode][collision].Value;
     internal TektiteBehaviorProfile Tektite { get; }
+    internal WaterTektiteBehaviorProfile WaterTektite { get; }
+    internal BubbleBehaviorProfile Bubble { get; }
+    internal GiantBladeTrapBehaviorProfile GiantBladeTrap { get; }
     internal IReadOnlyList<EnemyBehaviorValue> SwordEnemyAngleAnimations { get; }
     internal IReadOnlyList<EnemyBehaviorValue> SwordEnemyBlockingBits { get; }
     internal IReadOnlyList<EnemyBehaviorValue> EnemySwordOffsets { get; }
@@ -613,6 +623,16 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "peahat", "animation-frequencies", 8));
 
         values = TakeValues(groups, "tektite", "state-profile", 7);
+        WaterTektite = new(TakeValues(groups, "water-tektite", "state-profile", 7),
+            TakeValues(groups, "water-tektite", "speeds", 16));
+        GiantBladeTrap = new(TakeValues(groups, "giant-blade-trap", "state-profile", 5),
+            TakeValues(groups, "giant-blade-trap", "speeds", 6),
+            TakeValues(groups, "giant-blade-trap", "probe-offsets", 16),
+            TakeValues(groups, "giant-blade-trap", "collision-effects", 32),
+            TakeValues(groups, "giant-blade-trap", "active-collisions", 32));
+        Bubble = new(TakeValues(groups, "bubble", "state-profile", 7),
+            TakeValues(groups, "bubble", "collision-effects", 32),
+            TakeValues(groups, "bubble", "active-collisions", 32));
         EnemyBehaviorValue[] smallLeap = TakeValues(groups, "tektite", "smallLeap", 2);
         EnemyBehaviorValue[] bigLeap = TakeValues(groups, "tektite", "bigLeap", 2);
         Tektite = new(values[0].Value, values[1].Value, values[2].Value,
@@ -716,10 +736,40 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "smasher", "active-collisions", 32),
             TakeValues(groups, "smasher", "unlinked-object", 6));
 
-        if (table.Rows.Count != 1938 || groups.Count != 0)
+        Bari = new(TakeValues(groups, "bari", "state-profile", 16),
+            TakeValues(groups, "bari", "shock-counters", 4), TakeValues(groups, "bari", "z-values", 4),
+            TakeValues(groups, "bari", "collision-effects-2d", 32), TakeValues(groups, "bari", "collision-effects-59", 32),
+            TakeValues(groups, "bari", "active-collisions", 32));
+        Floormaster = new(TakeValues(groups, "floormaster", "state-profile", 16),
+            TakeValues(groups, "floormaster", "hover-z", 8), TakeValues(groups, "floormaster", "chase-z", 8),
+            TakeValues(groups, "floormaster", "collision-effects", 32), TakeValues(groups, "floormaster", "active-collisions", 32),
+            TakeValues(groups, "floormaster", "link-return", 6));
+        Candle = new(TakeValues(groups, "candle", "state-profile", 12),
+            TakeValues(groups, "candle", "collision-effects", 32), TakeValues(groups, "candle", "explosion-collision-effects", 32),
+            TakeValues(groups, "candle", "active-collisions", 32), TakeValues(groups, "candle", "flame-part-data", 8));
+        Wizzrobe = new(TakeValues(groups, "wizzrobe", "state-profile", 30),
+            TakeValues(groups, "wizzrobe", "hook-recovery", 6),
+            TakeValues(groups, "wizzrobe", "collision-effects", 32), TakeValues(groups, "wizzrobe", "active-collisions", 32),
+            TakeValues(groups, "wizzrobe", "seed-status-2c", 4), TakeValues(groups, "wizzrobe", "seed-status-38", 4),
+            TakeValues(groups, "wizzrobe-projectile", "part-data", 8), TakeValues(groups, "wizzrobe-projectile", "state-profile", 2),
+            TakeValues(groups, "wizzrobe-projectile", "collision-effects", 32), TakeValues(groups, "wizzrobe-projectile", "active-collisions", 32));
+        VireProjectile = new(TakeValues(groups, "vire-projectile", "part-data", 8),
+            TakeValues(groups, "vire-projectile", "state-profile", 8), TakeValues(groups, "vire-projectile", "speeds", 9),
+            TakeValues(groups, "vire-projectile", "split-angles", 5), TakeValues(groups, "vire-projectile", "collision-effects", 32),
+            TakeValues(groups, "vire-projectile", "active-collisions", 32), TakePairs(groups, "vire-projectile", "boundary-offsets", 8));
+        WallArrowShooter = new(TakeValues(groups, "wall-arrow-shooter", "part-data", 8),
+            TakeValues(groups, "wall-arrow-shooter", "arrow-part-data", 8),
+            TakeValues(groups, "wall-arrow-shooter", "state-profile", 4),
+            TakePairs(groups, "wall-arrow-shooter", "spawn-offsets", 4),
+            TakePairs(groups, "wall-arrow-shooter", "boundary-offsets", 8));
+        Vire = new(TakeValues(groups, "vire", "state-profile", 40),
+            TakeValues(groups, "vire", "behaviors", 16), TakeValues(groups, "vire", "spawn-positions", 24),
+            TakeValues(groups, "vire", "bat-z", 8), TakeValues(groups, "vire", "bat-offsets", 2),
+            TakeValues(groups, "vire", "collision-effects", 32), TakeValues(groups, "vire", "active-collisions", 32));
+        if (table.Rows.Count != 2931 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 1938 rows and no " +
+                $"Enemy behavior table contract expected 2931 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

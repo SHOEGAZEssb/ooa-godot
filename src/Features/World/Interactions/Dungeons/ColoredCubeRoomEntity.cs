@@ -7,7 +7,8 @@ namespace oracleofages;
 /// <summary>INTERAC_COLORED_CUBE $19, with subid selecting its initial orientation.</summary>
 internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEntity,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
-    IColoredCubePuzzleStateSource
+    IColoredCubePuzzleStateSource, IUpdatesDuringDialogueRoomEntity,
+    IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private static readonly int[,] RollAnimations =
     {
@@ -30,6 +31,7 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
     private int _pushCounter;
     private int _holeCounter;
     private bool _moving;
+    private bool _initialized;
     private int _lastFrame = -1;
 
     public Node2D Node => this;
@@ -37,6 +39,8 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
     public ColoredCubePuzzleState ColoredCubePuzzleState => _puzzle;
     internal int Orientation => _orientation;
     internal bool Moving => _moving;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     internal ColoredCubeRoomEntity(
         DungeonObjectRecord record,
@@ -56,20 +60,23 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
         _orientation = record.SubId;
-        ResetCounters();
         Name = "ColoredCubeRoomEntity";
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         InitializeVisual(
             visual, record.Position, _orientation,
             paletteOverrides: cubePalettes);
-        SetCubeCollision(0x0f);
-        UpdatePuzzleState();
+        Visible = false;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         if (Finished)
             return;
+        if (!_initialized)
+        {
+            InitializeCube();
+            return;
+        }
         if (_moving)
         {
             AdvanceAnimation();
@@ -115,31 +122,54 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
         // duration of the roll, then reinstalls $0f at the centered endpoint.
         SetCubeCollision(0x00);
         _moving = true;
-        _lastFrame = -1;
         SetAnimation(RollAnimations[_orientation, directionIndex]);
+        _lastFrame = AnimationFrame;
         ApplyAnimationParameter(AnimationParameter);
     }
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
         SetTransitionDrawOffset(offset);
 
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!_initialized) InitializeCube();
+        return ScreenTransitionPresentation.Visible;
+    }
+
+    private void InitializeCube()
+    {
+        // INTERAC$19 state0 runs even under text or object freeze. Its shared
+        // position/color writes belong to that first interaction pass.
+        _initialized = true;
+        ResetCounters();
+        SetAnimation(_orientation);
+        SetCubeCollision(0x0f);
+        UpdatePuzzleState();
+        Visible = true;
+    }
+
     private bool TryGetPushDirection(Player player, out Vector2I direction)
     {
         direction = player.FacingVector;
         if (!player.IsAttemptingObjectPush(direction) || direction == Vector2I.Zero)
             return false;
-        Vector2 delta = Position - player.Position;
-        Vector2 expected = (Vector2)direction;
-        float forward = delta.Dot(expected);
-        float perpendicular = Math.Abs(delta.Dot(new Vector2(-expected.Y, expected.X)));
-        return forward is >= 10 and < 22 && perpendicular < 7;
+        // objectCheckLinkWithinDistance($14) subtracts |dy| from the
+        // permitted |dx|, then selects the dominant integer coordinate.
+        int dx = (int)Position.X - (int)player.Position.X;
+        int dy = (int)Position.Y - (int)player.Position.Y;
+        if (Math.Abs(dx) + Math.Abs(dy) >= 0x14) return false;
+        Vector2I towardCube = Math.Abs(dx) >= Math.Abs(dy)
+            ? new(Math.Sign(dx), 0) : new(0, Math.Sign(dy));
+        return direction == towardCube;
     }
 
     private bool DestinationIsOpen(Vector2I direction)
     {
         Vector2 target = Position + (Vector2)direction * 16.0f;
         TerrainInfo terrain = _room.GetTerrainInfo(target);
-        return terrain.Tile != 0xff && (terrain.Collision & 0x0f) == 0;
+        // interactionCheckAdjacentTileIsSolid tests the entire collision
+        // byte. Hazard-only bits also reject a roll into a pit or water.
+        return terrain.Collision == 0;
     }
 
     private void ApplyAnimationParameter(int parameter)

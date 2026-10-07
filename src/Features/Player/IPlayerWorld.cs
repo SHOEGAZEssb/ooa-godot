@@ -17,6 +17,8 @@ public interface IPlayerWorld
     bool DialogueOpen { get; }
     bool NativeTextActive => DialogueOpen;
     bool SwordDisabled { get; }
+    bool SwordJinxed => false;
+    void AdvanceSwordJinxCounter() { }
     bool ItemUsageDisabled { get; }
     bool InShop { get; }
     bool MovementDisabled { get; }
@@ -39,7 +41,9 @@ public interface IPlayerWorld
     bool GaleWarpDisabled => false;
     bool NativeWarpsDisabled => false;
     void SetNativeWarpsDisabled(bool disabled) =>
-        throw new NotSupportedException("LINK_STATE_GRABBED $0d requires the authoritative wWarpsDisabled owner.");
+        throw new NotSupportedException("Native Link grab states require the authoritative wWarpsDisabled owner.");
+    void RequestWallmasterReturn() =>
+        throw new NotSupportedException("linkState0c requires the dungeon return and deferred warp owners.");
     bool PlayerContactDisabled => false;
     Vector2? MountedCompanionPosition => null;
     Vector2? MountedRaftPosition => null;

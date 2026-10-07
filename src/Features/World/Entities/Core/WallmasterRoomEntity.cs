@@ -47,7 +47,7 @@ internal sealed class WallmasterRoomEntity
                     }),
                 EnemySwordResponse.Knockback,
                 completedOutcome: () =>
-                    RoomEnemyOutcome.WallmasterSpawnerCompletion(
+                    RoomEnemyOutcome.SilentDefeat(
                         combatSource.KillableEnemyIndex,
                         combatSource.CountsAsEnemy)),
             collisionZ: () => wallmaster.ZFixed >> 8)

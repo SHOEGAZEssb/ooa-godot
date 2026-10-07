@@ -104,6 +104,18 @@ internal sealed class RoomEntityFactory
         // defeats update the history, not this parser scratch byte.
         _runtimeState.SetWramByte(EnemyPlacementMemory.KilledEnemies, owner.ActiveRoomDefeatBitset);
         var reservations = new EnemyPlacementReservations(_runtimeState);
+        var deferredMermaidEnemies = new List<DungeonObjectRecord>();
+        IEnumerable<IRoomEntity> InsertMermaidEnemies(int sourceOrder)
+        {
+            foreach (var record in deferredMermaidEnemies)
+            {
+                if (Resources.MermaidDungeon.EnemyStreamOrder(record) != sourceOrder || !owner.EnemySlotAvailable) continue;
+                if (record.Kind == DungeonObjectKind.Vire)
+                    yield return CreateVire(record,room,placementContext);
+                else if (TryChooseRandomEnemyPosition(room,0x20,reservations,placementContext,out var position))
+                    yield return CreateOctogon(record,position,placementContext);
+            }
+        }
         int activeGroup = group;
         Resources.KingMoblin.ApplyRoomLayout(group,room,_animationTick());
         if (group == Resources.Patch.ResetGroup && room.Id == Resources.Patch.ResetRoom)
@@ -466,6 +478,7 @@ internal sealed class RoomEntityFactory
             Resources.MoonlitGrotto.GetRoomRecords(group, room.Id);
         IReadOnlyList<DungeonObjectRecord> laterDungeonRecords =
             Resources.SkullDungeon.GetRoomRecords(group, room.Id).Concat(Resources.CrownDungeon.GetRoomRecords(group, room.Id))
+                .Concat(Resources.MermaidDungeon.GetRoomRecords(group,room.Id))
                 .Concat(Resources.TrapResets.GetRoomRecords(group,room.Id).Select(record => new DungeonObjectRecord(
                     group,room.Id,record.Order,DungeonObjectKind.PuzzleTrapReset,InteractionId.MiscPuzzles,0x1f,0,0,
                     DungeonObjectCondition.Always,record.Source)))
@@ -477,6 +490,8 @@ internal sealed class RoomEntityFactory
                     (record.PackedPosition >> 4) * 16 + 8,(record.PackedPosition & 15) * 16 + 8,
                     DungeonObjectCondition.Always,record.Source)))
                 .OrderBy(record => record.Order).ToArray();
+        if (laterDungeonRecords.Any(record => record.Kind == DungeonObjectKind.MermaidTorchOrder))
+            lightableTorchState ??= new LightableTorchState();
         IReadOnlyList<MovingSideScrollPlatformPlacement> sidePlatformRecords =
             Resources.SidePlatforms.GetRoomRecords(group, room.Id);
         ColoredCubePuzzleState? spiritsGravePuzzle =
@@ -496,7 +511,6 @@ internal sealed class RoomEntityFactory
         int wingDungeonIndex = 0;
         int moonlitGrottoIndex = 0;
         int laterDungeonIndex = 0;
-        var leverConnections = new List<IRoomEntity>();
         int sidePlatformIndex = 0;
         while (mechanicIndex < dungeonRecords.Count ||
                sharedIndex < sharedDungeonRecords.Count ||
@@ -527,16 +541,21 @@ internal sealed class RoomEntityFactory
             {
                 var record = laterDungeonRecords[laterDungeonIndex++];
                 if (!DungeonObjectConditionMet(record)) continue;
+                if (record.Kind is DungeonObjectKind.Octogon or DungeonObjectKind.Vire)
+                {
+                    deferredMermaidEnemies.Add(record);
+                    continue;
+                }
                 if (record.Kind == DungeonObjectKind.SeedShooterEyeStatue && !owner.PartSlotAvailable)
                     continue;
-                if (record.Kind is DungeonObjectKind.SmogController or DungeonObjectKind.PushBlockSynchronizer
+                if (record.Kind is DungeonObjectKind.OctogonInitializer or DungeonObjectKind.SmogController or DungeonObjectKind.PushBlockSynchronizer
                     or DungeonObjectKind.WallSquish or DungeonObjectKind.ButtonBridge or DungeonObjectKind.PuzzleTrapReset
                     or DungeonObjectKind.PatternHint or DungeonObjectKind.TilePatternChest or DungeonObjectKind.TriggerChestScript
                     or DungeonObjectKind.BossReward or DungeonObjectKind.MinibossReward or DungeonObjectKind.Essence or DungeonObjectKind.OrbChest
                     or DungeonObjectKind.TileFiller or DungeonObjectKind.FloorFillChest or DungeonObjectKind.BlueFlameChest
-                    or DungeonObjectKind.ColoredCube or DungeonObjectKind.CubeLightSensor or DungeonObjectKind.CubeFlame
-                    or DungeonObjectKind.FloorPatternTrigger or DungeonObjectKind.FloorPatternKey or DungeonObjectKind.ToggleFloor or DungeonObjectKind.FloorColorChanger
-                    or DungeonObjectKind.FloorSwitchBit or DungeonObjectKind.CubeSwitchSensor or DungeonObjectKind.MinecartGate)
+                    or DungeonObjectKind.ColoredCube or DungeonObjectKind.CubeLightSensor or DungeonObjectKind.CubeFloorSensor or DungeonObjectKind.CubeFlame
+                    or DungeonObjectKind.FloorPatternTrigger or DungeonObjectKind.FloorPatternKey or DungeonObjectKind.ToggleFloor or DungeonObjectKind.FloorColorChanger or DungeonObjectKind.MermaidChangingFloor or DungeonObjectKind.MermaidBossKey
+                    or DungeonObjectKind.FloorSwitchBit or DungeonObjectKind.CubeSwitchSensor or DungeonObjectKind.MinecartGate or DungeonObjectKind.RoomFlagMirror or DungeonObjectKind.MermaidTorchOrder or DungeonObjectKind.Spinner or DungeonObjectKind.BossKeyMirror or DungeonObjectKind.SignalScript)
                 {
                     if (!owner.InteractionSlotAvailable) continue;
                 }
@@ -546,9 +565,8 @@ internal sealed class RoomEntityFactory
                     var lever = new LeverRoomEntity(profile.ToNpcRecord(record),
                         new LeverState(_runtimeState, (record.SubId & 0x40) == 0
                             ? WramAddress.wLever1PullDistance : WramAddress.wLever2PullDistance),
-                        profile.Behavior, owner.OnSoundRequested);
-                    leverConnections.Add(new LeverConnectionRoomEntity(profile.ToNpcRecord(record, connection: true),
-                        profile.Connections, lever, profile.Behavior.ConnectionStep));
+                        profile.Behavior, owner.OnSoundRequested,
+                        parent => owner.TryCreateLeverConnection(parent,profile.ToNpcRecord(record,connection:true),profile));
                     yield return lever;
                     continue;
                 }
@@ -556,6 +574,16 @@ internal sealed class RoomEntityFactory
                 {
                     DungeonObjectKind.ArmosWarrior => CreateArmosWarrior(record, room, placementContext),
                     DungeonObjectKind.Smasher => CreateSmasher(record, room, placementContext),
+                    DungeonObjectKind.OctogonInitializer => new OctogonEncounterInitializerRoomEntity(
+                        Resources.MermaidDungeon.OctogonInitialization,_runtimeState),
+                    DungeonObjectKind.SignalScript => CreateDungeonSignalScript(record),
+                    DungeonObjectKind.RoomFlagMirror => CreateRoomFlagMirror(record),
+                    DungeonObjectKind.Spinner => new DungeonSpinnerRoomEntity(record,_runtimeState,
+                        Resources.DungeonVisuals.Visual("spinner"),owner.OnSoundRequested,owner.BeginScreenShake),
+                    DungeonObjectKind.BossKeyMirror => new DungeonBossKeyMirrorRoomEntity(
+                        () => owner.ActiveRoomHasFlag(_saveData ?? throw new InvalidOperationException($"{record.Source}: boss-key mirror requires save state."),0x20),
+                        () => (_inventory ?? throw new InvalidOperationException($"{record.Source}: boss-key mirror requires inventory."))
+                            .GrantDungeonBossKey(Resources.BossKeyMirrors.Dungeon(record))) { Visible=false,Name="DungeonBossKeyMirror" },
                     DungeonObjectKind.SmogSentinel => CreateSmogSentinel(record, room, placementContext),
                     DungeonObjectKind.SmogController => CreateSmogEncounter(new(record.X,record.Y),room),
                     DungeonObjectKind.PushBlockSynchronizer => new PushBlockSynchronizerRoomEntity(
@@ -581,7 +609,7 @@ internal sealed class RoomEntityFactory
                             if (rooms.TrySetTile(position,tile)) owner.OnRoomTileChanged();
                         },owner.TryCreatePuzzlePuff),
                     DungeonObjectKind.TilePatternChest => new DungeonPuzzleChestRoomEntity(record,room,
-                        () => Resources.ChestPatterns.Matches(record.SubId,room),DungeonChestItemFlagSet,Resources.DungeonMechanics.ChestTile,
+                        () => Resources.ChestPatterns.Matches(record.Id,record.SubId,room),DungeonChestItemFlagSet,Resources.DungeonMechanics.ChestTile,
                         owner.OnSoundRequested,owner.OnRoomTileChanged,_animationTick,owner.TryCreatePuzzlePuff,owner.IsOutgoingEntity,() => WriteDungeonChest(record)),
                     DungeonObjectKind.TriggerChestScript => new DungeonTriggerChestScriptRoomEntity(
                         record.Position,_runtimeState,Resources.CrownDungeon.TriggerChestValue,Resources.CrownDungeon.TriggerChestWait,
@@ -594,7 +622,7 @@ internal sealed class RoomEntityFactory
                     DungeonObjectKind.Essence => CreateLaterDungeonEssence(record, room),
                     DungeonObjectKind.BossReward => CreateDungeonReward(record, "TREASURE_OBJECT_HEART_CONTAINER_00", falling: false),
                     DungeonObjectKind.MinibossReward => new DungeonRewardRoomEntity(record, Resources.DungeonInteractions,
-                        _saveData, () => owner.RoomEnemyCount, null, owner.EnableLinkCollisionsAndMenu),
+                        _saveData, () => owner.RoomEnemyCount, null, owner.EnableLinkCollisionsAndMenu, owner.TryCreateMinibossPortal),
                     DungeonObjectKind.SwitchTileToggler => CreateSwitchTileToggler(record,room),
                     DungeonObjectKind.MovingPlatform => CreateMovingPlatform(record.Position, record.SubId,
                         rooms?.World.GetDungeonIndex(record.Group, record.Room) ?? -1),
@@ -619,6 +647,25 @@ internal sealed class RoomEntityFactory
                         CreateFallingSmallKeyRequest(record), DungeonChestItemFlagSet, owner.TryCreateGroundTreasure, owner.IsOutgoingEntity),
                     DungeonObjectKind.ColoredCube or DungeonObjectKind.CubeFlame or DungeonObjectKind.CubeLightSensor =>
                         CreateColoredCubeInteraction(record, room, skullDungeonPuzzle),
+                    DungeonObjectKind.CubeFloorSensor => new ColoredCubeFloorSensorRoomEntity(record,
+                        () => owner.ActiveRoom,RequireColoredCubePuzzle(skullDungeonPuzzle,record),Resources.DungeonInteractions,
+                        owner.IsOutgoingEntity,(position,tile) => {
+                            if (rooms is null) throw new InvalidOperationException($"{record.Source}: cube floor sensor has no active room session.");
+                            if (rooms.TrySetTile(position,tile)) owner.OnRoomTileChanged();
+                        },owner.OnSoundRequested),
+                    DungeonObjectKind.MermaidChangingFloor => new MermaidChangingFloorRoomEntity(
+                        Resources.MermaidChangingFloor,_runtimeState,owner.TryCreateMermaidChangingFloorWorker),
+                    DungeonObjectKind.MermaidTorchOrder => CreateMermaidTorchOrder(record,room,
+                        lightableTorchState ?? throw new InvalidOperationException($"{record.Source}: missing shared torch state.")),
+                    DungeonObjectKind.MermaidBossKey => new MermaidBossKeyRoomEntity(record,_runtimeState,_random,
+                        DungeonChestItemFlagSet,() => owner.RoomEnemyCount,owner.SetTrigger,
+                        () => owner.ParseRandomEnemies(Resources.MermaidDungeon.BossKeyFailureEnemies,
+                            EnemyPlacementContext.FromWarpDestination(_runtimeState.ReadWramByte(WramAddress.wWarpDestPos))),
+                        owner.OnSoundRequested,() => {
+                            owner.OnSoundRequested(SoundId.SndSolvePuzzle);
+                            WriteDungeonChest(record);
+                            owner.TryCreatePuzzlePuff(record.Position);
+                        }),
                     DungeonObjectKind.FloorSwitchBit or DungeonObjectKind.CubeSwitchSensor => new DungeonStateController(
                         record, () => owner.ActiveRoom, Resources.DungeonInteractions, skullDungeonPuzzle ?? CreateColoredCubePuzzleState(), _runtimeState, owner.SetTrigger),
                     DungeonObjectKind.MinecartGate => new MinecartGateRoomEntity(
@@ -733,11 +780,6 @@ internal sealed class RoomEntityFactory
             if (mechanicEntity is not null)
                 yield return mechanicEntity;
         }
-
-        // The $61 parent allocates its graphical child after the placed main
-        // interactions, so $d8 sees the parent's new pull byte first.
-        foreach (IRoomEntity connection in leverConnections)
-            yield return connection;
 
         foreach (var record in Resources.CollapsingFloors.InRoom(group, room.Id))
             yield return new CollapsingFloorRoomEntity(record, room, owner.OnSoundRequested,
@@ -999,7 +1041,7 @@ internal sealed class RoomEntityFactory
                 Name = $"GroundTreasure_{record.Order}",
                 ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
             };
-            treasure.Initialize(record, owner.OnSoundRequested, owner.ToScreen, room);
+            treasure.Initialize(record, owner.OnSoundRequested, owner.ToScreen, room, owner.TryCreatePuzzlePuff);
             yield return new GroundTreasureRoomEntity(
                 treasure, owner.CanCollectGroundTreasure,
                 owner.OnGroundTreasureCollected);
@@ -1075,8 +1117,13 @@ internal sealed class RoomEntityFactory
         }
 
         int partSlots = 0;
-        foreach (RoomObjectRecord source in enemies.GetRoomObjects(group, room.Id))
+        var enemyStream = enemies.GetRoomObjects(group,room.Id);
+        foreach (var record in deferredMermaidEnemies)
+            if (Resources.MermaidDungeon.EnemyStreamOrder(record) > enemyStream.Count)
+                throw new InvalidOperationException($"{record.Source}: native enemy insertion exceeds the imported stream for room${group:x1}:${room.Id:x2}.");
+        foreach (RoomObjectRecord source in enemyStream)
         {
+            foreach (var entity in InsertMermaidEnemies(source.Order)) yield return entity;
             if (!RoomObjectConditionMet(source, group, room))
                 continue;
 
@@ -1085,33 +1132,8 @@ internal sealed class RoomEntityFactory
             switch (resolution.SlotPolicy)
             {
                 case EnemyObjectSlotPolicy.RandomEnemy:
-                    EnemyHandlerDescriptor randomHandler =
-                        resolution.RequireEnemyHandler(source);
-                    for (int instance = 0; instance < source.Count; instance++)
-                    {
-                        int killableEnemyIndex = NextKillableEnemyIndex(
-                            source.Flags);
-                        if (WasKilledDuringPlacement(killableEnemyIndex))
-                            continue;
-                        int randomSlot = owner.FindFreeEnemySlot();
-                        if (randomSlot < 0)
-                            break;
-                        if (!TryChooseRandomEnemyPosition(
-                            room, source.Flags, reservations, placementContext,
-                            out Vector2 position))
-                        {
-                            // US objectDataOp6 clears enabled but does not undo
-                            // getFreeEnemySlot's count (after flags bit $02).
-                            owner.RetainFailedPlacementCount(source.Flags);
-                            continue;
-                        }
-                        IRoomEntity? entity = EnemyFactory.CreateOrderedEnemy(
-                            randomHandler, source, room, position, instance,
-                            killableEnemyIndex, placementContext);
-                        owner.RegisterEnemySlot(entity, randomSlot);
-                        if (entity is not null)
-                            yield return entity;
-                    }
+                    foreach (var entity in ParseRandomEnemies(source,room,placementContext,reservations))
+                        yield return entity;
                     break;
 
                 case EnemyObjectSlotPolicy.FixedEnemy:
@@ -1172,7 +1194,8 @@ internal sealed class RoomEntityFactory
                             PointForPackedPosition(source.PackedPosition),
                             room,
                             _inventory,
-                            _saveData);
+                            _saveData,
+                            _random);
                         var producerEntity = new ItemDropProducerRoomEntity(
                             producer, itemKillableEnemyIndex);
                         owner.RegisterEnemySlot(producerEntity, itemSlot);
@@ -1197,6 +1220,10 @@ internal sealed class RoomEntityFactory
                             owner.TryCreateOwlSparkle,
                             _animationTick);
                     }
+                    else if (source.Id == PartId.WallArrowShooter)
+                    {
+                        yield return new WallArrowShooterRoomEntity(source, owner.TryCreateWallArrow);
+                    }
                     else if (source.Id == 0x45)
                     {
                         yield return new FallingBoulderRoomEntity(new FallingBoulder(
@@ -1211,6 +1238,7 @@ internal sealed class RoomEntityFactory
                     break;
             }
         }
+        foreach (var entity in InsertMermaidEnemies(enemyStream.Count)) yield return entity;
     }
 
     private IRoomEntity? CreateSpiritsGraveInteraction(
@@ -1234,7 +1262,7 @@ internal sealed class RoomEntityFactory
                 return new DungeonRewardRoomEntity(
                     record, Resources.DungeonInteractions, _saveData,
                     () => owner.RoomEnemyCount, treasure: null,
-                    owner.EnableLinkCollisionsAndMenu);
+                    owner.EnableLinkCollisionsAndMenu, owner.TryCreateMinibossPortal);
             case DungeonObjectKind.MovingPlatform:
                 return CreateMovingPlatform(record.Position, record.SubId,
                     rooms?.World.GetDungeonIndex(record.Group, record.Room) ?? -1);
@@ -1409,6 +1437,51 @@ internal sealed class RoomEntityFactory
         () => _runtimeState.ReadWramByte(WramAddress.wActiveTilePos),owner.TryCreateFloorToggleTile,
         () => owner.Entities<ToggleFloorTileRoomEntity>().Count,owner.IsOutgoingEntity,owner.OnRoomTileChanged,_animationTick);
 
+    private DungeonSignalScriptRoomEntity CreateDungeonSignalScript(DungeonObjectRecord record)
+    {
+        if (rooms is null || _saveData is null) throw new InvalidOperationException($"{record.Source}: dungeon signal script requires active room/save owners.");
+        var profile=Resources.SignalScripts.Profile(rooms.World.GetDungeonIndex(record.Group,record.Room),record);
+        return new(profile,_runtimeState,() => owner.ActiveTriggers,owner.SetTrigger,
+            () => owner.ActiveRoomHasFlag(_saveData,(byte)profile.OutputMask),
+            () => _saveData.SetRoomFlag(owner.ActiveRoom.Group,owner.ActiveRoom.Id,(byte)profile.OutputMask),
+            owner.IsScriptTextActive,owner.TryCreateBridgeSpawner,owner.OnSoundRequested)
+            { Name=$"DungeonSignalScript_{record.SubId:x2}",Visible=false };
+    }
+
+    private DungeonRoomFlagMirrorRoomEntity CreateRoomFlagMirror(DungeonObjectRecord record)
+    {
+        var profile = Resources.RoomFlagMirrors.Profile(record);
+        if (_saveData is null) throw new InvalidOperationException($"{profile.Source}: room-flag mirror requires live save bytes.");
+        return new(record,owner.IsOutgoingEntity,() => owner.ActiveRoomHasFlag(_saveData,profile.Flag),
+            () => _saveData.SetRoomFlag(owner.ActiveRoom.Group,profile.TargetRoom,profile.Flag));
+    }
+
+    private MermaidTorchOrderRoomEntity CreateMermaidTorchOrder(DungeonObjectRecord record,OracleRoomData room,LightableTorchState state)
+    {
+        if (_saveData is null || rooms is null) throw new InvalidOperationException($"{record.Source}: torch order requires live room/save owners.");
+        return new(Resources.MermaidTorchOrder,room,() => owner.ActiveRoomHasFlag(_saveData,0x80),
+            () => owner.RecreateLightableTorches(state),(position,tile) => {
+                if (rooms.TrySetTile(position,tile)) owner.OnRoomTileChanged();
+            },owner.OnSoundRequested,() => {
+                // FF~(DISABLE_ITEMS|DISABLE_ALL_BUT_INTERACTIONS) = $6f.
+                _runtimeState.SetWramByte(WramAddress.wDisabledObjects,0x6f);
+                _runtimeState.SetWramByte(WramAddress.wMenuDisabled,0x6f);
+                _saveData.SetRoomFlag(owner.ActiveRoom.Group,0x25,0x40);
+                owner.OnWallRetractionTriggered();
+            });
+    }
+
+    internal LightableTorchScannerRoomEntity CreateLightableTorchScanner(LightableTorchState state) => new(
+        new(owner.ActiveRoom.Group,owner.ActiveRoom.Id,0,InteractionId.CreateObjectAtEachTileIndex,0x08,0x06,0x10,TriggerPredicate.None,true),
+        owner.ActiveRoom,state,Resources.DarkRooms,owner.TryCreateLightableTorch);
+
+    internal MermaidChangingFloorWorkerRoomEntity CreateMermaidChangingFloorWorker(int subid) => new(
+        subid,Resources.MermaidChangingFloor.Worker(subid),_runtimeState,(position,tile) =>
+        {
+            if (rooms is null) throw new InvalidOperationException($"INTERAC$90:${subid:x2}: floor worker requires the active room session.");
+            if (rooms.TrySetTile(position,tile)) owner.OnRoomTileChanged();
+        });
+
     private FloorColorChangerRoomEntity CreateFloorColorChanger(DungeonObjectRecord record) => new(record,
         () => owner.ActiveRoom,Resources.DungeonInteractions,owner.TryCreateFloorColorWorker,
         () => owner.Entities<FloorColorWorkerRoomEntity>().Count);
@@ -1496,7 +1569,7 @@ internal sealed class RoomEntityFactory
                 return new DungeonRewardRoomEntity(
                     record, Resources.DungeonInteractions, _saveData,
                     () => owner.RoomEnemyCount, treasure: null,
-                    owner.EnableLinkCollisionsAndMenu);
+                    owner.EnableLinkCollisionsAndMenu, owner.TryCreateMinibossPortal);
             case DungeonObjectKind.FloorColorChanger:
                 return CreateFloorColorChanger(record);
             case DungeonObjectKind.CircularSidePlatform:
@@ -1640,7 +1713,7 @@ internal sealed class RoomEntityFactory
                     _saveData,
                     () => owner.RoomEnemyCount,
                     treasure: null,
-                    owner.EnableLinkCollisionsAndMenu);
+                    owner.EnableLinkCollisionsAndMenu, owner.TryCreateMinibossPortal);
             case DungeonObjectKind.Subterror:
                 ImportedEnemyDefinition definition =
                     Resources.DungeonBosses.Enemy(EnemyId.Subterror);
@@ -1783,6 +1856,70 @@ internal sealed class RoomEntityFactory
         return new SmasherRoomEntity(ball,environment,true);
     }
 
+    private IRoomEntity CreateVire(DungeonObjectRecord record,OracleRoomData room,EnemyPlacementContext placementContext)
+    {
+        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
+        VireRoomEnvironment? world = null;
+        world = new(
+            scrolling => {
+                owner.EnableLinkCollisionsAndMenu(); owner.OnSoundRequested(SoundId.SndCtrlStopMusic); owner.BeginBossEntrySignal();
+                // Destination state0 dispatch runs in SCROLLMODE$08, whose
+                // bit0 is clear: the source queues Link's force movement.
+                // Consume that request after the scroll finishes.
+                entry.Arm();
+            },
+            () => owner.OnSoundRequested(SoundId.MusMiniboss),owner.DisableLinkCollisionsAndMenu,owner.EnableLinkCollisionsAndMenu,
+            () => owner.OnRoomMusicRequested(record.Group,record.Room),owner.OnSoundRequested,
+            (id,point) => owner.OnRoomEntityDialogueRequested(id,Resources.VireDialogue.Text(id),point),
+            () => _saveData?.IsLinkedGame == true,() => -owner.ToScreen(Vector2.Zero),
+            owner.TryCreateVirePuff,owner.InteractionAnimationParameter,owner.TryCreateVireProjectile,
+            owner.CanAllocateVireBats,
+            (parent,index) => owner.TryAllocateEnemy(slot => {
+                var child = new VireCharacter { Name = $"VireBat_{index}" };
+                child.Initialize(enemies.ImportedEnemy(EnemyId.Vire,1),room,parent.Position,_random,_runtimeState,world!,parent.Slot,index,parent.ZFixed >> 8);
+                return new VireRoomEntity(child,world!);
+            }) is not null,
+            slot => owner.ResolveEnemySlot(slot)?.Node as VireCharacter,owner.TryCreatePart,entry);
+        var actor = new VireCharacter { Name = "Vire_75_Main" };
+        actor.Initialize(enemies.ImportedEnemy(EnemyId.Vire,0),room,record.Position,_random,_runtimeState,world);
+        return new VireRoomEntity(actor,world);
+    }
+
+    private IRoomEntity CreateOctogon(DungeonObjectRecord record,Vector2 position,EnemyPlacementContext placementContext)
+    {
+        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
+        OctogonRoomEnvironment? world = null;
+        bool SpawnInteraction(Vector2 point,int id,int parameter,int related)
+        {
+            if (!owner.InteractionSlotAvailable) return false;
+            owner.AddEntity(new OctogonInteractionRoomEntity(point,id,parameter,parameter == 1 ? related : -1,
+                _random,_runtimeState,slot => owner.ResolveEnemySlot(slot)?.Node as OctogonCharacter,SpawnInteraction,
+                parameter == 0 ? related : 0));
+            return true;
+        }
+        world = new(scrolling => {
+            owner.EnableLinkCollisionsAndMenu(); owner.OnSoundRequested(SoundId.SndCtrlStopMusic); owner.BeginBossEntrySignal();
+            // Native destination state0 runs in SCROLLMODE$08 before bit0
+            // is restored, so its force-movement request survives the scroll.
+            entry.Arm();
+        },() => owner.BossEntrySignal,owner.OnSoundRequested,owner.DisableLinkCollisionsAndMenu,
+        () => owner.OnRoomMusicRequested(record.Group,record.Room),
+        () => { _saveData!.SetRoomFlag(5,0x2d,0x80); _saveData.SetRoomFlag(5,0x36,0x80); },
+        parent => {
+            int childSlot = -1;
+            owner.TryAllocateEnemy(slot => {
+                childSlot = slot;
+                var shell = new OctogonCharacter { Name = "Octogon_7d_Shell" };
+                shell.Initialize(enemies.ImportedEnemy(EnemyId.Octogon,2),Vector2.Zero,_random,_runtimeState,world!,parent.Slot);
+                return new OctogonRoomEntity(shell,world!);
+            });
+            return childSlot;
+        },slot => owner.ResolveEnemySlot(slot)?.Node as OctogonCharacter,owner.TryCreatePart,SpawnInteraction,entry);
+        var actor = new OctogonCharacter { Name = $"Octogon_7d_{record.SubId:x2}" };
+        actor.Initialize(enemies.ImportedEnemy(EnemyId.Octogon,record.SubId),position,_random,_runtimeState,world);
+        return new OctogonRoomEntity(actor,world);
+    }
+
     private static IRoomEntity CreateArmosChild(ArmosWarriorChildSpawn spawn)
     {
         var actor = spawn.Spawner.CreateChild(spawn.SubId);
@@ -1843,6 +1980,7 @@ internal sealed class RoomEntityFactory
             if (record.Kind is DungeonObjectKind.ColoredCube or
                 DungeonObjectKind.CubeFlame or
                 DungeonObjectKind.CubeLightSensor or
+                DungeonObjectKind.CubeFloorSensor or
                 DungeonObjectKind.CubeSwitchSensor or
                 DungeonObjectKind.CubeColorSource or
                 DungeonObjectKind.RedFlameTrigger)
@@ -1867,9 +2005,11 @@ internal sealed class RoomEntityFactory
             treasureName,
             record.Source)
         {
-            SpawnMode = falling ? TreasureSpawnMode.FromScreenTop : TreasureSpawnMode.Instant,
+            SpawnMode = falling ? TreasureSpawnMode.FromScreenTop :
+                record.Kind == DungeonObjectKind.BossReward ? TreasureSpawnMode.Puff : TreasureSpawnMode.Instant,
             GrabMode = TreasureGrabMode.TwoHands,
-            SpawnDelayFrames = falling ? 40 : 0,
+            SpawnDelayFrames = falling ? 40 :
+                record.Kind == DungeonObjectKind.BossReward ? Resources.DungeonInteractions.Constant("treasure-puff-wait") : 0,
             BounceCount = falling ? 2 : 0,
             Gravity = falling ? 0x10 : 0,
             BounceSpeed = falling ? -0xaa : 0,
@@ -1879,17 +2019,18 @@ internal sealed class RoomEntityFactory
         };
         return new DungeonRewardRoomEntity(
             record, Resources.DungeonInteractions, _saveData, () => owner.RoomEnemyCount, request,
-            owner.EnableLinkCollisionsAndMenu);
+            owner.EnableLinkCollisionsAndMenu, trySpawnTreasure: owner.TryCreateGroundTreasure);
     }
 
     private DungeonEssence CreateLaterDungeonEssence(DungeonObjectRecord record, OracleRoomData room)
     {
-        var definition = new[] { Resources.SkullDungeon.Essence, Resources.CrownDungeon.Essence }.Single(definition =>
+        var definition = new[] { Resources.SkullDungeon.Essence, Resources.CrownDungeon.Essence, Resources.MermaidDungeon.Essence }.Single(definition =>
             definition.ExitWarp.SourceGroup == record.Group && definition.ExitWarp.SourceRoom == record.Room);
         string visual = definition.Index switch
         {
             3 => "burning-flame",
             4 => "sacred-soil",
+            5 => "bereft-peak",
             _ => throw new InvalidOperationException($"{record.Source}: missing Essence visual for index${definition.Index:x2}.")
         };
         return new DungeonEssence(record, Resources.DungeonVisuals.Visual(visual),
@@ -2471,6 +2612,7 @@ internal sealed class RoomEntityFactory
         FountainFairyPuffSpawn puff => new FixedEffectRoomEntityAdapter<PuzzlePuffEffect>(puff.Effect),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => EnemyFactory.CreateGel(gel, room),
+        BariChildSpawn bari => EnemyFactory.CreateBariChild(bari, room),
         CuccoAttackerSpawn attacker => CreateCuccoAttacker(attacker),
         BabyCuccoReplacementSpawn babyCucco =>
             CreateBabyCuccoReplacement(babyCucco, room),
@@ -2550,6 +2692,14 @@ internal sealed class RoomEntityFactory
         FireballShooterChildSpawn shooter => shooter.Parent.CreateChild(shooter.Position, shooter.TimingIndex),
         BeamosBeamSpawn beam => new BeamosBeamRoomEntity(new BeamosBeamPart(beam, Resources.BeamosBeam, room)),
         SmogProjectileSpawn smog => CreateSmogProjectile(smog, room),
+        OctogonPartSpawn shot => new OctogonPartRoomEntity(new OctogonPart(shot,room,_runtimeState,_random,
+            slot => owner.ResolveEnemySlot(slot)?.Node.Visible == true,owner.TryCreatePart,owner.OnSoundRequested),owner.OnSoundRequested),
+        VireProjectileSpawn shot => new VireProjectileRoomEntity(new VireProjectile(enemies.VireProjectile,
+            room, _runtimeState, shot, owner.ReadNativeEnemyHealth, owner.TryCreateVireProjectile, owner.CanAllocateParts,
+            owner.TryCreateTransformationPuff, owner.InteractionAnimationParameter, owner.TryCreatePuzzlePuff), owner.OnSoundRequested),
+        WizzrobeProjectileSpawn shot => new WizzrobeProjectileRoomEntity(
+            new WizzrobeProjectile(enemies.WizzrobeProjectile, room, _runtimeState,
+                shot.Position, shot.Angle, shot.ZHigh), () => -owner.ToScreen(Vector2.Zero), owner.OnSoundRequested),
         SwordBeamClinkSpawn clink => CreateSwordBeamClink(clink),
         SwordWallClinkSpawn clink => CreateSwordWallClink(clink),
         EnemyClinkSpawn clink => CreateEnemyClink(clink),
@@ -2860,7 +3010,7 @@ internal sealed class RoomEntityFactory
     private IRoomEntity CreateMinibossPortal(OracleRoomData room)
     {
         foreach (PlacementRecord record in
-            Resources.DungeonEntrances.GetRoomRecords(4, room.Id))
+            Resources.DungeonEntrances.GetRoomRecords(room.Group, room.Id))
         {
             if (record.Kind ==
                 DungeonEntranceInteractionDatabaseObjectKind.MinibossPortal)
@@ -2870,7 +3020,7 @@ internal sealed class RoomEntityFactory
             }
         }
         throw new InvalidOperationException(
-            $"Spirit's Grave room 4:{room.Id:x2} has no miniboss portal placement.");
+            $"Room ${room.Group:x1}:${room.Id:x2} has no imported miniboss portal placement.");
     }
 
     private StatueEyeballRoomEntity CreateStatueEyeball(StatueEyeballSpawn spawn)
@@ -3970,8 +4120,8 @@ internal sealed class RoomEntityFactory
     private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
     {
         var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
-        arrow.Initialize(enemies.EnemyArrow, room, spawn.Position, spawn.Angle);
-        return new PostObjectHostileProjectileRoomEntity<EnemyArrowProjectile>(arrow);
+        arrow.Initialize(enemies.EnemyArrow, room, spawn.Position, spawn.Angle, spawn.SubId);
+        return new EnemyArrowRoomEntity(arrow);
     }
 
     private IRoomEntity CreateStalfosBone(StalfosBoneSpawn spawn, OracleRoomData room)
@@ -4403,7 +4553,7 @@ internal sealed class RoomEntityFactory
     private IRoomEntity CreateKillPuff(KillEnemyPuffSpawn spawn)
     {
         var puff = new KillEnemyPuffEffect { Name = "KillEnemyPuff", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
-        puff.Initialize(spawn.Position, () => owner.OnSoundRequested(SoundId.SndKillEnemy));
+        puff.Initialize(spawn.Position, () => owner.OnSoundRequested(SoundId.SndKillEnemy), spawn.ZHigh);
         return new KillPuffRoomEntity(puff);
     }
 
@@ -4479,7 +4629,7 @@ internal sealed class RoomEntityFactory
             Name = $"GroundTreasure_{record.TreasureObject}",
             ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
-        treasure.Initialize(record, owner.OnSoundRequested, owner.ToScreen);
+        treasure.Initialize(record, owner.OnSoundRequested, owner.ToScreen, tryCreatePuff: owner.TryCreatePuzzlePuff);
         return new GroundTreasureRoomEntity(
             treasure, owner.CanCollectGroundTreasure,
             owner.OnGroundTreasureCollected);
@@ -4840,6 +4990,8 @@ internal sealed class RoomEntityFactory
             if (native.Kind is DungeonObjectKind.ArmosWarrior or DungeonObjectKind.Eyesoar) hasSupportedNativeBossRecord = true;
         foreach (DungeonObjectRecord native in Resources.CrownDungeon.GetRoomRecords(group, room.Id))
             if (native.Kind is DungeonObjectKind.Smasher or DungeonObjectKind.SmogSentinel) hasSupportedNativeBossRecord = true;
+        foreach (DungeonObjectRecord native in Resources.MermaidDungeon.GetRoomRecords(group,room.Id))
+            if (native.Kind is DungeonObjectKind.Vire or DungeonObjectKind.Octogon) hasSupportedNativeBossRecord = true;
         bool hasEnemyCountConsumer = false;
         foreach (DungeonMechanicDatabaseRecord record in records)
         {
@@ -4856,6 +5008,31 @@ internal sealed class RoomEntityFactory
                 return false;
         }
         return hasEnemyCountConsumer && DungeonEnemyCountIsComplete(group, room);
+    }
+
+    internal IEnumerable<IRoomEntity> ParseRandomEnemies(RoomObjectRecord source,OracleRoomData room,
+        EnemyPlacementContext placementContext,EnemyPlacementReservations? reservations = null)
+    {
+        if (source.Kind != RoomObjectKind.RandomEnemy)
+            throw new InvalidOperationException($"{source.Source}: expected a random-enemy row.");
+        reservations ??= new EnemyPlacementReservations(_runtimeState);
+        var handler = enemies.EnemyHandlers.Resolve(source).RequireEnemyHandler(source);
+        for (int instance = 0; instance < source.Count; instance++)
+        {
+            int index = NextKillableEnemyIndex(source.Flags);
+            if (WasKilledDuringPlacement(index)) continue;
+            int slot = owner.FindFreeEnemySlot();
+            if (slot < 0) yield break;
+            if (!TryChooseRandomEnemyPosition(room,source.Flags,reservations,placementContext,out var position))
+            {
+                // US objectDataOp6 leaves the counted allocation behind.
+                owner.RetainFailedPlacementCount(source.Flags);
+                continue;
+            }
+            var entity = EnemyFactory.CreateOrderedEnemy(handler,source,room,position,instance,index,placementContext);
+            owner.RegisterEnemySlot(entity,slot);
+            if (entity is not null) yield return entity;
+        }
     }
 
     private bool TryChooseRandomEnemyPosition(

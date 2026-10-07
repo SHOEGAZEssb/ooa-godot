@@ -811,6 +811,7 @@ public sealed partial class ValidationRoot
         PrepareRoom(0x20);
         ColoredCubeRoomEntity cube =
             _entities.Entities<ColoredCubeRoomEntity>().Single();
+        StepEntities(); // Source state0 publishes color/position and installs solidity.
         Image cubeImage = cube.CurrentTexture.GetImage();
         bool cubeHasBlue = false;
         bool cubeHasYellow = false;
@@ -1092,7 +1093,7 @@ public sealed partial class ValidationRoot
         StepEntities();
         FailIf(
             _entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
-            !_saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
+            _saveData.HasRoomFlag(4, 0x18, OracleSaveData.RoomFlag80) ||
             _entities.Entities<ItemDropEffect>() is not
                 [{ SubId: ItemDropDatabase.Fairy, ElapsedFrames: 0 }] ||
             _entities.RandomCalls != giantDropRandomCalls + 2,
@@ -1109,16 +1110,19 @@ public sealed partial class ValidationRoot
             _entities.RandomCalls != giantDropRandomCalls + 5,
             "Room 4:18 did not begin its reward wait while the spawned fairy " +
             "initialized from three shared global RNG values.");
-        StepEntities(18);
+        StepEntities(); // wait20 starts after the flag-publication yield.
+        StepEntities(19);
         FailIf(
             _entities.Entities<MinibossPortal>().Count != 0,
             "Room 4:18 created its portal before the native 20-update reward wait.");
         StepEntities();
         FailIf(
             _entities.Entities<MinibossPortal>().Count != 1 ||
-            _entities.LinkCollisionsAndMenuDisabled ||
-            _entities.PlayerMenusDisabled,
-            "Room 4:18 did not create its portal after the native 20-update reward wait.");
+            !_entities.LinkCollisionsAndMenuDisabled,
+            "Room $4:$18 must create its portal after wait20 and yield before enabling Link.");
+        StepEntities();
+        FailIf(_entities.LinkCollisionsAndMenuDisabled || _entities.PlayerMenusDisabled,
+            "Room $4:$18 must enable Link on the script update after portal allocation.");
 
         _sound.ClearPlayRequestAudit();
         PrepareRoom(0x18);
@@ -1499,7 +1503,8 @@ public sealed partial class ValidationRoot
             "Pumpkin Head's terminal boss-explosion frame did not retain the " +
             "enemy count for its complete source duration.");
         int pumpkinDropRandomCalls = _entities.RandomCalls;
-        StepEntities(2);
+        // Count release, flag, setcoords, spawn, then ROM jump/Link unlock.
+        StepEntities(5);
         FailIf(
             _entities.Entities<BossDeathExplosionEffect>().Count != 0 ||
             !_saveData.HasRoomFlag(4, 0x13, OracleSaveData.RoomFlag80) ||
@@ -1766,7 +1771,7 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(SoundId.MusEssence) != 1 ||
             _sound.PlayRequestsFor(SoundId.SndEnergyThing) != 1 ||
             _sound.PlayRequestsFor(SoundId.SndFadeOut) != 4 ||
-            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 1,
+            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != 0,
             "The Eternal Spirit's 360/20/20/40/30 sequence, held pose, or " +
             "sound cadence diverged, or its completed event retained the " +
             "source interaction.");

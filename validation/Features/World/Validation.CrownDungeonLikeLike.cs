@@ -86,6 +86,10 @@ public partial class ValidationRoot
             LoadValidationRoom(4, 0x9f);
             _player.WarpTo(new(120,8));
             Step(16, Vector2.Down);
+            // Retain room geometry and ordered initialization RNG, then remove
+            // unrelated Whisps so their damage cannot restart Link's cooldown
+            // while this focused capture/release regression waits in place.
+            foreach (var whisp in _entities.Entities<WhispCharacter>()) whisp.FinishGale();
             var target = _entities.Entities<LikeLikeCharacter>()[1];
             _inventory.GiveTreasure(TreasureId.Shield, 2);
             _inventory.EquipA(TreasureId.Shield);
@@ -107,9 +111,15 @@ public partial class ValidationRoot
             _dialogue.Close();
             Step(107);
             FailIf(_player.InvincibilityFrames != 0 || !target.CollisionEnabled,
-                "Like Like and Link must both become vulnerable after their separate cooldowns.");
-            for (int i = 0; i < 64 && !_player.EnemyGrabPending; i++) Step(movement: Vector2.Left);
-            FailIf(!_player.EnemyGrabPending, "$4:$9f Like Like must be reachable again through the same open floor.");
+                $"Like Like cooldown: Link inv={_player.InvincibilityFrames}, target state=${target.State:x2}, counter={target.Counter2}, collision={target.CollisionEnabled}, pending={_player.EnemyGrabPending}, active={_player.EnemyGrabActive}, Link={_player.Position}, target={target.Position}.");
+            for (int i = 0; i < 128 && !_player.EnemyGrabPending; i++)
+            {
+                Vector2 offset = target.Position - _player.Position;
+                Step(movement: Mathf.Abs(offset.X) > Mathf.Abs(offset.Y)
+                    ? Vector2.Right * Mathf.Sign(offset.X) : Vector2.Down * Mathf.Sign(offset.Y));
+            }
+            FailIf(!_player.EnemyGrabPending,
+                $"$4:$9f repeat approach through real floor missed: Link={_player.Position}, target={target.Position}.");
             Step();
             FailIf(target.State != 11 || target.Counter2 != 90, "Repeated contact must restart the full hold.");
             Step(90);

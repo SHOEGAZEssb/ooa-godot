@@ -5764,12 +5764,17 @@ if ($room5bfLeverSource -notmatch '(?ms)ld a,\$0c\s+jr z,\+\s+ld a,\$f3' -or
     $room5bfLeverSource -notmatch '\.db \$00 \$f8 \$f0 \$e8 \$e0') {
     throw 'INTERAC_LEVER upward Link offset or connection offsets changed.'
 }
-foreach ($direction in 0..1) {
+$leverLengths = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'object_code/ages/interactions/lever.s') '@leverLengths' '.db' |
+    ForEach-Object { $_.Operands } | ForEach-Object { Convert-AssemblyInteger $_ })
+if (($leverLengths -join ',') -ne '8,16,32,64') { throw 'INTERAC_LEVER requires its four source length selectors.' }
+foreach ($profileSubid in @(0x30,0x31,0x06,0x46)) {
+    $direction = $profileSubid -band 1
     $animation = Resolve-NpcAnimation 0x61 $direction
     if (-not $animation) { throw "Missing INTERAC_LEVER animation $direction." }
-    $subid = (0x30 + $direction).ToString('x2')
+    $subid = $profileSubid.ToString('x2')
+    $length = $leverLengths[($profileSubid -band 0x30) -shr 4].ToString('x2')
     $offset = if ($direction -eq 0) { '0c' } else { 'f3' }
-    $leverProfiles.Add("$subid`tspr_dungeon_sprites`t0a`t03`t$animation`t$($room5bfConnectionAnimations -join '^')`t40`t0a`t05`t01`t$offset`t10`t71`t6c`tobject_code/ages/interactions/lever.s:interactionCode61")
+    $leverProfiles.Add("$subid`tspr_dungeon_sprites`t0a`t03`t$animation`t$($room5bfConnectionAnimations -join '^')`t$length`t0a`t05`t01`t$offset`t10`t71`t6c`tobject_code/ages/interactions/lever.s:interactionCode61")
 }
 Write-GeneratedTable((Join-Path $destination 'objects/dungeon_levers.tsv'), $leverProfiles)
 $room5bfRows = @(

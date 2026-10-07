@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_KILLENEMYPUFF ($08), used by a red Zol before it splits.
+/// INTERAC_KILLENEMYPUFF ($08), used before Zol and Bari split.
 /// Unlike PART_ENEMY_DESTROYED, this effect never resolves an item drop.
 /// </summary>
 public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
@@ -17,6 +17,7 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
     private int _animationCounter;
     private Action _initializeSound = static () => { };
     internal bool Initialized { get; private set; }
+    internal int ZHigh { get; private set; }
     internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
     internal int AnimationParameter => !Initialized ? 0
         : _animationFrame >= _animation.Count ? 0xff : _animation[AnimationFrame].Parameter;
@@ -25,9 +26,10 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
     internal int ElapsedFrames { get; private set; }
     internal int DurationFrames { get; private set; }
 
-    internal void Initialize(Vector2 position, Action initializeSound)
+    internal void Initialize(Vector2 position, Action initializeSound, int zHigh = 0)
     {
         Position = position;
+        ZHigh = zHigh; // objectCreateInteraction copies the source's integer Z.
         _initializeSound = initializeSound;
         Visible = false;
         _animation = _definition ??= LoadDefinition();
@@ -78,7 +80,7 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
         {
             DrawTexture(
                 _animation[AnimationFrame].Texture,
-                new Vector2(-16, -16) + TransitionDrawOffset);
+                new Vector2(-16, -16 + ZHigh) + TransitionDrawOffset);
         }
     }
 

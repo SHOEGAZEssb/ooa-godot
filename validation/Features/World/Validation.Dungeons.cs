@@ -410,6 +410,7 @@ public sealed partial class ValidationRoot
         int keysBefore = _inventory.GetDungeonSmallKeys(dungeon);
         _player.WarpTo(room408Chest + Vector2.Down * 12.0f);
         _player.Face(Vector2I.Up);
+        ApproachTileWall();
         bool interacted = TryInteract(_player);
         ChestTreasureEffect keyReward = _interactions.ChestReward!;
         FailIf(
@@ -427,7 +428,7 @@ public sealed partial class ValidationRoot
             OracleGraphicsCache.PixelHash(rupeeReward.RewardTexture.GetImage()),
             "Room 4:08's small-key reward still rendered as the rupee graphic $2b.");
         rupeeReward.Free();
-        _interactions.Update(31.0 / 60.0, _player);
+        _interactions.Update(33.0 / 60.0, _player);
         FailIf(
             _inventory.GetDungeonSmallKeys(dungeon) != keysBefore ||
             _sound.PlayRequestsFor(SoundId.SndGetSeed) != 0 ||
@@ -1334,6 +1335,7 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(24, 74));
         _player.Face(Vector2I.Down);
+        ApproachTileWall();
         FailIf(
             !TryInteract(_player) || !_dialogue.IsOpen ||
             _dialogue.CurrentMessage != "It won't open\nfrom this side!" ||
@@ -1343,6 +1345,7 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(24, 100));
         _player.Face(Vector2I.Up);
+        ApproachTileWall();
         int rupeesBefore = _player.Rupees;
         FailIf(
             !TryInteract(_player) || !_interactions.ChestRewardActive ||
@@ -1352,7 +1355,7 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(SoundId.SndGetItem) != 0,
             "Chest $51 did not open from below into tile $f0.");
 
-        _interactions.Update(31.0 / 60.0, _player);
+        _interactions.Update(33.0 / 60.0, _player);
         FailIf(
             !_interactions.ChestRewardActive || _player.Rupees != rupeesBefore ||
             _sound.PlayRequestsFor(SoundId.SndGetItem) != 0,
@@ -1394,6 +1397,7 @@ public sealed partial class ValidationRoot
             recordSafe: false);
         _player.Face(Vector2I.Up);
         int missingRupeesBefore = _player.Rupees;
+        ApproachTileWall();
         int missingOpenSounds =
             _sound.PlayRequestsFor(SoundId.SndOpenChest);
         FailIf(
@@ -1404,7 +1408,7 @@ public sealed partial class ValidationRoot
                 missingOpenSounds + 1,
             "getChestData's missing-row `$2800 default did not open as " +
             "TREASURE_OBJECT_RUPEES_00 with source graphic `$28.");
-        _interactions.Update(32.0 / 60.0, _player);
+        _interactions.Update(34.0 / 60.0, _player);
         FailIf(
             _player.Rupees != missingRupeesBefore + 1 ||
             !_dialogue.IsOpen ||
@@ -1457,12 +1461,13 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(debugBraceletChest.X, debugBraceletChest.Y + 12));
         _player.Face(Vector2I.Up);
+        ApproachTileWall();
         FailIf(
             !TryInteract(_player) || !_interactions.ChestRewardActive ||
             _currentRoom.GetMetatile(debugBraceletChest) != 0xf0,
             "The debug 4:ce/$67 Power Bracelet chest did not open from below.");
 
-        _interactions.Update(32.0 / 60.0, _player);
+        _interactions.Update(34.0 / 60.0, _player);
         FailIf(
             !_inventory.HasTreasure(TreasureId.Bracelet) ||
             _inventory.BraceletLevel != 1 ||
@@ -1484,6 +1489,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(
             debugBraceletChest.X, debugBraceletChest.Y + 12));
         _player.Face(Vector2I.Up);
+        ApproachTileWall();
         Input.ActionPress("attack");
         try
         {
@@ -1499,7 +1505,7 @@ public sealed partial class ValidationRoot
             _bracelet.State != BraceletState.Idle,
             "The 4:ce/$67 chest did not retain A-button priority over an " +
             "equipped ITEM_BRACELET parent.");
-        _interactions.Update(32.0 / 60.0, _player);
+        _interactions.Update(34.0 / 60.0, _player);
         _dialogue.Close();
         _interactions.Update(0.0, _player);
         _inventory.EquipB(TreasureId.Bracelet);
@@ -1789,12 +1795,13 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(new Vector2(chestPoint.X, chestPoint.Y + 12));
         _player.Face(Vector2I.Up);
+        ApproachTileWall();
         FailIf(
             !TryInteract(_player) || !_interactions.ChestRewardActive ||
             _currentRoom.GetMetatile(chestPoint) != 0xf0,
             "The 5:a6/$37 Power Glove chest did not open from below.");
 
-        _interactions.Update(32.0 / 60.0, _player);
+        _interactions.Update(34.0 / 60.0, _player);
         FailIf(
             !_inventory.HasTreasure(TreasureId.Bracelet) ||
             _inventory.BraceletLevel != 2 ||

@@ -267,6 +267,11 @@ internal readonly record struct EnemyCombatSourceDescriptor(
             (EnemyHandlerKind.Thwomp, 0x28) =>
                 EnemySwordResponse.Armored,
             (EnemyHandlerKind.BladeTrap, 0x13) => EnemySwordResponse.Armored,
+            (EnemyHandlerKind.GiantBladeTrap, 0x26) => EnemySwordResponse.Armored,
+            (EnemyHandlerKind.Bubble, 0x19) => EnemySwordResponse.None,
+              (EnemyHandlerKind.Bari, 0x2d) => EnemySwordResponse.Knockback,
+              (EnemyHandlerKind.Wizzrobe, 0x30) => EnemySwordResponse.Knockback,
+            (EnemyHandlerKind.Candle, 0x3e) => EnemySwordResponse.Bump,
             (EnemyHandlerKind.Gibdo, 0x16) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.LikeLike, 0x22) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.BallChainSoldier, 0x37) => EnemySwordResponse.NoKnockback,

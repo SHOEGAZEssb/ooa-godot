@@ -27,6 +27,7 @@ public sealed class InteractionController
     private readonly KidNameEntryController _kidNameEntry;
     private readonly Dictionary<int, ChestRecord> _debugChestOverrides = new();
     private ChestTreasureEffect? _chestTreasure;
+    private double _chestSetupTicks;
     private GroundTreasurePickup? _groundTreasure;
     private Player? _groundTreasurePlayer;
     private bool _groundTreasureCompletesHeartContainer;
@@ -188,6 +189,19 @@ public sealed class InteractionController
 
         if (!_chestTreasure.Finished)
         {
+            // INTERAC$60 state0 loads the record on the opening update;
+            // spawnMode3 substate0 arms counter32 on the next update. Neither
+            // dispatch moves the treasure or decrements its rise counter.
+            if (_chestSetupTicks > 0)
+            {
+                double setup = Math.Min(_chestSetupTicks, delta * 60.0);
+                _chestSetupTicks -= setup;
+                delta -= setup / 60.0;
+                if (_chestSetupTicks > 0) return;
+                _chestTreasure.Visible = true;
+                _entities.RuntimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,1);
+                if (delta <= 0) return;
+            }
             _chestTreasure.Advance(delta);
             if (!_chestTreasure.Finished)
                 return;
@@ -224,6 +238,8 @@ public sealed class InteractionController
         _worldRoot.RemoveChild(_chestTreasure);
         _chestTreasure.QueueFree();
         _chestTreasure = null;
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,0);
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,0);
     }
 
     private void OnHeartPieceSetFilled()
@@ -310,6 +326,8 @@ public sealed class InteractionController
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 tilePoint = player.Position + (Vector2)player.FacingVector * 8.0f;
         byte tile = room.GetMetatile(tilePoint);
+        if (tile is 0xf1 or 0xf2 && !player.FacesTileWallForInteraction)
+            return false;
         if (tile == 0xf1)
             return TryOpenChest(player, tilePoint);
         if (tile != 0xf2)
@@ -501,7 +519,10 @@ public sealed class InteractionController
         _roomView.QueueRedraw();
         _playSound(SoundId.SndOpenChest);
         _pendingChest = chest;
-        _chestTreasure = new ChestTreasureEffect { ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,0x83);
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,0x83);
+        _chestSetupTicks = 2;
+        _chestTreasure = new ChestTreasureEffect { Visible = false, ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
         _chestTreasure.Initialize(
             PointForPackedPosition(position) + new Vector2(0, -8),
             _treasures.GetObjectVisual(chest.Graphic));

@@ -40,6 +40,7 @@ public sealed partial class ValidationRoot
             bool otherDungeon = Owns(4);
             int keys = _inventory.GetDungeonSmallKeys(5);
             FailIf(Owns(5), $"Crown reward${test.Treasure:x2} fixture must begin unowned.");
+            ApproachTileWall();
             FailIf(!TryInteract(_player) || !_interactions.ChestRewardActive,
                 $"Crown4:{test.Room:x2}/${test.Position:x2} chest must open from reachable floor.");
             Vector2 heldPosition = _player.Position;
@@ -47,10 +48,10 @@ public sealed partial class ValidationRoot
             // treasure.s spawnMode3 retains disabledObjects=$83 until the
             // interaction deletes after text. Link's gate precedes its tile
             // handler, so reserved0 cannot contend with a key-door attempt.
-            StepGameplayUpdates(31, Vector2.Down, [], [], true);
+            StepGameplayUpdates(33, Vector2.Down, [], [], true);
             FailIf(Owns(5) || _player.Position != heldPosition ||
                 _keyDoors.RemainingPushFrames != pushCounter,
-                "Chest rise must retain both reward ownership and Link's tile-input gate through update31.");
+                "Chest setup plus rise must retain reward ownership and Link's tile-input gate through update33.");
             StepGameplayUpdates(1, Vector2.Down, [], [], false);
             FailIf(!Owns(5) || !_dialogue.IsOpen || !_saveData.HasRoomFlag(4, test.Room, OracleSaveData.RoomFlagItem) ||
                 _inventory.GetDungeonSmallKeys(5) != keys || test.Treasure != 0x04 && Owns(4) != otherDungeon,

@@ -80,7 +80,7 @@ internal sealed class HostileProjectileLifecycle
         switch (State)
         {
             case HostileProjectileState.Initializing:
-                State = HostileProjectileState.Flying;
+                InitializeFlight();
                 return;
             case HostileProjectileState.CollisionPending:
                 BeginBounce();
@@ -88,9 +88,23 @@ internal sealed class HostileProjectileLifecycle
             case HostileProjectileState.Bouncing:
                 UpdateBounce();
                 return;
+            case HostileProjectileState.Launching:
+                if (Counter != 0) Counter--;
+                if (Counter != 0)
+                {
+                    // PART$1a:$01 checks only the forward boundary while it
+                    // exits the wall. Ordinary wall collisions remain live
+                    // for Link/items, but cannot bounce this launch yet.
+                    if (LaunchOutsideBoundary()) { Finish(); return; }
+                    _entity.Position += MovementDelta(_profile.SpeedRaw);
+                    _entity.QueueRedraw();
+                    return;
+                }
+                State = HostileProjectileState.Flying;
+                break; // Counter zero falls through to the terrain check.
         }
 
-        if (!WithinVisibleBoundary(player.Position))
+        if (!_profile.NativePartBoundary && !WithinVisibleBoundary(player.Position))
         {
             Finish();
             return;
@@ -128,6 +142,23 @@ internal sealed class HostileProjectileLifecycle
                     $"{_profile.TileProbe}.");
         }
         _entity.QueueRedraw();
+    }
+
+    internal void InitializeFlight()
+    {
+        if (State != HostileProjectileState.Initializing) return;
+        Counter = _profile.LaunchDelay;
+        State = Counter == 0 ? HostileProjectileState.Flying : HostileProjectileState.Launching;
+    }
+
+    private bool LaunchOutsideBoundary()
+    {
+        var offsets = _profile.LaunchBoundaryOffsets ?? throw new InvalidOperationException(
+            $"{_profile.Source}: delayed launch lacks partCommon_anglePositionOffsets.");
+        var offset = offsets[(Angle & ObjectAngle.CardinalMask) >> 2];
+        int x = unchecked((byte)(OracleObjectPosition.HighByte(_entity.Position.X) + offset.Second));
+        int y = unchecked((byte)(OracleObjectPosition.HighByte(_entity.Position.Y) + offset.First));
+        return !WithinRoom(new(x, y)) || _room.GetTerrainInfo(new(x, y)).Collision == 0xff;
     }
 
     internal void HandleLinkContact(Player player)
@@ -242,14 +273,18 @@ internal readonly record struct HostileProjectileProfile(
     HostileProjectileTileProbe TileProbe,
     HostileProjectileSwordWindow SwordWindow,
     bool ClearCollisionOnBounce,
-    bool ResetZOnBounce);
+    bool ResetZOnBounce,
+    int LaunchDelay = 0,
+    bool NativePartBoundary = false,
+    System.Collections.Generic.IReadOnlyList<EnemyBehaviorPair>? LaunchBoundaryOffsets = null);
 
 internal enum HostileProjectileState
 {
     Initializing,
     Flying,
     CollisionPending,
-    Bouncing
+    Bouncing,
+    Launching
 }
 
 internal enum HostileProjectileTileProbe

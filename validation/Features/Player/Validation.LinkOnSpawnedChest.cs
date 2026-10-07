@@ -61,7 +61,7 @@ public partial class ValidationRoot
                 $"Returning from the south must stop outside the restored $57 chest (Link={_player.Position}, collision=${_currentRoom.GetTerrainInfo(chest).Collision:x2}).");
             int keys = _inventory.GetDungeonSmallKeys(5);
             FailIf(!TryInteract(_player), "Escaping $57 must leave its chest reachable from the south.");
-            Step(32);
+            Step(34);
             FailIf(_inventory.GetDungeonSmallKeys(5) != keys + 1 || !_saveData.HasRoomFlag(4, 0xba, 0x20),
                 "Escaped $4:$ba chest must still grant one small key and persist its item flag.");
             _dialogue.Close();

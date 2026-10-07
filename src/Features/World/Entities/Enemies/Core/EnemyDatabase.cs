@@ -21,6 +21,9 @@ public sealed class EnemyDatabase
     public MaskedMoblinRecord MaskedMoblin { get; }
     public EnemyArrowRecord EnemyArrow { get; }
     internal EnemyProjectileVisualRecord MoblinBoomerang { get; }
+    internal EnemyProjectileVisualRecord WizzrobeProjectile { get; }
+    internal EnemyProjectileVisualRecord CandleFlame { get; }
+    internal EnemyProjectileVisualRecord VireProjectile { get; }
     public GelDefinition Gel { get; }
     internal IReadOnlyDictionary<int, Color[]> ColorChangingGelPalettes =>
         _colorChangingGelPalettes;
@@ -92,7 +95,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 67 ||
+        if (_importedDefinitions.Count != 84 ||
             ImportedEnemy(EnemyId.LikeLike) is not
                 { Health: 5, DamageQuarters: 2, RadiusY: 6, RadiusX: 6,
                     TileBase: 12, Palette: 3, Animations.Length: 2 } ||
@@ -221,6 +224,59 @@ public sealed class EnemyDatabase
             throw new InvalidOperationException(
                 "Imported common-enemy contract is incomplete.");
         }
+
+        var wizzrobePoses = GeneratedTable.Load("res://assets/oracle/effects/wizzrobe_projectile.tsv",
+            new GeneratedTableSchema("PART_WIZZROBE_PROJECTILE $1f", GeneratedTableKeySemantics.Unique,
+                ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
+                ["animation-index"], headerRequired: true));
+        if (wizzrobePoses.Rows.Count != 4) throw new InvalidOperationException("PART$1f requires four directional poses.");
+        var firstPose = wizzrobePoses.Rows[0];
+        string[] poses = new string[4];
+        for (int i = 0; i < poses.Length; i++)
+        {
+            var pose = wizzrobePoses.Rows[i];
+            if (pose.UnsignedDecimal(0) != i || pose.RequiredString(1) != firstPose.RequiredString(1) ||
+                pose.UnsignedDecimal(2) != firstPose.UnsignedDecimal(2) || pose.UnsignedDecimal(3) != firstPose.UnsignedDecimal(3) ||
+                pose.Boolean01(4) != firstPose.Boolean01(4)) throw pose.Invalid(0, "ordered PART$1f directional pose with matching graphics");
+            poses[i] = pose.RequiredString(5);
+        }
+        WizzrobeProjectile = new([firstPose.RequiredString(1)], firstPose.UnsignedDecimal(2),
+            firstPose.UnsignedDecimal(3), firstPose.Boolean01(4), poses);
+        var candleFlame = GeneratedTable.Load("res://assets/oracle/effects/candle_flame.tsv",
+            new GeneratedTableSchema("PART_CANDLE_FLAME $36", GeneratedTableKeySemantics.Unique,
+                ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
+                ["animation-index"], headerRequired: true));
+        if (candleFlame.Rows.Count != 2) throw new InvalidOperationException("PART$36 requires two animations.");
+        string[] flameAnimations = new string[2];
+        var firstFlame = candleFlame.Rows[0];
+        for (int i = 0; i < 2; i++)
+        {
+            var row = candleFlame.Rows[i];
+            if (row.UnsignedDecimal(0) != i || row.RequiredString(1) != firstFlame.RequiredString(1) ||
+                row.UnsignedDecimal(2) != firstFlame.UnsignedDecimal(2) || row.UnsignedDecimal(3) != firstFlame.UnsignedDecimal(3) ||
+                row.Boolean01(4) != firstFlame.Boolean01(4)) throw row.Invalid(0, "ordered PART$36 poses with matching graphics");
+            flameAnimations[i] = row.RequiredString(5);
+        }
+        CandleFlame = new([firstFlame.RequiredString(1)], firstFlame.UnsignedDecimal(2), firstFlame.UnsignedDecimal(3),
+            firstFlame.Boolean01(4), flameAnimations);
+
+        var vireShots = GeneratedTable.Load("res://assets/oracle/effects/vire_projectile.tsv",
+            new GeneratedTableSchema("PART_VIRE_PROJECTILE $3a", GeneratedTableKeySemantics.Unique,
+                ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
+                ["animation-index"], headerRequired: true));
+        if (vireShots.Rows.Count != 2) throw new InvalidOperationException("PART$3a requires two animations, including part1c fallthrough.");
+        var firstShot = vireShots.Rows[0];
+        string[] shotAnimations = new string[2];
+        for (int i = 0; i < 2; i++)
+        {
+            var row = vireShots.Rows[i];
+            if (row.UnsignedDecimal(0) != i || row.RequiredString(1) != firstShot.RequiredString(1) ||
+                row.UnsignedDecimal(2) != firstShot.UnsignedDecimal(2) || row.UnsignedDecimal(3) != firstShot.UnsignedDecimal(3) ||
+                row.Boolean01(4) != firstShot.Boolean01(4)) throw row.Invalid(0, "ordered PART$3a animations with matching graphics");
+            shotAnimations[i] = row.RequiredString(5);
+        }
+        VireProjectile = new([firstShot.RequiredString(1)], firstShot.UnsignedDecimal(2), firstShot.UnsignedDecimal(3),
+            firstShot.Boolean01(4), shotAnimations);
 
         Color[,] colorGelPalette = OracleGraphicsData.LoadPalette(
             "res://assets/oracle/objects/color_changing_gel_palette.bin",
@@ -865,6 +921,13 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x2f),
         EnemyHandlerKind.Tektite =>
             HasImportedDefinition(descriptor, 0x30),
+        EnemyHandlerKind.WaterTektite => HasImportedDefinition(descriptor, 0x3a),
+        EnemyHandlerKind.GiantBladeTrap => HasImportedDefinition(descriptor, 0x2a),
+        EnemyHandlerKind.Bubble => HasImportedDefinition(descriptor, 0x15),
+        EnemyHandlerKind.Bari => HasImportedDefinition(descriptor, 0x3c),
+        EnemyHandlerKind.Floormaster => HasImportedDefinition(descriptor, 0x35),
+        EnemyHandlerKind.Wizzrobe => HasImportedDefinition(descriptor, 0x40),
+        EnemyHandlerKind.Candle => HasImportedDefinition(descriptor, 0x55),
         EnemyHandlerKind.Peahat =>
             HasImportedDefinition(descriptor, 0x3e),
         EnemyHandlerKind.ColorChangingGel =>

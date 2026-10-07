@@ -51,9 +51,10 @@ public partial class ValidationRoot
             _player.Face(Vector2I.Up);
             FailIf(_currentRoom.IsSolid(_player.Position),"Small-key chest must be reachable from its south floor.");
             int keys=_inventory.GetDungeonSmallKeys(5);
+            ApproachTileWall(batch);
             FailIf(!TryInteract(_player) || !_interactions.ChestRewardActive,
                 "Crown four-button chest must open through the normal interaction path.");
-            Step(32);
+            Step(34);
             FailIf(_inventory.GetDungeonSmallKeys(5)!=keys+1 || !_saveData.HasRoomFlag(4,0xbc,OracleSaveData.RoomFlagItem) ||
                 _entities.Entities<RetractableTriggerChestRoomEntity>().Count!=0,
                 "Source chestData$bc/$57 Small Key$30:$03 must grant once and retire the retractable controller.");

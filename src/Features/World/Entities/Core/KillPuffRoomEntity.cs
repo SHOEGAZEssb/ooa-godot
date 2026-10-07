@@ -22,3 +22,5 @@ internal sealed class KillPuffRoomEntity(KillEnemyPuffEffect puff)
     }
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame();
 }
+
+internal sealed record KillEnemyPuffSpawn(Vector2 Position, int ZHigh = 0) : RoomEntitySpawn;

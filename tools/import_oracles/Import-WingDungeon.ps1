@@ -208,6 +208,7 @@ Write-GeneratedTable(
 $tileIndexSource = Read-ImportText (
     Join-Path $Disassembly 'constants\common\tileIndices.s')
 $wingConstants = [ordered]@{
+    'standard-floor' = 0xa0
     'red-floor' = 0x9d
     'yellow-floor' = 0x9e
     'blue-floor' = 0x9f
@@ -235,6 +236,7 @@ $wingConstants = [ordered]@{
     'minecart-mount-push' = 4
 }
 $tileNames = [ordered]@{
+    'standard-floor' = 'TILEINDEX_STANDARD_FLOOR'
     'red-floor' = 'TILEINDEX_RED_FLOOR'
     'yellow-floor' = 'TILEINDEX_YELLOW_FLOOR'
     'blue-floor' = 'TILEINDEX_BLUE_FLOOR'

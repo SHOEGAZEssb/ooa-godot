@@ -42,8 +42,9 @@ public sealed partial class ValidationRoot
             int before = count();
             int otherKeys = _inventory.GetDungeonSmallKeys(4);
             int crownKeys = _inventory.GetDungeonSmallKeys(5);
+            ApproachTileWall();
             FailIf(!TryInteract(_player), "Minor Crown chest must open after an ordinary floor approach.");
-            StepGameplayUpdates(31, Vector2.Zero, batched: true);
+            StepGameplayUpdates(33, Vector2.Zero, batched: true);
             FailIf(count() != before, "Minor Crown chest must not grant its reward before the full32-update rise.");
             StepGameplayUpdates(1, Vector2.Zero);
             int expected = before + (chest.Rupees ? 50 : 1);
