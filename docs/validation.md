@@ -99,9 +99,9 @@ When changing source-backed runtime symbol definitions, also run
 `& .\tools\verify_runtime_symbols.ps1`. It checks annotated constants against
 the active vanilla Ages disassembly through the importer source repository,
 including enum order and game-specific definitions. It accepts `-Disassembly`
-for a checkout outside the default sibling directory. Runtime code never reads
-the disassembly. This check complements the gameplay regressions and does not
-replace them.
+for a checkout outside the pinned `external/oracles-disasm` submodule. Runtime
+code never reads the disassembly. This check complements the gameplay regressions
+and does not replace them.
 
 For a cold-start timing profile, run Godot with
 `--max-fps 60 -- --validate --profile-startup`.

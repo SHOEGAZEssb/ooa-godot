@@ -6,11 +6,14 @@ The importer converts the supported ROM and `oracles-disasm` sources into
 address-independent runtime assets under `assets/oracle/`. Production runtime
 code consumes those assets and never opens assembly files.
 
-Use the vanilla `master` disassembly; the supported reference revision is
-`842c5649b63f5b6fae8ffd55f80f45f86e9c10e7`. The default checkout is
-`..\oracles-disasm`, relative to the project root and resolved from the script's
-location regardless of the working directory. Keep that revision for reproducible imports;
-updating it requires reviewing generated differences and rerunning verification.
+The `external/oracles-disasm` submodule pins the vanilla `master` disassembly
+at the supported reference revision, `842c5649b63f5b6fae8ffd55f80f45f86e9c10e7`.
+Initialize it with `git submodule update --init --recursive`. This default path
+is relative to the project root and resolved from the script's location
+regardless of the working directory. Keep the pinned revision for reproducible
+imports; updating it requires reviewing generated differences and rerunning
+verification. `external/.gdignore` keeps source assets outside Godot's resource
+scan and exports.
 The importer does not require building the disassembly. `hack-base` is not a
 supported input: its expanded tilesets and CROSSITEMS behavior differ from the
 original game.

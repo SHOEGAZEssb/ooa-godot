@@ -1,5 +1,5 @@
 param(
-    [string]$Disassembly = (Join-Path $PSScriptRoot '..\..\oracles-disasm'),
+    [string]$Disassembly = (Join-Path $PSScriptRoot '..\external\oracles-disasm'),
     [string]$Rom = (Join-Path $PSScriptRoot `
         "..\Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc"),
     [ValidateRange(1, 2)][int]$Workers = 2,

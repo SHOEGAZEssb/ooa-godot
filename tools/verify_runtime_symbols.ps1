@@ -1,5 +1,5 @@
 param(
-    [string]$Disassembly = (Join-Path $PSScriptRoot '..\..\oracles-disasm')
+    [string]$Disassembly = (Join-Path $PSScriptRoot '..\external\oracles-disasm')
 )
 
 $ErrorActionPreference = 'Stop'

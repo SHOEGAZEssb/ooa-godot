@@ -6,13 +6,16 @@
 - .NET 8 SDK and PowerShell
 - A clean US Oracle of Ages ROM with MD5
   `C4639CC61C049E5A085526BB6CAC03BB`
-- A local vanilla `oracles-disasm` checkout (`master`, not `hack-base`)
+- The pinned vanilla `external/oracles-disasm` Git submodule
+
+Initialize the disassembly with `git submodule update --init --recursive`, or
+clone this repository with `--recurse-submodules`.
 
 The current environment uses:
 
 ```text
 Repository:     E:\Stuff\Github\ooa-godot
-Disassembly:    E:\Stuff\Github\oracles-disasm
+Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm
 Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
 
@@ -178,6 +181,7 @@ ownership and determinism checks, builds with warnings as errors, downloads the
 pinned Godot .NET version, runs the complete headless suite, rejects Godot
 warnings/errors, and runs `git diff --check`.
 
-Version and checksum pins for Godot, WLA-DX, and the disassembly must change
-together and pass the complete workflow. The temporary ROM is never uploaded as
-an artifact.
+Changes to version/checksum pins for Godot, WLA-DX, the ROM-build disassembly,
+or the import submodule revision must pass the complete workflow. CI imports
+from the checked-out submodule; a separate temporary checkout rebuilds the ROM.
+The temporary ROM is never uploaded as an artifact.

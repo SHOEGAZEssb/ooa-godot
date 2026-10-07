@@ -4,15 +4,17 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class WramAddress
 {
-    // include/wram.s: Ages object dispatch mask and menu/warp gate.
+    // include/wram.s: wDisabledObjects; Ages object dispatch mask.
     public const int wDisabledObjects = 0xcc8a;
+    // include/wram.s: wDisableLinkCollisionsAndMenu
     public const int wDisableLinkCollisionsAndMenu = 0xcbca;
+    // include/wram.s: wMenuDisabled
     public const int wMenuDisabled = 0xcc02;
-    // include/wram.s: copied by bank1.loadDungeonLayout_b01 from dungeonDataTable.
+    // include/wram.s: wDungeonWallmasterDestRoom; copied by bank1.loadDungeonLayout_b01 from dungeonDataTable.
     public const int wDungeonWallmasterDestRoom = 0xcc3e;
     // include/wram.s: wInformativeTextsShown (shared per-room hint masks).
     public const int wInformativeTextsShown = 0xccd7;
-    // include/wram.s: Ages wInShop, written by room graphics and shop scripts.
+    // include/wram.s: wInShop; written by Ages room graphics and shop scripts.
     public const int wInShop = 0xccd3;
     // include/wram.s: wDisableScreenTransitions (all bits gate underwater travel).
     public const int wDisableScreenTransitions = 0xcc91;
@@ -222,11 +224,11 @@ public static class WramAddress
     public const int wActiveCollisions = 0xcc33;
     // include/wram.s: wSeedTreeRefilledBitset
     public const int wSeedTreeRefilledBitset = 0xcc4d;
-    // include/wram.s: decremented by checkUseItems, written by enemyCode15.
+    // include/wram.s: wSwordDisabledCounter; decremented by checkUseItems, written by enemyCode15.
     public const int wSwordDisabledCounter = 0xcc59;
     // include/wram.s: wLinkPushingDirection
     public const int wLinkPushingDirection = 0xcc65;
-    // include/wram.s: shared interactWithTileBeforeLink countdown.
+    // include/wram.s: wPushingAgainstTileCounter; shared interactWithTileBeforeLink countdown.
     public const int wPushingAgainstTileCounter = 0xcc6a;
     // include/wram.s: wLinkRaisedFloorOffset
     public const int wLinkRaisedFloorOffset = 0xcc69;
@@ -253,8 +255,9 @@ public static class WramAddress
     public const int wLever1PullDistance = 0xccab;
     // include/wram.s: wLever2PullDistance
     public const int wLever2PullDistance = 0xccac;
-    // include/wram.s: Ages rotating-cube color (bit7: torches lit) and position.
+    // include/wram.s: wRotatingCubeColor; Ages rotating-cube color (bit7: torches lit).
     public const int wRotatingCubeColor = 0xccad;
+    // include/wram.s: wRotatingCubePos
     public const int wRotatingCubePos = 0xccae;
     // include/wram.s: wDisableWarps
     public const int wDisableWarps = 0xccb2;
@@ -274,7 +277,7 @@ public static class WramAddress
     public const int wcde0 = 0xcde0;
     // include/wram.s: wTmpcec0; shared movement, torch and placement scratch.
     public const int wTmpcec0 = 0xcec0;
-    // include/wram.s: eight packed-position/native-owner pairs.
+    // include/wram.s: wWizzrobePositionReservations; eight packed-position/native-owner pairs.
     public const int wWizzrobePositionReservations = 0xcee0;
     // include/wram.s: wTmpcfc0; this union's fields have subsystem-specific meanings.
     public const int wTmpcfc0 = 0xcfc0;

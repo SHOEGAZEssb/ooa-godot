@@ -22,7 +22,7 @@ Local paths:
 
 ```text
 Repository:     E:\Stuff\Github\ooa-godot
-Disassembly:    E:\Stuff\Github\oracles-disasm
+Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm (pinned submodule)
 Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
 
