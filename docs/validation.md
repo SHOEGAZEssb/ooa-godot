@@ -83,6 +83,10 @@ CI rebuilds the clean US ROM from a pinned disassembly revision, verifies its
 MD5, and passes it with `-Rom` to the complete 8-worker suite. Each worker also
 checks the ROM's size and SHA-256 before reference execution. CI uses
 `-FailOnEngineDiagnostics` to reject Godot errors or warnings in worker logs.
+The CI suite has a 30-minute deadline within a 45-minute job budget that also
+covers setup and import verification. Worker stdout, stderr, and engine logs
+are retained for 7 days in the `validation-worker-logs` artifact, including
+failed and timed-out runs.
 
 Use `tools/validate_parallel.ps1 -SkipRomValidation` for an explicit run without
 ROM-dependent scenarios. Mark these scenarios with `requiresRom: true` in the

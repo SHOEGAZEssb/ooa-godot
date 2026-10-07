@@ -37,7 +37,7 @@ jobs:
   validate:
     name: Build and headless validation
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
@@ -131,12 +131,25 @@ jobs:
 
       - name: Run complete headless validation
         shell: pwsh
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
         run: |
           & .\tools\validate_parallel.ps1 `
               -Godot $env:GODOT_CONSOLE `
               -Rom $env:ORACLES_ROM `
               -Workers 8 `
+              -TimeoutSeconds 1800 `
               -FailOnEngineDiagnostics
+
+      - name: Upload validation worker logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: validation-worker-logs
+          path: ${{ runner.temp }}/ooa-validation-*/*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Check patch whitespace
         shell: pwsh
