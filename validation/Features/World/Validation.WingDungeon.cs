@@ -9,6 +9,9 @@ public sealed partial class ValidationRoot
 {
     private void ValidateWingDungeon()
     {
+        CompareDungeonStateConsumersRom();
+        CompareMinecartGateSignalsRom();
+        CompareDungeonStateScrollRom();
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
         static bool IsGbcColor(Color color, int red, int green, int blue)
         {
@@ -77,7 +80,10 @@ public sealed partial class ValidationRoot
         void Step(int count = 1)
         {
             for (int frame = 0; frame < count; frame++)
+            {
                 _entities.Update(update, _player);
+                _rooms.UpdateChangedTileGraphics(1);
+            }
         }
 
         static Vector2 PackedPoint(int packedPosition) => new(
@@ -443,9 +449,8 @@ public sealed partial class ValidationRoot
         _random.RestoreState(colorGelRandomState);
         _player.WarpTo(colorGelPlayerPosition, recordSafe: false);
 
-        // INTERAC_PUSHBLOCK checks the room-local wRotatingCubePos/color
-        // state before it replaces the source tile or requests SND_MOVEBLOCK.
-        // Room $42 derives that state from the toggle floor at $27.
+        // Room $42 derives cube input from the toggle floor at $27.
+        // ValidatePushBlocks owns the native $14 permission/countdown path.
         PrepareRoom(0x42);
         OracleRoomData coloredBlockRoom = _currentRoom;
         Vector2 colorSource = PackedPoint(0x27);
@@ -455,86 +460,12 @@ public sealed partial class ValidationRoot
         coloredBlockRoom.SetPositionTileAndCollision(
             colorSource, 0xaf, null, (long)_animationTicks);
         Step();
-        FailIf(
+        var floorCubeState = _entities.Entities<DungeonStateController>().Single().ColoredCubePuzzleState;
+        FailIf(floorCubeState.CubePosition != 0x57 || floorCubeState.CubeColor != 0x82 ||
             _entities.Entities<ColoredCubeFlameRoomEntity>() is not
                 [{ Palette: 2 }],
             "Room 4:42 did not select blue after its color-source floor changed.");
 
-        Vector2 redBlock = PackedPoint(0x3c);
-        Vector2 belowRedBlock = redBlock + new Vector2(0, 10);
-        Vector2 blueBlock = PackedPoint(0x7c);
-        Vector2 aboveBlueBlock = blueBlock + new Vector2(0, -10);
-        _sound.ClearPlayRequestAudit();
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _pushBlocks.UpdatePushAttempt(
-                belowRedBlock, Vector2I.Up, Vector2.Up);
-        }
-        FailIf(
-            _pushBlocks.Active ||
-            _pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames ||
-            coloredBlockRoom.GetMetatile(redBlock) != 0x2c ||
-            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 0,
-            "Room 4:42 allowed a red block to move while blue was selected.");
-
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _pushBlocks.UpdatePushAttempt(
-                aboveBlueBlock, Vector2I.Down, Vector2.Down);
-        }
-        _pushBlocks.Advance(update);
-        FailIf(
-            !_pushBlocks.Active ||
-            coloredBlockRoom.GetMetatile(blueBlock) != 0xa0 ||
-            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1,
-            "Room 4:42 did not move a blue block while blue was selected.");
-        for (int frame = 1; frame < PushBlockController.MoveFrames; frame++)
-            _pushBlocks.Advance(update);
-        FailIf(
-            _pushBlocks.Active ||
-            coloredBlockRoom.GetMetatile(blueBlock + Vector2.Down * 16) != 0x2e,
-            "Room 4:42's selected blue block did not complete its push.");
-
-        // interaction21_subid01's first byte is the authoritative expected
-        // tile. Despite its stale "red" comment, $ae requires yellow at $67
-        // and $77; the initial red/blue arrangement must not drop the key.
-        PrepareRoom(0x2e);
-        OracleRoomData floorPatternRoom = _currentRoom;
-        DungeonPatternKeyRoomEntity floorPattern =
-            _entities.Entities<DungeonPatternKeyRoomEntity>().Single();
-        foreach (int position in new[] { 0x67, 0x77 })
-        {
-            floorPatternRoom.SetPositionTileAndCollision(
-                PackedPoint(position), 0xad, null, (long)_animationTicks);
-        }
-        foreach (int position in new[] { 0x68, 0x78 })
-        {
-            floorPatternRoom.SetPositionTileAndCollision(
-                PackedPoint(position), 0xaf, null, (long)_animationTicks);
-        }
-        Step();
-        FailIf(
-            floorPattern.Finished ||
-            _entities.Entities<GroundTreasurePickup>().Count != 0,
-            "Room 4:2e incorrectly dropped its key for the unsolved red/blue pattern.");
-        floorPatternRoom.SetPositionTileAndCollision(
-            PackedPoint(0x67), 0xae, null, (long)_animationTicks);
-        Step();
-        FailIf(
-            floorPattern.Finished ||
-            _entities.Entities<GroundTreasurePickup>().Count != 0,
-            "Room 4:2e accepted only one of its two required yellow tiles.");
-        floorPatternRoom.SetPositionTileAndCollision(
-            PackedPoint(0x77), 0xae, null, (long)_animationTicks);
-        Step();
-        FailIf(
-            !floorPattern.Finished ||
-            _entities.Entities<GroundTreasurePickup>() is not
-                [{
-                    Record.SpawnMode: 2,
-                    Record.TreasureObject: "TREASURE_OBJECT_SMALL_KEY_01"
-                }],
-            "Room 4:2e did not drop one falling Small Key for the exact yellow/blue pattern.");
 
         _dialogue.Close();
         _player.EndCutsceneControl();
@@ -614,6 +545,7 @@ public sealed partial class ValidationRoot
         _entities.RuntimeState.SetWramByte(
             OracleRuntimeState.SwitchStateAddress, 0x00);
         PrepareRoom(0x2f);
+        Step();
         DungeonSwitchRoomEntity dungeonSwitch =
             _entities.Entities<DungeonSwitchRoomEntity>().Single();
         MinecartGateRoomEntity minecartGate =
@@ -664,152 +596,24 @@ public sealed partial class ValidationRoot
             $"${_currentRoom.GetTerrainInfo(gateObjectPoint).Collision:x2}).");
 
         Step(); // INTERAC_SWITCH_TILE_TOGGLER state0 samples the initial switch byte.
-        _sound.ClearPlayRequestAudit();
-        bool distantSwitchContact = _entities.ApplySwordHit(
-            new Rect2(new Vector2(8, 8), Vector2.One),
-            sourcePosition: new Vector2(8, 8),
-            damage: 2,
-            knockbackStrength: EnemyKnockbackStrength.Low,
-            collectItemDrops: false,
-            swordState: SwordActionState.Held,
-            swordLevel: 1,
-            itemZ: -2);
-        bool highSwitchContact = _entities.ApplySwordHit(
-            dungeonSwitch.CollisionBounds,
-            sourcePosition: dungeonSwitch.Position,
-            damage: 2,
-            knockbackStrength: EnemyKnockbackStrength.Low,
-            collectItemDrops: false,
-            swordState: SwordActionState.Held,
-            swordLevel: 1,
-            itemZ: 8);
-        bool switchReportsSwordContact = _entities.ApplySwordHit(
-            dungeonSwitch.CollisionBounds,
-            sourcePosition: dungeonSwitch.Position,
-            damage: 2,
-            knockbackStrength: EnemyKnockbackStrength.Low,
-            collectItemDrops: false,
-            swordState: SwordActionState.Held,
-            swordLevel: 1,
-            itemZ: -2);
-        FailIf(
-            distantSwitchContact || highSwitchContact ||
-            switchReportsSwordContact ||
-            _entities.RuntimeState.ReadWramByte(
-                OracleRuntimeState.SwitchStateAddress) != 0x02 ||
-            dungeonSwitch.HitLockout != 28 ||
-            _currentRoom.GetMetatile(switchPoint) != 0x0b ||
-            _sound.PlayRequestsFor(SoundId.SndSwitch) != 1,
-            "PART_SWITCH $05:$02 did not use its exact planar/Z collision, " +
-            "LINKDMG_1c no-contact response, on tile, sound, and 28-update lockout.");
+        // Item contacts are compared with the ROM in the switch scenario.
+        // This fixture declares the publication to isolate room$4:$2f's
+        // distinct switch-tile consumer and unrelated minecart gate.
+        _entities.RuntimeState.SetWramByte(OracleRuntimeState.SwitchStateAddress,0x02);
         Step();
-        FailIf(
-            dungeonSwitch.HitLockout != 27 ||
-            _currentRoom.GetMetatile(toggledTilePoint) != 0x5a ||
+        FailIf(_currentRoom.GetMetatile(toggledTilePoint) != 0x5a ||
             !minecartGate.Open || minecartGate.Animating,
-            "Room 4:2f's switch-tile toggler did not observe bit $02 on the " +
-            "following interaction update, or incorrectly changed bit-$10's gate.");
+            "Room$4:$2f's toggler must observe bit$02 without changing bit$10's gate.");
+        _entities.RuntimeState.SetWramByte(OracleRuntimeState.SwitchStateAddress,0);
+        Step();
+        FailIf(_currentRoom.GetMetatile(toggledTilePoint) != 0x5c,
+            "Room$4:$2f's toggler must restore its inactive tile when bit$02 clears.");
 
-        _entities.ApplySwordHit(
-            dungeonSwitch.CollisionBounds,
-            dungeonSwitch.Position,
-            damage: 2);
-        Step(26);
-        _entities.ApplySwordHit(
-            dungeonSwitch.CollisionBounds,
-            dungeonSwitch.Position,
-            damage: 2);
-        FailIf(
-            dungeonSwitch.HitLockout != 1 ||
-            _entities.RuntimeState.ReadWramByte(
-                OracleRuntimeState.SwitchStateAddress) != 0x02 ||
-            _sound.PlayRequestsFor(SoundId.SndSwitch) != 1,
-            "PART_SWITCH accepted another collision before ENEMYDMG_34's " +
-            "signed 28-update lockout reached zero.");
-        Step();
-        _entities.ApplySwordHit(
-            dungeonSwitch.CollisionBounds,
-            dungeonSwitch.Position,
-            damage: 2);
-        Step();
-        FailIf(
-            _entities.RuntimeState.ReadWramByte(
-                OracleRuntimeState.SwitchStateAddress) != 0x00 ||
-            dungeonSwitch.HitLockout != 27 ||
-            _currentRoom.GetMetatile(switchPoint) != 0x0a ||
-            _currentRoom.GetMetatile(toggledTilePoint) != 0x5c ||
-            _sound.PlayRequestsFor(SoundId.SndSwitch) != 2,
-            "PART_SWITCH did not become hittable on update 28 and restore " +
-            "its own and INTERAC_SWITCH_TILE_TOGGLER's inactive tiles.");
-
-        var gateVisuals = new DungeonInteractionVisualDatabase();
-        DungeonInteractionVisual gateVisual = gateVisuals.Visual("minecart-gate");
-        AnimationDefinition gateClosingAnimation =
-            OracleGraphicsCache.GetAnimationDefinition(gateVisual.Animations[0]);
-        AnimationDefinition gateOpeningAnimation =
-            OracleGraphicsCache.GetAnimationDefinition(gateVisual.Animations[1]);
-        FailIf(
-            gateVisual.TileBase != 0x10 || gateVisual.Palette != 0 ||
-            gateVisual.Animations.Length != 4 ||
-            gateClosingAnimation.Frames is not
-            [
-                { Duration: 8, Parameter: 0 },
-                { Duration: 8, Parameter: 0 },
-                { Duration: 8, Parameter: 0xff }
-            ] ||
-            gateOpeningAnimation.Frames is not
-            [
-                { Duration: 8, Parameter: 0 },
-                { Duration: 8, Parameter: 0 },
-                { Duration: 8, Parameter: 0xff }
-            ],
-            "INTERAC_MINECART_GATE lost its source graphics, palette, or " +
-            "direction-$00 8/8/8 closing and reverse opening animations.");
-
-        _sound.ClearPlayRequestAudit();
-        _entities.RuntimeState.SetWramByte(
-            OracleRuntimeState.SwitchStateAddress, 0x10);
-        Step();
-        FailIf(
-            minecartGate.Open || !minecartGate.Animating ||
-            minecartGate.CurrentAnimationIndex != 0 ||
-            minecartGate.CurrentAnimationFrame != 0 ||
-            _currentRoom.GetMetatile(gateTilePoint) != 0x5e ||
-            OracleGraphicsCache.PixelHash(
-                _currentRoom.BuildMimickedMetatileTexture(
-                    gateTilePoint).GetImage()) != originalGateTileHash ||
-            _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x00 ||
-            _currentRoom.GetTerrainInfo(gateObjectPoint).Collision != 0x0a ||
-            _sound.PlayRequestsFor(SoundId.SndOpenGate) != 1,
-            "Room 4:2f's bit-$10 gate did not close its tile/collision " +
-            "immediately and start direction-$00 animation with SND_OPENGATE.");
-        _entities.RuntimeState.SetWramByte(
-            OracleRuntimeState.SwitchStateAddress, 0x00);
-        Step(16);
-        FailIf(
-            minecartGate.Open || minecartGate.Animating ||
-            minecartGate.CurrentAnimationFrame != 2 ||
-            _currentRoom.GetMetatile(gateTilePoint) != 0x5e ||
-            _sound.PlayRequestsFor(SoundId.SndOpenGate) != 1,
-            "INTERAC_MINECART_GATE reacted to a switch change before its " +
-            "8/8 closing animation reached parameter $ff.");
-        Step();
-        FailIf(
-            !minecartGate.Open || !minecartGate.Animating ||
-            minecartGate.CurrentAnimationIndex != 1 ||
-            minecartGate.CurrentAnimationFrame != 0 ||
-            _currentRoom.GetMetatile(gateTilePoint) != 0x00 ||
-            OracleGraphicsCache.PixelHash(
-                _currentRoom.BuildMimickedMetatileTexture(
-                    gateTilePoint).GetImage()) != originalGateTileHash ||
-            _currentRoom.GetTerrainInfo(gateTilePoint).Collision != 0x0c ||
-            _sound.PlayRequestsFor(SoundId.SndOpenGate) != 2,
-            "INTERAC_MINECART_GATE did not apply the deferred opening state " +
-            "and reverse animation on the update after closing completed.");
 
         _entities.RuntimeState.SetWramByte(
             OracleRuntimeState.SwitchStateAddress, 0x02);
         PrepareRoom(0x2f);
+        Step();
         FailIf(
             _currentRoom.GetMetatile(switchPoint) != 0x0b ||
             _currentRoom.GetMetatile(toggledTilePoint) != 0x5a ||
@@ -825,6 +629,7 @@ public sealed partial class ValidationRoot
         _entities.RuntimeState.SetWramByte(
             OracleRuntimeState.SwitchStateAddress, 0x10);
         PrepareRoom(0x2f);
+        Step();
         minecartGate = _entities.Entities<MinecartGateRoomEntity>().Single();
         FailIf(
             minecartGate.Open || minecartGate.Animating ||
@@ -870,6 +675,7 @@ public sealed partial class ValidationRoot
         _entities.RuntimeState.SetWramByte(
             OracleRuntimeState.SwitchStateAddress, 0x20);
         PrepareRoom(0x3b);
+        Step();
         Vector2 floorSwitchPoint = PackedPoint(0x79);
         Vector2 derivedGateFirstPoint = PackedPoint(0x7a);
         Vector2 derivedGatePoint = PackedPoint(0x7b);
@@ -886,42 +692,11 @@ public sealed partial class ValidationRoot
             "Room 4:3b did not run its ordered red-floor -> bit-$20 -> " +
             "direction-$02 gate initialization before exposing the room.");
 
-        // Cross packed floor $79 with a real top-down Feather jump. Landing
-        // on the far side cycles red $ad -> yellow $ae through both setTile
-        // and setTileInRoomLayoutBuffer while leaving the gate open.
-        ToggleFloorRoomEntity toggleFloor =
-            _entities.Entities<ToggleFloorRoomEntity>().Single();
-        _inventory.GiveTreasure(TreasureId.Feather, 1);
-        // Link's source toggle-floor center window samples yh+$05; one pixel
-        // above the metatile center lands on its inclusive upper endpoint.
-        _player.WarpTo(
-            PackedPoint(0x78) + Vector2.Up, recordSafe: false);
+        // Native Feather/sensor/gate handoffs run in the colored-floor fixture.
+        // Declare its completed yellow floor for this separate room-persistence check.
+        _currentRoom.SetPositionTileAndCollision(floorSwitchPoint, 0xae, null, 0);
+        _currentRoom.SetUnderlyingMetatile(floorSwitchPoint, 0xae);
         Step();
-        _player.AdvanceTopDownAirUpdateForValidation(startJump: true);
-        Step();
-        _player.ApplyMovingPlatformDisplacement(Vector2.Right * 16.0f);
-        Step();
-        FailIf(
-            toggleFloor.PendingCount != 1 ||
-            _currentRoom.GetMetatile(floorSwitchPoint) != 0xad,
-            "Room 4:3b did not queue toggle-floor $79 while Link crossed it in air.");
-        _player.ApplyMovingPlatformDisplacement(Vector2.Right * 16.0f);
-        for (int frame = 0;
-             frame < 120 && _player.TopDownAirborne;
-             frame++)
-        {
-            _player.AdvanceTopDownAirUpdateForValidation();
-        }
-        Step();
-        FailIf(
-            _player.TopDownAirborne || toggleFloor.PendingCount != 0 ||
-            _currentRoom.GetMetatile(floorSwitchPoint) != 0xae ||
-            _currentRoom.GetUnderlyingMetatile(floorSwitchPoint) != 0xae ||
-            (_entities.RuntimeState.ReadWramByte(
-                OracleRuntimeState.SwitchStateAddress) & 0x20) != 0 ||
-            !minecartGate.Open || minecartGate.Animating,
-            "Room 4:3b did not retain its yellow $ae toggle floor and open " +
-            "bit-$20 gate after Link landed beyond packed tile $79.");
 
         _transitions.BeginScroll(_player, Vector2I.Up, 0x35);
         CompleteTransition();
@@ -1151,53 +926,10 @@ public sealed partial class ValidationRoot
             "Minecart boarding lost the exact falling-Z handoff, moving " +
             "animation selection, priority-group ordering, or jump/land sounds.");
 
-        int equippedA = _inventory.EquippedA;
-        int equippedB = _inventory.EquippedB;
-        Vector2 rideInputStart = _player.PrecisePosition;
+        // Native A/B Sword boarding, riding and dismount comparisons cover
+        // the item handoff; this fixture retains the original room track loop.
         int rideStartTile = _currentRoom.GetMetatile(minecart.Position);
         int rideStartDirection = minecart.Direction;
-        _inventory.EquipA(TreasureId.Sword);
-        _player.Face(Vector2I.Left);
-        _player.StartSwordAttackForValidation(Vector2.Zero);
-        _player.UpdateMinecartRideDirection(Vector2.Right);
-        try
-        {
-            _player._PhysicsProcess(update);
-        }
-        finally
-        {
-            _inventory.EquipA(equippedA);
-            _inventory.EquipB(equippedB);
-        }
-        FailIf(
-            !_player.MinecartRideActive ||
-            _player.FacingVector != Vector2I.Right ||
-            !_player.IsAttacking ||
-            _player.PrecisePosition != rideInputStart ||
-            _entities.PlayerSwordDisabled ||
-            _entities.PlayerItemUsageDisabled ||
-            _entities.PlayerMenusDisabled,
-            "linkState01 did not accept direction and ITEM_SWORD input while " +
-            "SPECIALOBJECT_MINECART retained sole movement ownership " +
-            $"(ride={_player.MinecartRideActive}, " +
-            $"facing={_player.FacingVector}, attacking={_player.IsAttacking}, " +
-            $"start={rideInputStart}, position={_player.PrecisePosition}, " +
-            $"swordDisabled={_entities.PlayerSwordDisabled}, " +
-            $"itemsDisabled={_entities.PlayerItemUsageDisabled}, " +
-            $"menusDisabled={_entities.PlayerMenusDisabled}).");
-        _player.AdvanceSwordForValidation(6, buttonHeld: false);
-        FailIf(
-            _player.SwordState != SwordActionState.Swing ||
-            // The preceding Link update advances the existing parent before
-            // reading immobilization, then these six parent updates follow.
-            _player.SwordStateFrame != 7 ||
-            _player.AttackSpriteOrigin != new Vector2(-8, -8),
-            "Minecart LINK_ANIM_MODE_26 did not retain its standard body " +
-            "origin through the $cc phase " +
-            $"(state={_player.SwordState}, frame={_player.SwordStateFrame}, " +
-            $"origin={_player.AttackSpriteOrigin}).");
-        _player.AdvanceSwordForValidation(32, buttonHeld: false);
-        _player._PhysicsProcess(update);
 
         int firstRideFrame = minecart.CurrentAnimationFrame;
         Step(5);

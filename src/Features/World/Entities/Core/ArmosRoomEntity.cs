@@ -14,12 +14,13 @@ internal sealed class ArmosRoomEntity
     private readonly ArmoredSwordAttackerKnockbackProfile _attackerKnockback =
         EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
     private SwordActionState _swordState;
-    private int _swordLevel;
+    private int _swordCollision=ItemCollisionType.L1Sword;
 
     public override int DimitriCollisionMode => Entity.ActiveCollisionMode;
     public override int DimitriCollisionType => 0x1d;
+    public override BombchuTarget BombchuTarget => new(Entity.Record.Id, Entity.Visible, Entity.Position, Entity.CollisionBounds, Entity.Health);
 
-    internal ArmosRoomEntity(ArmosCharacter armos)
+    internal ArmosRoomEntity(ArmosCharacter armos, Action<int>? soundRequested = null)
         : base(
             armos,
             armos.SetTransitionDrawOffset,
@@ -34,10 +35,12 @@ internal sealed class ArmosRoomEntity
                     armos.Record.DamageQuarters,
                     () => armos.IsDead && !armos.DiedInHazard
                         ? new EnemyDeathPuffSpawn(armos.Position, EnemyId: EnemyId.Armos)
-                        : null),
+                        : null,
+                    armos.ApplySwordKnockback),
                 countsAsEnemy: true,
                 killableEnemyIndex: 0,
-                completedOutcome: RoomEnemyOutcome.EnemyDieUncounted))
+                completedOutcome: RoomEnemyOutcome.EnemyDieUncounted,
+                soundRequested: soundRequested))
     {
     }
 
@@ -45,10 +48,10 @@ internal sealed class ArmosRoomEntity
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) => Entity.UpdateFrame();
 
-    public void SetLinkSwordState(SwordActionState state, int swordLevel)
+    public void SetLinkSwordState(SwordActionState state, int swordLevel,int? itemCollisionType=null)
     {
         _swordState = state;
-        _swordLevel = swordLevel;
+        _swordCollision = itemCollisionType??SwordCollision.Type(state,swordLevel);
     }
 
     public override bool ApplySwordHit(
@@ -58,7 +61,19 @@ internal sealed class ArmosRoomEntity
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
-        int collisionType = SwordCollision.Type(_swordState, _swordLevel);
+        int collisionType = _swordCollision;
+        if (collisionType == ItemCollisionType.BiggoronSword)
+        {
+            RequireCollisionEffect(collisionType, CollisionEffect.SwordLowKnockback);
+            bool accepted = base.ApplySwordHit(hitbox, sourcePosition, damage,
+                EnemyKnockbackStrength.Low, spawns);
+            if (accepted)
+            {
+                Entity.DeferNativeHitStatus();
+                CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
+            }
+            return accepted;
+        }
         int expectedEffect = _swordState == SwordActionState.Spin
             ? CollisionEffect.Effect16
             : CollisionEffect.Effect15;
@@ -162,6 +177,14 @@ internal sealed class ArmosRoomEntity
         ICollection<RoomEntitySpawn> spawns)
     {
         RequireCollisionEffect(collisionType, expectedEffect);
+        if (expectedEffect == CollisionEffect.SwordNoKnockback)
+        {
+            if (!RoomEntityManager.ObjectCollisionXYOverlaps(hitbox, Entity.CollisionBounds) ||
+                !Entity.TakeDeferredNoKnockbackHit(sourcePosition, damage)) return false;
+            Entity.DeferNativeHitStatus();
+            CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
+            return true;
+        }
         return CombatDescriptor.Combat.ApplySwordHit(
             hitbox,
             sourcePosition,

@@ -11,8 +11,8 @@ internal sealed partial class TileFillerRoomEntity : Node2D, IRoomEntity, IFixed
     private readonly OracleRoomData _room;
     private readonly DungeonInteractionDatabase _data;
     private readonly Action<int> _playSound;
-    private readonly Action _roomTileChanged;
-    private readonly Func<long> _animationTick;
+    private readonly Func<byte, byte, bool> _setTile;
+    private readonly Func<Vector2, bool> _createPuff;
     private bool _initialized;
     private int _endpoint;
 
@@ -22,13 +22,13 @@ internal sealed partial class TileFillerRoomEntity : Node2D, IRoomEntity, IFixed
     internal int Endpoint => _endpoint;
 
     internal TileFillerRoomEntity(DungeonObjectRecord record, OracleRoomData room, DungeonInteractionDatabase data,
-        Action<int> playSound, Action roomTileChanged, Func<long> animationTick)
+        Action<int> playSound, Func<byte, byte, bool> setTile, Func<Vector2, bool> createPuff)
     {
         _room = room;
         _data = data;
         _playSound = playSound;
-        _roomTileChanged = roomTileChanged;
-        _animationTick = animationTick;
+        _setTile = setTile;
+        _createPuff = createPuff;
         Position = record.Position;
         _endpoint = room.GetPackedPosition(Position);
         Name = "TileFiller";
@@ -42,7 +42,9 @@ internal sealed partial class TileFillerRoomEntity : Node2D, IRoomEntity, IFixed
         {
             _initialized = true;
             SetTile(_endpoint, _data.Constant("yellow-floor"));
-            spawns.Add(new PuzzlePuffSpawn(Position, SoundId.SndPoof));
+            // getFreeInteractionSlot runs before state1 fallthrough; failure
+            // leaves the initialized owner alive without retrying the puff.
+            _createPuff(Position);
         }
         Vector2 link = OracleObjectMath.ToPixelPosition(frame.Player.Position);
         int packed = (((int)link.Y + 5) & 0xf0) | (((int)link.X >> 4) & 15);
@@ -58,8 +60,7 @@ internal sealed partial class TileFillerRoomEntity : Node2D, IRoomEntity, IFixed
 
     private void SetTile(int packed, int tile)
     {
-        _room.SetPositionTileAndCollision(Point(packed), (byte)tile, null, _animationTick());
-        _roomTileChanged();
+        _setTile((byte)packed, (byte)tile);
     }
 
     private static Vector2 Point(int packed) => new((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8);

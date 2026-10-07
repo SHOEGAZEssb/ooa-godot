@@ -52,10 +52,13 @@ public sealed partial class ValidationRoot
             {
                 _currentRoom.SetPositionTileAndCollision(drop.Position + new Vector2(0, 5), 0xf3, 0, 0);
                 // The removed PART creates INTERAC$0f before the interaction
-                // pass. It moves right toward x=$88 at SPEED_060.
-                expected = [0, 0, 0x60, 0];
+                // pass. Its state0 returns without a movement scratch write;
+                // the next update moves right toward x=$88 at SPEED_060.
+                expected = [0xa5, 0xa5, 0xa5, 0xa5];
                 for (int i = 0; i < 4; i++) _runtimeState.SetWramByte(0xcec0 + i, 0xa5);
-                StepGameplayUpdates(2, Vector2.Zero, batched: batch);
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
+                expected = [0, 0, 0x60, 0];
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
                 FailIf(!drop.Finished || drop.FinishedHazard != HazardType.Hole || observations != 4,
                     "Grounded drops must be removed by a hole before another conveyor write.");
             }

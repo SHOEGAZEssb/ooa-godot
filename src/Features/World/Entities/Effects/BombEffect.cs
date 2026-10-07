@@ -35,17 +35,17 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     private AnimationFrameDefinition[] _explosionFrames = null!;
     private Texture2D[] _fuseTextures = null!;
     private Texture2D[] _explosionTextures = null!;
-    private Vector2 _precisePosition;
+    private protected Vector2 _precisePosition;
     private Vector2I _throwDirection;
     private BombState _state;
     private int _group;
-    private int _zFixed;
-    private int _speedZ;
+    private protected int _zFixed;
+    private protected int _speedZ;
     private int _sideScrollYFixed;
     private bool _sideScrollMerged;
     private bool _sideScrollGroundCollisionLastUpdate;
-    private int _speedRaw;
-    private OracleRuntimeState? _movementMemory;
+    private protected int _speedRaw;
+    private protected OracleRuntimeState? _movementMemory;
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private int _frameIndex;
     private int _frameCounter;
@@ -582,7 +582,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
         return true;
     }
 
-    private void InitializeExplosion()
+    private protected void InitializeExplosion(int? initialRadius = null)
     {
         ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // bombs.s: objectSetVisible80.
         _state = BombState.Exploding;
@@ -593,14 +593,14 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
             _record.BaseDamage,
             _inventory);
         _explosionCollisionEnabled = true;
-        _explosionRadius = _record.RadiusY;
+        _explosionRadius = initialRadius ?? _record.RadiusY;
         _linkHit = false;
         _playSound(_record.ExplosionSound);
         Visible = true;
         QueueRedraw();
     }
 
-    private void UpdateExplosion(
+    private protected void UpdateExplosion(
         Player player,
         ICollection<RoomEntitySpawn> spawns)
     {
@@ -713,10 +713,20 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
         QueueRedraw();
     }
 
-    private void SyncPosition()
+    private protected void SyncPosition()
     {
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
+    }
+
+    private protected void ActivateIndependentItem()
+    {
+        _setupPending = false;
+        _heldBy = null;
+        _heldExplosion = null;
+        _state = BombState.Grounded;
+        Visible = true;
+        SyncPosition();
     }
 
     private void CopyHeldPosition(Player player, Vector2I offset)

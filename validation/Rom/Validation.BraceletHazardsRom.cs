@@ -17,18 +17,19 @@ public sealed partial class ValidationRoot
         Vector2 nativePosition = new(rom[slot + 0xd], rom[slot + 0xb]);
         var debris = _entities.Entities<RockDebrisEffect>();
         var falling = _entities.Entities<FallingDownHoleEffect>();
+        var splashes = _entities.Entities<SplashEffect>();
         if (id is 0x06 or 0x0c)
             FailIf(debris.Count != 1 || debris[0].Position != nativePosition ||
-                falling.Count != 0 || _terrain.ActiveSplashCount != 0,
+                falling.Count != 0 || splashes.Count != 0,
                 $"{context}: debris interaction ${id:x2} must start at native high-byte position {nativePosition}, got [{string.Join(',', debris.Select(d => d.Position))}].");
         else if (id is 0x03 or 0x04)
-            FailIf(_terrain.ActiveSplashCount != 1 || _terrain.ActiveSplash!.Position != nativePosition ||
-                _terrain.ActiveSplash.IsLava != (id == 0x04) || debris.Count != 0 || falling.Count != 0,
+            FailIf(splashes.Count != 1 || splashes[0].Position != nativePosition ||
+                splashes[0].IsLava != (id == 0x04) || debris.Count != 0 || falling.Count != 0,
                 $"{context}: splash interaction ${id:x2} must start at native position {nativePosition} without debris.");
         else if (id == 0x0f)
             // Runtime interactions have already advanced in this gameplay
             // update. This bounded ROM fixture stops at their allocation.
-            FailIf(falling.Count != 1 || debris.Count != 0 || _terrain.ActiveSplashCount != 0,
+            FailIf(falling.Count != 1 || debris.Count != 0 || splashes.Count != 0,
                 $"{context}: falling interaction $0f must replace the child without debris or splash.");
         else
             throw new InvalidOperationException($"{context}: unsupported native impact interaction ${id:x2}.");

@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -7,60 +8,57 @@ public partial class SplashEffect : FixedEffectNode2D
     private const int WaterFrameDuration = 4;
     private const int LavaFrameDuration = 2;
     private Texture2D _texture = null!;
-    private double _frames;
+    private int _frames;
     private int _frameCount;
     private int _frameDuration;
-    private bool _autoFree;
+    private Action<int> _playSound = null!;
 
     public bool IsLava { get; private set; }
     internal override bool Finished { get; private protected set; }
     internal int AnimationFrame => Mathf.Min((int)(_frames / _frameDuration), _frameCount - 1);
     internal int DurationFrames => _frameCount * _frameDuration;
+    internal bool Initialized { get; private set; }
+    internal int AnimationCounter => _frames >= DurationFrames ? 0x7f :
+        _frameDuration - (int)_frames % _frameDuration;
+    internal byte CurrentParameter => _frames >= DurationFrames ? (byte)0xff : (byte)0;
 
-    public void Initialize(
-        Vector2 position,
-        HazardType hazard,
-        bool autoFree = true)
+    internal void InitializeNative(Vector2 position, HazardType hazard, Action<int> playSound)
     {
-        Position = position;
+        Position = position.Floor();
         IsLava = hazard == HazardType.Lava;
         Finished = false;
-        Visible = true;
+        Visible = false;
+        Initialized = false;
+        _playSound = playSound;
         _frames = 0;
-        _autoFree = autoFree;
         _frameCount = IsLava ? LavaParts.Length : WaterParts.Length;
         _frameDuration = IsLava ? LavaFrameDuration : WaterFrameDuration;
         _texture = BuildTexture(IsLava);
         QueueRedraw();
     }
 
-    public override void _PhysicsProcess(double delta) => Advance(delta);
-
-    internal void Advance(double delta)
+    internal override void UpdateFrame()
     {
         if (Finished)
             return;
-        _frames += delta * 60.0;
-        if (_frames >= DurationFrames)
+        // breakTileDebris.s state0 sets graphics/visibility and requests the
+        // ID-table cue, then returns. State1 checks the preceding terminal
+        // parameter before advancing, retaining that last frame one update.
+        if (!Initialized)
+        {
+            Initialized = true;
+            Visible = true;
+            _playSound(SoundId.SndSplash);
+            return;
+        }
+        if ((CurrentParameter & 0x80) != 0)
         {
             Finished = true;
             Visible = false;
-            if (_autoFree)
-                QueueFree();
             return;
         }
+        _frames++;
         QueueRedraw();
-    }
-
-    internal override void UpdateFrame() => Advance(1.0 / 60.0);
-
-    internal void StopImmediately()
-    {
-        if (Finished)
-            return;
-        Finished = true;
-        Visible = false;
-        QueueFree();
     }
 
     public override void _Draw()

@@ -47,8 +47,8 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
         if (player.RequestLikeLikeGrab()) Entity.MarkCapture();
     }
 
-    public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = SwordCollision.Type(state, level);
+    public void SetLinkSwordState(SwordActionState state, int level,int? itemCollisionType=null) =>
+        _swordCollision = itemCollisionType??SwordCollision.Type(state, level);
     public override bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns) =>
         Hit(_swordCollision, hitbox, sourcePosition, damage, spawns);

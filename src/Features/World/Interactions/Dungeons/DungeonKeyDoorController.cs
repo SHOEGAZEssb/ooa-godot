@@ -20,9 +20,7 @@ public partial class DungeonKeyDoorController : Node
     private readonly DungeonKeyBlockDatabase _keyBlocks = new();
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
-    private int _pushCounter;
-    private int _candidatePosition = -1;
-    private Vector2I _candidateDirection;
+    private int _pushCounter { get => _rooms.TilePushCounter; set => _rooms.TilePushCounter = unchecked((byte)value); }
     private bool _opening;
     private bool _outgoing;
     private int _openingCounter;
@@ -52,7 +50,6 @@ public partial class DungeonKeyDoorController : Node
         _treasures = treasures;
         _animationTick = animationTick;
         _playSound = playSound;
-        _pushCounter = DefaultPushCounter;
         _entities.ReservedKeyDoor = this;
         _rooms.RoomChanged += (_, _) =>
         {
@@ -69,10 +66,9 @@ public partial class DungeonKeyDoorController : Node
     {
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
                 movementInput, out Vector2I direction) ||
-            direction != facing ||
             !InteractableTilePushGeometry.IsAlignedForPush(linkPosition) ||
             !TryGetFrontTile(
-                linkPosition, direction, out int position,
+                linkPosition, facing, out _,
                 out Vector2 center, out byte tile))
         {
             ResetPushCounter();
@@ -84,14 +80,6 @@ public partial class DungeonKeyDoorController : Node
         if (tile == keyBlock.ClosedTile &&
             _keyBlocks.SupportsActiveCollisions(activeCollisions))
         {
-            if (_candidatePosition != position ||
-                _candidateDirection != direction)
-            {
-                _candidatePosition = position;
-                _candidateDirection = direction;
-                _pushCounter = keyBlock.PushCounter;
-            }
-
             _pushCounter--;
             if (_pushCounter == 0)
                 TryOpenKeyBlock(center, keyBlock);
@@ -100,26 +88,20 @@ public partial class DungeonKeyDoorController : Node
 
         if (!_rooms.KeyDoors.TryGet(
                 activeCollisions, tile,
-                out DungeonKeyDoorDatabaseRecord door) ||
-            door.Direction != direction)
+                out DungeonKeyDoorDatabaseRecord door))
         {
             ResetPushCounter();
             return;
-        }
-
-        if (_candidatePosition != position || _candidateDirection != direction)
-        {
-            _candidatePosition = position;
-            _candidateDirection = direction;
-            _pushCounter = door.PushCounter;
         }
 
         // nextToKeyDoor calls decPushingAgainstTileCounter, then decrements
         // the same byte once more when it is still nonzero. The imported
         // initial value is 20, so a continuously pushed door activates on
         // the tenth original update.
-        if (!PushingAgainstTileCounter.DecrementTwiceToZero(
-                ref _pushCounter))
+        int counter = _pushCounter;
+        bool expired = PushingAgainstTileCounter.DecrementTwiceToZero(ref counter);
+        _pushCounter = counter;
+        if (!expired)
             return;
 
         TryOpen(center, door);
@@ -176,8 +158,9 @@ public partial class DungeonKeyDoorController : Node
             if (_openingCounter != 0)
                 continue;
 
-            _rooms.CurrentRoom.SetPositionTileAndCollision(
-                _doorCenter, _door.OpenTile, null, _animationTick());
+            // doorController.s @setTileAndPlaySound can reject its final
+            // collision/graphics write while retaining the interleaved layout.
+            _rooms.TrySetTile((byte)_rooms.CurrentRoom.GetPackedPosition(_doorCenter),_door.OpenTile);
             PlayDoorSoundIfVisible();
             _openingState = OpeningState.ScriptEnd;
             if (!scriptPaused) _opening = false;
@@ -190,7 +173,6 @@ public partial class DungeonKeyDoorController : Node
         _outgoing = false;
         _openingCounter = 0;
         _openingTicks = 0.0;
-        ResetPushCounter();
     }
 
     internal void BeginScreenTransition() => _outgoing = _opening;
@@ -240,14 +222,16 @@ public partial class DungeonKeyDoorController : Node
         int dungeon = _rooms.CurrentDungeonIndex;
         if (!_inventory.TryUseDungeonSmallKey(dungeon))
         {
-            MessageRequested?.Invoke(keyBlock.NoKeyMessage);
+            if (_rooms.PrepareTileInfoMessage(keyBlock.NoKeyTextId) is { } message)
+                MessageRequested?.Invoke(message);
             ResetPushCounter();
             return;
         }
 
         TryCreateKeySprite(center, keyBlock.KeyGraphic);
-        _rooms.CurrentRoom.SetPositionTileAndCollision(
-            center, keyBlock.OpenTile, null, _animationTick());
+        // nextToKeyBlock uses setTile. A full changed-tile queue rejects the
+        // live floor write but does not undo the key debit, flag or effects.
+        _rooms.TrySetTile((byte)_rooms.CurrentRoom.GetPackedPosition(center),keyBlock.OpenTile);
         _playSound(keyBlock.OpenSound);
         _rooms.SaveData.SetRoomFlag(
             _rooms.ActiveGroup,
@@ -270,7 +254,8 @@ public partial class DungeonKeyDoorController : Node
             : _inventory.TryUseDungeonSmallKey(dungeon);
         if (!hasKey)
         {
-            MessageRequested?.Invoke(door.NoKeyMessage);
+            if (_rooms.PrepareTileInfoMessage(door.NoKeyTextId) is { } message)
+                MessageRequested?.Invoke(message);
             ResetPushCounter();
             return;
         }
@@ -315,8 +300,6 @@ public partial class DungeonKeyDoorController : Node
     private void ResetPushCounter()
     {
         _pushCounter = DefaultPushCounter;
-        _candidatePosition = -1;
-        _candidateDirection = Vector2I.Zero;
     }
 
 }

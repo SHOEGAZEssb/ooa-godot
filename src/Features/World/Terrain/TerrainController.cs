@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -8,36 +7,28 @@ public sealed class TerrainController
 {
     private const int MaximumLandingScanSteps = 32;
 
-    private readonly Node _worldRoot;
     private readonly RoomSession _rooms;
     private readonly BreakableTileDatabase _breakables;
     private readonly LedgeJumpDatabase _ledges;
     private readonly SideScrollPlayerDatabase _sideScroll;
     private readonly Func<Vector2, int> _adjacentWallsBitset;
-    private readonly Action<int> _playSound;
-    private readonly List<SplashEffect> _splashes = new();
-
-    internal SplashEffect? ActiveSplash =>
-        _splashes.Count == 0 ? null : _splashes[^1];
-    internal int ActiveSplashCount => _splashes.Count;
+    private readonly Action<Vector2, HazardType> _createSplash;
     internal byte CurrentTilesetFlags => _rooms.CurrentRoom.TilesetFlags;
     internal SideScrollPlayerParameters SideScrollParameters =>
         _sideScroll.Parameters;
 
     public TerrainController(
-        Node worldRoot,
         RoomSession rooms,
         BreakableTileDatabase breakables,
         Func<Vector2, int> adjacentWallsBitset,
-        Action<int> playSound)
+        Action<Vector2, HazardType> createSplash)
     {
-        _worldRoot = worldRoot;
         _rooms = rooms;
         _breakables = breakables;
         _ledges = new LedgeJumpDatabase();
         _sideScroll = new SideScrollPlayerDatabase();
         _adjacentWallsBitset = adjacentWallsBitset;
-        _playSound = playSound;
+        _createSplash = createSplash;
     }
 
     public TerrainInfo GetTerrainInfo(Vector2 playerPosition)
@@ -147,30 +138,7 @@ public sealed class TerrainController
     {
         if (hazard is not (HazardType.Water or HazardType.Lava))
             throw new ArgumentOutOfRangeException(nameof(hazard));
-        var splash = new SplashEffect { ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex };
-        splash.Initialize(position, hazard);
-        _worldRoot.AddChild(splash);
-        splash.SetPhysicsProcess(false);
-        _splashes.Add(splash);
-        _playSound(SoundId.SndSplash);
-    }
-
-    internal void AdvanceApplicationUpdate()
-    {
-        for (int index = _splashes.Count - 1; index >= 0; index--)
-        {
-            SplashEffect splash = _splashes[index];
-            splash.UpdateFrame();
-            if (splash.Finished)
-                _splashes.RemoveAt(index);
-        }
-    }
-
-    internal void ClearTransientEffects()
-    {
-        foreach (SplashEffect splash in _splashes)
-            splash.StopImmediately();
-        _splashes.Clear();
+        _createSplash(position, hazard);
     }
 
     private bool IsCliffProbe(

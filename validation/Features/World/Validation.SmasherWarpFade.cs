@@ -27,12 +27,20 @@ public sealed partial class ValidationRoot
                 "Initialized Smasher slots must freeze AI, movement and timers during source palette fade.");
             Step(1);
             var arrivals = _entities.Entities<SmasherCharacter>();
+            // CUTSCENE_03 initializes the room and returns; cutscene00's
+            // first object pass belongs to the following arrival update.
+            // enemyData places only the ball; smasher.s state0 allocates its
+            // parent during that first enemy pass, not during room parsing.
+            FailIf(arrivals.Count != 1 || arrivals[0].State != 0 || !arrivals[0].IsBall || arrivals.Contains(ball),
+                "The placed Smasher ball must remain pending, without its parent, on the reload update.");
+            Step(1);
+            arrivals = _entities.Entities<SmasherCharacter>();
             FailIf(arrivals.Count != 2 || arrivals.Any(actor => actor.State != 8) || arrivals.Contains(ball),
                 "Destination state0 must initialize both linked Smasher slots during fade-in.");
             ball = arrivals.Single(actor => actor.IsBall);
             parent = arrivals.Single(actor => !actor.IsBall);
             expiration = ball.ExpirationCounter;
-            Step(32);
+            Step(31);
             FailIf(ball.State != 8 || parent.State != 8 || ball.ExpirationCounter != expiration ||
                 ball.Position != new Vector2(88, 88) || parent.Position != new Vector2(120, 88),
                 "Destination Smasher must remain frozen through the visually transparent, nonterminal fade update.");

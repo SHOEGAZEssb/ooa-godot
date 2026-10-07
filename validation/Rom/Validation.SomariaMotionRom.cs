@@ -36,14 +36,14 @@ public sealed partial class ValidationRoot
         if (pushRoute)
         {
             Vector2 forward = OracleObjectMath.StrictCardinalVector(direction * 8);
-            // Choose three open source floor tiles in the original layout.
+            // Choose four open source floor tiles in the original layout.
             // No tile/collision overrides are used to make a push reachable.
             Vector2 offset = direction switch { 0 => new(0, -20), 1 => new(19, 0),
                 2 => new(0, 19), _ => new(-20, 0) };
             Vector2 start = Enumerable.Range(2, _currentRoom.HeightInTiles - 4)
                 .SelectMany(y => Enumerable.Range(2, _currentRoom.WidthInTiles - 4)
                     .Select(x => new Vector2(x * 16 + 8, y * 16 + 8)))
-                .First(point => !_collision.Collides(point) && Enumerable.Range(0, 3).All(distance =>
+                .First(point => !_collision.Collides(point) && Enumerable.Range(0, 4).All(distance =>
                 {
                     Vector2 target = point + offset + forward * distance * 16;
                     return target.X >= 16 && target.Y >= 16 && target.X < _currentRoom.Width - 16 &&
@@ -65,10 +65,14 @@ public sealed partial class ValidationRoot
         FailIf(_player.PrecisePosition != link || CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008],
             $"{context}: Link position/facing runtime={_player.PrecisePosition}/{_player.FacingVector}, ROM={link}/{rom[0xd008]}.");
         FailIf(_playerWorld.TilePushingDirection != rom[0xcc65],
-            $"{context}: late push signal runtime=${_playerWorld.TilePushingDirection:x2}, ROM=${rom[0xcc65]:x2}.");
-        FailIf(_player.IsCarryingObject != ((rom[0xcc5a] & 0x80) != 0) ||
+            $"{context}: late push signal runtime=${_playerWorld.TilePushingDirection:x2}, ROM=${rom[0xcc65]:x2}, native animation=${rom[0xd01c]:x2}, visible=${rom[0xd01a]:x2}, walls=${rom[0xd033]:x2}.");
+        // Bomb's shared lift publishes grab$c2 before its completed carry pose.
+        // A deleted child can clear grab during the later item pass while the
+        // parent's collision lock remains until its next eligible update.
+        bool bombLifting = _bomb.State == BombParentState.Lifting && _bomb.Bomb is { Finished: false };
+        FailIf((_player.IsCarryingObject || bombLifting) != ((rom[0xcc5a] & 0x80) != 0) ||
             _player.BraceletLiftCollisionsDisabled !=
-                (rom[0xd200] != 0 && rom[0xd201] == 0x16 && rom[0xd204] == 2),
+                (rom[0xd200] != 0 && rom[0xd201] is 0x03 or 0x16 && rom[0xd204] == 2),
             $"{context}: lift/carry ownership runtime={_player.IsCarryingObject}/{_player.BraceletLiftCollisionsDisabled}, ROM grab=${rom[0xcc5a]:x2}.");
         if (rom[0xd200] != 0 && rom[0xd201] == 0x16)
         {
@@ -122,13 +126,13 @@ public sealed partial class ValidationRoot
             Vector2 point = new(x * 16 + 8, y * 16 + 8);
             FailIf(_currentRoom.GetMetatile(point) != rom[0xcf00 + packed] ||
                 _currentRoom.GetTerrainInfo(point).Collision != rom[0xce00 + packed] ||
-                _currentRoom.GetUnderlyingStorageMetatile(packed) != rom.Underlying(packed),
-                $"{context}: layout/collision/shared underlying buffer differs at ${packed:x2}.");
+                _currentRoom.GetUnderlyingMetatile(point) != rom.Underlying(packed),
+                $"{context}: layout/collision/shared underlying buffer differs at ${packed:x2}: runtime=${_currentRoom.GetMetatile(point):x2}/${_currentRoom.GetTerrainInfo(point).Collision:x2}/${_currentRoom.GetUnderlyingMetatile(point):x2}, ROM=${rom[0xcf00 + packed]:x2}/${rom[0xce00 + packed]:x2}/${rom.Underlying(packed):x2}.");
         }
     }
 
     private void StepSomariaMotionRom(SomariaRom rom, int count, bool batched, int angle = 0xff,
-        int held = 0, int pressed = 0, Action? afterUpdate = null)
+        int held = 0, int pressed = 0, Action? afterUpdate = null,string? contextPrefix = null)
     {
         int update = 0;
         int keys = angle switch { 0 => 0x40, 8 => 0x10, 16 => 0x80, 24 => 0x20, _ => 0 };
@@ -137,7 +141,7 @@ public sealed partial class ValidationRoot
             Buttons(held), Buttons(pressed), batched, () =>
             {
                 rom.UpdateGameplay(update == 0 ? pressed : 0, held | keys, angle, _entities.FrameCounter);
-                CompareSomariaMotionRom(rom, $"Somaria motion angle=${angle:x2}, batch={batched}, update={update++}");
+                CompareSomariaMotionRom(rom, $"{contextPrefix ?? "Somaria motion"} angle=${angle:x2}, batch={batched}, update={update++}");
                 afterUpdate?.Invoke();
             });
     }
@@ -219,12 +223,26 @@ public sealed partial class ValidationRoot
         {
             SomariaRom rom = PrepareSomariaMotionRom(direction, level, pushRoute: true);
             var audit = _sound.AttachPlayRequestAudit();
+            byte[] enemyPhaseVelocity = new byte[4];
+            bool observeMovement = false;
+            var observer = new ItemPhaseValidationEntity(() =>
+            {
+                for (int index = 0; index < 4; index++)
+                    enemyPhaseVelocity[index] = _runtimeState.ReadWramByte(WramAddress.wTmpcec0 + index);
+            });
+            _entities.RegisterEnemySlot(observer,0); _entities.AddEntity(observer);
             void Step(int count, int angle = 0xff, int held = 0, int pressed = 0) =>
                 StepSomariaMotionRom(rom, count, batched, angle, held, pressed, () =>
                 {
                     FailIf(_pushBlocks.RemainingPushFrames != rom[0xcc6a],
                         $"Somaria push delay runtime={_pushBlocks.RemainingPushFrames}, ROM={rom[0xcc6a]}, Link={_player.Position}, native pushing=${rom[0xcc65]:x2}, walls=${rom[0xd033]:x2}, flags=${rom[0xd034]:x2}, held=${rom[0xcc29]:x2}.");
                     FailIf(!audit.Requests.SequenceEqual(rom.Sounds), "Somaria push sound order differs.");
+                    // Observe before enemies, then compare the independent
+                    // native item pass's vector; no native enemies mutate it.
+                    if (observeMovement)
+                        for (int index = 0; index < 4; index++)
+                            FailIf(enemyPhaseVelocity[index] != rom[0xcec0 + index],
+                                $"Somaria L{level}/direction{direction}: pre-enemy velocity byte${0xcec0 + index:x4} runtime=${enemyPhaseVelocity[index]:x2}, native=${rom[0xcec0 + index]:x2}.");
                 });
             Step(1, held: 1, pressed: 1); Step(24);
             for (int repeat = 0; repeat < 2; repeat++)
@@ -242,15 +260,44 @@ public sealed partial class ValidationRoot
                 FailIf(rom[rom.Blocks.Single() + 4] != 4 || rom[rom.Blocks.Single() + 5] != 0,
                     $"Push delay update20 must signal state4 before the next movement update: dir={direction}, level={level}, repeat={repeat}, block={rom[rom.Blocks.Single() + 0xd]},{rom[rom.Blocks.Single() + 0xb]}, state={rom[rom.Blocks.Single() + 4]}:{rom[rom.Blocks.Single() + 5]}, flags=${rom[rom.Blocks.Single() + 0x2f]:x2}, Link={_player.Position}.");
                 int moves = level == 2 ? 21 : 32;
+                observeMovement = true;
                 Step(1);
                 FailIf(rom[rom.Blocks.Single() + 6] != moves - 1, "First push movement must decrement its 32/21 counter.");
                 Step(moves - 2);
                 FailIf(rom[rom.Blocks.Single() + 6] != 1, "Somaria push finished before the final counter update.");
                 Step(1);
+                observeMovement = false;
                 FailIf(rom[rom.Blocks.Single() + 4] != 3, "Somaria push did not align/place on its final update.");
             }
+            if (direction == 0)
+            {
+                // Declared live collision override, applied only beyond the
+                // original four-floor approach. Native dispatch owns the gate.
+                var block = _entities.EntityAdapters<SomariaBlockRoomEntity>().Single().Block;
+                Vector2 destination = block.Position + Vector2.Up * 16;
+                int packed = _currentRoom.GetPackedPosition(destination);
+                byte floor = _currentRoom.GetMetatile(destination);
+                FailIf(floor != 0xa0 || _currentRoom.GetTerrainInfo(destination).Collision != 0,
+                    "Somaria rejection must preserve the original next floor tile before declaring its collision byte.");
+                _currentRoom.SetPositionTileAndCollision(destination,floor,15,0); rom[0xce00 + packed] = 15;
+                for (int update = 0; update < 60 && rom[0xcc6a] == 20; update++) Step(1,0);
+                FailIf(rom[0xcc6a] != 19,"Blocked Somaria destination must still reach its source contact gate.");
+                Step(18,0);
+                FailIf(rom[0xcc6a] != 1 || block.State != 3 || _pushBlocks.Active,
+                    "A raw collision$f destination must wait through contact19 before rejecting.");
+                Step(1,0);
+                FailIf(rom[0xcc6a] != 20 || block.State != 3 || _pushBlocks.Active,
+                    "Native zero-counter collision rejection must reset without moving or allocating$14.");
+                _currentRoom.SetPositionTileAndCollision(destination,floor,0,0); rom[0xce00 + packed] = 0;
+                Step(20,0);
+                FailIf(block.State != 4,"Clearing the raw collision must allow the next complete push attempt.");
+                Vector2 source = block.Position;
+                _entities.ClearPhysicalPlayerItems(); rom.ClearPhysicalItems(); Step(1);
+                FailIf(!block.Finished || rom.Blocks.Length != 0 || _currentRoom.GetMetatile(source) != 0xa0,
+                    "Cancelling the newly signalled push must restore its source tile and retire the physical child.");
+            }
         }
-        GD.Print("Validated executed-US Somaria reachable push, cancelled countdown, 20-update input gate, 32/21 normal/Power Glove movement, fractional coordinates, tile buffer restoration and repeated pushes through split/batched gameplay updates.");
+        GD.Print("Validated executed-US Somaria reachable repeated pushes, 20-update contact and 32/21 movement boundaries, pre-enemy velocity, raw collision rejection/retry, physical cancellation and source tile restoration through split/batched gameplay updates.");
     }
 
     private void ValidateSomariaCarryCancellationRom()

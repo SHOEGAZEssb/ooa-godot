@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Linq;
 
 namespace oracleofages;
@@ -6,7 +7,11 @@ namespace oracleofages;
 public sealed partial class ValidationRoot
 {
     private void ValidatePegasusLifecycleRom() => ValidatePegasusLifecycleRom(false);
-    private void ValidatePegasusAirborneRom() => ValidatePegasusLifecycleRom(true);
+    private void ValidatePegasusAirborneRom()
+    {
+        ValidatePegasusLifecycleRom(true);
+        ComparePegasusSideViewRom();
+    }
 
     private void ValidatePegasusLifecycleRom(bool airborne)
     {
@@ -133,7 +138,7 @@ public sealed partial class ValidationRoot
                 dust[0].Visible != ((rom[0xdf1a] & 0x80) != 0) || dust[0].TileBase != rom[0xdf1d] ||
                 dust[0].OamFlags != rom[0xdf1c] ||
                 !dust[0].Clouds.ToArray().SequenceEqual(Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index])),
-                context + $": dust differs: runtime={dust[0].Substate}/{dust[0].Position}/{dust[0].Visible}/tile=${dust[0].TileBase:x2}/flags=${dust[0].OamFlags:x2}, native={rom[0xdf05]}/{rom[0xdf0d]},{rom[0xdf0b]}/{(rom[0xdf1a] & 0x80) != 0}/tile=${rom[0xdf1d]:x2}/flags=${rom[0xdf1c]:x2}.");
+                context + $": dust differs: runtime={dust[0].Substate}/{dust[0].Position}/{dust[0].Visible}/tile=${dust[0].TileBase:x2}/flags=${dust[0].OamFlags:x2}/clouds={Convert.ToHexString(dust[0].Clouds)}, native={rom[0xdf05]}/{rom[0xdf0d]},{rom[0xdf0b]}/{(rom[0xdf1a] & 0x80) != 0}/tile=${rom[0xdf1d]:x2}/flags=${rom[0xdf1c]:x2}/clouds={Convert.ToHexString(Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index]).ToArray())}.");
         }
     }
 }

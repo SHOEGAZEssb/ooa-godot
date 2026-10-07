@@ -19,10 +19,10 @@ public sealed partial class ValidationRoot
     private void ValidateRaftPegasusBRom() => ValidateRaftControlRom(false, true, satchelButton: 2, pegasusBeforeMount: true);
 
     private void ValidateRaftControlRom(bool allWaterTiles, bool dismount, int swordButton = 0, int shieldButton = 0,
-        int satchelButton = 0, bool pegasusBeforeMount = false)
+        int satchelButton = 0, bool pegasusBeforeMount = false, int bombchuButton = 0, int heartRing = 0xff)
     {
         int hostCase1 = 0;
-        foreach (int direction in Enumerable.Range(0, dismount ? 4 : 8).Select(index => index * (dismount ? 8 : 4)))
+        foreach (int direction in bombchuButton != 0 || heartRing != 0xff ? new[] { 0 } : Enumerable.Range(0, dismount ? 4 : 8).Select(index => index * (dismount ? 8 : 4)))
         foreach (int water in allWaterTiles ? new[] { 0xfc, 0xfa, 0xe9, 0xe0, 0xe1, 0xe2, 0xe3 } : new[] { 0xfc })
         foreach (int shieldLevel in shieldButton == 0 ? new[] { 0 } : new[] { 1, 2, 3 })
         foreach (int seedType in satchelButton == 0 ? new[] { 0 } : pegasusBeforeMount ? new[] { 2 } : Enumerable.Range(0, 5))
@@ -33,6 +33,13 @@ public sealed partial class ValidationRoot
             _saveData.SetGlobalFlag(0x26);
             LoadValidationRoom(1, 0xa7); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0);
+            if (heartRing != 0xff) EquipHeartRingVehicle(heartRing);
+            if (bombchuButton != 0)
+            {
+                _inventory.GiveTreasure(TreasureId.Bombchus, 0x10);
+                if (bombchuButton == 1) _inventory.EquipA(TreasureId.Bombchus);
+                else _inventory.EquipB(TreasureId.Bombchus);
+            }
             if (swordButton != 0)
             {
                 _inventory.GiveTreasure(TreasureId.Sword, 1);
@@ -104,6 +111,7 @@ public sealed partial class ValidationRoot
                 {
                     rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1); edge = 0; update++;
                     string context = $"Raft 1:a7 tile=${water:x2} direction=${direction:x2} dismount={dismount} Sword=${swordButton:x2} Shield={shieldButton}/L{shieldLevel} Satchel={satchelButton}/ITEM${0x20 + seedType:x2} existingPegasus={pegasusBeforeMount}/ring${ring:x2} update={update} batch={batched}";
+                    if (heartRing != 0xff) CompareHeartRingVehicle(rom, context);
                     Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(_player.PrecisePosition != expected || _player.RaftRideActive != (rom[0xcc2c] == 0xd1) ||
                         _player.HealthQuarters != rom[0xc6aa] || _player.TopDownSwimming || _player.IsDrowning ||
@@ -116,6 +124,23 @@ public sealed partial class ValidationRoot
                             raft.Angle != rom[0xd109] || rom[0xd104] == 1 && (Field("_dismountAngle") != rom[0xd13e] ||
                             Field("_dismountCounter") != rom[0xd13f]),
                             context + $": raft fixed motion/direction/dismount counters differ: runtime={raft.PrecisePosition}, native={nativeRaft}, angle=${raft.Angle:x2}/${rom[0xd109]:x2}, facing={raft.Direction}/{rom[0xd108]}, dismount={Field("_dismountAngle")}/{rom[0xd13e]},{Field("_dismountCounter")}/{rom[0xd13f]}.");
+                    }
+                    if (bombchuButton != 0)
+                    {
+                        int parent = rom[0xd300] != 0 && rom[0xd301] == 0x0d ? 0xd300 :
+                            rom[0xd400] != 0 && rom[0xd401] == 0x0d ? 0xd400 : 0;
+                        int child = Enumerable.Range(0xd7, 5).Select(page => page << 8)
+                            .SingleOrDefault(address => rom[address] != 0 && rom[address + 1] == 0x0d);
+                        var actual = _entities.Entities<BombchuItem>().SingleOrDefault();
+                        FailIf(_entities.BombchuParent.Active != (parent != 0) || (actual != null) != (child != 0) ||
+                            _inventory.Bombchus != rom[0xc6b3], context + ": Bombchu eligibility/child/ammo differs.");
+                        if (parent != 0)
+                            FailIf(_entities.BombchuParent.Counter != rom[parent + 0x20] || _entities.BombchuParent.Parameter != rom[parent + 0x21],
+                                context + ": Bombchu parent clock differs.");
+                        if (actual != null)
+                            FailIf(actual.ItemState != rom[child + 4] || actual.Counter2 != rom[child + 7] ||
+                                actual.Position != new Vector2(rom[child + 0xd], rom[child + 0xb]) ||
+                                (ushort)actual.ZFixed != rom.Word(child + 0xe), context + ": shore Bombchu state/fuse/position differs.");
                     }
                     if (swordButton != 0)
                     {
@@ -157,7 +182,8 @@ public sealed partial class ValidationRoot
                                 !dust[0].Clouds.ToArray().SequenceEqual(Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index])),
                                 context + $": reserved dust differs: runtime={dust[0].Substate}/{dust[0].Position}/visible={dust[0].Visible}/tile${dust[0].TileBase:x2}/flags${dust[0].OamFlags:x2}/subid={typeof(PegasusDustRoomEntity).GetField("_subid", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dust[0])}/clouds={string.Join(',', dust[0].Clouds.ToArray())}, native={rom[0xdf05]}/{rom[0xdf0d]},{rom[0xdf0b]}/visible={(rom[0xdf1a] & 0x80) != 0}/tile${rom[0xdf1d]:x2}/flags${rom[0xdf1c]:x2}/subid={rom[0xdf02]}/clouds={string.Join(',', Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index]))}, Linkstate=${rom[0xd004]:x2}, raftstate=${rom[0xd104]:x2}.");
                     }
-                    FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
+                    FailIf(!sounds.Requests.Where(id => id != SoundId.SndText &&
+                        (heartRing == 0xff || id != SoundId.SndGainHeart)).SequenceEqual(rom.Sounds),
                         context + ": gameplay sounds differ.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
@@ -185,7 +211,22 @@ public sealed partial class ValidationRoot
             {
                 for (int repeat = 0; repeat < 2; repeat++)
                 {
-                    int heldItem = shieldButton | satchelButton;
+                    int heldItem = shieldButton | satchelButton | bombchuButton;
+                    int health = _inventory.HealthQuarters;
+                    if (heartRing != 0xff)
+                    {
+                        SeedHeartRingVehicle(rom, heartRing);
+                        _dialogue.ShowMessage("Raft Heart Ring pause.", _player.Position.Y); rom[0xcba0] = 1;
+                        Step(3, direction); _dialogue.Close(); rom[0xcba0] = 0;
+                    }
+                    if (bombchuButton != 0)
+                    {
+                        Step(); Step(8, 0xff, bombchuButton);
+                        FailIf(_entities.BombchuParent.Active || _entities.Entities<BombchuItem>().Count != 0,
+                            $"SPECIALOBJECT_RAFT must reject Bombchu: ride={raft.LinkRiding}, slot={raft.UsesSpecialObjectSlot}, native ID=${rom[0xd101]:x2}, state=${rom[0xd104]:x2}, runtime children={_entities.Entities<BombchuItem>().Count}, repeat={repeat}.");
+                        _dialogue.ShowMessage("Raft Bombchu pause.", _player.Position.Y); rom[0xcba0] = 1;
+                        Step(3, direction, bombchuButton); _dialogue.Close(); rom[0xcba0] = 0;
+                    }
                     if (satchelButton != 0)
                     {
                         Step(); Step(8, 0xff, satchelButton);
@@ -199,6 +240,11 @@ public sealed partial class ValidationRoot
                     FailIf(raft.UsesSpecialObjectSlot || raft.DisablesMenus || rom[0xd100] != 0 || rom[0xcc92] != 0 ||
                         _currentRoom.IsSolid(_player.Position),
                         "Dismount must finish its twelve-update object wait and fourteen-update forced walk onto open shore.");
+                    if (heartRing != 0xff)
+                    {
+                        AssertHeartRingVehicleRetained(rom, heartRing, health);
+                        Step(1, direction); AssertHeartRingVehicleHeal(heartRing, health);
+                    }
                     if (pegasusBeforeMount)
                     {
                         FailIf(_seedSatchel.Pegasus.Active || rom.Word(0xcc6c) != 0,
@@ -206,10 +252,22 @@ public sealed partial class ValidationRoot
                         Step(); Step(1, 0xff, satchelButton); Step();
                         FailIf(!_seedSatchel.Pegasus.Active, "Fresh dry-shore input must reactivate Pegasus before remount.");
                     }
-                    for (int approach = 0; !raft.LinkRiding && approach < 64; approach++) Step(1, (direction + 16) & 0x1f, heldItem);
+                    if (bombchuButton != 0)
+                    {
+                        FailIf(_entities.BombchuParent.Active || _entities.Entities<BombchuItem>().Count != 0,
+                            "Held rejected Bombchu input must not initialize during raft dismount/forced walk.");
+                        Step(); Step(1, 0xff, bombchuButton); Step(3);
+                        FailIf(!_entities.BombchuParent.Active || _entities.Entities<BombchuItem>().Count != 1,
+                            "Fresh input must initialize Bombchu once SPECIALOBJECT_RAFT $13 has been deleted.");
+                        _entities.ClearPhysicalPlayerItems(); rom.ClearPhysicalItems(); Step();
+                    }
+                    // Release Bombchu during shore approach: a fresh shore
+                    // edge legitimately creates a child before raft allocation.
+                    int remountItem = shieldButton | satchelButton;
+                    for (int approach = 0; !raft.LinkRiding && approach < 64; approach++) Step(1, (direction + 16) & 0x1f, remountItem);
                     FailIf(!raft.LinkRiding || rom[0xcc2c] != 0xd1,
                         "A completed native dismount must leave a raft that can be reached and remounted.");
-                    Step(24, 0xff, heldItem);
+                    Step(24, 0xff, remountItem);
                 }
                 continue;
             }

@@ -4,7 +4,8 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-// Observes the actual manager's enemy phase without adding runtime tracing.
+// Observes an object phase without adding runtime tracing. Register an enemy
+// slot when the observation must precede parts/interactions.
 internal sealed class ItemPhaseValidationEntity(Action observe)
     : RoomEntityAdapter<Node2D>(new Node2D(), _ => { }), IFixedRoomEntity
 {

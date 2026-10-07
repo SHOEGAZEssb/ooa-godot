@@ -601,6 +601,16 @@ public sealed class InventoryState
         return true;
     }
 
+    // decNumBombchus runs in the physical child's state-zero handler.
+    internal bool TryConsumeBombchu()
+    {
+        int count = FromBcd(Bombchus);
+        if (count == 0) return false;
+        Bombchus = ToBcd(count - 1);
+        NotifyChanged();
+        return true;
+    }
+
     /// <summary>
     /// Mirrors direct interaction-script writes to wNumMysterySeeds. The
     /// obtained-treasure bit is intentionally preserved; Ambi's guard clears

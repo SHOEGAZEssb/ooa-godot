@@ -23,6 +23,8 @@ public sealed class PlayerWorld : IPlayerWorld
     private readonly InventoryState _inventory;
     private readonly OracleSoundEngine _sound;
     private readonly Func<bool> _collisionsDisabled;
+    private readonly RoomSession _rooms;
+    private readonly InteractableTileDatabase _interactableTiles = new();
 
     public int FrameCounter => _entities.FrameCounter;
     public void UpdateElectricShockPresentation(int counter) =>
@@ -36,10 +38,12 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool PassesNpcs => _transitions.TimeWarpDestinationActive || _entities.PlayerPassesNpcs;
     public bool InteractionMenusDisabled => _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled;
     public bool ScreenScrolling => _transitions.ScrollActive;
+    public bool RoomExitPending => _transitions.RoomExitPending;
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool NativeTextActive => _entities.TextActiveSource();
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
+    public bool InShop => _rooms.InShop;
     // Room scripts' $81 mask also freezes Link and item parents. Keep their
     // state intact while interactions (including the key sprite) keep running.
     public bool PlayerUpdatesFrozen => _entities.PlayerUpdatesFrozen || _roomEvents.FreezesNonInteractionObjects;
@@ -56,6 +60,7 @@ public sealed class PlayerWorld : IPlayerWorld
     }
     public void UpdateLinkOnChest(Vector2 position, bool airborne) =>
         _collision.UpdateLinkOnChest(position, airborne);
+    public void UpdateActiveLinkTile(Vector2 position) => _collision.UpdateActiveLinkTile(position);
     public bool GaleWarpDisabled => _entities.WarpTilesDisabled ||
         _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled) != 0 ||
         _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;
@@ -68,6 +73,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public Vector2? MountedRaftPosition => _entities.MountedRaftPosition;
     public bool BombParentActive => _bomb.Active;
     public bool SeedShooterActive => _seedSatchel.ShooterActive;
+    public int PlayingInstrument => _harp.PlayingInstrument;
     public int SeedShooterAngle => _seedSatchel.ShooterAngle;
     public bool SwitchHookActive => _entities.SwitchHook?.Active == true;
     public bool BoomerangParentActive => _entities.BoomerangParent.Active;
@@ -89,7 +95,40 @@ public sealed class PlayerWorld : IPlayerWorld
     }
     public void UpdateBoomerangParent() => _entities.BoomerangParent.Update();
     public void ClearBoomerangParent() => _entities.BoomerangParent.Clear();
+    public bool BombchuParentActive => _entities.BombchuParent.Active && !_entities.BombchuParent.Pending;
+    public bool BombchuParentAllocated => _entities.BombchuParent.Active;
+    public int BombchuParentSlot => _entities.BombchuParent.Slot;
+    public int BombchuParentGraphic => _entities.BombchuParent.Graphic;
+    public bool TryBeginBombchu(Player player, int parentSlot)
+    {
+        _entities.BombchuParent.Reserve(parentSlot);
+        return true;
+    }
+    public bool InitializeBombchuParent(Player player)
+    {
+        if (!_entities.BombchuParent.Pending) return false;
+        if (Underwater || SideScrolling && _inventory.HasTreasure(TreasureId.MermaidSuit) &&
+            (GetSideScrollTerrain(player.PrecisePosition).ActiveType & SideScrollTileType.Water) != 0 ||
+            _entities.RaftSpecialObjectPresent || player.TopDownSwimming || player.SideScrollSwimming || _inventory.Bombchus == 0)
+        { _entities.BombchuParent.Clear(); return false; }
+        _entities.BombchuParent.Begin(_entities.BombchuParent.Slot, player.MinecartRideActive || player.CompanionRideActive, false);
+        player.NotifyParentItemAnimationStarted(TreasureId.Bombchus);
+        if (!_entities.TryCreateBombchu(player)) _entities.BombchuParent.Clear();
+        return true;
+    }
+    public void UpdateBombchuParent() => _entities.BombchuParent.Update();
+    public void ClearBombchuParent() => _entities.BombchuParent.Clear();
     public bool SomariaActive => _entities.Somaria?.Active==true;
+    public bool BiggoronActive => _entities.Biggoron?.Active==true;
+    public void BeginBiggoron(Player player)
+    {
+        _bomb.Interrupt(player,discard:false); _bracelet.ClearParent(player);
+        _seedSatchel.InterruptShooter(); _entities.SwitchHook?.ClearParent(); CancelSomaria();
+        _entities.Biggoron!.Begin(player);
+    }
+    public void UpdateBiggoronParent(bool prohibited) => _entities.Biggoron?.UpdateParent(prohibited);
+    public void CancelBiggoron() => _entities.Biggoron?.Cancel();
+    public void DrawBiggoron(CanvasItem canvas,Player player,bool damagePalette) => _entities.Biggoron?.DrawLink(canvas,player,damagePalette);
     public int SomariaAnimationMode => _entities.Somaria?.Parent?.Mode??0;
     public int SomariaAnimationFrame => _entities.Somaria?.Parent?.Frame??0;
     public void BeginSomaria(Player player,bool underwater) => _entities.Somaria!.Begin(player,underwater);
@@ -132,7 +171,8 @@ public sealed class PlayerWorld : IPlayerWorld
         RoomEventController roomEvents,
         InventoryState inventory,
         OracleSoundEngine sound,
-        Func<bool> collisionsDisabled)
+        Func<bool> collisionsDisabled,
+        RoomSession rooms)
     {
         _transitions = transitions;
         _interactions = interactions;
@@ -152,6 +192,7 @@ public sealed class PlayerWorld : IPlayerWorld
         _inventory = inventory;
         _sound = sound;
         _collisionsDisabled = collisionsDisabled;
+        _rooms = rooms;
     }
 
     public bool ApplySwordHit(Player player, Rect2 hitbox) => _combat.ApplySwordHit(player, hitbox);
@@ -208,6 +249,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool TryBeginSeedShooter(
         Player player, bool primaryButton, Vector2 movementInput)
     {
+        if(BiggoronActive) return false;
         CancelSomaria();
         return _seedSatchel.TryBeginShooter(player, primaryButton, movementInput);
     }
@@ -226,7 +268,9 @@ public sealed class PlayerWorld : IPlayerWorld
         _seedSatchel.InterruptShooter();
         _entities.SwitchHook?.ClearParent();
         _entities.Somaria?.ClearParent();
+        _entities.Biggoron?.ClearParent();
         ClearBoomerangParent();
+        ClearBombchuParent();
     }
     public int BeginHarp(Player player)
     {
@@ -263,7 +307,7 @@ public sealed class PlayerWorld : IPlayerWorld
         Vector2 movementInput) =>
         !_collisionsDisabled() &&
         _collision.IsPushingAgainstWall(position, facing, movementInput);
-    public void UpdatePushableBlocks(
+    public bool UpdatePushableBlocks(
         Vector2 position,
         Vector2I facing,
         Vector2 movementInput)
@@ -278,12 +322,55 @@ public sealed class PlayerWorld : IPlayerWorld
         Vector2 tileInput = TilePushingDirection is >= 0 and < 4 &&
             InteractableTilePushGeometry.TryGetCardinalInput(resolvedInput, out _)
                 ? OracleObjectMath.StrictCardinalVector(TilePushingDirection * 8) : Vector2.Zero;
-        _pushBlocks.UpdatePushAttempt(
-            position, facing, tileInput,
-            _inventory.BraceletLevel);
         _entities.UpdatePushableEntities(position, facing, resolvedInput);
-        _keyDoors.UpdatePushAttempt(position, facing, tileInput);
-        _keyholes.UpdatePushAttempt(position, facing, tileInput);
+        OracleRoomData room = _rooms.CurrentRoom;
+        byte tile = room.GetMetatile(position + InteractableTilePushGeometry.FrontTileOffset(facing));
+        byte parameter = _interactableTiles.Parameter(room.ActiveCollisions,tile);
+        bool keyholeReturned = false;
+        if (parameter == InteractableTileDatabase.NoEntry)
+            _rooms.TilePushCounter = 20;
+        else switch (parameter & 15)
+        {
+            case 0:
+                _pushBlocks.UpdatePushAttempt(position,facing,tileInput,_inventory.BraceletLevel);
+                break;
+            case 1:
+            case 2:
+                _keyDoors.UpdatePushAttempt(position,facing,tileInput);
+                break;
+            case 3:
+                UpdateTileInfoContact(position,tileInput,parameter);
+                break;
+            case 4:
+            case 5:
+                // Chest/sign A handling belongs to TryInteract. Without A,
+                // these source handlers return without touching $cc6a.
+                break;
+            case 6:
+                keyholeReturned = _keyholes.UpdatePushAttempt(position,facing,tileInput);
+                break;
+        }
+        return keyholeReturned || NativeTextActive;
+    }
+
+    private void UpdateTileInfoContact(Vector2 position,Vector2 input,byte parameter)
+    {
+        if (!InteractableTilePushGeometry.TryGetCardinalInput(input,out _) ||
+            !InteractableTilePushGeometry.IsAlignedForPush(position))
+        { _rooms.TilePushCounter = 20; return; }
+        _rooms.TilePushCounter = unchecked((byte)(_rooms.TilePushCounter - 1));
+        if (_rooms.TilePushCounter != 0) return;
+        _rooms.TilePushCounter = 20;
+        int textId = (parameter >> 4) switch
+        {
+            0 => _inventory.HasTreasure(TreasureId.Bracelet) ? 0 : 0x5103,
+            1 => 0x5105,
+            2 => 0x5106,
+            3 => 0x5108,
+            4 => 0x5104,
+            _ => throw new NotSupportedException($"nextToTileWithInfoText: unsupported parameter ${parameter:x2}.")
+        };
+        if (textId != 0) _pushBlocks.RequestTileInfo(textId);
     }
     public int TilePushingDirection
     {

@@ -55,7 +55,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
     private ISeedBounceTarget? _lastBounceTarget;
     private bool _skipShooterTerrainCollision;
     private bool _collisionUpdatePending;
-    private bool _burningReflectorHit;
+    private bool _retainedHitSignal;
     private SeedHitResult _pendingNativeCollision;
     internal bool HasPendingNativeCollision => _pendingNativeCollision != SeedHitResult.None;
     private ItemCliffDatabase? _itemCliffs;
@@ -354,7 +354,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
                 // flame consumes the contact after counter/animation; other
                 // effect states keep their ordinary animation dispatch.
                 if (_state == EmberState.Burning && _burnTarget is null)
-                    _burningReflectorHit = true;
+                    _retainedHitSignal = true;
                 return;
             }
             // Vanilla func_50f4 has no subid gate: Satchel seeds reflect too.
@@ -362,6 +362,10 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             _collisionUpdatePending = beforeItemUpdate && _record.SeedItem != ItemId.GaleSeed && _state != EmberState.Flying;
             return;
         }
+        // commonCode1.s:itemUpdateDamageToApply leaves Item.var2a intact.
+        // A contacted Ember flame keeps seeing that signal after state1's
+        // activation, and deletes on its animation parameter $80 update.
+        _retainedHitSignal = true;
         _collisionEnabled = false;
         if (result == SeedHitResult.Consume)
         {
@@ -571,9 +575,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             return;
         }
         AdvanceAnimation();
-        if (_burningReflectorHit)
+        if (_burnTarget is null && _retainedHitSignal)
         {
-            _burningReflectorHit = false;
             _collisionEnabled = false;
             if ((_frames[_frameIndex].Parameter & 0x80) != 0)
             {

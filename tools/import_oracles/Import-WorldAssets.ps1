@@ -96,6 +96,51 @@ Write-GeneratedTable(
     $singleTileChangePath,
     $singleTileChangeRows)
 
+# replaceSwitchTiles runs before object parsing, independently of the PART
+# and INTERACTION allocators. Preserve every ordered row in the Ages branch.
+if ($commonTileSubstitutionSource -notmatch '(?ms)^replaceSwitchTiles:.*?sub NUM_SMALL_GROUPS.*?dec a\s*ret nz.*?ld a,\(wSwitchState\).*?and c.*?ld \(de\),a') {
+    throw 'commonTileSubstitutions.s:replaceSwitchTiles group/mask/write flow changed.'
+}
+$switchReplacementRows = [Collections.Generic.List[string]]::new()
+$switchReplacementRows.Add("# group`troom`tmask`tposition`ttile`tsource")
+$switchTableGroup = 0
+$switchTableEnds = @{}
+foreach ($switchNode in Read-AssemblyNodes (Join-Path $Disassembly 'code/commonTileSubstitutions.s')) {
+    if ($switchNode.EnclosingGlobalLabel -ne 'replaceSwitchTiles') { continue }
+    if ($switchNode.Kind -eq 'Label') {
+        if ($switchNode.Name -match '^@group(?<group>[45])SwitchData$') {
+            $switchTableGroup = [int]$Matches['group']
+            if ($switchTableEnds.ContainsKey($switchTableGroup)) {
+                throw "$($switchNode.Path):$($switchNode.Line): repeated active switch table."
+            }
+            $switchTableEnds[$switchTableGroup] = $false
+        }
+        continue
+    }
+    if ($switchTableGroup -eq 0 -or $switchNode.Kind -in @('Blank','Comment')) { continue }
+    if ($switchNode.Kind -eq 'Directive' -and $switchNode.Name -in @('.ifdef','.else','.endif')) { continue }
+    if ($switchNode.Kind -ne 'Data' -or $switchNode.Name -ne '.db' -or $switchTableEnds[$switchTableGroup]) {
+        throw "$($switchNode.Path):$($switchNode.Line): unsupported switch table node '$($switchNode.Code)'."
+    }
+    $switchBytes = @($switchNode.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if ($switchBytes.Count -eq 1 -and $switchBytes[0] -eq 0) {
+        $switchTableEnds[$switchTableGroup] = $true
+        continue
+    }
+    if ($switchBytes.Count -ne 4 -or $switchBytes[0] -eq 0 -or $switchBytes[1] -eq 0 -or
+        @($switchBytes | Where-Object { $_ -lt 0 -or $_ -gt 0xff }).Count -ne 0) {
+        throw "$($switchNode.Path):$($switchNode.Line): expected room/mask/tile/position bytes."
+    }
+    $switchReplacementRows.Add("$switchTableGroup`t$($switchBytes[0].ToString('x2'))`t$($switchBytes[1].ToString('x2'))`t$($switchBytes[3].ToString('x2'))`t$($switchBytes[2].ToString('x2'))`tcommonTileSubstitutions.s:replaceSwitchTiles.@group${switchTableGroup}SwitchData")
+}
+if ($switchTableEnds.Count -ne 2 -or -not $switchTableEnds[4] -or -not $switchTableEnds[5]) {
+    throw 'commonTileSubstitutions.s: missing terminated Ages switch tables.'
+}
+if ($switchReplacementRows.Count -ne 13) {
+    throw "commonTileSubstitutions.s: expected12 Ages switch replacement rows, parsed$($switchReplacementRows.Count-1)."
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/switch_tile_replacements.tsv'),$switchReplacementRows)
+
 # Import the save-backed subset of applyRoomSpecificTileChanges as declarative
 # conditions and layout operations. The dispatcher is parsed rather than
 # repeating group/room IDs, so shared routines automatically expand to every
@@ -285,6 +330,10 @@ Add-RoomTileChangeRule 'tileReplacement_group0Map73' 'current_room_set:80' `
     'set:73:3a,74:10,75:11,76:12,77:3a'
 Add-RoomTileChangeRule 'tileReplacement_group0Mapac' 'current_room_clear:80' `
     'set:33:af,34:af,43:af,44:af'
+if ($roomTileChangeSource -notmatch '(?ms)^tileReplacement_group0Map54:\s+xor a\s+ld \(wSwitchState\),a\s+call getThisRoomFlags\s+and \$40\s+ret z') {
+    throw 'roomSpecificTileChanges.s:tileReplacement_group0Map54 must clear wSwitchState before its flag-$40 gate.'
+}
+Add-RoomTileChangeRule 'tileReplacement_group0Map54' 'always' 'runtime_set:cdd3:00'
 Add-RoomTileChangeRule 'tileReplacement_group0Map54' 'current_room_set:40' `
     'set:43:1d,44:1d,45:1d,53:1e,54:1e,55:1e,68:9e'
 Add-RoomTileChangeRule 'tileReplacement_group5Mapc2' 'current_room_set:80' `
@@ -295,6 +344,10 @@ Add-RoomTileChangeRule 'tileReplacement_group2Map90' 'current_room_set:02' `
     'draw:42:02:06:dd,de,df,ed,ee,ef,b9,ba,bb,bc,bd,be'
 Add-RoomTileChangeRule 'tileReplacement_group1Map8c' 'current_room_set:80' `
     'set:04:30,05:32,14:3a,15:3a,34:02,35:3a'
+if ($roomTileChangeSource -notmatch '(?ms)^tileReplacement_group2Map9e:\s+xor a\s+ld \(wToggleBlocksState\),a\s+call getThisRoomFlags\s+and \$40\s+ret z') {
+    throw 'roomSpecificTileChanges.s:tileReplacement_group2Map9e must clear wToggleBlocksState before its flag-$40 gate.'
+}
+Add-RoomTileChangeRule 'tileReplacement_group2Map9e' 'always' 'runtime_set:cdd2:00'
 Add-RoomTileChangeRule 'tileReplacement_group2Map9e' 'current_room_set:40' `
     'fill:13:01:06:6d'
 Add-RoomTileChangeRule 'tileReplacement_group4Mapea' 'current_room_set:40' `
@@ -818,17 +871,38 @@ $pushableTable = Read-LocalHexByteTable `
     'pushableTilePropertiesTable' 'dbrel'
 $pushableBytes = [byte[]]::new(6 * 256 * 4)
 for ($i = 0; $i -lt $pushableBytes.Length; $i++) { $pushableBytes[$i] = 0xff }
+$interactableBytes = [byte[]]::new(6 * 256)
+for ($i = 0; $i -lt $interactableBytes.Length; $i++) { $interactableBytes[$i] = 0xff }
+$interactableRecords = 0
 $joinedPushableRecords = 0
 $somariaPushRows = [Collections.Generic.List[string]]::new()
 $somariaPushRows.Add("# active-collisions`ttile`tparameter`tsource")
 for ($mode = 0; $mode -lt 6; $mode++) {
     $interactable = @{}
+    if (-not $interactableTable.Labels.ContainsKey($interactableTable.Pointers[$mode])) {
+        throw "interactableTilesTable: unresolved collision-mode $mode pointer $($interactableTable.Pointers[$mode])."
+    }
     $offset = $interactableTable.Labels[$interactableTable.Pointers[$mode]]
-    while ($interactableTable.Bytes[$offset] -ne 0) {
+    # Labels record positions in the complete physical byte stream. In
+    # particular @indoors falls through @dungeons/@five and @sidescrolling;
+    # @overworld/@underwater are aliases. Do not stop at the next label.
+    while ($offset -lt $interactableTable.Bytes.Count -and $interactableTable.Bytes[$offset] -ne 0) {
+        if ($offset + 1 -ge $interactableTable.Bytes.Count) {
+            throw "interactableTilesTable: truncated parameter for collision mode $mode at offset $offset."
+        }
         $tile = $interactableTable.Bytes[$offset]
         $parameter = $interactableTable.Bytes[$offset + 1]
+        $lookupOffset = $mode * 256 + $tile
+        if ($interactableBytes[$lookupOffset] -ne 0xff -or ($parameter -band 15) -gt 6) {
+            throw "interactableTilesTable: duplicate tile or unsupported Ages handler in mode $mode, tile `$$($tile.ToString('x2')), parameter `$$($parameter.ToString('x2'))."
+        }
+        $interactableBytes[$lookupOffset] = $parameter
+        $interactableRecords++
         if (($parameter -band 0x0f) -eq 0) { $interactable[$tile] = $parameter }
         $offset += 2
+    }
+    if ($offset -ge $interactableTable.Bytes.Count) {
+        throw "interactableTilesTable: collision mode $mode has no zero terminator."
     }
 
     $properties = @{}
@@ -848,8 +922,16 @@ for ($mode = 0; $mode -lt 6; $mode++) {
         if (-not $properties.ContainsKey($tile)) {
             if ($tile -eq 0xda) {
                 $somariaPushRows.Add("$mode`t$($tile.ToString('x2'))`t$($interactable[$tile].ToString('x2'))`tdata/ages/tile_properties/interactableTiles.s:$($interactableTable.Pointers[$mode])")
+                continue
             }
-            continue
+            # INTERAC_PUSHBLOCK@loadPushableTileProperties returns at the
+            # zero terminator on a miss. The freshly allocated var32..var34
+            # stay zero; the native dispatch still moves/deletes INTERAC$14.
+            # Collision modes04/05 intentionally point to an empty table.
+            if ($mode -notin @(4, 5)) {
+                throw "data/ages/tile_properties/pushableTiles.s:$($pushableTable.Pointers[$mode]): unexpected property lookup miss for collision mode $mode, tile `$$($tile.ToString('x2'))."
+            }
+            $properties[$tile] = @(0, 0, 0)
         }
         $recordOffset = ($mode * 256 + $tile) * 4
         $pushableBytes[$recordOffset] = $interactable[$tile]
@@ -859,13 +941,74 @@ for ($mode = 0; $mode -lt 6; $mode++) {
         $joinedPushableRecords++
     }
 }
-if ($joinedPushableRecords -ne 33) {
-    throw "Expected 33 collision-mode pushblock records, joined $joinedPushableRecords."
+if ($joinedPushableRecords -ne 51) {
+    throw "Expected 51 collision-mode pushblock records including 18 native zero-property rows, joined $joinedPushableRecords."
 }
 $pushablePath = Join-Path $destination 'metadata\pushableTiles.bin'
 Write-GeneratedBytes($pushablePath, $pushableBytes)
+if ($interactableRecords -ne 115) { throw "interactableTilesTable: expected115 collision-mode/tile entries, got$interactableRecords." }
+Write-GeneratedBytes((Join-Path $destination 'metadata/interactableTiles.bin'), $interactableBytes)
 if ($somariaPushRows.Count -ne 7) { throw 'Expected Somaria push dispatch in all six collision modes.' }
 Write-GeneratedTable((Join-Path $destination 'metadata/somaria_push_tiles.tsv'), $somariaPushRows)
+
+# Source graphics initialization owns wInShop, independently of an NPC's
+# item restrictions. Preserve the physical local-label stream: group$03
+# deliberately falls through into the empty group$04 terminator.
+$roomGfxPath = Join-Path $Disassembly 'code/ages/roomGfxChanges.s'
+$roomGfxSource = Read-ImportText $roomGfxPath
+if ($roomGfxSource -notmatch '(?ms)^roomTileChangesAfterLoad04:\s*ld hl,wInShop\s*set 1,\(hl\)\s*ld a,TREE_GFXH_03\s*jp loadTreeGfx') {
+    throw 'roomGfxChanges.s:roomTileChangesAfterLoad04 must set wInShop bit$01 before loading price graphics.'
+}
+$afterGfxBytes = [Collections.Generic.List[byte]]::new()
+$afterGfxLabels = @{}
+$afterGfxPointers = [Collections.Generic.List[string]]::new()
+$captureAfterGfxPointers = $false
+foreach ($node in Read-AssemblyLabelNodes $roomGfxPath 'applyRoomSpecificTileChangesAfterGfxLoad') {
+    if ($node.Kind -eq 'Label') {
+        if ($node.Name -eq '@tileChangesGroupTable') { $captureAfterGfxPointers = $true }
+        elseif ($node.Name -match '^@group[0-7]$') {
+            $captureAfterGfxPointers = $false
+            $afterGfxLabels[$node.Name] = $afterGfxBytes.Count
+        }
+    }
+    if ($captureAfterGfxPointers -and $node.Kind -eq 'Data' -and $node.Name -ieq '.dw') {
+        foreach ($operand in $node.Operands) { $afterGfxPointers.Add($operand) }
+    }
+    if ($node.Kind -eq 'Data' -and $node.Name -ieq '.db') {
+        foreach ($operand in $node.Operands) { $afterGfxBytes.Add([byte](Convert-AssemblyInteger $operand)) }
+    }
+}
+if ($afterGfxPointers.Count -ne 8) {
+    throw "roomGfxChanges.s:@tileChangesGroupTable requires8 pointers, got$($afterGfxPointers.Count)."
+}
+$shopFlags = [byte[]]::new(8 * 256)
+$afterGfxRecords = 0
+$shopRooms = 0
+for ($group = 0; $group -lt 8; $group++) {
+    $pointer = $afterGfxPointers[$group]
+    if (-not $afterGfxLabels.ContainsKey($pointer)) {
+        throw "roomGfxChanges.s:@tileChangesGroupTable group$group points to missing$pointer."
+    }
+    $cursor = [int]$afterGfxLabels[$pointer]
+    $seenRooms = @{}
+    while ($true) {
+        if ($cursor -ge $afterGfxBytes.Count) { throw "roomGfxChanges.s:$pointer lost its zero terminator." }
+        $room = [int]$afterGfxBytes[$cursor++]
+        if ($room -eq 0) { break }
+        if ($cursor -ge $afterGfxBytes.Count) { throw "roomGfxChanges.s:${pointer}: truncated room `$$($room.ToString('x2')) handler." }
+        $handler = [int]$afterGfxBytes[$cursor++]
+        if ($handler -gt 0x0a -or $seenRooms.ContainsKey($room)) {
+            throw "roomGfxChanges.s:${pointer}: invalid/duplicate room `$$($room.ToString('x2')), handler `$$($handler.ToString('x2'))."
+        }
+        $seenRooms[$room] = $true
+        $afterGfxRecords++
+        if ($handler -eq 4) { $shopFlags[$group * 256 + $room] = 2; $shopRooms++ }
+    }
+}
+if ($afterGfxRecords -ne 35 -or $shopRooms -ne 4) {
+    throw "roomGfxChanges.s: expected35 after-load room rows/four shop initializations, got$afterGfxRecords/$shopRooms."
+}
+Write-GeneratedBytes((Join-Path $destination 'metadata/roomShopFlags.bin'), $shopFlags)
 
 # Transformation rings replace Link with special objects $03-$07. Export the
 # eight source GFX/OAM combinations for each disguise instead of reconstructing

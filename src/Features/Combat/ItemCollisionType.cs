@@ -10,6 +10,8 @@ public static class ItemCollisionType
     public const int L1Sword = 0x04;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_L2_SWORD
     public const int L2Sword = 0x05;
+    // constants/common/itemCollisionTypes.s: ITEMCOLLISION_BIGGORON_SWORD
+    public const int BiggoronSword = 0x07;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_SWORDSPIN
     public const int SwordSpin = 0x08;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_SWORD_HELD

@@ -124,8 +124,8 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;
     public void BindEnemySlot(int slot, Func<int, IRoomEntity?> resolve) => Entity.BindNativeSlot(slot);
 
-    public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = SwordCollision.Type(state, level);
+    public void SetLinkSwordState(SwordActionState state, int level,int? itemCollisionType=null) =>
+        _swordCollision = itemCollisionType??SwordCollision.Type(state, level);
     private bool Overlaps(int collision, Rect2 bounds) => Entity.CollisionEnabled && !Entity.PendingCollision &&
         Entity.InvincibilityCounter == 0 && _data.ActiveCollisions[collision].Value != 0 &&
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);

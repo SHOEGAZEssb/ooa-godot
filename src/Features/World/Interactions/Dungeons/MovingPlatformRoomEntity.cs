@@ -78,7 +78,9 @@ internal sealed partial class MovingPlatformRoomEntity : DungeonInteractionVisua
             // Substate 0 still decrements its wait and may select a move.
             if (_playingInstrument() != 0) return;
             Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, _speed, _angle);
-            if (LinkRiding && frame.Player.CanBeCarriedByMovingPlatform)
+            // interactionCode79 checks w1Link.state==$01, including a
+            // pending forced drowning request before Link consumes it.
+            if (LinkRiding && frame.Player.NativeNormalStateForInteraction)
                 frame.Player.AdvanceInteractionVelocity(_speed, _angle);
         }
         _counter = (_counter - 1) & 0xff;

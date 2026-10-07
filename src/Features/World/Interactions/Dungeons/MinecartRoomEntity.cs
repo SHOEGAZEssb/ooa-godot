@@ -29,6 +29,9 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
     private int _pushCounter;
     private int _soundCounter;
     private MinecartPhase _phase;
+    private Func<int,int,bool>? _createDoorOpener;
+
+    internal void BindDoorOpener(Func<int,int,bool> create) => _createDoorOpener = create;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
@@ -284,8 +287,11 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
             // subid $00. Its state-2 handler performs the audible six-update
             // interleaved opening; the persistent $0c-$0f controller created
             // from the layout later closes the track behind the cart.
-            spawns.Add(new MinecartShutterOpenSpawn(nextPacked, nextTile));
-            return false;
+            // The special-object pass reserves this interaction before
+            // Link/items run. Failure falls through to @notTrack's reverse.
+            if ((_createDoorOpener ?? throw new InvalidOperationException(
+                "SPECIALOBJECT_MINECART has no INTERAC$1e allocation owner."))(nextPacked,nextTile))
+                return false;
         }
 
         _direction ^= 2;

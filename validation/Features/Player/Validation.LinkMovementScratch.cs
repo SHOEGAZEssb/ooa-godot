@@ -60,6 +60,8 @@ public sealed partial class ValidationRoot
             foreach (int angle in new[] { 31, 0, 1 })
             {
                 _player.WarpTo(corner!.Value);
+                // Interaction movement consumes Link's preceding probe pass.
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
                 for (int i = 0; i < 4; i++) _runtimeState.SetWramByte(0xcec0 + i, 0xa5);
                 _collision.ResolveMovement(corner.Value, Vector2.Up, true);
                 Expect(0xa5, 0xa5, 0xa5, 0xa5);

@@ -10,8 +10,7 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
     IPostObjectMeleeCollisionRoomEntity, IExpertPunchHittableRoomEntity, ISeedCollisionTarget
 {
     private readonly BossEntryMovement _entry;
-    private SwordActionState _swordState;
-    private int _swordLevel = 1;
+    private int _swordCollision=ItemCollisionType.L1Sword;
     private int _attackerRecoil;
     public bool MeleeReportsContact { get; private set; }
     internal ArmosWarriorRoomEntity(ArmosWarriorActor actor, BossEntryMovement entry)
@@ -49,12 +48,12 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
         }
         return ScreenTransitionPresentation.Hidden;
     }
-    public void SetLinkSwordState(SwordActionState state, int swordLevel)
-    { _swordState = state; _swordLevel = swordLevel; }
+    public void SetLinkSwordState(SwordActionState state, int swordLevel,int? itemCollisionType=null)
+    { _swordCollision = itemCollisionType??SwordCollision.Type(state,swordLevel); }
     public override bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns)
     {
-        int item = SwordCollision.Type(_swordState, _swordLevel);
+        int item = _swordCollision;
         return Hit(item, hitbox, sourcePosition, damage, spawns, melee: true);
     }
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox, Vector2 sourcePosition,

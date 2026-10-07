@@ -9,7 +9,7 @@ namespace oracleofages;
 /// respawnable-bush scanner $c7:$04,
 /// PART_BUTTON $09, the buttons' $20:$00/$21:$17 trigger-chest consumers,
 /// INTERAC_DUNGEON_STUFF $12:$01/$02/$04, INTERAC_PUSHBLOCK_TRIGGER $13:$01, and
-/// shutter-door controller variants $1e:$04-$0b, torch-count translator
+/// shutter-door controller variants $1e:$04-$0b/$10-$17, torch-count translator
 /// $24:$02, and the $c7:$08 lightable-torch scanner. Moonlit Grotto's
 /// INTERAC_DUNGEON_EVENTS $21:$09/$0a/$0c/$0d/$0e, PART_ORB $03, and
 /// PART_GROTTO_CRYSTAL $24 share this
@@ -35,6 +35,17 @@ internal sealed class DungeonMechanicDatabase
     internal int SolveSound => Constant("solve-sound");
     internal int EnemyStairTile(int sourceTile) => Constant($"enemy-stair-tile-{sourceTile - 0x40}");
     internal int DoorSound => Constant("door-sound");
+    internal int DoorTorchWait => Constant("door-torch-wait");
+    internal int DoorEntryScratchMask => Constant("door-entry-scratch-mask");
+    internal int DoorAngle(int subId) => subId switch
+    {
+        >= 0x04 and <= 0x0b => 0x10+(subId&3)*2,
+        >= 0x10 and <= 0x17 => Constant($"door-angle-{subId:x2}"),
+        _ => throw new ArgumentOutOfRangeException(nameof(subId),$"Unsupported INTERAC$1e shutter subid${subId:x2}.")
+    };
+    internal int DoorRadiusY(int subId) => subId >= 0x10 ? Constant($"door-y-{subId:x2}") : (subId&1) == 0 ? 10 : 8;
+    internal int DoorRadiusX(int subId) => subId >= 0x10 ? Constant($"door-x-{subId:x2}") : (subId&1) == 0 ? 8 : 10;
+    internal int DoorTorchCount(int subId) => Constant($"door-speed-{subId:x2}");
     internal int BridgeStepWait => Constant("bridge-step-wait");
     internal int BridgeSpawnerWait => Constant("bridge-spawner-wait");
     internal int BridgeSpawnerHalfTile => Constant("bridge-spawner-half-tile");
@@ -143,6 +154,7 @@ internal sealed class DungeonMechanicDatabase
                 record.Id == InteractionId.Miscellaneous2 && (record.SubId is not (0x0c or 0x0d or 0x12) || record.Parameter == 0) ||
                 record.Id == InteractionId.Splash && record.SubId > 0x07 ||
                 record.Id == InteractionId.DungeonStuff && record.SubId is not (0x01 or 0x02 or 0x04) ||
+                record.Id == InteractionId.DoorController && record.SubId is not (>= 0x04 and <= 0x0b or >= 0x10 and <= 0x17) ||
                 record.Id == InteractionId.DungeonScript && record.SubId != 0x00 ||
                 record.Id == InteractionId.DungeonEvents && record.SubId is not (0x09 or 0x0a or 0x0c or 0x0d or 0x0e or 0x17) ||
                 record.Id == InteractionId.ExtendableBridge && record.SubId > 0x07 ||
@@ -233,7 +245,8 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(InteractionId.DungeonEvents, 0x09);
-        if (RecordCount != 234 || _constants.Count != 91 || _texts.Count != 2 ||
+        if (RecordCount != 239 || _constants.Count != 125 || _texts.Count != 2 ||
+            DoorTorchWait != 30 || DoorEntryScratchMask != 1 ||
             OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||
             BridgeSpawnerFullTile != 0x6d ||
@@ -399,7 +412,7 @@ internal sealed class DungeonMechanicDatabase
             throw new InvalidOperationException(
                 "Imported dungeon orb / bridge / seed-bouncer / " +
                 "respawnable-bush / enemy-clear falling key/chest / switch / button / " +
-                "trigger-chest / $13:$01 / $1e:$04-$0b / torch scanner / " +
+                "trigger-chest / $13:$01 / $1e:$04-$0b/$10-$17 / torch scanner / " +
                 "translator / Moonlit Grotto " +
                 "orb / Armos / button-key / crystal / falling-key contract is incomplete.");
         }
@@ -416,12 +429,12 @@ internal sealed class DungeonMechanicDatabase
         : throw new KeyNotFoundException(
             $"Dungeon mechanic text TX_{textId:x4} was not imported.");
 
-    internal int ClosedTile(int subId) => subId switch
+    internal int ClosedTile(int subId) => ((DoorAngle(subId)>>1)&3) switch
     {
-        0x04 or 0x08 => Constant("closed-up"),
-        0x05 or 0x09 => Constant("closed-right"),
-        0x06 or 0x0a => Constant("closed-down"),
-        0x07 or 0x0b => Constant("closed-left"),
+        0 => Constant("closed-up"),
+        1 => Constant("closed-right"),
+        2 => Constant("closed-down"),
+        3 => Constant("closed-left"),
         _ => throw new ArgumentOutOfRangeException(
             nameof(subId), $"Unsupported shutter subid ${subId:x2}.")
     };

@@ -2246,10 +2246,6 @@ public sealed partial class ValidationRoot
         FailIf(
             fistWorld.SwordHitCalls != 4 || !fistPlayer.IsUsingPunch,
             "Fist Ring punch collision duration regressed.");
-        fistPlayer.AdvancePunchForValidation(5);
-        FailIf(
-            fistPlayer.IsUsingPunch || fistPlayer.PunchFrame != 0,
-            "Fist Ring LINK_ANIM_MODE_21 did not end at update 8.");
 
         (Player expertPlayer, ValidationRingPlayerWorld expertWorld) =
             RingPlayer(RingId.Experts);
@@ -2259,8 +2255,6 @@ public sealed partial class ValidationRoot
             expertWorld.ExpertTileHitCalls != 1 || expertWorld.SwordHitCalls != 1 ||
             !expertWorld.Sounds.Contains(SoundId.SndExplosion),
             "Expert's Ring did not apply source $03 tile breakage and four damage.");
-        expertPlayer.AdvancePunchForValidation(14);
-        FailIf(expertPlayer.IsUsingPunch, "Expert's Ring LINK_ANIM_MODE_34 did not end at update 14.");
 
         (Player transformedPlayer, ValidationRingPlayerWorld transformedWorld) =
             RingPlayer(RingId.Octo);

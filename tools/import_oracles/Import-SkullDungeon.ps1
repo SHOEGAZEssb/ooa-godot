@@ -67,10 +67,20 @@ for ($room = 0x68; $room -le 0x92; $room++) {
             }
             $y = if ($operands.Count -eq 4) { $operands[2] } else { 0 }
             $x = if ($operands.Count -eq 4) { $operands[3] } else { 0 }
-            $condition = if ($id -eq 0x21 -and $subid -in @(0x10, 0x11, 0x12)) { 'item-clear' } else { 'always' }
+            # $10/$11/$12 are unconditional mainData placements. Their item flag
+            # check runs in the handler after all source rows have allocated.
+            if ($id -eq 0x21 -and $subid -in @(0x10, 0x11, 0x12) -and
+                $body -match '(?m)^\s*obj_(IfRoomFlag|IfRoomFlagUnset|Else|EndIf)\b') {
+                throw "${label}: key/chest placements gained object-stream conditions requiring explicit import."
+            }
+            $condition = 'always'
             # dungeonScript_bossDeath re-creates an uncollected heart on
             # completed-room entry; only the boss itself uses flag80-clear.
-            if ($id -eq 0x20) { $condition = if ($subid -eq 0) { 'flag80-clear' } else { 'item-clear' } }
+            if ($id -eq 0x20) {
+                $condition = if ($subid -eq 0) { 'flag80-clear' } elseif ($subid -eq 1) { 'item-clear' } else { 'always' }
+                # Orb scripts are unconditional placements. Their one-time
+                # item gate runs in interactionRunScript after state0 clears.
+            }
             $skullRows.Add("4`t$($room.ToString('x2'))`t$order`t$nativeKind`t$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($y.ToString('x2'))`t$($x.ToString('x2'))`t$condition`tobjects/ages/mainData.s:$label`t00")
         }
         if ($kind -eq 'Part' -and $operands[0] -eq 0x0b) {

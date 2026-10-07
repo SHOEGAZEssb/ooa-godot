@@ -4,15 +4,15 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Positioned INTERAC_COMPANION_SCRIPTS $71:$02 records. Once Link mounts,
-/// the interaction clamps the live companion to its lower-Y boundary and
+/// Positioned INTERAC_COMPANION_SCRIPTS $71:$01/$02/$04/$05 records. Once Link mounts,
+/// the interaction clamps the live companion to its cardinal boundary and
 /// selects dialogue by SPECIALOBJECT_RICKY-relative companion index.
 /// </summary>
 internal sealed class CompanionBarrierDatabase
 {
-    private readonly Dictionary<int, CompanionBarrierRecord> _records = new();
+    private readonly Lookup<int, CompanionBarrierRecord> _records = new();
 
-    internal int Count => _records.Count;
+    internal int Count { get; private set; }
 
     internal CompanionBarrierDatabase()
     {
@@ -28,7 +28,7 @@ internal sealed class CompanionBarrierDatabase
                     "moosh-text-id", "ricky-utf8-base64",
                     "dimitri-utf8-base64", "moosh-utf8-base64", "source"
                 ],
-                ["group", "room"],
+                ["group", "room", "order"],
                 headerRequired: true));
 
         foreach (GeneratedTableRow row in table.Rows)
@@ -45,37 +45,21 @@ internal sealed class CompanionBarrierDatabase
                 [row.HexWord(10), row.HexWord(11), row.HexWord(12)],
                 [row.Base64Utf8(13), row.Base64Utf8(14), row.Base64Utf8(15)],
                 row.RequiredString(16));
-            if (!_records.TryAdd(MakeKey(record.Group, record.Room), record))
-            {
-                throw new InvalidOperationException(
-                    $"Duplicate companion barrier in {record.Source}.");
-            }
+            if (record.Id != 0x71 || record.SubId is not (1 or 2 or 4 or 5))
+                throw row.Invalid(3, "INTERAC_COMPANION_SCRIPTS $71:$01/$02/$04/$05");
+            _records.Add(MakeKey(record.Group, record.Room), record);
+            Count++;
         }
 
-        if (Count != 2 ||
-            !TryGet(0, 0x6c, out CompanionBarrierRecord room06c) ||
-            room06c is not
-            {
-                Order: 4, Id: 0x71, SubId: 0x02, Y: 0x6d, X: 0x38
-            } ||
-            !TryGet(0, 0x89, out CompanionBarrierRecord room089) ||
-            room089 is not
-            {
-                Order: 1, Id: 0x71, SubId: 0x02, Y: 0x6d, X: 0x38
-            } ||
-            room089.TextId(CompanionRuntimeState.RickyId) != 0x2007 ||
-            room089.TextId(CompanionRuntimeState.MooshId) != 0x2209)
+        if (Count != 10 || GetRoomRecords(0, 0x6a).Count != 2)
         {
             throw new InvalidOperationException(
-                "Imported Ages INTERAC_COMPANION_SCRIPTS `$71:$02 contract is incomplete.");
+                "Imported Ages INTERAC_COMPANION_SCRIPTS `$71:$01/$02/$04/$05 contract is incomplete.");
         }
     }
 
-    internal bool TryGet(
-        int group,
-        int room,
-        out CompanionBarrierRecord record) =>
-        _records.TryGetValue(MakeKey(group, room), out record);
+    internal IReadOnlyList<CompanionBarrierRecord> GetRoomRecords(int group, int room) =>
+        _records.ValuesOrEmpty(MakeKey(group, room));
 
     private static int MakeKey(int group, int room) => (group << 8) | room;
 }

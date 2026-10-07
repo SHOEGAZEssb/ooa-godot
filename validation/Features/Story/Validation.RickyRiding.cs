@@ -24,7 +24,9 @@ public sealed partial class ValidationRoot
         _saveData.SetGlobalFlag(record.PrerequisiteGlobalFlag, true);
         _saveData.WriteWramByte(
             record.RickyStateAddress,
-            checked((byte)record.CompleteMask));
+            // Species motion/scroll checks use a permanent companion. The
+            // source $71 quest barriers delete on state0 when bit7 is set.
+            checked((byte)(record.CompleteMask | 0x80)));
         LoadValidationRoom(record.Group, record.Room);
 
         Vector2 mountPosition = new(80, 64);
@@ -632,12 +634,12 @@ public sealed partial class ValidationRoot
         FailIf(
             _rooms.CurrentRoom.Id != 0x6b ||
             companion.PrecisePosition.X >= _currentRoom.Width / 2.0f ||
-            _player.PrecisePosition != companion.PrecisePosition ||
+            _player.Position != screenRespawn ||
             _player.LocalRespawnPosition != screenRespawn ||
             CompanionRuntimeState.ReadLastAnimalMountPosition(_runtimeState) !=
                 screenRespawn,
             "Mounted Ricky did not finish the horizontal scroll in room " +
-            "$0:6b with Link at Ricky's exact object position and both " +
+            "$0:6b with Link at Ricky's whole-pixel object position and both " +
             "finishScrollingTransition respawn coordinates updated.");
 
         // companionRespawn validates the local point once, but its

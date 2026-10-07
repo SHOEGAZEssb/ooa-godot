@@ -1203,38 +1203,49 @@ foreach ($tutorial in $companionTutorialPlacements) {
 
 $companionBarrierSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\companionScripts.s')
-$allLowerYBarriers = [regex]::Matches(
-    $mainObjectSource,
-    '(?m)^\s*obj_Interaction \$71 \$02 \$[0-9a-f]{2} \$[0-9a-f]{2}\s*$')
+$barrierObjectPath = Join-Path $Disassembly 'objects/ages/mainData.s'
+$barrierNodes = @(Read-AssemblyNodes $barrierObjectPath | Where-Object {
+    $_.Kind -eq 'MacroInvocation' -and $_.Name -eq 'obj_Interaction' -and
+    $_.Operands.Count -ge 2 -and $_.Operands[0] -eq '$71' -and
+    $_.Operands[1] -in @('$01','$02','$04','$05')
+})
 $companionBarrierPlacements = @()
-foreach ($expected in @(
-    @{ Group = 0; Room = 0x6c; Order = 4 },
-    @{ Group = 0; Room = 0x89; Order = 1 }
-)) {
-    $roomHex = ([int]$expected.Room).ToString('x2')
-    $roomBlock = [regex]::Match(
-        $mainObjectSource,
-        "(?ms)^group$($expected.Group)Map$($roomHex)ObjectData:(?<body>.*?)(?=^group[0-7]Map[0-9a-f]{2}ObjectData:|\z)")
-    $placement = if ($roomBlock.Success) {
-        [regex]::Match(
-            $roomBlock.Groups['body'].Value,
-            '(?m)^\s*obj_Interaction \$71 \$02 \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2})\s*$')
-    } else { $null }
-    if ($null -eq $placement -or -not $placement.Success) {
-        throw "Room $($expected.Group):$roomHex lost INTERAC_COMPANION_SCRIPTS `$71:`$02."
+foreach ($node in $barrierNodes) {
+    $label = [string]$node.EnclosingGlobalLabel
+    if ($label -notmatch '^group(?<group>[0-7])Map(?<room>[0-9a-f]{2})ObjectData$' -or
+        $node.Operands.Count -ne 4) {
+        throw "$($node.Path):$($node.Line): companion barrier requires a direct room placement with Y/X."
     }
+    $group = [int]$Matches['group']; $room = $Matches['room']
+    $preceding = @(Read-AssemblyLabelNodes $barrierObjectPath $label | Where-Object {
+        $_.Kind -eq 'MacroInvocation' -and $_.Line -lt $node.Line
+    })
+    if (@($preceding | Where-Object { $_.Name -ne 'obj_Interaction' }).Count -ne 0) {
+        throw "$($node.Path):$($node.Line): companion barrier source order requires resolving preceding non-interaction objects."
+    }
+    $values = @($node.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
     $companionBarrierPlacements += [pscustomobject]@{
-        Group = [int]$expected.Group
-        Room = $roomHex
-        Order = [int]$expected.Order
-        Y = $placement.Groups['y'].Value
-        X = $placement.Groups['x'].Value
+        Group = $group; Room = $room; Order = $preceding.Count
+        SubId = $values[1].ToString('x2')
+        Y = $values[2].ToString('x2'); X = $values[3].ToString('x2')
+        Handler = switch ($values[1]) {
+            1 { 'companionScript_restrictHigherX' }; 2 { 'companionScript_restrictLowerY' }
+            4 { 'companionScript_restrictHigherY' }; 5 { 'companionScript_restrictLowerX' }
+        }
     }
 }
-if ($allLowerYBarriers.Count -ne 2 -or $companionBarrierPlacements.Count -ne 2 -or
+if ($barrierNodes.Count -ne 10 -or $companionBarrierPlacements.Count -ne 10 -or
     $companionBarrierSource -notmatch '(?ms)^companionScript_genericState0:.*?wFileIsCompleted.*?wLinkObjectIndex.*?rrca.*?w1Companion\.id.*?SPECIALOBJECT_RICKY.*?wRickyState.*?bit 7,\(hl\).*?companionScript_deleteSelf' -or
     $companionBarrierSource -notmatch '(?ms)^companionScript_restrictLowerY:.*?companionScript_cpYToCompanion.*?ret nc.*?ld c,a.*?wLinkObjectIndex.*?rrca.*?ld \(hl\),a.*?SpecialObject\.speed.*?SPEED_0.*?companionScript_companionBarrierText.*?showText.*?^companionScript_cpYToCompanion:.*?Interaction\.yh.*?w1Companion\.yh.*?cp \(hl\).*?^companionScript_companionBarrierText:\s+\.dw TX_2007.*?\.dw TX_2105.*?\.dw TX_2209') {
-    throw 'Ages INTERAC_COMPANION_SCRIPTS `$71:$02 lower-Y barrier contract changed.'
+    throw 'Ages INTERAC_COMPANION_SCRIPTS `$71:$01/$02/$04/$05 barrier contract changed.'
+}
+foreach ($spec in @(@('HigherX','X','c'),@('LowerX','X','nc'),@('HigherY','Y','c'))) {
+    $body = [regex]::Match($companionBarrierSource,
+        "(?ms)^companionScript_restrict$($spec[0]):(?<body>.*?)(?=^companionScript_|^\+\+)").Groups['body'].Value
+    if ($body -notmatch "companionScript_cp$($spec[1])ToCompanion\s+ret $($spec[2])\b" -or
+        ($spec[0].StartsWith('Higher') -and $body -notmatch 'inc a')) {
+        throw "companionScripts.s: companionScript_restrict$($spec[0]) changed."
+    }
 }
 $barrierTextIds = @(0x2007, 0x2105, 0x2209)
 foreach ($textId in $barrierTextIds) {
@@ -1252,7 +1263,7 @@ foreach ($placement in $companionBarrierPlacements) {
         [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$_]))
     })
     $companionBarrierRows.Add(
-        "$group`t$room`t$($placement.Order)`t71`t02`t$($placement.Y)`t$($placement.X)`tc646`tc647`tc648`t2007`t2105`t2209`t$($messages[0])`t$($messages[1])`t$($messages[2])`tmainData.s:group$($group)Map$($room)ObjectData;companionScripts.s:companionScript_restrictLowerY")
+        "$group`t$room`t$($placement.Order)`t71`t$($placement.SubId)`t$($placement.Y)`t$($placement.X)`tc646`tc647`tc648`t2007`t2105`t2209`t$($messages[0])`t$($messages[1])`t$($messages[2])`tmainData.s:group$($group)Map$($room)ObjectData;companionScripts.s:$($placement.Handler)")
 }
 
 $tingleSource = Read-ImportText (
@@ -1995,6 +2006,57 @@ $keyBlockRows = @(
     "1e`t42`ta0`t80`t20`t$($soundIds['SND_OPENCHEST'])`t$($soundIds['SND_GETSEED'])`t5102`t$keyBlockText`t$($soundIds['SND_POOF'])`t$dungeonKeyActiveCollisions`tinteractableTiles.s:nextToKeyBlock"
 )
 
+# Shared showInfoTextForTile masks are intentionally shared between distinct
+# tile kinds. Preserve source order and formatting through the text resolver.
+function Resolve-TileInfoText([int]$textId,[Collections.Generic.HashSet[int]]$visited) {
+    if (-not $allTexts.ContainsKey($textId) -or -not $visited.Add($textId)) {
+        throw "showInfoTextForTile: missing/recursive TX_$($textId.ToString('x4'))."
+    }
+    $message = [string]$allTexts[$textId]
+    while ($true) {
+        $call = [regex]::Match($message,'\\call\(TX_(?<id>[0-9a-f]{4})\)')
+        if (-not $call.Success) { break }
+        $target = [Convert]::ToInt32($call.Groups['id'].Value,16)
+        $message = $message.Substring(0,$call.Index) + (Resolve-TileInfoText $target $visited) +
+            $message.Substring($call.Index + $call.Length)
+    }
+    $jump = [regex]::Match($message,'\\jump\(TX_(?<id>[0-9a-f]{4})\)')
+    if ($jump.Success) {
+        $target = [Convert]::ToInt32($jump.Groups['id'].Value,16)
+        $message = $message.Substring(0,$jump.Index) + (Resolve-TileInfoText $target $visited)
+    } elseif ($allTextFallthroughIds.ContainsKey($textId)) {
+        if ($message.EndsWith('\n',[StringComparison]::Ordinal)) {
+            $message = $message.Substring(0,$message.Length - 2) + "`n"
+        }
+        $message += Resolve-TileInfoText ([int]$allTextFallthroughIds[$textId]) $visited
+    }
+    [void]$visited.Remove($textId)
+    return $message
+}
+$tileInfoRows = [Collections.Generic.List[string]]::new()
+$tileInfoRows.Add("# index`tmask`ttext-id`tmessage-utf8-base64`tsource")
+$tileInfoNodes = @(Read-AssemblyNodes (Join-Path $Disassembly 'code/interactableTiles.s') |
+    Where-Object { $_.EnclosingGlobalLabel -eq 'showInfoTextForTile' -and $_.Kind -eq 'Data' })
+$tileInfoIndex = 0
+foreach ($node in $tileInfoNodes) {
+    if ($node.Name -ne '.db' -or $node.Operands.Count -ne 2 -or
+        $node.Operands[0] -notmatch '^\$(?<mask>[0-9a-f]{2})$') {
+        throw "showInfoTextForTile@data: unsupported row at $($node.Path):$($node.Line)."
+    }
+    $mask = $Matches['mask']
+    if ($node.Operands[1] -notmatch '^<TX_(?<id>[0-9a-f]{4})$') {
+        throw "showInfoTextForTile@data: unsupported text operand $($node.Operands[1])."
+    }
+    $textId = [Convert]::ToInt32($Matches['id'],16)
+    if (-not $allTexts.ContainsKey($textId)) { throw "showInfoTextForTile: unresolved TX_$($textId.ToString('x4'))." }
+    $resolved = Resolve-TileInfoText $textId ([Collections.Generic.HashSet[int]]::new())
+    $message = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($resolved))
+    $tileInfoRows.Add("$tileInfoIndex`t$mask`t$($textId.ToString('x4'))`t$message`tcode/interactableTiles.s:showInfoTextForTile@data+$tileInfoIndex")
+    $tileInfoIndex++
+}
+if ($tileInfoIndex -ne 10) { throw "showInfoTextForTile@data: expected10 rows, got$tileInfoIndex." }
+Write-GeneratedTable((Join-Path $destination 'metadata/tile_info_texts.tsv'),$tileInfoRows)
+
 # applyStandardTileSubstitutions selects one replacement list for each set room
 # flag bit and wActiveCollisions value. Preserve the complete Ages table so
 # persistent broken overworld tiles and the existing door paths share the same
@@ -2266,7 +2328,8 @@ foreach ($line in $mainObjectLines) {
         if (-not $specializedEnemyFallingKey -and (
             ($id -eq 0x12 -and $subid -in @(0x01, 0x02, 0x04)) -or
             ($id -eq 0x13 -and $subid -eq 0x01) -or
-            ($id -eq 0x1e -and $subid -ge 0x04 -and $subid -le 0x0b) -or
+            ($id -eq 0x1e -and (($subid -ge 0x04 -and $subid -le 0x0b) -or
+                ($subid -ge 0x10 -and $subid -le 0x17))) -or
             ($id -eq 0x23 -and $subid -le 0x07) -or
             ($id -eq 0x24 -and $subid -eq 0x02) -or
             ($id -eq 0x6b -and $subid -eq 0x0f) -or
@@ -2352,7 +2415,12 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 235 -or
+if ($dungeonMechanicRows.Count -ne 240 -or
+    -not ($dungeonMechanicRows -contains "4`t54`t0`t1e`t11`t20`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "4`tce`t2`t1e`t14`t07`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "5`t4f`t0`t1e`t10`t06`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "5`t51`t0`t1e`t10`t03`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "5`t5c`t0`t1e`t10`t0b`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`tab`t0`t12`t04`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "5`tc2`t0`tdc`t0c`t56`t08`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "5`te3`t0`tdc`t0d`t28`t06`tnone`t1") -or
@@ -2406,7 +2474,7 @@ if ($dungeonMechanicRows.Count -ne 235 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 234 reusable mechanics including Crown's enemy-clear staircase; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 239 reusable mechanics including entrance/torch door controllers and Crown's enemy-clear staircase; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2602,8 +2670,34 @@ $enemyStairTiles = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'object_
 if (($enemyStairTiles -join ',') -ne '70,71,68,69') {
     throw 'dungeonStuff.s:@replacementTiles must map $40..$43 to $46,$47,$44,$45.'
 }
+$doorScriptConstants = [Collections.Generic.List[string]]::new()
+foreach ($entry in [regex]::Matches($doorControllerSource,
+    '(?m)^\s*/\* \$(?<subid>1[0-7]) \*/ \.dw mainScripts\.(?<label>\w+)\s*$')) {
+    $subid = $entry.Groups['subid'].Value
+    $label = $entry.Groups['label'].Value
+    $profile = [regex]::Match($commonScriptSource,
+        '(?m)^' + [regex]::Escape($label) + ':\s+setcollisionradii \$(?<y>[0-9a-f]{2}), \$(?<x>[0-9a-f]{2})\s+setangle \$(?<angle>[0-9a-f]{2})(?:\s+setspeed \$(?<speed>[0-9a-f]{2}))?')
+    if (-not $profile.Success) { throw "commonScripts.s:$label has no supported door radii/angle/speed profile." }
+    foreach ($field in @('y','x','angle','speed')) {
+        $value = if ($profile.Groups[$field].Success) {
+            [Convert]::ToInt32($profile.Groups[$field].Value,16)
+        } else { 0 }
+        $doorScriptConstants.Add("door-$field-$subid`t$value")
+    }
+}
+$torchWait = [regex]::Match($commonScriptSource,
+    '(?ms)^doorController_shutUntilTorchesLit:\s+callscript doorController_updateRespawnWhenLinkNotTouching\s+setstate \$03\s+@loop:\s+asm15 scriptHelp\.doorController_checkEnoughTorchesLit\s+jumptable_memoryaddress wTmpcec0\s+\.dw @loop\s+\.dw @torchesLit\s+@torchesLit:\s+wait (?<wait>\d+)\s+playsound SND_SOLVEPUZZLE\s+incstate\s+scriptend')
+$entryFlip = [regex]::Match($commonScriptSource,
+    '(?m)^doorController_closeDoorWhenLinkNotTouchingAndFlipcfc0:\s+callscript doorController_updateRespawnWhenLinkNotTouching\s+setstate \$03\s+xorcfc0bit (?<bit>[0-7])\s+scriptend')
+if ($doorScriptConstants.Count -ne 32 -or -not $torchWait.Success -or -not $entryFlip.Success -or
+    $commonScriptHelperSource -notmatch '(?ms)^doorController_checkEnoughTorchesLit:\s+ld a,\(wNumTorchesLit\)\s+ld b,a\s+ld e,Interaction.speed\s+ld a,\(de\)\s+cp b\s+ld a,\$01\s+jr z,\+\s+dec a\s+\+\s+ld \(wTmpcec0\),a\s+ret') {
+    throw 'INTERAC$1e:$10-$17 entry/torch scripts or exact torch comparison changed.'
+}
+$doorScriptConstants.Add("door-torch-wait`t$($torchWait.Groups['wait'].Value)")
+$doorScriptConstants.Add("door-entry-scratch-mask`t$(1 -shl [int]$entryFlip.Groups['bit'].Value)")
 $dungeonMechanicConstantRows = @(
     "# key`tvalue"
+    $doorScriptConstants
     "enemy-stair-tile-0`t$($enemyStairTiles[0])"
     "enemy-stair-tile-1`t$($enemyStairTiles[1])"
     "enemy-stair-tile-2`t$($enemyStairTiles[2])"
@@ -5755,8 +5849,23 @@ if ($darkRoomRows.Count -ne 4 -or
     -not ($darkRoomRows -contains "5`ted`t1`thandler`t08`t00`t-`t-`t50`t0`t-`tdarkRoomHandler.s:partCode08")) {
     throw "Expected ordered dark-room placements in 5:a8 and 5:ed, parsed $($darkRoomRows.Count - 1)."
 }
+$torchMask = [regex]::Match($partActiveCollisionsSource,
+    '(?m)^\s*dbrev (?<bits>%[01]{8} %[01]{8} %[01]{8} %[01]{8}) ; 0x06\s*$')
+$torchBits = $torchMask.Groups['bits'].Value.Replace('%','').Replace(' ','')
+$torchCollision = $torchBits.IndexOf('1')
+$torchEffectRows = [regex]::Matches($objectCollisionTableSource,
+    '(?m)^\s*\.db(?<values>(?:\s+\$[0-9a-f]{2}){16})\s*$')
+if ($torchBits.Length -ne 32 -or $torchCollision -ne 0x1b -or
+    $torchBits.LastIndexOf('1') -ne $torchCollision -or $torchEffectRows.Count -ne 250) {
+    throw 'PART_LIGHTABLE_TORCH $06 must enable only item collision$1b in the original active mask.'
+}
+$torchEffects = [regex]::Matches(($torchEffectRows[4].Value + $torchEffectRows[5].Value),'\$(?<value>[0-9a-f]{2})')
+$torchEffect = [Convert]::ToInt32($torchEffects[$torchCollision].Groups['value'].Value,16)
+if ($torchEffect -ne 0x20) { throw 'PART_LIGHTABLE_TORCH dormant-mode Ember collision must use effect$20.' }
 $darkRoomConstantRows = @(
     "# key`tvalue"
+    "torch-item-collision`t$torchCollision"
+    "torch-item-effect`t$torchEffect"
     "unlit-tile`t8"
     "lit-tile`t9"
     "torch-collision-mode`t130"

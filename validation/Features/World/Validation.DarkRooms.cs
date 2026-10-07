@@ -82,22 +82,21 @@ public sealed partial class ValidationRoot
 
         var noSpawns = new List<RoomEntitySpawn>();
         LightableTorchRoomEntity left = torches[0];
-        SeedRecord emberRecord =
-            new SeedSatchelDatabase().Ember;
-        _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
-            left.Position - emberRecord.RightOffset,
-            Vector2I.Right, emberRecord, group));
+        // The actual Satchel/Shooter collision and seed lifetime are ROM
+        // backed. This palette/reward fixture declares their pending hit at
+        // the PART boundary, preserving its distinct dark-handler ordering.
+        SeedCollisionResponse hit = left.ApplySeedCollision(left.CollisionBounds,left.Position,
+            new SeedSatchelDatabase().Ember,ItemCollisionType.EmberSeed,noSpawns);
+        FailIf(!hit.Contact || !hit.DisableCollision || hit.Effect != SeedHitResult.Activate,
+            "Dark-room palette input requires the native pending Ember collision.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            _entities.Entities<EmberSeedEffect>().Count != 0 ||
             !left.HitPending || handler.State.LitCount != 1 ||
             room.Layout[0x33] != 0x09 ||
             _sound.PlayRequestsFor(SoundId.SndLightTorch) != 1 ||
             handler.State.FadeActive,
-            "The first 5:ed torch did not consume its Ember Seed in the item " +
-            "pass and light in the following part pass with SND_LIGHTTORCH " +
-            $"(seeds={_entities.Entities<EmberSeedEffect>().Count}, " +
-            $"pending={left.HitPending}, lit={handler.State.LitCount}, " +
+            "The declared first torch hit must light in the PART pass before the dark-room handler's next update " +
+            $"(pending={left.HitPending}, lit={handler.State.LitCount}, " +
             $"tile=${room.Layout[0x33]:x2}, sounds=" +
             $"{_sound.PlayRequestsFor(SoundId.SndLightTorch)}, " +
             $"fade={handler.State.FadeActive}).");
@@ -164,8 +163,8 @@ public sealed partial class ValidationRoot
         FailIf(key.SpawnCounter != 1 || key.Visible, "The falling key appeared before delay update 40.");
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            key.ZFixed != -48 << 8 || key.Visible,
-            $"objectGetZAboveScreen for 5:ed expected hidden boundary Z -48, " +
+            key.ZFixed != -48 << 8 || !key.Visible,
+            $"objectGetZAboveScreen for 5:ed expected Z -48 and ground-coordinate visibility, " +
             $"got Z {key.ZFixed >> 8}, visible={key.Visible}.");
 
         for (int update = 0;

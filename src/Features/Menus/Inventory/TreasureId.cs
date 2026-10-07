@@ -94,6 +94,8 @@ public static class TreasureId
     public const int CrownKey = 0x43;
     // constants/common/treasure.s: TREASURE_OLD_MERMAID_KEY
     public const int OldMermaidKey = 0x45;
+    // constants/common/treasure.s: TREASURE_LIBRARY_KEY
+    public const int LibraryKey = 0x46;
     // constants/common/treasure.s: TREASURE_BOMB_FLOWER
     public const int BombFlower = 0x49;
     // constants/common/treasure.s: TREASURE_MERMAID_SUIT

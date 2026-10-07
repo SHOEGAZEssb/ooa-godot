@@ -67,6 +67,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionMovementGameplayRom()
     {
+        CompareCompanionBarrierRom();
+        CompareCompanionBarrierDirectionsRom();
+        CompareCompanionBarrierInitializationRom();
+        CompareCompanionPlacementCapacityRom();
         int hostCase1 = 0;
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         foreach (bool wall in new[] { false, true })

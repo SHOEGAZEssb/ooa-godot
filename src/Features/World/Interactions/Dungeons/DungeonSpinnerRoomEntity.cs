@@ -10,7 +10,9 @@ namespace oracleofages;
 /// frame; the final $ff parameter hands off to LINK_STATE_FORCE_MOVEMENT.
 /// </summary>
 internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
-    IRoomEntity, IFixedRoomEntity, IPlayerRestriction, IPlayerForcedMovement
+    IRoomEntity, IFixedRoomEntity, IPlayerRestriction, IPlayerForcedMovement,
+    IRoomEntityUpdateFreeze, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity
 {
     private const int InitialWait = 30;
     private const int ExitUpdates = 0x10;
@@ -36,32 +38,36 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         new(-0x02, 0x0a)
     ];
 
-    private static readonly Vector2I[] DirectionVectors =
-    [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];
-
     private readonly DungeonSpinnerPlacement _placement;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _playSound;
     private readonly Action<int> _beginScreenShake;
     private readonly EnemyAnimationPlayer _spinnerAnimation;
-    private readonly EnemyAnimationPlayer _arrowAnimation;
+    private readonly DungeonInteractionVisual _visual;
+    private Func<DungeonSpinnerRoomEntity,DungeonInteractionVisual,DungeonSpinnerArrowRoomEntity?>? _createArrow;
     private SpinnerPhase _phase = SpinnerPhase.Waiting;
     private bool _initializing = true;
+    private bool _collisionRadiiPending = true;
+    private bool _touchScriptPending;
     private bool _waitNeedsStart = true;
     private bool _red;
     private int _waitCounter;
     private int _exitCounter;
     private int _exitDirection;
     private int _positionBase;
-    private int _turnFrameSeen;
     private Vector2 _linkOffset;
 
     public Node2D Node => this;
-    public bool DisablesSword => _phase != SpinnerPhase.Waiting;
-    public bool DisablesItems => _phase != SpinnerPhase.Waiting;
+    public bool DisablesSword => _phase is SpinnerPhase.Turning or SpinnerPhase.Exiting;
+    public bool DisablesItems => _phase is SpinnerPhase.Turning or SpinnerPhase.Exiting;
     public bool DisablesMovement => _phase != SpinnerPhase.Waiting;
     public bool DisablesMenus => _phase != SpinnerPhase.Waiting;
     public bool DisablesScreenTransitions => _phase != SpinnerPhase.Waiting;
+    public bool DisablesCompanion => _phase == SpinnerPhase.Turning;
+    public bool FreezesRoomEntities => _phase == SpinnerPhase.Turning;
+    public bool FreezesInteractions => false;
+    public bool UpdatesDuringDialogue => _initializing;
+    public bool UpdatesDuringRoomEntityFreeze => _initializing;
 
     internal SpinnerPhase Phase => _phase;
     internal bool Red => _red;
@@ -70,12 +76,10 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
     internal int ExitDirection => _exitDirection;
     internal int SpinnerAnimationIndex => _spinnerAnimation.AnimationIndex;
     internal int SpinnerAnimationFrame => _spinnerAnimation.FrameIndex;
-    internal int ArrowAnimationIndex => _arrowAnimation.AnimationIndex;
+    internal DungeonSpinnerArrowRoomEntity? Arrow { get; private set; }
     internal Vector2 LinkOffset => _linkOffset;
     internal Texture2D SpinnerTexture =>
         _spinnerAnimation.CurrentTextureForPalette(_red ? 5 : 4);
-    internal Texture2D ArrowTexture =>
-        _arrowAnimation.CurrentTextureForPalette(_red ? 5 : 4);
 
     internal DungeonSpinnerRoomEntity(
         DungeonSpinnerPlacement placement,
@@ -88,31 +92,46 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         _runtime = runtime;
         _playSound = playSound;
         _beginScreenShake = beginScreenShake;
+        _visual = visual;
         Position = new Vector2(
             (placement.PackedPosition & 0x0f) * 16 + 8,
             (placement.PackedPosition >> 4) * 16 + 8);
         Name = $"Spinner_{placement.Group}_{placement.Room:x2}_" +
             $"{placement.PackedPosition:x2}";
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
+        Visible = false;
 
         _red = (_runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress) &
             placement.StateMask) != 0;
         Image source = EnemyVisualSource.LoadComposite(visual.Sprites);
         _spinnerAnimation = CreateAnimation(source, visual);
-        _arrowAnimation = CreateAnimation(source, visual);
         _spinnerAnimation.SetAnimation(_red ? 1 : 0);
-        _arrowAnimation.SetAnimation(_red ? 3 : 2);
+    }
+
+    internal void BindArrow(Func<DungeonSpinnerRoomEntity,DungeonInteractionVisual,DungeonSpinnerArrowRoomEntity?> createArrow)
+        => _createArrow = createArrow;
+
+    private void Initialize()
+    {
+        if (!_initializing) return;
+        _initializing = false;
+        _red = (_runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress)&_placement.StateMask) != 0;
+        _spinnerAnimation.SetAnimation(_red ? 1 : 0);
+        Visible = true;
+        Arrow = (_createArrow ?? throw new InvalidOperationException($"INTERAC$7d missing checked arrow allocator at {_placement.Source}."))(this,_visual);
+    }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Initialize();
+        return ScreenTransitionPresentation.Visible;
     }
 
     public void UpdatePlayerForcedMovement(Player player)
     {
-        if (_phase is SpinnerPhase.Touched or SpinnerPhase.Turning)
+        if (_phase == SpinnerPhase.Turning)
         {
             player.SetSpinnerTurnPosition(Position + _linkOffset, _exitDirection);
-        }
-        else if (_phase == SpinnerPhase.Exiting)
-        {
-            player.AdvanceSpinnerExit(DirectionVectors[_exitDirection]);
         }
     }
 
@@ -122,7 +141,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
     {
         if (_initializing)
         {
-            _initializing = false;
+            Initialize();
         }
         else
         {
@@ -146,12 +165,20 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
             }
         }
 
-        _arrowAnimation.Advance();
         QueueRedraw();
     }
 
     private void UpdateWaiting(Player player)
     {
+        // interactionRunScript checks the death trigger before either counter.
+        if (player.IsDying) return;
+        // spinnerScript_initialization's setcollisionradii clears carry.
+        // The following wait30 is installed on the next script update.
+        if (_collisionRadiiPending)
+        {
+            _collisionRadiiPending = false;
+            return;
+        }
         if (_waitNeedsStart)
         {
             _waitCounter = InitialWait;
@@ -166,13 +193,21 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         _linkOffset = player.PrecisePosition - Position;
         _exitDirection = DirectionFromSpinner(player.PrecisePosition);
         _spinnerAnimation.SetAnimation(_red ? 1 : 0);
-        _turnFrameSeen = 0;
         _phase = SpinnerPhase.Touched;
+        _touchScriptPending = true;
         player.BeginSpinnerTouch();
     }
 
     private void UpdateTouched(Player player)
     {
+        // setanimationfromangle yields while state1 retains wcc95 bit7;
+        // the next script update only executes incstate, before state2 runs.
+        if (_touchScriptPending)
+        {
+            if (player.IsDying) return;
+            _touchScriptPending = false;
+            return;
+        }
         if (player.TopDownAirborne || player.TopDownSwimming)
         {
             _phase = SpinnerPhase.Waiting;
@@ -201,18 +236,12 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
             return;
         }
 
-        int frame = _spinnerAnimation.FrameIndex;
-        if (frame != _turnFrameSeen)
+        if (parameter != 0)
         {
-            _turnFrameSeen = frame;
-            if (parameter != 0)
-            {
-                _linkOffset = LinkRelativePositions[
-                    (_positionBase + parameter) & 0x0f];
-                player.SetSpinnerTurnPosition(
-                    Position + _linkOffset, _exitDirection);
-                _playSound(SoundId.SndDoorClose);
-            }
+            _spinnerAnimation.ConsumeParameter();
+            _linkOffset = LinkRelativePositions[(_positionBase + parameter) & 0x0f];
+            player.SetSpinnerTurnPosition(Position + _linkOffset, _exitDirection);
+            _playSound(SoundId.SndDoorClose);
         }
         _spinnerAnimation.Advance();
     }
@@ -228,7 +257,6 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
             OracleRuntimeState.SpinnerStateAddress,
             (byte)(state ^ _placement.StateMask));
         _red = !_red;
-        _arrowAnimation.SetAnimation(_red ? 3 : 2);
         _phase = SpinnerPhase.Waiting;
         _waitNeedsStart = true;
         player.EndSpinnerControl();
@@ -236,14 +264,17 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
 
     private bool TouchesLink(Player player)
     {
-        Vector2 delta = player.PrecisePosition - Position;
-        return Math.Abs(delta.X) < CollisionRadius &&
-            Math.Abs(delta.Y) < CollisionRadius;
+        Vector2 point = OracleObjectMath.ToPixelPosition(player.PrecisePosition);
+        int x = unchecked((byte)((int)point.X-(int)Position.X+CollisionRadius));
+        int y = unchecked((byte)((int)point.Y-(int)Position.Y+CollisionRadius));
+        return x < CollisionRadius*2 && y < CollisionRadius*2;
     }
 
     private int DirectionFromSpinner(Vector2 point)
     {
-        Vector2 delta = point - Position;
+        // objectCheckLinkWithinDistance compares yh/xh, including horizontal
+        // priority for equal pixel distances. Fractional bytes do not decide.
+        Vector2 delta = OracleObjectMath.ToPixelPosition(point) - Position;
         if (Math.Abs(delta.X) >= Math.Abs(delta.Y))
             return delta.X >= 0 ? 1 : 3;
         return delta.Y >= 0 ? 2 : 0;
@@ -288,11 +319,6 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         if (!Visible)
             return;
         int palette = _red ? 5 : 4;
-        // The parent occupies the lower interaction slot and therefore wins
-        // OAM overlap. Draw its later-created arrow first to preserve that.
-        DrawTexture(
-            _arrowAnimation.CurrentTextureForPalette(palette),
-            _arrowAnimation.CurrentOffset + SourceOamDrawOffset);
         DrawTexture(
             _spinnerAnimation.CurrentTextureForPalette(palette),
             _spinnerAnimation.CurrentOffset + SourceOamDrawOffset);

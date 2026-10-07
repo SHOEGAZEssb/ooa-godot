@@ -4,6 +4,10 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class WramAddress
 {
+    // include/wram.s: wInformativeTextsShown (shared per-room hint masks).
+    public const int wInformativeTextsShown = 0xccd7;
+    // include/wram.s: Ages wInShop, written by room graphics and shop scripts.
+    public const int wInShop = 0xccd3;
     // include/wram.s: wDisableScreenTransitions (all bits gate underwater travel).
     public const int wDisableScreenTransitions = 0xcc91;
     // include/wram.s: wSoundFadeCounter
@@ -214,6 +218,8 @@ public static class WramAddress
     public const int wSeedTreeRefilledBitset = 0xcc4d;
     // include/wram.s: wLinkPushingDirection
     public const int wLinkPushingDirection = 0xcc65;
+    // include/wram.s: shared interactWithTileBeforeLink countdown.
+    public const int wPushingAgainstTileCounter = 0xcc6a;
     // include/wram.s: wLinkRaisedFloorOffset
     public const int wLinkRaisedFloorOffset = 0xcc69;
 
@@ -237,6 +243,9 @@ public static class WramAddress
     public const int wLever1PullDistance = 0xccab;
     // include/wram.s: wLever2PullDistance
     public const int wLever2PullDistance = 0xccac;
+    // include/wram.s: Ages rotating-cube color (bit7: torches lit) and position.
+    public const int wRotatingCubeColor = 0xccad;
+    public const int wRotatingCubePos = 0xccae;
     // include/wram.s: wDisableWarps
     public const int wDisableWarps = 0xccb2;
     // include/wram.s: wDiggingUpEnemiesForbidden

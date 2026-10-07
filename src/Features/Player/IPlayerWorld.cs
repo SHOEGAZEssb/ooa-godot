@@ -13,10 +13,12 @@ public interface IPlayerWorld
     bool PassesNpcs => false;
     bool InteractionMenusDisabled => false;
     bool ScreenScrolling { get; }
+    bool RoomExitPending => false;
     bool DialogueOpen { get; }
     bool NativeTextActive => DialogueOpen;
     bool SwordDisabled { get; }
     bool ItemUsageDisabled { get; }
+    bool InShop { get; }
     bool MovementDisabled { get; }
     bool PlayerUpdatesFrozen => false;
     bool NativePaletteChanging => false;
@@ -33,6 +35,7 @@ public interface IPlayerWorld
         }
     }
     void UpdateLinkOnChest(Vector2 position, bool airborne) { }
+    void UpdateActiveLinkTile(Vector2 position) { }
     bool GaleWarpDisabled => false;
     bool NativeWarpsDisabled => false;
     void SetNativeWarpsDisabled(bool disabled) =>
@@ -86,7 +89,20 @@ public interface IPlayerWorld
     bool TryBeginBoomerang(Player player, int parentSlot) => false;
     void UpdateBoomerangParent() { }
     void ClearBoomerangParent() { }
+    bool BombchuParentActive => false;
+    bool BombchuParentAllocated => false;
+    int BombchuParentSlot => 0;
+    int BombchuParentGraphic => 0;
+    bool TryBeginBombchu(Player player, int parentSlot) => false;
+    bool InitializeBombchuParent(Player player) => false;
+    void UpdateBombchuParent() { }
+    void ClearBombchuParent() { }
     bool SomariaActive => false;
+    bool BiggoronActive => false;
+    void BeginBiggoron(Player player) { }
+    void UpdateBiggoronParent(bool prohibited) { }
+    void CancelBiggoron() { }
+    void DrawBiggoron(CanvasItem canvas,Player player,bool damagePalette) { }
     int SomariaAnimationMode => 0;
     int SomariaAnimationFrame => 0;
     void BeginSomaria(Player player,bool underwater) { }
@@ -98,6 +114,7 @@ public interface IPlayerWorld
     void InterruptSwitchHook(bool discard) { }
     void ClearItemParents(Player player) { }
     int BeginHarp(Player player) => 0;
+    int PlayingInstrument => 0;
     int BeginFlute(Player player) => 0;
     void AdvanceHarp(Player player, int actionUpdate) { }
     void CompleteHarp(Player player, int song) { }
@@ -114,7 +131,7 @@ public interface IPlayerWorld
         Vector2 playerPosition,
         Vector2I facing,
         Vector2 movementInput);
-    void UpdatePushableBlocks(
+    bool UpdatePushableBlocks(
         Vector2 playerPosition,
         Vector2I facing,
         Vector2 movementInput);

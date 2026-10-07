@@ -30,7 +30,12 @@ internal static class RingEffects
         if (initialSwing && Active(inventory, RingId.DoubleEdged) &&
             inventory.HealthQuarters >= 5)
             return damage + 8;
-        return inventory.ActiveRing switch
+        return SwordDamageFromBase(inventory,damage);
+    }
+
+    // items/commonCode2.s:itemCalculateSwordDamage also serves ITEM$0c.
+    // Its base comes from itemAttributes, without swordParent's ring rolls.
+    internal static int SwordDamageFromBase(InventoryState inventory,int damage) => inventory.ActiveRing switch
         {
             (int)RingId.PowerL1 => damage + 1,
             (int)RingId.PowerL2 => damage + 2,
@@ -43,7 +48,6 @@ internal static class RingEffects
             (int)RingId.Cursed => Math.Max(1, damage / 2),
             _ => damage
         };
-    }
 
     internal static int IncomingDamageRaw(
         InventoryState inventory, int quarters, RingDamageSource source)

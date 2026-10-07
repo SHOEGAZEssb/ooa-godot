@@ -23,8 +23,7 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
     private bool _healthCleared;
     private int _pendingRecoil;
     private Vector2? _pendingBumpSource;
-    private SwordActionState _swordState;
-    private int _swordLevel;
+    private int _swordCollision=ItemCollisionType.L1Sword;
     private Rect2 _bounds;
 
     internal EnemySwordRoomEntity(SwordEnemyCharacter parent, Action<int> soundRequested, Func<bool> parentCollisionAllowed)
@@ -69,14 +68,14 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     { if (!_initialized) UpdatePart(); return ScreenTransitionPresentation.Hidden; }
 
-    public void SetLinkSwordState(SwordActionState state, int swordLevel)
-    { _swordState = state; _swordLevel = swordLevel; }
+    public void SetLinkSwordState(SwordActionState state, int swordLevel,int? itemCollisionType=null)
+    { _swordCollision = itemCollisionType??SwordCollision.Type(state,swordLevel); }
 
     public bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns)
     {
         if (!CollisionEnabled || _invincibility != 0 || !_bounds.Intersects(hitbox)) return false;
-        int collision = SwordCollision.Type(_swordState, _swordLevel);
+        int collision = _swordCollision;
         int effect = EnemyBehaviorTables.Shared.EnemySwordCollisionEffects[collision].Value;
         if (effect == CollisionEffect.None) return false;
         if (effect == CollisionEffect.BumpWithClinkHighKnockback)

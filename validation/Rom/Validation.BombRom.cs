@@ -188,6 +188,7 @@ public sealed partial class ValidationRoot
         GD.Print("Validated ROM bomb fuse, explosion damage/radius/collision/probe boundaries, cleanup and repeat through individual/batched gameplay updates.");
         CompareBombSelfDamageRom();
         CompareBombTileProbesRom();
+        CompareBombExplosionContactsRom(bombchu: false);
     }
 
     private void ValidateBombGameplayRom()

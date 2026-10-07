@@ -17,7 +17,7 @@ public partial class ValidationRoot
             animation.Frames.Any(f => f.Duration != 2) ||
             !animation.Frames.Select(f => f.Parameter).SequenceEqual(new[] { 0, 0, 0, 1 }),
             "Boomerang rotation requires four two-update frames; only its fourth frame signals sound.");
-        var parents = GeneratedTable.Load("res://assets/oracle/metadata/boomerang_parent_animations.tsv",
+        var parents = GeneratedTable.Load("res://assets/oracle/metadata/item_throw_parent_animations.tsv",
             new GeneratedTableSchema("boomerang parent fixture", GeneratedTableKeySemantics.Unique,
                 ["mode", "frame", "duration", "graphic", "parameter", "source"], ["mode", "frame"], headerRequired: true));
         FailIf(parents.Rows.Count != 4, "Boomerang parent modes$21/$25 each require an eight-update pose and terminal frame.");

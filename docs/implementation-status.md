@@ -21,7 +21,7 @@ focused validations; NPC classifications live in the
   blocks, breakable objects, and a growing shared enemy roster.
 - Substantial item and ring support, including seeds, bombs, shovel, Feather,
   Harp, Flippers, Mermaid Suit swimming and underwater travel, Switch Hook, and partial
-  Cane of Somaria behavior.
+  Cane of Somaria behavior, Biggoron Sword swings and Bombchu movement with partial target support.
 - Spirit's Grave (`$01`) and Wing Dungeon (`$02`) are playable end to end.
 - Moonlit Grotto (`$03`) has selected puzzles, both boss encounters, rewards,
   and its Essence/story handoff; full dungeon fidelity remains incomplete.
@@ -32,7 +32,8 @@ focused validations; NPC classifications live in the
   Complete combat, traversal, and dungeon parity remain unfinished.
 - Selected overworld dialogue, shops/trades, Gasha and Seed Trees, Maple,
   early story sequences, King Moblin's keep, Goron quests/minigames, Symmetry
-  Village restoration, Patch's ceremony, and the hidden shop's chest-choice game.
+  Village restoration, Patch's ceremony, the Library Key entrance, and the hidden
+  shop's chest-choice game.
 - Raft travel and wreck/theft events; partial Tokay Island progression and
   minigames; fairy fountains and Tokkey's song lesson.
 - Ricky, Dimitri, and Moosh riding and forest quests, flute summoning, and

@@ -10,6 +10,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonCubes()
     {
+        CompareBlueFlameChestRom();
+        CompareBlueFlameChestAllocationRom();
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Step(int count = 1, Vector2 move = default, bool attack = false) =>
             StepGameplayUpdates(count, move, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: true);
@@ -27,32 +29,6 @@ public sealed partial class ValidationRoot
         _inventory.RefillHealth();
         _inventory.GiveTreasure(TreasureId.Sword, 1);
         _inventory.EquipA(TreasureId.Sword);
-        var database = new SkullDungeonDatabase();
-        FailIf(database.GetRoomRecords(4, 0x72) is not [
-            { Id: InteractionId.ToggleFloor }, { Id: InteractionId.MinecartGate, SubId: 0, Order: 1, X: 0xc0, Y: 0x88 },
-            { Id: InteractionId.DungeonEvents, SubId: 7, Order: 2, X: 1, Y: 0x8d }],
-            "4:72 lost its source floor/gate/bit-consumer order.");
-        LoadValidationRoom(4, 0x72);
-        _player.WarpTo(new Vector2(152, 72));
-        var gate = _entities.Entities<MinecartGateRoomEntity>().Single();
-        _entities.RuntimeState.SetWramByte(OracleRuntimeState.SwitchStateAddress, 0x80);
-        _currentRoom.SetPositionTileAndCollision(Point(0x8d), 0xaf, null, 0);
-        Step();
-        FailIf(!gate.Open || _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x81,
-            "4:72 gate must run before the floor event publishes bit $01, preserving bit $80.");
-        Step();
-        FailIf(gate.Open || !gate.Animating || _currentRoom.GetMetatile(Point(0x8b)) != 0x5e ||
-            _currentRoom.GetTerrainInfo(Point(0x8b)).Collision != 0 || _currentRoom.GetTerrainInfo(Point(0x8c)).Collision != 0x0a,
-            "4:72 gate did not close with source collision bytes on the following dispatch.");
-        _currentRoom.SetPositionTileAndCollision(Point(0x8d), 0xda, null, 0);
-        Step(24);
-        FailIf(_entities.RuntimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x81,
-            "$21:$07 must retain its switch bit while Somaria covers the floor control.");
-        _currentRoom.SetPositionTileAndCollision(Point(0x8d), 0xad, null, 0);
-        Step(26);
-        FailIf(!gate.Open || _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0x80,
-            "4:72 red floor did not reopen the gate while preserving other switch bits.");
-
         foreach (var (room, initial, initialOrientation, sensor, start) in new[] {
             (0x78, 0x2c, 1, 0x67, 0x1c), (0x90, 0x36, 0, 0x74, 0x26) })
         {
@@ -236,11 +212,12 @@ public sealed partial class ValidationRoot
         _inventory.RefillHealth();
         var resetCube = _entities.Entities<ColoredCubeRoomEntity>().Single();
         FailIf(resetCube.Position != Point(0x36) || resetCube.Orientation != 0 ||
-            _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != 0,
-            "4:90 re-entry did not reset its cube and suppress its collected chest event.");
+            _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != 1,
+            "4:90 re-entry must reset its cube and allocate the original pending chest before its item-flag deletion.");
         var holeCounter = typeof(ColoredCubeRoomEntity).GetField("_holeCounter", flags)!;
         Step(10);
-        FailIf((int)holeCounter.GetValue(resetCube)! != 0, "Cube idle cracked-floor timer did not reach zero after ten updates.");
+        FailIf((int)holeCounter.GetValue(resetCube)! != 0 || _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != 0,
+            "Cube idle timer must reach zero after ten updates and the collected chest must delete in its first object pass.");
         Step();
         FailIf((int)holeCounter.GetValue(resetCube)! != 0xff, "Cube idle cracked-floor timer did not wrap from zero to $ff.");
         _currentRoom.SetPositionTileAndCollision(resetCube.Position, 0x4d, 0x0f, 0);

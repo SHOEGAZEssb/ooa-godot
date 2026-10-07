@@ -3101,14 +3101,14 @@ public sealed partial class ValidationRoot
             isolatedGuard.Position != new Vector2(0x48, 0x38) ||
             isolatedHeart.Position != new Vector2(0x78, 0x28) ||
             isolatedHeart.PixelHash == 0 ||
-            isolatedHeart.State != PickupState.Initializing ||
+            isolatedHeart.State != PickupState.Spawning ||
             !isolatedHeart.Visible ||
             !isolatedHeart.TransitionDrawOffset.IsEqualApprox(
                 isolatedHeartIncomingOffset),
             "Room 1:86 did not preload its static Heart Piece at the incoming scroll offset.");
         isolatedManager.Update(1.0, _player);
         FailIf(
-            isolatedHeart.State != PickupState.Initializing ||
+            isolatedHeart.State != PickupState.Spawning ||
             !isolatedHeart.Visible ||
             !isolatedHeart.TransitionDrawOffset.IsEqualApprox(
                 isolatedHeartIncomingOffset),

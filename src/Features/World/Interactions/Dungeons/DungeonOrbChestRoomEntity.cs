@@ -5,23 +5,24 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed partial class DungeonOrbChestRoomEntity : Node2D, IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
-    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity,
+    IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
-    private readonly OracleRoomData _room;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _sound;
-    private readonly Action _changed;
-    private readonly Func<long> _tick;
+    private readonly Action _writeChest;
     private readonly Func<bool> _textActive;
-    private readonly int _mask, _wait, _tile;
-    private bool _initialized;
+    private readonly Func<bool> _itemFlag;
+    private readonly int _mask;
+    private readonly ChestAfterPuffScript _script;
+    private bool _initialized, _itemChecked, _scriptStopped;
     public Node2D Node => this;
     public bool Finished { get; private set; }
     public bool UpdatesDuringDialogue => !_initialized;
     public bool UpdatesDuringRoomEntityFreeze => !_initialized;
-    internal int Counter { get; private set; } = -1;
-    internal DungeonOrbChestRoomEntity(DungeonObjectRecord record, OracleRoomData room,
-        OracleRuntimeState runtime, DungeonInteractionDatabase data, Action<int> sound, Action changed, Func<long> tick, Func<bool> textActive)
+    internal int Counter => _script.Counter;
+    internal DungeonOrbChestRoomEntity(DungeonObjectRecord record,OracleRuntimeState runtime,
+        Action<int> sound,Func<bool> textActive,Func<bool> itemFlag,Action writeChest)
     {
         var table = GeneratedTable.Load("res://assets/oracle/objects/orb_chest_scripts.tsv",
             new GeneratedTableSchema("orb chest scripts", GeneratedTableKeySemantics.Unique,
@@ -29,26 +30,49 @@ internal sealed partial class DungeonOrbChestRoomEntity : Node2D, IRoomEntity, I
         if (table.Rows.Count != 2 || record.SubId is not (2 or 3)) throw new InvalidOperationException($"Unknown orb script at {record.Source}.");
         var row = table.Rows[record.SubId - 2];
         if (row.HexByte(0) != record.SubId) throw row.Invalid(0, "ordered dungeon04 script subids02/03");
-        _mask = row.HexByte(1); _wait = row.UnsignedDecimal(2); _tile = data.Constant("chest");
-        _room = room; _runtime = runtime; _sound = sound; _changed = changed; _tick = tick; _textActive = textActive; Position = record.Position;
+        _mask = row.HexByte(1); _script = new(row.UnsignedDecimal(2));
+        _runtime = runtime; _sound = sound; _textActive = textActive; _itemFlag = itemFlag; _writeChest = writeChest; Position = record.Position;
+        Visible = false;
     }
-    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Advance(spawns,frame.Player.IsDying);
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+        => throw new InvalidOperationException("INTERAC$20 orb chest preload requires Link's live death-trigger state.");
+    public ScreenTransitionPresentation PrepareForScreenTransition(Player? player,ICollection<RoomEntitySpawn> spawns)
+    {
+        if (player is null) throw new InvalidOperationException("INTERAC$20 orb chest preload requires Link's live death-trigger state.");
+        if (!_initialized) Advance(spawns,player.IsDying);
+        return ScreenTransitionPresentation.Hidden;
+    }
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        // Pending outgoing state0 reaches interactionDeleteAndRetIfEnabled02;
+        // initialized ordinary interactions are retained until bulk clearing.
+        if (!_initialized) Finished = true;
+    }
+    private void Advance(ICollection<RoomEntitySpawn> spawns,bool deathTriggered)
     {
         if (Finished) return;
+        bool initializing = !_initialized;
         if (!_initialized)
         {
             _initialized = true;
             _runtime.SetWramByte(0xcfc1, 0); _runtime.SetWramByte(0xcfc2, 0);
         }
-        if (frame.Player.IsDying || _textActive()) return;
-        if (Counter < 0)
+        if (deathTriggered || _textActive()) return;
+        if (_scriptStopped) { Finished = true; return; }
+        if (!_itemChecked)
         {
-            if ((_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) & _mask) == 0) return;
-            _sound(SoundId.SndSolvePuzzle); spawns.Add(new PuzzlePuffSpawn(Position, SoundId.SndPoof));
-            Counter = _wait; return;
+            _itemChecked = true;
+            if (_itemFlag())
+            {
+                // state0 tail-jumps to interactionRunScript without checking
+                // carry. stopifitemflagset installs stubScript; state1 deletes
+                // it on the next eligible update, even if the flag changes.
+                _scriptStopped = initializing; Finished = !initializing; return;
+            }
         }
-        if (--Counter != 0) return;
-        _room.SetPositionTileAndCollision(Position, (byte)_tile, null, _tick()); _changed(); Finished = true;
+        Finished = _script.Advance((_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress)&_mask) != 0,
+            Position,spawns,_sound,_writeChest);
     }
     public void SetTransitionDrawOffset(Vector2 offset) { }
 }

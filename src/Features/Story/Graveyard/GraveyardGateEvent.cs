@@ -17,7 +17,6 @@ internal sealed class GraveyardGateEvent :
     private readonly GraveyardGateEventDatabaseEventRecord _record;
     private readonly CutsceneCommandRunner _runner;
     private GraveyardGateEventStage _stage;
-    private int _shakeCounter;
 
     internal GraveyardGateEvent(RoomEventContext context)
     {
@@ -28,11 +27,9 @@ internal sealed class GraveyardGateEvent :
 
     public bool HasState => _stage is GraveyardGateEventStage.WaitingForKeyhole or GraveyardGateEventStage.Running;
     public bool BlocksGameplay => _stage == GraveyardGateEventStage.Running;
-    internal GraveyardGateEventStage Stage => _stage;
+    public bool FreezesNonInteractionObjects => BlocksGameplay;
+    public bool MenusDisabled => BlocksGameplay;
     internal int Counter => _runner.Counter;
-    internal int CurrentCommandIndex =>
-        _runner.CurrentCommand?.Source.CommandIndex ?? -1;
-    internal int ShakeCounter => _shakeCounter;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room &&
@@ -68,7 +65,6 @@ internal sealed class GraveyardGateEvent :
             throw new InvalidOperationException(
                 $"Room {group:x}:{room:x2} cannot trigger interactiondcSubid01Script.");
         }
-        _context.Player.BeginCutsceneControl(owner: this);
         _stage = GraveyardGateEventStage.Running;
         _runner.Start(_database.Commands);
     }
@@ -78,18 +74,14 @@ internal sealed class GraveyardGateEvent :
         if (_stage != GraveyardGateEventStage.Running)
             return;
         _runner.AdvanceFrame();
-        UpdateScreenShake();
     }
 
     public void Cancel()
     {
         _runner.Clear();
-        if (EventResources.InputLocked)
-            _context.Player.EndCutsceneControl(this);
-        _context.RoomCamera.Offset = Vector2.Zero;
+        if (_stage == GraveyardGateEventStage.Running)
+            _context.Entities.SetScreenShake(0,0,0);
         _stage = GraveyardGateEventStage.Inactive;
-        _shakeCounter = 0;
-        _context.Player.EndCutsceneControl(this);
     }
 
     public override RoomEventContext Context => _context;
@@ -99,7 +91,8 @@ internal sealed class GraveyardGateEvent :
     {
         if (!enabled)
             throw UnsupportedCommand("disable input from the command stream");
-        _context.Player.EndCutsceneControl(this);
+        // enableinput clears $81; scriptend retires the event in this update.
+        // The ordinary Link dispatch and its retained parents resume next pass.
     }
 
     void ICutsceneCommandHost.SetMusic(int music)
@@ -116,6 +109,10 @@ internal sealed class GraveyardGateEvent :
     {
         switch (handler)
         {
+            case "KeyholeSignal":
+                if ((_context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) & 1) == 0)
+                    throw UnsupportedCommand("keyhole signal without cfc0 bit0");
+                return;
             case "RemoveGateTiles1":
                 RemoveGateTiles1();
                 return;
@@ -129,8 +126,6 @@ internal sealed class GraveyardGateEvent :
 
     void ICutsceneCommandHost.ScriptEnded()
     {
-        _context.RoomCamera.Offset = Vector2.Zero;
-        _shakeCounter = 0;
         _stage = GraveyardGateEventStage.Completed;
     }
 
@@ -147,6 +142,7 @@ internal sealed class GraveyardGateEvent :
                 _context.AnimationTick());
         }
         SpawnPuffs(_record.Phase1Puffs);
+        _context.Entities.UpdateScreenShake();
     }
 
     private void RemoveGateTiles2()
@@ -155,6 +151,7 @@ internal sealed class GraveyardGateEvent :
         foreach (int position in _record.Phase2Ordinary)
             SetOrdinaryTile(position);
         SpawnPuffs(_record.Phase2Puffs);
+        _context.Entities.UpdateScreenShake();
     }
 
     private void SetOrdinaryTile(int position) =>
@@ -174,24 +171,7 @@ internal sealed class GraveyardGateEvent :
         }
     }
 
-    private void BeginShake() => _shakeCounter = _record.ShakeFrames;
-
-    private void UpdateScreenShake()
-    {
-        if (_shakeCounter <= 0)
-        {
-            _context.RoomCamera.Offset = Vector2.Zero;
-            return;
-        }
-
-        int[] amounts = [-2, -1, 1, 2];
-        int y = amounts[_context.Entities.NextRandomValue() & 3];
-        int x = amounts[_context.Entities.NextRandomValue() & 3];
-        _context.RoomCamera.Offset = new Vector2(x, y);
-        _shakeCounter--;
-        if (_shakeCounter == 0)
-            _context.RoomCamera.Offset = Vector2.Zero;
-    }
+    private void BeginShake() => _context.Entities.BeginScreenShake(_record.ShakeFrames);
 
     private static Vector2 PackedCenter(int packed) => new(
         (packed & 0x0f) * OracleRoomData.MetatileSize + 8,

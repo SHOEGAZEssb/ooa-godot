@@ -105,6 +105,8 @@ public partial class Player : Node2D
     private const int StairsTopDownSpeed = 0x14;
     private static readonly Vector2 NormalSpriteOrigin = new(-8, -8);
     private const int PunchCollisionFrames = 4;
+    // specialObjectAnimationData.s: modes$21/$34 contain 8 and 3+8+3
+    // eligible animation advances before their terminal parameter$86.
     private const int FistPunchFrames = 8;
     private const int ExpertPunchFrames = 14;
     private const float DrownAnimationDuration = 22.0f / 60.0f;
@@ -167,6 +169,8 @@ public partial class Player : Node2D
     private bool _forcedRoomEntryMovement;
     private int _forcedRoomEntryInitializationPhase;
     private bool _spinnerControlled;
+    private int _spinnerExitCounter;
+    private bool _spinnerExitRequested;
     private int _minecartJumpAngle = 0xff;
     private int _companionJumpAngle = 0xff;
     private int _ledgeGroundYFixed;
@@ -207,6 +211,7 @@ public partial class Player : Node2D
     private bool _linkPhysicsActive;
     private double _linkPhysicsDelta;
     private bool _lowerParentsUpdatedInPhysics;
+    private bool _bombchuParentInitializedThisUpdate;
     private bool _shovelChildContactPending;
     private bool _swordChildInitializationPending;
     private bool _swordParentBeforeMovement;
@@ -375,7 +380,10 @@ public partial class Player : Node2D
     public bool IsUsingSeedSatchel => _usingSeedSatchel;
     public bool IsUsingSwitchHook => _world is not null && _world.SwitchHookActive;
     internal bool IsUsingSomaria => _world is not null && _world.SomariaActive;
+    internal bool IsUsingBiggoron => _world is not null && _world.BiggoronActive;
     internal bool IsUsingBoomerang => _world is not null && _world.BoomerangParentActive;
+    internal bool IsUsingBombchu => _world is not null && _world.BombchuParentActive;
+    private int _seedSatchelParentSlot = 3;
     private readonly ParentItemUsageDatabase _parentItemUsage = new();
     public bool IsUsingSeedShooter =>
         _world is not null && _world.SeedShooterActive;
@@ -394,7 +402,9 @@ public partial class Player : Node2D
         Started(TreasureId.Shooter, IsUsingSeedShooter) ||
         Started(TreasureId.SwitchHook, IsUsingSwitchHook) ||
         Started(TreasureId.CaneOfSomaria, IsUsingSomaria) ||
+        Started(TreasureId.BiggoronSword, IsUsingBiggoron) ||
         Started(TreasureId.Boomerang, IsUsingBoomerang) ||
+        Started(TreasureId.Bombchus, true) ||
         Started(0x02, IsUsingPunch);
     private bool Started(int id, bool active) => active && (_startedParentItemAnimations & (1u << id)) != 0;
     internal void NotifyParentItemAnimationStarted(int id)
@@ -404,7 +414,8 @@ public partial class Player : Node2D
     }
     private bool IsUsingItem =>
         IsAttacking || IsUsingShovel || IsUsingSeedSatchel ||
-        IsUsingSeedShooter || IsUsingHarp || IsUsingPunch || IsUsingSwitchHook || IsUsingSomaria || IsUsingBoomerang;
+        IsUsingSeedShooter || IsUsingHarp || IsUsingPunch || IsUsingSwitchHook || IsUsingSomaria || IsUsingBiggoron || IsUsingBoomerang ||
+        IsUsingBombchu || Started(TreasureId.Bombchus, true);
     internal bool IsPushing => _pushing;
     internal SwordActionState SwordState => _swordState;
     internal SwordActionState SwordCollisionState =>
@@ -833,7 +844,7 @@ public partial class Player : Node2D
     internal bool IsCarryingObject => _carriedObjectPose;
     // bombsBraceletParent writes $41 for a wall grab, $c2 while lifting,
     // and $83 while carrying/pulling a lever; throwing clears the byte.
-    internal bool TileWarpGrabActive => _carriedObjectPose ||
+    internal bool GrabStateActive => _carriedObjectPose ||
         _braceletLiftCollisionsDisabled ||
         _braceletActionPose is BraceletActionPose.Pull or BraceletActionPose.PullStrain;
     internal Vector2 PrecisePosition => _precisePosition;
@@ -1027,6 +1038,8 @@ public partial class Player : Node2D
         _forcedRoomEntryMovement = false;
         _forcedRoomEntryInitializationPhase = 0;
         _spinnerControlled = false;
+        _spinnerExitCounter = 0;
+        _spinnerExitRequested = false;
         if (preserveSideScrollSwimming)
         {
             // finishScrollingTransition adjusts Link's coordinate bytes but
@@ -1069,7 +1082,9 @@ public partial class Player : Node2D
         if (!preserveSeedShooter) _world.InterruptSeedShooter();
         _world.InterruptSwitchHook(discard);
         _world.CancelSomaria();
+        _world.CancelBiggoron();
         if (!preserveBoomerang) _world.ClearBoomerangParent();
+        _world.ClearBombchuParent();
     }
 
     internal void BeginNewGameSlowFall(int initialZ)
@@ -1812,6 +1827,7 @@ public partial class Player : Node2D
 
     private void AdvancePhysics(double delta, bool advanceElectricShock = true)
     {
+        _frontTileInteractionReturned = false;
         if (!ApplicationUpdateOwned) AdvanceDeathPrelude();
         _linkPhysicsActive = true;
         _linkPhysicsDelta = delta;
@@ -1840,6 +1856,10 @@ public partial class Player : Node2D
         // updateSpecialObjects clears wcc92 before this update's terrain
         // handler can publish a conveyor/current displacement.
         _screenTransitionTerrainMotion = false;
+        // linkState01 returns on wScrollMode & $0e before damage and item
+        // parents. A selected edge remains $04 while a toggle owns cutscene02.
+        if (_world.RoomExitPending)
+            return;
         if (ConsumeContactDamageBeforeStateDispatch()) return;
         // updateSpecialObjects clears wForceLinkPushAnimation even when
         // DISABLE_LINK freezes Link's native state and item parents.
@@ -1870,6 +1890,7 @@ public partial class Player : Node2D
         }
         if ((_world.PlayerUpdatesFrozen || _world.LinkDisabled) && _forcedRespawnPhase != 3 && !IsDying)
         {
+            _frontTileInteractionReturned = true;
             _pushing = false;
             QueueRedraw();
             return;
@@ -1955,6 +1976,23 @@ public partial class Player : Node2D
         // input, swimming, and terrain hazards must not run first.
         if (_forcedRoomEntryMovement || _spinnerControlled)
         {
+            if (_spinnerExitCounter != 0)
+            {
+                if (_spinnerExitRequested)
+                    _spinnerExitRequested = false; // checkLinkForceState only changes state this update.
+                else if (--_spinnerExitCounter == 0)
+                {
+                    _spinnerControlled = false;
+                    ResetLinkWalkAnimation();
+                }
+                else
+                {
+                    if (_spinnerExitCounter == 15) InitializeForcedRoomEntryMovement();
+                    AdvanceForcedRoomEntryMovement(FacingVector);
+                }
+                QueueRedraw();
+                return;
+            }
             if (_forcedRoomEntryInitializationPhase == 1)
                 _forcedRoomEntryInitializationPhase = 2; // Consume request; state0b waits one update.
             else if (_forcedRoomEntryInitializationPhase == 2)
@@ -1990,11 +2028,6 @@ public partial class Player : Node2D
             UpdateFallInHole();
             return;
         }
-
-        if (_pullingIntoHole && _world.RidingObject)
-            CancelHolePull();
-        if (_pullingIntoHole && UpdatePullIntoHole())
-            return;
 
         if (_ledgeJumpState != LedgeJumpState.None)
         {
@@ -2049,6 +2082,8 @@ public partial class Player : Node2D
                 // still receive their independent gravity/object update.
                 _world.AdvanceBraceletProjectile();
             }
+            if (!_world.SideScrolling && _world.PlayingInstrument == 0)
+                _tilePushWalls = _world.GetAdjacentWallsBitset(_precisePosition);
             float frameDelta = (float)delta * 60.0f;
             if (_raftRideControlled)
             {
@@ -2099,7 +2134,8 @@ public partial class Player : Node2D
                 {
                     Vector2 resolved = _world.ResolveNativeMovement(
                         _precisePosition, 0x32,
-                        AngleForVector(_enemyKnockbackDirection), allowWallSlide: true);
+                        AngleForVector(_enemyKnockbackDirection), allowWallSlide: true,
+                        adjacentWalls: _tilePushWalls);
                     _precisePosition += resolved * frameDelta;
                 }
                 _enemyKnockbackFrames = Mathf.Max(0, nextCounter);
@@ -2215,11 +2251,29 @@ public partial class Player : Node2D
 
         // linkState01 checks A-sensitive objects/tiles before applying tile
         // types and checkAndUpdateLinkOnChest, then enters checkUseItems.
-        if (_activeTransformation == 0 && Input.IsActionJustPressed("attack") &&
+        // Its callers skip both interactions while air, knockback or the
+        // preceding instrument publication owns Link's update.
+        bool frontInteractionsEligible = !_minecartRideControlled && !_raftRideControlled &&
+            !_topDownAirborne && !_sideScrollAirborne && _enemyKnockbackFrames == 0 &&
+            _world.PlayingInstrument == 0;
+        if (frontInteractionsEligible && _activeTransformation == 0 && Input.IsActionJustPressed("attack") &&
+            (!GrabStateActive || _world.InShop) &&
             !_world.SwordDisabled && (!IsUsingItem || IsUsingSomaria) &&
             !IsUsingSomaria && !_minecartRideControlled && !_raftRideControlled &&
             _world.TryInteract(this))
             return;
+
+        // linkState01 dispatches the front tile before terrain, swimming
+        // and item parents. Instrument/air/knockback/grab bypass the handler
+        // entirely, retaining its shared countdown until a later eligible pass.
+        if (frontInteractionsEligible && !GrabStateActive)
+        {
+            if (_world.UpdatePushableBlocks(_precisePosition, FacingVector, input))
+            {
+                _frontTileInteractionReturned = true;
+                return;
+            }
+        }
 
         UpdateRaisedFloorOffset();
         ActiveTerrainInfo? terrainBeforeMotion = null;
@@ -2227,6 +2281,16 @@ public partial class Player : Node2D
         {
             Vector2 tileProbePosition = _precisePosition;
             terrainBeforeMotion = _world.GetActiveTerrain(Position);
+            // linkApplyTileTypes reaches linkPullIntoHole before item use,
+            // including the first uncovered update after rider support clears.
+            // Text must not advance an already active partial pull.
+            if (!_topDownAirborne)
+            {
+                if (_world.RidingObject || _world.Underwater) CancelHolePull();
+                else if (terrainBeforeMotion.Value.Terrain.Hazard == HazardType.Hole && !_pullingIntoHole)
+                    StartPullIntoHole(terrainBeforeMotion.Value);
+                if (_pullingIntoHole && UpdatePullIntoHole()) return;
+            }
             // @tileType_current/@tileType_conveyor consume retained walls
             // before item use and the new wall probes. The active tile remains
             // the pre-motion foot probe for this whole Link update.
@@ -2256,15 +2320,19 @@ public partial class Player : Node2D
             return;
         }
 
-        // linkState01 interacts with the front tile using the preceding
-        // loadLinkAndCompanionAnimationFrame publication, before item parents
-        // and movement. Held objects bypass interactWithTileBeforeLink.
-        if (!_companionRideControlled && !_minecartRideControlled && !_raftRideControlled &&
-            !_topDownAirborne && !IsCarryingObject && !_braceletLiftCollisionsDisabled &&
-            _braceletActionPose is not (BraceletActionPose.Pull or BraceletActionPose.PullStrain))
-            _world.UpdatePushableBlocks(_precisePosition, FacingVector, input);
-
-        if (ProcessItemInput(input)) return;
+        bool itemImmobilized = ProcessItemInput(input);
+        // linkState01 reads the parent's instrument publication immediately
+        // after checkUseItems, before movement/standing can emit Pegasus dust.
+        // The empty Harp's $00 byte still reaches that movement phase.
+        if (_world.PlayingInstrument != 0) return;
+        if (itemImmobilized)
+        {
+            // linkState01 publishes adjacent walls after checkUseItems even
+            // when a parent immobilizes Link. Later interaction movement
+            // (including lever pulling) consumes these retained probes.
+            _tilePushWalls = _world.GetAdjacentWallsBitset(_precisePosition);
+            return;
+        }
         AdvanceSwordParentBeforeMovement(input);
         AdvanceMovementAfterItemParents(delta, input, movementStart);
     }
@@ -2318,7 +2386,11 @@ public partial class Player : Node2D
             QueueRedraw();
             return;
         }
-        bool movementAllowed = !IsUsingBoomerang && (!IsUsingItem || SwordAllowsMovement);
+        // checkUseItems may immobilize even a failed Bombchu allocation, but
+        // linkState01 still reaches linkUpdateInAir. Apply that first-update
+        // lock to ground/side-view input without bypassing gravity or landing.
+        bool movementAllowed = !_bombchuParentInitializedThisUpdate &&
+            !IsUsingBoomerang && (!IsUsingItem || SwordAllowsMovement);
         if (_world.SideScrolling)
         {
             UpdateSideScrollMovement(delta, input, movementAllowed);
@@ -2835,7 +2907,10 @@ public partial class Player : Node2D
     {
         if (exitDirection is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(exitDirection));
-        _precisePosition = position;
+        // spinner_setLinkRelativePosition writes yh/xh only.
+        _precisePosition = new(
+            Mathf.Floor(position.X)+_precisePosition.X-Mathf.Floor(_precisePosition.X),
+            Mathf.Floor(position.Y)+_precisePosition.Y-Mathf.Floor(_precisePosition.Y));
         _facing = (Facing)exitDirection;
         _walking = false;
         _pushing = false;
@@ -2848,16 +2923,19 @@ public partial class Player : Node2D
         if (exitDirection is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(exitDirection));
         _facing = (Facing)exitDirection;
+        _spinnerExitCounter = 0x10;
+        _spinnerExitRequested = true;
         _walking = true;
         _pushing = false;
         QueueRedraw();
     }
 
-    internal void AdvanceSpinnerExit(Vector2I direction) =>
-        AdvanceForcedRoomEntryMovement(direction);
-
     internal void EndSpinnerControl()
     {
+        // The spinner's counter starts when it requests state0b. Link
+        // consumes that request one update later, then performs15 moves;
+        // its own zero update therefore follows the spinner's color toggle.
+        if (_spinnerExitCounter != 0) return;
         _spinnerControlled = false;
         _walking = false;
         _pushing = false;
@@ -2871,15 +2949,14 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    internal bool CanBeCarriedByMovingPlatform => !IsDying && !_drowning && !_fallingInHole &&
-        !_cutsceneControlled && !_forcedRoomEntryMovement && !_spinnerControlled &&
-        _ledgeJumpState == LedgeJumpState.None && !ElectricShockActive;
-
     internal void AdvanceInteractionVelocity(int speed, int angle)
     {
         // Native interactions call updateLinkPositionGivenVelocity, which applies
         // adjacent-wall masks and cardinal edge sliding before changing Y/X.
-        Vector2 movement = _world.ResolveNativeMovement(_precisePosition, speed, angle, allowWallSlide: true);
+        // The interaction phase consumes Link's retained adjacent-wall byte,
+        // sampled before his input movement; it does not probe his new position.
+        Vector2 movement = _world.ResolveNativeMovement(_precisePosition, speed, angle, allowWallSlide: true,
+            adjacentWalls: _tilePushWalls);
         SetScriptedPosition(_precisePosition + movement);
     }
 
@@ -3282,7 +3359,7 @@ public partial class Player : Node2D
         if (ElectricShockActive) return;
         // updateLinkInvincibilityCounter is outside Link's $81 state gate;
         // item parents below it remain frozen without being cancelled.
-        if (_world.PlayerUpdatesFrozen) return;
+        if (_world.PlayerUpdatesFrozen || _world.LinkDisabled) return;
 
         if (_enemyGrabUpdated || EnemyGrabActive)
         {
@@ -3357,7 +3434,7 @@ public partial class Player : Node2D
         // linkState01 returns before checkUseItems during text. Initialized
         // sword parents retain their state; the unconditional child post pass
         // still publishes the existing geometry for collision resolution.
-        bool itemParentsFrozen = _world.DialogueOpen || _world.NativePaletteChanging;
+        bool itemParentsFrozen = _world.DialogueOpen || _world.NativePaletteChanging || _world.RoomExitPending;
         if (IsAttacking && (swordInitialized || itemParentsFrozen || _swordUpdatedInPhysics)) ApplySwordCollision();
         if (IsAttacking && !_swordUpdatedInPhysics && !swordInitialized && !itemParentsFrozen)
         {
@@ -3371,7 +3448,7 @@ public partial class Player : Node2D
         }
         if (!itemParentsFrozen && !_lowerParentsUpdatedInPhysics)
             AdvanceShovelAndSatchelParents(delta);
-        if (IsUsingPunch)
+        if (IsUsingPunch && !itemParentsFrozen && !Started(0x02, IsUsingPunch))
         {
             _punchFrameAccumulator += delta * 60.0;
             while (_punchFrameAccumulator + 0.000001 >= 1.0 && IsUsingPunch)
@@ -3381,7 +3458,9 @@ public partial class Player : Node2D
             }
             QueueRedraw();
         }
-        if (IsUsingHarp)
+        // Harp/Flute are ParentItem5: linkState01's text/palette returns
+        // precede their counter, note RNG and animation, just like Sword.
+        if (IsUsingHarp && !itemParentsFrozen)
         {
             _harpFrameAccumulator += delta * 60.0;
             while (_harpFrameAccumulator + 0.000001 >= 1.0 && IsUsingHarp)
@@ -3559,6 +3638,10 @@ public partial class Player : Node2D
         {
             DrawSeedShooterPose();
         }
+        else if (IsUsingBiggoron)
+        {
+            _world.DrawBiggoron(this,this,DamagePaletteActive);
+        }
         else if (IsUsingSomaria)
         {
             int mode=_world.SomariaAnimationMode, frame=_world.SomariaAnimationFrame;
@@ -3667,11 +3750,12 @@ public partial class Player : Node2D
         {
             DrawSwordPose();
         }
-        else if (IsUsingBoomerang)
+        else if (IsUsingBoomerang || IsUsingBombchu)
         {
             // func_4553 selects this priority3 pose after higher-priority
             // sword/cane/shooter parents, before the priority2 satchel.
-            int graphic = _world.BoomerangParentGraphic;
+            int graphic = IsUsingBoomerang && (!IsUsingBombchu || _world.BoomerangParentSlot < _world.BombchuParentSlot)
+                ? _world.BoomerangParentGraphic : _world.BombchuParentGraphic;
             bool mounted = graphic is 0xcc or 0x58;
             Texture2D texture = mounted
                 ? DamagePaletteActive ? Sprites.DamageMinecartAttackTexture : Sprites.MinecartAttackTexture
@@ -3962,7 +4046,7 @@ public partial class Player : Node2D
         if (_sideScrollAirborne)
         {
             AdvanceSideScrollAirborne(
-                input, movementAllowed, terrain, walls, parameters);
+                input, terrain, walls, parameters);
             return;
         }
 
@@ -3973,7 +4057,7 @@ public partial class Player : Node2D
         {
             BeginSideScrollAirborne(jumped: false, parameters);
             AdvanceSideScrollAirborne(
-                input, movementAllowed, terrain, walls, parameters);
+                input, terrain, walls, parameters);
             return;
         }
 
@@ -4104,7 +4188,6 @@ public partial class Player : Node2D
 
     private void AdvanceSideScrollAirborne(
         Vector2 input,
-        bool movementAllowed,
         SideScrollTerrainState terrain,
         int walls,
         SideScrollPlayerParameters parameters)
@@ -4160,9 +4243,10 @@ public partial class Player : Node2D
                 return;
             }
 
-            UpdateSideScrollVelocity(
-                movementAllowed ? AngleForVector(input) : 0xff,
-                inAir: true);
+            // linkUpdateInAir_sidescroll calls linkUpdateVelocity on descent.
+            // Its ordinary-air branch reads wLinkAngle regardless of the
+            // item's wLinkImmobilized byte; turning remains a separate gate.
+            UpdateSideScrollVelocity(AngleForVector(input), inAir: true);
         }
 
         bool ceilingBlocked =
@@ -4194,13 +4278,13 @@ public partial class Player : Node2D
         _sideScrollAngle = horizontalAngle;
         if (horizontalAngle < 0x80 && _sideScrollSpeedRaw != 0)
         {
-            if (!IsUsingItem &&
-                _airborneLinkAnimationMode != AirborneLinkAnimationMode.SideScrollSwim)
-                UpdateFacingFromSideScrollAngle(horizontalAngle);
+            // linkUpdateInAir_sidescroll calls specialObjectUpdatePosition,
+            // retaining @tileEdgeAdjust even after its horizontal-angle clamp.
+            // @updateDirection is reached only after landing.
             ApplySideScrollVelocity(
                 _sideScrollSpeedRaw,
                 horizontalAngle,
-                allowWallSlide: false);
+                allowWallSlide: true);
         }
 
         if ((_sideScrollYFixed >> 8) >= parameters.BottomBoundary)
@@ -4412,6 +4496,10 @@ public partial class Player : Node2D
             _topDownAirAnimationCounter = 0;
             _airborneLinkAnimationMode = AirborneLinkAnimationMode.None;
             ResetLinkWalkAnimation();
+            // @landed reapplies linkApplyTileTypes after clearing wLinkInAir,
+            // before resuming ground motion. checkAndUpdateLinkOnChest already
+            // ran earlier; refresh only the shared active tile/index here.
+            _world.UpdateActiveLinkTile(_precisePosition);
             UpdateRaisedFloorOffset();
             _world.PlaySound(parameters.LandSound);
             return;
@@ -4549,8 +4637,10 @@ public partial class Player : Node2D
             x += x < targetX ? 1 : -1;
         if (y != targetY)
             y += y < targetY ? 1 : -1;
-        _precisePosition = new Vector2(x, y);
-        Position = _precisePosition;
+        // companionUpdateMounting nudges yh/xh only, retaining Link's low bytes.
+        Vector2 fraction = _precisePosition - OracleObjectMath.ToPixelPosition(_precisePosition);
+        _precisePosition = new Vector2(x, y) + fraction;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
 
@@ -4563,7 +4653,9 @@ public partial class Player : Node2D
         Texture2D damageLinkTexture,
         Vector2 textureOffset)
     {
+        int retainedZLow = _topDownAirZFixed & 0xff;
         ClearTopDownAirState();
+        _companionRideZFixed = retainedZLow;
         SetCompanionRidePosition(
             companionPosition, linkOffset, direction, zFixed, linkTexture,
             damageLinkTexture, textureOffset, Vector2.Zero);
@@ -4581,18 +4673,20 @@ public partial class Player : Node2D
     {
         if (direction is < 0 or > 3)
             throw new ArgumentOutOfRangeException(nameof(direction));
-        _precisePosition = companionPosition + screenOffset + linkOffset;
+        // func_410d@companion uses objectCopyPositionWithOffset: copy high
+        // coordinates with BC offsets and retain Link's own fractional bytes.
+        Vector2 fraction = _precisePosition - OracleObjectMath.ToPixelPosition(_precisePosition);
+        _precisePosition = OracleObjectMath.ToPixelPosition(companionPosition) + fraction + linkOffset;
         _companionRideTexture = linkTexture;
         _damageCompanionRideTexture = damageLinkTexture;
         _companionRideTextureOffset = textureOffset;
-        // func_410d uses objectCopyPositionWithOffset, which copies the
-        // companion's Z as well as its offset Y/X into riding Link.
-        _companionRideZFixed = zFixed;
+        // The same copy writes zh only, never the companion's fractional Z.
+        _companionRideZFixed = (zFixed & ~0xff) | (_companionRideZFixed & 0xff);
         _companionRideControlled = true;
         _facing = (Facing)direction;
         _walking = false;
         _pushing = false;
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition) + screenOffset;
         QueueRedraw();
     }
 
@@ -4611,7 +4705,9 @@ public partial class Player : Node2D
         _localRespawnFacing = _facing;
         _companionRideControlled = false;
         BeginCompanionJump(
-            companionPosition,
+            // companionDismount's objectCopyPosition also retains Link's low XY.
+            OracleObjectMath.ToPixelPosition(companionPosition) +
+                _precisePosition - OracleObjectMath.ToPixelPosition(_precisePosition),
             initialZ: parameters.CompanionDismountZ,
             angle: parameters.CompanionDismountAngle,
             dismount: true);
@@ -4641,6 +4737,9 @@ public partial class Player : Node2D
             throw new ArgumentOutOfRangeException(nameof(angle));
         }
 
+        // setLinkMountingSpeed does not clear zl; dismount's copy changes zh
+        // to $f8 while retaining the mounted Link's existing fractional byte.
+        int retainedZLow = (dismount ? _companionRideZFixed : _topDownAirZFixed) & 0xff;
         InterruptCarriedItems(discard: true);
         CancelSwordAttack();
         CancelShovelAction();
@@ -4651,7 +4750,7 @@ public partial class Player : Node2D
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
-        _topDownAirZFixed = initialZ << 8;
+        _topDownAirZFixed = (initialZ << 8) | retainedZLow;
         _topDownAirSpeedZ = parameters.CompanionJumpSpeedZ;
         _topDownAirAnimationPhase = 0;
         _topDownAirAnimationCounter = parameters.AnimationPhaseDurations[0];
@@ -6005,6 +6104,8 @@ public partial class Player : Node2D
             _world.IsPushingAgainstWall(_precisePosition, FacingVector, movementInput);
     }
 
+    private bool _frontTileInteractionReturned;
+
     internal void PublishTilePushingDirection()
     {
         // loadLinkAndCompanionAnimationFrame_body resets the signal, then
@@ -6013,7 +6114,12 @@ public partial class Player : Node2D
         // create a wall contact retroactively in this graphics pass.
         int direction = CarriedObjectMotion.DirectionIndex(FacingVector);
         int walls = direction switch { 0 => 0xc0, 1 => 0x03, 2 => 0x30, _ => 0x0c };
-        bool pushing = !_world.NativeTextActive && !IsUsingItem && !IsCarryingObject &&
+        // @getLinkWalkingAnimation is reached only for WALK. A Feather
+        // parent deletes itself on takeoff, but JUMP still cannot publish a
+        // wall push merely because no item parent remains active. Raised
+        // Shield selects its own WALK variant before the wall-push check.
+        bool pushing = _airborneLinkAnimationMode != AirborneLinkAnimationMode.Jump &&
+            !_frontTileInteractionReturned && !_world.NativeTextActive && !IsUsingItem && !IsUsingShield && !IsCarryingObject &&
             !_braceletLiftCollisionsDisabled && !_world.RidingObject &&
             _lastMovementInput.Dot((Vector2)FacingVector) > 0 && (_tilePushWalls & walls) == walls;
         _world.TilePushingDirection = pushing ? direction : 0xff;
@@ -6914,6 +7020,10 @@ public partial class Player : Node2D
     private bool ProcessItemInput(Vector2 input, bool checkTileWarps = true)
     {
         bool immobilized = ProcessItemParents(input, checkTileWarps);
+        if(!Started(TreasureId.BiggoronSword,IsUsingBiggoron))
+            _world.UpdateBiggoronParent(_world.SwordDisabled || _world.Underwater ||
+                _world.SideScrolling && _inventory.HasTreasure(TreasureId.MermaidSuit) &&
+                (_world.GetSideScrollTerrain(_precisePosition).ActiveType&SideScrollTileType.Water)!=0);
         // ParentItem5 follows lower parents within checkUseItems, before
         // Link movement/standing animation can publish Pegasus dust cues.
         AdvanceSwordParentBeforeMovement(input);
@@ -6930,6 +7040,37 @@ public partial class Player : Node2D
     }
 
     private bool ProcessItemParents(Vector2 input, bool checkTileWarps)
+    {
+        _bombchuParentInitializedThisUpdate = false;
+        bool primarySuppressed = _world.SideScrolling && !_world.Underwater &&
+            (_world.GetSideScrollTerrain(_precisePosition).ActiveType & SideScrollTileType.Water) != 0 &&
+            !_inventory.HasTreasure(TreasureId.MermaidSuit);
+        bool eligible = !_itemAllocationBlockedThisUpdate && !_world.ItemUsageDisabled && _activeTransformation == 0 &&
+            !IsCarryingObject && !IsHoldingItemOneHand && !IsHoldingItemTwoHands && !IsUsingHarp;
+        if (eligible && !primarySuppressed && Input.IsActionJustPressed("attack") && _inventory.EquippedA == TreasureId.Bombchus)
+            ReserveBombchuParent();
+        bool immobilized = ProcessOtherItemParents(input, checkTileWarps);
+        if (eligible && Input.IsActionJustPressed("item") && _inventory.EquippedB == TreasureId.Bombchus)
+            ReserveBombchuParent();
+        InitializeBombchuParentForUpdate();
+        if (!_bombchuParentInitializedThisUpdate) _world.UpdateBombchuParent();
+        return immobilized;
+    }
+
+    private void InitializeBombchuParentForUpdate() =>
+        _bombchuParentInitializedThisUpdate |= _world.InitializeBombchuParent(this);
+
+    private void ReserveBombchuParent()
+    {
+        Span<ParentItemSlotState> slots = stackalloc ParentItemSlotState[4]; slots.Clear();
+        if (IsUsingSeedSatchel) slots[_seedSatchelParentSlot - 2] = new(1, TreasureId.SeedSatchel);
+        if (IsUsingBoomerang) slots[_world.BoomerangParentSlot - 2] = new(1, TreasureId.Boomerang);
+        if (_world.BombchuParentAllocated) slots[_world.BombchuParentSlot - 2] = new(1, TreasureId.Bombchus);
+        int slot = _parentItemUsage.ChooseSlot(TreasureId.Bombchus, slots);
+        if (slot >= 0) _world.TryBeginBombchu(this, slot);
+    }
+
+    private bool ProcessOtherItemParents(Vector2 input, bool checkTileWarps)
     {
         // checkUseItems samples wLinkGrabState before either parent updates.
         // A throw/release may clear it later in this pass, but cannot make
@@ -6964,6 +7105,10 @@ public partial class Player : Node2D
         // chooseParentItemSlot precedes the Bracelet parent's release check.
         // Keep that input-phase observation even if UpdateBracelet clears it.
         bool braceletParentAtInput = _world.BraceletParentActive;
+        if(!_itemAllocationBlockedThisUpdate && !_world.ItemUsageDisabled && _activeTransformation==0 &&
+            (!primaryItemInputSuppressed && Input.IsActionJustPressed("attack") && _inventory.EquippedA==TreasureId.BiggoronSword ||
+             Input.IsActionJustPressed("item") && _inventory.EquippedB==TreasureId.BiggoronSword))
+            StartBiggoronAction(input);
         if (_world.UpdateBomb(this, input, itemButtonJustPressed))
         {
             if (_raftRideControlled && input.LengthSquared() > 0.01f)
@@ -7108,7 +7253,7 @@ public partial class Player : Node2D
         }
         if (_activeTransformation == 0 &&
             (secondaryReplacesPrimary || primaryItemInputSuppressed || !Input.IsActionJustPressed("attack") ||
-                _inventory.EquippedA is TreasureId.CaneOfSomaria or TreasureId.Boomerang ||
+                _inventory.EquippedA is TreasureId.CaneOfSomaria or TreasureId.Boomerang or TreasureId.BiggoronSword or TreasureId.Bombchus ||
                 _inventory.EquippedB is TreasureId.Boomerang or TreasureId.CaneOfSomaria) &&
             Input.IsActionJustPressed("item") && !_world.SwordDisabled)
         {
@@ -7192,16 +7337,50 @@ public partial class Player : Node2D
         // Instruments must observe a lower-slot parent allocated by B before
         // checkNoOtherParentItemsInUse can enable their global input lock.
         if (startPrimaryInstrument)
+        {
+            if (_inventory.EquippedB == TreasureId.Bombchus && Input.IsActionJustPressed("item") &&
+                !_itemAllocationBlockedThisUpdate && !_world.ItemUsageDisabled && !IsCarryingObject &&
+                !IsHoldingItemOneHand && !IsHoldingItemTwoHands && !IsUsingHarp)
+            {
+                ReserveBombchuParent();
+                InitializeBombchuParentForUpdate();
+            }
             StartHarpAction(_inventory.EquippedA == TreasureId.Flute);
+        }
 
         return false;
+    }
+
+    private void StartBiggoronAction(Vector2 input)
+    {
+        if(!_inventory.HasTreasure(TreasureId.BiggoronSword) || IsUsingHarp || IsCarryingObject) return;
+        int current=IsUsingBiggoron?TreasureId.BiggoronSword:IsUsingPunch?TreasureId.Punch:
+            IsUsingSwitchHook?TreasureId.SwitchHook:IsAttacking?TreasureId.Sword:
+            IsUsingSeedShooter?TreasureId.Shooter:_world.BombParentActive?TreasureId.Bombs:
+            IsUsingShovel?TreasureId.Shovel:_world.BraceletParentActive?TreasureId.Bracelet:IsUsingSomaria?TreasureId.CaneOfSomaria:0;
+        Span<ParentItemSlotState> slots=stackalloc ParentItemSlotState[4]; slots.Clear();
+        if(current!=0) slots[0]=new((byte)(current is TreasureId.BiggoronSword or TreasureId.Punch?0xff:
+            _parentItemUsage.Item(current).Enabled),(byte)current);
+        if(_parentItemUsage.ChooseSlot(TreasureId.BiggoronSword,slots)!=2) return;
+        CancelSwordAttack(); CancelPunchAction();
+        _usingShovel=false; _shovelFrame=0; _shovelFrameAccumulator=0; _shovelChildContactPending=false;
+        if(_world.SwordDisabled)
+        {
+            _world.CancelSomaria(); _world.PlaySound(SoundId.SndError); return;
+        }
+        bool underwater=_world.Underwater || _world.SideScrolling && _inventory.HasTreasure(TreasureId.MermaidSuit) &&
+            (_world.GetSideScrollTerrain(_precisePosition).ActiveType&SideScrollTileType.Water)!=0;
+        if(underwater) { _world.CancelSomaria(); return; }
+        if(input.LengthSquared()>0.01f) UpdateFacing(input);
+        _world.BeginBiggoron(this); _walking=false; _pushing=false;
+        QueueRedraw();
     }
 
     private void StartSomariaAction(Vector2 input, bool primaryInputSuppressed = false, bool braceletParentAtInput = false)
     {
         // A playing instrument sets wcc95 bit7 before checkUseItems, which
         // skips both input allocations while continuing existing parents.
-        if (!_inventory.HasTreasure(TreasureId.CaneOfSomaria) || IsCarryingObject || IsUsingHarp) return;
+        if (!_inventory.HasTreasure(TreasureId.CaneOfSomaria) || IsCarryingObject || IsUsingHarp || IsUsingBiggoron) return;
         int current=IsUsingSwitchHook?TreasureId.SwitchHook:
             IsAttacking?TreasureId.Sword:IsUsingSeedShooter?TreasureId.Shooter:
             _world.BombParentActive?TreasureId.Bombs:IsUsingShovel?TreasureId.Shovel:
@@ -7241,10 +7420,15 @@ public partial class Player : Node2D
         slots.Clear();
         // L1 Feather clears its parent on the launch update. The satchel's
         // existing input owner occupies ParentItem3 for its throw animation.
-        if (IsUsingSeedSatchel) slots[1] = new(1, TreasureId.SeedSatchel);
+        if (IsUsingSeedSatchel) slots[_seedSatchelParentSlot - 2] = new(1, TreasureId.SeedSatchel);
         if (IsUsingBoomerang) slots[_world.BoomerangParentSlot - 2] = new(1, TreasureId.Boomerang);
+        if (_world.BombchuParentAllocated) slots[_world.BombchuParentSlot - 2] = new(1, TreasureId.Bombchus);
         int slot = _parentItemUsage.ChooseSlot(TreasureId.Boomerang, slots);
         if (slot < 0) return;
+        // ParentItem3 dispatches before ParentItem4, including physical
+        // allocation. An A-Bombchu reservation must create its child first.
+        if (_world.BombchuParentAllocated && _world.BombchuParentSlot < slot)
+            InitializeBombchuParentForUpdate();
         // boomerangParent state0 samples wLinkAngle for the child, but
         // parentItemLoadAnimationAndIncState disables Link's turning first.
         // Preserve his facing even when the launch angle differs from it.
@@ -7266,7 +7450,7 @@ public partial class Player : Node2D
         // Harp's wcc95 bit 7 and deletes the sword before state 0 can run.
         // Preserve that instrument-specific exclusion before state 0 can
         // consume RNG, play a slash sound, or create the weapon child.
-        if (IsUsingShovel || IsUsingSeedSatchel || IsUsingHarp)
+        if (IsUsingShovel || IsUsingSeedSatchel || IsUsingHarp || IsUsingBiggoron)
             return;
         if (IsAttacking && !SwordCanRestart)
             return;
@@ -7378,7 +7562,7 @@ public partial class Player : Node2D
     private void StartHarpAction(bool flute = false)
     {
         if (_instrumentsDisabledCounter != 0 || _raftRideControlled ||
-            IsUsingItem || !IsGroundedForFloorButton ||
+            IsUsingItem || _world.BombchuParentAllocated || !IsGroundedForFloorButton ||
             _pullingIntoHole || _drowning || _fallingInHole)
         {
             return;
@@ -7471,7 +7655,9 @@ public partial class Player : Node2D
         if (_punchFrame < PunchCollisionFrames)
             ApplyPunchCollision();
         int duration = _expertPunch ? ExpertPunchFrames : FistPunchFrames;
-        if (_punchFrame >= duration)
+        // parentItemCode_punch@state1 checks the preceding parameter before
+        // advancing it, retaining the newly published terminal pose one update.
+        if (_punchFrame > duration)
             CancelPunchAction();
     }
 
@@ -7506,14 +7692,24 @@ public partial class Player : Node2D
     {
         // Satchel selector2 uses ParentItem3/4; Cane owns ParentItem2.
         // Retain the satchel's own single-parent cap during that overlap.
-        if (IsUsingItem && !IsUsingSomaria || IsUsingSeedSatchel)
+        if (IsUsingItem && !IsUsingSomaria && !IsUsingBiggoron && !IsUsingBombchu && !IsUsingBoomerang || IsUsingSeedSatchel)
             return;
+
+        Span<ParentItemSlotState> slots = stackalloc ParentItemSlotState[4]; slots.Clear();
+        if (IsUsingBoomerang) slots[_world.BoomerangParentSlot - 2] = new(1, TreasureId.Boomerang);
+        if (_world.BombchuParentAllocated) slots[_world.BombchuParentSlot - 2] = new(1, TreasureId.Bombchus);
+        int slot = _parentItemUsage.ChooseSlot(TreasureId.SeedSatchel, slots);
+        if (slot < 0) return;
+        // Lower throw parents initialize before the later Satchel parent.
+        if (_world.BombchuParentAllocated && _world.BombchuParentSlot < slot)
+            InitializeBombchuParentForUpdate();
         // parentItemCode_satchel retains Link.direction. Its ordinary seed
         // branch locks turning before the later Link movement handler.
         int actionFrames = _world.TryUseSeedSatchel(this);
         if (actionFrames <= 0)
             return;
         _usingSeedSatchel = true;
+        _seedSatchelParentSlot = slot;
         NotifyParentItemAnimationStarted(TreasureId.SeedSatchel);
         _seedSatchelFrame = 0;
         _seedSatchelActionFrames = actionFrames;
@@ -7551,13 +7747,6 @@ public partial class Player : Node2D
     }
 
     internal int SeedSatchelFrame => _seedSatchelFrame;
-
-    internal void AdvanceShovelForValidation(int frames)
-    {
-        for (int frame = 0; frame < frames && IsUsingShovel; frame++)
-            AdvanceShovelFrame();
-        QueueRedraw();
-    }
 
     private void AdvanceShovelFrame()
     {

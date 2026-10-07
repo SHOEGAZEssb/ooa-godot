@@ -90,6 +90,7 @@ public sealed class RoomEventController
             () => new GraveyardGateEvent(_context),
             () => new CrownDungeonEntranceEvent(_context),
             () => new MermaidsCaveEntranceEvent(_context),
+            () => new LibraryKeyholeEvent(_context),
             () => new RickyGlovesEvent(_context),
             () => new TingleEvent(_context),
             () => new CarpenterEvent(_context),
@@ -281,13 +282,16 @@ public sealed class RoomEventController
     internal bool SupportsOverworldKeyhole(int group, int room) =>
         Get<GraveyardGateEvent>().CanTrigger(group, room) ||
         Get<CrownDungeonEntranceEvent>().CanTrigger(group, room) ||
-        Get<MermaidsCaveEntranceEvent>().CanTrigger(group, room);
+        Get<MermaidsCaveEntranceEvent>().CanTrigger(group, room) ||
+        Get<LibraryKeyholeEvent>().CanTrigger(group, room);
     internal void TriggerOverworldKeyhole(int group, int room)
     {
         if (Get<CrownDungeonEntranceEvent>().CanTrigger(group, room))
             Get<CrownDungeonEntranceEvent>().Trigger(group, room);
         else if (Get<MermaidsCaveEntranceEvent>().CanTrigger(group, room))
             Get<MermaidsCaveEntranceEvent>().Trigger(group, room);
+        else if (Get<LibraryKeyholeEvent>().CanTrigger(group, room))
+            Get<LibraryKeyholeEvent>().Trigger(group, room);
         else
             Get<GraveyardGateEvent>().Trigger(group, room);
     }

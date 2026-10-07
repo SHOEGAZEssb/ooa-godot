@@ -60,7 +60,7 @@ public sealed class RoomTileChangeDatabase
                 if (!Matches(rule.Conditions, group, room.Id, save, runtimeState, dungeonFloor, rule.Source))
                     continue;
                 foreach (Operation operation in rule.Operations)
-                    ApplyOperation(operation, group, room, save, world, writes);
+                    ApplyOperation(operation, group, room, save, world, writes, runtimeState, rule.Source);
             }
         }
 
@@ -116,11 +116,18 @@ public sealed class RoomTileChangeDatabase
         OracleRoomData room,
         OracleSaveData save,
         OracleWorldData world,
-        Dictionary<int, byte> writes)
+        Dictionary<int, byte> writes,
+        OracleRuntimeState? runtimeState,
+        string sourceLabel)
     {
         int[] values = operation.Values;
         switch (operation.Kind)
         {
+            case OperationKind.SetRuntime:
+                (runtimeState ?? throw new InvalidOperationException(
+                    $"{sourceLabel}: room {group:x1}:{room.Id:x2} requires live WRAM ${values[0]:x4}."))
+                    .SetWramByte(values[0],checked((byte)values[1]));
+                break;
             case OperationKind.Set:
                 for (int index = 0; index < values.Length; index += 2)
                     Set(values[index], (byte)values[index + 1], room, writes);
@@ -327,6 +334,8 @@ public sealed class RoomTileChangeDatabase
                     new Operation(
                         OperationKind.SetWramPositionIfClear,
                         ParseHexValues(fields[1..])),
+                "runtime_set" when fields.Length == 3 =>
+                    new Operation(OperationKind.SetRuntime,ParseHexValues(fields[1..])),
                 _ => throw new InvalidOperationException(
                     $"Malformed room tile-change operation '{token}'.")
             };
@@ -383,6 +392,7 @@ internal readonly record struct Rule(Condition[] Conditions, Operation[] Operati
 
 internal enum OperationKind
 {
+    SetRuntime,
     Set,
     Fill,
     Draw,

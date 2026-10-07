@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
             }
             _saveData.SetGlobalFlag(GlobalFlag.PregameIntroDone);
             if (introDone) _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
-            _runtimeState.SetWramByte(0xcc31, 0);
+            _runtimeState.SetWramByte(0xcdd2, 0);
             LoadValidationRoom(4, 0xa1); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0); _player.WarpTo(new Vector2(120, 56));
             FailIf(_collision.Collides(_player.Position), "Toggle menu fixture floor is not reachable.");
@@ -35,9 +35,9 @@ public sealed partial class ValidationRoot
             var toggle = _entities.FloorToggle!;
             // Declared completed orb publication/selection at the preceding
             // cutscene01 tail. The native cutscene caller executes thereafter.
-            _runtimeState.SetWramByte(0xcc31, 1); toggle.CheckAfterObjects();
+            _runtimeState.SetWramByte(0xcdd2, 1); toggle.CheckAfterObjects();
             FailIf(!toggle.Active, "Toggle source publication did not select its runtime cutscene.");
-            rom[0xcc31] = 1; rom[0xc2ef] = 2;
+            rom[0xcdd2] = 1; rom[0xc2ef] = 2;
             var sounds = _sound.AttachPlayRequestAudit();
             int update = 0;
             void Step(int count = 1, int pressed = 0, int held = 0)

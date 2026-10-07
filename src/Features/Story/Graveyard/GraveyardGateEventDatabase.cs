@@ -70,19 +70,20 @@ internal sealed class GraveyardGateEventDatabase
             Record.Phase1Puffs is not [{ X: 0x40, Y: 0x48 }, { X: 0x50, Y: 0x48 }] ||
             Record.Phase2Ordinary is not [0x33, 0x35, 0x43, 0x45] ||
             Record.Phase2Puffs is not [{ X: 0x30, Y: 0x48 }, { X: 0x60, Y: 0x48 }] ||
-            Commands.Count != 10 ||
-            Commands[0] is not CutsceneSetMusicCommand
+            Commands.Count != 11 ||
+            Commands[0] is not CutsceneNativeYieldCommand { Handler: "KeyholeSignal" } ||
+            Commands[1] is not CutsceneSetMusicCommand
                 { Music: SoundId.SndCtrlStopMusic } ||
-            Commands[1] is not CutsceneWaitCommand { Frames: 60 } ||
-            Commands[2] is not CutsceneNativeCommand { Handler: "RemoveGateTiles1" } ||
-            Commands[3] is not CutsceneWaitCommand { Frames: 45 } ||
-            Commands[4] is not CutsceneNativeCommand { Handler: "RemoveGateTiles2" } ||
-            Commands[5] is not CutsceneWaitCommand { Frames: 60 } ||
-            Commands[6] is not CutsceneSetMusicCommand { Music: 0xff } ||
-            Commands[7] is not CutscenePlaySoundCommand
+            Commands[2] is not CutsceneWaitCommand { Frames: 60 } ||
+            Commands[3] is not CutsceneNativeCommand { Handler: "RemoveGateTiles1" } ||
+            Commands[4] is not CutsceneWaitCommand { Frames: 45 } ||
+            Commands[5] is not CutsceneNativeCommand { Handler: "RemoveGateTiles2" } ||
+            Commands[6] is not CutsceneWaitCommand { Frames: 60 } ||
+            Commands[7] is not CutsceneSetMusicCommand { Music: 0xff } ||
+            Commands[8] is not CutscenePlaySoundCommand
                 { Sound: SoundId.SndSolvePuzzle } ||
-            Commands[8] is not CutsceneEnableInputCommand ||
-            Commands[9] is not CutsceneEndCommand)
+            Commands[9] is not CutsceneEnableInputCommand ||
+            Commands[10] is not CutsceneEndCommand)
         {
             throw new InvalidOperationException(
                 "Room 0:5c graveyard-gate command/data contract is incomplete.");

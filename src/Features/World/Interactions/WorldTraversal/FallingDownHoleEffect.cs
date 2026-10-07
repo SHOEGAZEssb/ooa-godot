@@ -17,6 +17,9 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
     private OracleRuntimeState? _movementMemory;
     private int _animationFrame;
     private int _animationCounter;
+    private Action<int>? _playSound;
+    private bool _silent;
+    internal bool Initialized { get; private set; }
 
     internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
@@ -28,13 +31,18 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
 
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
-    internal void Initialize(Vector2 position)
+    internal void Initialize(Vector2 position, Action<int>? playSound = null, bool silent = false)
     {
         _activeDefinition = _definition ??= LoadDefinition();
-        _precisePosition = position;
+        // objectCreateFallingDownHoleInteraction copies only XYZ high bytes
+        // into the newly cleared allocation, discarding the source fractions.
+        _precisePosition = position.Floor();
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _animationFrame = 0;
         _animationCounter = _activeDefinition.Frames[0].Duration;
+        _playSound = playSound;
+        _silent = silent;
+        Visible = false;
         QueueRedraw();
     }
 
@@ -42,6 +50,16 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
     {
         if (Finished)
             return;
+
+        // fallDownHole.s state0 sets graphics/always-update/visible83 and
+        // plays its cue, then returns without advancing XY or animation.
+        if (!Initialized)
+        {
+            Initialized = true;
+            Visible = true;
+            if (!_silent) _playSound?.Invoke(SoundId.SndFallInHole);
+            return;
+        }
 
         ElapsedUpdates++;
         if ((CurrentParameter & 0x80) != 0)

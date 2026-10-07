@@ -77,7 +77,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             if (!IsHoleAt(_precisePosition + _behavior.HoleOffsets[_direction]))
             {
                 var before = _precisePosition;
-                ApplyCompanionMovement(0x50);
+                ApplyCompanionMovement(_speed);
                 if (before.X < 0 && _precisePosition.X > 128) _precisePosition.X -= 256;
                 if (before.Y < 0 && _precisePosition.Y > 128) _precisePosition.Y -= 256;
             }
@@ -104,6 +104,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void StartFluteHop()
     {
+        _speed = _behavior.HopSpeed;
         _speedZ = -0x180;
         _landingCounter = 8;
         SetAnimation(1 + _direction);
@@ -143,7 +144,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private int _hopCounter;
     private int _landingCounter;
     private int _airborneDelay;
-    private int _airborneSpeed;
+    private int _speed;
     private int _wallCrossingMask;
     private int _chargeCounter;
     private bool _mountStarted;
@@ -530,6 +531,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
         _hopCounter--;
+        _speed = _behavior.GroundSpeed;
         SetDirectionAnimation(_behavior.IdleAnimation, animate: true);
         int walls = _adjacentWalls;
         if (TryStartHoleJump() ||
@@ -539,7 +541,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
 
-        ApplyCompanionMovement(_behavior.GroundSpeed);
+        ApplyCompanionMovement(_speed);
         spawns.Add(new RickyTileBreakSpawn(
             _precisePosition + new Vector2(0, 5),
             BreakableTileDatabase.SourceCompanionMovement,
@@ -568,6 +570,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             return;
 
         _phase = RickyCompanionPhase.Hopping;
+        _speed = _behavior.HopSpeed;
         _speedZ = _behavior.HopSpeedZ;
         _landingCounter = _behavior.LandingDelay;
         _airborneDelay = 0;
@@ -604,7 +607,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             if (diagonal || !IsHoleAt(_precisePosition +
                     _behavior.HoleOffsets[_direction]))
             {
-                ApplyCompanionMovement(_behavior.HopSpeed);
+                ApplyCompanionMovement(_speed);
             }
             return;
         }
@@ -656,7 +659,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _zFixed = 0;
         _speedZ = _behavior.LongJumpSpeedZ;
         _airborneDelay = _behavior.LongJumpDelay;
-        _airborneSpeed = _behavior.LongJumpSpeed;
+        _speed = _behavior.LongJumpSpeed;
         _wallCrossingMask = 0;
         _screenTransitionsDisabled = disableScreenTransitions;
         SetAnimation(_behavior.LongJumpAnimation + _direction);
@@ -730,7 +733,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _airborneDelay = periodic
             ? _behavior.CliffDownDelay
             : _behavior.LongJumpDelay;
-        _airborneSpeed = periodic
+        _speed = periodic
             ? _behavior.HopSpeed
             : _behavior.LongJumpSpeed;
         SetAnimation(_behavior.LongJumpAnimation + _direction);
@@ -745,7 +748,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         OracleObjectMath.UpdateSpeedZ(
             ref _zFixed, ref _speedZ, _behavior.HopGravity);
         _animation.Advance();
-        ApplyRawMovement(_airborneSpeed);
+        ApplyRawMovement(_speed);
 
         int lowerWalls = CalculateAdjacentWallsBitset() & 0x0f;
         if (lowerWalls != 0)
@@ -769,7 +772,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
         _animation.Advance();
-        ApplyCompanionMovement(_airborneSpeed);
+        ApplyCompanionMovement(_speed);
         int walls = CalculateAdjacentWallsBitset();
         if (CompanionMovement.FacingWallMask(_angle, walls) != 0)
             StopUntilLanded(spawns);
@@ -787,7 +790,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         }
 
         _animation.Advance();
-        ApplyRawMovement(_airborneSpeed);
+        ApplyRawMovement(_speed);
         OracleObjectMath.UpdateSpeedZ(
             ref _zFixed, ref _speedZ, _behavior.HopGravity);
         int walls = CalculateAdjacentWallsBitset();
@@ -859,7 +862,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             }
             else
             {
-                ApplyCompanionMovement(_behavior.HopSpeed);
+                ApplyCompanionMovement(_speed);
             }
         }
         if (onGround)
@@ -1072,7 +1075,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
                     // probes below must use the last airborne value.
                     _tingleDepartureWalls = CalculateAdjacentWallsBitset();
                     ApplyCompanionMovement(
-                        _behavior.HopSpeed,
+                        _speed,
                         _tingleDepartureWalls);
                     return;
                 }
@@ -1094,6 +1097,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
                     if (CompanionMovement.FacingWallMask(_angle, _tingleDepartureWalls) != 0)
                     {
                         _speedZ = _behavior.LongJumpSpeedZ;
+                        _speed = _behavior.LongJumpSpeed;
                         _tingleDepartureCounter = _behavior.LongJumpDelay;
                         SetAnimation(_behavior.LongJumpAnimation + _direction);
                         _playSound(_behavior.JumpSound);
@@ -1116,7 +1120,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             // SPEED_140 and -$0300 without its ordinary long-jump delay.
             case 5:
                 _animation.Advance();
-                ApplyRawMovement(_behavior.LongJumpSpeed);
+                ApplyRawMovement(_speed);
                 if (!OracleObjectMath.UpdateSpeedZ(
                         ref _zFixed, ref _speedZ, _behavior.HopGravity))
                 {
@@ -1152,6 +1156,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void StartTingleDepartureHop()
     {
+        _speed = _behavior.HopSpeed;
         _speedZ = _behavior.HopSpeedZ;
         _tingleDepartureCounter = _behavior.DepartureHopDelay;
     }
@@ -1183,13 +1188,19 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         Visible = false;
     }
 
-    void ICompanionBarrierTarget.ClampToLowerY(int y)
+    void ICompanionBarrierTarget.SetBarrierCoordinate(bool horizontal, int coordinate)
     {
-        if (y is < 0 or > byte.MaxValue || _precisePosition.Y <= y)
-            return;
-        _precisePosition.Y = y;
+        if (horizontal)
+            _precisePosition.X = coordinate + _precisePosition.X - Mathf.Floor(_precisePosition.X);
+        else
+            _precisePosition.Y = coordinate + _precisePosition.Y - Mathf.Floor(_precisePosition.Y);
+        _speed = 0; // companionScript_restrict*: writes yh/xh only, then SPEED_0.
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        CompanionRuntimeState.Update(_runtime, CompanionRuntimeState.RickyId, _roomId, _precisePosition, _direction);
     }
+
+    void ICompanionBarrierTarget.SynchronizeRiderAfterObjects(Player player) =>
+        SynchronizePlayer(player, Vector2.Zero);
 
     private bool LinkWithinMountDistance(Vector2 linkPosition)
     {

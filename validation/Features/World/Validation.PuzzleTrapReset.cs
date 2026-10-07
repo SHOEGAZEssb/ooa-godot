@@ -8,6 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidatePuzzleTrapReset()
     {
+        ComparePuzzleTrapResetRom();
         var record = new PuzzleTrapResetDatabase().GetRoomRecords(4,0x9b).Single();
         byte[] offsets = [0xf0,0xe0,0x01,0x02,0x10,0x20,0xff,0xfe];
         FailIf(record.Order != 2 || record.Interval != 30 || record.Delay != 60 ||
@@ -91,23 +92,6 @@ public partial class ValidationRoot
                 foreach (byte offset in offsets)
                     _currentRoom.SetPositionTileAndCollision(Center((byte)(0x68+offset)),0x2c,0x0f,(long)_animationTicks);
                 FailIf(!trap.IsTrapped(0x68),"All eight source probes blocked must identify a trap.");
-                if (repeat == 0)
-                {
-                    foreach (byte offset in offsets)
-                    {
-                        Vector2 point = Center((byte)(0x68+offset));
-                        _currentRoom.SetPositionTileAndCollision(point,0x2c,0,(long)_animationTicks);
-                        FailIf(trap.IsTrapped(0x68),"Each individual open source probe must reject a trap.");
-                        _currentRoom.SetPositionTileAndCollision(point,0x2c,0x10,(long)_animationTicks);
-                        FailIf(!trap.IsTrapped(0x68),"Special raw collision $10 must remain blocked for the trap detector.");
-                        _currentRoom.SetPositionTileAndCollision(point,0x2c,0x0f,(long)_animationTicks);
-                    }
-                    _currentRoom.SetPositionTileAndCollision(Center(0x58),0,0xff,(long)_animationTicks);
-                    _currentRoom.SetPositionTileAndCollision(Center(0x48),0xa0,0,(long)_animationTicks);
-                    FailIf(!trap.IsTrapped(0x68),"Zero-layout near edge must skip its open far probe.");
-                    _currentRoom.SetPositionTileAndCollision(Center(0x58),0x2c,0x0f,(long)_animationTicks);
-                    _currentRoom.SetPositionTileAndCollision(Center(0x48),0x2c,0x0f,(long)_animationTicks);
-                }
                 _sound.ClearPlayRequestAudit();
                 Step((trap.Counter == 0 ? 256 : trap.Counter)-1);
                 FailIf(trap.Counter != 1 || _entities.PlayerUpdatesFrozen,"Trap must wait through counter1 before checking.");

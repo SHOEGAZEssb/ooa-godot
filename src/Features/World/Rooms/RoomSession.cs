@@ -12,12 +12,35 @@ public sealed class RoomSession
     private readonly RoomTileChangeDatabase _tileChanges;
     private readonly DungeonKeyDoorDatabase _keyDoors;
     private readonly StandardTileSubstitutionDatabase _standardTileSubstitutions;
+    private readonly SwitchTileReplacementDatabase _switchTiles;
     private readonly DungeonToggleTileDatabase _toggleTiles;
     private readonly JabuWaterTileDatabase _jabuWaterTiles;
     private readonly Func<byte> _toggleState;
     private readonly GashaSpotDatabase _gashaSpots;
     private readonly ChangedTileQueue _changedTiles = new();
-    private readonly OracleRuntimeState? _runtimeState;
+    private readonly OracleRuntimeState _runtimeState;
+    private readonly TileInfoTextDatabase _tileInfoTexts = new();
+    private readonly RoomShopDatabase _shopRooms = new();
+    internal bool InShop => _runtimeState.ReadWramByte(WramAddress.wInShop) != 0;
+
+    internal byte TilePushCounter
+    {
+        get => _runtimeState.ReadWramByte(WramAddress.wPushingAgainstTileCounter);
+        set => _runtimeState.SetWramByte(WramAddress.wPushingAgainstTileCounter,value);
+    }
+
+    internal byte InformativeTextsShown => _runtimeState.ReadWramByte(WramAddress.wInformativeTextsShown);
+    internal bool TileInfoTextShown(int textId) =>
+        (InformativeTextsShown & _tileInfoTexts.Get(textId).Mask) != 0;
+    internal string? PrepareTileInfoMessage(int textId)
+    {
+        TilePushCounter = 20; // showInfoTextForTile resets even a suppressed hint.
+        var text = _tileInfoTexts.Get(textId);
+        byte shown = InformativeTextsShown;
+        if ((shown & text.Mask) != 0) return null;
+        _runtimeState.SetWramByte(WramAddress.wInformativeTextsShown,(byte)(shown | text.Mask));
+        return text.Message;
+    }
 
     // INTERAC$14 state0 writes this shared byte for reserved and dynamic
     // blocks alike. Finishing/deleting the writer does not clear it.
@@ -53,7 +76,7 @@ public sealed class RoomSession
         OracleWorldData? world = null,
         OracleRuntimeState? runtimeState = null)
     {
-        _runtimeState = runtimeState;
+        _runtimeState = runtimeState ?? new OracleRuntimeState();
         _animationTick = animationTick;
         _resetAnimationTick = resetAnimationTick;
         _saveData = saveData;
@@ -64,6 +87,7 @@ public sealed class RoomSession
         _tileChanges = resources.TileChanges;
         _keyDoors = resources.KeyDoors;
         _standardTileSubstitutions = resources.StandardTileSubstitutions;
+        _switchTiles = resources.SwitchTiles;
         _toggleTiles = resources.ToggleTiles;
         _jabuWaterTiles = resources.JabuWaterTiles;
         _gashaSpots = resources.GashaSpots;
@@ -72,6 +96,7 @@ public sealed class RoomSession
         if (countAsRoomEntry)
             _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         CurrentRoom = GetRoom(startingGroup, startingRoom);
+        InitializeShopState();
         World.SetCurrentPaletteRoom(CurrentRoom);
         if (countAsRoomEntry)
             MarkRoomVisited(startingGroup, startingRoom);
@@ -80,6 +105,7 @@ public sealed class RoomSession
 
     public OracleRoomData Load(int group, int room)
     {
+        TilePushCounter = 0; // clearMemoryOnScreenReload: $cc5c..$cce8.
         BlockPushAngle = 0; // clearMemoryOnScreenReload: $cc5c..$cce8 includes $cca6.
         _changedTiles.Clear(); // clearMemoryOnScreenReload includes $ccdf/$cce0.
         ClearActiveTileState();
@@ -87,6 +113,7 @@ public sealed class RoomSession
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
+        InitializeShopState();
         World.SetCurrentPaletteRoom(CurrentRoom);
         MarkRoomVisited(group, room);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
@@ -98,6 +125,7 @@ public sealed class RoomSession
     {
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         CurrentRoom = GetRoom(ActiveGroup, CurrentRoom.Id);
+        InitializeShopState();
         World.SetCurrentPaletteRoom(CurrentRoom);
         MarkRoomVisited(ActiveGroup, CurrentRoom.Id);
         CurrentRoom.UpdateAnimation(_animationTick());
@@ -110,12 +138,14 @@ public sealed class RoomSession
     /// </summary>
     public OracleRoomData LoadCutsceneRoom(int group, int room)
     {
+        TilePushCounter = 0; // disableLcdAndLoadRoom: $cc5c..$cce8.
         BlockPushAngle = 0;
         _changedTiles.Clear(); // disableLcdAndLoadRoom clears wLinkInAir..wcce9.
         ClearActiveTileState();
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
+        InitializeShopState();
         World.SetCurrentPaletteRoom(CurrentRoom);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         return CurrentRoom;
@@ -130,6 +160,7 @@ public sealed class RoomSession
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = room;
+        InitializeShopState();
         World.SetCurrentPaletteRoom(CurrentRoom);
         MarkRoomVisited(group, room.Id, updateMinimap);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
@@ -138,11 +169,21 @@ public sealed class RoomSession
 
     private void ClearActiveTileState()
     {
+        // Both room reload's $cc5c clear and scroll's $cc8a clear include
+        // these shared cube publications; outgoing state0 handlers see zero.
+        _runtimeState.SetWramByte(WramAddress.wRotatingCubeColor,0);
+        _runtimeState.SetWramByte(WramAddress.wRotatingCubePos,0);
+        _runtimeState.SetWramByte(WramAddress.wInShop,0);
+        // Both ordinary reload and scroll/cutscene clears include $ccd7.
+        _runtimeState.SetWramByte(WramAddress.wInformativeTextsShown,0);
         // clearMemoryOnScreenReload / func_49c9 include $cc99/$cc9a/$cc9f.
-        _runtimeState?.SetWramByte(WramAddress.wActiveTilePos, 0);
-        _runtimeState?.SetWramByte(WramAddress.wActiveTileIndex, 0);
-        _runtimeState?.SetWramByte(WramAddress.wLinkOnChest, 0);
+        _runtimeState.SetWramByte(WramAddress.wActiveTilePos, 0);
+        _runtimeState.SetWramByte(WramAddress.wActiveTileIndex, 0);
+        _runtimeState.SetWramByte(WramAddress.wLinkOnChest, 0);
     }
+
+    private void InitializeShopState() =>
+        _runtimeState.SetWramByte(WramAddress.wInShop,_shopRooms.InitialFlags(ActiveGroup,CurrentRoom.Id));
 
     private void SynchronizeAnimation(int previousAnimationGroup, OracleRoomData room)
     {
@@ -171,6 +212,7 @@ public sealed class RoomSession
         _singleTileChanges.Apply(
             group, loaded, _saveData, _animationTick());
         _standardTileSubstitutions.Apply(loaded, roomFlags, _animationTick());
+        _switchTiles.Apply(group,loaded,_runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress),_animationTick());
         _toggleTiles.Apply(group, World.GetDungeonIndex(group, room), _toggleState(), loaded, _animationTick());
         int dungeon = World.GetDungeonIndex(group, room);
         int? floor = dungeon == 7 && DungeonMaps.GetDungeon(7).TryGetRoom(room, out DungeonCell cell)

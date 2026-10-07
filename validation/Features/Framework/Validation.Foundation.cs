@@ -529,7 +529,7 @@ public sealed partial class ValidationRoot
         OracleRoomData room = rooms.CurrentRoom;
 
         FailIf(
-            changes.RuleCount != 70 || changes.RoomCount != 51 ||
+            changes.RuleCount != 72 || changes.RoomCount != 51 ||
             singleTileChanges.RecordCount != 56 ||
             room.GetPackedPosition(doorPoint) != 0x23 ||
             room.GetOriginalMetatile(doorPoint) != 0xa7 ||

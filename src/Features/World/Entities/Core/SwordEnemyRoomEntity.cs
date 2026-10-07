@@ -10,8 +10,7 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
 {
     private readonly Func<bool> _freePartSlot;
     private readonly Func<byte> _random;
-    private SwordActionState _swordState;
-    private int _swordLevel = 1;
+    private int _swordCollision=ItemCollisionType.L1Sword;
 
     internal SwordEnemyRoomEntity(SwordEnemyCharacter enemy, EnemyCombatSourceDescriptor source,
         Action<int> soundRequested, Func<bool> freePartSlot, Func<byte> random)
@@ -45,12 +44,12 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
         return result;
     }
 
-    public void SetLinkSwordState(SwordActionState state, int swordLevel)
-    { _swordState = state; _swordLevel = swordLevel; }
+    public void SetLinkSwordState(SwordActionState state, int swordLevel,int? itemCollisionType=null)
+    { _swordCollision = itemCollisionType??SwordCollision.Type(state,swordLevel); }
 
     public override bool ApplySwordHit(Rect2 hitbox, Vector2 sourcePosition, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns) =>
-        ApplyDamageCollision(SwordCollision.Type(_swordState, _swordLevel),
+        ApplyDamageCollision(_swordCollision,
             hitbox, sourcePosition, damage, spawns);
 
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox,

@@ -7,7 +7,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateMovingSideScrollPlatforms()
     {
-        const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
         var placements = new MovingSideScrollPlatformDatabase();
         var interactions = new DungeonInteractionDatabase();
         var visuals = new DungeonInteractionVisualDatabase();
@@ -73,50 +72,6 @@ public sealed partial class ValidationRoot
             "source position ($68,$68) with the full 32x48 positioned OAM " +
             "frame aligned to collision radius Y=$19.");
 
-        void Step(int count = 1)
-        {
-            for (int index = 0; index < count; index++)
-                _entities.Update(update, _player);
-        }
-
-        // objectLoadMovementScript selects the first command on state zero;
-        // objectApplySpeed begins on the following original update.
-        Step();
-        FailIf(
-            platform.Position != new Vector2(0x68, 0x68) ||
-            platform.CommandIndex != 0,
-            "Room 7:06's $a1:$0b platform moved on its initialization update.");
-
-        Step(79);
-        FailIf(
-            platform.Position != new Vector2(0x40, 0x68) ||
-            platform.CommandIndex != 0,
-            "Room 7:06's $a1:$0b platform did not reach X=$40 with its " +
-            "source 8.8 fractional byte intact.");
-        Step();
-        FailIf(
-            platform.CommandIndex != 1 ||
-            platform.WaitCounter != 30 ||
-            platform.Position != new Vector2(0x40, 0x68),
-            "Room 7:06's $a1:$0b platform did not enter ms_wait 30 on the " +
-            "endpoint update.");
-
-        Step(29);
-        FailIf(
-            platform.CommandIndex != 1 ||
-            platform.WaitCounter != 1 ||
-            platform.Position != new Vector2(0x40, 0x68),
-            "Room 7:06's $a1:$0b platform did not hold X=$40 through wait " +
-            "counter $01.");
-        Step();
-        FailIf(
-            platform.CommandIndex != 2 ||
-            platform.Position != new Vector2(0x40, 0x68),
-            "Room 7:06's $a1:$0b platform moved on the wait-counter zero update.");
-        Step();
-        FailIf(
-            platform.Position != new Vector2(0x41, 0x68),
-            "Room 7:06's $a1:$0b platform did not resume rightward movement " +
-            "on the update after wait-counter zero.");
+        ReinitializeGameplayForValidation();
     }
 }

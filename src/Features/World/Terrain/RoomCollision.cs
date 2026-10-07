@@ -57,12 +57,7 @@ public sealed class RoomCollision
         // commonCode.s:linkApplyTileTypes retains the active tile while airborne.
         // @linkGetActiveTileType samples byte-wrapped Y+$05, X before movement.
         if (!airborne)
-        {
-            Vector2 feet = new(unchecked((byte)Mathf.FloorToInt(position.X)),
-                unchecked((byte)(Mathf.FloorToInt(position.Y) + 5)));
-            state.SetWramByte(WramAddress.wActiveTilePos, (byte)room.GetPackedPosition(feet));
-            state.SetWramByte(WramAddress.wActiveTileIndex, room.GetMetatile(feet));
-        }
+            UpdateActiveLinkTile(position);
 
         // bank0.s:checkAndUpdateLinkOnChest. This is a shared collision-buffer
         // write, not a Link-only exception. Restore the current tile's collision
@@ -80,6 +75,16 @@ public sealed class RoomCollision
             room.SetPackedTileCollision(chest, null);
             state.SetWramByte(WramAddress.wLinkOnChest, 0);
         }
+    }
+
+    internal void UpdateActiveLinkTile(Vector2 position)
+    {
+        OracleRoomData room = _rooms.CurrentRoom;
+        OracleRuntimeState state = _entities.RuntimeState;
+        Vector2 feet = new(unchecked((byte)Mathf.FloorToInt(position.X)),
+            unchecked((byte)(Mathf.FloorToInt(position.Y)+5)));
+        state.SetWramByte(WramAddress.wActiveTilePos,(byte)room.GetPackedPosition(feet));
+        state.SetWramByte(WramAddress.wActiveTileIndex,room.GetMetatile(feet));
     }
 
     public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide)

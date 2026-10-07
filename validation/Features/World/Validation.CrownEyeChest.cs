@@ -36,9 +36,14 @@ public partial class ValidationRoot
                 _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
                 "Crown chest must reject trigger87 even when all three eyes are active.");
             setTrigger(7,false); Step();
-            FailIf(script.Counter != 15 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
-                "Exact trigger07 must begin the source solve/puff/wait sequence.");
+            FailIf(script.Counter != -1 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
+                "checkmemoryeq must yield after accepting trigger07.");
+            Step();
+            FailIf(script.Counter != -1 || _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
+                "Exact trigger07 must play Solve and yield before the puff and wait.");
             setTrigger(2,false); // A lost signal does not cancel an already-started script.
+            Step(2);
+            FailIf(script.Counter != 15,"The puff and wait15 must execute on successive eligible script updates.");
             Step(14);
             FailIf(script.Counter != 1 || _currentRoom.GetMetatile(new(120,88)) == 0xf1,
                 "Crown chest must wait through counter01 before installing tilef1.");
@@ -54,7 +59,7 @@ public partial class ValidationRoot
             FailIf(_inventory.GetDungeonSmallKeys(5) != keys + 1 || !_saveData.HasRoomFlag(4,0xba,0x20),
                 "Crown chest must grant its source small key and persist the collected-item flag.");
             _dialogue.Close(); Step();
-            LoadValidationRoom(4,0xba); Step();
+            LoadValidationRoom(4,0xba); Step(2);
             FailIf(_entities.Entities<DungeonTriggerChestScriptRoomEntity>().Count != 0,
                 "Collected Crown eye chest script must stop on re-entry.");
         }

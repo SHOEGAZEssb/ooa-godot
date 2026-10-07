@@ -32,7 +32,7 @@ internal sealed partial class SomariaBlock : TransitionOffsetNode2D
     internal void QueueEnemyDamage(int damage, int contactFlags, Vector2 origin)
     {
         // applyDamageToLink (also used for ITEMs) assigns damageToApply;
-        // multiple contacts overwrite damage but OR their var3e flags.
+        // multiple contacts overwrite damage but OR the enemy's var3e into var2a.
         DamageToApply = unchecked((sbyte)damage);
         ContactFlags |= contactFlags;
         KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(origin.Floor(), Position.Floor());

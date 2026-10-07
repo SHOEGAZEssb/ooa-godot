@@ -65,7 +65,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
         _animation.Advance();
         Vector2 before = _precisePosition;
-        SpecialObjectMovement.ApplySpeed(ref _precisePosition, 0x1e, _angle, AdjacentWalls());
+        _speed = 0x1e; // mooshStateCSubstate1 rewrites speed on each walk update.
+        SpecialObjectMovement.ApplySpeed(ref _precisePosition, _speed, _angle, AdjacentWalls());
         if (before.X < 0 && _precisePosition.X > 128) _precisePosition.X -= 256;
         if (before.Y < 0 && _precisePosition.Y > 128) _precisePosition.Y -= 256;
         if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
@@ -118,6 +119,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private int _angle = 0xff;
     private int _zFixed;
     private int _speedZ;
+    private int _speed;
     private int _gravityDelay;
     private int _flapCount;
     private int _chargeCounter;
@@ -472,6 +474,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             _airborneInitialized = true;
             _zFixed = 0;
             _speedZ = -0x0140;
+            _speed = 0x28;
             _gravityDelay = 4;
             _flapCount = 0;
             _chargeCounter = 0;
@@ -711,6 +714,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
 
         _speedZ = goodbye.InitialSpeedZ;
+        _speed = goodbye.FlightSpeed;
         _angle = goodbye.FlightAngle;
         SetAnimation(goodbye.FlightAnimation);
         _phase = MooshCompanionPhase.GoodbyeFlight;
@@ -735,7 +739,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
         OracleObjectMovement.Shared.ApplySpeed(
             ref _precisePosition,
-            goodbye.FlightSpeed,
+            _speed,
             goodbye.FlightAngle);
         int y = unchecked((byte)Mathf.FloorToInt(_precisePosition.Y));
         if (y < goodbye.ExitY)
@@ -865,6 +869,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
 
         if (TryStartCliffJump()) return;
+        _speed = 0x28;
         ApplyMovement(spawns);
         BreakGroundTile(spawns);
         if (!TryBeginHazard()) UpdateDirectionAndAnimation(0x13);
@@ -885,7 +890,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void ApplyMovement(ICollection<RoomEntitySpawn> spawns)
     {
-        SpecialObjectMovement.ApplySpeed(ref _precisePosition, 0x28, _angle, _adjacentWalls = AdjacentWalls());
+        SpecialObjectMovement.ApplySpeed(ref _precisePosition, _speed, _angle, _adjacentWalls = AdjacentWalls());
         if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
     }
 
@@ -911,6 +916,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         byte tile = _room.GetMetatile(_precisePosition + _terrain.Probes("cliff")[_direction]);
         if (tile == 0xd4 ? _angle != ObjectAngle.Down : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
         _phase = MooshCompanionPhase.CliffJump;
+        _speed = 0x50;
         _speedZ = -0x2c0;
         _cliffCounter = 0x14;
         _cliffWalls = 0;
@@ -929,7 +935,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
         _animation.Advance();
-        OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, 0x50, _angle);
+        OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, _speed, _angle);
         OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40);
         int away = CompanionMovement.FacingWallMask((_angle + 0x10) & ObjectAngle.Mask, AdjacentWalls());
         if (away != 0) _cliffWalls = away;
@@ -941,13 +947,19 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         }
     }
 
-    void ICompanionBarrierTarget.ClampToLowerY(int y)
+    void ICompanionBarrierTarget.SetBarrierCoordinate(bool horizontal, int coordinate)
     {
-        if (y is < 0 or > byte.MaxValue || _precisePosition.Y <= y)
-            return;
-        _precisePosition.Y = y;
+        if (horizontal)
+            _precisePosition.X = coordinate + _precisePosition.X - Mathf.Floor(_precisePosition.X);
+        else
+            _precisePosition.Y = coordinate + _precisePosition.Y - Mathf.Floor(_precisePosition.Y);
+        _speed = 0; // companionScript_restrict*: writes yh/xh only, then SPEED_0.
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        CompanionRuntimeState.Update(_runtime, CompanionRuntimeState.MooshId, _roomId, _precisePosition, _direction);
     }
+
+    void ICompanionBarrierTarget.SynchronizeRiderAfterObjects(Player player) =>
+        SynchronizePlayer(player, Vector2.Zero);
 
     private void UpdateDirectionAndAnimation(int animationBase)
     {

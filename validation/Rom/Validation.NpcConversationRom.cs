@@ -15,6 +15,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(3, 0xf7);
             _dialogue.MessageSpeed = 4;
             _saveData.SetTextSpeed(4);
+            _inventory.GiveTreasure(TreasureId.Feather,1);
+            _inventory.EquipA(0); _inventory.EquipB(TreasureId.Feather);
             _player.WarpTo(new(80, 112)); _player.Face(Vector2I.Down);
             var birds = _entities.Entities<KnowItAllBirdCharacter>().ToArray();
             var seed = _random.CaptureState();
@@ -38,6 +40,10 @@ public sealed partial class ValidationRoot
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f) ||
                         _dialogue.IsOpen != rom.Active || _entities.PlayerUpdatesFrozen != (rom[0xcc8a] == 0x91),
                         $"{context}: player position/text/object-disable handoff differs: runtime XY={_player.PrecisePosition}, native XY=${rom.Word(0xd00c):x4}/${rom.Word(0xd00a):x4}, disabled=${rom[0xcc8a]:x2}.");
+                    FailIf(_player.TopDownAirborne != (rom[0xcc5c] != 0) ||
+                        (_player.ItemCreationZFixed & 0xffff) != rom.Word(0xd00e) ||
+                        (_player.TopDownAirSpeedZ & 0xffff) != rom.Word(0xd014),
+                        context + ": Link air/Z/vertical speed differs.");
                     foreach (var bird in birds)
                     {
                         int address = 0xd040 + _entities.InteractionSlot(bird) * 0x100;
@@ -89,6 +95,17 @@ public sealed partial class ValidationRoot
                 Walk(new(bird.Position.X < 80 ? 40 : 120, bird.Position.Y));
                 // Walk the last pixel toward the bird so both owners set facing.
                 Step(1, bird.Position.X < 80 ? Vector2.Left : Vector2.Right);
+                if (bird.Record.SubId == 0)
+                {
+                    Step(1,Vector2.Zero,2);
+                    FailIf(!_player.TopDownAirborne,"Reachable bird air probe must launch through equipped Feather.");
+                    Step(1,Vector2.Zero,1);
+                    FailIf(_dialogue.IsOpen || birds.Any(actor => actor.Talking || actor.TalkingSignal),
+                        "Fresh A during Feather air must bypass native A-sensitive bird selection.");
+                    for (int wait = 0; _player.TopDownAirborne && wait < 48; wait++) Step(1,Vector2.Zero);
+                    FailIf(_player.TopDownAirborne,"Bird conversation must wait for the actual Feather landing.");
+                    Step(1,Vector2.Zero);
+                }
                 for (int choice = 1; choice >= 0; choice--)
                 {
                     Step(1, Vector2.Zero, 1);

@@ -172,6 +172,9 @@ internal sealed class FrontendRom
 
     private int Read(int address)
     {
+        // CGB echo RAM aliases $c000-$ddff, including the selected bank's
+        // $d000-$ddff region. Native allocation failures can retain HL=$e040.
+        if (address is >= 0xe000 and <= 0xfdff) return Read(address - 0x2000);
         if (_toggleCutscene && address == 0x345b && address == _cpu.InstructionAddress)
             throw new ToggleCutsceneComplete();
         if (_deathPrelude && _bank == 1 && address == 0x5acd && address == _cpu.InstructionAddress)
@@ -221,6 +224,7 @@ internal sealed class FrontendRom
 
     private void Write(int address, int value)
     {
+        if (address is >= 0xe000 and <= 0xfdff) { Write(address - 0x2000,value); return; }
         if (address == 0x2222) { _bank = value & 0x3f; return; }
         if (address < 0x8000) return; // MBC SRAM enable/bank writes; one RAM bank
         if (address < 0xa000) { _vram[this[0xff4f] & 1][address - 0x8000] = (byte)value; return; }

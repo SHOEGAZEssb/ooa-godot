@@ -20,8 +20,8 @@ internal sealed class WhispRoomEntity
     private int _swordCollision = ItemCollisionType.L1Sword;
     private bool _meleeReportsContact;
     public bool MeleeReportsContact => _meleeReportsContact;
-    public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = SwordCollision.Type(state, level);
+    public void SetLinkSwordState(SwordActionState state, int level,int? itemCollisionType=null) =>
+        _swordCollision = itemCollisionType??SwordCollision.Type(state, level);
     public override bool ApplySwordHit(Rect2 bounds, Vector2 origin, int damage, EnemyKnockbackStrength strength,
         ICollection<RoomEntitySpawn> spawns) => ApplyMelee(_swordCollision, bounds);
     public bool ApplyExpertPunch(Rect2 bounds, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) =>

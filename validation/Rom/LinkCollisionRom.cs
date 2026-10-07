@@ -23,6 +23,7 @@ internal sealed class LinkCollisionRom
     internal const int Invincibility = 0x4279; // bank $05 updateLinkInvincibilityCounter
     internal const int Vulnerable = 0x1d28; // bank $00 checkLinkVulnerable
     internal const int Dying = 0x5033; // bank $05 linkState03
+    internal const int OverHazard = 0x2216; // bank $00 objectCheckIsOverHazard
     private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
     private readonly byte[] _memory = new byte[0x10000];
     private readonly byte[][] _wram = new byte[8][];

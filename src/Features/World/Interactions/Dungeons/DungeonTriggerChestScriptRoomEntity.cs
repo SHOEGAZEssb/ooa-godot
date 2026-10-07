@@ -7,26 +7,29 @@ namespace oracleofages;
 /// <summary>INTERAC $20 exact-trigger script followed by spawnChestAfterPuff.</summary>
 internal sealed partial class DungeonTriggerChestScriptRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IScreenTransitionPreloadRoomEntity,
-    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly OracleRuntimeState _runtime;
     private readonly Func<int> _triggers;
     private readonly Func<bool> _itemFlag, _scriptSuspended;
     private readonly Action<int> _sound;
     private readonly Action _writeChest;
-    private readonly int _expected, _wait;
-    private bool _initialized, _itemChecked;
+    private readonly int _expected;
+    private readonly ChestAfterPuffScript _script;
+    private bool _initialized, _itemChecked, _triggerChecked, _scriptStopped;
     public Node2D Node => this;
     public bool Finished { get; private set; }
     public bool UpdatesDuringDialogue => !_initialized;
-    internal int Counter { get; private set; } = -1;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
+    internal int Counter => _script.Counter;
 
     internal DungeonTriggerChestScriptRoomEntity(Vector2 position,OracleRuntimeState runtime,
         int expected,int wait,Func<int> triggers,Func<bool> itemFlag,Func<bool> scriptSuspended,
         Action<int> sound,Action writeChest)
     {
         Position = position; Visible = false; Name = "DungeonTriggerChestScript";
-        _runtime = runtime; _expected = expected; _wait = wait; _triggers = triggers;
+        _runtime = runtime; _expected = expected; _script = new(wait); _triggers = triggers;
         _itemFlag = itemFlag; _scriptSuspended = scriptSuspended; _sound = sound; _writeChest = writeChest;
     }
 
@@ -42,32 +45,40 @@ internal sealed partial class DungeonTriggerChestScriptRoomEntity : Node2D,
 
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Advance(spawns,frame.Player.IsDying);
 
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        if (!_initialized) Finished = true; // interactionDeleteAndRetIfEnabled02.
+    }
+
     private void Advance(ICollection<RoomEntitySpawn> spawns,bool deathTriggered)
     {
         if (Finished) return;
+        bool initializing = !_initialized;
         if (!_initialized)
         {
             _initialized = true;
             _runtime.SetWramByte(0xcfc1,0); _runtime.SetWramByte(0xcfc2,0);
         }
         if (deathTriggered || _scriptSuspended()) return;
+        if (_scriptStopped) { Finished = true; return; }
         if (!_itemChecked)
         {
             _itemChecked = true;
-            if (_itemFlag()) { Finished = true; return; }
+            if (_itemFlag())
+            {
+                // state0 ignores the script-end carry; its installed
+                // stubScript is deleted by the next eligible state1 pass.
+                _scriptStopped = initializing; Finished = !initializing; return;
+            }
         }
-        if (Counter < 0)
+        if (!_triggerChecked)
         {
             if (_triggers() != _expected) return;
-            _sound(SoundId.SndSolvePuzzle);
-            spawns.Add(new PuzzlePuffSpawn(Position,SoundId.SndPoof));
-            Counter = _wait;
-            return;
+            // checkmemoryeq advances its script pointer but retains carry
+            // clear on equality. Its following jump runs next update.
+            _triggerChecked = true; return;
         }
-        if (--Counter != 0) return;
-        // settilehere advances its script pointer even if setTile's queue is
-        // full; scriptend follows without rechecking triggers or item flag.
-        _writeChest(); Finished = true;
+        Finished = _script.Advance(true,Position,spawns,_sound,_writeChest);
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }

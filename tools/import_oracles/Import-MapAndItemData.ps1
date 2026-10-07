@@ -1011,7 +1011,7 @@ function Export-BoomerangData {
         }
         if (-not $ended) { throw "Boomerang parent $label has no terminal parameter." }
     }
-    Write-GeneratedTable((Join-Path $destination 'metadata/boomerang_parent_animations.tsv'), $rows)
+    Write-GeneratedTable((Join-Path $destination 'metadata/item_throw_parent_animations.tsv'), $rows)
 }
 Export-BoomerangData
 
@@ -1080,7 +1080,7 @@ for ($mode=0; $mode -lt 6; $mode++) {
     if (!$terminated) { throw "Somaria hazard table $mode lacks its terminator." }
 }
 if ($somariaHazards.Count -ne 85) { throw "Somaria hazard modes require84 entries, got $($somariaHazards.Count-1)." }
-Write-GeneratedTable((Join-Path $destination 'metadata/somaria_hazards.tsv'), $somariaHazards)
+Write-GeneratedTable((Join-Path $destination 'metadata/item_hazards.tsv'), $somariaHazards)
 
 # ITEM18 state1 advances through the next label until parameter1; states3
 # and2 hold their poses without calling itemAnimate. Keep that executable
@@ -1176,6 +1176,189 @@ function Export-SomariaParentAnimations {
     Write-GeneratedTable((Join-Path $destination 'metadata/somaria_swing_selector.tsv'), $rows)
 }
 Export-SomariaParentAnimations
+
+# ITEM_BIGGORON_SWORD ($0c) has a distinct eight-sector arc. Both normal
+# ($23) and mounted ($27) parents end on bit7 before the next animation step.
+# Retain animation aliases and literal tables through the shared source model.
+$biggoronParentFrames = [Collections.Generic.List[object]]::new()
+function Export-BiggoronSwordData {
+    $animationsPath = Join-Path $Disassembly 'data/itemAnimations.s'
+    $tables = Read-AssemblyDwTables $animationsPath 'item[0-9a-f]{2}Animations' 'itemAnimation[0-9a-f]+'
+    $pointers = Read-AssemblyDwTables $animationsPath 'item[0-9a-f]{2}OamDataPointers' 'itemOamData[0-9a-f]+'
+    $definitions = Read-AssemblyAnimationDefinitions $animationsPath 'itemAnimation[0-9a-f]+(?:Loop)?' $true
+    $gfx = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/itemData.s') 'itemData')
+    $attributes = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/itemAttributes.s') 'itemAttributes')
+    if ($tables['item0cAnimations'].Count -ne 8 -or $pointers['item0cOamDataPointers'].Count -ne 8 -or
+        $gfx.Count -lt 39 -or $attributes.Count -lt 52 -or
+        $uncmpGfxHeadersSource -notmatch '(?ms)^uncmpGfxHeader1b:\s*m_GfxHeader spr_swords, \$8521, \$0e, \$a0') {
+        throw 'ITEM$0c animation aliases, attributes or weapon graphics extent changed.'
+    }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# animation`tsprite`ttile-base`toam-flags`tsource-offset`tcollision`tradius-y`tradius-x`tdamage`thealth`tsound`tframes`tsource")
+    for ($animation = 0; $animation -lt 8; $animation++) {
+        $label = $tables['item0cAnimations'][$animation]
+        $frames = @($definitions[$label].Frames)
+        if ($frames.Count -ne 1 -or $frames[0].Duration -ne 0x7f) {
+            throw "ITEM`$0c $label must retain its inert one-frame pose."
+        }
+        $frame = $frames[0]
+        $oamIndex = [int]($frame.PointerOffset / 2)
+        if (($frame.PointerOffset -band 1) -ne 0 -or $oamIndex -ge 8) {
+            throw "ITEM`$0c $label references invalid OAM offset $($frame.PointerOffset)."
+        }
+        $encoded = "$($frame.Duration),$($frame.Parameter)@$(Read-ItemOamComposition $pointers['item0cOamDataPointers'][$oamIndex])"
+        $radius = $attributes[0x0c * 4 + 1]
+        $rows.Add("$animation`tspr_swords`t$($gfx[0x0c*3+1].ToString('x2'))`t$($gfx[0x0c*3+2].ToString('x2'))`t160`t$($attributes[0x0c*4].ToString('x2'))`t$($radius -shr 4)`t$($radius -band 15)`t$($attributes[0x0c*4+2].ToString('x2'))`t$($attributes[0x0c*4+3].ToString('x2'))`t$($soundIds['SND_BIGSWORD'].ToString('x2'))`t$encoded`tdata/itemAnimations.s:$label;data/ages/itemAttributes.s:ITEM_BIGGORON_SWORD;data/ages/uncmpGfxHeaders.s:uncmpGfxHeader1b")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/biggoron_sword_animations.tsv'), $rows)
+    $arc = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'object_code/common/items/postUpdate.s') 'biggoronSwordArcData')
+    if ($arc.Count -ne 32) { throw 'biggoronSwordArcData requires eight ordered four-byte sectors.' }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# index`tradius-y`tradius-x`toffset-y`toffset-x`tsource")
+    for ($index = 0; $index -lt 8; $index++) {
+        $offset = $index * 4
+        $rows.Add("$index`t$($arc[$offset])`t$($arc[$offset+1])`t$(Convert-SignedLinkItemByte $arc[$offset+2])`t$(Convert-SignedLinkItemByte $arc[$offset+3])`tobject_code/common/items/postUpdate.s:biggoronSwordArcData+$offset")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/biggoron_sword_arcs.tsv'), $rows)
+    $path = Join-Path $Disassembly 'data/ages/specialObjectAnimationData.s'
+    $parents = Read-AssemblyDwTables $path 'specialObject(?:00|09)AnimationDataPointers' 'animationData\w+'
+    $nodes = @(Read-AssemblyNodes $path)
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# mode`tframe`tduration`tgraphic`tparameter`tsource")
+    foreach ($mode in @(0x23, 0x27)) {
+        $label = $parents['specialObject00AnimationDataPointers'][$mode]
+        $start = @($nodes | Where-Object { $_.Kind -eq 'Label' -and $_.Name -eq $label })
+        if ($start.Count -ne 1) { throw "ITEM`$0c parent mode $mode cannot resolve $label." }
+        $index = 0; $ended = $false
+        foreach ($node in $nodes) {
+            if ($node.Offset -le $start[0].Offset -or $node.Kind -in @('Label', 'Blank', 'Comment')) { continue }
+            if ($node.Kind -ne 'Data' -or $node.Name -ne '.db' -or $node.Operands.Count -ne 3) {
+                throw "ITEM`$0c ${label}: unsupported $($node.Kind)/$($node.Name) before bit7 terminal."
+            }
+            $bytes = @($node.Operands | ForEach-Object {
+                if ($_ -notmatch '^\$[0-9a-f]{2}$') { throw "ITEM`$0c ${label}: non-byte animation operand $_." }
+                [Convert]::ToInt32($_.Substring(1), 16)
+            })
+            $rows.Add("$($mode.ToString('x2'))`t$index`t$($bytes[0])`t$($bytes[1].ToString('x2'))`t$($bytes[2].ToString('x2'))`tdata/ages/specialObjectAnimationData.s:$label+$index")
+            $biggoronParentFrames.Add([pscustomobject]@{ Mode=$mode; Frame=$index; Graphic=$bytes[1] })
+            $index++
+            if (($bytes[2] -band 0x80) -ne 0) { $ended=$true; break }
+        }
+        if (-not $ended -or $index -ne 6) { throw "ITEM`$0c $label lacks its six-frame terminal stream." }
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/biggoron_sword_parent_animations.tsv'), $rows)
+}
+
+function Export-BombchuData {
+    $path = Join-Path $Disassembly 'object_code/common/items/bombchus.s'
+    $source = Read-ImportText $path
+    $initial = [regex]::Match($source,
+        '(?s)@tdState0:.*?Item.speedTmp\s+ld \(hl\),(?<speed>SPEED_[0-9a-f]+).*?Item.counter1\s+ld \(hl\),\$(?<wait>[0-9a-f]{2}).*?ld \(hl\),\$(?<fuse>[0-9a-f]{2}).*?ld a,\$(?<vision>[0-9a-f]{2}).*?Item.var31\s+ld \(hl\),\$(?<turn>[0-9a-f]{2})')
+    $target = [regex]::Match($source,
+        '(?s); Valid target established.*?Item.collisionRadiusY\s+ld a,\$(?<radius>[0-9a-f]{2}).*?Item.counter1\s+ld \(hl\),\$(?<wait>[0-9a-f]{2}).*?Item.speedTmp\s+ld \(hl\),(?<speed>SPEED_[0-9a-f]+)')
+    $vision = [regex]::Match($source,
+        '(?s)@incVisionRadius:.*?add \$(?<step>[0-9a-f]{2})\s+cp \$(?<limit>[0-9a-f]{2}).*?ld a,\$(?<reset>[0-9a-f]{2})')
+    if (-not $initial.Success -or -not $target.Success -or -not $vision.Success -or
+        -not $throwSpeeds.ContainsKey($initial.Groups['speed'].Value) -or
+        -not $throwSpeeds.ContainsKey($target.Groups['speed'].Value)) {
+        throw 'bombchus.s: unresolved initialization, target or vision constants.'
+    }
+    $constants = [ordered]@{}
+    foreach ($name in @('wait','fuse','vision','turn')) {
+        $constants["initial-$name"] = [Convert]::ToInt32($initial.Groups[$name].Value,16)
+    }
+    $constants['search-speed'] = $throwSpeeds[$initial.Groups['speed'].Value]
+    foreach ($name in @('radius','wait')) {
+        $constants["target-$name"] = [Convert]::ToInt32($target.Groups[$name].Value,16)
+    }
+    $constants['target-speed'] = $throwSpeeds[$target.Groups['speed'].Value]
+    foreach ($name in @('step','limit','reset')) {
+        $constants["vision-$name"] = [Convert]::ToInt32($vision.Groups[$name].Value,16)
+    }
+    foreach ($entry in @(
+        @('topdown-gravity','ld c,\$(?<value>[0-9a-f]{2})\s+call itemUpdateSpeedZAndCheckHazards'),
+        @('sidescroll-gravity','ld c,\$(?<value>[0-9a-f]{2})\s+call itemUpdateThrowingVerticallyAndCheckHazards'),
+        @('motion-gravity','ld c,\$(?<value>[0-9a-f]{2})\s+call objectUpdateSpeedZ_paramC'),
+        @('chase-counter','ld \(hl\),\$(?<value>[0-9a-f]{2})\s+; Increment state\s+ld l,e'),
+        @('homing-frame-mask','ld a,\(wFrameCounter\)\s+and \$(?<value>[0-9a-f]{2})\s+call z,bombchuUpdateAngle_topDown'))) {
+        $match = [regex]::Match($source,$entry[1])
+        if (-not $match.Success) { throw "bombchus.s: missing $($entry[0])." }
+        $constants[$entry[0]] = [Convert]::ToInt32($match.Groups['value'].Value,16)
+    }
+    if ($source -notmatch '(?s)Item.speedZ\s+ld a,\$80\s+ldi \(hl\),a\s+ld \(hl\),\$ff' -or
+        $braceletParentSource -notmatch '(?s)parentItemCode_bombchu:.*?isLinkUnderwater.*?SPECIALOBJECT_RAFT.*?wLinkSwimmingState.*?wNumBombchus.*?parentItemLoadAnimationAndIncState\s+;[^\r\n]*\s+ld e,\$01\s+jp itemCreateChildAndDeleteOnFailure') {
+        throw 'ITEM$0d source jump velocity or ordered parent gates/one-child limit changed.'
+    }
+    $constants['wall-jump-speed-z'] = -128
+    $constants['child-limit'] = 1
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# name`tvalue`tsource")
+    foreach ($entry in $constants.GetEnumerator()) {
+        $rows.Add("$($entry.Key)`t$($entry.Value)`tobject_code/common/items/bombchus.s;object_code/common/itemParents/bombsBraceletParent.s:parentItemCode_bombchu")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/bombchu_mechanics.tsv'), $rows)
+
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# kind`tdirection`ty`tx`tsource")
+    foreach ($kind in @('front','normal','sidescroll')) {
+        $label = @{front='@offsets';normal='@normalOffsets';sidescroll='@sidescrollOffsets'}[$kind]
+        $offsets = @(Read-AssemblyLiteralValues $path $label)
+        if ($offsets.Count -ne 8) { throw "bombchus.s:$label requires four ordered Y/X offsets." }
+        for ($direction = 0; $direction -lt 4; $direction++) {
+            $rows.Add("$kind`t$direction`t$(Convert-SignedLinkItemByte $offsets[$direction*2])`t$(Convert-SignedLinkItemByte $offsets[$direction*2+1])`tobject_code/common/items/bombchus.s:$label")
+        }
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/bombchu_offsets.tsv'), $rows)
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# enemy-id`ttarget`tsource")
+    $masks = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/bombchuTargets.s') 'bombchuTargets' 'dbrev')
+    if ($masks.Count -ne 8) { throw 'bombchuTargets requires eight ordered 16-enemy rows.' }
+    for ($index = 0; $index -lt $masks.Count; $index++) {
+        $bits = ''
+        foreach ($operand in $masks[$index].Operands) {
+            if ($operand -notmatch '^%[01]{8}$') { throw "bombchuTargets: unsupported mask operand $operand." }
+            $bits += $operand.Substring(1)
+        }
+        if ($bits.Length -ne 16) { throw 'bombchuTargets: each dbrev row must contain sixteen bits.' }
+        for ($bit = 0; $bit -lt 16; $bit++) {
+            $rows.Add("$(($index*16+$bit).ToString('x2'))`t$($bits.Substring($bit,1))`tdata/ages/bombchuTargets.s:bombchuTargets+$($index*2)")
+        }
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/bombchu_targets.tsv'), $rows)
+
+    $path = Join-Path $Disassembly 'data/itemAnimations.s'
+    $tables = Read-AssemblyDwTables $path 'item[0-9a-f]{2}Animations' 'itemAnimation[0-9a-f]+'
+    $pointers = Read-AssemblyDwTables $path 'item[0-9a-f]{2}OamDataPointers' 'itemOamData[0-9a-f]+'
+    $definitions = Read-AssemblyAnimationDefinitions $path 'itemAnimation[0-9a-f]+(?:Loop)?' $true
+    $gfx = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/itemData.s') 'itemData')
+    $attributes = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/itemAttributes.s') 'itemAttributes')
+    if ($tables['item0dAnimations'].Count -ne 7 -or $pointers['item0dOamDataPointers'].Count -ne 17 -or
+        $gfx.Count -lt 42 -or $attributes.Count -lt 56 -or $gfx[0x0d*3] -ne 0 -or
+        $gfxHeadersSource -notmatch '(?m)^\s*m_GfxHeader\s+spr_common_sprites,\s*\$8001') {
+        throw 'ITEM$0d requires seven animations, seventeen OAM pointers and resident bank-1 common sprites.'
+    }
+    $rows = [Collections.Generic.List[string]]::new()
+    $rows.Add("# animation`tsprite`ttile-base`toam-flags`tcollision`tradius-y`tradius-x`tdamage`thealth`tframes`tsource")
+    for ($animation = 0; $animation -lt 7; $animation++) {
+        $label = $tables['item0dAnimations'][$animation]
+        $definition = $definitions[$label]
+        $encoded = @($definition.Frames | ForEach-Object {
+            $offset = $_.PointerOffset
+            if (($offset -band 1) -ne 0 -or $offset -ge 34) { throw "ITEM`$0d ${label}: invalid OAM offset $offset." }
+            "$($_.Duration),$($_.Parameter)@$(Read-ItemOamComposition $pointers['item0dOamDataPointers'][[int]($offset/2)])"
+        }) -join '|'
+        if ($definition.LoopStart -gt 0) {
+            $encoded += "~$($definition.LoopStart)"
+        }
+        if (($animation -lt 6 -and $definition.Frames.Count -ne 2) -or
+            ($animation -eq 6 -and ($definition.Frames.Count -ne 7 -or $definition.Frames[-1].Parameter -ne 0xff))) {
+            throw "ITEM`$0d ${label}: walking loop or explosion terminal shape changed."
+        }
+        $radius = $attributes[0x0d*4+1]
+        $rows.Add("$animation`tspr_common_sprites`t$($gfx[0x0d*3+1].ToString('x2'))`t$($gfx[0x0d*3+2].ToString('x2'))`t$($attributes[0x0d*4].ToString('x2'))`t$($radius -shr 4)`t$($radius -band 15)`t$($attributes[0x0d*4+2].ToString('x2'))`t$($attributes[0x0d*4+3].ToString('x2'))`t$encoded`tdata/itemAnimations.s:$label;data/ages/itemAttributes.s:ITEM_BOMBCHUS;data/ages/gfxHeaders.s:GFXH_COMMON_SPRITES")
+    }
+    Write-GeneratedTable((Join-Path $destination 'metadata/bombchu_animations.tsv'), $rows)
+}
 
 $somariaPush = [regex]::Match($somariaSource,
     '(?ms)ldbc SPEED_80, \$(?<normal>[0-9a-f]{2}).*?wBraceletLevel\).*?cp \$02.*?ldbc SPEED_c0, \$(?<glove>[0-9a-f]{2})')
@@ -1820,6 +2003,17 @@ for ($variant = 0; $variant -lt 4; $variant++) {
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\link_item_graphics.tsv'),
     $linkGraphicRows)
+
+Export-BiggoronSwordData
+Export-BombchuData
+$biggoronLinkRows = [Collections.Generic.List[string]]::new()
+$biggoronLinkRows.Add("# kind`tvariant`tphase`tdirection`tgraphics-index`toam-index`tbyte-offset`toam`tsource")
+foreach ($frame in $biggoronParentFrames) {
+    for ($direction = 0; $direction -lt 4; $direction++) {
+        Add-LinkGraphicRow $biggoronLinkRows 'biggoron' $frame.Mode $frame.Frame $direction ($frame.Graphic + $direction)
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/biggoron_sword_link_graphics.tsv'), $biggoronLinkRows)
 
 # The randomizer-oriented disassembly artwork deliberately unflips and
 # rearranges spr_link.png to make character edits easier. The clean game does

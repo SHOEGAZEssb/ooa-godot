@@ -67,6 +67,15 @@ internal static class DungeonShutterEntry
             return false;
         }
 
+        return FacesScrollingEntry(placementContext, doorDirection);
+    }
+
+    internal static bool FacesScrollingEntry(
+        EnemyPlacementContext placementContext,
+        int doorDirection)
+    {
+        if (placementContext.Kind != EnemyPlacementEntryKind.Scrolling)
+            return false;
         int incomingDoorDirection = placementContext.ScrollDirection switch
         {
             var direction when direction == Vector2I.Up => 2,

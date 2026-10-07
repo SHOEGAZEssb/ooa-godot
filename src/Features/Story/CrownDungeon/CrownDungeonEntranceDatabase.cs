@@ -30,7 +30,7 @@ internal sealed class CrownDungeonEntranceDatabase
                 throw row.Invalid(5, "complete tile/attribute rectangle");
             frames.Add(new(new Vector2I(row.UnsignedDecimal(1), row.UnsignedDecimal(2)), width, pairs));
         }
-        if (frames.Count != 4 || Commands.Count != 14)
+        if (frames.Count != 4 || Commands.Count != 15)
             throw new InvalidOperationException("miscPuzzles_subid11: incomplete Crown Dungeon entrance data.");
         Frames = frames;
     }

@@ -25,7 +25,9 @@ public sealed partial class ValidationRoot
                 });
             }
             _saveData.SetRoomFlag(4, 0xb4, 0x80, false);
-            _entities.BeginScreenTransition(4, _world.LoadRoom(4, 0xb4), new(240, 0), _player);
+            var incoming = _world.LoadRoom(4, 0xb4);
+            _rooms.SetLoadedRoom(4,incoming);
+            _entities.BeginScreenTransition(4, incoming, new(240, 0), _player);
             var ball = _entities.Entities<SmasherCharacter>().Single();
             FailIf(ball.State != 0 || ball.NativeSlot != 15,
                 "Only slot$0f must remain for the incoming ball; its parent allocation must fail.");

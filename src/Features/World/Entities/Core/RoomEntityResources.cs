@@ -6,6 +6,8 @@ namespace oracleofages;
 // here; placement and actor construction consume the same database instances.
 internal sealed class RoomEntityResources(RoomSession? rooms)
 {
+    private KeyholeControllerDatabase? _keyholeControllers;
+    internal KeyholeControllerDatabase KeyholeControllers => _keyholeControllers ??= new();
     // Factory construction must not parse assets for every later dungeon and
     // story actor. Resolve each per-session database at its first dispatch;
     // room-wide gates below still resolve their inputs in the original order.

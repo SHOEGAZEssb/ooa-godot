@@ -2,7 +2,7 @@ using System;
 
 namespace oracleofages;
 
-/// <summary>miscPuzzles_subid12, including the yielding jump to miscPuzzles_justOpenedKeyDoor.</summary>
+/// <summary>miscPuzzles_subid12 and its external jump to miscPuzzles_justOpenedKeyDoor.</summary>
 internal sealed class MermaidsCaveEntranceEvent : RoomCutsceneCommandHost, IRoomEntryEvent
 {
     private readonly MermaidsCaveEntranceDatabase _database = new();
@@ -69,7 +69,8 @@ internal sealed class MermaidsCaveEntranceEvent : RoomCutsceneCommandHost, IRoom
         else Context.Sound.PlaySound(music);
     }
 
-    // scriptend deletes this invisible interaction; it has no extra native tail.
+    // The logical script ends; miscPuzzles_subid12 ignores carry and retains
+    // the physical interaction allocation until the next room load.
     public override void ScriptEnded() { }
 
     public override void RunNativeHandler(string handler)
@@ -79,8 +80,8 @@ internal sealed class MermaidsCaveEntranceEvent : RoomCutsceneCommandHost, IRoom
             // The keyhole owner delivers cfc0 bit 0 through Trigger. The
             // successful scriptCmd_checkCFC0Bit read clears carry, yielding
             // even though it advances the script pointer (scripting.s).
-            if (!Context.Rooms.SaveData.HasRoomFlag(_entrance.Group, _entrance.Room, OracleSaveData.RoomFlag80))
-                throw UnsupportedCommand($"keyhole signal without unlock flag at {_entrance.Source}");
+            if ((Context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) & 1) == 0)
+                throw UnsupportedCommand($"keyhole signal without cfc0 bit0 at {_entrance.Source}");
             return;
         }
         if (handler != "OpenDoor") throw UnsupportedCommand($"Mermaid's Cave handler '{handler}'");

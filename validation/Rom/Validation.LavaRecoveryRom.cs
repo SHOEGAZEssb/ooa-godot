@@ -6,7 +6,12 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidateLavaRecoveryRom() => ValidateLavaRecoveryRom(false, false);
+    private void ValidateLavaRecoveryRom()
+    {
+        CompareLinkSplashAllocationRom();
+        CompareSideViewSplashCoordinatesRom();
+        ValidateLavaRecoveryRom(false, false);
+    }
     private void ValidateIndoorLavaRecoveryRom() => ValidateLavaRecoveryRom(false, true);
     private void ValidateUnderwaterLavaRecoveryRom() => ValidateLavaRecoveryRom(true, false);
     private void ValidateUnderwaterIndoorLavaRecoveryRom() => ValidateLavaRecoveryRom(true, true);
@@ -56,6 +61,7 @@ public sealed partial class ValidationRoot
                     if (respawning && !previousRespawning) respawns++;
                     previousRequest = request; previousRespawning = respawning;
                     string context = $"Lava {group:x1}:{roomId:x2} tile=${tile:x2}, update={update}, batch={batched}";
+                    ComparePhysicalSplashesRom(rom,context);
                     Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(_player.PrecisePosition != expected || _player.HealthQuarters != rom[0xc6aa] ||
                         _player.Visible != ((rom[0xd01a] & 0x80) != 0) ||

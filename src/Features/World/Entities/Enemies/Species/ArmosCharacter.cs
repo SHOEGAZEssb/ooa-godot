@@ -52,7 +52,9 @@ internal partial class ArmosCharacter : EnemyCharacter
         _random = random;
         _roomTileChanged = roomTileChanged;
         _movement = new EnemyTerrainMovement(this, room);
-        ConfigureHazards(room);
+        // armos.s sends non-JUST_HIT recoil to the common terrain/hazard path.
+        ConfigureSwordKnockback(room, EnemyKnockbackMotion.Terrain,
+            checksHazards: true, nativeSpeed: () => _behavior.SpeedRaw);
         Visible = false;
         _state = ArmosState.Uninitialized;
     }
@@ -141,6 +143,7 @@ internal partial class ArmosCharacter : EnemyCharacter
 
     internal bool TakeDamageWithoutKnockback(Vector2 sourcePosition, int damage) =>
         TakeSwordHit(sourcePosition, damage);
+
 }
 
 internal enum ArmosState

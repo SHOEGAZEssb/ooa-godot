@@ -10,61 +10,54 @@ namespace oracleofages;
 /// </summary>
 internal sealed partial class DungeonStateController : Node2D,
     IRoomEntity, IFixedRoomEntity, IColoredCubePuzzleStateSource,
-    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly DungeonObjectRecord _record;
-    private readonly OracleRoomData _room;
+    private readonly Func<OracleRoomData> _activeRoom;
     private readonly DungeonInteractionDatabase _data;
     private readonly ColoredCubePuzzleState _puzzle;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int, bool> _setTrigger;
-    private int _lastTile = -1;
+    private int _lastTile;
+    private bool _initialized;
 
     public Node2D Node => this;
     public ColoredCubePuzzleState ColoredCubePuzzleState => _puzzle;
-    public bool UpdatesDuringDialogue => _record.Kind != DungeonObjectKind.CubeColorSource;
+    public bool UpdatesDuringDialogue => _record.Kind != DungeonObjectKind.CubeColorSource || !_initialized;
     public bool UpdatesDuringRoomEntityFreeze => UpdatesDuringDialogue;
 
     internal DungeonStateController(
         DungeonObjectRecord record,
-        OracleRoomData room,
+        Func<OracleRoomData> activeRoom,
         DungeonInteractionDatabase data,
         ColoredCubePuzzleState puzzle,
         OracleRuntimeState runtime,
         Action<int, bool> setTrigger)
     {
         _record = record;
-        _room = room;
+        _activeRoom = activeRoom;
         _data = data;
         _puzzle = puzzle;
         _runtime = runtime;
         _setTrigger = setTrigger;
+        Position = record.Position;
         Name = $"DungeonState_{record.Kind}_{record.Room:x2}";
-        switch (record.Kind)
-        {
-            case DungeonObjectKind.CubeColorSource:
-                InitializeCubeColor();
-                break;
-            case DungeonObjectKind.FloorSwitchBit:
-                // interaction21_subid07 has no initialization state: it
-                // derives wSwitchState on every dispatch. Room 4:3b places
-                // it before INTERAC_MINECART_GATE, so this first dispatch
-                // must happen before that gate reads bit $20 during its
-                // state-0 construction, including destination preload.
-                UpdateFloorSwitchBit();
-                break;
-        }
+        Visible = false;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+        => Advance();
+
+    private void Advance()
     {
         switch (_record.Kind)
         {
             case DungeonObjectKind.RedFloorTrigger:
-                _setTrigger(0, TileAt(0x5a) == _data.Constant("red-toggle-floor"));
+                PublishTrigger(TileAt(0x5a) == _data.Constant("red-toggle-floor"));
                 break;
             case DungeonObjectKind.RedFlameTrigger:
-                _setTrigger(0, _puzzle.CubeColor == 0x80);
+                PublishTrigger(_puzzle.CubeColor == 0x80);
                 break;
             case DungeonObjectKind.FloorSwitchBit:
                 UpdateFloorSwitchBit();
@@ -73,6 +66,11 @@ internal sealed partial class DungeonStateController : Node2D,
                 UpdateCubeSwitchBit();
                 break;
             case DungeonObjectKind.CubeColorSource:
+                if (!_initialized)
+                {
+                    _initialized = true;
+                    InitializeCubeColor();
+                }
                 UpdateCubeColor();
                 break;
             default:
@@ -83,9 +81,29 @@ internal sealed partial class DungeonStateController : Node2D,
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
 
+    private void PublishTrigger(bool active)
+    {
+        // Both handlers replace all of wActiveTriggers, not just bit zero.
+        for (int bit = 0; bit < 8; bit++)
+            _setTrigger(bit, bit == 0 && active);
+    }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (UpdatesDuringDialogue)
+            Advance();
+        return ScreenTransitionPresentation.Hidden;
+    }
+
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        if (UpdatesDuringDialogue)
+            Advance();
+    }
+
     private void InitializeCubeColor()
     {
-        int tile = TileAt(_room.GetPackedPosition(_record.Position));
+        int tile = TileAt((byte)((_record.Y & 0xf0) | ((_record.X >> 4) & 15)));
         _lastTile = tile;
         _puzzle.CubeColor =
             0x80 | (tile - _data.Constant("red-toggle-floor"));
@@ -94,7 +112,7 @@ internal sealed partial class DungeonStateController : Node2D,
 
     private void UpdateCubeColor()
     {
-        int tile = TileAt(_room.GetPackedPosition(_record.Position));
+        int tile = TileAt((byte)((_record.Y & 0xf0) | ((_record.X >> 4) & 15)));
         int first = _data.Constant("red-toggle-floor");
         if (tile == _lastTile || tile < first || tile >= first + 3)
             return;
@@ -132,9 +150,6 @@ internal sealed partial class DungeonStateController : Node2D,
 
     private int TileAt(int packedPosition)
     {
-        Vector2 point = new(
-            (packedPosition & 0x0f) * 16 + 8,
-            (packedPosition >> 4) * 16 + 8);
-        return _room.GetMetatile(point);
+        return _activeRoom().GetPackedStorageMetatile((byte)packedPosition);
     }
 }

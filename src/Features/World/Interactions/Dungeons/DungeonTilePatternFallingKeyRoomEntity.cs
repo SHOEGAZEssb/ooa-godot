@@ -4,62 +4,58 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>
-/// The shared INTERAC_DUNGEON_EVENTS verifyTilesAndDropSmallKey path. It
-/// compares handler-owned metatile/position pairs in source order, then
-/// creates TREASURE_SMALL_KEY:$01 at the interaction's exact Y/X.
-/// </summary>
+/// <summary>INTERAC_DUNGEON_EVENTS $21:$09, verifyTilesAndDropSmallKey.</summary>
 internal sealed partial class DungeonTilePatternFallingKeyRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly IReadOnlyList<DungeonTilePatternRecord> _pattern;
-    private readonly OracleRoomData _room;
+    private readonly Func<OracleRoomData> _activeRoom;
     private readonly GroundTreasureGrantRequest _request;
+    private readonly Func<bool> _itemFlagSet;
+    private readonly Func<GroundTreasureGrantRequest,bool> _createTreasure;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
 
-    internal DungeonTilePatternFallingKeyRoomEntity(
-        DungeonMechanicDatabaseRecord record,
-        IReadOnlyList<DungeonTilePatternRecord> pattern,
-        OracleRoomData room,
-        GroundTreasureGrantRequest request)
+    internal DungeonTilePatternFallingKeyRoomEntity(DungeonMechanicDatabaseRecord record,
+        IReadOnlyList<DungeonTilePatternRecord> pattern,Func<OracleRoomData> activeRoom,
+        GroundTreasureGrantRequest request,Func<bool> itemFlagSet,Func<GroundTreasureGrantRequest,bool> createTreasure)
     {
-        if (record.Id != InteractionId.DungeonEvents || pattern.Count == 0)
+        if (record.Id != InteractionId.DungeonEvents || record.SubId != 0x09 || pattern.Count == 0)
             throw new ArgumentOutOfRangeException(nameof(record));
         foreach (DungeonTilePatternRecord cell in pattern)
-        {
             if (cell.Id != record.Id || cell.SubId != record.SubId)
-                throw new ArgumentException(
-                    "The tile pattern does not belong to the interaction.",
-                    nameof(pattern));
-        }
-
+                throw new ArgumentException("The tile pattern does not belong to the interaction.",nameof(pattern));
         _pattern = pattern;
-        _room = room;
+        _activeRoom = activeRoom;
         _request = request;
+        _itemFlagSet = itemFlagSet;
+        _createTreasure = createTreasure;
+        Position = new(record.Parameter,record.PackedPosition);
         Name = $"DungeonTilePatternKey_{record.Room:x2}_{record.Order}";
+        Visible = false;
     }
 
-    public void UpdateFrame(
-        RoomEntityFrame frame,
-        ICollection<RoomEntitySpawn> spawns)
+    private void Advance()
     {
-        if (Finished)
-            return;
+        if (_itemFlagSet()) Finished = true;
+        if (Finished) return;
+        OracleRoomData room = _activeRoom();
         foreach (DungeonTilePatternRecord cell in _pattern)
-        {
-            if (_room.GetMetatile(Point(cell.PackedPosition)) != cell.Tile)
-                return;
-        }
-
-        spawns.Add(new GroundTreasureGrantSpawn(_request));
-        Finished = true;
+            if (room.GetPackedStorageMetatile((byte)cell.PackedPosition) != cell.Tile) return;
+        // createTreasure must succeed before interactionDelete. A failed
+        // checked allocation leaves the state-zero controller alive to retry.
+        if (_createTreasure(_request)) Finished = true;
     }
 
+    public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns) => Advance();
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame) => Advance();
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Advance();
+        return ScreenTransitionPresentation.Hidden;
+    }
     public void SetTransitionDrawOffset(Vector2 offset) { }
-
-    private static Vector2 Point(int packedPosition) => new(
-        (packedPosition & 0x0f) * OracleRoomData.MetatileSize + 8,
-        (packedPosition >> 4) * OracleRoomData.MetatileSize + 8);
 }

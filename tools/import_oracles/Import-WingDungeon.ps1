@@ -69,6 +69,10 @@ foreach ($entry in $wingExpectedBlocks.GetEnumerator()) {
         throw "Wing Dungeon object label $($entry.Key) is missing."
     }
     $body = $blockMatch.Groups['body'].Value
+    if ($entry.Key -in @('group4Map2eObjectData', 'group4Map42ObjectData') -and
+        $body -match '(?m)^\s*obj_(IfRoomFlag|IfRoomFlagUnset|Else|EndIf)\b') {
+        throw "$($entry.Key): pattern-key placements gained object-stream conditions requiring explicit import."
+    }
     $cursor = 0
     foreach ($expected in $entry.Value) {
         $next = $body.IndexOf($expected, $cursor, [StringComparison]::Ordinal)
@@ -138,6 +142,8 @@ $wingBossRightPosition =
     ($wingBossRightY -band 0xf0) -bor (($wingBossRightX -shr 4) -band 0x0f)
 
 $wingRows = [Collections.Generic.List[string]]::new()
+# $21:$01/$05 allocate unconditionally; their first object pass checks the
+# active room's item flag after all source rows have consumed parser capacity.
 $wingRows.Add(
     '# group`troom`torder`tkind`tid`tsubid`ty`tx`tcondition`tsource'.Replace(
         '`t', "`t"))
@@ -149,7 +155,7 @@ foreach ($row in @(
     '4	2b	2	circular-side-platform	a4	01	00	00	always	mainData.s:group4Map2bObjectData',
     '4	2b	3	circular-side-platform	a4	02	00	00	always	mainData.s:group4Map2bObjectData',
     '4	2b	4	head-thwomp	79	00	56	78	flag80-clear	enemyData.s:group4Map2bBeforeEventObjectData',
-    '4	2e	0	floor-pattern-key	21	01	48	58	item-clear	mainData.s:group4Map2eObjectData',
+    '4	2e	0	floor-pattern-key	21	01	48	58	always	mainData.s:group4Map2eObjectData',
     '4	2e	1	toggle-floor	15	00	00	00	always	mainData.s:group4Map2eObjectData',
     '4	2f	0	colored-cube	19	01	78	68	always	mainData.s:group4Map2fObjectData',
     '4	2f	1	switch-tile-toggler	78	02	6c	13	always	mainData.s:group4Map2fObjectData',
@@ -169,7 +175,7 @@ foreach ($row in @(
     '4	3e	3	toggle-floor	15	00	00	00	always	mainData.s:group4Map3eObjectData',
     '4	42	0	toggle-floor	15	00	00	00	always	mainData.s:group4Map42ObjectData',
     '4	42	1	cube-color-source	21	04	28	78	always	mainData.s:group4Map42ObjectData',
-    '4	42	2	colored-block-key	21	05	58	78	item-clear	mainData.s:group4Map42ObjectData',
+    '4	42	2	colored-block-key	21	05	58	78	always	mainData.s:group4Map42ObjectData',
     '4	42	3	cube-flame	1a	00	0e	78	always	mainData.s:group4Map42ObjectData',
     '4	43	1	colored-cube	19	04	38	98	always	mainData.s:group4Map43ObjectData',
     '4	43	2	cube-flame	1a	00	2e	28	always	mainData.s:group4Map43ObjectData',
@@ -264,6 +270,88 @@ $switchPairs = [regex]::Matches(
     '(?m)^\s*\.db\s+\$(?<off>[0-9a-f]{2})\s+\$(?<on>[0-9a-f]{2})\s*;\s*\$(?<index>[0-9a-f]{2})')
 if ($switchPairs.Count -ne 24) {
     throw "Switch-tile replacement table changed: $($switchPairs.Count) rows."
+}
+# Circular platforms share the side-view contact handler, but their motion
+# constants come from INTERAC$a4 rather than the $a1 mini-script table.
+$circlePath = Join-Path $Disassembly 'object_code/ages/interactions/circularSidescrollPlatform.s'
+$circleInitial = @(Read-AssemblyInstructions $circlePath '@state0')
+$circleMoving = @(Read-AssemblyInstructions $circlePath '@state1')
+function Get-CircularPlatformScalar($nodes, [string]$field) {
+    $matches = @(for ($index = 0; $index -lt $nodes.Count - 1; $index++) {
+        if ($nodes[$index].Name -eq 'ld' -and $nodes[$index].Operands.Count -eq 2 -and
+            $nodes[$index].Operands[0] -eq 'l' -and $nodes[$index].Operands[1] -eq $field) {
+            $next = $nodes[$index + 1]
+            if ($next.Name -ne 'ld' -or $next.Operands.Count -ne 2) {
+                throw "$($next.Path):$($next.Line): unsupported circular-platform scalar after $field."
+            }
+            $next.Operands[1]
+        }
+    })
+    if ($matches.Count -ne 1) { throw "${circlePath}: expected one scalar load for $field." }
+    return $matches[0]
+}
+$circleSpeedName = Get-CircularPlatformScalar $circleInitial 'Interaction.speed'
+$circleSpeeds = @{}
+$circleSpeedOffset = 0
+$circleSpeedEnum = $false
+foreach ($node in Read-AssemblyNodes (Join-Path $Disassembly 'constants/common/objectSpeeds.s')) {
+    if ($node.Name -eq '.enum') {
+        $circleSpeedOffset = Convert-AssemblyInteger $node.Operands[0]
+        $circleSpeedEnum = $true
+    }
+    elseif ($node.Name -eq '.ende') { $circleSpeedEnum = $false }
+    elseif ($circleSpeedEnum -and $node.Name.StartsWith('SPEED_')) {
+        $size = @($node.OperandText -split '\s+')
+        if ($size.Count -ne 2 -or $size[0] -ne 'dsb') {
+            throw "$($node.Path):$($node.Line): unsupported speed enum storage."
+        }
+        $circleSpeeds[$node.Name] = $circleSpeedOffset
+        $circleSpeedOffset += Convert-AssemblyInteger $size[1]
+    }
+}
+if (!$circleSpeeds.ContainsKey($circleSpeedName)) {
+    throw "${circlePath}: circular speed '$circleSpeedName' is not in objectSpeeds.s."
+}
+$wingConstants['circular-speed'] = $circleSpeeds[$circleSpeedName]
+$wingConstants['circular-collision-radius'] = Convert-AssemblyInteger (Get-CircularPlatformScalar $circleInitial 'Interaction.collisionRadiusY')
+$wingConstants['circular-initial-counter'] = Convert-AssemblyInteger (Get-CircularPlatformScalar $circleInitial 'Interaction.counter1')
+$centerLoad = @($circleInitial | Where-Object { $_.Name -eq 'ld' -and $_.Operands.Count -eq 2 -and $_.Operands[0] -eq 'bc' })
+$arcCall = @($circleInitial | Where-Object { $_.Name -eq 'call' -and $_.Operands[0] -eq 'objectSetPositionInCircleArc' })
+$turnLoad = @($circleMoving | Select-Object -Skip 2 -First 1 | Where-Object {
+    $_.Name -eq 'ld' -and $_.Operands.Count -eq 2 -and $_.Operands[0] -eq '(hl)'
+})
+if ($circleMoving.Count -lt 3 -or $circleMoving[0].Name -ne 'call' -or
+    $circleMoving[0].Operands[0] -ne 'interactionDecCounter1' -or
+    $circleMoving[1].Name -ne 'jr' -or $circleMoving[1].Operands[0] -ne 'nz') {
+    throw "${circlePath}: unsupported circular turn-counter reload gate."
+}
+$tangentAdd = @($circleInitial | Where-Object { $_.Name -eq 'add' })
+if ($centerLoad.Count -ne 1 -or $arcCall.Count -ne 1 -or $turnLoad.Count -ne 1 -or $tangentAdd.Count -ne 1) {
+    throw "${circlePath}: unsupported circular center, radius, tangent or turn-counter control flow (center=$($centerLoad.Count), arc=$($arcCall.Count), turn=$($turnLoad.Count), tangent=$($tangentAdd.Count))."
+}
+$arcIndex = [Array]::IndexOf($circleInitial, $arcCall[0])
+$radiusLoad = $circleInitial[$arcIndex - 1]
+if ($radiusLoad.Name -ne 'ld' -or $radiusLoad.Operands[0] -ne 'a') {
+    throw "${circlePath}: circle arc lost its preceding radius load."
+}
+$center = Convert-AssemblyInteger $centerLoad[0].Operands[1]
+$wingConstants['circular-center-y'] = $center -shr 8
+$wingConstants['circular-center-x'] = $center -band 0xff
+$wingConstants['circular-radius'] = Convert-AssemblyInteger $radiusLoad.Operands[1]
+$wingConstants['circular-turn-frames'] = Convert-AssemblyInteger $turnLoad[0].Operands[1]
+$wingConstants['circular-tangent-offset'] = Convert-AssemblyInteger $tangentAdd[0].Operands[0]
+$circleAngles = @{}
+foreach ($node in Read-AssemblyConstants (Join-Path $Disassembly 'constants/common/directions.s')) {
+    if ($node.Name.StartsWith('ANGLE_')) { $circleAngles[$node.Name] = Convert-AssemblyInteger $node.OperandText }
+}
+$initialAngles = @(Read-AssemblyDataDirectives $circlePath '@angles' '.db')
+if ($initialAngles.Count -ne 1 -or $initialAngles[0].Operands.Count -ne 3) {
+    throw "${circlePath}: expected three source-ordered circular-platform angles."
+}
+for ($subid = 0; $subid -lt 3; $subid++) {
+    $name = $initialAngles[0].Operands[$subid]
+    if (!$circleAngles.ContainsKey($name)) { throw "${circlePath}: unsupported initial angle '$name'." }
+    $wingConstants["circular-angle-$subid"] = $circleAngles[$name]
 }
 $wingConstantRows = [Collections.Generic.List[string]]::new()
 $wingConstantRows.Add("# key`tvalue")

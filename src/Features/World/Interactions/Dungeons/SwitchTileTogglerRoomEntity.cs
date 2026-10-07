@@ -10,11 +10,10 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly DungeonObjectRecord _record;
-    private readonly OracleRoomData _room;
     private readonly DungeonInteractionDatabase _data;
     private readonly OracleRuntimeState _runtime;
     private readonly Action _roomTileChanged;
-    private readonly Func<long> _animationTick;
+    private readonly Func<byte,byte,bool> _setTile;
     private int _lastSwitchState;
     private bool _initialized;
 
@@ -24,25 +23,19 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
 
     internal SwitchTileTogglerRoomEntity(
         DungeonObjectRecord record,
-        OracleRoomData room,
         DungeonInteractionDatabase data,
         OracleRuntimeState runtime,
         Action roomTileChanged,
-        Func<long> animationTick)
+        Func<byte,byte,bool> setTile)
     {
         _record = record;
-        _room = room;
         _data = data;
         _runtime = runtime;
         _roomTileChanged = roomTileChanged;
-        _animationTick = animationTick;
+        _setTile = setTile;
         _lastSwitchState = runtime.ReadWramByte(
             OracleRuntimeState.SwitchStateAddress);
         Name = $"SwitchTileToggler_{record.Group}_{record.Room:x2}_{record.Order}";
-        // replaceSwitchTiles restores only active rows before object parsing.
-        // The source layout already contains the inactive tile.
-        if ((_lastSwitchState & _record.SubId) != 0)
-            SetTile(enabled: true);
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -76,13 +69,10 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
     {
         (int off, int on) = _data.SwitchTiles(_record.X);
         byte tile = (byte)(enabled ? on : off);
-        Vector2 point = PointFor(_record.Y);
-        _room.SetPositionTileAndCollision(
-            point, tile, null, _animationTick());
-        _roomTileChanged();
+        // switchTileToggler.s records the complete byte before setTile.
+        // Queue rejection consumes this change; a later identical byte
+        // does not retry, even after graphics have drained the queue.
+        if (_setTile((byte)_record.Y,tile)) _roomTileChanged();
     }
 
-    private static Vector2 PointFor(int packedPosition) => new(
-        (packedPosition & 0x0f) * 16 + 8,
-        (packedPosition >> 4) * 16 + 8);
 }

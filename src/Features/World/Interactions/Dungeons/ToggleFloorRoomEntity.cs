@@ -4,135 +4,95 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>INTERAC_TOGGLE_FLOOR $15:$00.</summary>
-internal sealed partial class ToggleFloorRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity
+/// <summary>INTERAC_TOGGLE_FLOOR $15:$00, the placed child allocator.</summary>
+internal sealed partial class ToggleFloorRoomEntity : Node2D, IRoomEntity, IFixedRoomEntity,
+    IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly OracleRoomData _room;
-    private readonly DungeonInteractionDatabase _data;
-    private readonly Action<int> _playSound;
-    private readonly Action _roomTileChanged;
-    private readonly Func<long> _animationTick;
-    private readonly List<PendingToggle> _pending = new();
+    private readonly int _firstTile;
+    private readonly Func<byte> _activeTile;
+    private readonly Func<byte, byte, bool> _createChild;
+    private readonly Func<int> _pendingCount;
+    private readonly Func<IRoomEntity, bool> _isOutgoing;
     private int _lastTilePosition;
-    private int _takeoffTilePosition;
-    private bool _wasAirborne;
     private bool _initialized;
 
     public Node2D Node => this;
-    internal int PendingCount => _pending.Count;
+    public bool Finished { get; private set; }
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
+    internal int PendingCount => _pendingCount();
 
-    internal ToggleFloorRoomEntity(
-        OracleRoomData room,
-        DungeonInteractionDatabase data,
-        Action<int> playSound,
-        Action roomTileChanged,
-        Func<long> animationTick)
+    internal ToggleFloorRoomEntity(OracleRoomData room, DungeonInteractionDatabase data,
+        Func<byte> activeTile, Func<byte, byte, bool> createChild, Func<int> pendingCount,
+        Func<IRoomEntity, bool> isOutgoing, Action roomTileChanged, Func<long> animationTick)
     {
         _room = room;
-        _data = data;
-        _playSound = playSound;
-        _roomTileChanged = roomTileChanged;
-        _animationTick = animationTick;
+        _firstTile = data.Constant("red-toggle-floor");
+        _activeTile = activeTile;
+        _createChild = createChild;
+        _pendingCount = pendingCount;
+        _isOutgoing = isOutgoing;
         Name = "ToggleFloorRoomEntity";
-
-        // INTERAC_TOGGLE_FLOOR writes each landed color through both setTile
-        // and setTileInRoomLayoutBuffer. OracleRoomData is cached across an
-        // ordinary screen round trip, so reconstruct the visible colored
-        // floors from that underlying buffer before later source-ordered
-        // switch/gate controllers inspect them.
-        int first = _data.Constant("red-toggle-floor");
-        if (_room.RestoreUnderlyingMetatileRange(
-            (byte)first, 3, _animationTick()))
-        {
-            _roomTileChanged();
-        }
+        // Restore visible colored floors from the room's underlying buffer,
+        // including an ordinary screen round trip after a Somaria overlay.
+        if (room.RestoreUnderlyingMetatileRange((byte)_firstTile,3,animationTick()))
+            roomTileChanged();
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        int current = LinkTilePosition(frame.Player);
-        bool airborne = frame.Player.TopDownAirborne;
-        if (!_initialized)
-        {
-            _initialized = true;
-            _lastTilePosition = _takeoffTilePosition = current;
-            _wasAirborne = airborne;
-            return;
-        }
-        if (!_wasAirborne && airborne)
-            _takeoffTilePosition = _lastTilePosition;
-
-        if (airborne && IsCentered(frame.Player.Position) &&
-            current != _lastTilePosition)
-        {
-            _lastTilePosition = current;
-            int tile = TileAt(current);
-            int first = _data.Constant("red-toggle-floor");
-            if (tile >= first && tile < first + 3)
-                _pending.Add(new PendingToggle(current, _takeoffTilePosition));
-        }
-
-        if (_wasAirborne && !airborne)
-        {
-            foreach (PendingToggle pending in _pending)
-            {
-                if (current == pending.TakeoffPosition)
-                    continue;
-                Cycle(pending.TilePosition);
-            }
-            _pending.Clear();
-        }
-
-        if (!airborne)
-        {
-            _lastTilePosition = current;
-            _takeoffTilePosition = current;
-        }
-        _wasAirborne = airborne;
+        if (Initialize()) return;
+        if (!LinkInAir(frame.Player)) { _lastTilePosition = _activeTile(); return; }
+        int x = Mathf.FloorToInt(frame.Player.Position.X)&15;
+        int y = (Mathf.FloorToInt(frame.Player.Position.Y)+5)&15;
+        if (x is < 4 or > 12 || y is < 4 or > 12) return;
+        byte current = LinkTilePosition(frame.Player);
+        if (current == _lastTilePosition) return;
+        // var30 changes before the colored-tile and capacity tests. A failed
+        // allocation is not retried while Link remains over this same tile.
+        _lastTilePosition = current;
+        int tile = _room.GetPackedStorageMetatile(current);
+        if (unchecked((byte)(tile-_firstTile)) >= 3) return;
+        _createChild(current,_activeTile());
     }
+
+    private bool Initialize()
+    {
+        if (_isOutgoing(this)) Finished = true;
+        if (Finished) return true;
+        if (_initialized) return false;
+        _initialized = true;
+        _lastTilePosition = _activeTile();
+        return true;
+    }
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Initialize();
+        return ScreenTransitionPresentation.Visible;
+    }
+
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        // An initialized parent has no always-update bit. Only state zero is
+        // admitted by the native scroll dispatcher, even before its enabled02 gate.
+        if (!_initialized) Initialize();
+    }
+
+    internal static bool LinkInAir(Player player)
+    {
+        try { return player.TopDownAirborne || player.NativeInAirForInteraction; }
+        catch (NotSupportedException error)
+        {
+            throw new NotSupportedException($"INTERAC$15 wLinkInAir input: {error.Message}",error);
+        }
+    }
+
+    internal static byte LinkTilePosition(Player player) => unchecked((byte)(
+        ((Mathf.FloorToInt(player.Position.Y)+5)&0xf0) |
+        ((Mathf.FloorToInt(player.Position.X)>>4)&15)));
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
-
-    private void Cycle(int packedPosition)
-    {
-        Vector2 point = PointFor(packedPosition);
-        int first = _data.Constant("red-toggle-floor");
-        int tile = _room.GetMetatile(point);
-        // The child does not repeat the parent's colored-tile check. A tile
-        // replaced during the jump still takes this byte increment/clamp.
-        byte replacement = unchecked((byte)(tile + 1));
-        if (replacement >= first + 3)
-            replacement = (byte)first;
-        _room.SetPositionTileAndCollision(
-            point, replacement, null, _animationTick());
-        _room.SetUnderlyingMetatile(point, replacement);
-        _roomTileChanged();
-        _playSound(SoundId.SndGetSeed);
-    }
-
-    private byte TileAt(int packedPosition) =>
-        _room.GetMetatile(PointFor(packedPosition));
-
-    private static bool IsCentered(Vector2 linkPosition)
-    {
-        int y = (Mathf.FloorToInt(linkPosition.Y) + 5) & 0x0f;
-        int x = Mathf.FloorToInt(linkPosition.X) & 0x0f;
-        return y is >= 4 and <= 12 && x is >= 4 and <= 12;
-    }
-
-    private static int LinkTilePosition(Player player)
-    {
-        int y = (Mathf.FloorToInt(player.Position.Y) + 5) & 0xf0;
-        int x = (Mathf.FloorToInt(player.Position.X) >> 4) & 0x0f;
-        return y | x;
-    }
-
-    private static Vector2 PointFor(int packedPosition) => new(
-        (packedPosition & 0x0f) * 16 + 8,
-        (packedPosition >> 4) * 16 + 8);
-
-    private readonly record struct PendingToggle(
-        int TilePosition,
-        int TakeoffPosition);
 }

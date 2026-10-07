@@ -11,10 +11,10 @@ public sealed class OracleRuntimeState
     public const int WramStart = 0xc000;
     public const int WramEnd = 0xdfff;
     public const int MamamuDogLocationAddress = 0xcde2;
-    // Ages WRAM addresses (the shared labels are $cdd2-$cdd4 in Seasons).
-    public const int ToggleBlocksStateAddress = 0xcc31;
-    public const int SwitchStateAddress = 0xcc32;
-    public const int SpinnerStateAddress = 0xcc33;
+    // include/wram.s: Ages uses $cdd2-$cdd4; Seasons uses $cc31-$cc33.
+    public const int ToggleBlocksStateAddress = 0xcdd2;
+    public const int SwitchStateAddress = 0xcdd3;
+    public const int SpinnerStateAddress = 0xcdd4;
     public const int ArmosTriggerAddress = WramAddress.wcca2;
     internal const int SeedTreeRefillLocationCount = 16;
     internal const int SeedTreeRefillRoomsPerLocation = 8;

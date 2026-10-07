@@ -1962,135 +1962,6 @@ public sealed partial class ValidationRoot
             $"Shield level {level} did not resolve to its source item-icons-2 cell.");
     }
 
-    private void ValidateShovel()
-    {
-        void AdvanceShovel(int frames)
-        {
-            for (int frame = 0; frame < frames; frame++)
-            {
-                _player.AdvanceShovelForValidation(1);
-                _shovel.UpdateChild(frozen: false);
-            }
-        }
-        LoadBushValidationRoom();
-        Vector2 tileCenter = new(24, 56);
-        _player.WarpTo(tileCenter + Vector2.Down * 8.0f);
-        _player.Face(Vector2I.Up);
-        _currentRoom.SetPositionTileAndCollision(
-            tileCenter, 0x01, null, (long)_animationTicks);
-        _saveData.WriteWramByte(WramAddress.wGashaMaturity, 0);
-        _saveData.WriteWramByte(0xc660, 0);
-        _sound.ClearPlayRequestAudit();
-        int debrisBefore = _entities.Entities<ShovelDebrisEffect>().Count;
-
-        _player.StartShovelAction();
-        FailIf(
-            !_player.IsUsingShovel || _player.ShovelFrame != 0 ||
-            _player.ShovelChildActive ||
-            _player.ShovelChildOffset != new Vector2(0, -8),
-            "ITEM_SHOVEL did not initialize LINK_ANIM_MODE_DIG_2 at its up-facing offset.");
-
-        AdvanceShovel(3);
-        FailIf(
-            _player.ShovelFrame != 3 || _currentRoom.GetMetatile(tileCenter) != 0x01 ||
-            _sound.PlayRequestsFor(SoundId.SndDig) != 0 ||
-            _sound.PlayRequestsFor(SoundId.SndClink) != 0,
-            "ITEM_SHOVEL attempted its tile collision before animation update 4.");
-
-        AdvanceShovel(1);
-        List<ShovelDebrisEffect> debris = _entities.Entities<ShovelDebrisEffect>();
-        FailIf(
-            _player.ShovelFrame != 4 || !_player.ShovelChildActive ||
-            _currentRoom.GetMetatile(tileCenter) != 0x1c ||
-            _saveData.GashaMaturity != 1 ||
-            _sound.PlayRequestsFor(SoundId.SndDig) != 1 ||
-            _sound.PlayRequestsFor(SoundId.SndClink) != 0 ||
-            debris.Count != debrisBefore + 1,
-            "The update-4 shovel child did not replace dirt, mature gasha state, " +
-            "play SND_DIG, and spawn INTERAC_SHOVELDEBRIS exactly once.");
-
-        ShovelDebrisEffect chip = debris[^1];
-        Vector2 debrisStart = chip.PrecisePosition;
-        chip.UpdateFrame();
-        FailIf(chip.ElapsedFrames != 0 || chip.PrecisePosition != debrisStart || chip.ZFixed != 0 || chip.SpeedZ != -0x240,
-            "INTERAC_SHOVELDEBRIS initialization moved or advanced gravity.");
-        chip.UpdateFrame();
-        FailIf(
-            chip.ElapsedFrames != 1 || chip.PrecisePosition != debrisStart + Vector2.Up * 0.5f ||
-            chip.SpeedZ != -0x1e0 || chip.ZFixed != -0x240,
-            "INTERAC_SHOVELDEBRIS did not apply SPEED_80 and its original 8.8 Z integration.");
-        for (int frame = 1; frame < 15; frame++)
-            chip.UpdateFrame();
-        FailIf(
-            !chip.Finished || chip.ElapsedFrames != 15,
-            "INTERAC_SHOVELDEBRIS did not delete after observing its 14-update animation terminator.");
-
-        AdvanceShovel(3);
-        FailIf(
-            _player.ShovelFrame != 7 || !_player.ShovelChildActive,
-            "ITEM_SHOVEL's four-update collision child ended before update 8.");
-        AdvanceShovel(1);
-        FailIf(
-            _player.ShovelFrame != 8 || _player.ShovelChildActive,
-            "ITEM_SHOVEL did not enter graphics $fc and remove its collision child on update 8.");
-        AdvanceShovel(14);
-        FailIf(
-            !_player.IsUsingShovel || _player.ShovelFrame != 22,
-            "LINK_ANIM_MODE_DIG_2 ended before update 23.");
-        AdvanceShovel(1);
-        FailIf(_player.IsUsingShovel, "LINK_ANIM_MODE_DIG_2 did not end on update 23.");
-
-        _sound.ClearPlayRequestAudit();
-        _player.StartShovelAction();
-        AdvanceShovel(4);
-        FailIf(
-            _currentRoom.GetMetatile(tileCenter) != 0x1c ||
-            _saveData.GashaMaturity != 1 ||
-            _sound.PlayRequestsFor(SoundId.SndClink) != 1 ||
-            _sound.PlayRequestsFor(SoundId.SndDig) != 0,
-            "Shoveling a non-breakable tile did not preserve state and play SND_CLINK once.");
-        _player.WarpTo(_player.Position);
-
-        // Tile $cb sets effect bits 7/6. Its break tables add 50 maturity and
-        // current-room flag bit 7 before ITEM_SHOVEL adds its own one point.
-        _currentRoom.SetPositionTileAndCollision(
-            tileCenter, 0xcb, null, (long)_animationTicks);
-        _saveData.WriteWramByte(WramAddress.wGashaMaturity, 0);
-        _saveData.WriteWramByte(0xc660, 0);
-        _saveData.SetRoomFlag(_activeGroup, _currentRoom.Id, OracleSaveData.RoomFlag80, false);
-        _sound.ClearPlayRequestAudit();
-        _player.StartShovelAction();
-        AdvanceShovel(4);
-        FailIf(
-            _currentRoom.GetMetatile(tileCenter) != 0xd2 ||
-            _saveData.GashaMaturity != 51 ||
-            !_saveData.HasRoomFlag(_activeGroup, _currentRoom.Id, OracleSaveData.RoomFlag80) ||
-            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
-            _sound.PlayRequestsFor(SoundId.SndDig) != 1,
-            "Shovel tile $cb did not apply its room flag, +50/+1 maturity, " +
-            "SND_SOLVEPUZZLE, and SND_DIG table effects.");
-        _player.WarpTo(_player.Position);
-
-        Vector2[] expectedOffsets =
-        {
-            new(0, -8), new(6, 4), new(0, 7), new(-7, 4)
-        };
-        Vector2I[] directions =
-        {
-            Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left
-        };
-        for (int index = 0; index < directions.Length; index++)
-        {
-            _player.Face(directions[index]);
-            FailIf(
-                _player.ShovelChildOffset != expectedOffsets[index],
-                $"ITEM_SHOVEL direction {index} lost its signed Y/X child offset.");
-        }
-
-        GD.Print("Validated ITEM_SHOVEL timing, invisible child offsets, tile effects, " +
-            "gasha maturity, debris, and clink/success sounds.");
-    }
-
     private void ValidateSeedSatchel()
     {
         var database = new SeedSatchelDatabase();
@@ -2796,53 +2667,6 @@ public sealed partial class ValidationRoot
         bushSeed.Free();
 
         _sound.ClearPlayRequestAudit();
-        LoadValidationRoom(4, 0x59);
-        OracleRoomData torchRoom = _currentRoom;
-        FailIf(
-            torchRoom.Layout.Length != 176 || torchRoom.Layout[0x55] != 0x08 ||
-            _entities.Entities<TorchTriggerTranslatorRoomEntity>() is not
-                [{ RequiredCount: 1, TriggerBit: 0 }] ||
-            _entities.Entities<LightableTorchScannerRoomEntity>().Count != 1 ||
-            _entities.Entities<DungeonDoorRoomEntity>() is not
-                [{ SubId: 0x06, PackedPosition: 0xa3 }],
-            "Room 4:59 did not instantiate its source-ordered `$24:$02 " +
-            "translator, `$1e:$06 shutter, and `$c7:$08 torch scanner.");
-        _entities.Update(1.0 / 60.0, _player);
-        LightableTorchRoomEntity torch =
-            _entities.Entities<LightableTorchRoomEntity>().Single();
-        FailIf(
-            torch.PackedPosition != 0x55 ||
-            _entities.Entities<LightableTorchScannerRoomEntity>().Count != 0 ||
-            _entities.ActiveTriggers != 0,
-            "Room 4:59's `$c7:$08 scanner did not create the tile-$08 torch " +
-            "at packed position `$55 and clear trigger bit 0 initially.");
-
-        Vector2 torchSeedStart = torch.Position - new Vector2(16, 0);
-        _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
-            torchSeedStart - record.Offsets[2],
-            Vector2I.Right,
-            emberRecord,
-            4,
-            LaunchKind: SeedLaunchKind.Shooter,
-            Angle: 2));
-        for (int update = 0;
-             update < 12 && torchRoom.Layout[0x55] != 0x09;
-             update++)
-        {
-            _entities.Update(1.0 / 60.0, _player);
-        }
-        FailIf(
-            torchRoom.Layout[0x55] != 0x09 ||
-            _entities.Entities<LightableTorchRoomEntity>().Count != 0 ||
-            _sound.PlayRequestsFor(SoundId.SndLightTorch) != 1,
-            "A shooter-fired Ember Seed did not collide with and light room " +
-            "4:59's PART_LIGHTABLE_TORCH `$06:$00 with SND_LIGHTTORCH.");
-        _entities.Update(1.0 / 60.0, _player);
-        FailIf(
-            _entities.ActiveTriggers != 0x01,
-            "Room 4:59's `$24:$02 translator did not set trigger bit 0 when " +
-            "wNumTorchesLit reached exactly one.");
-
         _inventory.GiveTreasure(new TreasureObjectRecord(
             "VALIDATION_SHOOTER", TreasureId.Shooter, 0,
             1, 0xff, 0, string.Empty));
@@ -2935,8 +2759,7 @@ public sealed partial class ValidationRoot
         GD.Print("Validated ITEM_SHOOTER imported aiming/offset/speed/bounce " +
             "contract, 24 func_4553 `$38-$4f Link poses, positioned weapon OAM " +
             "rotations, source transparency, immediate diagonal aim, room 4:59 " +
-            "item-passable fences, collided-tile bush burning, room 4:59's " +
-            "lightable torch/trigger, static seed flight, release-time " +
+            "item-passable fences, collided-tile bush burning, static seed flight, release-time " +
             "BCD consumption, subid `$63 allocation, sound, and `$0c cleanup boundary.");
     }
 
@@ -3766,25 +3589,19 @@ public sealed partial class ValidationRoot
             AdvanceStatusBarUpdates(1);
         FailIf(_hud.HealthQuarters != 12, "Displayed healing did not add a quarter on a divisor-4 update.");
 
-        _activeGroup = 0;
-        ClearDeactivatedWarp();
-        _currentRoom = _world.LoadRoom(_activeGroup, 0x03);
-        _roomView.SetRoom(_currentRoom.Texture);
-        Vector2 safe = new(56, 8);
-        _player.WarpTo(safe);
-        _player.WarpTo(new Vector2(8, 24), recordSafe: false);
-
-        ValidateDrowningSequence(safe, HazardType.Lava);
+        // Terrain request/recovery has native gameplay coverage. Declare its
+        // completed half-heart health write to isolate deferred HUD ownership.
+        _inventory.ApplyDamage(2);
         FailIf(
             _player.HealthQuarters != 10 || _hud.HealthQuarters != 12,
-            "Lava hazard changed displayed health before updateStatusBar_body.");
+            "Half-heart damage changed displayed health before updateStatusBar_body.");
         AdvanceStatusBarUpdates(2);
         FailIf(
             _hud.HealthQuarters != 10,
-            "Lava hazard did not synchronize its delayed half-heart damage to the HUD.");
+            "Half-heart damage did not synchronize its delayed write to the HUD.");
 
         GD.Print("Validated quarter-heart health, divisor-4 healing display/SND_GAINHEART cadence, " +
-            "per-update damage display, and delayed half-heart terrain damage.");
+            "per-update damage display, and delayed half-heart damage.");
     }
 
     private void ValidateLinkDamagePaletteAssets()

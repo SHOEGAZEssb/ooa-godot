@@ -473,6 +473,14 @@ public sealed class OracleRoomData
 
     public byte GetCollision(byte metatile) => Collisions[metatile];
 
+    internal byte GetPackedStorageMetatile(byte position)
+    {
+        int x = position&15, y = position>>4;
+        if (x >= _layoutStride || y >= HeightInTiles)
+            throw new InvalidOperationException($"Room${Group:x1}:${Id:x2} has no layout storage at${position:x2}.");
+        return Layout[y*_layoutStride+x];
+    }
+
     public byte GetOriginalMetatile(Vector2 localPoint)
     {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
@@ -670,7 +678,8 @@ public sealed class OracleRoomData
 
     /// <summary>
     /// Mirrors setInterleavedTile: render one half-frame assembled from two
-    /// metatile mappings while separately installing tile1 in wRoomLayout.
+    /// metatile mappings. Callers that separately write wRoomLayout may also
+    /// install tile1; simple-script graphics commands leave that byte intact.
     /// The existing collision byte is retained until the caller performs the
     /// final ordinary tile write.
     /// </summary>
@@ -679,7 +688,8 @@ public sealed class OracleRoomData
         byte tile1,
         byte tile2,
         int type,
-        long animationTick)
+        long animationTick,
+        bool writeLayout = true)
     {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
@@ -720,7 +730,7 @@ public sealed class OracleRoomData
                 break;
         }
 
-        Layout[index] = tile1;
+        if (writeLayout) Layout[index] = tile1;
         _positionCollisionOverrides[index] = collisionBefore;
         _positionVisualOverrides.Remove(index);
         _positionMappingOverrides[index] = mapping;

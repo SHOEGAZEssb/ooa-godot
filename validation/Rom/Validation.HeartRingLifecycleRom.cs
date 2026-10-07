@@ -7,7 +7,15 @@ namespace oracleofages;
 public sealed partial class ValidationRoot
 {
     private void ValidateHeartRingLifecycleRom()
-        => ValidateHeartRingLifecycleRom(walls: false);
+    {
+        ValidateHeartRingLifecycleRom(walls: false);
+        foreach (int ring in new[] { 0x13, 0x14 })
+        {
+            ValidateRaftControlRom(false, true, heartRing: ring);
+            ValidateMinecartMountGameplayRom(false, heartRing: ring);
+        }
+        ValidateHeartRingCompanionRom();
+    }
 
     private void ValidateHeartRingWallSlideRom()
         => ValidateHeartRingLifecycleRom(walls: true);

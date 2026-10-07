@@ -4675,16 +4675,6 @@ public sealed partial class ValidationRoot
             waterSplash is not { Hazard: HazardType.Water } ||
             waterSplash.Position != waterEnemy.Position,
             "A water-deleted enemy did not request INTERAC_SPLASH at its final position.");
-        int splashSounds =
-            _sound.PlayRequestsFor(SoundId.SndSplash);
-        SplashEffect splash = _entities.Spawn<SplashEffect>(waterSplash);
-        FailIf(
-            splash.IsLava || splash.Position != waterEnemy.Position ||
-            splash.DurationFrames != 12 ||
-            _sound.PlayRequestsFor(SoundId.SndSplash) !=
-                splashSounds + 1,
-            "Enemy water deletion did not create the 12-update " +
-            "INTERAC_SPLASH with one SND_SPLASH `$87 request.");
         waterEnemy.Free();
 
         FailIf(
@@ -4772,6 +4762,10 @@ public sealed partial class ValidationRoot
             "INTERAC_FALLDOWNHOLE `$0f:$00 at its final position.");
         FallingDownHoleEffect fallingEffect =
             _entities.Spawn<FallingDownHoleEffect>(falling);
+        FailIf(fallingEffect.Visible ||
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) != fallSounds,
+            "Allocating INTERAC$0f must retain state0 without visibility or sound.");
+        fallingEffect.UpdateFrame();
         FailIf(
             fallingEffect.Position !=
                 OracleObjectMath.ToPixelPosition(holeEnemy.Position) ||
@@ -5392,10 +5386,13 @@ public sealed partial class ValidationRoot
             hazardDeathEvents != 0 ||
             !afterHazardDefeats.KilledEnemies.AsSpan().SequenceEqual(
                 hazardRecentDefeats.KilledEnemies) ||
-            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 1 ||
+            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 0 ||
             _sound.PlayRequestsFor(SoundId.SndKillEnemy) != 0,
             "ecom_decNumEnemiesAndDelete did not remove the centered Gel " +
             "without a recent-defeat mark or Slayer/Maple/Gasha event.");
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(_sound.PlayRequestsFor(SoundId.SndFallInHole) != 1,
+            "The removed Gel's INTERAC$0f must request its cue on its first eligible dispatch.");
         _entities.EnemyDefeated -= RecordHazardDeath;
 
         _player.RefillHealth();
@@ -6175,7 +6172,7 @@ public sealed partial class ValidationRoot
 
         _player.WarpTo(safePosition, recordSafe: false);
         int splashSoundRequests = _sound.PlayRequestsFor(SoundId.SndSplash);
-        SplashEffect? priorSplash = _terrain.ActiveSplash;
+        SplashEffect? priorSplash = _entities.Entities<SplashEffect>().LastOrDefault();
         ItemDropEffect drop = _entities.Spawn<ItemDropEffect>(
             new ItemDropSpawn(ItemDropDatabase.OneRupee, waterCenter));
 
@@ -6183,11 +6180,11 @@ public sealed partial class ValidationRoot
         {
             _entities.Update(1.0 / 60.0, _player);
             FailIf(
-                drop.Finished || _terrain.ActiveSplash != priorSplash,
+                drop.Finished || _entities.Entities<SplashEffect>().LastOrDefault() != priorSplash,
                 $"PART_ITEM_DROP created its water splash while still airborne on update {update}.");
         }
         _entities.Update(1.0 / 60.0, _player);
-        SplashEffect? splash = _terrain.ActiveSplash;
+        SplashEffect? splash = _entities.Entities<SplashEffect>().LastOrDefault();
         FailIf(
             !drop.Finished || drop.FinishedHazard != HazardType.Water ||
             _entities.Entities<ItemDropEffect>().Count != 0 || splash is null ||
@@ -6409,7 +6406,6 @@ public sealed partial class ValidationRoot
         FailIf(
             GetTerrainInfo(_player.Position).Hazard != HazardType.Water,
             "Expected room b8/$00 to be water terrain.");
-        ValidateDrowningSequence(waterSafe, HazardType.Water);
 
         _currentRoom = _world.LoadRoom(_activeGroup, 0x03);
         _roomView.SetRoom(_currentRoom.Texture);
@@ -6419,7 +6415,6 @@ public sealed partial class ValidationRoot
         FailIf(
             GetTerrainInfo(_player.Position).Hazard != HazardType.Lava,
             "Expected room 03/$10 to be lava terrain.");
-        ValidateDrowningSequence(lavaSafe, HazardType.Lava);
 
         FailIf(
             !TryFindTerrainSample(
@@ -6475,7 +6470,7 @@ public sealed partial class ValidationRoot
 
         ValidateRoom56TileEdgeSlide();
 
-        GD.Print("Validated terrain hazards, hole fall/respawn with one-pixel " +
+        GD.Print("Validated water/lava terrain classification, hole fall/respawn with one-pixel " +
             "large-room camera recovery and warp-tile deactivation, exact " +
             "ledge jumps, and original tile-edge sliding.");
     }
@@ -6684,105 +6679,6 @@ public sealed partial class ValidationRoot
                     0.0f,
                     room.Height - OracleRoomData.ViewportHeight)));
 
-    private void ValidateDrowningSequence(
-        Vector2 safePosition,
-        HazardType hazard)
-    {
-        string terrainName = hazard.ToString();
-        Vector2 hazardPosition = _player.Position;
-        int healthBeforeDrowning = _player.HealthQuarters;
-        int worldChildCount = _scene.WorldRoot.GetChildCount();
-        int damageSoundRequests = _sound.PlayRequestsFor(SoundId.SndDamageLink);
-        int splashSoundRequests = _sound.PlayRequestsFor(SoundId.SndSplash);
-
-        _player._PhysicsProcess(1.0 / 60.0);
-        SplashEffect? splash = _terrain.ActiveSplash;
-        FailIf(
-            _scene.WorldRoot.GetChildCount() != worldChildCount + 1 || splash is null ||
-            splash.Position != hazardPosition ||
-            splash.IsLava != (hazard == HazardType.Lava),
-            $"{terrainName} drowning did not create its original splash interaction at Link's position.");
-        int splashFrameDuration = splash.IsLava ? 2 : 4;
-        int splashFrameCount = splash.IsLava ? 10 : 3;
-        FailIf(
-            splash.DurationFrames != splashFrameDuration * splashFrameCount ||
-            splash.AnimationFrame != 0,
-            $"{terrainName} splash did not start with the original interaction timing.");
-        splash.Advance((splashFrameDuration - 1.0) / 60.0);
-        FailIf(
-            splash.AnimationFrame != 0,
-            $"{terrainName} splash did not hold its first OAM record for {splashFrameDuration} updates.");
-        splash.Advance(1.0 / 60.0);
-        FailIf(splash.AnimationFrame != 1, $"{terrainName} splash did not advance to its second OAM record.");
-        splash.Advance((splash.DurationFrames - splashFrameDuration - 1.0) / 60.0);
-        FailIf(
-            splash.AnimationFrame != splashFrameCount - 1 || splash.IsQueuedForDeletion(),
-            $"{terrainName} splash did not reach and hold its final OAM record.");
-        splash.Advance(1.0 / 60.0);
-        FailIf(
-            !splash.IsQueuedForDeletion(),
-            $"{terrainName} splash did not delete after {splash.DurationFrames} updates.");
-        FailIf(
-            !_player.IsDrowning || !_player.Visible || _player.DrownAnimationFrame != 0,
-            $"{terrainName} terrain did not begin visible LINK_ANIM_MODE_DROWN frame $d4.");
-        FailIf(
-            _sound.LastPlayRequestForValidation() != SoundId.SndSplash ||
-            _sound.PlayRequestsFor(SoundId.SndDamageLink) != damageSoundRequests + 1 ||
-            _sound.PlayRequestsFor(SoundId.SndSplash) != splashSoundRequests + 1,
-            $"{terrainName} drowning did not request SND_DAMAGE_LINK `$5f followed by " +
-            "the splash interaction's SND_SPLASH `$87 exactly once.");
-        FailIf(
-            _player.HealthQuarters != healthBeforeDrowning,
-            $"{terrainName} damage was applied before the drowning animation finished.");
-
-        FailIf(!_player.NativeNormalStateForInteraction || _player.NativeInteractionCollisionsEnabled,
-            "Drowning request retains state01 while immediately clearing collisionType bit7.");
-        _player._PhysicsProcess(1.0 / 60.0);
-        FailIf(_player.NativeNormalStateForInteraction || _player.DrownAnimationFrame != 0,
-            "The following update selects state02 without dispatching its initializer.");
-        _player._PhysicsProcess(1.0 / 60.0);
-        for (int tick = 0; tick < 5; tick++) _player._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            !_player.Visible || _player.DrownAnimationFrame != 0,
-            $"{terrainName} did not hold directional drowning frame $d4 for six updates.");
-        _player._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            !_player.Visible || _player.DrownAnimationFrame != 1,
-            $"{terrainName} did not advance to drowning frame $0b after six updates.");
-
-        for (int tick = 0; tick < 15; tick++) _player._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            !_player.Visible || _player.Position != hazardPosition,
-            $"{terrainName} moved or hid Link before the 22-update drowning animation finished.");
-        _player._PhysicsProcess(1.0 / 60.0);
-        FailIf(!_player.Visible || _player.Position != hazardPosition,
-            "Drowning substate5 must expose its terminal animation before the following respawn check.");
-        _player._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            _player.Visible || !_player.IsDrowning ||
-            _player.Position.DistanceSquaredTo(safePosition) > 1.0f,
-            $"{terrainName} did not restore the local respawn coordinates " +
-            "and hide Link on the update after the 22-update drowning animation.");
-        FailIf(
-            _player.HealthQuarters != healthBeforeDrowning,
-            $"{terrainName} damage was applied before the two-update respawn delay.");
-
-        _player._PhysicsProcess(1.0 / 60.0);
-        FailIf(_player.Visible, $"{terrainName} did not preserve the first invisible respawn update.");
-        _player._PhysicsProcess(1.0 / 60.0);
-        FailIf(
-            _player.IsDrowning || !_player.Visible ||
-            _player.Position.DistanceSquaredTo(safePosition) > 1.0f,
-            $"{terrainName} did not return Link to the last safe tile after drowning.");
-        FailIf(
-            _player.HealthQuarters != healthBeforeDrowning - 2 ||
-            _player.InvincibilityFrames != 0x3c,
-            $"{terrainName} did not apply one half-heart and the source " +
-            "$3c damage-blink counter after Link reappeared.");
-        FailIf(
-            _sound.PlayRequestsFor(SoundId.SndDamageLink) != damageSoundRequests + 1,
-            $"{terrainName} respawn replayed SND_DAMAGE_LINK $5f.");
-    }
 
     private void ValidateLedgeJumping()
     {

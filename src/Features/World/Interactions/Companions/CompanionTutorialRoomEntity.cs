@@ -10,7 +10,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed partial class CompanionTutorialRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
-    IScreenTransitionPreloadRoomEntity
+    IScreenTransitionPreloadRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly CompanionTutorialRecord _record;
     private readonly OracleRuntimeState _runtime;
@@ -22,7 +23,10 @@ internal sealed partial class CompanionTutorialRoomEntity : Node2D,
     public bool Finished { get; private set; }
     internal int State => _state;
     internal CompanionTutorialRecord Record => _record;
+    internal bool NativeAllocationEnabled { get; set; }
     internal bool TextShown { get; private set; }
+    public bool UpdatesDuringDialogue => _state == 0;
+    public bool UpdatesDuringRoomEntityFreeze => _state == 0;
 
     internal CompanionTutorialRoomEntity(
         CompanionTutorialRecord record,

@@ -42,7 +42,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     internal int SpawnSubstate => _spawnSubstate;
     internal int BuriedAngle => _buriedAngle;
     internal bool UpdatesDuringDialogue =>
-        _state == PickupState.Collected ||
+        _state is PickupState.Initializing or PickupState.Collected ||
         Record.SpawnMode == TreasureSpawnMode.FromScreenTop && _state == PickupState.Waiting;
 
     internal void Initialize(
@@ -124,9 +124,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         switch (_state)
         {
             case PickupState.Initializing:
-                _state = PickupState.Spawning;
-                Visible = Record.SpawnMode == TreasureSpawnMode.Instant;
-                QueueRedraw();
+                InitializeGraphicsState();
                 return;
             case PickupState.Spawning:
                 if (Record.SpawnMode == TreasureSpawnMode.Instant)
@@ -151,6 +149,14 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
                 QueueRedraw();
                 return;
         }
+    }
+
+    internal void InitializeGraphicsState()
+    {
+        if (_state != PickupState.Initializing) return;
+        _state = PickupState.Spawning;
+        Visible = Record.SpawnMode == TreasureSpawnMode.Instant;
+        QueueRedraw();
     }
 
     internal bool TryCollect(Player player) =>
@@ -283,10 +289,9 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
                 return;
         }
 
-        // INTERAC_TREASURE spawn mode $02 checks its current camera-relative
-        // position before objectUpdateSpeedZ_paramC. This matters at the top
-        // screen boundary: the newly moved position is not made visible until
-        // the following update.
+        // objectCheckWithinScreenBoundary checks the ground xh/yh against
+        // hCameraX/Y before objectUpdateSpeedZ_paramC. Z affects drawing, not
+        // this visibility bit; the sprite may still be clipped above the field.
         UpdateAirborneVisibility();
         QueueRedraw();
         bool landed = OracleObjectMath.UpdateSpeedZ(
@@ -377,8 +382,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
 
     private void UpdateAirborneVisibility()
     {
-        Vector2 screenPosition = _worldToScreen(Position) +
-            new Vector2(0, _zFixed >> 8);
+        Vector2 screenPosition = _worldToScreen(Position);
         Visible = OracleObjectMath.IsInsideOriginalScreenBoundary(
             screenPosition);
     }

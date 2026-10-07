@@ -27,6 +27,11 @@ internal sealed class OracleSoundDriver
     }
 
     internal int ReadState(int address) => _ram[address];
+    internal void SetChannelPitchSlideByte(int channel, byte value)
+    {
+        if (channel is < 0 or > 5) throw new ArgumentOutOfRangeException(nameof(channel));
+        _ram[0xc03f + channel] = value;
+    }
     internal void SetChannelVolumeByte(int channel, byte value)
     {
         if (channel is < 0 or > 7) throw new ArgumentOutOfRangeException(nameof(channel));

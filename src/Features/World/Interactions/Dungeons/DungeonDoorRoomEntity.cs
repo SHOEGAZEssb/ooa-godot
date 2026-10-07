@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Common shutter variants $1e:$04-$0b. Trigger-controlled doors observe one
+/// Common shutter variants $1e:$04-$0b/$10-$17. Trigger-controlled doors observe one
 /// wActiveTriggers bit; enemy shutters read the live room enemy count. Both
 /// use the original mapping-level interleaving for opening and closing. An
 /// enemy shutter whose full enemy stream is not implemented still handles the
@@ -26,8 +26,13 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     private readonly Func<Vector2, Vector2> _worldToScreen;
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
+    private readonly Func<byte,byte,bool> _setTile;
     private readonly bool _enteredThroughThisDoor;
     private readonly bool _controlledByTrigger;
+    private readonly bool _closeAfterEntry;
+    private readonly bool _controlledByTorches;
+    private readonly Func<int> _torchesLit;
+    private readonly Action _flipEntryScratch;
     private readonly bool _enemyCompletionSupported;
     private readonly Action<bool>? _shutterSignal;
     private readonly Func<bool> _textActive;
@@ -35,6 +40,9 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     private readonly Func<bool> _paletteFadeActive;
     private DoorState _state;
     private int _counter;
+    private int _angle;
+    private int _speed;
+    private Vector2 _precisePosition;
     internal byte Counter2Alias { get; private set; }
     internal void WriteCounter2Alias(int value) => Counter2Alias = unchecked((byte)value);
 
@@ -61,13 +69,16 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         Action<int> playSound,
         EnemyPlacementContext placementContext,
         bool enemyCompletionSupported,
+        Func<byte,byte,bool> setTile,
         Action<bool>? shutterSignal = null,
         Func<bool>? textActive = null,
         Func<IRoomEntity, bool>? isOutgoing = null,
-        Func<bool>? paletteFadeActive = null)
+        Func<bool>? paletteFadeActive = null,
+        Func<int>? torchesLit = null,
+        Action? flipEntryScratch = null)
         : base(record, $"DungeonDoor_{record.SubId:x2}_{record.Order}")
     {
-        if (record.Id != InteractionId.DoorController || record.SubId is < 0x04 or > 0x0b)
+        if (record.Id != InteractionId.DoorController || record.SubId is not (>= 0x04 and <= 0x0b or >= 0x10 and <= 0x17))
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _room = room;
@@ -77,8 +88,18 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         _worldToScreen = worldToScreen;
         _animationTick = animationTick;
         _playSound = playSound;
-        _enteredThroughThisDoor = IsEnteredShutter(record, placementContext);
+        _setTile = setTile;
+        _enteredThroughThisDoor = DungeonShutterEntry.Matches(
+            placementContext,record.PackedPosition,(data.DoorAngle(record.SubId)>>1)&3);
         _controlledByTrigger = record.SubId <= 0x07;
+        _closeAfterEntry = record.SubId is >= 0x10 and <= 0x13;
+        _controlledByTorches = record.SubId >= 0x14;
+        _torchesLit = torchesLit ?? (_controlledByTorches
+            ? throw new ArgumentException($"INTERAC$1e:${record.SubId:x2} requires its room's torch owner.",nameof(torchesLit))
+            : () => 0);
+        _flipEntryScratch = flipEntryScratch ?? (_closeAfterEntry
+            ? throw new ArgumentException($"INTERAC$1e:${record.SubId:x2} requires shared wTmpcfc0 ownership.",nameof(flipEntryScratch))
+            : () => { });
         _enemyCompletionSupported = _controlledByTrigger || enemyCompletionSupported;
         _shutterSignal = shutterSignal;
         _textActive = textActive ?? (() => false);
@@ -90,7 +111,10 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         // Link's incoming packed position to floor before object parsing.
         // OracleWorldData caches mutable room instances, so reproduce either
         // source state explicitly before state 0 runs.
-        _room.SetPositionTileAndCollision(
+        _precisePosition = Position;
+        // Entry/torch scripts observe the original substituted layout, even
+        // when another solid tile means their closing animation is skipped.
+        if (record.SubId < 0x10) _room.SetPositionTileAndCollision(
             Position,
             (byte)(_enteredThroughThisDoor
                 ? _data.OpenTile
@@ -128,7 +152,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         if (ScriptPaused(frame.Player) && _state is not (DoorState.ReadyToOpen or
             DoorState.OpeningInterleaved or DoorState.ReadyToClose or DoorState.ClosingInterleaved)) return;
         if (_state is not (DoorState.ReadyToOpen or DoorState.OpeningInterleaved or
-            DoorState.ReadyToClose or DoorState.ClosingInterleaved or DoorState.SolveDelay) &&
+            DoorState.ReadyToClose or DoorState.ClosingInterleaved or DoorState.SolveDelay or DoorState.TorchDelay) &&
             WaitForCounter2()) return;
         switch (_state)
         {
@@ -139,11 +163,17 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 return;
 
             case DoorState.SetAngle:
+                _angle = _data.DoorAngle(_record.SubId);
+                _state = _controlledByTorches ? DoorState.SetSpeed : DoorState.InitialBranch;
+                return;
+
+            case DoorState.SetSpeed:
+                _speed = _data.DoorTorchCount(_record.SubId);
                 _state = DoorState.InitialBranch;
                 return;
 
             case DoorState.InitialBranch:
-                _state = _controlledByTrigger ? DoorState.WaitingForLinkClear
+                _state = _controlledByTrigger || _closeAfterEntry || _controlledByTorches ? DoorState.WaitingForLinkClear
                     : _enemyCompletionSupported && _roomEnemyCount() == 0
                         ? DoorState.SelectOpening : DoorState.CallLinkWait;
                 return;
@@ -160,9 +190,10 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
 
             case DoorState.UpdateRespawn:
                 frame.Player.MoveLocalRespawnOffShutter(
-                    _room, PackedPosition, _record.SubId);
+                    _room, PackedPosition,(_data.DoorAngle(_record.SubId)>>1)&3);
                 // asm15 continues to retscript, which yields to the caller.
-                _state = _controlledByTrigger ? DoorState.WatchingTrigger : DoorState.CheckEnemiesBeforeClose;
+                _state = _controlledByTrigger ? DoorState.WatchingTrigger
+                    : _closeAfterEntry || _controlledByTorches ? DoorState.SelectClosing : DoorState.CheckEnemiesBeforeClose;
                 return;
 
             case DoorState.CheckEnemiesBeforeClose:
@@ -188,6 +219,27 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
 
             case DoorState.ScriptEnd:
                 Finished = true;
+                return;
+
+            case DoorState.FlipEntryScratch:
+                _flipEntryScratch();
+                _state = DoorState.ScriptEnd;
+                return;
+
+            case DoorState.WatchingTorches:
+                DecideTorchAction();
+                return;
+
+            case DoorState.BeginTorchDelay:
+                _counter = _data.DoorTorchWait;
+                _state = DoorState.TorchDelay;
+                return;
+
+            case DoorState.TorchDelay:
+                if (_counter != 0 && --_counter != 0) return;
+                if (WaitForCounter2()) return;
+                _playSound(_data.SolveSound);
+                _state = DoorState.SelectOpening;
                 return;
 
             case DoorState.SelectClosing:
@@ -231,9 +283,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 if (_room.GetPackedPosition(frame.Player.Position) == PackedPosition)
                     frame.Player.RequestForcedRespawn();
                 _shutterSignal?.Invoke(false);
-                _room.SetPositionTileAndCollision(
-                    Position, (byte)_data.ClosedTile(_record.SubId), null,
-                    _animationTick());
+                _setTile((byte)PackedPosition,(byte)_data.ClosedTile(_record.SubId));
                 PlayDoorSoundIfVisible();
                 ResumeScriptAfterAnimation(opening: false, frame.Player);
                 return;
@@ -282,8 +332,9 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 if (_counter != 0)
                     return;
                 _shutterSignal?.Invoke(true);
-                _room.SetPositionTileAndCollision(
-                    Position, (byte)_data.OpenTile, null, _animationTick());
+                // doorController.s @setTileAndPlaySound still resumes its
+                // script and plays the cue when the shared queue rejects it.
+                _setTile((byte)PackedPosition,(byte)_data.OpenTile);
                 PlayDoorSoundIfVisible();
                 ResumeScriptAfterAnimation(opening: true, frame.Player);
                 return;
@@ -300,8 +351,10 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     private bool WaitForCounter2()
     {
         if (Counter2Alias == 0) return false;
-        // The source returns even on 1->0. These door scripts never set speed.
+        // The source returns even on 1->0, moving only when still nonzero.
         Counter2Alias--;
+        if (Counter2Alias != 0)
+            Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition,_speed,_angle);
         return true;
     }
 
@@ -311,6 +364,8 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         // scriptjump + asm15 continue through the jump table in this update;
         // enemy scripts execute checknoenemies or scriptend instead.
         _state = _controlledByTrigger ? DoorState.WatchingTrigger
+            : _closeAfterEntry ? DoorState.FlipEntryScratch
+            : _controlledByTorches && !opening ? DoorState.WatchingTorches
             : opening ? DoorState.ScriptEnd : DoorState.WaitingForEnemies;
         if (ScriptPaused(player) || WaitForCounter2()) return;
         if (_controlledByTrigger)
@@ -318,6 +373,12 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
             _state = DoorState.WatchingTrigger;
             DecideTriggerAction();
         }
+        else if (_closeAfterEntry)
+        {
+            _flipEntryScratch();
+            _state = DoorState.ScriptEnd;
+        }
+        else if (_controlledByTorches && !opening) DecideTorchAction();
         else if (opening) Finished = true;
         else _state = _enemyCompletionSupported && _roomEnemyCount() == 0
             ? DoorState.PlayEnemySolve : DoorState.WaitingForEnemies;
@@ -350,11 +411,16 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
             _state = DoorState.SelectClosing;
     }
 
+    private void DecideTorchAction()
+    {
+        // Source helper compares equality, including surplus lit torches.
+        if (_torchesLit() == _speed) _state = DoorState.BeginTorchDelay;
+    }
+
     private bool OverlapsLink(Player player)
     {
-        bool vertical = (_record.SubId & 1) == 0;
-        int radiusY = vertical ? 0x0a : 0x08;
-        int radiusX = vertical ? 0x08 : 0x0a;
+        int radiusY = _data.DoorRadiusY(_record.SubId);
+        int radiusX = _data.DoorRadiusX(_record.SubId);
         // commonScripts sets the same directional radii for trigger and
         // enemy shutters. checknotcollidedwithlink_ignorez uses byte XY,
         // includes the negative radius edge, and deliberately ignores Z.
@@ -364,11 +430,6 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
                 Vector2.One*(NpcCharacter.LinkCollisionRadius*2)));
     }
 
-    private static bool IsEnteredShutter(
-        DungeonMechanicDatabaseRecord record,
-        EnemyPlacementContext placementContext) =>
-        DungeonShutterEntry.Matches(
-            placementContext, record.PackedPosition, record.SubId & 0x03);
 }
 
 internal enum DoorState
@@ -393,5 +454,10 @@ internal enum DoorState
     BeginSolveDelay,
     SolveDelay,
     ReadyToOpen,
-    OpeningInterleaved
+    OpeningInterleaved,
+    SetSpeed,
+    FlipEntryScratch,
+    WatchingTorches,
+    BeginTorchDelay,
+    TorchDelay
 }

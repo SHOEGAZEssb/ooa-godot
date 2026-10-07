@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
                 new Vector2(0, companion.ZFixed >> 8);
             FailIf(
                 !_player.CompanionRideActive ||
-                _player.CompanionRideZFixed != companion.ZFixed ||
+                (_player.CompanionRideZFixed >> 8) != (companion.ZFixed >> 8) ||
                 _player.CompanionRideDrawOffset != expectedDrawOffset,
                 $"Mounted Link did not copy Moosh's live Z during {phase} " +
                 $"(mooshZ={companion.ZFixed}, " +

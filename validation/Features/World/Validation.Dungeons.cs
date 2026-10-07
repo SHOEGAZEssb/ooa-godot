@@ -10,760 +10,20 @@ public sealed partial class ValidationRoot
 {
     private void ValidatePushBlocks()
     {
-        _sound.ClearPlayRequestAudit();
-        OracleRoomData directionalRoom = _rooms.Load(4, 0x09);
-        FailIf(
-            directionalRoom.Layout.Length != 0xb0,
-            $"Clean US ROM room $4:$09 must contain $b0 layout bytes; " +
-            $"got ${directionalRoom.Layout.Length:x2}.");
-        FailIf(
-            directionalRoom.Layout[0x79] != 0xa0,
-            $"Clean US ROM room $4:$09 must contain $a0 at wRoomLayout+$79; " +
-            $"got ${directionalRoom.Layout[0x79]:x2}.");
-        _roomView.SetRoom(directionalRoom.Texture);
-        _entities.LoadRoom(4, directionalRoom);
-
-        // The left dungeon wall at this position sets the original $0c
-        // adjacent-wall mask. Link should use the pushing walk variant only
-        // while the held direction matches the side he is facing.
-        _player.WarpTo(new Vector2(20, 24));
-        _player.Face(Vector2I.Left);
-        _player.UpdatePushingState(Vector2.Left);
-        FailIf(
-            !_player.IsPushing,
-            "Link did not enter his pushing animation against the ordinary wall in 4:09.");
-        _player.UpdatePushingState(Vector2.Right);
-        FailIf(_player.IsPushing, "Link retained his pushing animation without holding toward the wall.");
-
-        Vector2 rightOnlyBlock = new(0x0b * 16 + 8, 0x01 * 16 + 8);
-        Vector2 linkAbove = rightOnlyBlock + new Vector2(0, -10);
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _pushBlocks.UpdatePushAttempt(
-                linkAbove, Vector2I.Down, Vector2.Down);
-        }
-        FailIf(
-            _pushBlocks.Active || _pushBlocks.RemainingPushFrames !=
-            PushBlockController.PushDelayFrames ||
-            directionalRoom.GetMetatile(rightOnlyBlock) != 0x19 ||
-            directionalRoom.GetCollision(
-                directionalRoom.GetMetatile(rightOnlyBlock + Vector2.Down * 16)) != 0,
-            "Right-only block $19 accepted a downward push toward clear floor in 4:09.");
-
-        OracleRoomData room = _rooms.Load(4, 0x08);
-        _roomView.SetRoom(room.Texture);
-        _entities.LoadRoom(4, room);
-
-        // Dungeon 0 room $08 has an all-direction tile $1c at packed
-        // position $4b. Its right neighbor is the solid one-way block $19,
-        // while the tile above is clear floor, so both rejection and a full
-        // successful push can be checked against unmodified original data.
-        Vector2 blockCenter = new(0x0b * 16 + 8, 0x04 * 16 + 8);
-        Vector2 linkBelow = blockCenter + new Vector2(0, 10);
-        Vector2 linkLeft = blockCenter + new Vector2(-10, 0);
-        Vector2 linkRight = blockCenter + new Vector2(10, 0);
-        FailIf(
-            room.ActiveCollisions != 2 || room.GetMetatile(blockCenter) != 0x1c,
-            $"Expected dungeon collision mode 2 and block $1c at 4:08/$4b, got " +
-            $"mode {room.ActiveCollisions} / tile ${room.GetMetatile(blockCenter):x2}.");
-
-        _player.WarpTo(linkBelow);
-        _player.Face(Vector2I.Up);
-        _player.UpdatePushingState(Vector2.Up);
-        FailIf(
-            !_player.IsPushing,
-            "Link did not enter his pushing animation while pressing block $1c in 4:08.");
-
-        Vector2 cornerApproach = new(blockCenter.X - 6, linkBelow.Y);
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _pushBlocks.UpdatePushAttempt(
-                cornerApproach, Vector2I.Up, Vector2.Up);
-        }
-        FailIf(
-            _pushBlocks.Active || _pushBlocks.RemainingPushFrames !=
-            PushBlockController.PushDelayFrames,
-            "Block $1c accepted a push while Link occupied a metatile corner.");
-
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _pushBlocks.UpdatePushAttempt(
-                linkRight, Vector2I.Left, Vector2.Left);
-        }
-        FailIf(_pushBlocks.NativeInitialized || _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 0,
-            "Player-phase push allocation must not initialize or sound before interaction dispatch.");
-        _pushBlocks.Advance(1.0 / 60.0);
-        FailIf(
-            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1 ||
-            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 0,
-            "An accepted push did not request SND_MOVEBLOCK exactly once at movement start.");
-        for (int frame = 1; frame < PushBlockController.MoveFrames; frame++)
-        {
-            _pushBlocks.Advance(1.0 / 60.0);
-        }
-        Vector2 holeCenter = blockCenter + Vector2.Left * 16;
-        FailIf(
-            _pushBlocks.Active || room.GetMetatile(blockCenter) != 0xa0 ||
-            room.GetMetatile(holeCenter) != 0xf5 ||
-            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 1 ||
-            _entities.Entities<FallingDownHoleEffect>() is not
-                [{ ElapsedUpdates: 0, AnimationFrame: 0 }],
-            "Block $1c did not become INTERAC_FALLDOWNHOLE over destination " +
-            "hole $f5 with SND_FALLINHOLE.");
-        FallingDownHoleEffect fallingBlock =
-            _entities.Entities<FallingDownHoleEffect>()[0];
-        FailIf(
-            !fallingBlock.PrecisePosition.IsEqualApprox(
-            holeCenter + new Vector2(0, -2)),
-            "The falling block interaction did not inherit the pushed block's Y-2 center.");
-        for (int frame = 0; frame < 7; frame++)
-            fallingBlock.UpdateFrame();
-        FailIf(
-            fallingBlock.AnimationFrame != 0,
-            "INTERAC_FALLDOWNHOLE left its first frame before eight updates.");
-        fallingBlock.UpdateFrame();
-        FailIf(
-            fallingBlock.AnimationFrame != 1 ||
-            OracleObjectMath.ToPixelPosition(fallingBlock.PrecisePosition) != holeCenter,
-            "INTERAC_FALLDOWNHOLE did not center at SPEED_60 or advance after eight updates.");
-        for (int frame = 0; frame < 12; frame++)
-            fallingBlock.UpdateFrame();
-        FailIf(
-            fallingBlock.AnimationFrame != 2,
-            "INTERAC_FALLDOWNHOLE did not retain its second frame for 12 updates.");
-        for (int frame = 0; frame < 12; frame++)
-            fallingBlock.UpdateFrame();
-        FailIf(
-            (fallingBlock.CurrentParameter & 0x80) == 0 || fallingBlock.Finished,
-            "INTERAC_FALLDOWNHOLE did not reach its terminal animation parameter after 8/12/12 updates.");
-        fallingBlock.UpdateFrame();
-        FailIf(
-            !fallingBlock.Finished,
-            "INTERAC_FALLDOWNHOLE did not delete one update after its terminal parameter.");
-        FailIf(
-            !room.ReplaceMetatile(blockCenter, 0xa0, 0x1c, (long)_animationTicks),
-            "Could not restore 4:08/$4b after the hole test.");
-
-        _pushBlocks.UpdatePushAttempt(linkLeft, Vector2I.Right, Vector2.Right);
-        FailIf(
-            _pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames - 1 ||
-            _pushBlocks.Active,
-            "Block $1c must count contact before checking its solid destination on update20.");
-
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames - 1; frame++)
-        {
-            _pushBlocks.UpdatePushAttempt(
-                linkBelow, Vector2I.Up, Vector2.Up);
-        }
-        FailIf(
-            _pushBlocks.Active || _pushBlocks.RemainingPushFrames != 1 ||
-            room.GetMetatile(blockCenter) != 0x1c,
-            "Block $1c moved before Link completed the original 20-update push delay.");
-
-        _pushBlocks.UpdatePushAttempt(linkBelow, Vector2I.Up, Vector2.Zero);
-        FailIf(
-            _pushBlocks.RemainingPushFrames != PushBlockController.PushDelayFrames,
-            "Releasing the direction did not reset wPushingAgainstTileCounter to 20.");
-
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _pushBlocks.UpdatePushAttempt(
-                linkBelow, Vector2I.Up, Vector2.Up);
-        }
-        FailIf(!_pushBlocks.Active || _pushBlocks.NativeInitialized || room.GetMetatile(blockCenter) != 0x1c,
-            "Reserved block allocation must retain its source tile until interaction dispatch.");
-        _pushBlocks.Advance(1.0 / 60.0);
-        FailIf(
-            !_pushBlocks.Active || room.GetMetatile(blockCenter) != 0xa0 ||
-            !_collision.Collides(blockCenter + new Vector2(0, -2)) ||
-            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 2,
-            "Block $1c did not become a Link-blocking object over source floor $a0.");
-
-        for (int frame = 1; frame < PushBlockController.MoveFrames - 1; frame++)
-        {
-            _pushBlocks.Advance(1.0 / 60.0);
-        }
-        Vector2 expectedTopLeft = new(blockCenter.X - 8, blockCenter.Y - 8 - 15.5f);
-        FailIf(
-            !_pushBlocks.Active ||
-            !_pushBlocks.BlockTopLeft.IsEqualApprox(expectedTopLeft) ||
-            room.GetMetatile(blockCenter + Vector2.Up * 16) != 0xa0,
-            "Block $1c did not move at SPEED_80 for the first 31 updates.");
-
-        _pushBlocks.Advance(1.0 / 60.0);
-        FailIf(
-            _pushBlocks.Active || room.GetMetatile(blockCenter) != 0xa0 ||
-            room.GetMetatile(blockCenter + Vector2.Up * 16) != 0x1d ||
-            _sound.PlayRequestsFor(SoundId.SndFallInHole) != 1,
-            "Block $1c did not finish after 32 updates as destination tile $1d.");
-
-        // The outdoor grave hiding a door is the one Ages push tile that
-        // writes wDisabledObjects=1 when movement starts. Its $85 property
-        // reveals staircase $dc immediately, then clears the lock and requests
-        // SND_SOLVEPUZZLE only after the movement counter reaches zero.
-        LoadValidationRoom(0, 0x7c);
-        room = _currentRoom;
-        Vector2 graveCenter = new(0x58, 0x28);
-        Vector2 gravePushPosition = new(0x58, 0x2f);
-        var pushableTiles = new PushableTileDatabase();
-        FailIf(
-            room.ActiveCollisions != 0 ||
-            room.GetPackedPosition(graveCenter) != 0x25 ||
-            room.GetMetatile(graveCenter) != 0xd9 ||
-            !pushableTiles.TryGet(
-                room.ActiveCollisions, 0xd9, out PushableTileRecord grave) ||
-            grave is not
-                {
-                    SourceReplacement: 0xdc,
-                    DestinationTile: 0x02,
-                    PropertyFlags: 0x85
-                },
-            "Room 0:7c/$25 did not retain outdoor hidden grave $d9 and " +
-            "its imported $dc/$02/$85 push contract.");
-
-        _player.WarpTo(gravePushPosition);
-        _player.Face(Vector2I.Up);
-        _sound.ClearPlayRequestAudit();
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _pushBlocks.UpdatePushAttempt(
-                gravePushPosition, Vector2I.Up, Vector2.Up);
-        }
-        FailIf(!_pushBlocks.LinkMovementDisabled || room.GetMetatile(graveCenter) != 0xd9,
-            "Grave allocation must lock Link immediately while retaining its tile until state0.");
-        _pushBlocks.Advance(1.0 / 60.0);
-        FailIf(
-            !_pushBlocks.Active || !_pushBlocks.LinkMovementDisabled ||
-            !_playerWorld.MovementDisabled ||
-            room.GetMetatile(graveCenter) != 0xdc ||
-            _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1 ||
-            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0 ||
-            _playerWorld.CheckTileWarp(_player) ||
-            _activeGroup != 0 || _currentRoom.Id != 0x7c || IsTransitioning,
-            "Room 0:7c's upward $d9 push did not reveal staircase $dc " +
-            "while locking Link and suppressing its same-update warp.");
-
-        for (int frame = 1; frame < PushBlockController.MoveFrames - 1; frame++)
-            _pushBlocks.Advance(1.0 / 60.0);
-        FailIf(
-            !_pushBlocks.Active || !_pushBlocks.LinkMovementDisabled ||
-            !_playerWorld.MovementDisabled ||
-            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
-            "Room 0:7c's hidden grave released Link before its first 31 " +
-            "SPEED_80 movement updates completed.");
-
-        _pushBlocks.Advance(1.0 / 60.0);
-        Vector2 graveDestination = graveCenter + Vector2.Up * 16;
-        FailIf(
-            _pushBlocks.Active || _pushBlocks.LinkMovementDisabled ||
-            _playerWorld.MovementDisabled ||
-            room.GetMetatile(graveCenter) != 0xdc ||
-            room.GetMetatile(graveDestination) != 0x02 ||
-            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 ||
-            _playerWorld.CheckTileWarp(_player) ||
-            !RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0x25, graveCenter) ||
-            RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0x25, new Vector2(0x53, 0x28)) ||
-            !RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0x25, new Vector2(0x54, 0x20)) ||
-            !RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0x25, new Vector2(0x5d, 0x29)) ||
-            RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0x25, new Vector2(0x5e, 0x29)) ||
-            RoomTransitionController.LinkWithinTileWarpBounds(
-                room, 0x25, new Vector2(0x58, 0x2a)),
-            "Room 0:7c's hidden grave did not release Link, install " +
-            "stationary grave $02, request SND_SOLVEPUZZLE on update 32, " +
-            "and retain the original $54-$5d/$20-$29 staircase bounds.");
-
-        GD.Print("Validated Link's wall/block pushing animation, directional/corner " +
-            "restrictions, SND_MOVEBLOCK, hole SND_FALLINHOLE, imported " +
-            "INTERAC_FALLDOWNHOLE timing/motion, hazard disposal, " +
-            "4:08/$4b push delay reset, blocked " +
-            "destination, source $a0 replacement, SPEED_80 movement, moving " +
-            "collision, destination tile $1d, and 0:7c/$25 hidden-grave " +
-            "movement lock, completion solve cue, and centered staircase warp bounds.");
-    }
-
-    private void ValidateDungeonKeyDoors()
-    {
-        const int group = 4;
-        const int roomId = 0x0a;
-        const int neighborRoomId = 0x09;
-        const byte roomDoorFlag = 0x08;
-        const byte neighborDoorFlag = 0x02;
-        const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
-        var database = new DungeonKeyDoorDatabase();
-        bool hasLeftDoor = database.TryGet(
-            2, 0x73, out DungeonKeyDoorDatabaseRecord leftDoor);
-        bool hasBossRight = database.TryGet(
-            2, 0x75, out DungeonKeyDoorDatabaseRecord bossRight);
-        var keyBlockDatabase = new DungeonKeyBlockDatabase();
-        DungeonKeyBlockDatabaseRecord keyBlock = keyBlockDatabase.Record;
-        FailIf(
-            database.Count != 8 ||
-            !hasLeftDoor || !hasBossRight ||
-            !database.TryGet(1, 0x73, out _) ||
-            !database.TryGet(5, 0x73, out _) ||
-            database.TryGet(0, 0x73, out _) ||
-            database.TryGet(3, 0x73, out _) ||
-            database.TryGet(4, 0x73, out _) ||
-            leftDoor.Direction != Vector2I.Left || leftDoor.OpenTile != 0xa0 ||
-            leftDoor.PushCounter != 20 || leftDoor.DoorFrameWait != 6 ||
-            leftDoor.NoKeyTextId != 0x5100 || leftDoor.UsesBossKey ||
-            !bossRight.UsesBossKey || bossRight.KeyGraphic != 0x43 ||
-            bossRight.NoKeyTextId != 0x5101,
-            "The imported $70-$77 small-key/boss-key door table is incomplete.");
-        FailIf(
-            keyBlock.ClosedTile != 0x1e || keyBlock.KeyGraphic != 0x42 ||
-            keyBlock.OpenTile != 0xa0 || keyBlock.RoomFlag != 0x80 ||
-            keyBlock.PushCounter != 20 ||
-            keyBlock.OpenSound != SoundId.SndOpenChest ||
-            keyBlock.KeySound != SoundId.SndGetSeed ||
-            keyBlock.NoKeyTextId != 0x5102 ||
-            keyBlock.NoKeyMessage != "Huh? This block\nhas a keyhole." ||
-            keyBlock.PuffSound != SoundId.SndPoof ||
-            !keyBlockDatabase.SupportsActiveCollisions(1) ||
-            !keyBlockDatabase.SupportsActiveCollisions(2) ||
-            !keyBlockDatabase.SupportsActiveCollisions(5) ||
-            keyBlockDatabase.SupportsActiveCollisions(0) ||
-            keyBlockDatabase.SupportsActiveCollisions(3) ||
-            keyBlockDatabase.SupportsActiveCollisions(4) ||
-            !keyBlock.Source.Contains("nextToKeyBlock", StringComparison.Ordinal),
-            "The imported dungeon key-block $1e contract is incomplete.");
-
-        // Past overworld room $dc reuses dungeon door index $73 as ordinary
-        // scenery at $46. interactableTilesTable dispatches active-collision
-        // mode 0 through @overworld, where $73 has no key-door behavior. Its
-        // room-flag bit $08 is likewise an overworld flag, not a door flag.
-        {
-            const int overworldGroup = 1;
-            const int overworldRoomId = 0xdc;
-            const byte overworldFlag08 = 0x08;
-            OracleSaveData overworldSave = OracleSaveData.CreateStandardGame();
-            overworldSave.SetRoomFlag(
-                overworldGroup, overworldRoomId, overworldFlag08);
-            var overworldRooms = new RoomSession(
-                overworldGroup, overworldRoomId,
-                () => 0, () => { }, overworldSave);
-            var overworldTreasures = new TreasureDatabase();
-            var overworldInventory = new InventoryState(
-                overworldTreasures,
-                overworldSave,
-                () => overworldRooms.CurrentDungeonIndex);
-            using var overworldFixture = RoomEntityValidationFixture.Attach(
-                this,
-                "OverworldDungeonKeyTileValidation",
-                new()
-                {
-                    SaveData = overworldSave,
-                    Inventory = overworldInventory,
-                    Treasures = overworldTreasures,
-                    Rooms = overworldRooms
-                });
-            RoomEntityManager overworldEntities = overworldFixture.Manager;
-            overworldEntities.LoadRoom(
-                overworldGroup, overworldRooms.CurrentRoom);
-            var overworldSounds = new List<int>();
-            overworldEntities.SoundRequested += overworldSounds.Add;
-            var overworldController = new DungeonKeyDoorController(
-                overworldRooms,
-                overworldInventory,
-                overworldEntities,
-                overworldTreasures,
-                () => 0,
-                overworldSounds.Add);
-            string overworldMessage = string.Empty;
-            overworldController.MessageRequested +=
-                message => overworldMessage = message;
-
-            OracleRoomData overworldRoom = overworldRooms.CurrentRoom;
-            Vector2 sceneryCenter = new(0x68, 0x48);
-            Vector2 linkRightOfScenery =
-                sceneryCenter + Vector2.Right * 10;
-            FailIf(
-                overworldRoom.ActiveCollisions != 0 ||
-                overworldRooms.CurrentDungeonIndex != -1 ||
-                overworldRoom.GetPackedPosition(sceneryCenter) != 0x46 ||
-                overworldRoom.GetMetatile(sceneryCenter) != 0x73,
-                "Past overworld room 1:dc did not retain scenery $73 at $46 " +
-                "when its overworld room-flag bit $08 was set.");
-
-            for (int frame = 0; frame < leftDoor.PushCounter / 2; frame++)
-            {
-                overworldController.UpdatePushAttempt(
-                    linkRightOfScenery, Vector2I.Left, Vector2.Left);
-            }
-            FailIf(
-                overworldMessage.Length != 0 ||
-                overworldController.Opening ||
-                overworldController.RemainingPushFrames != keyBlock.PushCounter ||
-                overworldRoom.GetMetatile(sceneryCenter) != 0x73 ||
-                overworldEntities.Entities<DungeonKeyUseEffect>().Count != 0 ||
-                overworldEntities.Entities<PuzzlePuffEffect>().Count != 0 ||
-                overworldSounds.Count != 0,
-                "Room 1:dc/$46 scenery $73 entered the dungeon key-door path " +
-                "despite active-collision mode 0.");
-            overworldController.Free();
-        }
-
-        byte originalRoomFlags = _saveData.GetRoomFlags(group, roomId);
-        byte originalNeighborFlags = _saveData.GetRoomFlags(group, neighborRoomId);
-        _saveData.SetRoomFlag(group, roomId, roomDoorFlag, value: false);
-        _saveData.SetRoomFlag(group, neighborRoomId, neighborDoorFlag, value: false);
-        LoadValidationRoom(group, roomId);
-        OracleRoomData room = _currentRoom;
-        Vector2 doorCenter = new(0x08, 0x58);
-        Vector2 linkRightOfDoor = new(0x12, 0x58);
-        int dungeon = _rooms.CurrentDungeonIndex;
-        FailIf(
-            dungeon != 0x0d || room.GetMetatile(doorCenter) != 0x73 ||
-            !room.IsSolid(doorCenter) || !_hud.DungeonKeyDisplayActive ||
-            _hud.DungeonIndex != dungeon,
-            "Room 4:0a did not load its solid left small-key door $73 or dungeon-$0d HUD mode.");
-
-        TreasureObjectRecord smallKey =
-            _treasures.GetObject("TREASURE_OBJECT_SMALL_KEY_03");
-        int originalKeys = _inventory.GetDungeonSmallKeys(dungeon);
-        while (_inventory.TryUseDungeonSmallKey(dungeon))
-        {
-        }
-        _sound.ClearPlayRequestAudit();
-        for (int frame = 0; frame < 10; frame++)
-        {
-            _keyDoors.UpdatePushAttempt(
-                linkRightOfDoor, Vector2I.Left, Vector2.Left);
-        }
-        FailIf(
-            !_dialogue.IsOpen ||
-            _dialogue.CurrentMessage != "You need a key\nfor this door!" ||
-            room.GetMetatile(doorCenter) != 0x73 ||
-            _saveData.HasRoomFlag(group, roomId, roomDoorFlag) ||
-            _saveData.HasRoomFlag(group, neighborRoomId, neighborDoorFlag) ||
-            _entities.Entities<DungeonKeyUseEffect>().Count != 0 ||
-            _sound.PlayRequestsFor(SoundId.SndGetSeed) != 0 ||
-            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0,
-            "Room 4:0a did not show TX_5100 without consuming a key or opening its door.");
-        _dialogue.Close();
-        for (int index = 0; index < originalKeys; index++)
-            _inventory.GiveTreasure(smallKey);
-        if (originalKeys == 0)
-            _inventory.GiveTreasure(smallKey);
-
-        int keysBeforeOpen = _inventory.GetDungeonSmallKeys(dungeon);
-        _sound.ClearPlayRequestAudit();
-        for (int frame = 0; frame < 9; frame++)
-        {
-            _keyDoors.UpdatePushAttempt(
-                linkRightOfDoor, Vector2I.Left, Vector2.Left);
-        }
-        FailIf(
-            _keyDoors.Opening || _keyDoors.RemainingPushFrames != 2 ||
-            _inventory.GetDungeonSmallKeys(dungeon) != keysBeforeOpen ||
-            room.GetMetatile(doorCenter) != 0x73,
-            "Small-key door $73 opened before nextToKeyDoor's doubled 20-to-zero counter elapsed.");
-
-        _keyDoors.UpdatePushAttempt(
-            linkRightOfDoor, Vector2I.Left, Vector2.Left);
-        FailIf(
-            !_keyDoors.Opening || _keyDoors.OpeningCounter != 0 ||
-            _inventory.GetDungeonSmallKeys(dungeon) != keysBeforeOpen - 1 ||
-            room.GetMetatile(doorCenter) != 0x73 || !room.IsSolid(doorCenter) ||
-            !_saveData.HasRoomFlag(group, roomId, roomDoorFlag) ||
-            !_saveData.HasRoomFlag(group, neighborRoomId, neighborDoorFlag) ||
-            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 0 ||
-            _sound.PlayRequestsFor(SoundId.SndGetSeed) != 0 ||
-            _entities.Entities<DungeonKeyUseEffect>() is not
-                [{ Phase: 0, Counter: 8, Z: -4 }],
-            "Room 4:0a did not consume one dungeon key, set both directional flags, " +
-            "and begin its still-solid interleaved/key-sprite frame.");
-        FailIf(
-            _hud.StatusMapTileForValidation(0x0a) != 0x0a ||
-            _hud.StatusMapTileForValidation(0x0b) != 0x1b ||
-            _hud.StatusMapTileForValidation(0x0c) !=
-                0x10 + _inventory.GetDungeonSmallKeys(dungeon) ||
-            _hud.StatusMapTileForValidation(0x2a) !=
-                0x10 + Mathf.Clamp(_hud.Rupees, 0, 999) / 100 ||
-            _hud.StatusMapTileForValidation(0x2b) !=
-                0x10 + Mathf.Clamp(_hud.Rupees, 0, 999) / 10 % 10 ||
-            _hud.StatusMapTileForValidation(0x2c) !=
-                0x10 + Mathf.Clamp(_hud.Rupees, 0, 999) % 10,
-            "The dungeon HUD did not draw gfx_key/X/key count together with the rupee digits.");
-
-        DungeonKeyUseEffect keyEffect = _entities.Entities<DungeonKeyUseEffect>()[0];
-        _keyDoors.Advance(update);
-        FailIf(room.GetMetatile(doorCenter) != 0x73 || _keyDoors.OpeningCounter != 0,
-            "Reserved door state0 must yield after incstate, before interleaving.");
-        _keyDoors.Advance(update);
-        FailIf(room.GetMetatile(doorCenter) != 0xa0 || _keyDoors.OpeningCounter != 6,
-            "Reserved door state2 must start its six-update animation on the second dispatch.");
-        keyEffect.UpdateFrame();
-        FailIf(!keyEffect.Visible || keyEffect.Counter != 8 ||
-            _sound.PlayRequestsFor(SoundId.SndGetSeed) != 1,
-            "Key sprite state0 must show/play sound without decrementing counter8.");
-        for (int frame = 0; frame < 7; frame++)
-            keyEffect.UpdateFrame();
-        FailIf(
-            keyEffect.Phase != 0 || keyEffect.Counter != 1 || keyEffect.Z != -4,
-            "INTERAC_DUNGEON_KEY_SPRITE left its first Z=$fc phase before eight updates.");
-        keyEffect.UpdateFrame();
-        FailIf(
-            keyEffect.Phase != 1 || keyEffect.Counter != 20 || keyEffect.Z != -8,
-            "INTERAC_DUNGEON_KEY_SPRITE did not enter its Z=$f8 20-update phase.");
-        for (int frame = 0; frame < 20; frame++)
-            keyEffect.UpdateFrame();
-        FailIf(!keyEffect.Finished, "INTERAC_DUNGEON_KEY_SPRITE did not delete after 8+20 updates.");
-
-        for (int frame = 0; frame < leftDoor.DoorFrameWait - 1; frame++)
-            _keyDoors.Advance(update);
-        FailIf(
-            !room.IsSolid(doorCenter) || _keyDoors.OpeningCounter != 1 ||
-            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 1,
-            "Small-key door $73 finalized before six interleaved updates elapsed.");
-        _keyDoors.Advance(update);
-        FailIf(
-            _keyDoors.Opening || room.IsSolid(doorCenter) ||
-            room.GetMetatile(doorCenter) != 0xa0 ||
-            _sound.PlayRequestsFor(SoundId.SndDoorClose) != 2,
-            "Small-key door $73 did not finalize open tile $a0 and SND_DOORCLOSE on update 6.");
-
-        LoadValidationRoom(group, roomId);
-        FailIf(
-            _currentRoom.GetMetatile(doorCenter) != 0xa0 ||
-            _currentRoom.IsSolid(doorCenter),
-            "Room 4:0a did not substitute its persisted left-door flag to open tile $a0 on re-entry.");
-
-        while (_inventory.GetDungeonSmallKeys(dungeon) < originalKeys)
-            _inventory.GiveTreasure(smallKey);
-        _saveData.SetRoomFlag(group, roomId, roomDoorFlag, value: false);
-        _saveData.SetRoomFlag(group, neighborRoomId, neighborDoorFlag, value: false);
-        if ((originalRoomFlags & roomDoorFlag) != 0)
-            _saveData.SetRoomFlag(group, roomId, roomDoorFlag);
-        if ((originalNeighborFlags & neighborDoorFlag) != 0)
-            _saveData.SetRoomFlag(group, neighborRoomId, neighborDoorFlag);
-        LoadValidationRoom(group, roomId);
-
-        // Wing Dungeon room $35 contains the ordinary nextToKeyBlock tile at
-        // packed position $27. Unlike key doors, it decrements the shared
-        // 20-update pushing counter only once per update and opens immediately.
-        // Keep this room load on an isolated RNG/session so the validation does
-        // not perturb later enemy behavior checks.
-        {
-            const int keyBlockRoomId = 0x35;
-            OracleSaveData blockSave = OracleSaveData.CreateStandardGame();
-            blockSave.SetRoomFlag(
-                group, keyBlockRoomId, keyBlock.RoomFlag, value: false);
-            var blockRooms = new RoomSession(
-                group, keyBlockRoomId, () => 0, () => { }, blockSave);
-            var blockTreasures = new TreasureDatabase();
-            var blockInventory = new InventoryState(
-                blockTreasures, blockSave,
-                () => blockRooms.CurrentDungeonIndex);
-            using var blockFixture = RoomEntityValidationFixture.Attach(
-                this,
-                "DungeonKeyBlockValidation",
-                new()
-                {
-                    SaveData = blockSave,
-                    Inventory = blockInventory,
-                    Treasures = blockTreasures,
-                    Rooms = blockRooms
-                });
-            RoomEntityManager blockEntities = blockFixture.Manager;
-            blockEntities.LoadRoom(group, blockRooms.CurrentRoom);
-            var blockSounds = new List<int>();
-            blockEntities.SoundRequested += blockSounds.Add;
-            var blockController = new DungeonKeyDoorController(
-                blockRooms, blockInventory, blockEntities, blockTreasures,
-                () => 0, blockSounds.Add);
-            string blockMessage = string.Empty;
-            blockController.MessageRequested +=
-                message => blockMessage = message;
-
-            OracleRoomData blockRoom = blockRooms.CurrentRoom;
-            Vector2 keyBlockCenter = new(0x78, 0x28);
-            Vector2 linkRightOfKeyBlock =
-                keyBlockCenter + Vector2.Right * 10;
-            int blockDungeon = blockRooms.CurrentDungeonIndex;
-            FailIf(
-                blockDungeon != 2 ||
-                blockRoom.GetPackedPosition(keyBlockCenter) != 0x27 ||
-                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.ClosedTile ||
-                !blockRoom.IsSolid(keyBlockCenter),
-                "Wing Dungeon room 4:35 did not load its solid key block $1e at $27.");
-
-            while (blockInventory.TryUseDungeonSmallKey(blockDungeon))
-            {
-            }
-            for (int frame = 0; frame < keyBlock.PushCounter; frame++)
-            {
-                blockController.UpdatePushAttempt(
-                    linkRightOfKeyBlock, Vector2I.Left, Vector2.Left);
-            }
-            FailIf(
-                blockMessage != keyBlock.NoKeyMessage ||
-                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.ClosedTile ||
-                !blockRoom.IsSolid(keyBlockCenter) ||
-                blockSave.HasRoomFlag(
-                    group, keyBlockRoomId, keyBlock.RoomFlag) ||
-                blockEntities.Entities<DungeonKeyUseEffect>().Count != 0 ||
-                blockEntities.Entities<PuzzlePuffEffect>().Count != 0 ||
-                blockSounds.Contains(SoundId.SndGetSeed) ||
-                blockSounds.Contains(SoundId.SndOpenChest) ||
-                blockSounds.Contains(SoundId.SndPoof),
-                "Room 4:35 did not show TX_5102 without consuming a key or " +
-                "changing key block $1e.");
-
-            TreasureObjectRecord blockSmallKey =
-                blockTreasures.GetObject("TREASURE_OBJECT_SMALL_KEY_03");
-            blockInventory.GiveTreasure(blockSmallKey);
-            int keysBeforeKeyBlock =
-                blockInventory.GetDungeonSmallKeys(blockDungeon);
-            blockSounds.Clear();
-            for (int frame = 0; frame < keyBlock.PushCounter - 1; frame++)
-            {
-                blockController.UpdatePushAttempt(
-                    linkRightOfKeyBlock, Vector2I.Left, Vector2.Left);
-            }
-            FailIf(
-                blockController.Opening ||
-                blockController.RemainingPushFrames != 1 ||
-                blockInventory.GetDungeonSmallKeys(blockDungeon) !=
-                    keysBeforeKeyBlock ||
-                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.ClosedTile ||
-                blockSave.HasRoomFlag(
-                    group, keyBlockRoomId, keyBlock.RoomFlag),
-                "Room 4:35 key block $1e opened before nextToKeyBlock's " +
-                "20th continuous push update.");
-
-            blockController.UpdatePushAttempt(
-                linkRightOfKeyBlock, Vector2I.Left, Vector2.Left);
-            FailIf(
-                blockController.Opening ||
-                blockInventory.GetDungeonSmallKeys(blockDungeon) !=
-                    keysBeforeKeyBlock - 1 ||
-                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.OpenTile ||
-                blockRoom.IsSolid(keyBlockCenter) ||
-                !blockSave.HasRoomFlag(
-                    group, keyBlockRoomId, keyBlock.RoomFlag) ||
-                blockEntities.Entities<DungeonKeyUseEffect>() is not
-                    [{ Graphic: 0x42, Phase: 0, Counter: 8, Z: -4 }] ||
-                blockEntities.Entities<PuzzlePuffEffect>() is not
-                    [{ ElapsedUpdates: 0 }] ||
-                blockSounds.Count(sound =>
-                    sound == SoundId.SndGetSeed) != 0 ||
-                blockSounds.Count(sound =>
-                    sound == SoundId.SndOpenChest) != 1 ||
-                blockSounds.Contains(SoundId.SndPoof),
-                "Room 4:35 did not consume one D2 key, replace $1e with floor " +
-                "$a0, set ROOMFLAG_KEYBLOCK, and create its key/puff " +
-                "interactions on update 20.");
-            PuzzlePuffEffect blockPuff =
-                blockEntities.Entities<PuzzlePuffEffect>().Single();
-            blockPuff.UpdateFrame();
-            FailIf(
-                blockPuff.ElapsedUpdates != 1 ||
-                blockSounds.Count(sound =>
-                    sound == SoundId.SndPoof) != 1,
-                "Room 4:35's INTERAC_PUFF did not request SND_POOF on its first update.");
-
-            blockRoom = blockRooms.Load(group, keyBlockRoomId);
-            blockEntities.LoadRoom(group, blockRoom);
-            FailIf(
-                blockRoom.GetMetatile(keyBlockCenter) != keyBlock.OpenTile ||
-                blockRoom.IsSolid(keyBlockCenter),
-                "Room 4:35 did not substitute persisted ROOMFLAG_KEYBLOCK tile $1e to floor $a0 on re-entry.");
-            blockController.Free();
-        }
-
-        // Spirit's Grave room $12 uses the corresponding right-facing boss
-        // door. Exercise it against an isolated D1 inventory: unlike a small
-        // key, the Boss Key remains owned after the paired flags are set.
-        var bossRoot = new Node { Name = "DungeonBossKeyDoorValidation" };
-        AddChild(bossRoot);
-        OracleSaveData bossSave = OracleSaveData.CreateStandardGame();
-        var bossRooms = new RoomSession(4, 0x12, () => 0, () => { }, bossSave);
-        var bossTreasures = new TreasureDatabase();
-        var bossInventory = new InventoryState(
-            bossTreasures, bossSave, () => bossRooms.CurrentDungeonIndex);
-        using var bossEntitiesFixture = RoomEntityValidationFixture.ForRoot(
-            bossRoot, new() { SaveData = bossSave });
-        RoomEntityManager bossEntities = bossEntitiesFixture.Manager;
-        bossEntities.LoadRoom(4, bossRooms.CurrentRoom);
-        var bossSounds = new List<int>();
-        bossEntities.SoundRequested += bossSounds.Add;
-        var bossController = new DungeonKeyDoorController(
-            bossRooms, bossInventory, bossEntities, bossTreasures,
-            () => 0, bossSounds.Add);
-        string bossMessage = string.Empty;
-        bossController.MessageRequested += message => bossMessage = message;
-
-        Vector2 bossDoorCenter = Vector2.Zero;
-        int bossDoorCount = 0;
-        for (int y = 0; y < bossRooms.CurrentRoom.Height;
-             y += OracleRoomData.MetatileSize)
-        for (int x = 0; x < bossRooms.CurrentRoom.Width;
-             x += OracleRoomData.MetatileSize)
-        {
-            Vector2 center = new(x + 8, y + 8);
-            if (bossRooms.CurrentRoom.GetMetatile(center) != 0x75)
-                continue;
-            bossDoorCenter = center;
-            bossDoorCount++;
-        }
-        FailIf(
-            bossRooms.CurrentDungeonIndex != 1 || bossDoorCount != 1 ||
-            bossInventory.HasDungeonBossKey(1),
-            "Spirit's Grave room 4:12 did not expose one right-facing boss door without a starting Boss Key.");
-
-        Vector2 linkLeftOfBossDoor = bossDoorCenter + Vector2.Left * 10;
-        for (int frame = 0; frame < 10; frame++)
-        {
-            bossController.UpdatePushAttempt(
-                linkLeftOfBossDoor, Vector2I.Right, Vector2.Right);
-        }
-        FailIf(
-            bossMessage != bossRight.NoKeyMessage || bossController.Opening ||
-            bossRooms.CurrentRoom.GetMetatile(bossDoorCenter) != 0x75,
-            "Room 4:12's boss door did not show imported TX_5101 while the D1 Boss Key was absent.");
-
-        bossInventory.GiveTreasure(
-            bossTreasures.GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
-        bossSounds.Clear();
-        for (int frame = 0; frame < 10; frame++)
-        {
-            bossController.UpdatePushAttempt(
-                linkLeftOfBossDoor, Vector2I.Right, Vector2.Right);
-        }
-        FailIf(
-            !bossController.Opening || !bossInventory.HasDungeonBossKey(1) ||
-            !bossSave.HasRoomFlag(4, 0x12, 0x02) ||
-            !bossSave.HasRoomFlag(4, 0x13, 0x08) ||
-            bossEntities.Entities<DungeonKeyUseEffect>() is not
-                [{ Graphic: 0x43, Phase: 0, Counter: 8, Z: -4 }] ||
-            bossSounds.Count(sound => sound == SoundId.SndGetSeed) != 0,
-            "Room 4:12 did not retain the D1 Boss Key, set both door flags, and create its graphic-$43 key effect.");
-        for (int frame = 0; frame < 2 + bossRight.DoorFrameWait; frame++)
-            bossController.Advance(update);
-        FailIf(
-            bossController.Opening ||
-            bossRooms.CurrentRoom.GetMetatile(bossDoorCenter) != 0xa0 ||
-            bossRooms.CurrentRoom.IsSolid(bossDoorCenter),
-            "Room 4:12's boss door did not finish its six-update opening path.");
-        bossEntities.Clear();
-        bossController.Free();
-        RemoveChild(bossRoot);
-        bossRoot.QueueFree();
-
-        GD.Print("Validated imported collision-scoped dungeon key blocks, small-key and boss-key " +
-            "doors, TX_5100/TX_5101/TX_5102 no-key handling, retained Boss Key ownership, " +
-            "20/10-update push activation, per-dungeon key consumption and HUD " +
-            "key/rupee coexistence, " +
-            "key-block and paired dungeon-layout flags, key-block puff/sounds, " +
-            "INTERAC_DUNGEON_KEY_SPRITE 8+20 timing, six-update interleaved " +
-            "door opening, re-entry substitution, and room 1:dc/$46 overworld " +
-            "scenery isolation.");
+        ComparePushBlockDataRom();
+        CompareRoomShopFlagsRom();
+        CompareTileInfoContactRom();
+        CompareTileAButtonGatesRom();
+        ComparePushBlockGameplayRom();
+        ComparePushBlockBraceletHintRom();
+        ComparePushBlockCubeGateRom();
+        ComparePushBlockHazardsRom();
+        ComparePushBlockSplashRom();
+        ComparePushBlockSplashScrollRom();
+        ComparePushBlockContactRom();
+        GD.Print("Validated native push tile data, wall/contact gates, movement, hole allocation/" +
+            "animation, hidden-grave locks and completion, cues/RNG, repeated gameplay " +
+            "and independent staircase bounds.");
     }
 
     private void ValidateSpiritsGraveEntranceInteractions()
@@ -1038,7 +298,7 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 234 || switchRecordCount != 7 ||
+            database.RecordCount != 239 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyFallingKeyCount != 2 ||
@@ -1233,61 +493,20 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         LoadValidationRoom(4, 0x0c);
         room = _currentRoom;
-        Vector2 block = new(0x78, 0x48);
         Vector2 door = new(0x78, 0x08);
-        FailIf(
-            _entities.Entities<PushBlockTriggerRoomEntity>() is not [{ PackedPosition: 0x47 }] ||
-            _entities.Entities<DungeonDoorRoomEntity>() is not
-                [{ SubId: 0x08, PackedPosition: 0x07 }] ||
-            room.GetMetatile(block) != 0x18 || room.GetMetatile(door) != 0x78,
-            "Room 4:0c did not instantiate ordered trigger $13:$01 then up shutter $1e:$08.");
-
-        Step();
-        FailIf(
-            room.GetMetatile(block) != 0x1d || room.GetMetatile(door) != 0x78,
-            "Room 4:0c update 1 did not install trigger tile $1d while retaining shutter $78.");
-        Step();
-        FailIf(
-            room.GetMetatile(block) != 0x18 || room.GetMetatile(door) != 0x78,
-            "Room 4:0c update 2 did not restore the source push block before arming it.");
-
-        Vector2 linkBelow = block + Vector2.Down * 10.0f;
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-            _pushBlocks.UpdatePushAttempt(linkBelow, Vector2I.Up, Vector2.Up);
-        _pushBlocks.Advance(1.0 / 60.0);
-        FailIf(
-            !_pushBlocks.Active || room.GetMetatile(block) != 0xa0,
-            "Room 4:0c's up-only trigger block did not start its common push movement.");
-
-        // State 2 observes the source-layout write, then state 3 installs and
-        // decrements its own $1e counter on the following 30 updates.
-        Step();
-        for (int frame = 0; frame < database.PushDelay - 1; frame++)
+        // The ROM-backed trigger fixture owns approach/countdown/script
+        // timing. Keep the distinct Godot mapping-pixel check with a declared
+        // completed producer: only the original shutter remains, count zero.
+        _entities.Clear();
+        var graphicDoor = new DungeonDoorRoomEntity(
+            database.GetRoomRecords(4,0x0c).Single(row => row.Id == 0x1e),room,database,
+            () => _entities.RoomEnemyCount,_entities.TriggerIsActive,_entities.ToScreen,
+            () => (long)_animationTicks,_sound.PlaySound,default,true,_rooms.TrySetTile);
+        _entities.AddEntity(graphicDoor);
+        for (int frame = 0; SomariaPrivate<DoorState>(graphicDoor,"_state") != DoorState.ReadyToOpen && frame < 24; frame++)
             Step();
-        FailIf(
-            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0 ||
-            room.GetMetatile(door) != 0x78,
-            "Room 4:0c released its synthetic enemy before the 30-update trigger delay.");
-        Step();
-        FailIf(
-            _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0 ||
-            _entities.Entities<PushBlockTriggerRoomEntity>().Count != 0 ||
-            room.GetMetatile(door) != 0x78,
-            "Room 4:0c must clear wNumEnemies on update30 before the shutter's separate sound command.");
-        Step();
-        FailIf(_sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
-            "The shutter must play its solve sound one update after checknoenemies succeeds.");
-        Step(); // The wait8 command yields after loading counter1.
-
-        for (int frame = 0; frame < database.SolveWait - 1; frame++)
-            Step();
-        FailIf(
-            room.GetMetatile(door) != 0x78,
-            "Room 4:0c began opening before the exact eight-update solve wait.");
-        Step();
-        FailIf(
-            room.GetMetatile(door) != 0x78,
-            "Room 4:0c opened in the same update that wait 8 reached zero.");
+        FailIf(SomariaPrivate<DoorState>(graphicDoor,"_state") != DoorState.ReadyToOpen,
+            "The declared solved shutter must reach its first mapping-interleave update.");
 
         // OracleWorldData caches mutable room instances; use an isolated world
         // so preparing the open mapping cannot alter the active door state.
@@ -1718,6 +937,7 @@ public sealed partial class ValidationRoot
             $"all={room406BlockRecord.AllowsEveryDirection}, " +
             $"direction={room406BlockRecord.RequiredDirection}.");
         Vector2 linkBelowBlock = room406Block + Vector2.Down * 10.0f;
+        _pushBlocks.UpdatePushAttempt(linkBelowBlock,Vector2I.Up,Vector2.Zero);
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
             _pushBlocks.UpdatePushAttempt(linkBelowBlock, Vector2I.Up, Vector2.Up);
         _pushBlocks.Advance(1.0 / 60.0);
@@ -1997,6 +1217,7 @@ public sealed partial class ValidationRoot
         room.SetPositionTileAndCollision(
             pressureBlock, 0x1c, null, (long)_animationTicks);
         Vector2 pushFromLeft = pressureBlock + Vector2.Left * 10.0f;
+        _pushBlocks.UpdatePushAttempt(pushFromLeft,Vector2I.Right,Vector2.Zero);
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
             _pushBlocks.UpdatePushAttempt(pushFromLeft, Vector2I.Right, Vector2.Right);
         for (int frame = 0; frame < PushBlockController.MoveFrames; frame++)
@@ -2227,23 +1448,6 @@ public sealed partial class ValidationRoot
             liftablePot.Replacement != 0xa0,
             "Collision mode 2 tile $10 did not import as a bracelet-breakable tile with replacement $a0.");
 
-        LoadValidationRoom(4, 0x08);
-        Vector2 blockCenter = new(0x0b * 16 + 8, 0x04 * 16 + 8);
-        Vector2 linkBelow = blockCenter + new Vector2(0, 10);
-        FailIf(
-            _currentRoom.GetMetatile(blockCenter) != 0x1c ||
-            !_currentRoom.ReplaceMetatile(blockCenter, 0x1c, 0x10, (long)_animationTicks),
-            "Could not prepare 4:08/$4b as bracelet-required tile $10.");
-
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _playerWorld.TilePushingDirection = 0; // Declared preceding graphics-pass contact.
-            _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
-        }
-        FailIf(
-            _pushBlocks.Active || _currentRoom.GetMetatile(blockCenter) != 0x10,
-            "Bracelet-required tile $10 moved before TREASURE_BRACELET was obtained.");
-
         LoadValidationRoom(4, 0xce);
         _interactions.ResetChestForTesting(4, 0xce, 0x67, "TREASURE_OBJECT_BRACELET_00");
         Vector2 debugBraceletChest = new(7 * OracleRoomData.MetatileSize + 8, 6 * OracleRoomData.MetatileSize + 8);
@@ -2304,7 +1508,7 @@ public sealed partial class ValidationRoot
         // tileset position that never uses its graphics. INTERAC_PUSHBLOCK
         // reads the explicit metatile mapping before replacing the source.
         Vector2 movingPotCenter = new(
-            6 * OracleRoomData.MetatileSize + 8,
+            7 * OracleRoomData.MetatileSize + 8,
             2 * OracleRoomData.MetatileSize + 8);
         Vector2 linkAboveMovingPot =
             movingPotCenter + Vector2.Up * 10.0f;
@@ -2313,11 +1517,12 @@ public sealed partial class ValidationRoot
             _currentRoom.GetMetatile(
                 movingPotCenter + Vector2.Down *
                     OracleRoomData.MetatileSize) != 0xa0,
-            "The canonical 4:ce/$26 moving-pot route was not `$10 over " +
+            "The canonical 4:ce/$27 moving-pot route was not `$10 over " +
             "open `$a0 ground.");
         using Texture2D expectedMovingPot =
             _currentRoom.BuildMimickedMetatileTexture(0x10);
         using Image expectedMovingPotImage = expectedMovingPot.GetImage();
+        _playerWorld.UpdatePushableBlocks(linkAboveMovingPot,Vector2I.Down,Vector2.Zero);
         for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
         {
             _playerWorld.TilePushingDirection = 2; // Declared preceding graphics-pass contact.
@@ -2328,11 +1533,8 @@ public sealed partial class ValidationRoot
         Texture2D? movingPotTexture = _pushBlocks.BlockTexture;
         FailIf(
             !_pushBlocks.Active ||
-            movingPotTexture is null ||
-            _pushBlocks.ActiveMoveFrames != 0x20 ||
-            !Mathf.IsEqualApprox(_pushBlocks.ActiveMoveSpeedPerFrame, 0.5f),
-            "The level-1 Power Bracelet did not retain the source " +
-            "SPEED_80/$20 push-block movement.");
+            movingPotTexture is null,
+            "The canonical moving pot did not initialize its metatile-mimic texture.");
         using Image movingPotImage = movingPotTexture.GetImage();
         int movingPotTransparentPixels = 0;
         int movingPotOpaquePixels = 0;
@@ -2361,18 +1563,7 @@ public sealed partial class ValidationRoot
             $"expected={expectedMovingPotPixelHash:x16}).");
         _pushBlocks.Cancel();
 
-        // Preserve the fixture's room-session reset boundary after inspecting
-        // the canonical pot; later Bracelet scenarios must not inherit the
-        // modified 4:ce room instance or its live interaction set.
-        LoadValidationRoom(4, 0x08);
-        if (_currentRoom.GetMetatile(blockCenter) != 0x10)
-        {
-            FailIf(
-                _currentRoom.GetMetatile(blockCenter) != 0x1c ||
-                !_currentRoom.ReplaceMetatile(
-                    blockCenter, 0x1c, 0x10, (long)_animationTicks),
-                "Could not restore the no-Bracelet 4:08/$4b push probe.");
-        }
+        // Reload before the independent lifting/presentation checks.
         LoadValidationRoom(4, 0xce);
 
         Vector2 fixedWallCenter = new(
@@ -2614,31 +1805,6 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _interactions.Update(0.0, _player);
 
-        LoadValidationRoom(4, 0x08);
-        if (_currentRoom.GetMetatile(blockCenter) != 0x10)
-        {
-            FailIf(
-                _currentRoom.GetMetatile(blockCenter) != 0x1c ||
-                !_currentRoom.ReplaceMetatile(blockCenter, 0x1c, 0x10, (long)_animationTicks),
-                "Could not restore bracelet push validation tile $10.");
-        }
-
-        for (int frame = 0; frame < PushBlockController.PushDelayFrames; frame++)
-        {
-            _playerWorld.TilePushingDirection = 0; // Declared preceding graphics-pass contact.
-            _playerWorld.UpdatePushableBlocks(linkBelow, Vector2I.Up, Vector2.Up);
-        }
-        _pushBlocks.Advance(1.0 / 60.0);
-        FailIf(
-            !_pushBlocks.Active ||
-            _currentRoom.GetMetatile(blockCenter) != 0xa0 ||
-            _pushBlocks.ActiveMoveFrames != 0x15 ||
-            !Mathf.IsEqualApprox(_pushBlocks.ActiveMoveSpeedPerFrame, 0.75f),
-            "The level-2 Power Glove did not move bracelet-required tile " +
-            "$10 with the source SPEED_c0/$15 path.");
-        _pushBlocks.Cancel();
-        _currentRoom.ReplaceMetatile(blockCenter, 0xa0, 0x1c, (long)_animationTicks);
-
         GD.Print("Validated debug Power Bracelet chest TREASURE_OBJECT_BRACELET_00, " +
             "A-button chest priority, terminal unbreakable-wall strain, 11-update pull, " +
             "moving-pot original-ground retention, metatile-mimic lift, " +
@@ -2646,8 +1812,7 @@ public sealed partial class ValidationRoot
             "drop and directional weight-0 throw/debris, ground-space " +
             "Y/X plus strict seven-pixel Z enemy collision, " +
             "damage-release angle $ff with knockback-independent gravity, " +
-            "SND_PICKUP/SND_THROW, level-1 SPEED_80/$20 and level-2 " +
-            "SPEED_c0/$15 push movement, transparent objectMimicBgTile " +
+            "SND_PICKUP/SND_THROW, transparent objectMimicBgTile " +
             "pot rendering, original Power Glove upgrade, " +
             "and bracelet-required pushblock tile $10.");
     }

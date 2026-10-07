@@ -78,6 +78,7 @@ public sealed class RoomTransitionController
     private int _scrollCleanupFrames;
     private double _scrollTickAccumulator;
     private int _screenTransitionDelay;
+    private Vector2I _pendingRoomExit;
     private IPlayerScreenTransitionRoomEntity? _scrollPlayerOwner;
 
     private int _deactivatedWarpGroup = -1;
@@ -136,6 +137,7 @@ public sealed class RoomTransitionController
     internal bool DeathUpdatesSuspendedByWarp => _warpActive && !AwaitingLinkWarpState;
     internal bool SuppressesDestinationMusic => _warpActive && _suppressDestinationMusic;
     public bool ScrollActive => _scrollActive;
+    internal bool RoomExitPending => _pendingRoomExit != Vector2I.Zero;
     public Vector2I ScrollDirection => _scrollDirection;
     internal Vector2I ScreenEntryDirection =>
         _scrollActive || _roomPackArrival is not null ? _scrollDirection : Vector2I.Zero;
@@ -213,6 +215,7 @@ public sealed class RoomTransitionController
         ResetLoadedScrollGraphics();
         _rooms.RoomChanged += (_, _) =>
         {
+            _pendingRoomExit = Vector2I.Zero;
             if (!_scrollActive) ResetLoadedScrollGraphics();
         };
 
@@ -246,6 +249,17 @@ public sealed class RoomTransitionController
             UpdateCamera();
     }
 
+    internal bool AdvanceFadeOutWarpBeforeObjects(double delta)
+    {
+        // CUTSCENE_03 returns while the palette thread is active. Its
+        // terminal update loads/initializes the destination and returns too;
+        // cutscene00 owns the first destination object pass on the next tick.
+        if (!_warpActive || _timeWarp || _warpPhase != WarpPhase.FadeOut)
+            return false;
+        UpdateWarpAndEffects(delta);
+        return true;
+    }
+
     internal bool AdvanceBasicArrivalPaletteBeforeObjects(double delta)
     {
         // The palette thread precedes cutscene01/updateAllObjects. Basic
@@ -270,7 +284,10 @@ public sealed class RoomTransitionController
         SetFade(0.0f);
     }
 
-    internal void BeginObjectUpdate() => _tileWarpCheckRequested = false;
+    internal void BeginObjectUpdate()
+    {
+        _tileWarpCheckRequested = false;
+    }
 
     internal void RequestTileWarpCheck() => _tileWarpCheckRequested = true;
 
@@ -382,7 +399,7 @@ public sealed class RoomTransitionController
         // nonzero Link.zh and wLinkGrabState after updating the entered-warp
         // marker. A later hook/item pass can
         // change Z after Link's air-state update. Screen edges are separate.
-        if (player.TopDownAirZ != 0 || _entities.MenuDisablesWarpTiles || player.TileWarpGrabActive)
+        if (player.TopDownAirZ != 0 || _entities.MenuDisablesWarpTiles || player.GrabStateActive)
             return FinishUnmatchedTileWarpCheck();
 
         bool dungeonStairFallback = false;
@@ -535,8 +552,46 @@ public sealed class RoomTransitionController
 
     public void CheckRoomExit(Player player)
     {
+        SampleRoomExit(player);
+        CommitRoomExit(player);
+    }
+
+    internal void CommitRoomExit(Player player)
+    {
         if (IsTransitioning)
             return;
+
+        OracleRoomData room = _rooms.CurrentRoom;
+        Vector2 pixel = OracleObjectMath.ToPixelPosition(
+            _entities.PlayerScreenTransitionOwner?.ScreenTransitionPosition ?? player.PrecisePosition);
+        Vector2I vertical = pixel.Y <= 6 ? Vector2I.Up
+            : pixel.Y >= room.Height - 7 ? Vector2I.Down : Vector2I.Zero;
+        // cutscene01 checks edge warps after updateAllObjects' boundary pass,
+        // but before consuming getNextActiveRoom's retained direction.
+        if (!AllScreenTransitionsDisabledSource() && vertical != Vector2I.Zero &&
+            TrySelectScreenEdgeWarp(room, vertical, pixel, out Warp warp))
+        {
+            _screenTransitionDelay = 0;
+            _pendingRoomExit = Vector2I.Zero;
+            ApplyWarp(player, warp);
+            return;
+        }
+        Vector2I direction = _pendingRoomExit;
+        if (direction == Vector2I.Zero ||
+            !TryGetScreenTransitionDestination(direction, out int targetId) ||
+            !_rooms.World.HasRoom(_rooms.ActiveGroup, targetId))
+            return;
+        _pendingRoomExit = Vector2I.Zero;
+        BeginScroll(player, direction, targetId);
+        _hud.Refresh();
+    }
+
+    // bank0.updateAllObjects calls bank1.screenTransitionState2 before
+    // cutscene01 selects a toggle. Its clamp and state3 request survive
+    // cutscene02; only the later getNextActiveRoom starts destination loading.
+    internal void SampleRoomExit(Player player)
+    {
+        if (IsTransitioning || RoomExitPending) return;
         if (player.DelaysOrdinaryScreenTransition)
             _screenTransitionDelay = 4;
 
@@ -550,16 +605,6 @@ public sealed class RoomTransitionController
         Vector2I horizontal = pixel.X <= 5 ? Vector2I.Left
             : pixel.X > room.Width - 6 ? Vector2I.Right : Vector2I.Zero;
 
-        // checkScreenEdgeWarps runs independently of ordinary edge gates.
-        if (!AllScreenTransitionsDisabledSource() &&
-            vertical != Vector2I.Zero &&
-            TrySelectScreenEdgeWarp(room, vertical, pixel, out Warp warp))
-        {
-            _screenTransitionDelay = 0;
-            ApplyWarp(player, warp);
-            return;
-        }
-
         // screenTransitionState2 always returns from its Y check to check X.
         // Both coordinates clamp, both checks can decrement the delay, and a
         // successful horizontal check overwrites a successful vertical request.
@@ -570,13 +615,7 @@ public sealed class RoomTransitionController
         if (horizontal != Vector2I.Zero &&
             CheckOrdinaryScreenBoundary(player, owner, room, horizontal))
             direction = horizontal;
-        if (direction == Vector2I.Zero ||
-            !TryGetScreenTransitionDestination(direction, out int targetId) ||
-            !_rooms.World.HasRoom(_rooms.ActiveGroup, targetId))
-            return;
-
-        BeginScroll(player, direction, targetId);
-        _hud.Refresh();
+        _pendingRoomExit = direction;
     }
 
     private bool CheckOrdinaryScreenBoundary(

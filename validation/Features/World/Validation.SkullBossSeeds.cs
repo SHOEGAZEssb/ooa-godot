@@ -98,13 +98,16 @@ public sealed partial class ValidationRoot
                         "The post-object seed collision must write health/invincibility immediately, preserve ITEM state1/ID, and clear collision only for effect20.");
                     Step();
                     EmberState state = selected switch { 0 => EmberState.Burning, 3 => EmberState.Gale, _ => EmberState.Dissipating };
-                    int duration = selected switch { 0 => 58, 3 => 50, _ => 9 };
+                    // itemAnimation1e818: after activation's first animate,
+                    // two $02 frames reach parameter $80. Retained Item.var2a
+                    // deletes the contacted flame there, before counter $3a.
+                    int duration = selected switch { 0 => 4, 3 => 50, _ => 9 };
                     int sound = selected switch { 0 or 2 => SoundId.SndLightTorch,
                         1 => SoundId.SndPirateBell, _ => SoundId.SndGaleSeed /* SND_GALE_SEED */ };
                     FailIf(target!.Health != health - damage || target.InvincibilityCounter != (damages ? 31 : 0) ||
                         actors.OfType<EyesoarActor>().Any(a => a.MysteryCounter != 0) || seed.State != state || seed.SeedItem != 0x20 + selected || seed.AnimationFrame != 1 ||
                         seed.Record.Damage != (selected >= 2 ? 0xff : 0xfe) ||
-                        seed.CollisionEnabled || selected is 0 or 3 && seed.FlameCounter != duration,
+                        seed.CollisionEnabled || selected is 0 or 3 && seed.FlameCounter != (selected == 0 ? 58 : 50),
                         $"ITEM${item:x2} selection{selected} must consume its pending hit once before the next enemy dispatch: target={target.Name}, hp={target.Health}/{health}, inv={target.InvincibilityCounter}, seed={seed.State}/{seed.AnimationFrame}/{seed.FlameCounter}.");
                     int[] expectedSounds = damages ? [SoundId.SndDamageEnemy, sound] : [sound];
                     // armosWarrior.s emits SND_SWORDSLASH when the shared

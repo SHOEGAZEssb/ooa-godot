@@ -295,12 +295,18 @@ public sealed class InteractionController
     {
         NpcInteractionTarget? target =
             _entities.FindNpcInteractionTarget(player);
+        // Native A-sensitive selection grants invincibility before the
+        // selected object's later script runs, including shopkeepers.
+        if (target is not null) player.ApplyObjectInteractionGrace();
         if (_npcInteractionRouter.TryBegin(target, player))
             return true;
 
         if (_entities.TryInteract(player))
             return true;
 
+        // Tile dispatch rejects wLinkGrabState even in shops, where the
+        // earlier A-sensitive object selection is allowed to accept held stock.
+        if (player.GrabStateActive) return false;
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 tilePoint = player.Position + (Vector2)player.FacingVector * 8.0f;
         byte tile = room.GetMetatile(tilePoint);

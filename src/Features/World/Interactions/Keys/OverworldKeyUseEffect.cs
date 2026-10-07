@@ -58,6 +58,7 @@ internal partial class OverworldKeyUseEffect : FixedEffectNode2D
         _zFixed = 0;
         _speedZ = 0;
         Finished = false;
+        Visible = false; // Fresh allocation has not run state0 graphics yet.
         QueueRedraw();
     }
 
@@ -73,6 +74,7 @@ internal partial class OverworldKeyUseEffect : FixedEffectNode2D
                 // applying vertical motion.
                 _state = 1;
                 _speedZ = _initialSpeedZ;
+                Visible = true;
                 return;
             case 1:
                 OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, _gravity);

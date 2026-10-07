@@ -44,7 +44,7 @@ internal interface ISwordAttackerKnockbackRoomEntity
 /// </summary>
 internal interface ILinkSwordStateAwareRoomEntity
 {
-    void SetLinkSwordState(SwordActionState state, int swordLevel);
+    void SetLinkSwordState(SwordActionState state, int swordLevel,int? itemCollisionType=null);
 }
 
 internal readonly record struct SwordAttackerKnockback(

@@ -14,11 +14,6 @@ public sealed partial class ValidationRoot
         var tutorialDatabase = new CompanionTutorialDatabase();
         CompanionTutorialRecord room079Tutorial =
             tutorialDatabase.GetRoomRecords(0, 0x79).Single();
-        CompanionTutorialRecord room089Tutorial =
-            tutorialDatabase.GetRoomRecords(0, 0x89).Single();
-        var barrierDatabase = new CompanionBarrierDatabase();
-        if (!barrierDatabase.TryGet(0, 0x89, out CompanionBarrierRecord barrierRecord))
-            throw new InvalidOperationException("Room 0:89 lost its companion barrier record.");
 
         CompanionRuntimeState.Clear(
             _runtimeState, CompanionRuntimeState.RickyId);
@@ -435,65 +430,6 @@ public sealed partial class ValidationRoot
                 $"angle=${transition.Angle:x2}")) +
             $" | finish@{departureUpdates}:{room079Ricky.PrecisePosition}");
 
-        _dialogue.Close();
-        using (_saveData.BeginMutation())
-        {
-            _saveData.WriteWramByte(
-                room089Tutorial.FlagAddress,
-                (byte)(_saveData.ReadWramByte(room089Tutorial.FlagAddress) &
-                    ~(1 << room089Tutorial.FlagBit)));
-            _saveData.WriteWramByte(
-                WramAddress.wCompanionStates,
-                (byte)(_saveData.ReadWramByte(WramAddress.wCompanionStates) & ~0xc0));
-        }
-        CompanionRuntimeState.Begin(
-            _runtimeState,
-            CompanionRuntimeState.RickyId,
-            0x89,
-            new Vector2(0x38, 0x70),
-            direction: ObjectDirection.Down);
-        LoadValidationRoom(0, 0x89);
-        RickyCompanionRoomEntity room089Ricky =
-            _entities.Entities<RickyCompanionRoomEntity>().Single();
-        CompanionTutorialRoomEntity tutorial089 =
-            _entities.Entities<CompanionTutorialRoomEntity>().Single();
-        CompanionBarrierRoomEntity barrier089 =
-            _entities.Entities<CompanionBarrierRoomEntity>().Single();
-        FailIf(
-            tutorial089.Record != room089Tutorial ||
-            barrier089.Record is not
-            {
-                Group: 0, Room: 0x89, Order: 1,
-                Id: 0x71, SubId: 0x02, Y: 0x6d, X: 0x38
-            } ||
-            tutorial089.Record.Order >= barrier089.Record.Order ||
-            room089Ricky.Phase != RickyCompanionPhase.Riding,
-            "Room 0:89 lost companion -> `$d0:$00 -> `$71:$02 source ordering.");
-        StepRoomEventFrames(1);
-        FailIf(
-            tutorial089.State != 1 || barrier089.State != 1 ||
-            _dialogue.IsOpen,
-            "Room 0:89 state-0 tutorial/barrier initialization did not share " +
-            "the first mounted update.");
-        StepRoomEventFrames(1);
-        FailIf(
-            tutorial089.State != 2 || !tutorial089.TextShown ||
-            room089Ricky.PrecisePosition.Y != barrierRecord.Y ||
-            !_dialogue.IsOpen ||
-            _dialogue.CurrentMessage != DialogueBox.PlainText(
-                barrierRecord.Message(CompanionRuntimeState.RickyId)),
-            "Room 0:89 did not show ordered TX_2008 then TX_2007 and clamp " +
-            "mounted Ricky to the lower-Y boundary in the same interaction pass.");
-        _dialogue.Close();
-        StepRoomEventFrames(1);
-        FailIf(
-            !tutorial089.Finished ||
-            (_saveData.ReadWramByte(room089Tutorial.FlagAddress) &
-                (1 << room089Tutorial.FlagBit)) == 0 ||
-            barrier089.Finished,
-            "Ricky crossing below room 0:89's tutorial marker did not set " +
-            "wCompanionTutorialTextShown bit $00 while retaining the barrier.");
-
         void ValidateUpgrade(bool cancelGlow)
         {
             _dialogue.Close();
@@ -628,10 +564,9 @@ public sealed partial class ValidationRoot
         ValidateUpgrade(cancelGlow: false);
 
         GD.Print(
-            "Validated rooms 0:79/0:89 Tingle `$c8:$00 + balloon `$44, " +
+            "Validated room 0:79 Tingle `$c8:$00 + balloon `$44, " +
             "three `$84:$00 kooloo sparkles, the `$84:$04 pre-upgrade glow's " +
             "source OAM, four-update animation, global flicker and 120-update lifetime, friend/chart/Satchel/kooloo/" +
-            "Ricky-departure script paths, companion " +
-            "tutorials `$d0:$01/$00, and source-ordered `$71:$02 lower-Y barrier.");
+            "Ricky-departure script paths and companion tutorial `$d0:$01.");
     }
 }

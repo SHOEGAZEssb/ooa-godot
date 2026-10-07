@@ -23,9 +23,7 @@ public partial class PushBlockController : Node2D
     private readonly Action<int>? _pushSomaria;
     private readonly Func<int>? _braceletLevelSource;
     private int _pendingPosition = -1, _pendingAngle, _pendingBraceletLevel;
-    private int _pushCounter = PushDelayFrames;
-    private int _candidatePosition = -1;
-    private Vector2I _candidateDirection;
+    private int _pushCounter { get => _rooms.TilePushCounter; set => _rooms.TilePushCounter = unchecked((byte)value); }
     private bool _active;
     private bool _outgoing;
     private float _moveFrame;
@@ -41,6 +39,8 @@ public partial class PushBlockController : Node2D
     private float _activeMoveSpeedPerFrame = MoveSpeedPerFrame;
 
     public event Action<Vector2, HazardType>? EnteredHazard;
+    public event Action<string>? MessageRequested;
+    internal Func<bool>? BraceletObtainedSource { get; set; }
 
     public bool Active => _active;
     internal byte ActiveTile { get; private set; }
@@ -114,13 +114,9 @@ public partial class PushBlockController : Node2D
         // underwater. ITEM$18 dispatch precedes reserved INTERAC_PUSHBLOCK.
         if ((_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Underwater) != 0)
             return;
-        if (_active && !_tiles.TryGetSomaria(_rooms.CurrentRoom.ActiveCollisions,
-            _rooms.CurrentRoom.GetMetatile(linkPosition+InteractableTilePushGeometry.FrontTileOffset(facing)),out _))
-            return;
-
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
-                movementInput, out Vector2I direction) || direction != facing ||
-            !TryGetCandidate(linkPosition, direction, braceletLevel > 0, out int position,
+                movementInput, out Vector2I direction) ||
+            !TryGetCandidate(linkPosition, facing, out int position,
                 out Vector2 topLeft, out byte tile,
                 out PushableTileRecord record))
         {
@@ -128,16 +124,29 @@ public partial class PushBlockController : Node2D
             return;
         }
 
-        if (_candidatePosition != position || _candidateDirection != direction)
+        _pushCounter--;
+        if (_pushCounter != 0)
+            return;
+
+        // Bit$40 tests the obtained treasure flag only after the20-update
+        // contact wait, before one-way rejection/destination allocation.
+        if (record.RequiresBracelet && !(BraceletObtainedSource?.Invoke() ?? braceletLevel > 0))
         {
-            _candidatePosition = position;
-            _candidateDirection = direction;
-            _pushCounter = PushDelayFrames;
+            ResetPushCounter();
+            if (_rooms.PrepareTileInfoMessage(0x5103) is { } message)
+                MessageRequested?.Invoke(message);
+            return;
         }
 
-        _pushCounter--;
-        if (_pushCounter > 0)
+        // nextToPushableBlock decrements the shared contact counter before
+        // testing the one-way parameter. A rejected direction still spends
+        // the full20-update wait, then resets for another held attempt.
+        if (!record.AllowsEveryDirection && record.RequiredDirection !=
+                InteractableTilePushGeometry.DirectionIndex(direction))
+        {
+            ResetPushCounter();
             return;
+        }
 
         if (_tiles.TryGetSomaria(_rooms.CurrentRoom.ActiveCollisions, tile, out _))
         {
@@ -152,6 +161,7 @@ public partial class PushBlockController : Node2D
         ResetPushCounter();
         if (room.GetMetatile(target) == 0xff || (room.GetTerrainInfo(target).Collision & 0x0f) != 0)
             return;
+        if (_active) return; // Reserved $d1 contention occurs after countdown.
         // nextToPushableBlock allocates reserved $d1; INTERAC$14 state0
         // owns the later tile read, graphics, sound and shared direction.
         _pendingPosition = position;
@@ -219,7 +229,6 @@ public partial class PushBlockController : Node2D
         _blockTexture = null;
         BlockZHigh = 0;
         Visible = false;
-        ResetPushCounter();
         QueueRedraw();
     }
 
@@ -232,7 +241,6 @@ public partial class PushBlockController : Node2D
     private bool TryGetCandidate(
         Vector2 linkPosition,
         Vector2I direction,
-        bool hasBracelet,
         out int position,
         out Vector2 topLeft,
         out byte tile,
@@ -260,16 +268,14 @@ public partial class PushBlockController : Node2D
         // ITEM$18 has an interaction parameter but no ordinary replacement,
         // destination, or property bytes. StartMovement dispatches it first.
         if(somaria) record=new(parameter,0,0,0);
-        if (tile == 0xff || !somaria && !_tiles.TryGet(room.ActiveCollisions, tile, out record) ||
-            !_pushBlockPermitted(tile) ||
-            (record.RequiresBracelet && !hasBracelet) ||
-            (!record.AllowsEveryDirection && record.RequiredDirection !=
-                InteractableTilePushGeometry.DirectionIndex(direction)))
+        if (tile == 0xff || !somaria && !_tiles.TryGet(room.ActiveCollisions, tile, out record))
         {
             return false;
         }
 
-        return true; // Destination is tested after the push countdown.
+        // Destination is tested after the contact countdown; rotating-cube
+        // permission belongs to INTERAC$14 state0 after reserved allocation.
+        return true;
     }
 
     private void StartMovement(
@@ -380,8 +386,12 @@ public partial class PushBlockController : Node2D
     private void ResetPushCounter()
     {
         _pushCounter = PushDelayFrames;
-        _candidatePosition = -1;
-        _candidateDirection = Vector2I.Zero;
+    }
+
+    internal void RequestTileInfo(int textId)
+    {
+        if (_rooms.PrepareTileInfoMessage(textId) is { } message)
+            MessageRequested?.Invoke(message);
     }
 
 }

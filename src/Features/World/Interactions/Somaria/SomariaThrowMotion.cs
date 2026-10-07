@@ -59,35 +59,11 @@ internal sealed class SomariaThrowMotion(OracleRoomData room, SomariaPlacementDa
             effect(hazard, Position, ZHigh); delete = true; return false;
         }
 
-        // Merge only the high Z byte, preserving fractional Y, as the native
-        // itemMergeZPositionIfSidescrollingArea does on every vertical call.
-        _position.Y = (byte)((int)Position.Y+ZHigh) + (_position.Y-Mathf.Floor(_position.Y));
-        _z = 0;
-        int kind = HazardBelow(), old = _flags;
-        _flags = ((_flags & 0xb8) ^ 0x80) | kind;
-        if (((kind ^ old) & 1) != 0) _flags |= 0x40;
-        bool rising = _speedZ < 0;
-        Vector2 probe = rising ? Position : new(Position.X, (byte)((int)Position.Y+5));
-        bool collision = room.IsSolid(probe);
-        if (!rising && collision) { _flags |= 0x10; return true; }
-        _flags &= ~0x10;
-        // A ceiling blocks displacement but still applies gravity. Water
-        // skips alternate falling updates and caps downward speed to $0100.
-        bool pauseWater = !collision && (kind & 1) != 0 && (_flags & 0x80) != 0;
-        if (!pauseWater)
-        {
-            if (!collision)
-            {
-                int y = (int)Mathf.Round(_position.Y*256);
-                _position.Y = unchecked((ushort)(y+_speedZ))/256.0f;
-            }
-            _speedZ = unchecked((short)(_speedZ+_weight.Gravity));
-            int maximum = collision || (kind & 1) == 0 ? 0x300 : 0x100;
-            if (_speedZ >= maximum) _speedZ = maximum;
-        }
-        if ((kind & 4) != 0) { effect(4, Position, 0); delete = true; }
-        else if ((_flags & 0x40) != 0) effect(1, Position, 0);
-        return false;
+        bool landed = ItemVerticalMotion.AdvanceSideview(room, ref _position, ref _z,
+            ref _speedZ, ref _flags, _weight.Gravity, out int kind);
+        if (kind != 0) effect(kind, Position, 0);
+        delete = kind == 4;
+        return landed;
     }
 
     private int HazardBelow() => hazards.Hazard(room.ActiveCollisions,

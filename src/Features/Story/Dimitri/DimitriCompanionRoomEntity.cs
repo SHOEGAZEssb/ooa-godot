@@ -28,6 +28,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private int _direction;
     private int _angle = 0xff;
     private int _water;
+    private int _speed;
     private int _counter;
     private int _bitePhase;
     private bool _swallowed;
@@ -282,6 +283,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 {
                     _phase = DimitriPhase.Eating; _bitePhase = 0; _swallowed = false;
                     _angle = _direction * 8;
+                    _speed = 0x1e;
                     SetAnimation(8);
                     _sound(SoundId.SndDimitri);
                     spawns.Add(new DimitriMouthSpawn(this, _group, _room.Id));
@@ -298,7 +300,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 break;
             case DimitriPhase.Eating:
                 _animation.Advance();
-                if (_bitePhase < 2) ApplySpeed(0x1e, collide: false);
+                if (_bitePhase < 2) ApplySpeed(_speed, collide: false);
                 if (_bitePhase == 0 && (_animation.CurrentParameter & 0x80) != 0)
                 {
                     _bitePhase = 1; _counter = 12; _angle = (_direction ^ 2) * 8;
@@ -366,7 +368,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                     break;
                 }
                 _animation.Advance();
-                ApplySpeed(0x50, collide: false);
+                ApplySpeed(_speed, collide: false);
                 OracleObjectMath.UpdateSpeedZ(ref _carried.ZFixed, ref _carried.SpeedZ, 0x40);
                 int away = CompanionMovement.FacingWallMask((_angle + 0x10) & ObjectAngle.Mask, AdjacentWalls());
                 if (away != 0) _cliffWalls = away;
@@ -504,6 +506,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         Math.Abs(Mathf.FloorToInt(point.Y) - Mathf.FloorToInt(_precisePosition.Y));
     private void ApplySpeed(int speed, bool collide = true)
     {
+        _speed = speed;
         Vector2 before = _precisePosition;
         if (collide) SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, _adjacentWalls = AdjacentWalls());
         else OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, speed, _angle);
@@ -558,6 +561,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         byte tile = _room.GetMetatile(_precisePosition + _native.Probes("cliff")[_direction]);
         if (tile == 0xd4 ? _angle != ObjectAngle.Down : !_ledges.IsCliffTile(_room.ActiveCollisions, tile, _angle)) return false;
         _phase = DimitriPhase.CliffJump;
+        _speed = 0x50;
         _carried.SpeedZ = -0x2c0;
         _counter = 0x14;
         _cliffWalls = 0;
@@ -716,7 +720,17 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     public override void _Draw() => DrawTexture(_animation.CurrentTexture,
         _animation.CurrentOffset + SourceOamDrawOffset + new Vector2(0, _carried.ZFixed >> 8));
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => SetTransitionDrawOffset(offset);
-    void ICompanionBarrierTarget.ClampToLowerY(int y) { if (_precisePosition.Y > y) _precisePosition.Y = y; }
+    void ICompanionBarrierTarget.SetBarrierCoordinate(bool horizontal, int coordinate)
+    {
+        if (horizontal)
+            _precisePosition.X = coordinate + _precisePosition.X - Mathf.Floor(_precisePosition.X);
+        else
+            _precisePosition.Y = coordinate + _precisePosition.Y - Mathf.Floor(_precisePosition.Y);
+        _speed = 0;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
+    }
+    void ICompanionBarrierTarget.SynchronizeRiderAfterObjects(Player player) => SynchronizePlayer(player);
     public void SetScreenTransitionBoundaryCoordinate(bool horizontal, int coordinate, Player player)
     {
         if (_phase == DimitriPhase.Carried)

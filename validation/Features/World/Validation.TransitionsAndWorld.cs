@@ -304,30 +304,30 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(TreasureId.Flippers, 0);
         _player.WarpTo(sourceCenter, recordSafe: false);
         _player.AdvanceTopDownSwimmingUpdateForValidation(entryAngle: 0xff);
-        _terrain.AdvanceApplicationUpdate();
-        SplashEffect? entrySplash = _terrain.ActiveSplash;
+        _entities.Update(1.0 / 60.0, _player);
+        SplashEffect? entrySplash = _entities.Entities<SplashEffect>().LastOrDefault();
         for (int update = 0; update < 10; update++)
         {
             _player.AdvanceTopDownSwimmingUpdateForValidation();
-            _terrain.AdvanceApplicationUpdate();
+            _entities.Update(1.0 / 60.0, _player);
         }
         FailIf(
             IsTransitioning ||
             entrySplash is null || entrySplash.Finished ||
-            _terrain.ActiveSplashCount != 1,
+            _entities.Entities<SplashEffect>().Count != 1,
             "Room 5:cc/$12 did not retain exactly the final source-water " +
             "entry-splash frame before Link dived.");
 
         _player.AdvanceTopDownSwimmingUpdateForValidation(
             diveJustPressed: true);
-        SplashEffect? diveSplash = _terrain.ActiveSplash;
+        SplashEffect? diveSplash = _entities.Entities<SplashEffect>().LastOrDefault();
         FailIf(
             !_player.TopDownDiving ||
             !IsTransitioning ||
             _activeGroup != sourceGroup || _currentRoom.Id != sourceRoom ||
             diveSplash is null || diveSplash.Finished ||
             ReferenceEquals(entrySplash, diveSplash) ||
-            _terrain.ActiveSplashCount != 2,
+            _entities.Entities<SplashEffect>().Count != 2,
             "Diving inside room 5:cc/$12's imported interaction did not " +
             "start wWarpTransition2 `$03 with the source dive splash.");
 
@@ -336,9 +336,8 @@ public sealed partial class ValidationRoot
             !IsTransitioning || _activeGroup != 7 ||
             _currentRoom.Id != 0x05 ||
             _player.Position != new Vector2(0x38, 0x08) ||
-            _terrain.ActiveSplashCount != 0 ||
-            !entrySplash.Finished || entrySplash.Visible ||
-            !diveSplash.Finished || diveSplash.Visible,
+            _entities.Entities<SplashEffect>().Count != 0 ||
+            !entrySplash.IsQueuedForDeletion() || !diveSplash.IsQueuedForDeletion(),
             "Room 5:cc/$12 did not clear both source-room splashes while " +
             "loading side-view room 7:05/$03 after its source fade.");
 
@@ -349,10 +348,10 @@ public sealed partial class ValidationRoot
             "INTERAC_SPECIAL_WARP's direct fade added a cave-entry sound to diving.");
 
         _player.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
-        SplashEffect? arrivalSplash = _terrain.ActiveSplash;
+        SplashEffect? arrivalSplash = _entities.Entities<SplashEffect>().LastOrDefault();
         FailIf(
             !_player.SideScrollSwimming ||
-            _terrain.ActiveSplashCount != 1 ||
+            _entities.Entities<SplashEffect>().Count != 1 ||
             arrivalSplash is null || arrivalSplash.Finished ||
             ReferenceEquals(arrivalSplash, entrySplash) ||
             ReferenceEquals(arrivalSplash, diveSplash),

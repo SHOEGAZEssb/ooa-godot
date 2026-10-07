@@ -105,6 +105,7 @@ $graveyardCommandRows = [Collections.Generic.List[string]]::new()
 $graveyardCommandRows.Add(
     "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
 $graveyardSpecs = @(
+    @('nativeyield', '', '', '', 'KeyholeSignal'),
     @('setmusic', '', 'f0', '', ''),
     @('wait', '', '60', '', ''),
     @('native', '', '', '', 'RemoveGateTiles1'),
@@ -117,9 +118,8 @@ $graveyardSpecs = @(
     @('scriptend', '', '', '', '')
 )
 for ($index = 0; $index -lt $graveyardSpecs.Count; $index++) {
-    # Skip the leading checkcfc0bit: the room event remains armed until the
-    # reusable keyhole controller supplies that exact signal.
-    $sourceCommand = $graveyardParsed[$index + 1]
+    # Its successful signal read clears carry and yields before setmusic.
+    $sourceCommand = $graveyardParsed[$index]
     $spec = $graveyardSpecs[$index]
     $graveyardCommandRows.Add((New-CutsceneCommandRow `
         'interactiondcSubid01Script' $index $sourceCommand.Label `
@@ -152,6 +152,7 @@ $crownExpected = @(
     @('settilehere','TILEINDEX_DUNGEON_DOOR_1'), @('wait','45'), @('resetmusic',''),
     @('playsound','SND_SOLVEPUZZLE'), @('enableinput',''), @('scriptend',''))
 $crownSpecs = @(
+    @('nativeyield','','KeyholeSignal'),
     @('setmusic','f0',''), @('wait','60',''), @('native','','Frame1'), @('wait','30',''),
     @('native','','Frame2'), @('wait','30',''), @('native','','Frame3'), @('wait','30',''),
     @('native','','OpenDoor'), @('wait','45',''), @('setmusic','ff',''),
@@ -164,9 +165,8 @@ for ($i = 0; $i -lt $crownCommands.Count; $i++) {
     if ($command.Opcode -ne $crownExpected[$i][0] -or ([string]$command.Operands).Trim() -ne $crownExpected[$i][1]) {
         throw "miscPuzzles_crownDungeonOpeningScript command $i changed."
     }
-    if ($i -eq 0) { continue } # The keyhole owner supplies cfc0 bit 0.
-    $spec = $crownSpecs[$i - 1]
-    $crownRows.Add((New-CutsceneCommandRow 'miscPuzzles_crownDungeonOpeningScript' ($i - 1) $command.Label $command.Line $spec[0] '' $spec[1] '' $spec[2]))
+    $spec = $crownSpecs[$i]
+    $crownRows.Add((New-CutsceneCommandRow 'miscPuzzles_crownDungeonOpeningScript' $i $command.Label $command.Line $spec[0] '' $spec[1] '' $spec[2]))
 }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/crown_dungeon_commands.tsv'), $crownRows)
 $crownFrameRows = [Collections.Generic.List[string]]::new()
@@ -189,7 +189,8 @@ foreach ($spec in @(@(0,'@rectToDraw',0x0c,4,6), @(1,'@tiles0',0x6c,1,6), @(2,'@
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/crown_dungeon_frames.tsv'), $crownFrameRows)
 
 # Both Mermaid's Cave entrances use the same $90:$12 controller. Resolve its
-# explicit jump into the shared key-door tail, retaining Ages' yielding jump.
+# explicit jump into the shared key-door tail. This external ROM target sets
+# carry in scriptCmd_jump; only a relocated in-buffer jump yields in Ages.
 if ($crownNativeSource -notmatch '(?ms)^miscPuzzles_subid12:\s+call checkInteractionState\s+jp nz,interactionRunScript\s+call getThisRoomFlags\s+and ROOMFLAG_80\s+jp nz,interactionDelete\s+ld hl,mainScripts\.miscPuzzles_mermaidsCaveDungeonOpeningScript\s+jr miscPuzzles_setScriptAndIncState') {
     throw 'miscPuzzles.s:$90:$12 Mermaid''s Cave initialization contract changed.'
 }
@@ -208,7 +209,7 @@ $mermaidExpected = @(
     @('playsound','SND_SOLVEPUZZLE'), @('enableinput',''), @('scriptend',''))
 $mermaidSpecs = @(
     @('nativeyield','','KeyholeSignal'), @('setmusic','f0',''), @('wait','60',''), @('playsound','70',''),
-    @('native','','OpenDoor'), @('scriptjumpyield','6',''), @('wait','45',''),
+    @('native','','OpenDoor'), @('scriptjump','6',''), @('wait','45',''),
     @('setmusic','ff',''), @('playsound','4d',''), @('enableinput','',''), @('scriptend','',''))
 if ($mermaidCommands.Count -ne $mermaidExpected.Count) { throw 'Mermaid cave opening command count changed.' }
 $mermaidRows = [Collections.Generic.List[string]]::new()
@@ -245,6 +246,75 @@ foreach ($spec in @(@(1,0x0e), @(3,0x0f))) {
     $mermaidEntranceRows.Add("$($spec[0])`t$($spec[1].ToString('x2'))`t$($values[0].ToString('x2'))`t$($values[1].ToString('x2'))`t$($values[3].ToString('x2'))`t$($values[2].ToString('x2'))`t$($mermaidDoorTile.ToString('x2'))`tobjects/ages/mainData.s:${label};miscPuzzles.s:miscPuzzles_subid12")
 }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/mermaids_cave_entrances.tsv'), $mermaidEntranceRows)
+
+# These keyhole controllers are real, persistent INTERACTION
+# allocations even though their scripts have stable application owners.
+# Preserve their actual object order, including Graveyard's preceding $71:$05,
+# instead of compensating for missing owners in the key/puff allocator.
+$keyholeControllerRows = [Collections.Generic.List[string]]::new()
+$keyholeControllerRows.Add("# group`troom`torder`tid`tsubid`tx`ty`tsource")
+foreach ($spec in @(@(0,0x0a,0x90,0x11,0,0x18,0x78), @(1,0x0e,0x90,0x12,0,0x18,0x68),
+    @(3,0x0f,0x90,0x12,0,0x18,0x68), @(1,0xa5,0x90,0x13,0,0,0), @(0,0x5c,0xdc,1,1,0,0))) {
+    $label = 'group' + $spec[0] + 'Map' + $spec[1].ToString('x2') + 'ObjectData'
+    $nodes = @(Read-AssemblyLabelNodes (Join-Path $Disassembly 'objects/ages/mainData.s') $label | Where-Object {
+        $_.Kind -eq 'MacroInvocation'
+    })
+    $matches = @($nodes | Where-Object {
+        $_.Name -eq 'obj_Interaction' -and $_.Operands.Count -ge 2 -and
+        (Convert-AssemblyInteger $_.Operands[0]) -eq $spec[2] -and
+        (Convert-AssemblyInteger $_.Operands[1]) -eq $spec[3]
+    })
+    if ($matches.Count -ne 1) { throw "objects/ages/mainData.s:${label}: expected one keyhole controller." }
+    $order = [array]::IndexOf($nodes, $matches[0])
+    $values = @($matches[0].Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if ($spec[5] -eq 0 -and $spec[6] -eq 0) {
+        if ($values.Count -ne 2) { throw "objects/ages/mainData.s:${label}: keyhole controller has no coordinate operands." }
+        $values += @(0,0)
+    }
+    if ($order -ne $spec[4] -or $values.Count -ne 4 -or
+        $values[2] -ne $spec[5] -or $values[3] -ne $spec[6]) {
+        throw "objects/ages/mainData.s:${label}: keyhole controller order or coordinates changed."
+    }
+    $handler = if ($values[0] -eq 0xdc) { 'miscellaneous2.s:interactiondc_subid01' } else { 'miscPuzzles.s:subid' + $values[1].ToString('x2') }
+    $keyholeControllerRows.Add("$($spec[0])`t$($spec[1].ToString('x2'))`t$order`t$($values[0].ToString('x2'))`t$($values[1].ToString('x2'))`t$($values[3].ToString('x2'))`t$($values[2].ToString('x2'))`tobjects/ages/mainData.s:${label};$handler")
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/keyhole_controllers.tsv'), $keyholeControllerRows)
+
+# $90:$13 opens two doorway tiles, separately from its keyhole tile$34.
+# Preserve both carry-set writes and the external jump's same-update wait.
+if ($crownNativeSource -notmatch '(?ms)^miscPuzzles_subid13:\s+call checkInteractionState\s+jp nz,interactionRunScript\s+call getThisRoomFlags\s+and ROOMFLAG_80\s+jp nz,interactionDelete\s+ld hl,mainScripts\.miscPuzzles_eyeglassLibraryOpeningScript\s+jr miscPuzzles_setScriptAndIncState' -or
+    [regex]::Matches($graveyardObjectSource, '(?m)^\s*obj_Interaction \$90 \$13\b').Count -ne 1) {
+    throw 'miscPuzzles.s:$90:$13 Library initialization or unique placement changed.'
+}
+$libraryOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @('checkcfc0bit','setmusic','wait','playsound','settileat','scriptjump','resetmusic','enableinput','scriptend')) {
+    [void]$libraryOpcodes.Add($opcode)
+}
+$libraryCommands = @(
+    Read-AssemblyCutsceneCommands $graveyardScriptPath 'miscPuzzles_eyeglassLibraryOpeningScript' $libraryOpcodes
+    Read-AssemblyCutsceneCommands $graveyardScriptPath 'miscPuzzles_justOpenedKeyDoor' $libraryOpcodes
+)
+$libraryExpected = @(
+    @('checkcfc0bit','0'), @('setmusic','SNDCTRL_STOPMUSIC'), @('wait','60'), @('playsound','SND_DOORCLOSE'),
+    @('settileat','$22, TILEINDEX_DUNGEON_DOOR_1'), @('settileat','$23, TILEINDEX_DUNGEON_DOOR_2'),
+    @('scriptjump','miscPuzzles_justOpenedKeyDoor'), @('wait','45'), @('resetmusic',''),
+    @('playsound','SND_SOLVEPUZZLE'), @('enableinput',''), @('scriptend',''))
+$librarySpecs = @(
+    @('nativeyield','','KeyholeSignal'), @('setmusic','f0',''), @('wait','60',''), @('playsound','70',''),
+    @('native','','OpenLeft'), @('native','','OpenRight'), @('scriptjump','7',''),
+    @('wait','45',''), @('setmusic','ff',''), @('playsound','4d',''), @('enableinput','',''), @('scriptend','',''))
+if ($libraryCommands.Count -ne $libraryExpected.Count) { throw 'Eyeglass Library opening command count changed.' }
+$libraryRows = [Collections.Generic.List[string]]::new()
+$libraryRows.Add("# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64")
+for ($i = 0; $i -lt $libraryCommands.Count; $i++) {
+    $command = $libraryCommands[$i]
+    if ($command.Opcode -ne $libraryExpected[$i][0] -or ([string]$command.Operands).Trim() -ne $libraryExpected[$i][1]) {
+        throw "miscPuzzles_eyeglassLibraryOpeningScript command $i changed."
+    }
+    $spec = $librarySpecs[$i]
+    $libraryRows.Add((New-CutsceneCommandRow 'miscPuzzles_eyeglassLibraryOpeningScript' $i $command.Label $command.Line $spec[0] '' $spec[1] '' $spec[2]))
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/library_keyhole_commands.tsv'), $libraryRows)
 
 # Present room 0:83's $dc:$02 watches the unique $c3 Bracelet rock. Once
 # Link reaches grab state $83, it runs the native Wing Dungeon collapse,

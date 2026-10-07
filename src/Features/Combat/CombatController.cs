@@ -67,6 +67,15 @@ public sealed class CombatController
             player, direction, BreakableTileDatabase.SourceExpertsRing,
             swordPoke: true);
 
+    internal bool ApplyBiggoronTileHit(Player player,int sector)
+    {
+        // tryBreakTileWithSword rejects Zh-1 below $f6 and always selects L2
+        // for Biggoron, regardless of the ordinary sword inventory level.
+        if((byte)(player.EnemyContactZ-1)<0xf6) return false;
+        return ApplyTileHit(player,sector,BreakableTileDatabase.SourceSwordLevel2,
+            swordPoke:false, wrapCoordinates:true);
+    }
+
     public bool ApplyLandedTileHit(Vector2 linkPosition)
     {
         OracleRoomData room = _rooms.CurrentRoom;
@@ -93,11 +102,15 @@ public sealed class CombatController
     }
 
     private bool ApplyTileHit(
-        Player player, int direction, int breakableSource, bool swordPoke)
+        Player player, int direction, int breakableSource, bool swordPoke,
+        bool wrapCoordinates = false)
     {
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 point =
             player.Position + _linkItems.SwordTileOffset(direction);
+        if (wrapCoordinates)
+            point = new(unchecked((byte)Mathf.FloorToInt(point.X)),
+                unchecked((byte)Mathf.FloorToInt(point.Y)));
         BreakableTileBreakStatus breakStatus = _breakables.TryBreak(
             room,
             breakableSource,

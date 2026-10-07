@@ -20,7 +20,7 @@ public partial class ValidationRoot
             bool text = false;
             int enemies = 1;
             var door = new DungeonDoorRoomEntity(data.GetRoomRecords(4,0xbf).Single(r => r.SubId == subid),
-                _currentRoom, data, () => enemies, _ => false, p => p, () => 0, _ => { }, default, true,
+                _currentRoom, data, () => enemies, _ => false, p => p, () => 0, _ => { }, default, true,_rooms.TrySetTile,
                 textActive: () => text);
             _entities.AddEntity(door);
             void Step(int n = 1) => StepGameplayUpdates(n, Vector2.Zero, batched: batch);

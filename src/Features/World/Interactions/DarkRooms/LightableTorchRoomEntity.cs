@@ -10,7 +10,7 @@ namespace oracleofages;
 /// attempts setTile $09, and deletes even when the tile queue is full.
 /// </summary>
 internal sealed partial class LightableTorchRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, ISeedHittableRoomEntity, IRoomEntityLifetime,
+    IRoomEntity, IFixedRoomEntity, ISeedCollisionTarget, IObjectCollisionHeightRoomEntity, IRoomEntityLifetime,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
     private readonly LightableTorchState _state;
@@ -27,6 +27,7 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
     public bool UpdatesDuringRoomEntityFreeze => !_initialized;
     internal int PackedPosition { get; }
     internal bool HitPending => _hit;
+    public int CollisionZ => 0; // Native getFreePartSlot clears the torch's Z bytes.
     internal Rect2 CollisionBounds => new(
         Position - new Vector2(_data.TorchRadiusX, _data.TorchRadiusY),
         new Vector2(_data.TorchRadiusX * 2, _data.TorchRadiusY * 2));
@@ -83,6 +84,18 @@ internal sealed partial class LightableTorchRoomEntity : Node2D,
             return SeedHitResult.None;
         _hit = true;
         return SeedHitResult.Consume;
+    }
+
+    public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox,Vector2 sourcePosition,
+        SeedRecord seed,int collisionType,ICollection<RoomEntitySpawn> spawns)
+    {
+        // PART$06's mask enables only Ember$1b. The ordered post-object
+        // scan checks native Z/byte XY before publishing effect$20; flying
+        // seeds above the torch cannot light it in the legacy item pass.
+        if (collisionType != _data.TorchItemCollision || !_initialized || _hit || Finished ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds,hitbox)) return default;
+        _hit = true;
+        return new(true,SeedHitResult.Activate,true);
     }
 
 

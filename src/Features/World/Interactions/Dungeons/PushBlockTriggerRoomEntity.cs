@@ -9,27 +9,34 @@ namespace oracleofages;
 /// wNumEnemies count and releases all enemies 30 updates after its block moves.
 /// </summary>
 internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEntity,
-    IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity
+    IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly OracleRoomData _room;
     private readonly DungeonMechanicDatabase _data;
     private readonly Func<int> _roomEnemyCount;
     private readonly Func<long> _animationTick;
+    private readonly Action _clearRoomEnemyCount;
+    private readonly Func<IRoomEntity,bool> _isOutgoing;
     private int _state;
     private int _counter;
     private byte _originalTile;
-    private byte _originalCollision;
 
     internal int PackedPosition { get; }
     public bool Finished { get; private set; }
     public bool CountsAsEnemy => _state != 0 && !Finished;
+    public bool UpdatesDuringDialogue => _state == 0;
+    public bool UpdatesDuringRoomEntityFreeze => _state == 0;
 
     internal PushBlockTriggerRoomEntity(
         DungeonMechanicDatabaseRecord record,
         OracleRoomData room,
         DungeonMechanicDatabase data,
         Func<int> roomEnemyCount,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        Action clearRoomEnemyCount,
+        Func<IRoomEntity,bool> isOutgoing)
         : base(record, $"PushBlockTrigger_{record.Order}")
     {
         if (record is not { Id: InteractionId.PushBlockTrigger, SubId: 0x01 })
@@ -38,6 +45,8 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
         _data = data;
         _roomEnemyCount = roomEnemyCount;
         _animationTick = animationTick;
+        _clearRoomEnemyCount = clearRoomEnemyCount;
+        _isOutgoing = isOutgoing;
         PackedPosition = record.PackedPosition;
     }
 
@@ -47,14 +56,11 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
         {
             case 0:
                 _state = 1;
-                // loadTilesetAndRoomLayout restores the source buffer before
-                // this object initializes. OracleWorldData caches mutable room
-                // instances, so read that source layout explicitly instead of
-                // treating a stale temporary `$1d sentinel as the real block.
-                _originalTile = _room.GetOriginalMetatile(Position);
-                _originalCollision = _room.GetCollision(_originalTile);
+                // pushblockTrigger.s saves the live CF byte. Both sentinel
+                // writes leave CE, graphics and the underlying buffer intact.
+                _originalTile = _room.GetMetatile(Position);
                 _room.SetPositionTileAndCollision(
-                    Position, (byte)_data.PushableBlock, _originalCollision,
+                    Position, (byte)_data.PushableBlock, _room.GetTerrainInfo(Position).Collision,
                     _animationTick(), preserveRenderedTile: true);
                 return;
 
@@ -65,7 +71,7 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
                     return;
                 _state = 2;
                 _room.SetPositionTileAndCollision(
-                    Position, _originalTile, _originalCollision,
+                    Position, _originalTile, _room.GetTerrainInfo(Position).Collision,
                     _animationTick(), preserveRenderedTile: true);
                 return;
 
@@ -79,13 +85,23 @@ internal sealed partial class PushBlockTriggerRoomEntity : DungeonMechanicRoomEn
             case 3:
                 _counter--;
                 if (_counter == 0)
+                {
                     Finished = true;
+                    _clearRoomEnemyCount();
+                }
                 return;
 
             default:
                 throw new InvalidOperationException(
                     $"Push-block trigger at ${PackedPosition:x2} entered state {_state}.");
         }
+    }
+
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        // updateInteractions admits state0 during scroll mode$08. Enabled$02
+        // deletes before returnIfScrollMode01Unset; incoming state0 returns.
+        if (_state == 0 && _isOutgoing(this)) Finished = true;
     }
 
 }

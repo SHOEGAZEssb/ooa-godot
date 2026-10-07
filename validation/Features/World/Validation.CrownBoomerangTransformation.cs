@@ -163,9 +163,9 @@ public partial class ValidationRoot
                         var replacement = _entities.Spawn<FallingDownHoleEffect>(new FallingDownHoleSpawn(stopped));
                         FailIf(_entities.InteractionSlot(replacement) != puffSlot,
                             "Hole effect must reuse the transformation's native interaction page.");
-                        Step(31);
+                        Step(32);
                         FailIf(actor.IsDead || replacement.CurrentParameter != 0 || replacement.Finished,
-                            "Hole animation's literal 8/12/12 durations must not release Spark/Whisp before update32.");
+                            "Hole state0 plus literal 8/12/12 durations must not release Spark/Whisp before update33.");
                         Step();
                         FailIf(actor.IsDead || replacement.CurrentParameter != 0xff || replacement.Finished,
                             "Hole terminal parameter$ff must be observed by the following enemy pass.");

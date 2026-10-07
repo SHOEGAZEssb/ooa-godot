@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
             _player.SideScrollAirborne != ((rom[0xcc5c] & 15) != 0) ||
             _player.SideScrollSwimmingState != (rom[0xcc5d] & 15) ||
             _player.SideScrollClimbing != (rom[0xcc68] != 0),
-            $"{context}: runtime XY={_player.PrecisePosition}, air={_player.SideScrollAirborne}, swim={_player.SideScrollSwimmingState}, climb={_player.SideScrollClimbing}, speed/angle=${_player.SideScrollSpeedRaw:x2}/${_player.SideScrollAngle:x2}; ROM XY={rom.Position}, air=${rom[0xcc5c]:x2}, swim=${rom[0xcc5d]:x2}, climb=${rom[0xcc68]:x2}, speed/angle=${rom[0xd010]:x2}/${rom[0xd009]:x2}, counter/interval=${rom[0xd012]:x2}/${rom[0xd013]:x2}, state/sub=${rom[0xd004]:x2}/${rom[0xd005]:x2}, force=${rom[0xcc4f]:x2}.");
+            $"{context}: runtime XY={_player.PrecisePosition}, air={_player.SideScrollAirborne}, swim={_player.SideScrollSwimmingState}, climb={_player.SideScrollClimbing}, speed/angle=${_player.SideScrollSpeedRaw:x2}/${_player.SideScrollAngle:x2}; ROM XY={rom.Position}, air=${rom[0xcc5c]:x2}, swim=${rom[0xcc5d]:x2}, climb=${rom[0xcc68]:x2}, speed/angle=${rom[0xd010]:x2}/${rom[0xd009]:x2}, counter/interval=${rom[0xd012]:x2}/${rom[0xd013]:x2}, state/sub=${rom[0xd004]:x2}/${rom[0xd005]:x2}, force=${rom[0xcc4f]:x2}, radii=${rom[0xd026]:x2}/${rom[0xd027]:x2}, circular=[{string.Join(';', _entities.Entities<CircularSideScrollPlatformRoomEntity>().Select(p => $"{p.Position}/{p.Angle:x2}/{p.LinkRiding}"))}].");
         if (_player.SideScrollAirborne)
             FailIf(_player.SideScrollSpeedZ != rom.SpeedZ,
                 $"{context}: speedZ runtime=${_player.SideScrollSpeedZ & 0xffff:x4}, ROM=${rom.SpeedZ & 0xffff:x4}.");
@@ -227,6 +227,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSideViewPlatformsRom()
     {
+        CompareCircularSidePlatformsRom();
         foreach (bool batched in new[] { false, true })
         {
             var rom = PrepareSideViewRom(6, 0x68, new(24, 8), feather: true, platforms: true);

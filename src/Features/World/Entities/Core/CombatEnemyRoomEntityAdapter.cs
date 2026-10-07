@@ -14,10 +14,51 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
         ISeedBurnTarget, IRoomEntityLifetime,
         IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
-        IObjectCollisionHeightRoomEntity, IDimitriMouthTarget, IGaleSeedTarget, ISwitchHookHittableRoomEntity
+        IObjectCollisionHeightRoomEntity, IDimitriMouthTarget, IGaleSeedTarget, ISwitchHookHittableRoomEntity,
+        IBiggoronSwordCollisionRoomEntity, IBombchuTargetRoomEntity, IBombCollisionRoomEntity
     where T : EnemyCharacter
 {
+    public virtual BombchuTarget BombchuTarget => new(combatDescriptor.Source?.Id ??
+        throw new NotSupportedException($"{Entity.GetType().Name}: bombchuTargets requires the original ENEMY ID."),
+        Entity.Visible, Entity.Position, Entity.CollisionBounds, Entity.Health);
     private bool _seedBurning;
+    public bool HasBombCollisionIdentity => DimitriCollisionType >= 0;
+    public virtual bool ApplyBombCollision(IBombExplosionRoomEntity bomb, ICollection<RoomEntitySpawn> spawns)
+    {
+        var data = BombCollisionDatabase.Shared;
+        if (!bomb.CollisionEnabled || !Entity.CollisionEnabled || Entity.NativeHitPending || Entity.InvincibilityCounter != 0 ||
+            !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, bomb.CollisionZ, bomb.CollisionZRadius) ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bomb.CollisionBounds)) return false;
+        if (!HasBombCollisionIdentity)
+            throw new NotSupportedException($"{Entity.GetType().Name}: ITEMCOLLISION_BOMB $18 requires its original ENEMY collision identity (collisionEffects.s:enemyCheckCollisions).");
+        if (!data.EnemyEnabled(DimitriCollisionType)) return false;
+        int effect = data.Effect(DimitriCollisionMode);
+        if (effect == CollisionEffect.None) return true;
+        // Explicit species item handlers already own their non-sword Bomb row.
+        if (this is IItemCollisionHittableRoomEntity native)
+            return native.ApplyItemCollision(RoomEntityItemCollision.Bomb, bomb.CollisionBounds,
+                bomb.CollisionBounds.GetCenter(), bomb.Damage, spawns);
+        if (effect == CollisionEffect.SwordNoKnockback)
+        {
+            if (!Entity.TakeDeferredNoKnockbackHit(bomb.CollisionBounds.GetCenter(), bomb.Damage)) return false;
+            Entity.DeferNativeHitStatus();
+            combatDescriptor.RequestSound(SoundId.SndDamageEnemy);
+            return true;
+        }
+        var strength = effect switch
+        {
+            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
+            CollisionEffect.Sword => EnemyKnockbackStrength.Normal,
+            CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
+            _ => throw new NotSupportedException($"{combatDescriptor.Source?.Source ?? Entity.GetType().Name}: ENEMY ${DimitriCollisionType:x2} mode ${DimitriCollisionMode:x2}, ITEMCOLLISION_BOMB $18 effect ${effect:x2} requires its native response owner.")
+        };
+        if (combatDescriptor.Source is null)
+            throw new NotSupportedException($"ENEMY ${DimitriCollisionType:x2} mode ${DimitriCollisionMode:x2}: Bomb effect ${effect:x2} has no source-backed damage owner.");
+        bool accepted = combatDescriptor.Combat.ApplyDamageAfterCollision(bomb.CollisionBounds.GetCenter(), bomb.Damage,
+            strength, spawns, combatDescriptor.CountsAsEnemy);
+        if (accepted) Entity.DeferNativeHitStatus();
+        return accepted;
+    }
     private bool _completedOutcomeTaken;
     private readonly GaleSeedEnemyMotion _gale = new(entity);
     private bool _nativeGaleHitPending;
@@ -239,6 +280,27 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         // enemyCheckCollisions checks the shield before the stun byte, then
         // suppresses ordinary Link contact while the enemy remains stunned.
         if (!Stunned) combatDescriptor.Combat.HandleLinkContact(player);
+    }
+    public bool ApplyBiggoronSwordCollision(Rect2 bounds,Vector2 origin,int damage,ICollection<RoomEntitySpawn> spawns)
+    {
+        var data=BiggoronSwordCollisionDatabase.Shared;
+        if(!Entity.CollisionEnabled || Entity.InvincibilityCounter!=0 || Entity.NativeHitPending ||
+            !data.EnemyEnabled(DimitriCollisionType) || !combatDescriptor.Combat.Intersects(bounds)) return false;
+        int effect=data.Effect(DimitriCollisionMode);
+        // Even effect$00 ends this target's scan before its Link contact.
+        if(effect==CollisionEffect.None) return true;
+        var strength=effect switch
+        {
+            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
+            CollisionEffect.Sword => EnemyKnockbackStrength.Normal,
+            CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
+            _ => throw new NotSupportedException($"Enemy ${DimitriCollisionType:x2} mode ${DimitriCollisionMode:x2}: ITEMCOLLISION_BIGGORON_SWORD $07 effect ${effect:x2} requires its native response owner.")
+        };
+        bool accepted = ApplySwordHit(bounds, origin, damage, strength, spawns);
+        // Common damaging rows publish JUST_HIT for their status owner.
+        // Species-specific responses retain their own signal lifetime.
+        if (accepted) Entity.DeferNativeHitStatus();
+        return accepted;
     }
     public virtual bool ApplySwordHit(
         Rect2 hitbox,

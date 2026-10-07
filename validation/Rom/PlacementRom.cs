@@ -96,6 +96,8 @@ internal sealed class PlacementRom
         // OracleCpu owns a bounded test stack starting at $dff0 in each bank.
         if (address is >= 0xdfc0 and <= 0xdff1) return true;
         if (_wramBank == 4) return address is >= 0xd000 and <= 0xd0ff;
-        return address is >= 0xd000 and < 0xe000 && (address & 0xff) is >= 0x80 and < 0xc0;
+        // Direct main-stream interaction opcodes use $40-$7f; enemy
+        // placement uses $80-$bf. Both retain outgoing enabled=$02 slots.
+        return address is >= 0xd000 and < 0xe000 && (address & 0xff) is >= 0x40 and < 0xc0;
     }
 }

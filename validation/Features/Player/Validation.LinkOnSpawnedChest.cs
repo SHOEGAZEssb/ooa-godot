@@ -28,8 +28,8 @@ public partial class ValidationRoot
                 FailIf(!eye.ApplySeedCollision(eye.CollisionBounds, eye.Position, seed,
                     ItemCollisionType.MysterySeed, new List<RoomEntitySpawn>()).Contact,
                     "$4:$ba eye must accept the chest-trigger fixture hit.");
-            Step();
-            FailIf(script.Counter != 15, "$4:$ba chest must start its source 15-update wait.");
+            Step(4); // checkmemoryeq, playsound, createpuff, then wait15.
+            FailIf(script.Counter != 15, "$4:$ba chest must start its source 15-update wait after four command yields.");
             Step(14);
             FailIf(_currentRoom.GetMetatile(chest) == 0xf1 ||
                 _runtimeState.ReadWramByte(WramAddress.wLinkOnChest) != 0,
@@ -68,7 +68,7 @@ public partial class ValidationRoot
             Step();
             FailIf(TryInteract(_player), "Opened $4:$ba chest must not award its treasure again.");
             LoadValidationRoom(4, 0xba);
-            Step();
+            Step(2); // state0 installs stubScript; state1 deletes it.
             FailIf(_runtimeState.ReadWramByte(WramAddress.wLinkOnChest) != 0 ||
                 _entities.Entities<DungeonTriggerChestScriptRoomEntity>().Count != 0,
                 "Collected $4:$ba chest must retain persistence without stale collision-escape state.");

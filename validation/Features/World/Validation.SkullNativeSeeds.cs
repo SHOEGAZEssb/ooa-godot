@@ -103,7 +103,7 @@ public sealed partial class ValidationRoot
                 if (!fire && selected == 0)
                     FailIf(((GibdoCharacter)enemy).State != 10 || ((GibdoCharacter)enemy).Counter != 30 || enemy.Health != 1 ||
                         _entities.Entities<BurningEnemyPart>().Single().Counter != 58 || hit.FlameCounter != 58,
-                        "Gibdo transformation and PART flame must initialize independently from the ordinary Ember item's58-update effect.");
+                        "Gibdo transformation and PART flame must initialize independently from the ordinary Ember item's$3a counter.");
                 if (selected == 1 || selected == 2)
                 {
                     Step(8);
@@ -113,21 +113,14 @@ public sealed partial class ValidationRoot
                 }
                 else
                 {
-                    int duration = selected == 0 ? 58 : 50;
-                    bool water = selected == 0 && _currentRoom.GetTerrainInfo(hit.Position).Hazard is HazardType.Water or HazardType.Lava;
-                    if (water)
-                    {
-                        for (int i = 0; !hit.Finished && i < duration; i++) Step();
-                        FailIf(hit.FlameCounter != 0 && (hit.ZFixed != 0 || hit.AnimationFrame != 4),
-                            "An airborne Ember effect over water may end early only at ground height on its source parameter$40 frame.");
-                    }
-                    else
-                    {
-                        Step(duration - 1);
-                        FailIf(hit.Finished, $"Native Ember/Gale ended early: fire={fire}, item${item:x2}/{selected}, counter={hit.FlameCounter}, state={hit.State}, position={hit.Position}, z={hit.ZFixed}.");
-                        Step();
-                    }
-                    FailIf(!hit.Finished || _entities.HasActiveShooterSeed, "Native Ember/Gale effect did not end at its source counter boundary.");
+                    // Contacted Ember's retained var2a retires it on
+                    // itemAnimation1e818 parameter$80, after two $02 frames.
+                    int duration = selected == 0 ? 4 : 50;
+                    Step(duration - 1);
+                    FailIf(hit.Finished, "Contacted seed ended before its source animation/counter boundary.");
+                    Step();
+                    FailIf(!hit.Finished || _entities.HasActiveShooterSeed,
+                        "Contacted seed did not retire at its source boundary.");
                 }
                 if (selected == 2)
                 {

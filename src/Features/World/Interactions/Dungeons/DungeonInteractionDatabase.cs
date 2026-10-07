@@ -52,6 +52,17 @@ internal sealed class DungeonInteractionDatabase
             Constant($"platform-radius-{size}-y"));
     }
 
+    internal CircularSideScrollPlatformRecord CircularSidePlatform(int subId)
+    {
+        if (subId is < 0 or > 2)
+            throw new ArgumentOutOfRangeException(nameof(subId), $"Unsupported INTERAC$a4 subid ${subId:x2}.");
+        return new(Constant($"circular-angle-{subId}"), Constant("circular-speed"),
+            new(Constant("circular-center-x"), Constant("circular-center-y")),
+            Constant("circular-radius"), Constant("circular-initial-counter"),
+            Constant("circular-turn-frames"), Constant("circular-collision-radius"),
+            Constant("circular-tangent-offset"));
+    }
+
     private void LoadConstants(string path, string label)
     {
         GeneratedTable table = GeneratedTable.Load(
@@ -132,7 +143,7 @@ internal sealed class DungeonInteractionDatabase
 
     private void ValidateContract()
     {
-        if (_constants.Count != 91 ||
+        if (_constants.Count != 102 ||
             _platforms.Count != 15 ||
             Constant("red-toggle-floor") != 0xad ||
             Constant("blue-toggle-floor") != 0xaf ||
@@ -181,6 +192,16 @@ internal readonly record struct MovingSideScrollPlatformRecord(
     int RadiusY,
     int RadiusX,
     MovingSideScrollPlatformCommand[] Commands);
+
+internal readonly record struct CircularSideScrollPlatformRecord(
+    int InitialAngle,
+    int Speed,
+    Vector2 Center,
+    int Radius,
+    int InitialCounter,
+    int TurnFrames,
+    int CollisionRadius,
+    int TangentOffset);
 
 internal readonly record struct MovingSideScrollPlatformCommand(
     MovingSideScrollPlatformDirection Direction,

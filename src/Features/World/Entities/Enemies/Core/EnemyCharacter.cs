@@ -234,19 +234,23 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         Vector2 sourcePosition,
         EnemyKnockbackStrength strength)
     {
-        _ = sourcePosition;
         if (IsDead || strength == EnemyKnockbackStrength.None)
             return;
 
         // COLLISIONEFFECT_SWORD_NO_KNOCKBACK uses ENEMYDMG_0c: the hit still
-        // grants $20 invincibility updates, but never writes knockbackCounter.
+        // grants $20 invincibility updates and writes a zero knockbackCounter.
         InvincibilityCounter =
             _behavior.EnemySwordDamageProfiles[3].First;
         KnockbackCounter = 0;
+        // ENEMYDMG_0c still sets flag$10: a zero recoil count does not
+        // suppress publication of the source collision angle.
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(
+            OracleObjectMath.ToPixelPosition(CurrentKnockbackPosition),
+            OracleObjectMath.ToPixelPosition(sourcePosition)) ^ ObjectAngle.HalfTurn;
         QueueRedraw();
     }
 
-    private protected bool TakeDeferredNoKnockbackHit(Vector2 sourcePosition, int damage)
+    internal bool TakeDeferredNoKnockbackHit(Vector2 sourcePosition, int damage)
     {
         if (!CollisionEnabled || InvincibilityCounter != 0) return false;
         ApplyDamage(damage, invincibilityFrames: 0);

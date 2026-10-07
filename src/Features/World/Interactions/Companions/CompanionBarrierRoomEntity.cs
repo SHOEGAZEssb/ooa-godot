@@ -5,26 +5,33 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// INTERAC_COMPANION_SCRIPTS $71:$02. State 0 waits for Link to mount and
+/// INTERAC_COMPANION_SCRIPTS $71:$01/$02/$04/$05. State 0 waits for Link to mount and
 /// validates the companion save-state byte; state 1 clamps after the live
-/// companion's own update, at this placed object's source-stream position.
+/// companion's own update. Imported records retain source-stream positions.
 /// </summary>
 internal sealed partial class CompanionBarrierRoomEntity : Node2D,
     IRoomEntity,
     IFixedRoomEntity,
     IRoomEntityLifetime,
-    IScreenTransitionPreloadRoomEntity
+    IScreenTransitionPreloadRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly CompanionBarrierRecord _record;
     private ICompanionBarrierTarget? _target;
     private readonly OracleSaveData _save;
     private readonly Action<int, string, Vector2> _showText;
     private int _state;
+    private int _companionId;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
     internal int State => _state;
     internal CompanionBarrierRecord Record => _record;
+    // Ordered leading placements can join the native pool without assuming
+    // allocations for earlier source objects whose owners are still logical.
+    internal bool NativeAllocationEnabled { get; set; }
+    public bool UpdatesDuringDialogue => _state == 0;
+    public bool UpdatesDuringRoomEntityFreeze => _state == 0;
 
     internal CompanionBarrierRoomEntity(
         CompanionBarrierRecord record,
@@ -32,7 +39,7 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
         OracleSaveData save,
         Action<int, string, Vector2> showText)
     {
-        if (record is not { Id: 0x71, SubId: 0x02 })
+        if (record.Id != 0x71 || record.SubId is not (1 or 2 or 4 or 5))
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _target = target;
@@ -44,7 +51,9 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
 
     internal void BindTarget(ICompanionBarrierTarget target)
     {
-        _target ??= target;
+        // The restriction reads the current w1Companion slot every update.
+        // Only var30's dialogue index is retained from initialization.
+        _target = target;
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
@@ -58,14 +67,37 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
         return ScreenTransitionPresentation.Visible;
     }
 
+    public ScreenTransitionPresentation PrepareForScreenTransition(
+        Player? player, ICollection<RoomEntitySpawn> spawns)
+    {
+        // updateInteractions admits only state0 during scroll preload.
+        // interactionCode71 checks wLinkDeathTrigger before every subid.
+        if (_state == 0 && player?.IsDying == true)
+        {
+            Finished = true;
+            Visible = false;
+            return ScreenTransitionPresentation.Hidden;
+        }
+        return PrepareForScreenTransition(spawns);
+    }
+
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
-        _ = frame;
         _ = spawns;
         if (Finished)
             return;
+
+        // The dispatcher decides eligibility first: initialized barriers
+        // remain frozen during text, while pending state0 still reaches this
+        // entry gate. IsDying is the existing owner of wLinkDeathTrigger.
+        if (frame.Player.IsDying)
+        {
+            Finished = true;
+            Visible = false;
+            return;
+        }
 
         if (_state == 0)
         {
@@ -79,16 +111,16 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
                 $"Companion barrier entered unsupported state ${_state:x2} " +
                 $"from {_record.Source}.");
         }
-        if (_target is not { BarrierMounted: true } ||
-            Mathf.FloorToInt(_target.BarrierPosition.Y) <= _record.Y)
-        {
-            return;
-        }
-
-        _target.ClampToLowerY(_record.Y);
+        if (_target is not { BarrierMounted: true }) return;
+        bool horizontal = _record.SubId is 1 or 5;
+        bool higher = _record.SubId is 1 or 4;
+        int boundary = horizontal ? _record.X : _record.Y;
+        int position = Mathf.FloorToInt(horizontal ? _target.BarrierPosition.X : _target.BarrierPosition.Y);
+        if (higher ? position > boundary : position <= boundary) return;
+        _target.SetBarrierCoordinate(horizontal, higher ? unchecked((byte)(boundary + 1)) : boundary);
         _showText(
-            _record.TextId(_target.CompanionId),
-            _record.Message(_target.CompanionId),
+            _record.TextId(_companionId),
+            _record.Message(_companionId),
             _target.BarrierPosition);
     }
 
@@ -103,8 +135,9 @@ internal sealed partial class CompanionBarrierRoomEntity : Node2D,
             return;
 
         _state = 1;
+        _companionId = _target.CompanionId; // Interaction.var30 is captured on mount.
         if ((_save.ReadWramByte(
-                _record.StateAddress(_target.CompanionId)) & 0x80) != 0)
+                _record.StateAddress(_companionId)) & 0x80) != 0)
         {
             Finished = true;
         }

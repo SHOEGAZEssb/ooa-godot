@@ -886,6 +886,13 @@ public partial class GameRoot : Node2D
         // updateSpecialObjects runs w1Companion before w1Link. A waiting raft
         // remains in the later interaction pass until it allocates that slot.
         _player.AdvanceDeathPrelude();
+        if (_transitions.AdvanceFadeOutWarpBeforeObjects(delta))
+        {
+            // mainThread advances wFrameCounter even when CUTSCENE_03
+            // omits updateAllObjects, including its terminal room load.
+            _entities.AdvanceFrozenRoomFrame();
+            return;
+        }
         if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnedUpdate && !_roomEvents.OwnsGameLogic)
             (_pirateShipCourse ??= new PirateShipCourse()).Update(
                 _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
@@ -914,10 +921,6 @@ public partial class GameRoot : Node2D
                 _entities.UpdateDuringHarp(delta, _player);
             else
                 _entities.Update(delta, _player);
-            if (!IsTransitioning && _entities.FloorToggle?.Frozen != true)
-            {
-                _terrain.AdvanceApplicationUpdate();
-            }
         }
         // A portal can begin the time warp from the contact pass above. The
         // original DISABLE_ALL_BUT_INTERACTIONS|DISABLE_LINK state freezes
@@ -951,6 +954,10 @@ public partial class GameRoot : Node2D
         bool scrollOwnedUpdate = pass.ScrollOwnedUpdate;
         _entities.SwitchHook?.UpdatePost(_player);
         _entities.Somaria?.UpdatePost(_player);
+        _entities.Biggoron?.UpdatePost(_player);
+        if (!arrivalOwnsUpdate && !IsTransitioning)
+            _transitions.SampleRoomExit(_player);
+        _entities.SynchronizeCompanionRiderAfterObjects(_player);
         _entities.UpdateHeldObjectPosition(_player);
         _player.PublishTilePushingDirection();
         // updateAllObjects drains up to four queued tile graphics after the
@@ -971,7 +978,7 @@ public partial class GameRoot : Node2D
         if (scrollOwnedUpdate)
             _transitions.UpdateScroll(delta);
         else if (!arrivalOwnsUpdate && !toggleOwnsPostObjects)
-            UpdatePostObjectPlayerState();
+            UpdatePostObjectPlayerState(roomExitSampled: true);
         _harp.Update(delta);
         _statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
@@ -990,7 +997,7 @@ public partial class GameRoot : Node2D
         _debugWarps.Update();
     }
 
-    internal void UpdatePostObjectPlayerState()
+    internal void UpdatePostObjectPlayerState(bool roomExitSampled = false)
     {
         // screenTransitionState2 runs after updateAllObjects in the original.
         // Interactions and moving platforms can move Link after his own state
@@ -1000,7 +1007,11 @@ public partial class GameRoot : Node2D
         {
             bool tileWarpStarted = _transitions.CheckRequestedTileWarp(_player);
             bool deepWaterStarted = _transitions.BeginRequestedDeepWaterDive(_player);
-            if (!tileWarpStarted && !deepWaterStarted) _transitions.CheckRoomExit(_player);
+            if (!tileWarpStarted && !deepWaterStarted)
+            {
+                if (roomExitSampled) _transitions.CommitRoomExit(_player);
+                else _transitions.CheckRoomExit(_player);
+            }
         }
 
         // The camera likewise observes the final post-object Link position.
@@ -1108,7 +1119,8 @@ public partial class GameRoot : Node2D
             braceletLevelSource: () => _inventory.BraceletLevel,
             movementMemory: _runtimeState)
         {
-            Name = "PushBlock"
+            Name = "PushBlock",
+            BraceletObtainedSource = () => _inventory.HasTreasure(TreasureId.Bracelet)
         };
         _scene.WorldRoot.AddChild(_pushBlocks);
         _pushBlocks.SetPhysicsProcess(false);
@@ -1123,7 +1135,7 @@ public partial class GameRoot : Node2D
         _keyDoors.SetPhysicsProcess(false);
         _keyholes = new OverworldKeyholeController(
             _rooms, _inventory, _entities, new OverworldKeyholeDatabase(),
-            _sound.PlaySound)
+            _sound)
         {
             Name = "OverworldKeyholes"
         };
@@ -1169,6 +1181,8 @@ public partial class GameRoot : Node2D
             _roomEvents.InteractionHandlers,
             () => _statusBar.DisplayedRupees == _inventory.Rupees);
         yield return false;
+        _pushBlocks.MessageRequested += message =>
+            _interactions.ShowRoomInteractionMessage(message, _player);
         _keyDoors.MessageRequested += message =>
             _interactions.ShowRoomInteractionMessage(message, _player);
         _keyholes.MessageRequested += message =>
@@ -1188,6 +1202,7 @@ public partial class GameRoot : Node2D
             _roomEvents.TriggerOverworldKeyhole);
         _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects;
         _entities.InitializedObjectsDisabledSource = () => _transitions.AwaitingLinkWarpState;
+        _entities.TextAllowsScriptSource = () => _dialogue.AllowsNativeScriptCommands;
         _entities.FloorToggle = new DungeonToggleController(_rooms, _runtimeState, _entities,
             _sound.PlaySound, () => (long)_animationTicks);
         _combat = new CombatController(
@@ -1224,25 +1239,32 @@ public partial class GameRoot : Node2D
         _entities.SwitchHook = new SwitchHookController(_scene.WorldRoot, _rooms, _entities, _sound.PlaySound,
             () => (long)_animationTicks, _combat.SpawnBreakEffect, () => _pushBlocks.Active);
         _entities.Somaria = new SomariaController(_scene.WorldRoot,_rooms,_entities,_sound.PlaySound);
+        _entities.Biggoron = new BiggoronSwordController(_scene.WorldRoot,_entities,_combat,_sound.PlaySound);
         _harp = new HarpController(
             _rooms, _entities, _transitions, _interactions, _sound);
         yield return false;
         _entities.PlayingInstrumentSource = () => _harp.PlayingInstrument;
         _terrain = new TerrainController(
-            _scene.WorldRoot, _rooms, new BreakableTileDatabase(),
-            _collision.AdjacentWallsBitset, _sound.PlaySound);
-        _transitions.WarpDestinationLoading += _terrain.ClearTransientEffects;
+            _rooms, new BreakableTileDatabase(),
+            _collision.AdjacentWallsBitset, (position, hazard) => _entities.TryCreateSplash(position, hazard));
         _entities.ItemDropEnteredHazard += _terrain.SpawnSplash;
         _pushBlocks.EnteredHazard += (position, hazard) =>
         {
             if (hazard is HazardType.Water or HazardType.Lava)
-                _terrain.SpawnSplash(position, hazard);
+            {
+                // objectReplaceWithSplash retires $14 even when its checked
+                // INTERAC $03/$04 allocation fails.
+                _entities.TryCreateSplash(position, hazard);
+            }
             else if (hazard == HazardType.Hole)
             {
-                _roomEvents.NotifyObjectFellInHole(
-                    ObjectFellInHoleKind.PushBlock);
+                // objectCreateFallingDownHoleInteraction is checked. A full
+                // pool still retires $14, without a hole actor/cue/event.
+                if (!_entities.InteractionSlotAvailable) return;
                 _entities.Spawn<FallingDownHoleEffect>(
                     new FallingDownHoleSpawn(position));
+                _roomEvents.NotifyObjectFellInHole(
+                    ObjectFellInHoleKind.PushBlock);
             }
         };
         _debugCollision = new DebugCollisionController();
@@ -1250,7 +1272,7 @@ public partial class GameRoot : Node2D
             _transitions, _interactions, _collision, _pushBlocks, _keyDoors, _keyholes,
             _terrain, _combat, _entities,
             _bomb, _bracelet, _shovel, _seedSatchel, _harp, _roomEvents,
-            _inventory, _sound, () => _debugCollision.CollisionsDisabled);
+            _inventory, _sound, () => _debugCollision.CollisionsDisabled, _rooms);
         _debugWarps = new DebugWarpController(
             _player, LoadDebugRoom, FindSpawn,
             _launchOptions.DebugWarpGroup, _launchOptions.DebugWarpRoom);
@@ -1704,7 +1726,6 @@ public partial class GameRoot : Node2D
         _dialogue.Close();
         _transitions.ClearDeactivatedWarp();
         _entities.ClearRecentEnemyDefeats();
-        _terrain.ClearTransientEffects();
         OracleRoomData loaded = _rooms.Load(group, room);
         // Dungeon side-view layouts live in object/tileset groups $04/$05,
         // but the retail room loader switches the active group to $06/$07 so

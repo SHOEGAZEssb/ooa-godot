@@ -9,9 +9,9 @@ namespace oracleofages;
 /// invisible part owns item collision, wSwitchState, and the tile flip.
 /// </summary>
 internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntity,
-    IFixedRoomEntity, ISwordHittableRoomEntity,
-    IItemCollisionHittableRoomEntity, ISeedHittableRoomEntity,
-    IObjectCollisionHeightRoomEntity, ISeedPreMovementCollisionTarget, IRoomEntityLifetime,
+    IFixedRoomEntity, ISwordHittableRoomEntity, IPostObjectMeleeCollisionRoomEntity,
+    IPostObjectItemCollisionRoomEntity, ISeedCollisionTarget,
+    IObjectCollisionHeightRoomEntity, IRoomEntityLifetime,
     ISwitchHookHittableRoomEntity, INativePartHealthRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     IScreenTransitionPreloadRoomEntity
@@ -23,13 +23,15 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     private readonly Func<long> _animationTick;
     private readonly Action _roomTileChanged;
     private readonly Action<int> _playSound;
+    private readonly Func<byte,byte,bool> _setTile;
     private int _hitLockout;
-    private bool _pendingHookHit;
+    private bool _pendingHit;
     private bool _initialized;
     private bool _healthCleared;
     public bool UpdatesDuringDialogue => !_initialized;
     public bool UpdatesDuringRoomEntityFreeze => !_initialized;
     internal bool CollisionEnabled => !Finished && !_healthCleared;
+    public bool MeleeReportsContact => false; // LINKDMG_1c leaves ITEM_SWORD.var2a unchanged.
     public void ClearHealthAndCollision() => _healthCleared = true;
     private readonly PartSwitchCollisionDatabase _collisions = PartSwitchCollisionDatabase.Shared;
     private readonly OracleSaveData? _save;
@@ -51,6 +53,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         Func<long> animationTick,
         Action roomTileChanged,
         Action<int> playSound,
+        Func<byte,byte,bool> setTile,
         OracleSaveData? save = null)
         : base(record, $"DungeonSwitch_{record.SubId:x2}_{record.Order}")
     {
@@ -63,14 +66,11 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         _animationTick = animationTick;
         _roomTileChanged = roomTileChanged;
         _playSound = playSound;
+        _setTile = setTile;
         _save = save;
         if (record.Group == 0 && save is null)
             throw new InvalidOperationException("Overworld PART_SWITCH $05 requires live save state.");
 
-        // replaceSwitchTiles runs before object parsing and restores each
-        // switch's on metatile when its retained dungeon bit is already set.
-        if (record.Group != 0 && SwitchIsOn())
-            SetSwitchTile(_data.SwitchOnTile);
     }
 
     public void UpdateFrame(
@@ -86,9 +86,9 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         // standard part update increments it through zero over 28 updates.
         if (_hitLockout > 0)
             _hitLockout--;
-        if (_pendingHookHit || _healthCleared)
+        if (_pendingHit || _healthCleared)
         {
-            _pendingHookHit = false;
+            _pendingHit = false;
             Toggle();
         }
     }
@@ -97,7 +97,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     {
         _initialized = true;
         _healthCleared = false; // partCommon_standardUpdate reloads state-zero properties.
-        _pendingHookHit = false;
+        _pendingHit = false;
     }
 
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
@@ -113,7 +113,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         EnemyKnockbackStrength knockbackStrength,
         ICollection<RoomEntitySpawn> spawns)
     {
-        TryToggle(hitbox, ItemCollisionType.L1Sword);
+        TryQueueHit(hitbox, ItemCollisionType.L1Sword);
         // LINKDMG_1c does not mark ordinary enemy contact on ITEM_SWORD, so
         // this must not trigger Double-Edged Ring recoil or consume the hit.
         return false;
@@ -131,9 +131,9 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         if (collision == RoomEntityItemCollision.SwordBeam)
             // Effect20 clears the beam's collision bit and delivers part
             // damage $ff through LINKDMG24, making ITEM_SWORD_BEAM clink/delete.
-            return TryToggle(hitbox, ItemCollisionType.SwordBeam);
+            return TryQueueHit(hitbox, ItemCollisionType.SwordBeam);
         if (collision == RoomEntityItemCollision.ThrownObject)
-            TryToggle(hitbox, ItemCollisionType.ThrownObject);
+            TryQueueHit(hitbox, ItemCollisionType.ThrownObject);
         // Thrown objects use effect26 / LINKDMG1c and remain active.
         return false;
     }
@@ -143,9 +143,14 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         Vector2 sourcePosition,
         int seedItem,
         ICollection<RoomEntitySpawn> spawns) =>
-        TryToggle(hitbox, seedItem == ItemId.MysterySeed ? ItemCollisionType.MysterySeed : seedItem - 0x20 + 0x1b)
+        TryQueueHit(hitbox, seedItem == ItemId.MysterySeed ? ItemCollisionType.MysterySeed : seedItem - 0x20 + 0x1b)
             ? SeedHitResult.Activate
             : SeedHitResult.None;
+
+    public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 sourcePosition,
+        SeedRecord seed, int collisionType, ICollection<RoomEntitySpawn> spawns) => TryQueueHit(hitbox, collisionType)
+        ? new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, true)
+        : default;
 
     public bool ApplySwitchHookHit(SwitchHookItem hook, Vector2 linkPosition)
     {
@@ -154,7 +159,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         // collisionEffect26 writes var2a=$8d / invincibility=$e4 on the
         // collision pass. The next part update increments $e4 before switch.s
         // toggles the bit; subsequent interactions see it on that update.
-        _pendingHookHit = true;
+        _pendingHit = true;
         hook.NotifyObjectCollision(); // Part.var3e=$08 retracts without a clink.
         return true;
     }
@@ -162,16 +167,19 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     private bool TryAcceptHit(Rect2 hitbox, int itemCollision)
     {
         int lockout = _collisions.HitLockout(itemCollision);
-        if (!CollisionEnabled || _pendingHookHit || _hitLockout != 0 || lockout < 0 || !hitbox.Intersects(CollisionBounds))
+        if (!CollisionEnabled || _pendingHit || _hitLockout != 0 || lockout < 0 ||
+            !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds,hitbox))
             return false;
         _hitLockout = lockout;
         return true;
     }
 
-    private bool TryToggle(Rect2 hitbox, int itemCollision)
+    private bool TryQueueHit(Rect2 hitbox, int itemCollision)
     {
         if (!TryAcceptHit(hitbox, itemCollision)) return false;
-        Toggle();
+        // The collision pass publishes Part.var2a bit7. Only the following
+        // eligible partCommon_standardUpdate dispatches switch.s with JUST_HIT.
+        _pendingHit = true;
         return true;
     }
 
@@ -188,7 +196,7 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
             // logical layout byte before deleting the one-shot part.
             SetSwitchTile(_data.OverworldSwitchOnTile);
             _room.SetPositionTileAndCollision(Position, 0,
-                _room.GetCollision((byte)_data.OverworldSwitchOnTile),
+                _room.GetTerrainInfo(Position).Collision,
                 _animationTick(), preserveRenderedTile: true);
             _save!.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag40);
             Finished = true;
@@ -200,15 +208,11 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
         _playSound(_data.SwitchSound);
     }
 
-    private bool SwitchIsOn() =>
-        (_runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress) &
-            SwitchMask) != 0;
-
     private void SetSwitchTile(int tile)
     {
-        _room.SetPositionTileAndCollision(
-            Position, (byte)tile, null, _animationTick());
-        _roomTileChanged();
+        // switch.s changes wSwitchState before setTile. Queue rejection
+        // leaves the old tile but still consumes the hit and plays its cue.
+        if (_setTile((byte)_record.PackedPosition,(byte)tile)) _roomTileChanged();
     }
 }
 

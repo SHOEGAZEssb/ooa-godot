@@ -40,15 +40,19 @@ public sealed partial class ValidationRoot
                 // swordEnemies.s state0 creates PART $1d, sets state8/visible,
                 // counter1=$01 and subid-$00 chase cooldown=$14.
                 var moblin = _entities.Entities<SwordEnemyCharacter>().Single();
+                FailIf(moblin.State != SwordEnemyState.Uninitialized ||
+                    _entities.EntityAdapters<EnemySwordRoomEntity>().Any(),
+                    "4:$b7 placed ENEMY $3d must remain pending, without PART $1d, on CUTSCENE_03's reload update.");
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
                 FailIf(moblin.Record.Id != 0x3d || moblin.Record.SubId != 0 ||
                     moblin.Position != new Vector2(120, 104) || !moblin.Visible ||
                     moblin.State != SwordEnemyState.Wandering || moblin.Counter1 != 1 ||
                     moblin.Counter2 != 0x14 || moblin.Angle is not (0 or 8 or 16 or 24) ||
                     _entities.EntityAdapters<EnemySwordRoomEntity>().Count() != 1,
-                    "4:$b7 ENEMY $3d:$00 must finish state0 and create PART $1d while white is opaque.");
+                    "4:$b7 ENEMY $3d:$00 must finish state0 and create PART $1d on the first arrival object pass.");
                 int angle = moblin.Angle, animation = moblin.AnimationFrame;
                 var random = CaptureOracleRandomForValidation();
-                foreach (int updates in new[] { 1, 14, 17 })
+                foreach (int updates in new[] { 1, 14, 16 })
                 {
                     StepGameplayUpdates(updates, Vector2.Zero, batched: batch);
                     FailIf(!_transitions.PaletteFadeActive || !moblin.Visible ||
@@ -114,6 +118,11 @@ public sealed partial class ValidationRoot
                 FailIf(whisps.Count != 2 || likes.Count != 2 ||
                     whisps[0].Position != new Vector2(120, 56) || whisps[1].Position != new Vector2(120, 136),
                     "4:$9f must load the source's two fixed Whisps and two random Like Likes.");
+                // CUTSCENE_03 returns after initializeRoom. Destination
+                // state0 first runs in the following cutscene00 object pass.
+                FailIf(whisps.Any(w => w.Initialized) || likes.Any(l => l.State != 0),
+                    "4:$9f enemy state0 must remain pending on the reload update.");
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
                 FailIf(whisps.Any(w => !w.Initialized || !w.Visible || w.Angle is not (4 or 12 or 20 or 28)) ||
                     likes.Any(l => l.State != 8 || !l.Visible),
                     "4:$9f ENEMY $19/$24 state0 must initialize and become visible before white fades away.");
@@ -121,7 +130,7 @@ public sealed partial class ValidationRoot
                 var angles = whisps.Select(w => w.Angle).ToArray();
                 var likePositions = likes.Select(l => l.Position).ToArray();
                 var random = CaptureOracleRandomForValidation();
-                foreach (int updates in new[] { 1, 14, 17 })
+                foreach (int updates in new[] { 1, 14, 16 })
                 {
                     StepGameplayUpdates(updates, Vector2.Zero, batched: batch);
                     var currentRandom = CaptureOracleRandomForValidation();

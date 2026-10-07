@@ -36,8 +36,8 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
         if (Entity.State == 0) Entity.UpdateFrame(Vector2.Zero); // State0 does not read the target.
         return ScreenTransitionPresentation.Visible;
     }
-    public void SetLinkSwordState(SwordActionState state, int level) =>
-        _swordCollision = SwordCollision.Type(state, level);
+    public void SetLinkSwordState(SwordActionState state, int level,int? itemCollisionType=null) =>
+        _swordCollision = itemCollisionType??SwordCollision.Type(state, level);
     private bool Overlaps(int collision, Rect2 bounds) => Entity.CollisionEnabled && !Entity.PendingCollision &&
         Entity.InvincibilityCounter == 0 && _data.BallMask[collision].Value != 0 &&
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);

@@ -20,6 +20,8 @@ internal sealed class DarkRoomDatabase
     internal int TorchCollisionMode => Constant("torch-collision-mode");
     internal int TorchRadiusY => Constant("torch-radius-y");
     internal int TorchRadiusX => Constant("torch-radius-x");
+    internal int TorchItemCollision => Constant("torch-item-collision");
+    internal int TorchItemEffect => Constant("torch-item-effect");
     internal int FullDarkParameter => Constant("full-dark-parameter");
     internal int PartialDarkParameter => Constant("partial-dark-parameter");
     internal int FadeSpeed => Constant("fade-speed");
@@ -115,7 +117,7 @@ internal sealed class DarkRoomDatabase
 
         IReadOnlyList<DarkRoomDatabaseRecord> roomA8 = GetRoomRecords(5, 0xa8);
         IReadOnlyList<DarkRoomDatabaseRecord> roomEd = GetRoomRecords(5, 0xed);
-        if (RecordCount != 3 || _constants.Count != 19 ||
+        if (RecordCount != 3 || _constants.Count != 21 ||
             roomA8.Count != 1 || roomA8[0] != new DarkRoomDatabaseRecord(
                 5, 0xa8, 0, DarkRoomDatabaseObjectKind.Handler, 0x08, 0x00,
                 -1, -1, 0x00, 0, "-", "darkRoomHandler.s:partCode08") ||
@@ -128,6 +130,7 @@ internal sealed class DarkRoomDatabase
                 -1, -1, 0x50, 0, "-", "darkRoomHandler.s:partCode08") ||
             UnlitTile != 0x08 || LitTile != 0x09 ||
             TorchCollisionMode != 0x82 || TorchRadiusY != 4 || TorchRadiusX != 4 ||
+            TorchItemCollision != 0x1b || TorchItemEffect != 0x20 ||
             FullDarkParameter != 0xf0 || PartialDarkParameter != 0xf7 ||
             FadeSpeed != 1 || LightSound != 0x72 ||
             RewardSpawnMode != TreasureSpawnMode.FromScreenTop || RewardGrabMode != TreasureGrabMode.OneHand || SpawnDelay != 40 ||

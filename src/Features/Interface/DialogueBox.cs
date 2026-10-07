@@ -149,6 +149,9 @@ public partial class DialogueBox : Node2D
     // wTextIsActive=$80 retains the textbox while menu handlers may consume
     // its completed printing/choice result (textbox.s states f and option 2).
     internal bool PrintingComplete => !_open || _nonExitableReady;
+    // interactionRunScript accepts the high bit of wTextIsActive: $80
+    // after non-exitable printing, or $ff while the owner requests closing.
+    internal bool AllowsNativeScriptCommands => _open && (_nonExitableReady || _ownerClosing);
     internal int VisibleLinesPerPage => LinesPerPage;
     internal int TextLineSpacing => LineSpacing;
     internal int CharacterDisplayFrameLength => CharacterDisplayFrames[_messageSpeed];

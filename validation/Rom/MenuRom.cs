@@ -21,6 +21,8 @@ internal sealed class MenuRom
     }
     internal void LoadHudGraphics() => _rom.LoadHudGraphics();
     internal void LoadRoomGraphics() => _rom.Call(0x3796, 0); // loadTilesetGraphics, including source room palettes.
+    internal void LoadRoomMappings() => _rom.Call(0x3712,0); // loadTilesetLayout, original mapping indices/table and Ages palette adjustment.
+    internal void LoadToggleGraphics() => _rom.Call(0x7a77,2); // roomGfxChanges.func_02_7a77, header$3d/$3f.
     internal void SeedBackgroundPalette(int palette, int[] colors)
     {
         if (palette is < 0 or > 7 || colors.Length != 4)

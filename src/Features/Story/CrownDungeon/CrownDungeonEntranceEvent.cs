@@ -15,6 +15,7 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
     public bool HasState => _armed || _runner.Active;
     public bool BlocksGameplay => _runner.Active;
     public bool FreezesNonInteractionObjects => BlocksGameplay;
+    public bool MenusDisabled => BlocksGameplay;
 
     internal CrownDungeonEntranceEvent(RoomEventContext context)
     {
@@ -44,7 +45,6 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
         if (!CanTrigger(group, room) || !Context.Rooms.SaveData.HasRoomFlag(group, room, OracleSaveData.RoomFlag80))
             throw new InvalidOperationException($"miscPuzzles_subid11 cannot trigger in {group:x}:{room:x2}.");
         _armed = false;
-        Context.Player.BeginCutsceneControl(owner: this);
         _runner.Start(_database.Commands);
     }
 
@@ -61,13 +61,13 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
         _armed = false;
         Phase = 0;
         if (running) Context.Entities.SetScreenShake(0, 0, 0);
-        Context.Player.EndCutsceneControl(this);
     }
 
     public override void SetInputEnabled(bool enabled)
     {
         if (!enabled) throw UnsupportedCommand("disable input from script");
-        Context.Player.EndCutsceneControl(this);
+        // enableinput clears $81; ordinary Link and retained parents resume
+        // on the following gameplay pass.
     }
 
     public override void SetMusic(int music)
@@ -78,15 +78,20 @@ internal sealed class CrownDungeonEntranceEvent : RoomCutsceneCommandHost, IRoom
 
     public override void ScriptEnded()
     {
-        Context.Entities.SetScreenShake(0, 0, 0);
     }
 
     public override void RunNativeHandler(string handler)
     {
+        if (handler == "KeyholeSignal")
+        {
+            if ((Context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) & 1) == 0)
+                throw UnsupportedCommand("keyhole signal without cfc0 bit0");
+            return;
+        }
         if (handler == "OpenDoor")
         {
             // settilehere uses the placed $90:$11 coordinates ($18,$78).
-            Context.Rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(0x78, 0x18), 0xee, null, Context.AnimationTick());
+            Context.Rooms.TrySetTile(0x17, 0xee);
             return;
         }
         int phase = handler switch { "Frame1" => 1, "Frame2" => 2, "Frame3" => 3,

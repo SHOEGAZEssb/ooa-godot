@@ -12,14 +12,24 @@ internal interface IColoredCubePuzzleStateSource
 internal sealed class ColoredCubePuzzleState
 {
     private readonly int _redPushableBlock;
+    private readonly OracleRuntimeState _runtimeState;
 
-    internal ColoredCubePuzzleState(int redPushableBlock)
+    internal ColoredCubePuzzleState(OracleRuntimeState runtimeState, int redPushableBlock)
     {
+        _runtimeState = runtimeState;
         _redPushableBlock = redPushableBlock;
     }
 
-    internal int CubePosition { get; set; }
-    internal int CubeColor { get; set; }
+    internal int CubePosition
+    {
+        get => _runtimeState.ReadWramByte(WramAddress.wRotatingCubePos);
+        set => _runtimeState.SetWramByte(WramAddress.wRotatingCubePos, unchecked((byte)value));
+    }
+    internal int CubeColor
+    {
+        get => _runtimeState.ReadWramByte(WramAddress.wRotatingCubeColor);
+        set => _runtimeState.SetWramByte(WramAddress.wRotatingCubeColor, unchecked((byte)value));
+    }
 
     internal bool PermitsPushBlock(byte tile)
     {

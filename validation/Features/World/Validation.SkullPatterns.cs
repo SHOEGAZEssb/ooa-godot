@@ -10,6 +10,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonPatterns()
     {
+        CompareFloorPatternTriggerRom();
+        CompareFloorPatternKeyRom();
+        ComparePatternKeyPlacementRom();
+        ComparePatternKeyScrollRom();
         var data = new SkullDungeonDatabase();
         // dungeonEvents.s byte tables, independently specified here.
         byte[][] doorPattern = [[0x43, 0x45, 0x64], [0x54, 0x63, 0x65], [0x44, 0x53, 0x55]];
@@ -21,7 +25,6 @@ public sealed partial class ValidationRoot
         FailIf(data.GetRoomRecords(4, 0x79)[1] is not { Id: InteractionId.DungeonEvents, SubId: 0x0f, Order: 2 } ||
             data.GetRoomRecords(4, 0x7b)[0] is not { Id: InteractionId.DungeonEvents, SubId: 0x10, Order: 0, X: 0x68, Y: 0x58 },
             "Skull pattern events lost their native order or falling-key coordinates.");
-        var setTrigger = (Action<int, bool>)_entities.SetTrigger;
         void Step(int count = 1, bool jump = false, Vector2 move = default) =>
             StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: true);
         static Vector2 Point(int packed) => new((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8);
@@ -33,28 +36,6 @@ public sealed partial class ValidationRoot
         }
         _inventory.GiveTreasure(TreasureId.Feather, 1);
         _inventory.EquipA(TreasureId.Feather);
-        LoadValidationRoom(4, 0x79);
-        _player.WarpTo(new Vector2(168, 120));
-        SetPattern(doorPattern);
-        foreach (var (color, packed) in doorPattern.SelectMany((positions, color) => positions.Select(packed => (color, packed))))
-        {
-            Tile(packed, 0xad + (color + 1) % 3);
-            setTrigger(7, true);
-            Step();
-            FailIf(_entities.ActiveTriggers != 0, $"$21:$0f accepted the wrong color at ${packed:x2} or retained another trigger bit.");
-            Tile(packed, 0xad + color);
-        }
-        var textSource = _entities.TextActiveSource;
-        try
-        {
-            _entities.TextActiveSource = () => true;
-            Step();
-            FailIf(_entities.ActiveTriggers != 1, "State-zero $21:$0f stopped evaluating during text.");
-            Tile(0x43, 0xda);
-            Step();
-            FailIf(_entities.ActiveTriggers != 0, "$21:$0f accepted Somaria in place of a required red tile during text.");
-        }
-        finally { _entities.TextActiveSource = textSource; }
 
         // Complete each native pattern through Feather input on a real clear
         // corridor. Only the other puzzle colors are prepared as a fixture.
@@ -115,13 +96,19 @@ public sealed partial class ValidationRoot
                     $"4:{room:x2} Feather did not land and cycle target ${target:x2}; Link={_player.Position}, tile={_currentRoom.GetMetatile(Point(target)):x2}.");
                 if (room == 0x79)
                 {
+                    // The original $15:$01 landing child occupies a later
+                    // slot than $21:$0f. Its write becomes visible next pass.
+                    FailIf(_entities.ActiveTriggers != 0 || !_currentRoom.IsSolid(Point(0x50)),
+                        "4:79 trigger must precede the later floor-child landing write.");
+                    Step();
                     FailIf(_entities.ActiveTriggers != 1 || !_currentRoom.IsSolid(Point(0x50)),
-                        "4:79 must publish its trigger on landing, after the earlier shutter has already updated.");
+                        "4:79 must publish its trigger on the following pass, after the earlier shutter.");
                     Step(16);
                     FailIf(_currentRoom.IsSolid(Point(0x50)), "4:79 shutter did not open after its exact floor pattern matched.");
                     Step(16, move: direction);
                     Step(jump: true, move: -direction);
                     for (int i = 0; i < 80 && _player.TopDownAirborne; i++) Step(move: -direction);
+                    Step();
                     FailIf(_entities.ActiveTriggers != 0, "A repeated floor jump did not revoke the solved pattern trigger.");
                     Step(16);
                     FailIf(!_currentRoom.IsSolid(Point(0x50)), "4:79 shutter did not close when its pattern was broken again.");

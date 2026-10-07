@@ -14,33 +14,29 @@ public partial class OverworldKeyholeController : Node
     private readonly InventoryState _inventory;
     private readonly RoomEntityManager _entities;
     private readonly OverworldKeyholeDatabase _database;
-    private readonly Action<int> _playSound;
+    private readonly OracleSoundEngine _sound;
     private Func<int, int, bool>? _supportsEvent;
     private Action<int, int>? _triggerEvent;
-    private int _pushCounter;
-    private int _candidatePosition = -1;
-    private bool _informativeTextShown;
+    private int _pushCounter { get => _rooms.TilePushCounter; set => _rooms.TilePushCounter = unchecked((byte)value); }
 
     public event Action<string>? MessageRequested;
 
     internal OverworldKeyholeDatabase Database => _database;
     internal int RemainingPushFrames => _pushCounter;
-    internal bool InformativeTextShown => _informativeTextShown;
+    internal bool InformativeTextShown => _rooms.TileInfoTextShown(0x5109);
 
     internal OverworldKeyholeController(
         RoomSession rooms,
         InventoryState inventory,
         RoomEntityManager entities,
         OverworldKeyholeDatabase database,
-        Action<int> playSound)
+        OracleSoundEngine sound)
     {
         _rooms = rooms;
         _inventory = inventory;
         _entities = entities;
         _database = database;
-        _playSound = playSound;
-        _pushCounter = database.Constants.PushCounter;
-        _rooms.RoomChanged += (_, _) => Cancel();
+        _sound = sound;
     }
 
     internal void SetEventHandler(
@@ -51,55 +47,48 @@ public partial class OverworldKeyholeController : Node
         _triggerEvent = triggerEvent;
     }
 
-    public void UpdatePushAttempt(
+    public bool UpdatePushAttempt(
         Vector2 linkPosition,
         Vector2I facing,
         Vector2 movementInput)
     {
         int group = _rooms.ActiveGroup;
         int roomId = _rooms.CurrentRoom.Id;
-        if (_supportsEvent is null || !_supportsEvent(group, roomId) ||
-            !_database.TryGet(group, roomId, out OverworldKeyholeDatabaseRecord record) ||
-            _rooms.SaveData.HasRoomFlag(group, roomId, _database.Constants.RoomFlag))
-        {
-            ResetPushCounter();
-            return;
-        }
-
+        // The opened keyhole handler returns before touching the contact
+        // clock, even with neutral input. Ordinary front tiles still reset it.
+        if (_rooms.SaveData.HasRoomFlag(group, roomId, _database.Constants.RoomFlag) &&
+            TryGetKeyhole(linkPosition, facing, out _, out _))
+            return false;
         if (!InteractableTilePushGeometry.TryGetCardinalInput(
-                movementInput, out Vector2I direction) ||
-            direction != facing || direction != Vector2I.Up ||
+                movementInput, out _) ||
             !InteractableTilePushGeometry.IsAlignedForPush(linkPosition) ||
-            !TryGetKeyhole(linkPosition, direction, out int position, out Vector2 center))
+            !TryGetKeyhole(linkPosition, facing, out _, out Vector2 center))
         {
             ResetPushCounter();
-            return;
+            return false;
         }
-
-        if (_candidatePosition != position)
-        {
-            _candidatePosition = position;
-            _pushCounter = _database.Constants.PushCounter;
-        }
+        // checkFacingBottomOfTile rejects side/top contact without touching
+        // the shared byte; only a failed pushing gate resets the wait.
+        if (facing != Vector2I.Up) return false;
 
         // Like nextToKeyDoor, nextToOverworldKeyhole decrements the global
         // pushing counter twice until it reaches zero.
-        if (!PushingAgainstTileCounter.DecrementTwiceToZero(
-                ref _pushCounter))
-            return;
+        int counter = _pushCounter;
+        bool expired = PushingAgainstTileCounter.DecrementTwiceToZero(ref counter);
+        _pushCounter = counter;
+        if (!expired)
+            return false;
 
-        if (!_inventory.HasTreasure(record.Treasure))
+        if (!_database.TryGet(group,roomId,out OverworldKeyholeDatabaseRecord record) ||
+            !_inventory.HasTreasure(record.Treasure))
         {
-            if (!_informativeTextShown)
-            {
-                _informativeTextShown = true;
-                MessageRequested?.Invoke(_database.Constants.NoKeyMessage);
-            }
+            if (_rooms.PrepareTileInfoMessage(0x5109) is { } message)
+                MessageRequested?.Invoke(message);
             ResetPushCounter();
-            return;
+            return _entities.TextActiveSource();
         }
 
-        if (_triggerEvent is null)
+        if (_triggerEvent is null || _supportsEvent is null || !_supportsEvent(group,roomId))
         {
             throw new InvalidOperationException(
                 $"Keyhole {group:x}:{roomId:x2} has no associated event handler.");
@@ -107,18 +96,27 @@ public partial class OverworldKeyholeController : Node
 
         // The original checks the named-key treasure flag without calling
         // giveTreasure's inverse, so the key remains in inventory.
-        _playSound(_database.Constants.OpenSound);
+        _sound.PlaySound(_database.Constants.OpenSound);
         _rooms.SaveData.SetRoomFlag(group, roomId, _database.Constants.RoomFlag);
+        // The room controller reads this shared signal without clearing it.
+        OracleRuntimeState memory = _entities.RuntimeState;
+        memory.SetWramByte(WramAddress.wTmpcfc0,
+            (byte)(memory.ReadWramByte(WramAddress.wTmpcfc0) | 1));
         _triggerEvent(group, roomId);
-        _entities.Spawn<OverworldKeyUseEffect>(
-            new OverworldKeyUseSpawn(center, record, _database.Constants));
-        ResetPushCounter();
-    }
-
-    internal void Cancel()
-    {
-        _informativeTextShown = false;
-        ResetPushCounter();
+        if (_entities.InteractionSlotAvailable)
+            _entities.Spawn<OverworldKeyUseEffect>(new OverworldKeyUseSpawn(center,record,_database.Constants));
+        else
+        {
+            // Native getFreeInteractionSlot leaves HL=$e040 on failure.
+            // The unchecked caller changes L to id/subid, then increments
+            // $e041 and writes subid/var03 at $e042/$e043. Echo RAM aliases
+            // these to audio's channel2/3/4 sweep bytes; no sprite is created.
+            _sound.SetNativeChannelPitchSlide(2,unchecked((byte)(_sound.Channel(2).PitchSlide + 1)));
+            _sound.SetNativeChannelPitchSlide(3,(byte)record.SubId);
+            _sound.SetNativeChannelPitchSlide(4,(byte)record.SubId);
+        }
+        // nextToOverworldKeyhole sets carry after acquiring $81 control.
+        return true;
     }
 
     private bool TryGetKeyhole(
@@ -144,6 +142,5 @@ public partial class OverworldKeyholeController : Node
     private void ResetPushCounter()
     {
         _pushCounter = _database.Constants.PushCounter;
-        _candidatePosition = -1;
     }
 }

@@ -5,8 +5,17 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidateMinecartDoorsRom() => ValidateMinecartDoorControlRom(false);
-    private void ValidateMinecartDoorControllersRom() => ValidateMinecartDoorControlRom(true);
+    private void ValidateMinecartDoorsRom()
+    {
+        ValidateMinecartDoorControlRom(false);
+        CompareMinecartDoorAllocationRom();
+        CompareMinecartDoorGatesRom();
+    }
+    private void ValidateMinecartDoorControllersRom()
+    {
+        ValidateMinecartDoorControlRom(true);
+        CompareMinecartDoorClosingRom();
+    }
     private void ValidateMinecartShutterRespawnRom() => ValidateMinecartDoorControlRom(true, true);
 
     private void ValidateMinecartDoorControlRom(bool persistent, bool cramped = false)
@@ -57,7 +66,8 @@ public sealed partial class ValidationRoot
             if (persistent)
             {
                 controller = new MinecartShutterRoomEntity(_currentRoom.GetPackedPosition(doorway), door, false,
-                    _currentRoom, new DungeonMechanicDatabase(), point => point, () => _entities.FrameCounter, _sound.PlaySound, _entities.UpdateBossShutterSignal);
+                    _currentRoom, new DungeonMechanicDatabase(), point => point, () => _entities.FrameCounter, _sound.PlaySound,
+                    _rooms.TrySetTile,_entities.UpdateBossShutterSignal,() => _entities.DoorPaletteFadeActive,_entities.IsScriptTextActive);
                 _entities.AddEntity(controller);
                 rom[0xd240] = 1; rom[0xd241] = 0x1e; rom[0xd242] = (byte)(door - 0x70);
                 rom[0xd24b] = (byte)_currentRoom.GetPackedPosition(doorway);

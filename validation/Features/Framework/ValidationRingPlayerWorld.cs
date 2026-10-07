@@ -14,6 +14,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool NativeTextActive { get; set; }
     public bool SwordDisabled => false;
     public bool ItemUsageDisabled => false;
+    public bool InShop { get; set; }
     public bool MovementDisabled { get; set; }
     public bool RingTransformationsAllowed { get; set; } = true;
     public bool RidingObject { get; set; }
@@ -87,8 +88,9 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
             BlockVerticalMovement ? 0.0f : movement.Y);
     }
     public bool IsPushingAgainstWall(Vector2 playerPosition, Vector2I facing, Vector2 movementInput) => PushingAgainstWall;
-    public void UpdatePushableBlocks(Vector2 playerPosition, Vector2I facing, Vector2 movementInput)
+    public bool UpdatePushableBlocks(Vector2 playerPosition, Vector2I facing, Vector2 movementInput)
     {
+        return false;
     }
 
     public ActiveTerrainInfo ActiveTerrain { get; set; }

@@ -6,7 +6,8 @@ namespace oracleofages;
 
 /// <summary>INTERAC_MISCELLANEOUS_1 $6b:$0f and its native simple script.</summary>
 internal sealed partial class NuunBridgeRoomEntity : DungeonMechanicRoomEntity,
-    IFixedRoomEntity, IRoomEntityLifetime, IPlayerRestriction, IRoomEntityUpdateFreeze
+    IFixedRoomEntity, IRoomEntityLifetime, IPlayerRestriction, IRoomEntityUpdateFreeze,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
@@ -16,10 +17,13 @@ internal sealed partial class NuunBridgeRoomEntity : DungeonMechanicRoomEntity,
     private readonly Func<long> _tick;
     private readonly Action _tileChanged;
     private readonly Action<int> _sound;
+    private readonly Func<byte,byte,bool> _setTile;
     private int _state;
     private int _counter;
     private int _pc;
     public bool Finished { get; private set; }
+    public bool UpdatesDuringDialogue => _state == 0;
+    public bool UpdatesDuringRoomEntityFreeze => _state == 0;
     public bool DisablesSword => _state == 2 && !Finished;
     public bool DisablesMovement => DisablesSword;
     public bool DisablesItems => DisablesSword;
@@ -29,7 +33,7 @@ internal sealed partial class NuunBridgeRoomEntity : DungeonMechanicRoomEntity,
 
     internal NuunBridgeRoomEntity(DungeonMechanicDatabaseRecord record, OracleRoomData room,
         OracleSaveData save, OracleRuntimeState runtime, Func<long> tick,
-        Action tileChanged, Action<int> sound) : base(record, "NuunBridgeController")
+        Action tileChanged, Action<int> sound, Func<byte,byte,bool> setTile) : base(record, "NuunBridgeController")
     {
         _record = record;
         _room = room;
@@ -38,9 +42,8 @@ internal sealed partial class NuunBridgeRoomEntity : DungeonMechanicRoomEntity,
         _tick = tick;
         _tileChanged = tileChanged;
         _sound = sound;
+        _setTile = setTile;
         _commands = new NuunBridgeDatabase().Commands;
-        // tileReplacement_group0Map54 clears this before object initialization.
-        runtime.SetWramByte(OracleRuntimeState.SwitchStateAddress, 0);
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -88,12 +91,11 @@ internal sealed partial class NuunBridgeRoomEntity : DungeonMechanicRoomEntity,
                     _sound(command.A);
                     return;
                 case 3:
-                    _room.SetPositionTileAndCollision(position, (byte)command.B, null, _tick());
-                    _tileChanged();
+                    if (_setTile((byte)command.A,(byte)command.B)) _tileChanged();
                     break;
                 case 4:
                     _room.SetInterleavedMetatile(position, (byte)command.B,
-                        (byte)command.C, command.D, _tick());
+                        (byte)command.C, command.D, _tick(),writeLayout:false);
                     _tileChanged();
                     break;
                 default:

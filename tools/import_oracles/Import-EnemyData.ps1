@@ -1760,6 +1760,22 @@ function Export-SomariaCollisionData {
     Export-ItemActiveCollisionColumns 'somaria' @('swing-enabled', 'block-enabled') @(0x12, 0x15)
 }
 Export-SomariaCollisionData
+$biggoronCollisions = [Collections.Generic.List[string]]::new()
+$biggoronCollisions.Add("# mode`teffect`tsource")
+for ($mode = 0; $mode -lt 0x7d; $mode++) {
+    $offset = $mode * 32 + 0x07
+    $biggoronCollisions.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/biggoron_sword_collision_effects.tsv'), $biggoronCollisions)
+Export-ItemActiveCollisionColumns 'biggoron_sword' @('enabled') @(0x07)
+$bombCollisions = [Collections.Generic.List[string]]::new()
+$bombCollisions.Add("# mode`teffect`tsource")
+for ($mode = 0; $mode -lt 0x7d; $mode++) {
+    $offset = $mode * 32 + 0x18
+    $bombCollisions.Add("$($mode.ToString('x2'))`t$($enemyCollisionTableValues[$offset].ToString('x2'))`tdata/ages/objectCollisionTable.s:objectCollisionTable+$($offset.ToString('x4'))")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/bomb_collision_effects.tsv'), $bombCollisions)
+Export-ItemActiveCollisionColumns 'bomb' @('enabled') @(0x18)
 $galeCollisionCode = Read-ImportText (Join-Path $Disassembly 'code\collisionEffects.s')
 if ($galeCollisionCode -notmatch '(?ms)^collisionEffect29:.*?ld \(hl\),\$9e.*?Enemy.state.*?ld \(hl\),\$05.*?Enemy.counter2.*?ld \(hl\),\$1e.*?Enemy.speed.*?ld \(hl\),\$05.*?Enemy.speedZ.*?ld \(hl\),\$00.*?ld \(hl\),\$fa.*?call getRandomNumber\s+and \$18' -or
     $enemyCommonCodeSource -notmatch '(?ms)^ecom_galeSeedEffect:.*?call ecom_decCounter2.*?and \$03.*?call objectApplySpeed\s+ld c,\$10.*?cp \$80.*?cp LARGE_ROOM_HEIGHT<<4.*?@oscillationX:\s+\.db \$fe \$02 \$02 \$fe') {
