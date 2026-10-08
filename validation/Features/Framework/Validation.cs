@@ -1013,6 +1013,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateLinkMovementScratch);
         RunIsolatedValidation(ValidateSwordBeamScratch);
         RunIsolatedValidation(ValidateBombMovementScratch);
+        RunIsolatedValidation(ValidateBombScrolling);
         RunIsolatedValidation(ValidateSeedMovementScratch);
         RunIsolatedValidation(ValidateDropMovementScratch);
         RunIsolatedValidation(ValidateDropConveyors);

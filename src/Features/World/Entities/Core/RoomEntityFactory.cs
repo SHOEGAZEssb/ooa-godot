@@ -4277,7 +4277,7 @@ internal sealed class RoomEntityFactory
             {
                 // bombs.s:bombUpdateThrowingVerticallyAndCheckDelete writes
                 // this signal for any landed hazard, after the room-boundary check.
-                if (spawn.Group == 0 && room.Id == 0x50)
+                if (owner.ActiveRoom.Group == 0 && owner.ActiveRoom.Id == 0x50)
                     _runtimeState.SetWramByte(WramAddress.wTmpcfc0, 1);
                 if (hazard is HazardType.Water or HazardType.Lava)
                     owner.OnItemDropEnteredHazard(position, hazard);
@@ -4292,7 +4292,7 @@ internal sealed class RoomEntityFactory
             rooms is null
                 ? null
                 : direction => rooms.TryGetNeighbor(
-                    spawn.Group, room.Id, direction, out int neighbor)
+                    owner.ActiveRoom.Group, owner.ActiveRoom.Id, direction, out int neighbor)
                     ? neighbor
                     : null);
         return new BombRoomEntity(bomb);

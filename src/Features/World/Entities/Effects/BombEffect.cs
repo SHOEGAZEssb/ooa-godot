@@ -180,6 +180,16 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
 
     internal void UpdateHeldPosition(Player player) => SetHeldOffset(player, _heldOffset);
 
+    // makeLinkPickupObjectH sets enabled bit 1; setObjectsEnabledTo2 only
+    // marks enabled=$01, so a held ITEM$03 survives scroll cleanup. Its next
+    // eligible update uses the newly loaded room buffers without resetting fuse.
+    internal void SetRoom(int group, OracleRoomData room)
+    {
+        _group = group;
+        _room = room;
+        SetTerrainShadowRoom(room);
+    }
+
     internal void Throw(
         Player player,
         Vector2I heldOffset,
@@ -734,8 +744,8 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
         // updateGrabbedObjectPosition overwrites only YH/XH/ZH. Re-picking
         // a moving bomb retains all three low position bytes.
         _precisePosition = new(
-            player.Position.X + offset.X + (_precisePosition.X - Mathf.Floor(_precisePosition.X)),
-            player.Position.Y + (_precisePosition.Y - Mathf.Floor(_precisePosition.Y)));
+            Mathf.Floor(player.PrecisePosition.X) + offset.X + (_precisePosition.X - Mathf.Floor(_precisePosition.X)),
+            Mathf.Floor(player.PrecisePosition.Y) + (_precisePosition.Y - Mathf.Floor(_precisePosition.Y)));
         _zFixed = ((player.EnemyContactZ + offset.Y) << 8) | (_zFixed & 0xff);
     }
 

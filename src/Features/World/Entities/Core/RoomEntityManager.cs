@@ -28,7 +28,9 @@ public sealed class RoomEntityManager : IDisposable
     }
     internal void UpdateHeldObjectPosition(Player player)
     {
-        foreach (var entity in _activeEntities.OfType<IHeldObjectPositionRoomEntity>())
+        // updateGrabbedObjectPosition runs even while updateItems is frozen
+        // by wScrollMode $08. Held ITEM$03 keeps enabled=$03 in the old set.
+        foreach (var entity in _activeEntities.Concat(_outgoingEntities).OfType<IHeldObjectPositionRoomEntity>())
             entity.UpdateHeldPosition(player);
     }
     internal void RequestPegasusDust(PegasusSeedState pegasus, bool signal)
@@ -792,7 +794,8 @@ public sealed class RoomEntityManager : IDisposable
             IRoomEntity entity = _outgoingEntities[index];
             // enabled=$03 bypasses setObjectsEnabledTo2 and survives
             // clearItemsWithEnabled2. Its raw cloud coordinates also survive.
-            if (entity is not PegasusDustRoomEntity && entity is not IPlayerScreenTransitionRoomEntity
+            if (entity is not BombRoomEntity { Bomb.State: BombState.Held } &&
+                entity is not PegasusDustRoomEntity && entity is not IPlayerScreenTransitionRoomEntity
                 {
                     ControlsPlayerScreenTransition: true
                 })
@@ -801,6 +804,8 @@ public sealed class RoomEntityManager : IDisposable
             }
             _outgoingEntities.RemoveAt(index);
             _activeEntities.Add(entity);
+            if (entity is BombRoomEntity heldBomb)
+                heldBomb.Bomb.SetRoom(_roomForActiveEntities.Group, _roomForActiveEntities);
         }
         ClearEntities(_outgoingEntities);
         foreach (IRoomEntity entity in _activeEntities)
@@ -2326,8 +2331,12 @@ public sealed class RoomEntityManager : IDisposable
         if (entity.Node is CircularSideScrollPlatformRoomEntity circularPlatform)
             circularPlatform.BindRidingState(_platformRiding);
         int dynamicId=DynamicItemId(entity);
+        // setObjectsEnabledTo2 retains outgoing ITEM allocations until
+        // clearItemsWithEnabled2. Held enabled=$03 children keep that slot
+        // when transferred back to the active set at scroll completion.
         if(dynamicId>=0 && _dynamicItems.TryAllocate(entity,dynamicId,
-            ()=>_activeEntities.Contains(entity) && entity is not IRoomEntityLifetime {Finished:true} && DynamicItemId(entity)>=0)<0)
+            ()=> (_activeEntities.Contains(entity) || _outgoingEntities.Contains(entity)) &&
+                entity is not IRoomEntityLifetime {Finished:true} && DynamicItemId(entity)>=0)<0)
         {
             FreeEntity(entity);
             throw new NotSupportedException($"ITEM${dynamicId:x2}: caller requested creation with all dynamic slots $d7-$db occupied; use a checked allocation path.");

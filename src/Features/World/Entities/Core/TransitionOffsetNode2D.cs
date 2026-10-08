@@ -44,6 +44,7 @@ public abstract partial class TransitionOffsetNode2D : Node2D
     }
 
     public Vector2 TransitionDrawOffset { get; private set; }
+    internal void SetTerrainShadowRoom(OracleRoomData room) => _shadowRoom = room;
     internal Vector2 SourceOamWrapOffset =>
         OracleObjectMath.SourceOamWrapOffset(_worldToScreen(Position));
     protected Vector2 SourceOamDrawOffset =>
