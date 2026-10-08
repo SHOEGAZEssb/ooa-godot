@@ -47,10 +47,10 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         _sign = (record.SubId & 1) == 0 ? 1 : -1;
         _precisePosition = new Vector2(record.X, record.Y);
         Name = "Lever";
-        ZIndex = ObjectDrawPriority.BehindLinkZIndex;
+        ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         Initialize(record);
         SetCollisionRadii(constants.LeverRadiusY, constants.LeverRadiusX);
-        if (!_initialized) Visible = false;
+        if (_initialized) SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
     }
 
     public bool TryBeginBraceletPull(Player player)
@@ -140,14 +140,12 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
             else
                 _movedSincePause = false;
             _pullRequested = false;
-            UpdateDrawPriority(frame.Player.Position);
             return;
         }
 
         if (_releasedThisUpdate)
         {
             _releasedThisUpdate = false;
-            UpdateDrawPriority(frame.Player.Position);
             return;
         }
 
@@ -160,7 +158,6 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         if (Player.EnemyCollisionOverlaps(player.EnemyContactPosition, ObjectCollisionBounds))
             player.AdvanceInteractionVelocity(0x28,
                 OracleObjectMovement.Shared.RelativeAngle(Position, player.EnemyContactPosition));
-        UpdateDrawPriority(frame.Player.Position);
     }
 
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) =>
@@ -177,7 +174,11 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
             // earlier. Its new parent has var03=1 and initializes next pass.
             if (result == LeverChildAllocation.EarlierSlot) return;
         }
-        _initialized = true; Visible = true;
+        _initialized = true;
+        // lever.s state0 ends with objectSetVisible83. Publish through the
+        // renderer's native visibility owner before its first draw; setting
+        // Node.Visible alone leaves _Draw empty and can cache that empty draw.
+        SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
     }
 
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)

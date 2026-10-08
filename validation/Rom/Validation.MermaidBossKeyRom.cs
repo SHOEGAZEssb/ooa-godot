@@ -11,6 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateMermaidBossKeyRom()
     {
         const BindingFlags flags = BindingFlags.Instance|BindingFlags.NonPublic;
+        var nativeVisible = typeof(NpcCharacter).GetField("_nativeVisible",flags)!;
         foreach (bool batch in new[] { false,true })
         foreach (int subid in new[] { 0x06,0x46 })
         foreach (bool opened in new[] { false,true })
@@ -21,6 +22,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(5,0x1c);
             var controller = _entities.Entities<MermaidBossKeyRoomEntity>().Single();
             var levers = _entities.Entities<LeverRoomEntity>().OrderBy(actor => actor.Position.X).ToArray();
+            FailIf(levers.Length != 2 || levers.Any(actor => actor.Visible || (bool)nativeVisible.GetValue(actor)!),
+                "Room $5:$1c must allocate both $61 levers hidden before their state0 updates.");
             var lever = levers[subid == 6 ? 0 : 1];
             var active = SomariaPrivate<List<IRoomEntity>>(_entities,"_activeEntities");
             var free = typeof(RoomEntityManager).GetMethod("FreeEntity",flags)!;
@@ -96,6 +99,13 @@ public sealed partial class ValidationRoot
                         int signal = actor == levers[0] ? 0xccab : 0xccac;
                         FailIf(actor.Position != new Vector2(rom[a+13],rom[a+11]) || actor.PullDistance != rom[signal],
                             context+": native short lever position or independent pull signal differs.");
+                        // lever.s state0 publishes objectSetVisible83 only after
+                        // checked child allocation. _Draw also consumes this
+                        // native visibility gate, independently of Node.Visible.
+                        bool visible = (rom[a+0x1a]&0x80) != 0;
+                        FailIf(actor.Visible != visible || (bool)nativeVisible.GetValue(actor)! != visible ||
+                            visible && (actor.CurrentAnimationOpaquePixels == 0 || actor.ZIndex != 8 || (rom[a+0x1a]&3) != 3),
+                            context+$": lever${a:x4} native draw visibility, fixed priority $83 or handle pixels differ.");
                     }
                     var children = _entities.Entities<LeverConnectionRoomEntity>();
                     int nativeChildren = Enumerable.Range(0xd2,14).Count(page => rom[(page<<8)+0x40] != 0 &&
@@ -107,6 +117,10 @@ public sealed partial class ValidationRoot
                         // Uninitialized connections have not copied X yet.
                         FailIf(rom[a+2] != 0x80 || rom[a+4] != 0 &&
                             child.Position != new Vector2(rom[a+13],rom[a+11]),context+$": native connection slot${a:x4} runtime={child.Position}, native={rom[a+13]},{rom[a+11]}/${rom[a+2]:x2}/${rom[a+4]:x2}.");
+                        bool visible = (rom[a+0x1a]&0x80) != 0;
+                        FailIf(child.Visible != visible || (bool)nativeVisible.GetValue(child)! != visible ||
+                            visible && (child.CurrentAnimationOpaquePixels == 0 || child.ZIndex != 8 || (rom[a+0x1a]&3) != 3),
+                            context+$": connection${a:x4} native draw visibility, fixed priority $83 or pixels differ.");
                     }
                     var enemySlots = SomariaPrivate<Dictionary<IRoomEntity,int>>(_entities,"_enemySlots");
                     foreach (var rope in _entities.Entities<RopeCharacter>())
@@ -210,6 +224,6 @@ public sealed partial class ValidationRoot
             FailIf(sounds.Requests.Count(cue => cue == SoundId.SndSolvePuzzle) != 1,
                 "Pulling again after completion must not recreate the chest or rerun chance RNG.");
         }
-        GD.Print("Validated clean-US D6 two short Bracelet levers, actual approach/regrab, first failure/four falling Ropes, shared RNG/placement/exclusion, text/count handoff, deferred chest and completed repeat under split/batched gameplay.");
+        GD.Print("Validated clean-US D6 two short Bracelet levers, native renderer visibility/pixels/fixed priority, actual approach/regrab, first failure/four falling Ropes, shared RNG/placement/exclusion, text/count handoff, deferred chest and completed repeat under split/batched gameplay.");
     }
 }

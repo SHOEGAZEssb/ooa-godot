@@ -40,9 +40,7 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
         ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         Initialize(record);
         SetBlocksLink(false);
-        SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
         SetScriptAnimation(animations[0]);
-        Visible = false;
     }
 
     public void UpdateFrame(
@@ -56,7 +54,10 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
 
     private void Advance()
     {
-        _initialized = true; Visible = true;
+        // The child's state0 also calls objectSetVisible83, after graphics
+        // initialization. Preserve the cleared visibility gate until then.
+        if (!_initialized) SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
+        _initialized = true;
         int distance = Math.Abs(
             Mathf.FloorToInt(_lever.Position.Y) - _lever.BaseY);
         int phase = Math.Clamp(
