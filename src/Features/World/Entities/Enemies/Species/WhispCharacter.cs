@@ -39,6 +39,9 @@ internal partial class WhispCharacter : EnemyCharacter
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int Angle => _angle;
     internal bool Initialized => _initialized;
+    // whisp_state_uninitialized/state8 never touch counter1. Preserve a
+    // fireballShooter_state9 byte inherited from the physical enemy slot.
+    internal int Counter1 { get; set; }
 
     internal void Initialize(
         ImportedEnemyDefinition record,

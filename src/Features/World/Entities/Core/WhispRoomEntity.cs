@@ -9,12 +9,14 @@ internal sealed class WhispRoomEntity
         IScreenTransitionPreloadRoomEntity, ISomariaBlockCollisionRoomEntity, ISeedCollisionTarget,
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
         IPostObjectMeleeCollisionRoomEntity, ILinkSwordStateAwareRoomEntity, IExpertPunchHittableRoomEntity,
-        IPostObjectItemCollisionRoomEntity, IBoomerangCollisionRoomEntity
+        IPostObjectItemCollisionRoomEntity, IBoomerangCollisionRoomEntity, INativeEnemyCounter1RoomEntity
 {
     // bank0._updateEnemiesIfStateIsZero still dispatches whisp state0 during
     // palette fades, text and object freezes. State8 waits for normal updates.
     public bool UpdatesDuringDialogue => !Entity.Initialized;
     public bool UpdatesDuringRoomEntityFreeze => !Entity.Initialized;
+    public int Counter1 { get => Entity.Counter1; set => Entity.Counter1 = value; }
+    public bool RetainsCounter1AfterDeletion => false;
 
     protected override void TransformByBoomerang() => Entity.ApplyBoomerangHit();
     private int _swordCollision = ItemCollisionType.L1Sword;

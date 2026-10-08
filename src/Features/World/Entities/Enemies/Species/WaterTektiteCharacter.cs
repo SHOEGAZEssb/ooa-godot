@@ -15,7 +15,7 @@ internal sealed partial class WaterTektiteCharacter : EnemyCharacter
     internal override void ApplyBoomerangStun(int updates) => _stunCounter = updates;
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int State { get; private set; }
-    internal int Counter { get; private set; }
+    internal int Counter { get; set; }
     internal int Angle { get; private set; }
     internal int Speed { get; private set; }
     internal override bool InitializationPending => State == 0;

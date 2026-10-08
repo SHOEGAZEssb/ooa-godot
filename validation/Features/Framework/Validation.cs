@@ -977,6 +977,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCrownDungeonBraceletLiftCancellation);
         RunIsolatedValidation(ValidateLikeLikePlayerGrab);
         RunIsolatedValidation(ValidateCrownDungeonFireballShooter);
+        RunIsolatedValidation(ValidateFireballCounterRoomEntry);
         RunIsolatedValidation(ValidateNativeFireballCollisions);
         RunIsolatedValidation(ValidateCrownDungeonSwordEnemies);
         RunIsolatedValidation(ValidateCrownDungeonSwordSeedCollisions);

@@ -6,8 +6,12 @@ namespace oracleofages;
 
 internal sealed class WaterTektiteRoomEntity : CombatEnemyRoomEntityAdapter<WaterTektiteCharacter>,
     IFixedRoomEntity, IScreenTransitionPreloadRoomEntity, IBoomerangCollisionRoomEntity,
-    ISomariaBlockCollisionRoomEntity
+    ISomariaBlockCollisionRoomEntity, INativeEnemyCounter1RoomEntity
 {
+    // waterTektike_decideNewAngle overwrites an inherited counter1 with $40
+    // on the first dispatch, including destination preload during scrolling.
+    public int Counter1 { get => Entity.Counter; set => Entity.Counter = value; }
+    public bool RetainsCounter1AfterDeletion => false;
     protected override bool Stunned => Entity.StunCounter != 0;
     private readonly Func<Vector2?> _scentTarget;
     internal WaterTektiteRoomEntity(WaterTektiteCharacter enemy,

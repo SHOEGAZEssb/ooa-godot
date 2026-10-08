@@ -10,13 +10,15 @@ internal sealed class ItemDropProducerRoomEntity(
     : RoomEntityAdapter<ItemDropProducer>(producer, static _ => { }),
         IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyOutcomeSource,
         IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity,
-        IUpdatesDuringRoomEntityFreeze
+        IUpdatesDuringRoomEntityFreeze, INativeEnemyCounter1RoomEntity
 {
     private bool _outcomeTaken;
 
     public bool Finished => Entity.Finished;
     public bool UpdatesDuringDialogue => !Entity.Initialized;
     public bool UpdatesDuringRoomEntityFreeze => !Entity.Initialized;
+    public int Counter1 { get => Entity.Counter1; set => Entity.Counter1 = value; }
+    public bool RetainsCounter1AfterDeletion => false;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

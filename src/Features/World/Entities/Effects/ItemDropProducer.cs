@@ -20,6 +20,9 @@ public partial class ItemDropProducer : Node2D
     internal bool Initialized { get; private set; }
     internal bool Finished { get; private set; }
     internal bool SpawnedDrop { get; private set; }
+    // enemyCode59 never reads or writes counter1 before enemyDelete clears
+    // the page, so inherited fireball-shooter residue is inert here.
+    internal int Counter1 { get; set; }
 
     internal void Initialize(
         int subId,
