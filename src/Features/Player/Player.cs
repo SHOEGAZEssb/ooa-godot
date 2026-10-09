@@ -3816,43 +3816,9 @@ public partial class Player : Node2D
                 new Rect2(NormalSpriteOrigin + (IsUsingSwitchHook ? Vector2.Down * (_topDownAirZFixed >> 8) : Vector2.Zero), new Vector2(16, 16)),
                 new Rect2(16, (int)_facing * 16, 16, 16));
         }
-        else if (IsUsingShield)
-        {
-            DrawShieldPose();
-        }
-        else if (_minecartRideControlled)
-        {
-            // func_4553 forces walking-graphics variant $01 before checking
-            // equipped shields or push state whenever wLinkObjectIndex is the
-            // SPECIALOBJECT_MINECART slot.
-            int frame = GetWalkAnimationFrame();
-            DrawTextureRectRegion(
-                DamagePaletteActive
-                    ? Sprites.DamageMinecartLinkTexture
-                    : Sprites.MinecartLinkTexture,
-                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
-                new Rect2(frame * 16, (int)_facing * 16, 16, 16));
-        }
-        else if (_pushing)
-        {
-            int frame = GetWalkAnimationFrame();
-            DrawTextureRectRegion(
-                DamagePaletteActive ? Sprites.DamagePushTexture : Sprites.PushTexture,
-                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
-                new Rect2(frame * 16, (int)_facing * 16, 16, 16));
-        }
-        else if (IsShieldEquipped)
-        {
-            DrawShieldPose();
-        }
         else
         {
-            int frame = GetWalkAnimationFrame();
-            Rect2 source = GetFrame(_facing, frame);
-            DrawTextureRectRegion(
-                DamagePaletteActive ? Sprites.DamageTexture : Sprites.WalkTexture,
-                new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
-                source);
+            DrawWalkLinkBody(GetWalkAnimationFrame(), Vector2.Zero);
         }
     }
 
@@ -6300,20 +6266,6 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
-    private void DrawShieldPose()
-    {
-        int variant = (IsUsingShield ? 2 : 0) +
-            (_inventory.ShieldLevel >= 2 ? 1 : 0);
-        int frame = GetWalkAnimationFrame();
-        DrawTextureRectRegion(
-            DamagePaletteActive
-                ? Sprites.DamageShieldLinkTexture
-                : Sprites.ShieldLinkTexture,
-            new Rect2(NormalSpriteOrigin, new Vector2(16, 16)),
-            new Rect2(variant * 32 + frame * 16,
-                (int)_facing * 16, 16, 16));
-    }
-
     private void UpdateFacing(Vector2 input)
     {
         _facing = FacingForInput(_facing, input);
@@ -8304,42 +8256,43 @@ public partial class Player : Node2D
 
     private void DrawWalkLinkBody(int frame, Vector2 drawOffset)
     {
+        var body = SelectWalkBodyFrame(frame);
+        DrawTextureRectRegion(
+            body.Texture,
+            new Rect2(NormalSpriteOrigin + drawOffset, new Vector2(16, 16)),
+            body.Region);
+    }
+
+    internal (Texture2D Texture, Rect2 Region) CurrentWalkBodyFrame =>
+        SelectWalkBodyFrame(GetWalkAnimationFrame());
+
+    private (Texture2D Texture, Rect2 Region) SelectWalkBodyFrame(int frame)
+    {
+        Rect2 region = new(frame * 16, (int)_facing * 16, 16, 16);
         if (_world.Underwater)
         {
-            // func_4553 WALK selects var34=$28 before direction is added.
+            // specialObjectAnimationsAndDamage.s:@getLinkWalkingAnimation
+            // selects underwater var34=$28 before cart, pushing and shield.
             // WALK $54/$80 therefore use graphics $7c/$a8, the same imported
             // atlas cells as LINK_ANIM_MODE_MERMAID, with WALK's own clock.
-            DrawTextureRectRegion(
-                DamagePaletteActive ? Sprites.DamageSideScrollMermaidTexture : Sprites.SideScrollMermaidTexture,
-                new Rect2(NormalSpriteOrigin + drawOffset, new Vector2(16, 16)),
-                new Rect2(frame * 16, (int)_facing * 16, 16, 16));
-            return;
+            return (DamagePaletteActive ? Sprites.DamageSideScrollMermaidTexture : Sprites.SideScrollMermaidTexture, region);
         }
-        if (IsShieldEquipped)
+        if (_minecartRideControlled)
+            return (DamagePaletteActive ? Sprites.DamageMinecartLinkTexture : Sprites.MinecartLinkTexture, region);
+        if (_pushing && !IsUsingShield)
+            return (DamagePaletteActive ? Sprites.DamagePushTexture : Sprites.PushTexture, region);
+        if (IsUsingShield || IsShieldEquipped)
         {
             int variant = (IsUsingShield ? 2 : 0) +
                 (_inventory.ShieldLevel >= 2 ? 1 : 0);
-            DrawTextureRectRegion(
+            region.Position += new Vector2(variant * 32, 0);
+            return (
                 DamagePaletteActive
                     ? Sprites.DamageShieldLinkTexture
                     : Sprites.ShieldLinkTexture,
-                new Rect2(
-                    NormalSpriteOrigin + drawOffset,
-                    new Vector2(16, 16)),
-                new Rect2(
-                    variant * 32 + frame * 16,
-                    (int)_facing * 16,
-                    16,
-                    16));
-            return;
+                region);
         }
-
-        DrawTextureRectRegion(
-            DamagePaletteActive ? Sprites.DamageTexture : Sprites.WalkTexture,
-            new Rect2(
-                NormalSpriteOrigin + drawOffset,
-                new Vector2(16, 16)),
-            GetFrame(_facing, frame));
+        return (DamagePaletteActive ? Sprites.DamageTexture : Sprites.WalkTexture, GetFrame(_facing, frame));
     }
 
     private void DrawSword()

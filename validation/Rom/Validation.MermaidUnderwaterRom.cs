@@ -101,6 +101,8 @@ public sealed partial class ValidationRoot
                         rom[0xd034] != 0x28 || rom[0xd032] !=
                             ((Field("_linkWalkAnimationFrame") == 0 ? 0x7c : 0xa8) + rom[0xd008]),
                         context + ": source-derived Mermaid velocity row or underwater WALK graphics selection differs.");
+                    if (!holes && !water && !cliffCoast && !currents && !floors && !conveyors)
+                        ValidateUnderwaterWalkFrame(rom[0xd032], context);
                     if ((held != 0 || cliffCoast) && rom[0xd033] != 0 && rom[0xd009] < 0x80 && rom[0xd010] == 0) wallStops++;
                     FailIf(!sounds.Requests.Where(id => id == SoundId.SndSplash).SequenceEqual(rom.Sounds.Where(id => id == SoundId.SndSplash)),
                         context + ": direction-edge splash sound order differs.");

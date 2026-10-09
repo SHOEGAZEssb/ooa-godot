@@ -119,9 +119,13 @@ public sealed partial class ValidationRoot
                             System.Math.Min((int)rom[0xc2ff], 31) / 31f), context +
                             $": arrival fade offset differs: runtime={_warpFade.Color.A}, native=${rom[0xc2ff]:x2}, mode=${rom[0xc4ab]:x2}, Link=${rom[0xd004]:x2}/${rom[0xd005]:x2}.");
                         if (rom[0xd004] == 1)
+                        {
                             FailIf(CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                                 _player.TopDownSwimmingState != (rom[0xcc5d] & 0x0f),
                                 context + ": initialized arrival facing/swimming differs.");
+                            if ((rom[0xcc34] & 0x40) != 0)
+                                ValidateUnderwaterWalkFrame(rom[0xd032], context + " arrival");
+                        }
                     }
                     FailIf(sounds.Requests.Contains(SoundId.SndEnterCave) || rom.Sounds.Contains(SoundId.SndEnterCave),
                         context + ": direct levelDown incorrectly played the stair entrance sound $6e.");
