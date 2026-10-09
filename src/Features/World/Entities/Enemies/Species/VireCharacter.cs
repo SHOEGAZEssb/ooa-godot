@@ -66,6 +66,10 @@ internal sealed partial class VireCharacter : EnemyCharacter
         // ENEMYDMG_0c publishes JUST_HIT before NO_HEALTH. The species owns
         // the zero-HP split; ordinary EnemyCharacter death cannot run here.
         Health = Math.Max(0,Health - Math.Max(0,damage));
+        // collisionEffects.s:applyDamageToEnemyOrPart clears collisionType
+        // bit7 on lethal damage. Keep it cleared when @subid0Dead restores
+        // HP$01 for the split, hidden wait and farewell.
+        if (Health == 0) _collision = false;
         ApplySwordNoKnockback(origin,EnemyKnockbackStrength.Normal);
         DeferNativeHitStatus();
         return true;
