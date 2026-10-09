@@ -364,6 +364,7 @@ public partial class Player : Node2D
     private bool _harpPoseActive;
     // respawnLink request, consumed state02, then the shared instant respawn.
     private int _forcedRespawnPhase;
+    private int _forcedRespawnParameter = 2;
 
     public int HealthQuarters => _inventory.HealthQuarters;
     public int Rupees => _inventory.Rupees;
@@ -1024,6 +1025,7 @@ public partial class Player : Node2D
         _fallingInHole = false;
         _fallInHoleRespawning = false;
         _forcedRespawnPhase = 0;
+        _forcedRespawnParameter = 2;
         _sideScrollInstantRespawnCounter = 0;
         _instantRespawnRecoveryCounter = 0;
         _instantRespawnCollisionDisabled = false;
@@ -1904,7 +1906,14 @@ public partial class Player : Node2D
         if (_forcedRespawnPhase == 1 && !_world.IsTransitioning && !IsDying &&
             (_raftRideControlled || NativeNormalStateForInteraction))
         {
-            _forcedRespawnPhase = 2;
+            if (_forcedRespawnParameter == 0)
+            {
+                // PART_SEA_EFFECTS selects parameter0 in the same pending
+                // state02 request. Its initializer runs on the next update.
+                _forcedRespawnPhase = 0;
+                StartFallInHole();
+            }
+            else _forcedRespawnPhase = 2;
             return;
         }
         if ((_world.PlayerUpdatesFrozen || _world.LinkDisabled) && _forcedRespawnPhase != 3 && !IsDying)
@@ -3336,9 +3345,28 @@ public partial class Player : Node2D
         // doorController and bank0.respawnLink only write wLinkForceState
         // and parameter2; both feed the same state02 owner.
         // Position, visibility and item cancellation belong to state02.
+        _forcedRespawnParameter = 2;
         if (_forcedRespawnPhase == 0)
             _forcedRespawnPhase = 1;
     }
+
+    internal void RequestSuctionPitFall(Vector2 center)
+    {
+        // seaEffects.s snaps only high Y/X bytes and clears parents now;
+        // checkLinkForceState and the fall initializer occupy later updates.
+        _precisePosition += center - OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        // State02's objectCenterOnTile also clears both fractional bytes.
+        _holePullCenter = center;
+        // Later writers (eg doorController's parameter2) overwrite this
+        // same request; there is no independent suction state priority.
+        _forcedRespawnParameter = 0;
+        if (_forcedRespawnPhase == 0) _forcedRespawnPhase = 1;
+        ClearNativeItemParents();
+        QueueRedraw();
+    }
+
+    internal void StopSuctionPitMovementSpeed() => _topDownMovementSpeedRaw = 0;
 
     internal void SetCutscenePushing(bool pushing)
     {
@@ -5990,6 +6018,9 @@ public partial class Player : Node2D
         // Link retains his current yl/xl, not the saved position's fraction.
         SetCoordinateHigh(horizontal: false, Mathf.FloorToInt(_lastSafePosition.Y));
         SetCoordinateHigh(horizontal: true, Mathf.FloorToInt(_lastSafePosition.X));
+        // bank0.specialObjectSetCoordinatesToRespawnYX writes angle=$ff;
+        // underwater convergence must not resume the preceding impulse.
+        _topDownMovementAngle = 0xff;
         _topDownAirZFixed = 0;
         _enemyKnockbackFrames = 0.0f;
         _facing = _localRespawnFacing;

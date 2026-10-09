@@ -630,7 +630,8 @@ public sealed class RoomTransitionController
         else
             owner.SetScreenTransitionBoundaryCoordinate(horizontal, boundary, player);
         if (AllScreenTransitionsDisabledSource() ||
-            ScreenTransitionsDisabledSource())
+            ScreenTransitionsDisabledSource() ||
+            _entities.RuntimeState.ReadWramByte(WramAddress.wDisableScreenTransitions) != 0)
             return false;
         if (_screenTransitionDelay != 0)
         {

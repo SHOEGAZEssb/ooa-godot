@@ -118,6 +118,10 @@ internal sealed class RoomEntityFactory
         }
         int activeGroup = group;
         Resources.KingMoblin.ApplyRoomLayout(group,room,_animationTick());
+        // initializeRoom calls createSeaEffectsPartIfApplicable after room
+        // code, before companions and the ordered placed object stream.
+        if (SuctionPitDatabase.Shared.ShouldSpawn(room) && owner.PartSlotAvailable)
+            yield return new SuctionPitRoomEntity(owner);
         if (group == Resources.Patch.ResetGroup && room.Id == Resources.Patch.ResetRoom)
             for (int address = 0xcfd0; address < 0xcfd8; address++) _runtimeState.SetWramByte(address, 0);
         foreach (var waterfall in Resources.WaterfallWarps.Records)

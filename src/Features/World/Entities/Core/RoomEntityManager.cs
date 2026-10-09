@@ -2582,7 +2582,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
-        entity is ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
+        entity is SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
             or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity

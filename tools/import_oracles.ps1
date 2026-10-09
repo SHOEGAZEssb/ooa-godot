@@ -58,6 +58,7 @@ $stageContracts = @(
         -outputs @(
             'globalFlagValues', 'singleTileChangeRecords', 'tilesets',
             'paletteHeaderSource', 'paletteDataSource', 'tilesetRecordSize', 'tilesetMetadata')
+    New-ImportStageContract 'suction-pits' 'Import-SuctionPitData.ps1'
     New-ImportStageContract 'save-initialization' 'Import-SaveInitializationData.ps1'
     New-ImportStageContract 'menus' 'Import-MenuAssets.ps1' `
         -inputs @('paletteDataSource') `
