@@ -18,6 +18,9 @@ public sealed partial class ValidationRoot
             byte[] shared = [1,0,0xff,0x28,0x28,0x78,0xff,0];
             for (int i = 0; i < shared.Length; i++) _runtimeState.SetWramByte(0xcfd0+i,shared[i]);
             LoadValidationRoom(5,0x36); _inventory.EquipA(0); _inventory.EquipB(0);
+            _sound.SetNativeActiveMusic(0);
+            _sound.PlayNativeSound(0x2e);
+            var sounds = _sound.AttachPlayRequestAudit();
             _player.WarpTo(new(0x78,0x98));
             FailIf(_collision.Collides(_player.Position),"Octogon death fixture must start on the room's reachable lower floor.");
             var body = _entities.Entities<OctogonCharacter>().Single();
@@ -33,6 +36,8 @@ public sealed partial class ValidationRoot
             byte[] headers = [0xc8,0xc9,0xca,0x8e,0xa7,0x78,0x79];
             for (int i = 0; i < headers.Length; i++) rom[0xcc08+i*2] = headers[i];
             rom[0xcc39] = 0x0c;
+            // group5IDs.bin assigns MUS_MERMAIDS_CAVE ($18) to both layers.
+            rom[0xcc35] = 0; rom[0xcc46] = 0x18;
             for (int i = 0; i < shared.Length; i++) rom[0xcfd0+i] = shared[i];
             rom[p] = 1; rom[p+1] = 0x7d;
             rom[p+11] = (byte)body.Position.Y; rom[p+13] = (byte)body.Position.X;
@@ -54,6 +59,11 @@ public sealed partial class ValidationRoot
                 }
                 FailIf(_entities.RoomEnemyCount != rom[0xcdd1],
                     $"Octogon death update{update}: counted boss/explosion ownership differs: runtime={_entities.RoomEnemyCount}, ROM={rom[0xcdd1]}.");
+                FailIf(_sound.NativeActiveMusic != rom[0xcc35] ||
+                    !sounds.Requests.Where(cue => cue < 0x4c || cue == 0xf0)
+                        .SequenceEqual(rom.Sounds.Where(cue => cue < 0x4c || cue == 0xf0)),
+                    $"Octogon death update{update}: room-music gate/requests differ: " +
+                    $"runtime=${_sound.NativeActiveMusic:x2}, ROM=${rom[0xcc35]:x2}.");
                 foreach (int room in new[] { 0x2d,0x36 })
                     FailIf(_saveData.HasRoomFlag(5,room,OracleSaveData.RoomFlag80) != ((rom[0xca00+room]&0x80) != 0),
                         $"Octogon death update{update}: room$5:${room:x2} flag$80 differs.");
@@ -97,6 +107,8 @@ public sealed partial class ValidationRoot
                 $"Boss reward must yield through zero count, flag, coordinates and spawn, then continue the ROM jump into Link unlock: zero={zeroUpdate}, heart={heartUpdate}, unlock={unlockUpdate}.");
             FailIf(!body.IsDead || _entities.Entities<OctogonCharacter>().Any() || _entities.Entities<BossDeathExplosionEffect>().Any(),
                 "Octogon and its uncounted shell must delete and its explosion must finish without replaying the encounter.");
+            FailIf(_sound.ActiveMusic != 0x18 || _sound.NativeActiveMusic != 0x18 || sounds.RequestsFor(0x18) != 1,
+                "Octogon teardown must restore MUS_MERMAIDS_CAVE ($18) and enable room selection exactly once.");
             // Re-entry takes the completed-room branch and restores only an
             // uncollected heart, never either body or a second death effect.
             _entities.LoadRoom(5,_currentRoom);

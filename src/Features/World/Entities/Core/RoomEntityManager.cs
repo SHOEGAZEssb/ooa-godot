@@ -180,6 +180,12 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<int, string, Vector2>? SeedTreeMessageRequested;
     internal event Action<int, string, Vector2>? OwlStatueMessageRequested;
     public event Action<int>? SoundRequested;
+    internal event Action<int>? NativeSoundRequested;
+    internal event Action<int>? NativeActiveMusicWritten;
+    internal Func<int> NativeActiveMusicSource { get; set; } = () =>
+        throw new InvalidOperationException("wActiveMusic has no sound owner.");
+    internal void OnNativeSoundRequested(int sound) => NativeSoundRequested?.Invoke(sound);
+    internal void SetNativeActiveMusic(int music) => NativeActiveMusicWritten?.Invoke(music);
     internal event Action<int, byte>? NativeChannelVolumeWritten;
     public event Action<int, int>? RoomMusicRequested;
     public event Action? RoomTileChanged;

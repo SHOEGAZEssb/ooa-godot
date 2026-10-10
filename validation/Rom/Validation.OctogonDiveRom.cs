@@ -23,6 +23,11 @@ public sealed partial class ValidationRoot
             byte[] shared = [1,(byte)(underwaterBoss ? 1 : 0),0xff,0x28,0x28,0x78,0xff,(byte)(underwaterBoss ? 1 : 0)];
             for (int i = 0; i < shared.Length; i++) _runtimeState.SetWramByte(0xcfd0+i,shared[i]);
             LoadValidationRoom(5,0x36); _player.WarpTo(new(0x78,0x98)); _player.Face(Vector2I.Up);
+            // octogon_subid0AboveWater_state8 clears wActiveMusic before
+            // queuing MUS_BOSS. The song plays while room selection is gated.
+            _sound.SetNativeActiveMusic(0);
+            _sound.PlayNativeSound(0x2e);
+            var sounds = _sound.AttachPlayRequestAudit();
             var free = typeof(RoomEntityManager).GetMethod("FreeEntity",flags)!;
             void KeepBoss()
             {
@@ -37,6 +42,7 @@ public sealed partial class ValidationRoot
             var rom = new SomariaRom(_saveData,seed,_currentRoom,0,0x78,0x98)
             { HostileEnemiesEnabled = true, HostilePartsEnabled = true };
             rom.InitializeLinkGameplay(); rom.CreateMenuView().LoadDungeon(0x0c);
+            rom[0xcc35] = 0; rom[0xcc46] = 0x2e;
             // A stationary arrived Link retains ANGLE_NONE; native state1 is
             // declared here rather than replaying an unrelated entrance warp.
             rom[0xd009] = 0xff;
@@ -119,6 +125,12 @@ public sealed partial class ValidationRoot
                         _player.PrecisePosition != new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f),
                         $"Octogon dive update{update}: room/fixed Link position differs: runtime=$5:${_currentRoom.Id:x2}/{_player.PrecisePosition}, ROM=${rom[0xcc2d]:x2}:${rom[0xcc30]:x2}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; swim={_player.TopDownSwimmingState}/${rom[0xcc5d]:x2}, flags=${_currentRoom.TilesetFlags:x2}, tile=${_terrain.GetActiveTerrain(_player.Position).Terrain.Tile:x2}/${rom[0xcf00+rom[0xcc99]]:x2}, speed={_player.TopDownSwimSpeedRaw}/${rom[0xd010]:x2}, angle=${rom[0xd009]:x2}, native flags=${rom[0xd02f]:x2}.");
                     CompareBoss(); update++;
+                    FailIf(_sound.NativeActiveMusic != rom[0xcc35] || _sound.ActiveMusic != 0x2e ||
+                        !sounds.Requests.Where(cue => cue < 0x4c || cue == 0xf0)
+                            .SequenceEqual(rom.Sounds.Where(cue => cue < 0x4c || cue == 0xf0)),
+                        $"Octogon dive update{update} room$5:${_currentRoom.Id:x2}: boss music/gate differs: " +
+                        $"runtime=${_sound.ActiveMusic:x2}/${_sound.NativeActiveMusic:x2}, ROM gate=${rom[0xcc35]:x2}; " +
+                        $"runtime cues=[{string.Join(',',sounds.Requests)}], native cues=[{string.Join(',',rom.Sounds)}].");
                 });
             }
             Step(2);
@@ -141,6 +153,6 @@ public sealed partial class ValidationRoot
                 Step(4);
             }
         }
-        GD.Print("Validated executed clean-US Octogon-room native water entry, actual dive/surface/repeat and live body/shell encounter handoff through the gameplay loop.");
+        GD.Print("Validated executed clean-US Octogon-room native water entry, actual dive/surface/repeat, continuous boss music and live body/shell encounter handoff through the gameplay loop.");
     }
 }

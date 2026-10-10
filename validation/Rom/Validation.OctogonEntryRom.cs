@@ -78,6 +78,8 @@ public sealed partial class ValidationRoot
                 for(int i=0;i<8;i++) FailIf(_runtimeState.ReadWramByte(0xcfd0+i) != rom[0xcfd0+i],
                     $"Octogon {phase}: shared byte${0xcfd0+i:x4} differs.");
                 var rng=_random.CaptureState();
+                FailIf(_sound.NativeActiveMusic != rom[0xcc35],
+                    $"Octogon {phase}: wActiveMusic gate differs: runtime=${_sound.NativeActiveMusic:x2}, ROM=${rom[0xcc35]:x2}.");
                 FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls ||
                     _entities.BossEntrySignal != rom[0xcc93] || _entities.RoomEnemyCount != rom[0xcdd1],
                     $"Octogon {phase}: RNG/count/shutter differs: RNG={rng.Calls-seed.Calls}/{rom.RandomCalls}, count={_entities.RoomEnemyCount}/{rom[0xcdd1]}, signal=${_entities.BossEntrySignal:x2}/${rom[0xcc93]:x2}, Link={_player.Position}, nativeDoor={rom[0xd244]}/{rom[0xd245]}/{rom[0xd246]}, frame={_entities.FrameCounter}.");

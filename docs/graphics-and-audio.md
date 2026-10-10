@@ -152,6 +152,11 @@ original 16-byte ring; each application update applies the pending music volume,
 drains requests in order, then advances the driver once. Restarting sound clears
 the queue while retaining the source driver's volume, fade and disable state.
 
+The sound owner also retains the native room-selection gate independently of
+the requested driver track. A native `playSound` request preserves that gate;
+clearing it suppresses room assignments while the existing song continues.
+Native handlers read and write this state through the sound owner.
+
 The generated sound-bank image already contains the clean US driver as well
 as its tables and channel programs. A bounded interpreter executes its sound
 entry points, banked-read trampoline, and private sound WRAM/HRAM. The driver

@@ -1159,6 +1159,9 @@ public partial class GameRoot : Node2D
         _entities.RoomWarpRequested += warp =>
             _transitions.ApplyWarp(_player, warp);
         _entities.SoundRequested += _sound.PlaySound;
+        _entities.NativeSoundRequested += _sound.PlayNativeSound;
+        _entities.NativeActiveMusicWritten += _sound.SetNativeActiveMusic;
+        _entities.NativeActiveMusicSource = () => _sound.NativeActiveMusic;
         _entities.NativeChannelVolumeWritten += _sound.SetNativeChannelVolume;
         _entities.RoomMusicRequested += _sound.PlayRoomMusic;
         _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;

@@ -1902,11 +1902,11 @@ internal sealed class RoomEntityFactory
             return true;
         }
         world = new(scrolling => {
-            owner.EnableLinkCollisionsAndMenu(); owner.OnSoundRequested(SoundId.SndCtrlStopMusic); owner.BeginBossEntrySignal();
+            owner.EnableLinkCollisionsAndMenu(); owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic); owner.BeginBossEntrySignal();
             // Native destination state0 runs in SCROLLMODE$08 before bit0
             // is restored, so its force-movement request survives the scroll.
             entry.Arm();
-        },() => owner.BossEntrySignal,owner.OnSoundRequested,owner.DisableLinkCollisionsAndMenu,
+        },() => owner.BossEntrySignal,owner.OnNativeSoundRequested,owner.NativeActiveMusicSource,owner.SetNativeActiveMusic,owner.DisableLinkCollisionsAndMenu,
         () => owner.OnRoomMusicRequested(record.Group,record.Room),
         () => { _saveData!.SetRoomFlag(5,0x2d,0x80); _saveData.SetRoomFlag(5,0x36,0x80); },
         parent => {

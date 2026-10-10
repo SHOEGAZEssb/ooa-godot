@@ -42,6 +42,10 @@ public partial class OracleSoundEngine : Node
     internal bool ApplicationUpdateOwned { get; set; }
 
     public int ActiveMusic { get; private set; }
+    // wActiveMusic is a room-selection gate, independent of the song queued
+    // in the driver. Octogon clears it while MUS_BOSS continues playing.
+    internal int NativeActiveMusic { get; private set; } = 0xff;
+    internal void SetNativeActiveMusic(int music) => NativeActiveMusic = music;
     public bool Disabled => _driver.ReadState(WramAddress.wSoundDisabled) != 0;
     public int MusicVolume => _requestedVolume;
     internal OracleSoundData Data => _data;
@@ -103,9 +107,14 @@ public partial class OracleSoundEngine : Node
     }
 
     internal void AdvanceApplicationUpdate() => Tick();
-    public void PlayRoomMusic(int group, int room) => PlayMusicIfChanged(_data.RoomMusic(group, room));
-    public void PlayRoomMusic(int group, int room, OracleSaveData save) =>
-        PlayMusicIfChanged(_data.RoomMusic(group, room, save));
+    public void PlayRoomMusic(int group, int room)
+    {
+        if (NativeActiveMusic != 0) PlayMusicIfChanged(_data.RoomMusic(group, room));
+    }
+    public void PlayRoomMusic(int group, int room, OracleSaveData save)
+    {
+        if (NativeActiveMusic != 0) PlayMusicIfChanged(_data.RoomMusic(group, room, save));
+    }
 
     public void PlayMusicIfChanged(int music)
     {
@@ -117,6 +126,7 @@ public partial class OracleSoundEngine : Node
         // essence.s state7 clears wActiveMusic to suppress room selection.
         // This does not enqueue SNDCTRL_STOPMUSIC or interrupt the driver.
         ActiveMusic = 0;
+        NativeActiveMusic = 0;
     }
 
     public void SetMusicVolume(int volume)
@@ -134,9 +144,15 @@ public partial class OracleSoundEngine : Node
         // driver volume, fades, disabled state and pending hMusicVolume write.
         _requestHead = _requestTail = 0;
         ActiveMusic = 0;
+        NativeActiveMusic = 0xff;
     }
 
-    public void PlaySound(int soundId)
+    // Native playSound queues a request without writing wActiveMusic.
+    internal void PlayNativeSound(int soundId) => QueueSound(soundId, updateNativeMusic: false);
+
+    public void PlaySound(int soundId) => QueueSound(soundId, updateNativeMusic: true);
+
+    private void QueueSound(int soundId, bool updateNativeMusic)
     {
         if (soundId == SoundId.MusNone) return;
         if ((uint)soundId >= OracleSoundData.SoundCount &&
@@ -149,7 +165,11 @@ public partial class OracleSoundEngine : Node
         _requests[_requestTail] = (byte)soundId;
         _requestTail = (_requestTail + 1) & 15;
         if (soundId == SoundId.SndCtrlStopMusic) ActiveMusic = 0;
-        else if (soundId < OracleSoundData.MusicCount) ActiveMusic = soundId;
+        else if (soundId < OracleSoundData.MusicCount)
+        {
+            ActiveMusic = soundId;
+            if (updateNativeMusic) NativeActiveMusic = soundId;
+        }
     }
 
     internal void SetRequestObserver(IOracleSoundRequestObserver? observer) => _requestObserver = observer;

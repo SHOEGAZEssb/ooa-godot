@@ -67,7 +67,7 @@ internal sealed partial class OctogonCharacter : EnemyCharacter
         // imported properties' enable bit; mode$4e is a separate byte.
         _random.Next(); Health = Record.Health; CollisionType = EnemyId.Octogon|0x80; RestartAnimation(0);
         if (ShellForm) { Speed = 0x67; State = 8; SaveAndOffset(); return; }
-        if (Read(0) == 0) { Write(0,1); _memory.SetWramByte(0xcc35,0xff); _world.InitializeBossRoom(scrolling); }
+        if (Read(0) == 0) { Write(0,1); _world.SetActiveMusic(0xff); _world.InitializeBossRoom(scrolling); }
         int child = _world.CreateShell(this);
         if (child < 0) { SaveAndOffset(); return; }
         RelatedSlot = child; State = 8; Speed = _data.Speed;
@@ -116,7 +116,7 @@ internal sealed partial class OctogonCharacter : EnemyCharacter
             if (!ShellForm)
             {
                 if (((EntryHealth-Health)&255) >= _data.PhaseDamage) Counter2 = 1;
-                if (Health == 0) { _world.MarkBothBossRooms(); _memory.SetWramByte(0xcc35,(byte)SoundId.MusBoss); return; }
+                if (Health == 0) { _world.MarkBothBossRooms(); _world.SetActiveMusic(SoundId.MusBoss); return; }
             }
         }
         else if (Health == 0)
@@ -163,7 +163,7 @@ internal sealed partial class OctogonCharacter : EnemyCharacter
             case 8:
                 if (_world.ShutterSignal() != 0) return;
                 State = 9;
-                if (_memory.ReadWramByte(0xcc35) != 0) { _memory.SetWramByte(0xcc35,0); _world.Sound(SoundId.MusBoss); }
+                if (_world.ActiveMusic() != 0) { _world.SetActiveMusic(0); _world.Sound(SoundId.MusBoss); }
                 return;
             case 9:
                 DecAttack();
