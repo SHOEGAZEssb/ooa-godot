@@ -54,11 +54,17 @@ public sealed partial class ValidationRoot
             rom[p+11] = (byte)main.Key.Node.Position.Y; rom[p+13] = (byte)main.Key.Node.Position.X;
             rom[0xcdd1] = 1;
             int heldBefore = 0, update = 0, loads = 0;
+            var checkedTextures = new HashSet<(ulong, int)>();
+            var checkedOamTextures = new HashSet<(ulong, string, int)>();
             void CompareBoss()
             {
                 foreach (var pair in enemySlots.Where(pair => pair.Key.Node is OctogonCharacter))
                 {
                     var actor = (OctogonCharacter)pair.Key.Node; int a = 0xd080+pair.Value*256;
+                    ValidateOctogonDrawTexture(actor,rom[a+0x1c]&7,checkedTextures);
+                    if (!actor.ShellForm && actor.Visible)
+                        ValidateOctogonOamTexture(actor,actor.CurrentDrawTexture,OctogonNativeOam(rom.Word(a+0x1e)),
+                            rom[a+0x1d],rom[a+0x1c]&7,checkedOamTextures);
                     // parseObjectData writes identity/placement only. The
                     // managed node carries its definition before native state0
                     // loads health; compare live HP after that first dispatch.

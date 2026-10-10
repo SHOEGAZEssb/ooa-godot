@@ -50,7 +50,12 @@ internal sealed partial class OctogonCharacter : EnemyCharacter
         if (record.Id != EnemyId.Octogon || record.SubId is < 0 or > 2)
             throw new NotSupportedException($"octogon.s: ENEMY${record.Id:x2}:${record.SubId:x2}.");
         Record = record; _random = random; _memory = memory; _world = world; RelatedSlot = parent;
-        InitializeEnemy(position.Floor(),EnemyCharacterConfiguration.FromImported(record),paletteOverrides:_data.Palettes);
+        // octogon.s:@subid1_1 selects palette$06 for the underwater body.
+        // Load that draw variant as well as the ordinary and damage frames.
+        // enemy7dOamDataPointers includes signed cells outside a fixed 32x32
+        // canvas. Retain their full bounds and original draw offsets.
+        InitializeEnemy(position.Floor(),EnemyCharacterConfiguration.FromImported(record),
+            paletteOverrides:_data.Palettes,positionedOam:true,paletteVariants:[6]);
         RadiusX = record.RadiusX; RadiusY = record.RadiusY; Visible = false;
     }
     internal void InitializeNative(bool scrolling,Vector2 link,Vector2 target)

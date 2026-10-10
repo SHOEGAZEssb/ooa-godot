@@ -46,12 +46,18 @@ public sealed partial class ValidationRoot
             int update = 0;
             bool changedLayer = false;
             var emitted = new HashSet<int>();
+            var checkedTextures = new HashSet<(ulong, int)>();
+            var checkedOamTextures = new HashSet<(ulong, string, int)>();
             void Compare()
             {
                 rom.Update(_entities.FrameCounter,_player.Position);
                 foreach (var pair in slots.Where(pair => pair.Key.Node is OctogonCharacter))
                 {
                     var actor = (OctogonCharacter)pair.Key.Node; int p = 0xd080+pair.Value*256;
+                    ValidateOctogonDrawTexture(actor,rom[p+0x1c]&7,checkedTextures);
+                    if (!actor.ShellForm && actor.Visible)
+                        ValidateOctogonOamTexture(actor,actor.CurrentDrawTexture,OctogonNativeOam(rom.Word(p+0x1e)),
+                            rom[p+0x1d],rom[p+0x1c]&7,checkedOamTextures);
                     Vector2 xy = new(rom.Word(p+12)/256f,rom.Word(p+10)/256f);
                     FailIf(rom[p] == 0 || actor.State != rom[p+4] || actor.Depth != rom[p+3] ||
                         actor.Counter1 != rom[p+6] || actor.Counter2 != rom[p+7] || actor.Direction != rom[p+8] ||
@@ -102,6 +108,36 @@ public sealed partial class ValidationRoot
             FailIf(!changedLayer || !emitted.Contains(0x48),$"Octogon room$5:${room:x2} must complete its timed layer change and produce native depth charges: changed={changedLayer}, depth={main.Depth}, state=${main.State:x2}, phaseCounter={main.Counter2}, emitted={string.Join(',',emitted)}.");
             if (room == 0x2d) FailIf(!emitted.Contains(0x55),"Underwater Octogon must produce its trapping bubble.");
         }
-        GD.Print("Validated executed clean-US Octogon body/shell initialization, timed layer changes, attacks, fixed movement, shared handoff bytes and ordered native child/RNG updates through split/batched gameplay.");
+        GD.Print("Validated executed clean-US Octogon body/shell initialization, visible sprite pixels and underwater palette, timed layer changes, attacks, fixed movement, shared handoff bytes and ordered native child/RNG updates through split/batched gameplay.");
+    }
+
+    private void ValidateOctogonDrawTexture(OctogonCharacter actor,int nativePalette,
+        HashSet<(ulong, int)> checkedTextures)
+    {
+        if (actor.ShellForm || !actor.Visible) return;
+        Texture2D texture = actor.CurrentDrawTexture;
+        if (!checkedTextures.Add((texture.GetInstanceId(),nativePalette))) return;
+        using Image image = texture.GetImage();
+        int opaque = 0;
+        // paletteData.s:paletteData4960, loaded into sprite palette$06 by
+        // PALH_88; octogon.s:@subid1_1 selects it for the underwater body.
+        Color[] underwaterColors = [new(0,0,0),new(25/31f,9/31f,1),new(27/31f,29/31f,1)];
+        bool underwaterColor = false;
+        for (int y = 0; y < image.GetHeight(); y++)
+        for (int x = 0; x < image.GetWidth(); x++)
+        {
+            Color pixel = image.GetPixel(x,y);
+            if (pixel.A < 0.1f) continue;
+            opaque++;
+            if (nativePalette != 6) continue;
+            // Rgba8 quantization is at most half a byte per channel.
+            bool Matches(Color color) => Math.Abs(pixel.R-color.R) < 1/255f &&
+                Math.Abs(pixel.G-color.G) < 1/255f && Math.Abs(pixel.B-color.B) < 1/255f;
+            FailIf(!underwaterColors.Any(Matches),
+                $"ENEMY$7d:$01 animation${actor.AnimationIndex:x2}: pixel {pixel} differs from PALH_88/palette$06.");
+            underwaterColor |= Matches(underwaterColors[1]) || Matches(underwaterColors[2]);
+        }
+        FailIf(opaque == 0 || nativePalette == 6 && !underwaterColor,
+            $"ENEMY$7d:${actor.Record.SubId:x2} animation${actor.AnimationIndex:x2}: visible body must draw opaque pixels in native palette${nativePalette:x2}.");
     }
 }

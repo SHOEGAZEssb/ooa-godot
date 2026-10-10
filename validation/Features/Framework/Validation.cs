@@ -281,6 +281,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateOctogonEncounterRom, requiresRom: true);
         RunIsolatedValidation(ValidateOctogonEntryRom, requiresRom: true);
         RunIsolatedValidation(ValidateOctogonCombatRom, requiresRom: true);
+        RunIsolatedValidation(ValidateOctogonSpritesRom, requiresRom: true);
         RunIsolatedValidation(ValidateOctogonBubbleRom, requiresRom: true);
         RunIsolatedValidation(ValidateOctogonDeathRom, requiresRom: true);
         RunIsolatedValidation(ValidateOctogonDiveRom, requiresRom: true);
