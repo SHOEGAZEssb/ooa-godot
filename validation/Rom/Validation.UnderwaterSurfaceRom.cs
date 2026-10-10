@@ -10,10 +10,24 @@ public sealed partial class ValidationRoot
     private void ValidateUnderwaterWarpHoleRom() => ValidateUnderwaterSurfaceRom(true, down: true);
     private void ValidateUnderwaterWhirlpoolRom() => ValidateUnderwaterSurfaceRom(false, whirlpool: true);
 
-    private void ValidateUnderwaterSurfaceRom(bool dungeon, bool down = false, bool whirlpool = false)
+    private void ValidateUnderwaterEquippedSurfaceRom()
+    {
+        // checkUseItems checks only A in top-down underwater rooms, before
+        // Link consumes a fresh B edge for travel. Cover usable B items,
+        // including selectors 2/3/4 and actions that immobilize Link.
+        foreach (int item in new[] { TreasureId.SwitchHook, TreasureId.Sword,
+            TreasureId.Shooter, TreasureId.Boomerang, TreasureId.Bombs,
+            TreasureId.Bracelet, TreasureId.Feather, TreasureId.Shield, TreasureId.Shovel,
+            TreasureId.CaneOfSomaria, TreasureId.SeedSatchel,
+            TreasureId.BiggoronSword, TreasureId.Bombchus, TreasureId.Harp, TreasureId.Flute })
+            ValidateUnderwaterSurfaceRom(false, equippedB: item);
+    }
+
+    private void ValidateUnderwaterSurfaceRom(bool dungeon, bool down = false, bool whirlpool = false,
+        int equippedB = 0)
     {
         int hostCase1 = 0;
-        foreach (int group in dungeon ? new[] { 5 } : new[] { 2, 3 })
+        foreach (int group in dungeon ? new[] { 5 } : equippedB != 0 ? new[] { 2 } : new[] { 2, 3 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
@@ -26,7 +40,13 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(group, sourceRoom); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.Flippers, 0);
             _inventory.GiveTreasure(TreasureId.MermaidSuit, 0);
-            _inventory.EquipA(0); _inventory.EquipB(0);
+            if (equippedB != 0)
+            {
+                _inventory.GiveTreasure(equippedB, equippedB is TreasureId.Bombs or TreasureId.Bombchus ? 0x10 : 1);
+                _inventory.GiveTreasure(TreasureId.EmberSeeds, 0x10);
+            }
+            _inventory.EquipA(0); _inventory.EquipB(equippedB);
+            byte[] ammo = Enumerable.Range(0xc6b0, 14).Select(_saveData.ReadWramByte).ToArray();
             for (int y = 0; y < _currentRoom.HeightInTiles; y++)
             for (int x = 0; x < _currentRoom.WidthInTiles; x++)
                 _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8), 0xa0,
@@ -86,12 +106,27 @@ public sealed partial class ValidationRoot
                         }
                     }
                     edge = 0;
-                    string context = $"Surfacing {group:x1}:{sourceRoom:x2} batched={batched} update={++update}";
+                    string context = $"Surfacing {group:x1}:{sourceRoom:x2} B=${equippedB:x2} batched={batched} update={++update}";
                     FailIf(_rooms.ActiveGroup != rom[0xcc2d] || _currentRoom.Id != rom[0xcc30] ||
                         _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
                         context + $": room/fixed XY differ: runtime={_rooms.ActiveGroup:x1}:{_currentRoom.Id:x2}/{_player.PrecisePosition}, native={rom[0xcc2d]:x1}:{rom[0xcc30]:x2}/{rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}; flags=${_currentRoom.TilesetFlags:x2}/${rom[0xcc34]:x2}, tile=${_terrain.GetActiveTerrain(_player.Position).Terrain.Tile:x2}/${rom[0xcf00 + rom[0xcc99]]:x2}, type={_terrain.GetActiveTerrain(_player.Position).Terrain.Type}, native velocity=${rom[0xd009]:x2}/${rom[0xd010]:x2}, held=${held:x2}.");
                     if (!loaded)
                     {
+                        if (equippedB != 0)
+                        {
+                            FailIf(_player.NativeItemUseActive || _player.IsUsingShield ||
+                                _entities.BombchuParent.Active || _bracelet.State != BraceletState.Idle || _bomb.Active ||
+                                Enumerable.Range(0xd2, 10).Any(page => rom[page << 8] != 0),
+                                context + ": B allocated an underwater parent/child instead of remaining reserved for travel.");
+                            FailIf(!Enumerable.Range(0xc6b0, 14).Select(_saveData.ReadWramByte).SequenceEqual(ammo) ||
+                                !Enumerable.Range(0xc6b0, 14).Select(address => rom[address]).SequenceEqual(ammo),
+                                context + ": reserved B spent item ammunition.");
+                            // The fixture injects text activity into the ROM;
+                            // only the runtime renders this literal message.
+                            FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(
+                                rom.Sounds.Where(id => id != SoundId.SndText)),
+                                context + $": reserved B changed native sound order: runtime={string.Join(',', sounds.Requests)}, ROM={string.Join(',', rom.Sounds)}.");
+                        }
                         FailIf(_transitions.IsTransitioning != (rom[0xc2ef] == 3) || _player.TopDownSwimming,
                             context + ": source dry-underwater state or fade request differs.");
                         if (rom[0xc2ef] == 3)
@@ -122,7 +157,7 @@ public sealed partial class ValidationRoot
                 "Surfacing fixture must use a blocked foot tile distinct from Link's center tile.");
             for (int repeat = 0; repeat < 2; repeat++)
             {
-                Step(1, 2); Step(3);
+                Step(1, 2); Step(3, 2); Step(3);
                 FailIf(_transitions.IsTransitioning, "Blocked surfacing tile retained a pending warp.");
             }
             int began = update;
@@ -174,6 +209,6 @@ public sealed partial class ValidationRoot
             FailIf(_transitions.IsTransitioning, "Surfacing did not finish the arrival fade on update 33.");
             Step(4);
         }
-        GD.Print($"Validated clean-US underwater travel dungeon={dungeon}, down={down}, whirlpool={whirlpool}: reachable foot tiles, B edge/dialogue/lock gates and split/batched native gameplay handoff.");
+        GD.Print($"Validated clean-US underwater travel dungeon={dungeon}, down={down}, whirlpool={whirlpool}, B=${equippedB:x2}: reachable foot tiles, B edge/dialogue/lock gates and split/batched native gameplay handoff.");
     }
 }

@@ -7056,6 +7056,12 @@ public partial class Player : Node2D
         return immobilized;
     }
 
+    // parentItemUsage.s:checkUseItems dispatches sidescroll before underwater.
+    // Top-down underwater rooms allocate only A; B remains available to
+    // link.s:checkForUnderwaterTransition regardless of its equipped item.
+    // Existing parents still update and read their original button inputs.
+    private bool SecondaryItemAllocationSuppressed => _world.Underwater && !_world.SideScrolling;
+
     private bool ProcessItemParents(Vector2 input, bool checkTileWarps)
     {
         _bombchuParentInitializedThisUpdate = false;
@@ -7067,7 +7073,8 @@ public partial class Player : Node2D
         if (eligible && !primarySuppressed && Input.IsActionJustPressed("attack") && _inventory.EquippedA == TreasureId.Bombchus)
             ReserveBombchuParent();
         bool immobilized = ProcessOtherItemParents(input, checkTileWarps);
-        if (eligible && Input.IsActionJustPressed("item") && _inventory.EquippedB == TreasureId.Bombchus)
+        if (eligible && !SecondaryItemAllocationSuppressed &&
+            Input.IsActionJustPressed("item") && _inventory.EquippedB == TreasureId.Bombchus)
             ReserveBombchuParent();
         InitializeBombchuParentForUpdate();
         if (!_bombchuParentInitializedThisUpdate) _world.UpdateBombchuParent();
@@ -7117,14 +7124,14 @@ public partial class Player : Node2D
             !IsUsingSeedSatchel && _inventory.SatchelSelectedSeeds == 2 &&
             (!primaryItemInputSuppressed && Input.IsActionJustPressed("attack") &&
                 _inventory.EquippedA == TreasureId.SeedSatchel ||
-             Input.IsActionJustPressed("item") && _inventory.EquippedB == TreasureId.SeedSatchel))
+             !SecondaryItemAllocationSuppressed && Input.IsActionJustPressed("item") && _inventory.EquippedB == TreasureId.SeedSatchel))
             _world.TryUseSeedSatchel(this);
         // chooseParentItemSlot precedes the Bracelet parent's release check.
         // Keep that input-phase observation even if UpdateBracelet clears it.
         bool braceletParentAtInput = _world.BraceletParentActive;
         if(!_itemAllocationBlockedThisUpdate && !_world.ItemUsageDisabled && _activeTransformation==0 &&
             (!primaryItemInputSuppressed && Input.IsActionJustPressed("attack") && _inventory.EquippedA==TreasureId.BiggoronSword ||
-             Input.IsActionJustPressed("item") && _inventory.EquippedB==TreasureId.BiggoronSword))
+             !SecondaryItemAllocationSuppressed && Input.IsActionJustPressed("item") && _inventory.EquippedB==TreasureId.BiggoronSword))
             StartBiggoronAction(input);
         if (_world.UpdateBomb(this, input, itemButtonJustPressed))
         {
@@ -7190,7 +7197,7 @@ public partial class Player : Node2D
         ParentItemUsage secondaryUsage = _inventory.EquippedB is >= 0 and < 0x20
             ? _parentItemUsage.Item(_inventory.EquippedB) : default;
         bool secondaryReplacesPrimary = !primaryItemInputSuppressed &&
-            (!_world.Underwater || _world.SideScrolling) &&
+            !SecondaryItemAllocationSuppressed &&
             Input.IsActionJustPressed("attack") && Input.IsActionJustPressed("item") &&
             primaryUsage.Selector == 3 && secondaryUsage.Selector == 3 &&
             secondaryUsage.Enabled >= primaryUsage.Enabled;
@@ -7229,8 +7236,8 @@ public partial class Player : Node2D
             {
                 // linkUpdateFlippersSpeed reads BTN_A directly. While Link is
                 // swimming with Flippers, checkUseItems checks only B,
-                // including when A holds ITEM_SWORD. var2f bit 7 enables
-                // both buttons for the Mermaid Suit or underwater tilesets.
+                // including when A holds ITEM_SWORD. In side-view swimming,
+                // var2f bit 7 enables both buttons for the Mermaid Suit.
             }
             else if (_world.ItemUsageDisabled)
             {
@@ -7268,7 +7275,7 @@ public partial class Player : Node2D
                 _inventory.EquippedA is TreasureId.Harp or TreasureId.Flute)
                 startPrimaryInstrument = true;
         }
-        if (_activeTransformation == 0 &&
+        if (_activeTransformation == 0 && !SecondaryItemAllocationSuppressed &&
             (secondaryReplacesPrimary || primaryItemInputSuppressed || !Input.IsActionJustPressed("attack") ||
                 _inventory.EquippedA is TreasureId.CaneOfSomaria or TreasureId.Boomerang or TreasureId.BiggoronSword or TreasureId.Bombchus ||
                 _inventory.EquippedB is TreasureId.Boomerang or TreasureId.CaneOfSomaria) &&
@@ -7317,7 +7324,7 @@ public partial class Player : Node2D
             {
                 StartSwordAttack("item", input);
             }
-            else if (!_world.Underwater && _inventory.EquippedB == TreasureId.CaneOfSomaria)
+            else if (_inventory.EquippedB == TreasureId.CaneOfSomaria)
                 StartSomariaAction(input, primaryItemInputSuppressed, braceletParentAtInput);
             else if (_inventory.EquippedB == TreasureId.Boomerang)
                 StartBoomerangAction(input);
@@ -7336,8 +7343,7 @@ public partial class Player : Node2D
             {
                 StartSeedSatchelAction();
             }
-            else if (!_world.Underwater &&
-                _inventory.EquippedB == TreasureId.Shooter &&
+            else if (_inventory.EquippedB == TreasureId.Shooter &&
                 _world.TryBeginSeedShooter(this, primaryButton: false, input))
             {
                 if (checkTileWarps && !_topDownAirborne) _world.CheckTileWarp(this);
@@ -7355,7 +7361,8 @@ public partial class Player : Node2D
         // checkNoOtherParentItemsInUse can enable their global input lock.
         if (startPrimaryInstrument)
         {
-            if (_inventory.EquippedB == TreasureId.Bombchus && Input.IsActionJustPressed("item") &&
+            if (!SecondaryItemAllocationSuppressed &&
+                _inventory.EquippedB == TreasureId.Bombchus && Input.IsActionJustPressed("item") &&
                 !_itemAllocationBlockedThisUpdate && !_world.ItemUsageDisabled && !IsCarryingObject &&
                 !IsHoldingItemOneHand && !IsHoldingItemTwoHands && !IsUsingHarp)
             {

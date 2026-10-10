@@ -478,6 +478,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateUnderwaterWalkGraphics);
         RunIsolatedValidation(ValidateUnderwaterSurfacingMasksRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterSurfaceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterEquippedSurfaceRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterDungeonSurfaceRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuFloodedTilesetsRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuWaterTilesRom, requiresRom: true);
