@@ -1,3 +1,26 @@
+# Shared background SCX waves: retain the byte coefficients, rather than
+# approximating the source's quantized sine with floating-point trigonometry.
+$screenWaveRows = [Collections.Generic.List[string]]::new()
+$screenWaveRows.Add("# order`tcoefficient`tsource")
+$readingScreenWave = $false
+$screenWaveOrder = 0
+foreach ($node in Read-AssemblyLabelNodes (Join-Path $Disassembly 'code/bank1.s') 'initWaveScrollValues_body') {
+    if ($node.Kind -eq 'Label') {
+        if ($readingScreenWave) { break }
+        $readingScreenWave = $node.Name -eq '@sineWave'
+        continue
+    }
+    if ($readingScreenWave -and $node.Kind -eq 'Data' -and $node.Name -eq '.db') {
+        foreach ($operand in $node.Operands) {
+            $coefficient = Convert-AssemblyInteger $operand
+            $screenWaveRows.Add("$screenWaveOrder`t$coefficient`tcode/bank1.s:initWaveScrollValues_body@sineWave")
+            $screenWaveOrder++
+        }
+    }
+}
+if ($screenWaveOrder -ne 32) { throw 'initWaveScrollValues_body@sineWave: expected 32 byte coefficients.' }
+Write-GeneratedTable((Join-Path $destination 'metadata/screen_wave_sine.tsv'), $screenWaveRows)
+
 # Preserve the complete Ages branch of constants/common/globalFlags.s for the
 # editable debug flag menu. Within WLA-DX enums, "db" advances the value while
 # ".db" is used here for range aliases, so only the former emits a flag row.

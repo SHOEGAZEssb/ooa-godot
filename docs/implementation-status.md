@@ -10,7 +10,8 @@ focused validations; NPC classifications live in the
 - Room, tileset, graphics, collision, navigation, object, dialogue, menu, sprite,
   and sound data import.
 - Original-resolution rendering, top-down and side-view rooms, scrolling,
-  warps, time travel, persistent room state, deterministic RNG and 60 Hz updates.
+  underwater background waves, warps, time travel, persistent room state,
+  deterministic RNG and 60 Hz updates.
 - Boot/title, file select, three explicit-save slots with backup recovery,
   HUD, dialogue, inventory, maps, ring screens, save/quit, and game over.
 - Imported music and SFX sequencing with original channel and RNG ownership.

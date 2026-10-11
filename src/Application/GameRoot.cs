@@ -605,6 +605,7 @@ public partial class GameRoot : Node2D
             _random,
             _entities);
         _roomView.SetRoom(_rooms.CurrentRoom.Texture);
+        _roomView.UpdateUnderwaterWave(_rooms.CurrentRoom, _entities.FrameCounter);
         if (!useSavedSpawn && !useDebugSavestate)
             spawn = FindSpawn();
         _player.Initialize(_playerWorld, _inventory, spawn, _random);
@@ -958,6 +959,10 @@ public partial class GameRoot : Node2D
         _entities.SwitchHook?.UpdatePost(_player);
         _entities.Somaria?.UpdatePost(_player);
         _entities.Biggoron?.UpdatePost(_player);
+        // cutscene01 calls checkUpdateUnderwaterWaves after updateAllObjects,
+        // including text-frozen object passes. Menus return before this pass.
+        if (!arrivalOwnsUpdate && !toggleOwnedUpdate && !roomTransitionOwnedUpdate && !pass.NativeCutsceneOwnedUpdate)
+            _roomView.UpdateUnderwaterWave(_rooms.CurrentRoom, _entities.FrameCounter);
         if (!arrivalOwnsUpdate && !IsTransitioning && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             _transitions.SampleRoomExit(_player);
         _entities.SynchronizeCompanionRiderAfterObjects(_player);
@@ -988,7 +993,10 @@ public partial class GameRoot : Node2D
         if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnsPostObjects && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             _entities.ResolvePostObjectCollisions(_player);
         if (roomTransitionOwnedUpdate && !IsTransitioning)
+        {
             _entities.FloorToggle?.CompleteRoomInitialization();
+            _roomView.UpdateUnderwaterWave(_rooms.CurrentRoom, _entities.FrameCounter);
+        }
         if (finishingArrival)
         {
             // cutscene00 records the visit after updateAllObjects. The
@@ -1747,6 +1755,7 @@ public partial class GameRoot : Node2D
         }
         _roomView.SetRoom(loaded.Texture);
         _entities.LoadRoom(_rooms.ActiveGroup, loaded);
+        _roomView.UpdateUnderwaterWave(loaded, _entities.FrameCounter);
         _hud.Refresh();
         _transitions.ResetCamera();
     }

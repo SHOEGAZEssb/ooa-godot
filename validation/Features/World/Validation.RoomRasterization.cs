@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             const System.Reflection.BindingFlags flags =
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
             var headers = (int[])typeof(OracleRoomData).GetField("_activeAnimationHeaders", flags)!.GetValue(room)!;
-            using Image actual = (Image)typeof(OracleRoomData).GetMethod("RenderRoom", flags)!.Invoke(room, [headers])!;
+            using Image actual = (Image)typeof(OracleRoomData).GetMethod("RenderRoom", flags)!.Invoke(room, [headers, 0])!;
             FailIf(!expected.GetData().SequenceEqual(actual.GetData()),
                 $"Room {room.Group:x1}:{room.Id:x2} raster differs from signed BG tile/attribute reference.");
             using Image clear = (Image)typeof(OracleRoomData).GetMethod("RenderClearedTilemap", flags)!.Invoke(room, null)!;

@@ -117,6 +117,12 @@ snapshots do not request a redraw. Per-object
 overrides select cached textures without resetting animation clocks or mutating
 source images.
 
+Background scanline waves use imported byte coefficients and the shared fixed
+update counter. Underwater presentation samples the 256-pixel background
+storage, including room padding, while logical room dimensions, sprites, and
+screen-space UI retain their coordinates. Live tile and palette writes update
+both ordinary and underwater background textures.
+
 Frontend controllers publish graphics, cursors and palette changes within
 their fixed updates. Screen swaps retain the source fade endpoints and
 initialization states. Palette presentation uses the source RGB5 fade followed

@@ -33,6 +33,19 @@ public sealed class OracleRoomData
     public byte[] Layout { get; }
     public byte[] Collisions { get; }
     public Texture2D Texture { get; }
+    private Texture2D? _underwaterBackgroundTexture;
+    internal Texture2D UnderwaterBackgroundTexture
+    {
+        get
+        {
+            if (_underwaterBackgroundTexture is null)
+            {
+                using Image image = RenderUnderwaterBackground();
+                _underwaterBackgroundTexture = ImageTexture.CreateFromImage(image);
+            }
+            return _underwaterBackgroundTexture;
+        }
+    }
     public Texture2D ClearedTilemapTexture { get; }
 
     private readonly Image _source;
@@ -98,7 +111,8 @@ public sealed class OracleRoomData
             80 => (10, 8, 10),
             // Large-room data keeps the Game Boy's 16-byte wRoomLayout row
             // stride, but LARGE_ROOM_WIDTH is $0f. The final byte of each row
-            // is padding and must never be rendered or treated as playable.
+            // is padding and must never be treated as playable. Underwater
+            // SCX waves can expose its pixels beyond the playable boundary.
             176 => (LargeRoomWidthInTiles, LargeRoomHeightInTiles, 16),
             _ => throw new InvalidOperationException(
                 $"Room {group:x1}:{id:x2} has unsupported layout size {layout.Length}.")
@@ -122,7 +136,7 @@ public sealed class OracleRoomData
 
         _animationSignature = signature;
         _activeAnimationHeaders = activeHeaders;
-        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        ReplaceRoomTexture(activeHeaders);
         return true;
     }
 
@@ -626,7 +640,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        ReplaceRoomTexture(activeHeaders);
         return true;
     }
 
@@ -655,7 +669,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ReplaceTextureImage(Texture,RenderRoom(activeHeaders));
+        ReplaceRoomTexture(activeHeaders);
     }
 
     internal void SetPositionTileAndCollision(
@@ -696,7 +710,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        ReplaceRoomTexture(activeHeaders);
     }
 
     /// <summary>
@@ -760,7 +774,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        ReplaceRoomTexture(activeHeaders);
     }
 
     internal void ResetAndApplyRoomInitializationChanges(
@@ -816,7 +830,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        ReplaceRoomTexture(activeHeaders);
     }
 
     internal void ApplyMetatileSubstitutions(
@@ -845,7 +859,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        ReplaceRoomTexture(activeHeaders);
     }
 
     /// <summary>
@@ -1096,7 +1110,7 @@ public sealed class OracleRoomData
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        ReplaceRoomTexture(activeHeaders);
     }
 
     private static readonly byte[] SpecialCollisionMasks =
@@ -1180,21 +1194,35 @@ public sealed class OracleRoomData
         };
     }
 
-    private Image RenderRoom(int[] activeHeaders)
+    private void ReplaceRoomTexture(int[] activeHeaders)
     {
-        byte[] output = new byte[Width * Height * 4];
+        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        if (_underwaterBackgroundTexture is not null)
+            ReplaceTextureImage(_underwaterBackgroundTexture, RenderRoom(activeHeaders, storageWidth: 256));
+    }
+
+    private Image RenderRoom(int[] activeHeaders, int storageWidth = 0)
+    {
+        int outputWidth = storageWidth == 0 ? Width : storageWidth;
+        byte[] output = new byte[outputWidth * Height * 4];
         byte[] colors = CapturePalettePixels();
         // Read each source once per redraw, including the mutable shared VRAM.
         // A persistent image cache here would miss transition/scripted writes.
         var sources = new Dictionary<Image, (byte[] Pixels, int Width)>();
 
         for (int roomY = 0; roomY < HeightInTiles; roomY++)
-        for (int roomX = 0; roomX < WidthInTiles; roomX++)
+        for (int roomX = 0; roomX < outputWidth / 16; roomX++)
         {
             int layoutIndex = roomY * _layoutStride + roomX;
-            byte[]? mappingOverride = _positionMappingOverrides.TryGetValue(
+            bool playable = roomX < WidthInTiles;
+            byte[]? mappingOverride = playable && _positionMappingOverrides.TryGetValue(
                 layoutIndex, out byte[]? value) ? value : null;
-            int mappingOffset = GetRenderedMetatile(layoutIndex) * 8;
+            // bank0.s:loadRoomLayout clears the 16-byte storage rows first;
+            // loadTilesToRam.s renders all 16 columns, including padding.
+            // SCX wraps at 256 pixels, not at the playable room width.
+            int metatile = playable ? GetRenderedMetatile(layoutIndex)
+                : _layoutStride == 16 ? Layout[layoutIndex] : 0;
+            int mappingOffset = metatile * 8;
 
             for (int quarter = 0; quarter < 4; quarter++)
             {
@@ -1230,13 +1258,16 @@ public sealed class OracleRoomData
                     int writeX = roomX * 16 + quarterX * 8 + pixelX;
                     int writeY = roomY * 16 + quarterY * 8 + pixelY;
                     colors.AsSpan((rawPalette * 4 + shade) * 4, 4)
-                        .CopyTo(output.AsSpan((writeY * Width + writeX) * 4, 4));
+                        .CopyTo(output.AsSpan((writeY * outputWidth + writeX) * 4, 4));
                 }
             }
         }
 
-        return Image.CreateFromData(Width, Height, false, Image.Format.Rgba8, output);
+        return Image.CreateFromData(outputWidth, Height, false, Image.Format.Rgba8, output);
     }
+
+    internal Image RenderUnderwaterBackground() =>
+        RenderRoom(_activeAnimationHeaders, storageWidth: 256);
 
     private Image RenderClearedTilemap()
     {
@@ -1331,7 +1362,7 @@ public sealed class OracleRoomData
 
     internal void RedrawForPaletteChange()
     {
-        ReplaceTextureImage(Texture, RenderRoom(_activeAnimationHeaders));
+        ReplaceRoomTexture(_activeAnimationHeaders);
         // The clear map repeats immutable gfx_hud tile $00 with BG palette 0.
         // Scrolling VRAM uploads and writes to BG1-7 cannot change its pixels.
         var palette = ClearedTilemapPaletteKey();

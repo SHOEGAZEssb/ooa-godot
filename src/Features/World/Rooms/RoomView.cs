@@ -14,24 +14,36 @@ public partial class RoomView : Node2D
     private bool _waveActive;
     private int _waveAmplitude;
     private int _wavePhase;
+    private bool _underwaterWaveActive;
+    private int _underwaterWavePhase;
+    private Texture2D? _underwaterBackground;
     private Color _backgroundFade = new(0, 0, 0, 0);
     private bool _roomLoadColumnReveal;
     private int _roomLoadRevealLoadedColumns;
     private Texture2D? _roomLoadClearedTilemap;
 
-    private static readonly int[] WaveQuarter =
-    {
-        0x00, 0x0d, 0x19, 0x26, 0x32, 0x3e, 0x4a, 0x56,
-        0x62, 0x6d, 0x79, 0x84, 0x8e, 0x98, 0xa2, 0xac,
-        0xb5, 0xbe, 0xc6, 0xce, 0xd5, 0xdc, 0xe2, 0xe7,
-        0xed, 0xf1, 0xf5, 0xf8, 0xfb, 0xfd, 0xff, 0xff
-    };
-
     public bool IsTransitioning => _previous is not null;
+    internal bool UnderwaterWaveActive => _underwaterWaveActive;
+    internal int UnderwaterWavePhase => _underwaterWavePhase;
+
+    internal void UpdateUnderwaterWave(OracleRoomData room, int frameCounter)
+    {
+        // underwaterWaves.s: amplitude $02, phase (SCY + wFrameCounter) & $7f.
+        // updateGfxRegs2Scroll subtracts $10 from camera Y for the HUD. Drawing
+        // in world coordinates already supplies camera Y through the row index.
+        bool active = (room.TilesetFlags & (int)TilesetFlags.Underwater) != 0;
+        if (!active && !_underwaterWaveActive) return;
+        _underwaterWaveActive = active;
+        _underwaterBackground = _underwaterWaveActive ? room.UnderwaterBackgroundTexture : null;
+        _underwaterWavePhase = (frameCounter - OracleRoomData.StatusBarHeight) & 0x7f;
+        QueueRedraw();
+    }
 
     public void SetRoom(Texture2D texture)
     {
         _current = texture;
+        _underwaterWaveActive = false;
+        _underwaterBackground = null;
         _previous = null;
         _transitionFrame = 0.0f;
         _roomLoadColumnReveal = false;
@@ -48,6 +60,8 @@ public partial class RoomView : Node2D
         Vector2 destinationCameraOrigin)
     {
         _previous = _current;
+        _underwaterWaveActive = false;
+        _underwaterBackground = null;
         _current = texture;
         _direction = direction;
         _transitionDistance = distance;
@@ -148,7 +162,9 @@ public partial class RoomView : Node2D
             if (_roomLoadColumnReveal && _roomLoadClearedTilemap is not null)
                 DrawRoomLoadColumnReveal(_current, _roomLoadClearedTilemap);
             else if (_waveActive)
-                DrawWavedTexture(_current);
+                DrawWavedTexture(_current, _waveAmplitude, _wavePhase);
+            else if (_underwaterWaveActive && _underwaterBackground is not null)
+                DrawWavedTexture(_underwaterBackground, 0x02, _underwaterWavePhase);
             else
                 DrawTexture(_current, Vector2.Zero);
             DrawBackgroundFade();
@@ -193,13 +209,13 @@ public partial class RoomView : Node2D
             _backgroundFade);
     }
 
-    private void DrawWavedTexture(Texture2D texture)
+    private void DrawWavedTexture(Texture2D texture, int amplitude, int phase)
     {
         int width = texture.GetWidth();
         int height = texture.GetHeight();
         for (int y = 0; y < height; y++)
         {
-            int offset = WaveOffsetForValidation(_waveAmplitude, _wavePhase + y);
+            int offset = ScreenWaveData.Shared.Offset(amplitude, phase + y);
             Rect2 source = new(0, y, width, 1);
             Rect2 target = new(-offset, y, width, 1);
             DrawTextureRectRegion(texture, target, source);
@@ -209,14 +225,5 @@ public partial class RoomView : Node2D
     }
 
     internal static int WaveOffsetForValidation(int amplitude, int index)
-    {
-        int phase = index & 0x7f;
-        int quarterIndex = phase & 0x1f;
-        if ((phase & 0x20) != 0)
-            quarterIndex = 0x1f - quarterIndex;
-        int value = (WaveQuarter[quarterIndex] * Mathf.Clamp(amplitude, 0, 0xff)) >> 8;
-        if ((phase & 0x40) != 0)
-            value = -value;
-        return value;
-    }
+        => ScreenWaveData.Shared.Offset(amplitude, index);
 }
