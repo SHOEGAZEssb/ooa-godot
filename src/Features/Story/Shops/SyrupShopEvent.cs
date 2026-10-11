@@ -48,6 +48,9 @@ internal sealed class SyrupShopEvent(RoomEventContext context)
         // interaction5f's upper OAM cells start at Y=$f8. The native
         // animation needs positioned bounds; the fixed NPC canvas clips them.
         _syrup.SetScriptAnimation(_data.Animation(0x5f, 0));
+        // syrup.s state0 returns through interactionAnimateAsNpc, which
+        // publishes relative priority/visibility before the arrival fade ends.
+        _syrup.UpdateDrawPriority(context.Player.Position);
         _cucco.SetScriptAnimation(_data.Animation(0xc9, 0));
         _cucco.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // syrupCucco.s: objectSetVisible80
     }

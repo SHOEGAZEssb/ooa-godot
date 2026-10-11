@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace oracleofages;
 
@@ -249,5 +250,114 @@ public sealed partial class ValidationRoot
             }
         }
         GD.Print("Validated clean-US option space columns, all five cursor delays, horizontal wrap/spatial vertical navigation, direction chords, A/B priority, result/close handoff and repeated split/batched use.");
+    }
+
+    private async Task ValidateDialogueDefaultChoiceRom()
+    {
+        string message = new OceanInteractionDatabase().KingPast
+            .OfType<CutsceneShowTextCommand>().First(command => command.TextId == 0x3401).Message;
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            LoadValidationRoom(4, 0x91);
+            _entities.Clear();
+            _scene.ProcessMode = ProcessModeEnum.Disabled;
+            Image? published = null;
+            // Dummy headless textures do not expose ImageTexture.Update's
+            // pixels. Capture the composition only when native drawing runs.
+            void OnDraw()
+            {
+                published?.Dispose();
+                published = _dialogue.ComposeImage();
+            }
+            _dialogue.Draw += OnDraw;
+            try
+            {
+                var rom = new DialogueRom(_saveData);
+                Vector2 position = _player.Position;
+                void Step(int count, bool confirm = false)
+                {
+                    int edge = confirm ? 1 : 0;
+                    StepGameplayUpdates(count, Vector2.Right,
+                        confirm ? ["attack"] : [], confirm ? ["attack"] : [], batched,
+                        afterUpdate: () =>
+                        {
+                            rom.AdvanceText(edge, confirm ? 1 : 0);
+                            edge = 0;
+                            FailIf(_dialogue.IsOpen != rom.Active || _player.Position != position,
+                                "TX_3401 default choice lost text ownership or gameplay freeze.");
+                            if (rom[0xcba1] == 1)
+                                FailIf(_dialogue.SelectedChoice != rom.Text(0xd0e8),
+                                    "TX_3401 default option differs from the clean US ROM.");
+                        });
+                }
+                // Observe the image published by native deferred _Draw calls,
+                // with gameplay disabled while the host frames drain.
+                async Task FlushDraws()
+                {
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                }
+                for (int attempt = 0; attempt < 2; attempt++)
+                {
+                    _dialogue.MessageSpeed = 4;
+                    _dialogue.ShowGameplayChoiceMessage(message, _player.Position.Y);
+                    rom.Open(0x3401, 4, (int)_player.Position.Y);
+                    for (int update = 0; update < 1200 && rom[0xcba1] != 1; update++)
+                        Step(1, confirm: update % 3 == 0);
+                    FailIf(rom[0xcba1] != 1, "TX_3401 did not reach option initialization.");
+                    // textOptionCode states 0/1: initialization then $10
+                    // decrements at speed 4. Input is ignored until state 2.
+                    Step(1, confirm: true);
+                    Step(15);
+                    FailIf(_dialogue.ChoiceCursorVisible || rom.State != 1 ||
+                        _dialogue.SelectedChoice != 0,
+                        "TX_3401 exposed its default cursor before the source delay ended.");
+                    await FlushDraws();
+                    FailIf(published is null, "TX_3401 never reached native dialogue drawing.");
+                    using Image before = (Image)published.Duplicate();
+                    Step(1);
+                    FailIf(!_dialogue.ChoiceCursorVisible || rom.State != 2 ||
+                        _dialogue.SelectedChoice != 0 || rom.Text(0xd0e8) != 0,
+                        "TX_3401 did not make Yes the default option at the input boundary.");
+                    await FlushDraws();
+                    using Image after = (Image)published.Duplicate();
+                    int nativePosition = rom.Text(0xd0e9);
+                    int left = 16 + ((nativePosition & 0x1e) >> 1) * 8;
+                    int top = ((nativePosition & 0x20) == 0 ? 0 : _dialogue.TextLineSpacing) + 8;
+                    bool changed = false;
+                    for (int y = 0; y < 8; y++)
+                    for (int x = 0; x < 8; x++)
+                        changed |= before.GetPixel(left + x, top + y) != after.GetPixel(left + x, top + y);
+                    FailIf(!changed,
+                        $"TX_3401 default cursor was not published by _Draw without a direction press: " +
+                        $"visible={_dialogue.IsVisibleInTree()}, source=${nativePosition:x2}, pixel=({left},{top}).");
+                    Step(1, confirm: true);
+                    FailIf(!_dialogue.IsOpen || rom[0xcba5] != 0 ||
+                        _dialogue.TryTakeChoiceResult(out _),
+                        "TX_3401 A-only confirmation lost the default or released its result early.");
+                    Step(3);
+                    FailIf(!_dialogue.TryTakeChoiceResult(out int result) || result != 0 ||
+                        _dialogue.TryTakeChoiceResult(out _),
+                        "TX_3401 A-only confirmation did not return Yes exactly once after closing.");
+                    StepGameplayUpdates(1, Vector2.Zero, batched: batched);
+                    FailIf(_dialogue.BlocksPlayerInput,
+                        "TX_3401 retained input ownership after completing its default choice.");
+                }
+                _dialogue.ShowGameplayChoiceMessage(message, _player.Position.Y);
+                _dialogue.Close();
+                StepGameplayUpdates(3, Vector2.Zero, batched: batched);
+                FailIf(_dialogue.IsOpen || _dialogue.TryTakeChoiceResult(out _),
+                    "Cancelling the default prompt retained text or published a choice.");
+            }
+            finally
+            {
+                _dialogue.Draw -= OnDraw;
+                published?.Dispose();
+                _dialogue.Close();
+                _scene.ProcessMode = ProcessModeEnum.Inherit;
+            }
+        }
+        GD.Print("Validated clean-US TX_3401 default Yes, delayed native redraw without navigation, A-only confirmation, closing/result ownership, repeat and cancellation through split/batched gameplay.");
     }
 }

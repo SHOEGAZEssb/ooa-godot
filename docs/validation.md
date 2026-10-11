@@ -45,6 +45,12 @@ production host owns session teardown and initialization from a supplied save.
 Call available owner operations directly. Reserve reflection for source-state
 probes that have no meaningful runtime operation or observable result.
 
+Scenarios may return `Task` to observe deferred Godot draw notifications. Suspend
+automatic gameplay processing while awaiting host frames and advance gameplay
+through the explicit fixture. The runner awaits each scenario before resetting
+the next fixture; the launcher enforces its wall-clock timeout without a host-frame
+quit limit.
+
 ## Run validations
 
 Build with optimization, then run the complete suite with the standard 8

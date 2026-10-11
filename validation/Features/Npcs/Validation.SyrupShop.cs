@@ -6,6 +6,42 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateSyrupShopFadeVisibility()
+    {
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                LoadValidationRoom(0, 0x5d);
+                _player.WarpTo(new Vector2(120, 40));
+                FailIf(!CheckTileWarp(_player) || _rooms.ActiveGroup != 3 ||
+                    _rooms.CurrentRoom.Id != 0xed || !_transitions.PaletteFadeActive ||
+                    _warpFade.Color.A != 1,
+                    "0:5d/$27 must enter Syrup's shop 3:ed under opaque white.");
+                NpcCharacter syrup = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x5f);
+                NpcCharacter cucco = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0xc9);
+                // syrup.s state0 falls through interactionAnimateAsNpc, whose
+                // relative-priority write sets Object.visible bit7. Graphics
+                // initialization alone does not make the actor visible.
+                void Check() => FailIf(!syrup.Visible || !cucco.Visible ||
+                    syrup.Position != new Vector2(32, 40) || syrup.ZIndex != 9 ||
+                    syrup.CurrentAnimationTextureSize != new Vector2I(16, 32) ||
+                    syrup.CurrentAnimationOffset != new Vector2(-8, -24),
+                    "3:ed Syrup must publish her complete initial pose during arrival, before the white fade ends.");
+                Check();
+                StepGameplayUpdates(32, Vector2.Zero, batched: batched, afterUpdate: Check);
+                FailIf(!_transitions.PaletteFadeActive || !IsTransitioning,
+                    "3:ed arrival must still be fading on update32.");
+                StepGameplayUpdates(1, Vector2.Zero, batched: batched, afterUpdate: Check);
+                FailIf(IsTransitioning || _transitions.PaletteFadeActive,
+                    "3:ed arrival must finish its white fade on update33.");
+                StepGameplayUpdates(1, Vector2.Zero, batched: batched, afterUpdate: Check);
+            }
+        }
+        ReinitializeGameplayForValidation();
+    }
+
     private void ValidateSyrupShopGraphics()
     {
         // interactionOamData519d4/519e5/519f6 and interactionAnimation5a2a9:

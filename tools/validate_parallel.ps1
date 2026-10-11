@@ -78,9 +78,11 @@ try {
         $stderr = Join-Path $logRoot "$index.stderr.log"
         $engineLog = Join-Path $logRoot "$index.godot.log"
         $selection = if ($ValidateOnly) { "--validate-only=$ValidateOnly" } else { "--validate-shard=$index/$Workers" }
+        # Deferred draw scenarios await host frames. The runner quits when all
+        # assigned scenarios finish; TimeoutSeconds bounds an incomplete run.
         $process = Start-Process -FilePath $Godot -WorkingDirectory $projectRoot `
             -ArgumentList (@('--headless', '--path', ('"' + $projectRoot + '"'),
-                '--log-file', ('"' + $engineLog + '"'), '--quit-after', '10',
+                '--log-file', ('"' + $engineLog + '"'),
                 '--', '--validate', $selection) + $validationArguments) `
             -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
         # Retain the native handle so Windows PowerShell can read ExitCode even

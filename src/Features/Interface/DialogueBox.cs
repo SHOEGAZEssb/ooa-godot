@@ -935,7 +935,13 @@ public partial class DialogueBox : Node2D
         }
         if (_choicePhase == 1)
         {
-            if (--_choiceDelay == 0) _choicePhase = 2;
+            if (--_choiceDelay == 0)
+            {
+                _choicePhase = 2;
+                // textOptionCode@state01 publishes the default cursor with
+                // updateSelectedTextPositionAndDmaTextboxMap on this update.
+                QueueRedraw();
+            }
             return;
         }
         // A/B precede directions, and B selects the last option without

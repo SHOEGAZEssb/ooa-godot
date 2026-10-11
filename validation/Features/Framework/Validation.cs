@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace oracleofages;
 
@@ -19,7 +20,7 @@ public sealed partial class ValidationRoot : GameRoot
     private int _validationOrdinal;
     private int _shardIndex;
     private int _shardCount = 1;
-    private readonly List<(Action Run, bool RequiresRom)> _registeredValidations = [];
+    private readonly List<(Delegate Run, bool RequiresRom)> _registeredValidations = [];
     private ValidationCutsceneTrace? _enterPastCommandTrace;
     private ValidationCombatEffectAudit _combatEffectAudit = null!;
 
@@ -97,7 +98,7 @@ public sealed partial class ValidationRoot : GameRoot
                 FailIf(_validationFilter is not null,
                     "--validate-shard cannot be combined with --validate-only.");
             }
-            ValidateAll();
+            await ValidateAll();
             // AudioStreamPlayer.Stop queues its native playback for the
             // AudioServer mixer/update handoff. Let those engine phases run
             // before quitting a suite that creates and tears down output.
@@ -157,7 +158,10 @@ public sealed partial class ValidationRoot : GameRoot
     private void RunIsolatedValidation(Action validation, bool requiresRom = false)
         => _registeredValidations.Add((validation, requiresRom));
 
-    private void RunRegisteredValidations()
+    private void RunIsolatedValidation(Func<Task> validation, bool requiresRom = false)
+        => _registeredValidations.Add((validation, requiresRom));
+
+    private async Task RunRegisteredValidations()
     {
         Dictionary<string, double>? weights = null;
         const string prefix = "--validate-timing-profile=";
@@ -170,11 +174,11 @@ public sealed partial class ValidationRoot : GameRoot
         foreach (var scenario in _registeredValidations)
         {
             int ordinal = _validationOrdinal++;
-            if (assignments[ordinal] == _shardIndex) ExecuteIsolatedValidation(scenario.Run, scenario.RequiresRom);
+            if (assignments[ordinal] == _shardIndex) await ExecuteIsolatedValidation(scenario.Run, scenario.RequiresRom);
         }
     }
 
-    private void ExecuteIsolatedValidation(Action validation, bool requiresRom)
+    private async Task ExecuteIsolatedValidation(Delegate validation, bool requiresRom)
     {
         if (_validationFilter is not null &&
             !string.Equals(
@@ -208,7 +212,10 @@ public sealed partial class ValidationRoot : GameRoot
         double setupMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         try
         {
-            validation();
+            if (validation is Func<Task> asynchronous)
+                await asynchronous();
+            else
+                ((Action)validation)();
             GD.Print(FormattableString.Invariant(
                 $"VALIDATION_TIMING name={validation.Method.Name} setup_ms={setupMs:F3} total_ms={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F3}"));
         }
@@ -244,7 +251,7 @@ public sealed partial class ValidationRoot : GameRoot
         ValidateSymmetryTransition();
     }
 
-    private void ValidateAll()
+    private async Task ValidateAll()
     {
         RunIsolatedValidation(ValidateGameplaySceneGraph);
         RunIsolatedValidation(ValidateApplicationFixedUpdateScheduler);
@@ -610,6 +617,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDialoguePagingRom, requiresRom: true);
         RunIsolatedValidation(ValidateDialogueFormattingRom, requiresRom: true);
         RunIsolatedValidation(ValidateDialogueChoicesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDialogueDefaultChoiceRom, requiresRom: true);
         RunIsolatedValidation(ValidateNpcConversationRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom3ceRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom3cfRom, requiresRom: true);
@@ -1244,6 +1252,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateLynnaShopInteractions);
         RunIsolatedValidation(ValidateSyrupShopInteractions);
         RunIsolatedValidation(ValidateSyrupShopGraphics);
+        RunIsolatedValidation(ValidateSyrupShopFadeVisibility);
         RunIsolatedValidation(ValidateObjectDrawOrder);
         RunIsolatedValidation(ValidateItemDropDrawPriority);
         RunIsolatedValidation(ValidateHiddenShopInteractions);
@@ -1267,7 +1276,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateWingDungeon, requiresRom:true);
         RunIsolatedValidation(ValidateHeadThwompFidelity);
 
-        RunRegisteredValidations();
+        await RunRegisteredValidations();
         if (_validationFilter is not null &&
             _executedValidationCount + _skippedValidationCount + _failedValidationCount == 0)
         {
