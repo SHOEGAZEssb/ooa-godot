@@ -66,10 +66,20 @@ not snapshot story state at database construction; visibility and dialogue
 must observe live state at the same boundary as the original. Preserve branch
 order where several flags overlap.
 
+Initialization may select visibility once while dialogue continues to observe
+live flags. `IOrdinaryNpcEntity` exposes separate refresh gates and publishes
+completion after its imported initialization rules run; the adapter retains
+the source's selection lifetime without copying save state.
+
 An ordinary NPC entity owns only its actor behavior and presentation. It
 registers dialogue or script interaction through the central interaction
 router. It does not directly scan input, own a room-wide sequence, or duplicate
 save state.
+
+An ordinary A-button selection queues its dialogue for the actor's own update
+slot. The generic script consumes the selection and opens text before that
+actor's final animation update; active text freezes initialized objects from
+the next pass. Room replacement discards pending selections with their actors.
 
 Collision initialization and explicit radius changes are separate operations.
 The Ages `initcollisions` opcode initializes both radii to `$06` only when the

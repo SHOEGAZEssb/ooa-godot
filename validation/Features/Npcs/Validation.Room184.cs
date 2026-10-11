@@ -106,7 +106,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !soldier.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             !dialogue.IsOpen ||
             PlainWords(dialogue.CurrentMessage) !=
                 "Ambi's bombs have tremendous power!",

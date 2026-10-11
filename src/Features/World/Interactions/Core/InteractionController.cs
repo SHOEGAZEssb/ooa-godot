@@ -355,10 +355,20 @@ public sealed class InteractionController
         npc.FaceToward(player.Position);
         target.Begin();
         _activeNpcTalkTarget = target;
-        _dialogue.ShowGameplayMessage(
-            npc.Message,
-            _worldToScreen(player.Position).Y,
-            npc.TextPosition);
+        void ShowDialogue() => _dialogue.ShowGameplayMessage(
+            npc.Message, _worldToScreen(player.Position).Y, npc.TextPosition);
+        bool TryShowDialogue()
+        {
+            // interactionRunScript samples live text/death state even when
+            // the interaction pass was admitted before an earlier slot opened
+            // text. Retain pressed A until this actor's script can consume it.
+            if (_entities.IsScriptTextActive() || player.IsDying)
+                return false;
+            ShowDialogue();
+            return true;
+        }
+        if (!_entities.TryQueueOrdinaryNpcDialogue(npc, TryShowDialogue))
+            ShowDialogue();
         return true;
     }
 
@@ -511,6 +521,18 @@ public sealed class InteractionController
                 room.Id,
                 position);
         }
+        // nextToChestTile reads the shared override before getChestData.
+        // Its first byte is the treasure ID, rather than a little-endian word.
+        var runtime = _entities.RuntimeState;
+        int overrideId = runtime.ReadWramByte(WramAddress.wChestContentsOverride);
+        if (overrideId != 0)
+        {
+            var reward = _treasures.GetObject(overrideId, runtime.ReadWramByte(WramAddress.wChestContentsOverride + 1));
+            chest = chest with { TreasureObject = reward.Name, TreasureId = reward.TreasureId,
+                SubId = reward.SubId, Parameter = reward.Parameter, TextId = reward.TextId,
+                Graphic = reward.Graphic, Message = reward.Message,
+                Amount = reward.TreasureId == TreasureId.Rupees ? _treasures.RupeeValue(reward.Parameter) : 0 };
+        }
         if (!room.ReplaceMetatile(tilePoint, 0xf1, 0xf0, _animationTick()))
             return true;
 
@@ -518,6 +540,11 @@ public sealed class InteractionController
             _rooms.ActiveGroup, room.Id, OracleSaveData.RoomFlagItem);
         _roomView.QueueRedraw();
         _playSound(SoundId.SndOpenChest);
+        runtime.SetWramByte(WramAddress.wChestContentsOverride, 0);
+        runtime.SetWramByte(WramAddress.wChestContentsOverride + 1, 0);
+        // Native NONE contents still open the tile/set ROOMFLAG_ITEM, but do
+        // not create an INTERAC_TREASURE or acquire the chest input masks.
+        if (chest.TreasureId == TreasureId.None) return true;
         _pendingChest = chest;
         _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,0x83);
         _entities.RuntimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,0x83);

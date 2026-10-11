@@ -125,7 +125,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !mustacheMan.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             !dialogue.IsOpen ||
             PlainWords(dialogue.CurrentMessage) !=
                 "Somewhere in the woods is a tree that bears very special seeds.",
@@ -168,7 +168,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !soldier.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             PlainWords(dialogue.CurrentMessage) !=
                 "Did you find what Ambi desires?",
             "Room 1:93's late soldier did not run its TX_5901 dialogue.");
@@ -252,7 +252,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !pastGuy.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             PlainWords(dialogue.CurrentMessage) !=
                 "I wonder what Queen Ambi will want next...",
             "Room 1:94's past guy did not run its TX_1711 A-button loop.");

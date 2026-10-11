@@ -56,6 +56,9 @@ internal sealed class SomariaRom
     internal void AdvanceWallRetraction() => _rom.Call(0x701d,3); // bank3Cutscenes.func_701d, before objects.
     internal void AdvancePalaceBoot() => _rom.Call(0x6275, 3); // CUTSCENE$14, before objects.
     internal void AdvancePalacePassage() => _rom.Call(0x7493, 3); // CUTSCENE$1c, before objects.
+    internal void AdvanceJabuOpening() => _rom.Call(0x7565,3); // CUTSCENE$1d, before objects.
+    internal void LoadRoomTileset() => _rom.LoadRoomTileset();
+    internal void AdvanceScreenShake() => _rom.Call(0x427d,1); // Original post-object Y/X shake and RNG draws.
     internal void AdvanceNayruRescueWarp() => _rom.Call(0x6785,3); // CUTSCENE$0c @runStates, before objects.
     internal void SelectTriggeredCutscene()
     { if (this[0xcc04] != 0) _rom.Call(0x5e3d, 1); }

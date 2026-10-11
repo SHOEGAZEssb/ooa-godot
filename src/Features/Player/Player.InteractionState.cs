@@ -40,8 +40,10 @@ public partial class Player
                 return false;
             // These controllers currently combine native request, state and
             // presentation phases. Do not guess their state from groundedness.
-            if (_world.IsTransitioning ||
-                _spinnerControlled ||
+            // A warp request does not change w1Link.state. Object dispatch
+            // owns fade/scroll eligibility; the requesting update can still
+            // run PART_SEA_EFFECTS with ordinary state01 Link.
+            if (_spinnerControlled ||
                 _cutsceneControlled && _forcedState08Phase == 0 && _getItemStatePhase == 0 ||
                 _getItemOneHandPose || _getItemTwoHandPose ||
                 _newGameSlowFalling ||

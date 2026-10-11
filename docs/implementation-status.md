@@ -42,6 +42,11 @@ focused validations; NPC classifications live in the
   shop's chest-choice game.
 - Raft travel and wreck/theft events; partial Tokay Island progression and
   minigames; fairy fountains and Tokkey's song lesson.
+- Both eras' underwater Zora Village, palaces and houses, ocean dialogue,
+  King Zora's cure, Library Key and Jabu permission, sword secret, Zora Scale,
+  Sea of Storms guards, young Jabu, ocean whirlpools and pollution damage,
+  and Jabu's entrance opening. Dungeon 7 and
+  its Black Tower completion sequence remain outside this coverage.
 - Ambi's Palace soldiers, guards and capture, passage switches, story scenes,
   possessed Nayru/Veran fight, rescue, and Tune of Ages handoff, including
   the linked-game continuation. Focused clean-US ROM comparisons cover these

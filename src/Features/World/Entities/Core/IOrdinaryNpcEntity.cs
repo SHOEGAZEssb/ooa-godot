@@ -12,4 +12,7 @@ namespace oracleofages;
 internal interface IOrdinaryNpcEntity
 {
     NpcCharacter Npc { get; }
+    bool RefreshStoryState => true;
+    bool RefreshVisibility => true;
+    void CompleteStoryInitialization() { }
 }

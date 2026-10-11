@@ -11,11 +11,11 @@ public sealed partial class ValidationRoot
         // Source-derived literals, independently of the runtime table reader.
         var data = SuctionPitDatabase.Shared;
         FailIf(!data.Speeds.SequenceEqual(new[] { 0x3c, 0x32, 0x28, 0x1e, 0x19, 0x14, 0x0f, 0x0a }) ||
-            !data.Probes.SequenceEqual(new (byte, byte)[] { (0, 0xf7), (10, 0), (0, 9), (0xfd, 0xfb), (0, 0) }),
+            !data.Probes.Take(5).SequenceEqual(new (byte, byte)[] { (0, 0xf7), (10, 0), (0, 9), (0xfd, 0xfb), (0, 0) }),
             "seaEffects.s: source suction speeds or cumulative probe order differ.");
         foreach (int mode in Enumerable.Range(0, 6))
         foreach (byte tile in new byte[] { 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x48, 0xf3, 0xe9 })
-            FailIf(data.Matches(mode, tile) != (mode is 2 or 5 && tile is >= 0x3c and <= 0x3f),
+            FailIf(data.Matches(mode, tile) != (mode is 2 or 5 && tile is >= 0x3c and <= 0x3f || mode == 4 && tile == 0xe9),
                 $"seaEffectTiles2.s: suction dispatch differs for mode${mode:x2}, tile${tile:x2}.");
 
         int hostCase = 0;

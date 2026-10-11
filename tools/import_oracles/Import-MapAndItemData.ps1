@@ -3755,3 +3755,28 @@ if (-not $testChest) {
 }
 $chestPath = Join-Path $destination "objects\chests.tsv"
 Write-GeneratedTable($chestPath, $chestRows)
+
+# These native interactions publish a two-byte override one dispatch after
+# state-zero initialization. Preserve the shared source table and opposite
+# linked-game selectors; the static chestData entries intentionally contain NONE.
+$seaChestSource = Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/miscellaneous2.s')
+$seaChestTable = [regex]::Match($seaChestSource,
+    '(?ms)^interactiondc_subid15And16_setChestContents:\s+ld hl,@chestContents\s+rst_addDoubleIndex\s+ldi a,\(hl\)\s+ld \(wChestContentsOverride\),a\s+ld a,\(hl\)\s+ld \(wChestContentsOverride\+1\),a\s+jp interactionDelete\s+@chestContents:\s+dwbe (?<first>TREASURE_OBJECT_[A-Za-z0-9_]+)[^\r\n]*\s+dwbe (?<second>TREASURE_OBJECT_[A-Za-z0-9_]+)')
+if (!$seaChestTable.Success -or
+    $seaChestSource -notmatch '(?ms)^interactiondc_subid15:\s+call checkInteractionState\s+jr z,interactiondc_subid15And16_state0\s+@state1:\s+call checkIsLinkedGame\s+ld a,\$01\s+jr nz,interactiondc_subid15And16_setChestContents\s+dec a' -or
+    $seaChestSource -notmatch '(?ms)^interactiondc_subid16:\s+call checkInteractionState\s+jr z,interactiondc_subid15And16_state0\s+call checkIsLinkedGame\s+ld a,\$00\s+jr nz,interactiondc_subid15And16_setChestContents\s+inc a\s+jr interactiondc_subid15And16_setChestContents' -or
+    $seaChestSource -notmatch '(?ms)^interactiondc_subid15And16_state0:\s+call getThisRoomFlags\s+and ROOMFLAG_ITEM\s+jp nz,interactionDelete\s+jp interactionIncState') {
+    throw 'miscellaneous2.s:$dc:$15/$16 chest override state, linked selectors, or contents table changed.'
+}
+$seaChestObjects = @($seaChestTable.Groups['first'].Value, $seaChestTable.Groups['second'].Value)
+$seaChestRows = [Collections.Generic.List[string]]::new()
+$seaChestRows.Add("# subid`tlinked`ttreasure-object`tsource")
+foreach ($subid in @(0x15, 0x16)) {
+    for ($linked = 0; $linked -lt 2; $linked++) {
+        $index = if ($subid -eq 0x15) { $linked } else { 1 - $linked }
+        $name = $seaChestObjects[$index]
+        if (!$treasureObjectRecords.ContainsKey($name)) { throw "Unresolved chest override $name." }
+        $seaChestRows.Add("$($subid.ToString('x2'))`t$linked`t$name`tobject_code/ages/interactions/miscellaneous2.s:interactiondc_subid$($subid.ToString('x2'))")
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'objects/chest_contents_overrides.tsv'), $seaChestRows)

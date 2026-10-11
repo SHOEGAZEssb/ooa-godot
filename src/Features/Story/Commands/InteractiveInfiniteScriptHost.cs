@@ -77,18 +77,20 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     protected void StartInfiniteScript(
         TActor actor,
         IReadOnlyList<CutsceneCommand> commands,
-        int initialScriptUpdates = 0)
+        int initialScriptUpdates = 0,
+        int firstCommand = 0)
     {
         _runner.Clear();
         _binding.Bind(actor);
         ReleaseInputControl();
-        _runner.Start(commands);
+        _runner.Start(commands, firstCommand);
 
         for (int update = 0; update < initialScriptUpdates; update++)
             _runner.AdvanceFrame();
     }
 
     protected void AdvanceInfiniteScript() => _runner.AdvanceFrame();
+    protected void WaitForNativeCounter(int frames) => _runner.WaitForNativeCounter(frames);
 
     /// <summary>
     /// Registers the actor when native state-0 code installs A-button

@@ -9,11 +9,21 @@ internal sealed class NpcRoomEntity(NpcCharacter npc)
         RequireOrdinaryGeneric(npc), npc.SetTransitionDrawOffset),
     IFixedRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
+    private Func<bool>? _pendingDialogue;
     public NpcCharacter Npc => Entity;
-    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
+        // Link sets pressedAButton in its earlier update. The generic script
+        // consumes it and calls showText in this interaction's own slot,
+        // before its final animation update. The next pass freezes for text.
+        if (_pendingDialogue?.Invoke() == true)
+            _pendingDialogue = null;
         Entity.FaceLinkAndAnimateOneUpdate(frame.Player, preventPassing: false);
+    }
+    internal void QueueDialogue(Func<bool> tryShowDialogue) => _pendingDialogue = tryShowDialogue;
     public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
-    public NpcCharacter? FindTalkTarget(Player player) => Entity.CanTalkTo(player) ? Entity : null;
+    public NpcCharacter? FindTalkTarget(Player player) =>
+        _pendingDialogue is null && Entity.CanTalkTo(player) ? Entity : null;
     private static NpcCharacter RequireOrdinaryGeneric(NpcCharacter npc)
     {
         if (npc.Record.Implementation !=

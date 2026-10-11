@@ -151,7 +151,8 @@ internal sealed class DungeonMechanicDatabase
                 row.Boolean01(8));
             if (record.Id is not (InteractionId.Splash or InteractionId.Puff or InteractionId.SnowDebris or InteractionId.DungeonStuff or InteractionId.PushBlockTrigger or InteractionId.DoorController or InteractionId.DungeonScript or InteractionId.DungeonEvents or InteractionId.ExtendableBridge or InteractionId.TriggerTranslator or InteractionId.SmogBoss or InteractionId.Miscellaneous1 or InteractionId.CreateObjectAtEachTileIndex or InteractionId.Miscellaneous2) ||
                 record.Id == InteractionId.Miscellaneous1 && record.SubId != 0x0f ||
-                record.Id == InteractionId.Miscellaneous2 && (record.SubId is not (0x0c or 0x0d or 0x12) || record.Parameter == 0) ||
+                record.Id == InteractionId.Miscellaneous2 && (record.SubId is not (0x0c or 0x0d or 0x12 or 0x15 or 0x16) ||
+                    record.SubId is 0x0c or 0x0d or 0x12 && record.Parameter == 0) ||
                 record.Id == InteractionId.Splash && record.SubId > 0x07 ||
                 record.Id == InteractionId.DungeonStuff && record.SubId is not (0x01 or 0x02 or 0x04) ||
                 record.Id == InteractionId.DoorController && record.SubId is not (>= 0x04 and <= 0x0b or >= 0x10 and <= 0x17) ||
@@ -245,7 +246,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(InteractionId.DungeonEvents, 0x09);
-        if (RecordCount != 239 || _constants.Count != 125 || _texts.Count != 2 ||
+        if (RecordCount != 241 || _constants.Count != 125 || _texts.Count != 2 ||
             DoorTorchWait != 30 || DoorEntryScratchMask != 1 ||
             OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||

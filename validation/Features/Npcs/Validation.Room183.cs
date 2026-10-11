@@ -200,7 +200,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !man.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             !dialogue.IsOpen ||
             PlainWords(dialogue.CurrentMessage) !=
                 "I'm lookin' at this cave thinkin' there's treasure " +

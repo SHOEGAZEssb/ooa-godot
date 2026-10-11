@@ -792,6 +792,12 @@ internal sealed class RoomEntityFactory
         foreach (FountainPlacement fountain in Resources.Fountains.InRoom(group, room.Id))
             yield return new FountainDecorationRoomEntity(fountain, Resources.Fountains, _saveData);
 
+        if(group==Resources.JabuExterior.Group && room.Id==Resources.JabuExterior.Room)
+            foreach(byte subid in Resources.JabuExterior.ActorSubIds)
+                if(owner.InteractionSlotAvailable)
+                    yield return new JabuExteriorActorRoomEntity(subid,Resources.JabuExterior,owner,
+                        rooms ?? throw new InvalidOperationException("INTERAC $dc:$09/$0a requires its room session."));
+
         if (!spawnMaple)
         {
             foreach (VolcanoPlacement record in Resources.Volcano.Placements(group, room.Id))
@@ -972,8 +978,9 @@ internal sealed class RoomEntityFactory
                 switch (record.Implementation)
                 {
                     case NpcImplementationClassification.OrdinaryGeneric:
-                        yield return new NpcRoomEntity(
-                            NpcCharacter.CreateFromRecord(record));
+                        yield return record.Id == InteractionId.Zora
+                            ? new ZoraNpcRoomEntity(NpcCharacter.CreateFromRecord(record))
+                            : new NpcRoomEntity(NpcCharacter.CreateFromRecord(record));
                         break;
                     case NpcImplementationClassification.SpecializedNative:
                         IRoomEntity specialized = CreateSpecializedNpc(record, room);
@@ -984,6 +991,11 @@ internal sealed class RoomEntityFactory
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
+                        if (record.Id == InteractionId.KingZora || record.Id == InteractionId.Zora && record.SubId is 0x10 or 0x11 or 0x12)
+                        {
+                            yield return new OceanScriptNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
+                            break;
+                        }
                         yield return record is { Id: 0x6d, SubId: 0 }
                             ? new PalacePossessionRoomEntity(owner,Resources.PalacePossession,0x6d,0,new(record.X,record.Y),
                                 entryDirection: placementContext.BossEntryDirection==Vector2I.Down?2:
@@ -2147,6 +2159,15 @@ internal sealed class RoomEntityFactory
                     $"Room {group:x1}:{room.Id:x2} $dc:$12 requires live save state."),
                 _runtimeState, owner.OnSoundRequested, Resources.DungeonMechanics.SolveSound, rooms, owner.TryCreateBridgeSpawner);
         }
+        if (record.Id == InteractionId.Miscellaneous2 && record.SubId is 0x15 or 0x16)
+        {
+            if (!owner.InteractionSlotAvailable) return null;
+            var save = _saveData ?? throw new InvalidOperationException($"Room {group:x1}:{room.Id:x2} $dc:${record.SubId:x2} requires live save state.");
+            return new ChestContentsRoomEntity(_runtimeState,
+                () => save.HasRoomFlag(rooms?.ActiveGroup ?? group, rooms?.CurrentRoom.Id ?? room.Id, OracleSaveData.RoomFlagItem),
+                () => _treasures.GetObject(Resources.ChestContents.Object(record.SubId, save.IsLinkedGame)))
+                { Visible = false, Name = $"ChestContents_{record.SubId:x2}" };
+        }
         if (record.Id == InteractionId.Miscellaneous2 && record.SubId is 0x0c or 0x0d)
             return new RidgeBridgeControllerRoomEntity(record,
                 _saveData ?? throw new InvalidOperationException($"$dc:${record.SubId:x2} requires live save state."),
@@ -2744,6 +2765,7 @@ internal sealed class RoomEntityFactory
         TokayRescueEmberSpawn ember => new TokayRescueEmberRoomEntity(ember),
         TokayAttachedVisualSpawn accessory => new TokayAttachedVisualRoomEntity(
             accessory.Parent, accessory.Record, accessory.Offset),
+        KingZoraPotionSpawn potion => new KingZoraPotionRoomEntity(NpcCharacter.CreateFromRecord(potion.Record)),
         DimitriMouthSpawn mouth => new DimitriMouthRoomEntity(mouth,
             CreateCompanionTileBreaker(mouth.Group, mouth.Room, room)),
         MooshHoverExclamationSpawn exclamation =>
@@ -3085,6 +3107,9 @@ internal sealed class RoomEntityFactory
     {
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
+
+        if (record.Id == InteractionId.ChildJabu && record.SubId == 0)
+            return new ChildJabuRoomEntity(record);
 
         if (record is { Id: InteractionId.Soldier, SubId: 0x0d })
             return new PalaceFriendlySoldierRoomEntity(NpcCharacter.CreateFromRecord(record),

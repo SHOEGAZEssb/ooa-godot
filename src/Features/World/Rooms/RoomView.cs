@@ -15,6 +15,7 @@ public partial class RoomView : Node2D
     private int _waveAmplitude;
     private int _wavePhase;
     private bool _underwaterWaveActive;
+    private bool _underwaterWaveSuspended;
     private int _underwaterWavePhase;
     private Texture2D? _underwaterBackground;
     private Color _backgroundFade = new(0, 0, 0, 0);
@@ -31,7 +32,7 @@ public partial class RoomView : Node2D
         // underwaterWaves.s: amplitude $02, phase (SCY + wFrameCounter) & $7f.
         // updateGfxRegs2Scroll subtracts $10 from camera Y for the HUD. Drawing
         // in world coordinates already supplies camera Y through the row index.
-        bool active = (room.TilesetFlags & (int)TilesetFlags.Underwater) != 0;
+        bool active = !_underwaterWaveSuspended && (room.TilesetFlags & (int)TilesetFlags.Underwater) != 0;
         if (!active && !_underwaterWaveActive) return;
         _underwaterWaveActive = active;
         _underwaterBackground = _underwaterWaveActive ? room.UnderwaterBackgroundTexture : null;
@@ -43,12 +44,20 @@ public partial class RoomView : Node2D
     {
         _current = texture;
         _underwaterWaveActive = false;
+        _underwaterWaveSuspended = false;
         _underwaterBackground = null;
         _previous = null;
         _transitionFrame = 0.0f;
         _roomLoadColumnReveal = false;
         _roomLoadRevealLoadedColumns = 0;
         _roomLoadClearedTilemap = null;
+        QueueRedraw();
+    }
+
+    internal void SuspendUnderwaterWave(bool suspended)
+    {
+        _underwaterWaveSuspended=suspended;
+        if(suspended){_underwaterWaveActive=false;_underwaterBackground=null;}
         QueueRedraw();
     }
 

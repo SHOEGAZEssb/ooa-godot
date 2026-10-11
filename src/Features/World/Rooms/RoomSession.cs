@@ -172,6 +172,9 @@ public sealed class RoomSession
     {
         // clearMemoryOnScreenReload and func_49c9 both include this mask.
         _runtimeState.SetWramByte(WramAddress.wDisabledObjects,0);
+        // Reload, cutscene and scroll clear ranges all include $cca3/$cca4.
+        _runtimeState.SetWramByte(WramAddress.wChestContentsOverride,0);
+        _runtimeState.SetWramByte(WramAddress.wChestContentsOverride + 1,0);
         // Both room reload's $cc5c clear and scroll's $cc8a clear include
         // these shared cube publications; outgoing state0 handlers see zero.
         _runtimeState.SetWramByte(WramAddress.wRotatingCubeColor,0);
@@ -243,8 +246,7 @@ public sealed class RoomSession
         OracleRoomData room=GetRoom(ActiveGroup,CurrentRoom.Id);
         if (!ReferenceEquals(room,CurrentRoom))
             throw new InvalidOperationException($"Room${ActiveGroup:x}:${CurrentRoom.Id:x2}: native in-place layout reload changed backing room identity.");
-        for (int position=0;position<room.Layout.Length;position++)
-            room.SetUnderlyingStorageMetatile(position,room.Layout[position]);
+        room.CopyLayoutToUnderlying();
         // loadTilesetAndRoomLayout does not regenerate w3VramTiles/Attributes.
         room.SetBackgroundMappingRectangle(Vector2I.Zero,room.WidthInTiles*2,background,_animationTick());
     }

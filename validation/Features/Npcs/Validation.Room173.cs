@@ -111,7 +111,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !manager.BlocksLink(lateSoldier.Position) ||
             !lateSoldier.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             !dialogue.IsOpen ||
             PlainWords(dialogue.CurrentMessage) !=
                 "Did you find what Ambi desires?",

@@ -62,6 +62,7 @@ public sealed class RoomEventController
             throw new InvalidOperationException("Room event resources have already begun preparation.");
         _preparationStarted = true;
         var tokayInteractions = new TokayInteractionDatabase();
+        var oceanInteractions = new OceanInteractionDatabase();
         yield return false;
         var impa = new ImpaIntroEvent(_context);
         yield return false;
@@ -116,6 +117,9 @@ public sealed class RoomEventController
             () => new ComedianEvent(_context),
             () => new MaskSalesmanEvent(_context),
             () => new OldZoraEvent(_context),
+            () => new KingZoraEvent(_context, oceanInteractions),
+            () => new OceanZoraEvent(_context, oceanInteractions),
+            () => new JabuExteriorEvent(_context),
             () => new MamamuEvent(_context),
             () => new GoronCaveEvent(_context),
             () => new DumbbellManEvent(_context),
@@ -213,6 +217,8 @@ public sealed class RoomEventController
             Npc("maskSalesman.s:maskSalesmanScript",
                 Get<MaskSalesmanEvent>().TryInteractNpc),
             Npc("oldZora.s:oldZoraScript", Get<OldZoraEvent>().TryInteractNpc),
+            Npc("kingZora.s:interactionCode9c", Get<KingZoraEvent>().TryInteractNpc),
+            Npc("zora.s:$10-$12", Get<OceanZoraEvent>().TryInteractNpc),
             Npc("mamamuYan.s:mamamuYanScript", Get<MamamuEvent>().TryInteractNpc),
             Npc("dumbellMan.s:dumbbellManScript",
                 Get<DumbbellManEvent>().TryInteractNpc),
@@ -265,19 +271,21 @@ public sealed class RoomEventController
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
     internal bool OwnsGameLogic => _eventsByPriority.Any(roomEvent => roomEvent.OwnsGameLogic);
     internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled;
-    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState;
+    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening;
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
         var retraction=Get<WallRetractionEvent>();
         var boot=Get<PalaceBootEvent>();
         var passage=Get<PalacePassageEvent>();
         var rescueWarp=Get<NayruRescueWarpEvent>();
-        bool owned=retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState;
+        var jabu=Get<JabuExteriorEvent>();
+        bool owned=retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening;
         retraction.AdvanceBeforeObjects();
         boot.AdvanceBeforeObjects();
         passage.AdvanceBeforeObjects();
         Get<PalacePossessionEvent>().AdvanceBeforeObjects();
         rescueWarp.AdvanceBeforeObjects();
+        jabu.AdvanceBeforeObjects();
         return owned || rescueWarp.HasState;
     }
     internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);
@@ -315,6 +323,7 @@ public sealed class RoomEventController
         Get<PlenEvent>().OpenSecretMenu = opener;
         Get<MamamuEvent>().OpenSecretMenu = opener;
         Get<GoronCaveEvent>().OpenSecretMenu = opener;
+        Get<KingZoraEvent>().OpenSecretMenu = opener;
     }
     internal bool SupportsOverworldKeyhole(int group, int room) =>
         Get<GraveyardGateEvent>().CanTrigger(group, room) ||

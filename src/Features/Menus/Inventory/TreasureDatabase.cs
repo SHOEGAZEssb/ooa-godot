@@ -36,6 +36,13 @@ public sealed class TreasureDatabase
         ? record
         : throw new KeyNotFoundException($"Treasure object {name} was not imported.");
 
+    internal TreasureObjectRecord GetObject(int treasureId, int subid)
+    {
+        foreach (var record in _objectRows)
+            if (record.TreasureId == treasureId && record.SubId == subid) return record;
+        throw new KeyNotFoundException($"Treasure object ${treasureId:x2}:${subid:x2} was not imported (nextToChestTile override).");
+    }
+
     public TreasureObjectVisualRecord GetObjectVisual(int graphic) =>
         _objectVisuals.TryGetValue(graphic, out TreasureObjectVisualRecord record)
             ? record

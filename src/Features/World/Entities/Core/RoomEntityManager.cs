@@ -1320,6 +1320,17 @@ public sealed class RoomEntityManager : IDisposable
         return new NpcInteractionTarget(npc, lifecycle);
     }
 
+    internal bool TryQueueOrdinaryNpcDialogue(NpcCharacter npc, Func<bool> tryShowDialogue)
+    {
+        foreach (var entity in _activeEntities.OfType<NpcRoomEntity>())
+        {
+            if (!ReferenceEquals(entity.Npc, npc)) continue;
+            entity.QueueDialogue(tryShowDialogue);
+            return true;
+        }
+        return false;
+    }
+
     internal bool TryInteract(Player player)
     {
         foreach (IRoomEntity entity in _activeEntities)
@@ -2321,11 +2332,12 @@ public sealed class RoomEntityManager : IDisposable
         {
             if (entity is IRoomSaveStateEntity stateEntity)
                 stateEntity.RefreshSaveState();
-            if (entity is IOrdinaryNpcEntity ordinary)
+            if (entity is IOrdinaryNpcEntity { RefreshStoryState: true } ordinary)
             {
                 NpcCharacter npc = ordinary.Npc;
-                npc.SetFlagVisible(_npcVisibility.ShouldShow(
-                    npc.BaseRecord, _saveData, _runtimeState));
+                if (ordinary.RefreshVisibility)
+                    npc.SetFlagVisible(_npcVisibility.ShouldShow(
+                        npc.BaseRecord, _saveData, _runtimeState));
                 if (_familyState.TryResolveDialogue(
                     npc.BaseRecord, _saveData, out Dialogue familyDialogue))
                 {
@@ -2351,6 +2363,7 @@ public sealed class RoomEntityManager : IDisposable
                 // only after all of them have selected the source pose.
                 if (npc.Record.Implementation == NpcImplementationClassification.OrdinaryGeneric)
                     npc.ShowInitializedPresentation();
+                ordinary.CompleteStoryInitialization();
             }
         }
     }
@@ -2641,7 +2654,7 @@ public sealed class RoomEntityManager : IDisposable
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is NayruRescueLightningRoomEntity ? 1 :
         entity is VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
-            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity
+            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
             or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity
@@ -2764,7 +2777,7 @@ public sealed class RoomEntityManager : IDisposable
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
         NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or NayruRescueBowtieRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
         CompanionTutorialRoomEntity { NativeAllocationEnabled: true } or
-        KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
+        KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
         LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
         TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
@@ -2773,7 +2786,7 @@ public sealed class RoomEntityManager : IDisposable
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or NuunBridgeRoomEntity or OrbBridgeControllerRoomEntity or DungeonOrbChestRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
             or DungeonStateController or ColoredCubeFloorSensorRoomEntity or MermaidChangingFloorRoomEntity or MermaidChangingFloorWorkerRoomEntity or MermaidBossKeyRoomEntity or MermaidTorchOrderRoomEntity or DungeonRoomFlagMirrorRoomEntity or MinecartGateRoomEntity or SwitchTileTogglerRoomEntity or MinecartShutterRoomEntity or DungeonSignalScriptRoomEntity
             or OctogonInteractionRoomEntity or OctogonEncounterInitializerRoomEntity or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity or DungeonTilePatternFallingKeyRoomEntity or MoonlitGrottoFallingKeyRoomEntity
-            or DungeonSpinnerRoomEntity or DungeonSpinnerArrowRoomEntity or DungeonBossKeyMirrorRoomEntity or MovingPlatformRoomEntity or CircularSideScrollPlatformRoomEntity or HeadThwompRewardScript or SpiritsGraveMovingPlatformSpawner or TileFillerRoomEntity or DungeonPatternTriggerRoomEntity or DungeonPatternKeyRoomEntity or GroundTreasureRoomEntity or ToggleFloorRoomEntity or ToggleFloorTileRoomEntity or FloorColorChangerRoomEntity or FloorColorWorkerRoomEntity;
+            or DungeonSpinnerRoomEntity or DungeonSpinnerArrowRoomEntity or DungeonBossKeyMirrorRoomEntity or ChestContentsRoomEntity or MovingPlatformRoomEntity or CircularSideScrollPlatformRoomEntity or HeadThwompRewardScript or SpiritsGraveMovingPlatformSpawner or TileFillerRoomEntity or DungeonPatternTriggerRoomEntity or DungeonPatternKeyRoomEntity or GroundTreasureRoomEntity or ToggleFloorRoomEntity or ToggleFloorTileRoomEntity or FloorColorChangerRoomEntity or FloorColorWorkerRoomEntity;
 
     internal bool TryCreateMermaidChangingFloorWorker(int subid)
     {

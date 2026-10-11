@@ -152,7 +152,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !hobo.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             !dialogue.IsOpen ||
             PlainWords(dialogue.CurrentMessage) !=
                 "What did the Queen want? Puzzle Seeds? Enigma Seeds? " +
@@ -172,7 +172,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !boy.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             PlainWords(dialogue.CurrentMessage) !=
                 "Deep in the woods are magical seeds and an owl statue. " +
                 "When the seeds are placed on the statue, it moves! The " +
@@ -214,7 +214,7 @@ public sealed partial class ValidationRoot
             recordSafe: false);
         _player.Face(Vector2I.Up);
         FailIf(
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             PlainWords(dialogue.CurrentMessage) !=
                 "That's it! The Queen wanted them Puzzle Seeds! I bet " +
                 "she was happy!",
@@ -298,7 +298,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !pastGuy.CanTalkTo(_player) ||
-            !interactions.TryInteract(_player) ||
+            !SelectOrdinaryNpcAndRunObjectPass(interactions, manager, _player) ||
             PlainWords(dialogue.CurrentMessage) !=
                 "I'm gonna find something that Queen Ambi desires so I " +
                 "don't have to work at Ambi's Tower.",

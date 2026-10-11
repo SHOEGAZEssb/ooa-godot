@@ -52,19 +52,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 249 | Traced and covered by named NPC/event scenarios. |
+| **I** | 277 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 90 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 62 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **215 rooms and 300 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 57 | 0 | 57 |
-| Specialized native interaction | 124 | 72 | 196 |
-| Event-owned actor | 117 | 0 | 117 |
-| Deliberately unsupported | 90 | 0 | 90 |
+| Ordinary NPC adapter | 79 | 0 | 79 |
+| Specialized native interaction | 125 | 72 | 197 |
+| Event-owned actor | 122 | 0 | 122 |
+| Deliberately unsupported | 62 | 0 | 62 |
 | **Total** | **388** | **72** | **460** |
 
 ## Bipin and Blossom family variants
@@ -191,10 +191,10 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
 | `2:6e` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:7e` | [I] `$46:$01/v$00` shopkeeper |
-| `2:a0` | [D] `$ab:$10/v$00` zora<br>[D] `$ab:$14/v$00` zora |
-| `2:b1` | [D] `$ab:$13/v$00` zora |
-| `2:d1` | [D] `$ab:$1b/v$00` zora |
-| `2:d7` | [D] `$ab:$12/v$00` zora |
+| `2:a0` | [I] `$ab:$10/v$00` zora<br>[I] `$ab:$14/v$00` zora |
+| `2:b1` | [I] `$ab:$13/v$00` zora |
+| `2:d1` | [I] `$ab:$1b/v$00` zora |
+| `2:d7` | [I] `$ab:$12/v$00` zora |
 | `2:de` | [P] `$48:$0d/v$00` tokay |
 | `2:df` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:e4` | [P] `$48:$0e/v$00` tokay |
@@ -227,19 +227,19 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `3:7f` | [I] `$bf:$0b/v$00` symmetryNpc |
 | `3:8e` | [I] `$bf:$04/v$00` symmetryNpc |
 | `3:8f` | [I] `$9d:$00/v$00` tokkey |
-| `3:90` | [D] `$ba:$00/v$00` childJabu |
+| `3:90` | [I] `$ba:$00/v$00` childJabu |
 | `3:9e` | [I] `$36:$0b/v$00` nayru<br>[I] `$ad:$07/v$00` zelda<br>[I] `$4f:$00/v$00` impaNpc<br>[I] `$4f:$00/v$01` impaNpc<br>[I] `$4f:$00/v$02` impaNpc<br>[I] `$4f:$00/v$05` impaNpc<br>[I] `$4f:$00/v$09` impaNpc<br>[I] `$4f:$00/v$0a` impaNpc<br>[I] `$4f:$00/v$0b` impaNpc<br>[I] `$4f:$00/v$0d` impaNpc<br>[I] `$4f:$00/v$0e` impaNpc |
-| `3:a0` | [D] `$ab:$17/v$00` zora |
-| `3:b1` | [D] `$ab:$18/v$00` zora |
+| `3:a0` | [I] `$ab:$17/v$00` zora |
+| `3:b1` | [I] `$ab:$18/v$00` zora |
 | `3:be` | [I] `$94:$00/v$00` patch |
-| `3:c0` | [D] `$ab:$19/v$00` zora |
-| `3:ce` | [D] `$3b:$08/v$00` femaleVillager |
-| `3:cf` | [D] `$42:$01/v$00` mustacheMan |
-| `3:d1` | [D] `$ab:$1a/v$00` zora |
-| `3:d6` | [D] `$ab:$11/v$00` zora |
-| `3:de` | [D] `$ab:$16/v$00` zora |
-| `3:df` | [D] `$ab:$16/v$00` zora |
-| `3:e3` | [D] `$ab:$15/v$00` zora |
+| `3:c0` | [I] `$ab:$19/v$00` zora |
+| `3:ce` | [I] `$3b:$08/v$00` femaleVillager |
+| `3:cf` | [I] `$42:$01/v$00` mustacheMan |
+| `3:d1` | [I] `$ab:$1a/v$00` zora |
+| `3:d6` | [I] `$ab:$11/v$00` zora |
+| `3:de` | [I] `$ab:$16/v$00` zora |
+| `3:df` | [I] `$ab:$16/v$00` zora |
+| `3:e3` | [I] `$ab:$15/v$00` zora |
 | `3:e7` | [I] `$30:$01/v$00` shootingGallery<br>[I] `$8b:$02/v$00` goronElder |
 | `3:e9` | [D] `$2e:$00/v$00` oldManWithRupees |
 | `3:ea` | [I] `$bf:$00/v$00` symmetryNpc |
@@ -262,10 +262,10 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `4:f6` | [D] `$4d:$03/v$00` ambi |
 | `4:fc` | [D] `$4d:$06/v$00` ambi |
 | `4:fe` | [D] `$37:$0c/v$00` ralph |
-| `5:ab` | [D] `$9c:$00/v$00` kingZora<br>[D] `$ab:$08/v$00` zora<br>[D] `$ab:$09/v$00` zora |
-| `5:ac` | [D] `$ab:$05/v$00` zora<br>[D] `$ab:$06/v$00` zora<br>[D] `$ab:$07/v$00` zora |
-| `5:ad` | [D] `$9c:$01/v$00` kingZora<br>[D] `$ab:$03/v$00` zora<br>[D] `$ab:$04/v$00` zora |
-| `5:ae` | [D] `$ab:$00/v$00` zora<br>[D] `$ab:$01/v$00` zora<br>[D] `$ab:$02/v$00` zora |
+| `5:ab` | [I] `$9c:$00/v$00` kingZora<br>[I] `$ab:$08/v$00` zora<br>[I] `$ab:$09/v$00` zora |
+| `5:ac` | [I] `$ab:$05/v$00` zora<br>[I] `$ab:$06/v$00` zora<br>[I] `$ab:$07/v$00` zora |
+| `5:ad` | [I] `$9c:$01/v$00` kingZora<br>[I] `$ab:$03/v$00` zora<br>[I] `$ab:$04/v$00` zora |
+| `5:ae` | [I] `$ab:$00/v$00` zora<br>[I] `$ab:$01/v$00` zora<br>[I] `$ab:$02/v$00` zora |
 | `5:b9` | [I] `$66:$0e/v$00` goron |
 | `5:bb` | [I] `$66:$0d/v$01` goron<br>[I] `$66:$0e/v$02` goron |
 | `5:bc` | [I] `$66:$0d/v$00` goron |

@@ -47,14 +47,15 @@ public sealed partial class ValidationRoot
         }
     }
 
-    private void RunDialogueRom(int id, string message, int speed, bool batched, bool accelerate, int flags = 0)
+    private void RunDialogueRom(int id, string message, int speed, bool batched, bool accelerate, int flags = 0, bool choice = false)
     {
         ReinitializeGameplayForValidation();
         _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
         LoadValidationRoom(4, 0x91); _entities.Clear();
         _saveData.SetLinkName("Zelda");
         _dialogue.MessageSpeed = speed;
-        _dialogue.ShowMessage(message, DialogueScreenContext.Gameplay(_player.Position.Y), textboxFlags: flags);
+        if(choice) _dialogue.ShowChoiceMessage(message, DialogueScreenContext.Gameplay(_player.Position.Y), textboxFlags:flags);
+        else _dialogue.ShowMessage(message, DialogueScreenContext.Gameplay(_player.Position.Y), textboxFlags: flags);
         var rom = new DialogueRom(_saveData);
         rom.Open(id, speed, (int)_player.Position.Y, flags);
         var sounds = _sound.AttachPlayRequestAudit();
@@ -102,7 +103,7 @@ public sealed partial class ValidationRoot
         while (rom.Active && update < 3500)
         {
             bool lineDone = rom.Text(0xd0d0) >= 16 || rom.Text(0xd400 + rom.Text(0xd0d0)) == 0;
-            bool waiting = rom.State is 5 or 0x0f || (rom.Text(0xd0c1) & 2) != 0 && lineDone;
+            bool waiting = rom[0xcba1]==1 ? rom.State==2 : rom.State is 5 or 0x0f || (rom.Text(0xd0c1) & 2) != 0 && lineDone;
             Step(batched && !waiting && !accelerate ? 4 : 1,
                 waiting ? 1 : accelerate && update % 5 == 0 ? 2 : 0, held: 3);
         }

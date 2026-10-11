@@ -249,6 +249,8 @@ public static class WramAddress
     public const int wWarpsDisabled = 0xcc6e;
     // include/wram.s: wcca2
     public const int wcca2 = 0xcca2;
+    // include/wram.s: big-endian treasure ID/subid, consumed by nextToChestTile.
+    public const int wChestContentsOverride = 0xcca3;
     // include/wram.s: wUpgradesObtained
     public const int wUpgradesObtained = 0xcca8;
     // include/wram.s: wLever1PullDistance

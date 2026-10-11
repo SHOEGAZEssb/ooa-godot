@@ -453,6 +453,8 @@ public sealed partial class ValidationRoot
             ["objects/linked_game_npcs.tsv|\\secret1"] = 6,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
             ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
+            // King Zora's owner inserts the generated return secret before presentation.
+            ["cutscenes/king_zora_present_commands.tsv|\\secret1"] = 2,
             ["cutscenes/goron_cave_data.tsv|\\num1"] = 4,
             ["cutscenes/goron_cave_data.tsv|\\secret1"] = 2,
             ["objects/lynna_shop_texts.tsv|\\num1"] = 9,
@@ -557,10 +559,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 57,
-                [NpcImplementationClassification.SpecializedNative] = 196,
-                [NpcImplementationClassification.EventOwned] = 117,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 90
+                [NpcImplementationClassification.OrdinaryGeneric] = 79,
+                [NpcImplementationClassification.SpecializedNative] = 197,
+                [NpcImplementationClassification.EventOwned] = 122,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 62
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -573,7 +575,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "57 ordinary, 196 specialized, 117 event-owned, and 90 " +
+            "79 ordinary, 197 specialized, 122 event-owned, and 62 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -691,7 +693,8 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         _player.WarpTo(villager.Position + Vector2.Down * 12.0f);
         _player.Face(Vector2I.Up);
-        FailIf(!TryInteract(_player) || !_dialogue.IsOpen, "The room 0:48 villager did not open dialogue.");
+        FailIf(!SelectOrdinaryNpcAndRunObjectPass(_interactions, _entities, _player) || !_dialogue.IsOpen,
+            "The room 0:48 villager did not open dialogue in its object update.");
         int frameBase = villager.Record.TileBase / 4;
         FailIf(
             villager.CurrentFrameColumn != frameBase,
@@ -833,6 +836,8 @@ public sealed partial class ValidationRoot
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
             "oldZora.s:oldZoraScript",
+            "kingZora.s:interactionCode9c",
+            "zora.s:$10-$12",
             "mamamuYan.s:mamamuYanScript",
             "dumbellMan.s:dumbbellManScript",
             "tokkey.s:interactionCode9d",
@@ -3843,8 +3848,8 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 353 ||
-            new NpcDialogueRuleDatabase().RuleCount != 122 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 357 ||
+            new NpcDialogueRuleDatabase().RuleCount != 170 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
             "Expected 353 NPC visibility, 122 NPC dialogue, and two NPC " +
             "position state predicates.");

@@ -104,6 +104,8 @@ public static class TreasureId
     public const int Slate = 0x4b;
     // constants/common/treasure.s: TREASURE_TUNI_NUT
     public const int TuniNut = 0x4c;
+    // constants/common/treasure.s: TREASURE_ZORA_SCALE
+    public const int ZoraScale = 0x4e;
     // constants/common/treasure.s: TREASURE_TOKAY_EYEBALL
     public const int TokayEyeball = 0x4f;
     // constants/common/treasure.s: TREASURE_FAIRY_POWDER

@@ -83,11 +83,16 @@ internal sealed class DialogueRom
     }
 
     internal void AddBird(int slot, int subid, int x, int y)
+        => AddNpc(slot, 0xe3, subid, x, y);
+
+    internal void AddNpc(int slot, int id, int subid, int x, int y)
     {
         int address = 0xd040 + slot * 0x100;
-        this[address] = 1; this[address + 1] = 0xe3; this[address + 2] = (byte)subid;
+        this[address] = 1; this[address + 1] = (byte)id; this[address + 2] = (byte)subid;
         this[address + 0x0b] = (byte)y; this[address + 0x0d] = (byte)x;
     }
+
+    internal void InitializeNpcInteractions() => _rom.Call(0x3b36, 0);
 
     internal void AdvanceGameplay(int pressed, int held, int angle, int frameCounter)
     {

@@ -3382,6 +3382,21 @@ public partial class Player : Node2D
 
     internal void StopSuctionPitMovementSpeed() => _topDownMovementSpeedRaw = 0;
 
+    internal void ApplyPollutionContact(Vector2 tileCenter)
+    {
+        // seaEffects.s:@collision0 checks only the live invincibility/recoil
+        // bytes after the PART's collision/diving gate. Damage is consumed
+        // by the next Link update, with that update's ordinary ring modifiers.
+        if (_enemyInvincibilityFrames != 0 || _enemyKnockbackFrames != 0) return;
+        _nativeContactSignal = true;
+        _enemyInvincibilityFrames = 0x18;
+        _enemyKnockbackFrames = 0x0c;
+        _enemyKnockbackDirection = OracleObjectMovement.Shared.Direction(
+            OracleObjectMovement.Shared.RelativeAngle(tileCenter, EnemyContactPosition));
+        _pendingContactDamageRaw = -2;
+        _world.PlaySound(SoundId.SndDamageLink);
+    }
+
     internal void SetCutscenePushing(bool pushing)
     {
         _pushing = pushing;

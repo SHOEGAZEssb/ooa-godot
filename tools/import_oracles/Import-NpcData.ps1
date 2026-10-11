@@ -1,5 +1,23 @@
 # Resolve the first dialogue command reached by a script label, following the
 # common scriptjump indirection used by generic NPCs.
+function Resolve-OceanText([int]$id,[Collections.Generic.HashSet[int]]$visited) {
+    if(!$allTexts.ContainsKey($id) -or !$visited.Add($id)){throw "Unresolved or recursive ocean TX_$($id.ToString('x4'))."}
+    $message=[string]$allTexts[$id]
+    if($allTextPositions.ContainsKey($id)) { $message='\pos('+$allTextPositions[$id]+')'+$message }
+    while($true) {
+        $call=[regex]::Match($message,'\\call\(TX_([0-9a-f]{4})\)')
+        if(!$call.Success){break}
+        $message=$message.Substring(0,$call.Index)+(Resolve-OceanText ([Convert]::ToInt32($call.Groups[1].Value,16)) $visited)+$message.Substring($call.Index+$call.Length)
+    }
+    $jump=[regex]::Match($message,'\\jump\(TX_([0-9a-f]{4})\)')
+    if($jump.Success) { $message=$message.Substring(0,$jump.Index)+(Resolve-OceanText ([Convert]::ToInt32($jump.Groups[1].Value,16)) $visited) }
+    elseif($allTextFallthroughIds.ContainsKey($id)) {
+        if($message.EndsWith('\n',[StringComparison]::Ordinal)){$message=$message.Substring(0,$message.Length-2)+"`n"}
+        $message+=Resolve-OceanText $allTextFallthroughIds[$id] $visited
+    }
+    [void]$visited.Remove($id)
+    return $message
+}
 $scriptSources = @(
     (Join-Path $Disassembly "scripts\ages\scripts.s"),
     (Join-Path $Disassembly "scripts\ages\scriptHelper.s")
@@ -55,6 +73,21 @@ function Resolve-ScriptTextId([string]$label, [Collections.Generic.HashSet[strin
 # table. This preserves the important subid-specific dialogue without trying
 # to evaluate story-state branches during import.
 $npcTextBySubid = @{}
+$zoraSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\zora.s')
+$zoraPalaceTexts = @([regex]::Matches(
+    ([regex]::Match($zoraSource, '(?ms)^zora_textIndices:\s*(?<body>.*)')).Groups['body'].Value,
+    '<TX_(?<id>[0-9a-f]{4})') | ForEach-Object { [Convert]::ToInt32($_.Groups['id'].Value,16) })
+$zoraOceanTexts = @([regex]::Matches(
+    ([regex]::Match($zoraSource, '(?ms)^@textTable:\s*(?<body>.*?)(?=^zora_getWorldState:)')).Groups['body'].Value,
+    '<TX_(?<id>[0-9a-f]{4})') | ForEach-Object { [Convert]::ToInt32($_.Groups['id'].Value,16) })
+if ($zoraPalaceTexts.Count -ne 40 -or $zoraOceanTexts.Count -ne 18 -or
+    $zoraSource -notmatch '(?ms)^zora_getWorldState:.*?GLOBALFLAG_KING_ZORA_CURED.*?GLOBALFLAG_WATER_POLLUTION_FIXED.*?bit 6,a\s+ld b,\$02\s+ret nc' -or
+    $zoraSource -notmatch '(?ms)^@state0:\s+call zora_getWorldState.*?cp \$06\s+jp nc,interactionDelete') {
+    throw 'zora.s world-state selector, deletion gate, or dialogue tables changed.'
+}
+for ($subid=0; $subid -lt 10; $subid++) { $npcTextBySubid["171:$subid"] = $zoraPalaceTexts[$subid*4] }
+for ($subid=0x13; $subid -le 0x1b; $subid++) { $npcTextBySubid["171:$subid"] = $zoraOceanTexts[($subid-0x13)*2] }
+$npcTextBySubid['186:0'] = 0x5711
 $npcFacingIds = [Collections.Generic.HashSet[int]]::new()
 $npcInteractionSourcePaths = @()
 $npcInteractionSourcePaths += Get-ChildItem (Join-Path $Disassembly "object_code\ages\interactions") -File -Filter '*.s'
@@ -662,6 +695,23 @@ if ($mustacheManBaseText -ne 0x0f00) {
     throw 'Could not resolve mustacheManScript base text TX_0f00.'
 }
 $npcTextBySubid['66:0'] = $mustacheManBaseText
+# mustacheMan.s:$01 writes the low text byte directly, before the shared
+# initializer supplies high byte $0f and selects genericNpcScript.
+$mustacheManSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\mustacheMan.s')
+$mustacheManLowText = [regex]::Match($mustacheManSource,
+    '(?ms)^@subid1:\s+call checkInteractionState\s+jr nz,@@initialized\s+ld e,Interaction\.var32\s+ld a,\$(?<low>[0-9a-f]{2})\s+ld \(de\),a\s+call @initGraphicsAndScript\s+^@@initialized:\s+call interactionRunScript\s+jp interactionAnimateAsNpc')
+if (-not $mustacheManLowText.Success -or
+    $mustacheManSource -notmatch '(?ms)^@initGraphicsAndScript:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+ld a,>TX_0f00\s+call interactionSetHighTextIndex.*?^@scriptTable:\s+\.dw mainScripts\.mustacheManScript\s+\.dw mainScripts\.genericNpcScript' -or
+    $mustacheManLowText.Groups['low'].Value -ne '02' -or
+    -not $allTexts.ContainsKey(0x0f02) -or
+    $allTexts[0x0f02] -match '\\(call|jump)\(' -or
+    $allTextFallthroughIds.ContainsKey(0x0f02) -or
+    $allTextPositions.ContainsKey(0x0f02)) {
+    throw 'mustacheMan.s:$01 fixed TX_0f02/generic NPC initialization or text control flow changed.'
+}
+$npcTextBySubid['66:1'] = 0x0f00 +
+    [Convert]::ToInt32($mustacheManLowText.Groups['low'].Value, 16)
 $pastHobo2BaseText = Resolve-ScriptTextId `
     'pastHobo2Script' ([Collections.Generic.HashSet[string]]::new())
 if ($pastHobo2BaseText -ne 0x1620) {
@@ -683,6 +733,15 @@ $npcCanFaceBySubid = @{
     '49:5' = $true
     '88:1' = $true
 }
+
+# femaleVillager.s:$08 selects TX_0f03 in assembly, then uses the complete
+# genericNpcScript loop and npcFaceLinkAndAnimate, without story gates.
+if ($room157VillagerSource -notmatch '(?ms)^@initSubid08:\s+ld e,Interaction\.textID\s+ld a,<TX_0f03\s+ld \(de\),a\s+inc e\s+ld a,>TX_0f03\s+ld \(de\),a\s+ld hl,mainScripts\.genericNpcScript\s+jp interactionSetScript' -or
+    -not $allTexts.ContainsKey(0x0f03)) {
+    throw 'femaleVillager.s:$08: fixed dialogue/generic NPC initialization changed.'
+}
+$npcTextBySubid['59:8'] = 0x0f03
+$npcCanFaceBySubid['59:8'] = $true
 
 $npcInitialAnimationBySubid['157:0'] = 0 # interactionInitGraphics, before the first state-1 facing update.
 $npcTextBySubid['157:0'] = 0x2c00
@@ -794,6 +853,8 @@ foreach ($key in @(
     '3:7e:bf:0a:00',
     '3:7f:bf:0b:00',
     '3:8e:bf:04:00',
+    '3:ce:3b:08:00',
+    '3:cf:42:01:00',
     '3:ea:bf:00:00',
     '3:eb:bf:02:00',
     '3:ec:bf:02:00',
@@ -961,7 +1022,7 @@ foreach ($key in @('1:03:bf:0c:00','3:6e:bf:06:00','3:6f:bf:07:00',
     [void]$ordinaryNpcImplementationKeys.Remove($key)
     [void]$eventOwnedNpcImplementationKeys.Add($key)
 }
-if ($ordinaryNpcImplementationKeys.Count -ne 54 -or
+if ($ordinaryNpcImplementationKeys.Count -ne 56 -or
     $specializedNpcImplementationKeys.Count -ne 94 -or
     $eventOwnedNpcImplementationKeys.Count -ne 47) {
     throw 'NPC implementation registry key counts changed.'
@@ -1028,6 +1089,9 @@ function Resolve-NpcImplementation(
         return 'specialized-native'
     }
     if ($id -eq 0x40 -and $subid -eq 0x0d) { return 'specialized-native' }
+    if ($id -eq 0xab -and ($subid -lt 10 -or $subid -ge 0x13 -and $subid -le 0x1b)) { return 'ordinary-generic' }
+    if ($id -eq 0xba -and $subid -eq 0) { return 'specialized-native' }
+    if (($id -eq 0x9c -and $subid -lt 2) -or ($id -eq 0xab -and $subid -in @(0x10,0x11,0x12))) { return 'event-owned' }
     if ($id -eq 0x6d -and $subid -eq 0) { return 'event-owned' }
     if ($eventOwnedNpcImplementationKeys.Contains($key)) {
         return 'event-owned'
@@ -1103,6 +1167,9 @@ function New-NpcDataRow(
     }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { $textId=0x4d28 }
     $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
+    if($id -eq 0xab -and $textId -ne 0) {
+        $message=Resolve-OceanText $textId ([Collections.Generic.HashSet[int]]::new())
+    }
     if ($id -eq 0x9a -and $subid -eq 0x00 -and $textId -eq 0x2301) {
         if (!$message.Contains('\call(TX_2300)')) { throw 'Head carpenter TX_2301 lost its TX_2300 call.' }
         $message = $message.Replace('\call(TX_2300)', [string]$allTexts[0x2300])
@@ -1129,6 +1196,8 @@ function New-NpcDataRow(
         $textId -ne 0 -and $npcFacingIds.Contains($id) -and $initialAnimation -ge 2
     }
     if ($id -eq 0x94 -and $subid -lt 2) { $canFace = $true }
+    if ($id -eq 0xab -and ($subid -lt 10 -or $subid -ge 0x13 -and $subid -le 0x1b)) { $canFace = $true; $initialAnimation = 2 }
+    if ($id -eq 0xab -and $subid -eq 0x10) { $canFace = $false; $initialAnimation = 3 }
     if ($id -eq 0x53) { $canFace = $true } # mamamuYan.s: npcFaceLinkAndAnimate
     if ($id -eq 0x66 -or $id -eq 0x8b) { $canFace = $true; $initialAnimation = 2 }
     $downOam = Resolve-NpcAnimation $id $initialAnimation
@@ -1670,8 +1739,6 @@ foreach ($textId in @(0x4505, 0x4506, 0x4507, 0x4508, 0x4509)) {
         "$($textId.ToString('x4'))`t$encoded")
 }
 
-$mustacheManSource = Read-ImportText (
-    Join-Path $Disassembly 'object_code\ages\interactions\mustacheMan.s')
 $pastGuySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\pastGuy.s')
 $miscMan2Source = Read-ImportText (
@@ -2413,6 +2480,9 @@ foreach ($line in $mainObjectLines) {
     } elseif ($line -match '^\s*obj_Interaction\s+\$dc\s+\$12\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`tdc`t12`t$($caveBridgePosition.ToString('x2'))`t$($caveBridgeCount.ToString('x2'))`tnone`t1")
+    } elseif ($line -match '^\s*obj_Interaction\s+\$dc\s+\$(?<subid>15|16)\s*$') {
+        $dungeonMechanicRows.Add(
+            "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`tdc`t$($Matches.subid)`t00`t00`tnone`t1")
     } elseif ($line -match '^\s*obj_Interaction\s+\$21\s+\$(?<subid>0a|0c|0d)\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t21`t$($Matches['subid'])`t00`t00`tnone`t1")
@@ -2439,7 +2509,9 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 240 -or
+if ($dungeonMechanicRows.Count -ne 242 -or
+    -not ($dungeonMechanicRows -contains "3`te8`t0`tdc`t15`t00`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "3`tff`t0`tdc`t16`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t54`t0`t1e`t11`t20`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`tce`t2`t1e`t14`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "5`t4f`t0`t1e`t10`t06`t00`tnone`t1") -or
@@ -2498,7 +2570,7 @@ if ($dungeonMechanicRows.Count -ne 240 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 239 reusable mechanics including entrance/torch door controllers and Crown's enemy-clear staircase; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 241 reusable mechanics including chest override controllers; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -5033,10 +5105,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 57 -or
-    $npcImplementationCounts['specialized-native'] -ne 124 -or
-    $npcImplementationCounts['event-owned'] -ne 117 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 90 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 79 -or
+    $npcImplementationCounts['specialized-native'] -ne 125 -or
+    $npcImplementationCounts['event-owned'] -ne 122 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 62 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5250,8 +5322,23 @@ $hardhatCompletedEncoded = [Convert]::ToBase64String(
 $npcDialogueRows.Add(
     "58`t02`t*`tcurrent-room-flag`t80`t*`t1004`thardhatWorkerSubid02Script:@alreadySawCutscene`t$hardhatCompletedEncoded")
 
-if ($npcDialogueRows.Count -ne 123) {
-    throw "Expected 122 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+# BIT clears carry; the original RET NC makes post-Jabu state 3 unreachable.
+for ($subid=0; $subid -lt 10; $subid++) {
+    for ($state=0; $state -lt 3; $state++) {
+        $textId = $zoraPalaceTexts[$subid*4+$state]
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((Resolve-OceanText $textId ([Collections.Generic.HashSet[int]]::new()))))
+        $npcDialogueRows.Add("ab`t$($subid.ToString('x2'))`t*`tzora-world`t$($state.ToString('x2'))`t*`t$($textId.ToString('x4'))`tzora.s:zora_textIndices`t$encoded")
+    }
+}
+for ($subid=0x13; $subid -le 0x1b; $subid++) {
+    for ($state=0; $state -lt 2; $state++) {
+        $textId = $zoraOceanTexts[($subid-0x13)*2+$state]
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((Resolve-OceanText $textId ([Collections.Generic.HashSet[int]]::new()))))
+        $npcDialogueRows.Add("ab`t$($subid.ToString('x2'))`t*`twater-pollution`t$($state.ToString('x2'))`t*`t$($textId.ToString('x4'))`tzora.s:@textTable`t$encoded")
+    }
+}
+if ($npcDialogueRows.Count -ne 171) {
+    throw "Expected 170 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -6490,8 +6577,11 @@ Add-NpcCurrentRoomVisibility 0xab 0x12 -1 0 0x40 $false 'zora.s:@deleteIfFlagSet
 
 Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symmetryNpc.s:@subid0cInit'
 
-if ($npcVisibilityRows.Count -ne 354) {
-    throw "Expected 353 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+foreach ($subid in @(6,7,8,9)) {
+    Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
+}
+if ($npcVisibilityRows.Count -ne 358) {
+    throw "Expected 357 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

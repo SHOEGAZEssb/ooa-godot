@@ -293,6 +293,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMermaidTorchOrderRom, requiresRom: true);
         RunIsolatedValidation(ValidateMermaidSpinnerRom, requiresRom: true);
         RunIsolatedValidation(ValidateMermaidChestRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeaChestRom, requiresRom: true);
         RunIsolatedValidation(ValidateMermaidFloorsRom, requiresRom: true);
         RunIsolatedValidation(ValidateMermaidDungeonAdmission);
         RunIsolatedValidation(ValidateMermaidBridgeRom, requiresRom: true);
@@ -486,6 +487,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateJabuWaterTilePairsRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterHoleRom, requiresRom: true);
         RunIsolatedValidation(ValidateSuctionPitsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateOceanHazardsRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterWarpHoleRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterWaterRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterCliffCoastRom, requiresRom: true);
@@ -606,6 +608,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDialogueFormattingRom, requiresRom: true);
         RunIsolatedValidation(ValidateDialogueChoicesRom, requiresRom: true);
         RunIsolatedValidation(ValidateNpcConversationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRoom3ceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRoom3cfRom, requiresRom: true);
         RunIsolatedValidation(ValidateNewGameIntro);
         RunIsolatedValidation(ValidateNewGameIntroRom, requiresRom: true);
         RunIsolatedValidation(ValidateNewGameIntroInputRom, requiresRom: true);
@@ -658,6 +662,12 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSigns);
         RunIsolatedValidation(ValidateDialogueClockInputIsolation);
         RunIsolatedValidation(ValidateNpcImplementationManifest);
+        RunIsolatedValidation(ValidateOceanNpcSelectionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateOceanTextExpansionRom, requiresRom: true);
+        RunIsolatedValidation(ValidateKingZoraOceanStory);
+        RunIsolatedValidation(ValidateOceanScaleAndStormGuardsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuExteriorOpeningRom, requiresRom: true);
+        RunIsolatedValidation(ValidateKingZoraSwordSecret);
         RunIsolatedValidation(ValidateNpcs);
         RunIsolatedValidation(ValidateDialogueScreenContext);
         RunIsolatedValidation(ValidateDialoguePaging);

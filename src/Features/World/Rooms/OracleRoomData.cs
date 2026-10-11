@@ -69,6 +69,7 @@ public sealed class OracleRoomData
     private (Color, Color, Color, Color) _clearedTilemapPalette;
 
     internal int CurrentAnimationSignature => _animationSignature;
+    internal void CopyLayoutToUnderlying() => Array.Copy(Layout, _underlyingLayout, Layout.Length);
     internal float TemporaryBackgroundPaletteBlend => _temporaryFullBackgroundPaletteBlend;
     internal int? TemporaryBackgroundPaletteOffset => _temporaryBackgroundPaletteOffset;
     internal BackgroundPaletteState BackgroundPalettes => _backgroundPalettes;

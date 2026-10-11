@@ -75,6 +75,11 @@ before granting the treasure. Preserve its initialization and setup dispatches
 before the rise. Its object mask lasts through pickup text and the cleanup
 dispatch; inventory grants, including cross-era dungeon bits, use the shared
 inventory owner.
+Native chest-content interactions publish their treasure ID/subid in shared
+runtime WRAM after initialization. Chest opening consumes and clears that
+override before using the static chest table; room activation also clears it.
+Empty contents open the chest and persist its item flag without a reward actor
+or input freeze.
 
 Handler state zero runs in physical object order rather than during construction.
 Stateless floor/cube signal consumers read the active room throughout scrolling;

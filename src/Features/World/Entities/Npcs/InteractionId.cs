@@ -176,6 +176,12 @@ public static class InteractionId
     public const int Tokkey = 0x9d;
     // constants/ages/interactions.s: INTERAC_WATER_PUSHBLOCK
     public const int WaterPushblock = 0x9e;
+    // constants/ages/interactions.s: INTERAC_KING_ZORA
+    public const int KingZora = 0x9c;
+    // constants/ages/interactions.s: INTERAC_ZORA
+    public const int Zora = 0xab;
+    // constants/ages/interactions.s: INTERAC_CHILD_JABU
+    public const int ChildJabu = 0xba;
     // constants/common/interactions.s: INTERAC_EXCLAMATION_MARK
     public const int ExclamationMark = 0x9f;
     // constants/ages/interactions.s: INTERAC_ZELDA

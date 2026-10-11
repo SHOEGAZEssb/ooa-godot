@@ -16,6 +16,8 @@ internal static class NpcStoryState
         "game-progress-2" => NpcStoryStateKind.GameProgress2,
         "global-flag" => NpcStoryStateKind.GlobalFlag,
         "current-room-flag" => NpcStoryStateKind.CurrentRoomFlag,
+        "zora-world" => NpcStoryStateKind.ZoraWorld,
+        "water-pollution" => NpcStoryStateKind.WaterPollution,
         _ => throw new InvalidOperationException(
             $"Unknown NPC {context} state kind '{value}'.")
     };
@@ -33,6 +35,10 @@ internal static class NpcStoryState
             : 0,
         NpcStoryStateKind.CurrentRoomFlag => save.HasRoomFlag(
             npc.Group, npc.Room, (byte)comparisonValue) ? comparisonValue : 0,
+        // zora.s:zora_getWorldState uses RET NC after BIT (which clears carry).
+        NpcStoryStateKind.ZoraWorld => !save.HasGlobalFlag(GlobalFlag.KingZoraCured) ? 0 :
+            save.HasGlobalFlag(GlobalFlag.WaterPollutionFixed) ? 2 : 1,
+        NpcStoryStateKind.WaterPollution => save.HasGlobalFlag(GlobalFlag.WaterPollutionFixed) ? 1 : 0,
         _ => throw new InvalidOperationException($"Unhandled NPC story state {kind}.")
     };
 
@@ -93,5 +99,7 @@ internal enum NpcStoryStateKind
     GameProgress1,
     GameProgress2,
     GlobalFlag,
-    CurrentRoomFlag
+    CurrentRoomFlag,
+    ZoraWorld,
+    WaterPollution
 }
