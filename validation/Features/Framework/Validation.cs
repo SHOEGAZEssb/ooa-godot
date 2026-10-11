@@ -676,6 +676,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateOceanNpcSelectionRom, requiresRom: true);
         RunIsolatedValidation(ValidateOceanTextExpansionRom, requiresRom: true);
         RunIsolatedValidation(ValidateKingZoraOceanStory);
+        RunIsolatedValidation(ValidateKingZoraQuestChoiceHandoff);
         RunIsolatedValidation(ValidateRoom3efSeaFairy);
         RunIsolatedValidation(ValidateRoom3efSeaFairyRom, requiresRom: true);
         RunIsolatedValidation(ValidateOceanScaleAndStormGuardsRom, requiresRom: true);

@@ -16,6 +16,7 @@ internal sealed class MamamuEvent : InteractiveInfiniteScriptHost<NpcCharacter>,
     private int _secretResult;
     private int _generation;
     public override bool DialogueOpen => Context.DialogueOpen || _secretPending;
+    public override bool ScriptExecutionBlocked => base.ScriptExecutionBlocked || _secretPending;
     public bool FreezesNonInteractionObjects => BlocksGameplay;
     public bool MenusDisabled => BlocksGameplay;
     public bool ScreenTransitionsDisabled => BlocksGameplay;

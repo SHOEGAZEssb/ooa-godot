@@ -26,6 +26,7 @@ internal sealed class PlenEvent : InteractiveCutsceneCommandHost, IRoomEntryEven
     public bool MenusDisabled => BlocksGameplay;
     public bool ScreenTransitionsDisabled => BlocksGameplay;
     public override bool DialogueOpen => Context.DialogueOpen || _secretPending;
+    public override bool ScriptExecutionBlocked => base.ScriptExecutionBlocked || _secretPending;
 
     public PlenEvent(RoomEventContext context)
     {

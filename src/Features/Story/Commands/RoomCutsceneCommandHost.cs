@@ -11,8 +11,10 @@ internal abstract class RoomCutsceneCommandHost : CutsceneCommandHost
     public abstract RoomEventContext Context { get; }
     protected RoomEventResources EventResources => _resources ??= new(Context, this);
     public override bool DialogueOpen => Context.DialogueOpen;
-    // bank0.s:interactionRunScript checks wLinkDeathTrigger before either counter.
-    public override bool ScriptExecutionBlocked => DialogueOpen || Context.Player.IsDying;
+    // bank0.s:interactionRunScript checks wLinkDeathTrigger before either
+    // counter and accepts wTextIsActive=$80/$ff while gameplay still observes
+    // active text. A retained panel must allow its script to replace it.
+    public override bool ScriptExecutionBlocked => Context.ScriptDialogueOpen || Context.Player.IsDying;
     public override bool IsLinkedGame => Context.Rooms.SaveData.IsLinkedGame;
     public override int FrameCounter => Context.Entities.FrameCounter;
     public override ICutsceneCommandTraceSink? TraceSink => Context.CommandTraceSink;

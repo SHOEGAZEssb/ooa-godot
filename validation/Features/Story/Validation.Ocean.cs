@@ -57,6 +57,113 @@ public sealed partial class ValidationRoot
         FailIf(_entities.Entities<NpcCharacter>().Single(n=>n.Record.Id==0xab).TextId!=0x3442,"Zora pollution text was not reselected on re-entry.");
     }
 
+    private void ValidateKingZoraQuestChoiceHandoff()
+    {
+        // scripts.s: TX_3408 falls through into TX_3409. Both prompts use
+        // showtextnonexitable, publishing $80 before the script replaces text.
+        foreach (bool batched in new[] { false, true })
+        foreach (bool alreadyRefused in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.SetGlobalFlag(GlobalFlag.KingZoraCured);
+            _saveData.SetRoomFlag(5, 0xab, 0x40, alreadyRefused);
+            _inventory.GiveTreasure(TreasureId.MermaidSuit, 0);
+            _inventory.GiveTreasure(TreasureId.Flippers, 0);
+            _dialogue.MessageSpeed = 4;
+            LoadValidationRoom(5, 0xab);
+            var king = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x9c);
+            var story = _roomEvents.Get<KingZoraEvent>();
+            void Step(int count = 1, string? button = null) =>
+                StepGameplayUpdates(count, Vector2.Zero, button is null ? [] : [button],
+                    button is null ? [] : [button], batched);
+            void PumpUntil(System.Func<bool> done)
+            {
+                for (int update = 0; !done() && update < 4000; update++)
+                    Step(button: update % 2 == 0 ? "attack" : null);
+                FailIf(!done(), "King Zora $5:ab text did not reach its input-driven boundary.");
+            }
+            void OpenQuest()
+            {
+                Step(button: "attack"); Step();
+                FailIf(!_dialogue.ChoiceActive || !_dialogue.CurrentMessage.Contains("Will you accept\nthis quest?") ||
+                    !_dialogue.CurrentMessage.Contains("Yes No"), "TX_3408/TX_3409 lost the source quest and options.");
+                PumpUntil(() => _dialogue.ChoiceCursorVisible);
+            }
+            _player.WarpTo(new(0x78, 0x68));
+            for (int tap = 0; tap < 15 && !king.CanTalkTo(_player); tap++)
+            {
+                Step();
+                StepGameplayUpdates(8, Vector2.Up, ["move_up"], ["move_up"], batched);
+            }
+            FailIf(!king.CanTalkTo(_player) || _currentRoom.IsSolid(_player.Position) ||
+                _player.Position.DistanceTo(king.Position) < 16,
+                $"King Zora quest approach failed through $5:ab collision: {_player.Position}.");
+            Vector2 position = _player.Position;
+            OpenQuest();
+            int command = story.CurrentCommandIndex;
+            Step(4);
+            FailIf(story.CurrentCommandIndex != command || story.BlocksGameplay ||
+                _player.Position != position, "King Zora advanced before a completed answer.");
+            Step(button: "move_right");
+            FailIf(_dialogue.SelectedChoice != 1, "King Zora quest cursor cannot select No.");
+            Step();
+            int confirmationUpdates = 0;
+            StepGameplayUpdates(2, Vector2.Down, ["attack"], ["attack"], batched, () =>
+            {
+                if (++confirmationUpdates == 1)
+                    FailIf(!_dialogue.IsOpen || !_dialogue.PrintingComplete || story.CurrentCommandIndex != command,
+                        "No must publish $80 after the interaction pass, retaining its panel for one update.");
+                FailIf(_player.Position != position, "No confirmation leaked movement through active text.");
+            });
+            if (!alreadyRefused)
+            {
+                // scriptCmd_orRoomFlags clears carry and yields after $40.
+                FailIf(!_dialogue.PrintingComplete || !_saveData.HasRoomFlag(5, 0xab, 0x40),
+                    "First refusal must retain its $80 panel through the room-flag write update.");
+                Step();
+            }
+            FailIf(!_dialogue.CurrentMessage.StartsWith("Is that so...") || !_dialogue.IsOpen ||
+                !_saveData.HasRoomFlag(5, 0xab, 0x40) || _inventory.HasTreasure(TreasureId.LibraryKey),
+                $"King Zora No handoff must replace the retained prompt with TX_340a and set room bit $40: message={_dialogue.CurrentMessage}, open={_dialogue.IsOpen}, command={story.CurrentCommandIndex}, ready={_dialogue.PrintingComplete}, flag={_saveData.HasRoomFlag(5, 0xab, 0x40)}, blocked={story.ScriptExecutionBlocked}.");
+            PumpUntil(() => !_dialogue.IsOpen); Step(3);
+            FailIf(_player.CutsceneControlled, "Refusing King Zora retained the player lock.");
+
+            // Repeat without reloading: the short prompt must accept Yes.
+            OpenQuest();
+            confirmationUpdates = 0;
+            StepGameplayUpdates(2, Vector2.Down, ["attack"], ["attack"], batched, () =>
+            {
+                if (++confirmationUpdates == 1)
+                    FailIf(!_dialogue.IsOpen || !_dialogue.PrintingComplete || _player.CutsceneControlled,
+                        "Yes must publish its result before King Zora acquires the input lock.");
+                FailIf(_player.Position != position, "Yes confirmation leaked movement through active text.");
+            });
+            FailIf(!_dialogue.CurrentMessage.StartsWith("Very well!") || !_player.CutsceneControlled ||
+                _inventory.HasTreasure(TreasureId.LibraryKey), "Yes did not enter TX_340b before granting Library Key $46.");
+            PumpUntil(() => !_dialogue.IsOpen && !story.BlocksGameplay);
+            Step(3);
+            FailIf(!_inventory.HasTreasure(TreasureId.LibraryKey) || _player.CutsceneControlled ||
+                _dialogue.BlocksPlayerInput, "King Zora quest did not grant $46 and release text/input.");
+            Step(button: "attack"); Step();
+            FailIf(_dialogue.ChoiceActive || !_dialogue.CurrentMessage.Contains("Eyeglass"),
+                "King Zora repeated the quest instead of TX_340c after granting the key.");
+            PumpUntil(() => !_dialogue.IsOpen); Step(3);
+            StepGameplayUpdates(4, Vector2.Down, ["move_down"], ["move_down"], batched);
+            FailIf(_player.Position.Y <= position.Y, "Link cannot move after King Zora quest completion.");
+
+            // Room cancellation while the choice's $80 result is pending.
+            _inventory.LoseTreasure(TreasureId.LibraryKey);
+            LoadValidationRoom(5, 0xab);
+            _player.WarpTo(position);
+            StepGameplayUpdates(1, Vector2.Up, ["move_up"], ["move_up"], batched);
+            OpenQuest(); Step(button: "attack");
+            _dialogue.Close(); LoadValidationRoom(0, 0x11); Step(4);
+            FailIf(story.HasState || _player.CutsceneControlled || _inventory.HasTreasure(TreasureId.LibraryKey),
+                "Canceling a pending King Zora answer must retire the script without granting $46.");
+        }
+        GD.Print("Validated King Zora $5:ab input-driven Yes/No handoff, refusal/repeat, Library Key, release and cancellation with split/batched updates.");
+    }
+
     private void ValidateKingZoraOceanStory()
     {
         _inventory.GiveTreasure(TreasureId.MermaidSuit,0);

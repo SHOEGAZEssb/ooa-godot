@@ -12,6 +12,7 @@ internal sealed class KingZoraEvent(RoomEventContext context, OceanInteractionDa
     private string _secret="";
     internal Func<int,Action<bool>,bool>? OpenSecretMenu {get;set;}
     public override bool DialogueOpen=>Context.DialogueOpen||_secretPending;
+    public override bool ScriptExecutionBlocked => base.ScriptExecutionBlocked || _secretPending;
     public bool FreezesNonInteractionObjects=>BlocksGameplay;
     public bool MenusDisabled=>BlocksGameplay;
     public bool ScreenTransitionsDisabled=>BlocksGameplay;

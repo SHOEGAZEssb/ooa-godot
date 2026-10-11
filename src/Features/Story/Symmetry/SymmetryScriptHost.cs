@@ -17,6 +17,7 @@ internal sealed class SymmetryScriptHost : RoomCutsceneCommandHost, ICutsceneCom
     internal bool ButtonSensitive { get; private set; }
     internal bool ButtonPressed { get; set; }
     public override bool DialogueOpen => Context.DialogueOpen || _secretPending;
+    public override bool ScriptExecutionBlocked => base.ScriptExecutionBlocked || _secretPending;
 
     public SymmetryScriptHost(SymmetryEvent owner, NpcCharacter npc)
     {

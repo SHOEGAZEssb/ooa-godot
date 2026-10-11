@@ -200,9 +200,10 @@ the option exit and ordinary closing updates. Consumers take the result once
 text releases ownership.
 
 Non-exitable text retains its panel after publishing the source's `$80`
-completed-printing signal. Menu-owned consumers may take a choice at that signal
-and replace the panel before ordinary text closing. Appraisal waits begin only
-after this signal; their decrement-to-zero update still returns before the
+completed-printing signal. Native interaction scripts resume at that signal
+while gameplay still observes active text. Menu-owned consumers may take a choice
+at that signal and replace the panel before ordinary text closing. Appraisal waits
+begin only after this signal; their decrement-to-zero update still returns before the
 following update performs the result or exit action.
 
 Inventory marquees retain their centered-name pause and character cadence
