@@ -145,6 +145,26 @@ public sealed partial class ValidationRoot
             FailIf(_runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 ||
                 _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0 || _player.CutsceneControlled,
                 "Sea-cleaning completion retained input/menu masks.");
+            void CheckReturnedSea(OracleRoomData room)
+            {
+                int replaced = 0;
+                for (int y = 0; y < room.HeightInTiles; y++)
+                for (int x = 0; x < room.WidthInTiles; x++)
+                {
+                    Vector2 point = new(x * 16 + 8, y * 16 + 8);
+                    if (room.GetOriginalMetatile(point) != 0xeb) continue;
+                    replaced++;
+                    FailIf(room.GetMetatile(point) != 0xfc,
+                        $"Completed fairy cleanup reloaded pollution in room1:a3/${y * 16 + x:x2}; flag $30 must replace $eb with $fc.");
+                }
+                FailIf(replaced == 0, "Room1:a3 regression must exercise original pollution $eb.");
+            }
+            CheckReturnedSea(_rooms.CurrentRoom);
+            LoadValidationRoom(1, 0xa2); LoadValidationRoom(1, 0xa3); Step(3);
+            CheckReturnedSea(_rooms.CurrentRoom);
+            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? restored),
+                "Fairy cleanup save serialization failed.");
+            CheckReturnedSea(new RoomSession(1, 0xa3, () => 0, () => { }, restored!).CurrentRoom);
             LoadValidationRoom(3, 0xef); Step(3);
             FailIf(_entities.Entities<NpcCharacter>().Any(n => n.Record.Id == 0x32 && n.Active) ||
                 _entities.EntityAdapters<FountainFairyRoomEntity>().Count() != 1,
@@ -156,6 +176,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(3, 0xed);
             FailIf(_dialogue.IsOpen || _player.CutsceneControlled || story.HasState ||
                 !_inventory.HasTreasure(TreasureId.FairyPowder) ||
+                _saveData.HasGlobalFlag(0x30) ||
                 _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 ||
                 _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0,
                 "Leaving room3:ef must cancel the powder offer, retain $51 and release its input/menu masks.");

@@ -36,6 +36,7 @@ internal sealed class FrontendRom
     internal int Word(int address) => this[address] | this[address + 1] << 8;
     internal void LoadRoomTileset() => Call(0x3889, 0); // loadTilesetData -> bank $04:$6d7a, then indoor era flags.
     internal void ApplyRoomTileSubstitutions() => Call(0x5fef, 4); // Complete applyAllTileSubstitutions, including Jabu and native room dispatch.
+    internal void ApplyPollutedWaterTileSubstitutions() => Call(0x6078, 4); // replacePollutionWithWaterIfPollutionFixed, including native replaceTiles scans.
     internal void ApplyJabuTileSubstitutions() => Call(0x61a1, 4); // replaceJabuTilesIfUnderwater, including native replaceTiles scans.
     internal bool CanLinkSurface()
     {

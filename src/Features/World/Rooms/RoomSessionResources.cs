@@ -5,6 +5,7 @@ namespace oracleofages;
 public sealed class RoomSessionResources
 {
     internal SingleTileChangeDatabase SingleTileChanges { get; } = new();
+    internal PollutedWaterTileDatabase PollutedWaterTiles { get; } = new();
     internal RoomTileChangeDatabase TileChanges { get; } = new();
     internal DungeonKeyDoorDatabase KeyDoors { get; } = new();
     internal StandardTileSubstitutionDatabase StandardTileSubstitutions { get; } = new();

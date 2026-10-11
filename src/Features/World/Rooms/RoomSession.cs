@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -9,6 +10,7 @@ public sealed class RoomSession
     private readonly Action _resetAnimationTick;
     private readonly OracleSaveData _saveData;
     private readonly SingleTileChangeDatabase _singleTileChanges;
+    private readonly PollutedWaterTileDatabase _pollutedWaterTiles;
     private readonly RoomTileChangeDatabase _tileChanges;
     private readonly DungeonKeyDoorDatabase _keyDoors;
     private readonly StandardTileSubstitutionDatabase _standardTileSubstitutions;
@@ -84,6 +86,7 @@ public sealed class RoomSession
         World = world ?? new OracleWorldData();
         resources ??= new RoomSessionResources();
         _singleTileChanges = resources.SingleTileChanges;
+        _pollutedWaterTiles = resources.PollutedWaterTiles;
         _tileChanges = resources.TileChanges;
         _keyDoors = resources.KeyDoors;
         _standardTileSubstitutions = resources.StandardTileSubstitutions;
@@ -215,6 +218,11 @@ public sealed class RoomSession
             World.ResolveLayoutOverride(group, room, _saveData),
             World.ResolveJabuTilesetOverride(group, room, _saveData, DungeonMaps));
         byte roomFlags = _saveData.GetRoomFlags(group, room);
+        // loadTilesetAndRoomLayout reloads the source layout before any
+        // substitutions; decoded rooms are cached, including montage writes.
+        loaded.ResetAndApplyRoomInitializationChanges(
+            new Dictionary<int, byte>(), _animationTick());
+        _pollutedWaterTiles.Apply(loaded, _saveData, _animationTick());
         _singleTileChanges.Apply(
             group, loaded, _saveData, _animationTick());
         _standardTileSubstitutions.Apply(loaded, roomFlags, _animationTick());

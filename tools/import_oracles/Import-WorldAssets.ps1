@@ -64,6 +64,45 @@ if ($globalFlagRows.Count -ne 0x80) {
 $globalFlagPath = Join-Path $destination 'metadata\global_flags.tsv'
 Write-GeneratedTable($globalFlagPath, $globalFlagRows)
 
+# Pollution replacement is the first substitution pass, before position-specific
+# writes. The montage's func_782a uses $3a underwater; ordinary reload uses $3b.
+$pollutionPath = Join-Path $Disassembly 'code\ages\tileSubstitutions.s'
+$pollutionLabel = 'replacePollutionWithWaterIfPollutionFixed'
+$pollutionInstructions = @(Read-AssemblyInstructions $pollutionPath $pollutionLabel)
+$pollutionExpected = @('ld a,GLOBALFLAG_WATER_POLLUTION_FIXED', 'call checkGlobalFlag',
+    'ret z', 'ld a,(wTilesetFlags)', 'bit TILESETFLAG_BIT_OUTDOORS,a', 'ret z',
+    'ld de,@aboveWaterReplacement', 'and TILESETFLAG_UNDERWATER', 'jr z,+',
+    'ld de,@belowWaterReplacement', 'jr replaceTiles')
+if ($pollutionInstructions.Count -ne $pollutionExpected.Count) {
+    throw "tileSubstitutions.s:${pollutionLabel}: instruction count changed."
+}
+for ($pollutionIndex = 0; $pollutionIndex -lt $pollutionExpected.Count; $pollutionIndex++) {
+    if (($pollutionInstructions[$pollutionIndex].Code -replace '\s', '') -cne
+        ($pollutionExpected[$pollutionIndex] -replace '\s', '')) {
+        throw "tileSubstitutions.s:${pollutionLabel}:$($pollutionInstructions[$pollutionIndex].Line): " +
+            "expected '$($pollutionExpected[$pollutionIndex])', found '$($pollutionInstructions[$pollutionIndex].Code)'."
+    }
+}
+$pollutionCaller = @(Read-AssemblyInstructions $pollutionPath 'applyAllTileSubstitutions')
+if ($pollutionCaller.Count -lt 3 -or
+    $pollutionCaller[0].Code -notmatch '^call\s+replacePollutionWithWaterIfPollutionFixed$' -or
+    $pollutionCaller[1].Code -notmatch '^call\s+applySingleTileChanges$' -or
+    $pollutionCaller[2].Code -notmatch '^call\s+applyStandardTileSubstitutions$') {
+    throw 'tileSubstitutions.s:applyAllTileSubstitutions pollution/single/standard order changed.'
+}
+$pollutionValues = @(Read-AssemblyLiteralValues $pollutionPath $pollutionLabel)
+if (($pollutionValues -join ',') -ne '252,235,0,59,235,0') {
+    throw 'tileSubstitutions.s:replacePollutionWithWaterIfPollutionFixed: expected terminated $fc/$eb and $3b/$eb pairs.'
+}
+$pollutionRows = @("# underwater-mask`treplacement`toriginal`tsource")
+for ($pollutionIndex = 0; $pollutionIndex -lt 2; $pollutionIndex++) {
+    $pollutionRows += "$((0x40 * $pollutionIndex).ToString('x2'))" +
+        "`t$($pollutionValues[3 * $pollutionIndex].ToString('x2'))" +
+        "`t$($pollutionValues[3 * $pollutionIndex + 1].ToString('x2'))" +
+        "`ttileSubstitutions.s:$pollutionLabel"
+}
+Write-GeneratedTable((Join-Path $destination 'metadata\polluted_water_tile_substitutions.tsv'), $pollutionRows)
+
 # applySingleTileChanges is a separate, ordered room-load pass. Most rows test
 # a room-flag mask; $f0-$f2 are the three Ages-specific linked/completion
 # predicates handled by commonTileSubstitutions.s.

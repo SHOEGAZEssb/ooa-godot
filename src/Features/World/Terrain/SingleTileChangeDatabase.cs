@@ -74,10 +74,8 @@ public sealed class SingleTileChangeDatabase
             writes[record.Position] = record.Tile;
         }
 
-        // loadTilesetAndRoomLayout reloads the source layout on every entry;
-        // OracleWorldData caches decoded rooms, so reset before the first
-        // substitution pass even when this room has no matching rows.
-        room.ResetAndApplyRoomInitializationChanges(writes, animationTick);
+        // RoomSession resets the source layout and replaces pollution first.
+        room.ApplyRoomInitializationChanges(writes, animationTick);
     }
 
     private static bool Matches(
