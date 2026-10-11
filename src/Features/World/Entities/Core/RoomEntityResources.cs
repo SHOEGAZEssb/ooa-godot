@@ -6,6 +6,8 @@ namespace oracleofages;
 // here; placement and actor construction consume the same database instances.
 internal sealed class RoomEntityResources(RoomSession? rooms)
 {
+    private LibraryDatabase? _library;
+    internal LibraryDatabase Library => _library ??= new();
     private ChestContentsDatabase? _chestContents;
     internal ChestContentsDatabase ChestContents => _chestContents ??= new();
     private JabuExteriorDatabase? _jabuExterior;

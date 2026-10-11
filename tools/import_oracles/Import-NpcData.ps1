@@ -1107,6 +1107,10 @@ function Resolve-NpcImplementation(
     if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
     if ($id -eq 0xe3 -and $subid -lt 10) { return 'specialized-native' }
     if ($id -eq 0x6b -and $subid -in @(0x13, 0x14)) { return 'specialized-native' }
+    if ($id -eq 0x52 -and $subid -le 6) { return 'specialized-native' }
+    if (($id -eq 0x3b -and $subid -eq 7) -or ($id -eq 0xab -and $subid -eq 0x0e) -or
+        ($id -eq 0x3c -and $subid -eq 0x0b) -or ($id -eq 0x2a -and $subid -eq 0) -or
+        ($id -eq 0x9a -and $subid -eq 9)) { return 'specialized-native' }
     return 'deliberately-unsupported'
 }
 
@@ -1134,6 +1138,11 @@ function New-NpcDataRow(
     [string]$implementationOverride = ''
 ) {
     $graphic = $interactionGraphics["$id`:$subid"]
+    if ($id -eq 0x52 -and $subid -le 6) {
+        $initialAnimationOverride = 2
+        $canFaceOverride = 1
+        $textIdOverride = if($subid -ge 3){0x3300+($subid-3)*2}else{0}
+    }
     if ($id -eq 0x32 -and $subid -eq 2) {
         $textIdOverride = 0x4106
         $initialAnimationOverride = 2
@@ -5113,9 +5122,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 79 -or
-    $npcImplementationCounts['specialized-native'] -ne 125 -or
+    $npcImplementationCounts['specialized-native'] -ne 137 -or
     $npcImplementationCounts['event-owned'] -ne 123 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 62 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 50 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

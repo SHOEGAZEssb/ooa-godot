@@ -108,6 +108,8 @@ public static class TreasureId
     public const int ZoraScale = 0x4e;
     // constants/common/treasure.s: TREASURE_TOKAY_EYEBALL
     public const int TokayEyeball = 0x4f;
+    // constants/common/treasure.s: TREASURE_BOOK_OF_SEALS
+    public const int BookOfSeals = 0x55;
     // constants/common/treasure.s: TREASURE_FAIRY_POWDER
     public const int FairyPowder = 0x51;
     // constants/common/treasure.s: TREASURE_CHEVAL_ROPE

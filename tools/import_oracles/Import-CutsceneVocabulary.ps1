@@ -15,7 +15,7 @@ $cutsceneVocabularyRows = @(
     "waitframes`tcontroller:waitframes`truntime`tCutsceneWaitFramesCommand`tnone`tpositive-decimal`tnone`tnone`tblock|yield`t-`tcounter`tWait a controller-owned fixed-update duration.",
     "showtext`tshowtext`t2-or-3`tCutsceneShowTextCommand`tnone`thex`toptional-decimal`toptional`tyield`t-`tdialogue`tOpen interaction-script text at its optional imported textbox position.",
     "showloadedtext`tshowloadedtext`t1`tCutsceneShowLoadedTextCommand`tnone`tnone`tnone`tnone`tyield`t-`tdialogue`tOpen the interaction's currently loaded text.",
-    "checktext`tchecktext`t1`tCutsceneCheckTextCommand`tnone`tnone`tnone`tnone`tblock|continue`t-`tdialogue`tHold until interaction text is inactive.",
+    "checktext`tchecktext`t1`tCutsceneCheckTextCommand`tnone`tnone`tnone`tnone`tblock|yield`t-`tdialogue`tHold until interaction text is inactive, then yield.",
     "dialogue`tcontroller:dialogue`truntime`tCutsceneDialogueCommand`tnone`thex`tnone`toptional`tblock|yield`t-`tdialogue`tOpen controller text and retain its close boundary.",
     "showtextdifferentforlinked`tshowtextdifferentforlinked`t4`tCutsceneShowTextVariantsCommand`tnone`thex`thex`ttext-variants`tyield`t-`tdialogue|linked-state`tSelect linked or unlinked text.",
     "setanimation`tsetanimation`t2-or-3`tCutsceneSetAnimationCommand`trequired`thex`tnone`toptional`tyield`tActorId`tactor-animation`tSelect a literal or encoded actor animation.",

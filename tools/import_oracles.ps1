@@ -172,6 +172,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-ocean' 'Import-OceanData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource', 'speedSource', 'treasureObjectRecords') `
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'library' 'Import-LibraryData.ps1' `
+        -inputs @('allTexts', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource', 'treasureObjectRecords') `
+        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'sea-fairy' 'Import-SeaFairyData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource', 'partAnimationDefinitions', 'partAnimationTables', 'partOamBlocks', 'partOamPointerTables') `
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-PartAnimation', 'Resolve-OceanText', 'Write-CutsceneGeneratedTable')

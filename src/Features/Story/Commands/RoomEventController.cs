@@ -117,6 +117,7 @@ public sealed class RoomEventController
             () => new ComedianEvent(_context),
             () => new MaskSalesmanEvent(_context),
             () => new OldZoraEvent(_context),
+            () => new LibraryEvent(_context),
             () => new KingZoraEvent(_context, oceanInteractions),
             () => new OceanZoraEvent(_context, oceanInteractions),
             () => new SeaFairyEvent(_context),
@@ -219,6 +220,7 @@ public sealed class RoomEventController
             Npc("maskSalesman.s:maskSalesmanScript",
                 Get<MaskSalesmanEvent>().TryInteractNpc),
             Npc("oldZora.s:oldZoraScript", Get<OldZoraEvent>().TryInteractNpc),
+            Npc("oldMan.s/bookOfSealsPodium.s", Get<LibraryEvent>().TryInteractNpc),
             Npc("kingZora.s:interactionCode9c", Get<KingZoraEvent>().TryInteractNpc),
             Npc("fakeOctorok.s:greatFairyOctorokCode $32:$02", Get<SeaFairyEvent>().TryInteractNpc),
             Npc("zora.s:$10-$12", Get<OceanZoraEvent>().TryInteractNpc),
@@ -331,6 +333,7 @@ public sealed class RoomEventController
         Get<MamamuEvent>().OpenSecretMenu = opener;
         Get<GoronCaveEvent>().OpenSecretMenu = opener;
         Get<KingZoraEvent>().OpenSecretMenu = opener;
+        Get<LibraryEvent>().OpenSecretMenu = opener;
     }
     internal bool SupportsOverworldKeyhole(int group, int room) =>
         Get<GraveyardGateEvent>().CanTrigger(group, room) ||

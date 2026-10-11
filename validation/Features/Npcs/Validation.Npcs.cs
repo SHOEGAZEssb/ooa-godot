@@ -455,6 +455,7 @@ public sealed partial class ValidationRoot
             ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
             // King Zora's owner inserts the generated return secret before presentation.
             ["cutscenes/king_zora_present_commands.tsv|\\secret1"] = 2,
+            ["cutscenes/library_secret_commands.tsv|\\secret1"] = 2,
             ["cutscenes/goron_cave_data.tsv|\\num1"] = 4,
             ["cutscenes/goron_cave_data.tsv|\\secret1"] = 2,
             ["objects/lynna_shop_texts.tsv|\\num1"] = 9,
@@ -524,9 +525,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 12 || adjacentHeartControls != 2 || byteEscapes != 4,
+            slowControls != 12 || adjacentHeartControls != 2 || byteEscapes != 6,
             "The generated dialogue inventory no longer contains the expected " +
-            $"six \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), and the possession taunt (TX_2f2a), two adjacent-heart, and four \\x20 source controls (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
+            $"six \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), and the possession taunt (TX_2f2a), two adjacent-heart, and six \\x20 source controls including library TX_3313/TX_3314 (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>
@@ -560,9 +561,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 79,
-                [NpcImplementationClassification.SpecializedNative] = 197,
+                [NpcImplementationClassification.SpecializedNative] = 209,
                 [NpcImplementationClassification.EventOwned] = 123,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 62
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 50
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -575,7 +576,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "79 ordinary, 197 specialized, 123 event-owned, and 62 " +
+            "79 ordinary, 209 specialized, 123 event-owned, and 50 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -595,11 +596,14 @@ public sealed partial class ValidationRoot
         NpcRecord ordinary = Find(0, 0x48, 0x3a, 0x03, 0x00);
         NpcRecord specialized = Find(0, 0x56, 0x65, 0x00, 0x00);
         NpcRecord eventOwned = Find(0, 0x39, 0x37, 0x0d, 0x00);
-        NpcRecord unsupported = Find(5, 0xd0, 0x9a, 0x09, 0x00);
+        NpcRecord libraryCarpenter = Find(5, 0xd0, 0x9a, 0x09, 0x00);
+        NpcRecord unsupported = Find(0, 0x48, 0x54, 0x01, 0x03);
         FailIf(
             ordinary.Implementation !=
                 NpcImplementationClassification.OrdinaryGeneric ||
             specialized.Implementation !=
+                NpcImplementationClassification.SpecializedNative ||
+            libraryCarpenter.Implementation !=
                 NpcImplementationClassification.SpecializedNative ||
             eventOwned.Implementation !=
                 NpcImplementationClassification.EventOwned ||
@@ -836,6 +840,7 @@ public sealed partial class ValidationRoot
             "makuTree.s:interactionCode87Subid02",
             "maskSalesman.s:maskSalesmanScript",
             "oldZora.s:oldZoraScript",
+            "oldMan.s/bookOfSealsPodium.s",
             "kingZora.s:interactionCode9c",
             "fakeOctorok.s:greatFairyOctorokCode $32:$02",
             "zora.s:$10-$12",
@@ -1308,12 +1313,15 @@ public sealed partial class ValidationRoot
             "bipinScript3's wait 1 did not remove the held seed and " +
             "install counter 1 on the first update after TX_004b.");
         bipinInteractions.Update(frame, _player);
+        FailIf(bipinDialogue.IsOpen,
+            "scripting.s:scriptCmd_waitForText must yield on its text-free " +
+            "update before bipinScript3 opens TX_4312.");
+        bipinInteractions.Update(frame, _player);
         FailIf(
             DialogueBox.PlainText(bipinDialogue.CurrentMessage) !=
                 DialogueBox.PlainText(
                     family.Text(0x4312, bipinSave).Message),
-            "bipinScript3's wait 1/checktext boundary did not reach zero " +
-            "and open TX_4312 on the following update.");
+            "bipinScript3 did not open TX_4312 after wait 1 and checktext yielded.");
 
         bipinDialogue.Close();
         bipinInteractions.Update(frame, _player);

@@ -52,9 +52,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 278 | Traced and covered by named NPC/event scenarios. |
+| **I** | 290 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 62 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 50 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **389** | **216 rooms and 301 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -62,9 +62,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 79 | 0 | 79 |
-| Specialized native interaction | 125 | 72 | 197 |
+| Specialized native interaction | 137 | 72 | 209 |
 | Event-owned actor | 123 | 0 | 123 |
-| Deliberately unsupported | 62 | 0 | 62 |
+| Deliberately unsupported | 50 | 0 | 50 |
 | **Total** | **389** | **72** | **461** |
 
 ## Bipin and Blossom family variants
@@ -276,12 +276,12 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:c3` | [I] `$66:$06/v$00` goron<br>[I] `$66:$06/v$01` goron<br>[I] `$66:$05/v$02` goron<br>[I] `$66:$05/v$03` goron<br>[I] `$66:$05/v$04` goron<br>[I] `$66:$04/v$00` goron |
 | `5:c4` | [I] `$66:$05/v$00` goron<br>[I] `$66:$05/v$01` goron |
 | `5:c6` | [I] `$66:$0d/v$03` goron<br>[I] `$66:$0e/v$07` goron |
-| `5:c8` | [D] `$52:$01/v$00` oldMan |
+| `5:c8` | [I] `$52:$01/v$00` oldMan |
 | `5:ca` | [P] `$48:$06/v$00` tokay |
 | `5:cc` | [P] `$48:$09/v$00` tokay |
 | `5:ce` | [I] `$6d:$00/v$00` possessedNayru<br>[I] `$40:$0d/v$0e` soldier |
 | `5:cf` | [D] `$10:$00/v$00` farore |
-| `5:d0` | [D] `$3b:$07/v$00` femaleVillager<br>[D] `$ab:$0e/v$00` zora<br>[D] `$3c:$0b/v$00` boy<br>[D] `$2a:$00/v$00` librarian<br>[D] `$9a:$09/v$00` carpenter |
+| `5:d0` | [I] `$3b:$07/v$00` femaleVillager<br>[I] `$ab:$0e/v$00` zora<br>[I] `$3c:$0b/v$00` boy<br>[I] `$2a:$00/v$00` librarian<br>[I] `$9a:$09/v$00` carpenter |
 | `5:d1` | [I] `$40:$0d/v$08` soldier<br>[I] `$40:$0d/v$09` soldier |
 | `5:d2` | [I] `$40:$0d/v$0a` soldier<br>[I] `$40:$0d/v$0b` soldier |
 | `5:d3` | [I] `$40:$0d/v$0c` soldier<br>[I] `$40:$0d/v$0d` soldier |
@@ -294,10 +294,10 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:df` | [I] `$66:$0e/v$09` goron<br>[I] `$66:$0e/v$0a` goron |
 | `5:e0` | [I] `$66:$0e/v$08` goron<br>[I] `$66:$0d/v$04` goron |
 | `5:e2` | [I] `$66:$0c/v$01` goron<br>[I] `$66:$0c/v$02` goron |
-| `5:e4` | [D] `$52:$00/v$00` oldMan<br>[D] `$52:$02/v$00` oldMan |
+| `5:e4` | [I] `$52:$00/v$00` oldMan<br>[I] `$52:$02/v$00` oldMan |
 | `5:e8` | [I] `$94:$01/v$00` patch<br>[I] `$94:$02/v$00` patch |
 | `5:e9` | [P] `$48:$1d/v$00` tokay |
-| `5:ec` | [D] `$52:$03/v$00` oldMan<br>[D] `$52:$04/v$00` oldMan<br>[D] `$52:$05/v$00` oldMan<br>[D] `$52:$06/v$00` oldMan |
+| `5:ec` | [I] `$52:$03/v$00` oldMan<br>[I] `$52:$04/v$00` oldMan<br>[I] `$52:$05/v$00` oldMan<br>[I] `$52:$06/v$00` oldMan |
 | `5:f1` | [D] `$ad:$00/v$00` zelda |
 | `5:f6` | [I] `$bf:$08/v$00` symmetryNpc<br>[I] `$bf:$09/v$00` symmetryNpc |
 | `5:f8` | [D] `$c3:$00/v$00` pirateCaptain<br>[P] `$c4:$00/v$00` pirate<br>[P] `$c4:$01/v$00` pirate<br>[P] `$c4:$02/v$00` pirate<br>[P] `$c4:$03/v$00` pirate |

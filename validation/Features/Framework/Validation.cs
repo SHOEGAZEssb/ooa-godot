@@ -708,6 +708,18 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom22fPostman);
         RunIsolatedValidation(ValidateRoom3f7KnowItAllBirds);
         RunIsolatedValidation(ValidateRoom24eOldMan);
+        RunIsolatedValidation(ValidateRoom5ecLibraryNpcs);
+        RunIsolatedValidation(ValidateRoom5e4FairyPowder);
+        RunIsolatedValidation(ValidateRoom5e4BookPaths);
+        RunIsolatedValidation(ValidateRoom5e4LibrarySecret);
+        RunIsolatedValidation(ValidateLibraryTransitionInitialization);
+        RunIsolatedValidation(ValidateLibraryCancellation);
+        RunIsolatedValidation(ValidateRoom5c8BookOfSeals);
+        RunIsolatedValidation(ValidateRoom5d0LibraryReaders);
+        RunIsolatedValidation(ValidatePresentLibraryCancellationAndMasks);
+        RunIsolatedValidation(ValidateLibraryReadersRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLibraryBookRewardRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLibraryPodiumPathRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom23eToiletHand);
         RunIsolatedValidation(ValidateRoom2e9ShootingGallery);
         RunIsolatedValidation(ValidateRoom39eInteractions);

@@ -178,6 +178,11 @@ public sealed class InteractionController
                 !_groundTreasureShowingHeartContainer)
                 return;
             _groundTreasure.Finish(_groundTreasurePlayer!);
+            // treasure.s:@setLinkAnimationAndDeleteIfTextClosed clears only
+            // DISABLE_LINK; an enclosing script can retain the other bits.
+            if (_groundTreasure.Record.GrabMode is TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands)
+                _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,
+                    (byte)(_entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects) & ~0x01));
             _groundTreasure = null;
             _groundTreasurePlayer = null;
             _groundTreasureCompletesHeartContainer = false;

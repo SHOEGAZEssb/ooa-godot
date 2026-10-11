@@ -973,6 +973,10 @@ internal sealed class RoomEntityFactory
         }
         else
         {
+            foreach (var placed in Resources.Library.Placements.Where(p => p.Group == group && p.Room == room.Id).OrderBy(p => p.Order))
+                yield return new LibraryActorRoomEntity(NpcCharacter.CreateFromRecord(
+                    Resources.Library.Actor(group, room.Id, placed.Id, placed.SubId, placed.Y, placed.X)),
+                    Resources.Library, _saveData, _runtimeState);
             foreach (NpcRecord record in roomNpcs)
             {
                 switch (record.Implementation)
@@ -2651,6 +2655,7 @@ internal sealed class RoomEntityFactory
         EnemySwordSpawn sword => new EnemySwordRoomEntity(sword.Parent, sword.SoundRequested, sword.ParentCollisionAllowed),
         SpikedBallSpawn ball => new SpikedBallRoomEntity(ball.Part, ball.Sound),
         FountainFairyHeartSpawn heart => heart.Owner.CreateHeart(),
+        LibraryPodiumSpawn podium => podium.Owner.CreatePodium(podium.SubId),
         FountainFairyPuffSpawn puff => new FixedEffectRoomEntityAdapter<PuzzlePuffEffect>(puff.Effect),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
         GelSpawn gel => EnemyFactory.CreateGel(gel, room),
@@ -3434,6 +3439,10 @@ internal sealed class RoomEntityFactory
         }
 
         NpcCharacter npc = NpcCharacter.CreateFromRecord(record);
+        if (record.Id == InteractionId.OldMan && record.SubId <= 6)
+            return new LibraryActorRoomEntity(npc, Resources.Library, _saveData, _runtimeState);
+        if (Resources.Library.IsReader(record))
+            return new LibraryReaderRoomEntity(npc, Resources.Library, _saveData, owner);
         if (record.Id == InteractionId.MamamuYan && record.SubId == 0)
         {
             npc.SetAnimationRate(0);

@@ -100,6 +100,8 @@ public static class InteractionId
     public const int ImpaNpc = 0x4f;
     // constants/ages/interactions.s: INTERAC_DUMBBELL_MAN
     public const int DumbbellMan = 0x51;
+    // constants/ages/interactions.s: INTERAC_OLD_MAN
+    public const int OldMan = 0x52;
     // constants/ages/interactions.s: INTERAC_MAMAMU_YAN
     public const int MamamuYan = 0x53;
     // constants/ages/interactions.s: INTERAC_MAMAMU_DOG
@@ -150,6 +152,8 @@ public static class InteractionId
     public const int Roller = 0x7a;
     // constants/common/interactions.s: INTERAC_ESSENCE
     public const int Essence = 0x7f;
+    // constants/ages/interactions.s: INTERAC_DECORATION
+    public const int Decoration = 0x80;
     // constants/ages/interactions.s: INTERAC_BOMB_UPGRADE_FAIRY
     public const int BombUpgradeFairy = 0x83;
     // constants/common/interactions.s: INTERAC_SPARKLE
@@ -180,6 +184,8 @@ public static class InteractionId
     public const int KingZora = 0x9c;
     // constants/ages/interactions.s: INTERAC_ZORA
     public const int Zora = 0xab;
+    // constants/ages/interactions.s: INTERAC_BOOK_OF_SEALS_PODIUM
+    public const int BookOfSealsPodium = 0xb4;
     // constants/ages/interactions.s: INTERAC_CHILD_JABU
     public const int ChildJabu = 0xba;
     // constants/common/interactions.s: INTERAC_EXCLAMATION_MARK

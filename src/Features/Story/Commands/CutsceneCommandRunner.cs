@@ -301,9 +301,11 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 return CommandResult.Yield;
 
             case CutsceneCheckTextCommand:
+                // scripting.s:scriptCmd_waitForText advances without carry,
+                // so the first text-free update still yields.
                 return host.DialogueOpen
                     ? CommandResult.Block
-                    : CommandResult.Continue;
+                    : CommandResult.Yield;
 
             case CutsceneDialogueCommand text:
                 if (_commandUpdates == 0)
