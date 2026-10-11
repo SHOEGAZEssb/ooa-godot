@@ -991,6 +991,11 @@ internal sealed class RoomEntityFactory
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
+                        if (record.Id == 0x32 && record.SubId == 2)
+                        {
+                            yield return new SeaFairyNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
+                            break;
+                        }
                         if (record.Id == InteractionId.KingZora || record.Id == InteractionId.Zora && record.SubId is 0x10 or 0x11 or 0x12)
                         {
                             yield return new OceanScriptNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
@@ -2766,6 +2771,12 @@ internal sealed class RoomEntityFactory
         TokayAttachedVisualSpawn accessory => new TokayAttachedVisualRoomEntity(
             accessory.Parent, accessory.Record, accessory.Offset),
         KingZoraPotionSpawn potion => new KingZoraPotionRoomEntity(NpcCharacter.CreateFromRecord(potion.Record)),
+        SeaPowderSpawn powder => new SeaPowderRoomEntity(powder, _random),
+        SeaFairySparkleSpawn sparkle => new SeaFairySparkleRoomEntity(sparkle),
+        CleanSeasZoraSpawn zora => new CleanSeasZoraRoomEntity(zora, _runtimeState),
+        CleansedFairySpawn fairy => new CleansedFairyRoomEntity(fairy.Data, fairy.Position, owner.OnSoundRequested,
+            message => owner.OnRoomEntityDialogueRequested(0x4109, message, fairy.Position),
+            owner.TextActiveSource, owner.PaletteFadeActiveSource, fairy.Fade, fairy.Clean),
         DimitriMouthSpawn mouth => new DimitriMouthRoomEntity(mouth,
             CreateCompanionTileBreaker(mouth.Group, mouth.Room, room)),
         MooshHoverExclamationSpawn exclamation =>

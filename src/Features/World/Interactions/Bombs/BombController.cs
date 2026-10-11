@@ -49,6 +49,7 @@ public sealed class BombController
         if (_state != BombParentState.Idle ||
             player.IsCarryingObject ||
             !player.IsGroundedForFloorButton ||
+            player.SideScrollSwimming ||
             _isUnderwater())
         {
             return false;

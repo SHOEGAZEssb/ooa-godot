@@ -474,6 +474,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMermaidSeaSwimmingRom, requiresRom: true);
         RunIsolatedValidation(ValidateMermaidSeaDivingGatesRom, requiresRom: true);
         RunIsolatedValidation(ValidateDeepWaterDiveRom, requiresRom: true);
+        RunIsolatedValidation(ValidateDiveOntoZoraRom, requiresRom: true);
         RunIsolatedValidation(ValidateDeepWaterDungeonDiveRom, requiresRom: true);
         RunIsolatedValidation(ValidateMermaidUnderwaterRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterWalkGraphics);
@@ -481,6 +482,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateUnderwaterSurfacingMasksRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterSurfaceRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterEquippedSurfaceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterItemsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUnderwaterAllowedItemsRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterDungeonSurfaceRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuFloodedTilesetsRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuWaterTilesRom, requiresRom: true);
@@ -665,6 +668,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateOceanNpcSelectionRom, requiresRom: true);
         RunIsolatedValidation(ValidateOceanTextExpansionRom, requiresRom: true);
         RunIsolatedValidation(ValidateKingZoraOceanStory);
+        RunIsolatedValidation(ValidateRoom3efSeaFairy);
+        RunIsolatedValidation(ValidateRoom3efSeaFairyRom, requiresRom: true);
         RunIsolatedValidation(ValidateOceanScaleAndStormGuardsRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuExteriorOpeningRom, requiresRom: true);
         RunIsolatedValidation(ValidateKingZoraSwordSecret);

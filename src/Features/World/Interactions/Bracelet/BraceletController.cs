@@ -84,6 +84,11 @@ public sealed class BraceletController
         if (_state != BraceletState.Idle || _entities.ReservedBraceletChildActive)
             return false;
 
+        // bombsBraceletParent state0 checks checkLinkOnGround before searching
+        // for grabbable objects or retaining its held-input wall-seeking state.
+        if (!player.IsCarryingObject && !player.IsOnGroundForBracelet)
+            return false;
+
         bool wasCarrying = player.IsCarryingObject;
         if (_entities.TryUseBracelet(
                 player,

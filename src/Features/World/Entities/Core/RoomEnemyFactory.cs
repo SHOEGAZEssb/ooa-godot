@@ -717,7 +717,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
         EnemyHandlerDescriptor? handler = enemies.EnemyHandlers.Handlers
             .FirstOrDefault(value => value.Id == id && value.SubId == subId);
         if (handler is null || !handler.SupportsOrderedConstruction ||
-            !handler.SupportsCombatSource && handler.Handler!=EnemyHandlerKind.TargetCartCrystal)
+            !handler.SupportsCombatSource && handler.Handler is not (EnemyHandlerKind.TargetCartCrystal or EnemyHandlerKind.GreatFairy))
         {
             error = $"{origin} has no standalone combat factory. " +
                 (handler?.Source ?? "No imported handler.");

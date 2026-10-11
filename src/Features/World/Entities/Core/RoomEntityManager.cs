@@ -2566,9 +2566,17 @@ public sealed class RoomEntityManager : IDisposable
             // until after both attempts; failure drops that child, without retry.
             if (spawn is BariChildSpawn && !EnemySlotAvailable) continue;
             if (spawn is KillEnemyPuffSpawn && !InteractionSlotAvailable) continue;
+            if (spawn is SeaFairySparkleSpawn fairySparkle && !InteractionSlotAvailable)
+            {
+                // objectCreateInteraction failure leaves HL=$e040. The queen
+                // still writes the flash counter or ray angle through that alias.
+                if (fairySparkle.Role == "flash") _runtimeState.SetWramByte(0xc046, (byte)fairySparkle.Value);
+                if (fairySparkle.Role == "ray") _runtimeState.SetWramByte(0xc049, (byte)fairySparkle.Value);
+                continue;
+            }
             // River Zora consumes animParameter before ecom_spawnProjectile;
             // a full PART pool drops this request without retrying it.
-            if (spawn is ZoraFireSpawn && FindFreePartSlot() < 0) continue;
+            if (spawn is ZoraFireSpawn or SeaPowderSpawn && FindFreePartSlot() < 0) continue;
             // INTERAC $6b:$0f advances to state1 before attempting PART$05;
             // getFreePartSlot failure leaves it waiting without a retry.
             if (spawn is DungeonSwitchSpawn && FindFreePartSlot() < 0) continue;
@@ -2654,7 +2662,7 @@ public sealed class RoomEntityManager : IDisposable
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is NayruRescueLightningRoomEntity ? 1 :
         entity is VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
-            or FountainFairyHeartRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
+            or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
             or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity
@@ -2777,7 +2785,7 @@ public sealed class RoomEntityManager : IDisposable
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
         NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or NayruRescueBowtieRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
         CompanionTutorialRoomEntity { NativeAllocationEnabled: true } or
-        KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
+        KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or CleanSeasZoraRoomEntity or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
         LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
         TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||

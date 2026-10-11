@@ -4,6 +4,9 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class SoundId
 {
+    // constants/common/music.s: clean-seas fairy native effects.
+    public const int SndSolvePuzzle2 = 0x5b;
+    public const int SndPieceOfPower = 0x8a;
     // constants/common/music.s: SND_VERAN_PROJECTILE / SND_CIRCLING
     public const int SndVeranProjectile = 0xbe;
     public const int SndCircling = 0xc9;

@@ -92,9 +92,10 @@ $stageContracts = @(
             'mainObjectLines', 'mainObjectSource', 'nayruCutsceneSource',
             'nayruScriptSource', 'npcAnimationDefinitions', 'npcAnimationTables',
             'npcOamBlocks', 'npcOamPointerTables', 'npcRows',
+            'partAnimationDefinitions', 'partAnimationTables', 'partOamBlocks', 'partOamPointerTables',
             'treasureObjectSource') `
         -functionInputs @('Export-PaletteBlock') `
-        -functionOutputs @('Resolve-NpcAnimation', 'Resolve-OceanText')
+        -functionOutputs @('Resolve-NpcAnimation', 'Resolve-PartAnimation', 'Resolve-OceanText')
     New-ImportStageContract 'collapsing-floor' 'Import-CollapsingFloor.ps1' `
         -inputs @('mainObjectLines', 'soundIds')
     New-ImportStageContract 'gasha' 'Import-GashaData.ps1' `
@@ -171,6 +172,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-ocean' 'Import-OceanData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource', 'speedSource', 'treasureObjectRecords') `
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'sea-fairy' 'Import-SeaFairyData.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource', 'partAnimationDefinitions', 'partAnimationTables', 'partOamBlocks', 'partOamPointerTables') `
+        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-PartAnimation', 'Resolve-OceanText', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-trade-quest' 'Import-TradeQuestData.ps1' `
         -inputs @('allTextFallthroughIds', 'allTextPositions', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'musicSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')

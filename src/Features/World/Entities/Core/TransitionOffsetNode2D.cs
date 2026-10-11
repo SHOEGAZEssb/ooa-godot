@@ -14,6 +14,24 @@ public abstract partial class TransitionOffsetNode2D : Node2D
     private Func<int> _shadowSlot = static () => 0;
     private Func<bool> _shadowTransition = static () => false;
     private OracleRoomData? _shadowRoom;
+    private static LinkTerrainEffectDatabase? _groundTerrainEffects;
+
+    private protected LinkTerrainEffectFrame? GetGroundTerrainEffect(int? zHigh)
+    {
+        // bank0.s:_drawObjectTerrainEffects samples the object's ground
+        // position, five pixels below yh, before applying its draw height.
+        if (!Visible || zHigh is null || ((byte)zHigh.Value & 0x80) != 0 ||
+            _shadowRoom is null || (_shadowRoom.TilesetFlags & 0x20) != 0 ||
+            TerrainShadowCameraByte >= 0x97 || _shadowTransition())
+            return null;
+        int xh = (int)Position.X & 0xff;
+        int yh = (int)Position.Y & 0xff;
+        byte position = (byte)(((yh + 5) & 0xf0) | (xh >> 4));
+        _groundTerrainEffects ??= new LinkTerrainEffectDatabase();
+        return _groundTerrainEffects.FrameFor(
+            _shadowRoom.GetPackedStorageMetatile(position),
+            new Vector2(xh, yh), _shadowCounter());
+    }
 
     internal bool TerrainShadowDrawn =>
         this is ITerrainShadowSource source &&

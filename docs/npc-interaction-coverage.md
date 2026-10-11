@@ -52,10 +52,10 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 277 | Traced and covered by named NPC/event scenarios. |
+| **I** | 278 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 62 | Original native/script ownership is not implemented, so no actor is instantiated. |
-| **Total** | **388** | **215 rooms and 300 unique ID/subid keys.** |
+| **Total** | **389** | **216 rooms and 301 unique ID/subid keys.** |
 
 ### Implementation classifications
 
@@ -63,9 +63,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 79 | 0 | 79 |
 | Specialized native interaction | 125 | 72 | 197 |
-| Event-owned actor | 122 | 0 | 122 |
+| Event-owned actor | 123 | 0 | 123 |
 | Deliberately unsupported | 62 | 0 | 62 |
-| **Total** | **388** | **72** | **460** |
+| **Total** | **389** | **72** | **461** |
 
 ## Bipin and Blossom family variants
 
@@ -246,6 +246,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `3:eb` | [I] `$bf:$02/v$00` symmetryNpc |
 | `3:ec` | [I] `$bf:$02/v$00` symmetryNpc |
 | `3:ed` | [I] `$5f:$80/v$00` syrup; [I] `$c9:$80/v$00` syrupCucco |
+| `3:ef` | [I] `$32:$02/v$00` fakeOctorok |
 | `3:f6` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:f7` | [I] `$e3:$08/v$00` knowItAllBird<br>[I] `$e3:$09/v$00` knowItAllBird<br>[I] `$e3:$06/v$00` knowItAllBird<br>[I] `$e3:$07/v$00` knowItAllBird<br>[I] `$e3:$04/v$00` knowItAllBird<br>[I] `$e3:$05/v$00` knowItAllBird<br>[I] `$e3:$02/v$00` knowItAllBird<br>[I] `$e3:$03/v$00` knowItAllBird<br>[I] `$e3:$00/v$00` knowItAllBird<br>[I] `$e3:$01/v$00` knowItAllBird |
 | `3:f8` | [I] `$cc:$00/v$00` plen<br>[I] `$3d:$05/v$00` oldLady |

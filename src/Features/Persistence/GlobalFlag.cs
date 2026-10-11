@@ -38,6 +38,8 @@ public static class GlobalFlag
     public const int CanBuyFlute = 0x1d;
     // constants/common/globalFlags.s: GLOBALFLAG_PATCH_REPAIRED_EVERYTHING
     public const int PatchRepairedEverything = 0x1f;
+    // constants/common/globalFlags.s: GLOBALFLAG_TALKED_TO_OCTOROK_FAIRY
+    public const int TalkedToOctorokFairy = 0x20;
     // constants/common/globalFlags.s: GLOBALFLAG_PREGAME_INTRO_DONE
     public const int PregameIntroDone = 0x21;
     // constants/common/globalFlags.s: GLOBALFLAG_TALKED_TO_HEAD_CARPENTER

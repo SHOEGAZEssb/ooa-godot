@@ -119,6 +119,8 @@ public sealed class RoomEventController
             () => new OldZoraEvent(_context),
             () => new KingZoraEvent(_context, oceanInteractions),
             () => new OceanZoraEvent(_context, oceanInteractions),
+            () => new SeaFairyEvent(_context),
+            () => new CleanSeasEvent(_context),
             () => new JabuExteriorEvent(_context),
             () => new MamamuEvent(_context),
             () => new GoronCaveEvent(_context),
@@ -218,6 +220,7 @@ public sealed class RoomEventController
                 Get<MaskSalesmanEvent>().TryInteractNpc),
             Npc("oldZora.s:oldZoraScript", Get<OldZoraEvent>().TryInteractNpc),
             Npc("kingZora.s:interactionCode9c", Get<KingZoraEvent>().TryInteractNpc),
+            Npc("fakeOctorok.s:greatFairyOctorokCode $32:$02", Get<SeaFairyEvent>().TryInteractNpc),
             Npc("zora.s:$10-$12", Get<OceanZoraEvent>().TryInteractNpc),
             Npc("mamamuYan.s:mamamuYanScript", Get<MamamuEvent>().TryInteractNpc),
             Npc("dumbellMan.s:dumbbellManScript",
@@ -252,6 +255,8 @@ public sealed class RoomEventController
         _context.Entities.ObjectFellInHole += NotifyObjectFellInHole;
         _context.Entities.DungeonEssenceTriggered += Get<DungeonEssenceEvent>().Begin;
         _context.Entities.WallRetractionTriggered += Get<WallRetractionEvent>().Begin;
+        Get<SeaFairyEvent>().BeginWhiteFade = Get<CleanSeasEvent>().BeginFade;
+        Get<SeaFairyEvent>().BeginCleanSeas = Get<CleanSeasEvent>().Begin;
         var palaceBoot = Get<PalaceBootEvent>();
         _context.Entities.PalaceBootTriggered += palaceBoot.Begin;
         _context.Entities.PalacePassageTriggered += Get<PalacePassageEvent>().Begin;
@@ -271,7 +276,7 @@ public sealed class RoomEventController
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
     internal bool OwnsGameLogic => _eventsByPriority.Any(roomEvent => roomEvent.OwnsGameLogic);
     internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled;
-    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening;
+    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive;
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
         var retraction=Get<WallRetractionEvent>();
@@ -279,13 +284,15 @@ public sealed class RoomEventController
         var passage=Get<PalacePassageEvent>();
         var rescueWarp=Get<NayruRescueWarpEvent>();
         var jabu=Get<JabuExteriorEvent>();
-        bool owned=retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening;
+        var cleanSeas=Get<CleanSeasEvent>();
+        bool owned=retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive;
         retraction.AdvanceBeforeObjects();
         boot.AdvanceBeforeObjects();
         passage.AdvanceBeforeObjects();
         Get<PalacePossessionEvent>().AdvanceBeforeObjects();
         rescueWarp.AdvanceBeforeObjects();
         jabu.AdvanceBeforeObjects();
+        cleanSeas.AdvanceBeforeObjects();
         return owned || rescueWarp.HasState;
     }
     internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);

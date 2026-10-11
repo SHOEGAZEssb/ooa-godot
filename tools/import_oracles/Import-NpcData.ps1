@@ -1092,6 +1092,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0xab -and ($subid -lt 10 -or $subid -ge 0x13 -and $subid -le 0x1b)) { return 'ordinary-generic' }
     if ($id -eq 0xba -and $subid -eq 0) { return 'specialized-native' }
     if (($id -eq 0x9c -and $subid -lt 2) -or ($id -eq 0xab -and $subid -in @(0x10,0x11,0x12))) { return 'event-owned' }
+    if ($id -eq 0x32 -and $subid -eq 2) { return 'event-owned' }
     if ($id -eq 0x6d -and $subid -eq 0) { return 'event-owned' }
     if ($eventOwnedNpcImplementationKeys.Contains($key)) {
         return 'event-owned'
@@ -1133,6 +1134,11 @@ function New-NpcDataRow(
     [string]$implementationOverride = ''
 ) {
     $graphic = $interactionGraphics["$id`:$subid"]
+    if ($id -eq 0x32 -and $subid -eq 2) {
+        $textIdOverride = 0x4106
+        $initialAnimationOverride = 2
+        $canFaceOverride = 1
+    }
     if ($id -eq 0x6b -and $subid -in @(0x13, 0x14)) {
         $textIdOverride = 0
         $canFaceOverride = 0
@@ -1167,7 +1173,7 @@ function New-NpcDataRow(
     }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { $textId=0x4d28 }
     $message = if ($allTexts.ContainsKey($textId)) { $allTexts[$textId] } else { '' }
-    if($id -eq 0xab -and $textId -ne 0) {
+    if(($id -eq 0xab -or ($id -eq 0x32 -and $subid -eq 2)) -and $textId -ne 0) {
         $message=Resolve-OceanText $textId ([Collections.Generic.HashSet[int]]::new())
     }
     if ($id -eq 0x9a -and $subid -eq 0x00 -and $textId -eq 0x2301) {
@@ -2995,7 +3001,8 @@ foreach ($line in $mainObjectLines) {
     $id = [Convert]::ToInt32($Matches['id'], 16)
     $subid = [Convert]::ToInt32($Matches['subid'], 16)
     if (-not $npcInteractionIds.Contains($id) -and
-        -not ($id -eq 0x6b -and $subid -in @(0x13, 0x14))) { continue }
+        -not ($id -eq 0x6b -and $subid -in @(0x13, 0x14)) -and
+        -not ($id -eq 0x32 -and $subid -eq 2)) { continue }
     # INTERAC_SHOOTING_GALLERY subids 0-2 are the human, goron, and elder
     # attendants; subid 3 is the invisible minigame controller.
     if ($id -eq 0x30 -and $subid -eq 0x03) { continue }
@@ -3011,8 +3018,8 @@ foreach ($line in $mainObjectLines) {
         if ($row) { $npcRows.Add($row) }
     }
 }
-if ($npcRows.Count -ne 380) {
-    throw "Expected 379 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 381) {
+    throw "Expected 380 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
 }
 $room1adTokayRows = @($npcRows | Where-Object {
     $_ -match '^1\tad\t48\t15\t'
@@ -5096,8 +5103,8 @@ foreach ($variant in $impaHouseVariants) {
     $npcRows.Add(
         "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t$(([int]$variant[4]).ToString('x2'))`t1`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tspecialized-native")
 }
-if ($npcRows.Count -ne 389) {
-    throw "Expected 379 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 390) {
+    throw "Expected 380 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
 }
 $npcImplementationCounts = @{}
 foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
@@ -5107,7 +5114,7 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 79 -or
     $npcImplementationCounts['specialized-native'] -ne 125 -or
-    $npcImplementationCounts['event-owned'] -ne 122 -or
+    $npcImplementationCounts['event-owned'] -ne 123 -or
     $npcImplementationCounts['deliberately-unsupported'] -ne 62 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"

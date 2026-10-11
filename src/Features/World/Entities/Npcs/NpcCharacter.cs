@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-public partial class NpcCharacter : TransitionOffsetNode2D
+public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
 {
     private readonly List<NpcCharacterAnimationFrame>[] _facingAnimations =
     {
@@ -33,6 +33,11 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     // Object.visible bit 7 starts clear in a newly allocated interaction slot.
     // Graphics/animation setup alone does not admit it to objectQueueDraw.
     private bool _nativeVisible;
+    private bool _terrainEffectsEnabled;
+    int? ITerrainShadowSource.TerrainShadowZHigh =>
+        _terrainEffectsEnabled ? (int)_scriptDrawOffset.Y : null;
+    internal LinkTerrainEffectFrame? CurrentTerrainEffect => GetGroundTerrainEffect(
+        ((ITerrainShadowSource)this).TerrainShadowZHigh);
     private float _collisionRadiusY = CollisionRadius;
     private float _collisionRadiusX = CollisionRadius;
     private int _graphicsSourceOffset;
@@ -164,6 +169,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _flagVisible = true;
         _scriptVisible = true;
         _nativeVisible = false;
+        _terrainEffectsEnabled = false;
         _scriptDrawOffset = Vector2.Zero;
         Visible = false;
         _sourceImage = OracleGraphicsCache.LoadImage(
@@ -334,7 +340,11 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     {
         if (!Active)
             return;
-        if (initializeVisibility) ShowInitializedPresentation();
+        if (initializeVisibility)
+        {
+            ShowInitializedPresentation();
+            _terrainEffectsEnabled = true;
+        }
         SetDrawPriority(linkPosition, 0);
         AdvanceAnimation(delta);
         if (!Record.CanFace)
@@ -365,7 +375,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (!Active)
             return;
         PreventPlayerPassing(player);
-        UpdateDrawPriority(player.Position);
+        UpdateDrawPriority(player.Position, withTerrainEffects: true);
     }
 
     /// <summary>
@@ -389,7 +399,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         if (!Active)
             return;
         AdvanceAnimationUpdates(1);
-        UpdateDrawPriority(player.Position);
+        UpdateDrawPriority(player.Position, withTerrainEffects: true);
     }
 
     /// <summary>
@@ -496,10 +506,12 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         _animationTicks = 0;
     }
 
-    internal void UpdateDrawPriority(Vector2 linkPosition, int zHigh = 0)
+    internal void UpdateDrawPriority(Vector2 linkPosition, int zHigh = 0,
+        bool withTerrainEffects = false)
     {
         // objectSetPriorityRelativeToLink[_withTerrainEffects] writes bit 7.
         ShowInitializedPresentation();
+        _terrainEffectsEnabled = withTerrainEffects;
         SetDrawPriority(linkPosition, zHigh);
     }
 
@@ -514,9 +526,10 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         ZIndex = ObjectDrawPriority.RelativeToLink(Position.Y, linkPosition.Y, zHigh);
     }
 
-    internal void SetFixedDrawPriority(int zIndex)
+    internal void SetFixedDrawPriority(int zIndex, bool withTerrainEffects = false)
     {
         _fixedDrawPriority = zIndex;
+        _terrainEffectsEnabled = withTerrainEffects;
         ZIndex = zIndex;
         ShowInitializedPresentation();
     }
@@ -815,6 +828,13 @@ public partial class NpcCharacter : TransitionOffsetNode2D
         QueueRedraw();
     }
 
+    public override void _Process(double delta)
+    {
+        // The puddle animation advances with the shared update counter even
+        // when this NPC's own animation and object updates are frozen.
+        if (_terrainEffectsEnabled) QueueRedraw();
+    }
+
     public override void _Draw()
     {
         if (!_nativeVisible || !Active || !_scriptVisible) return;
@@ -826,6 +846,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D
                 frame.Texture,
                 frame.Offset + SourceOamDrawOffset + _scriptDrawOffset);
         }
+        if (CurrentTerrainEffect is { } terrain)
+            DrawTexture(terrain.Texture, terrain.Offset + SourceOamDrawOffset);
     }
 
     private void AdvanceAnimation(double delta)

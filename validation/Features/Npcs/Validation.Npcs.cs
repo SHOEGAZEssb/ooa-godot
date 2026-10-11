@@ -561,7 +561,7 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 79,
                 [NpcImplementationClassification.SpecializedNative] = 197,
-                [NpcImplementationClassification.EventOwned] = 122,
+                [NpcImplementationClassification.EventOwned] = 123,
                 [NpcImplementationClassification.DeliberatelyUnsupported] = 62
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
@@ -569,13 +569,13 @@ public sealed partial class ValidationRoot
                 .GroupBy(record => record.Implementation)
                 .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            records.Count != 460 ||
+            records.Count != 461 ||
             actualCounts.Count != expectedCounts.Count ||
             expectedCounts.Any(expected =>
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "79 ordinary, 197 specialized, 122 event-owned, and 62 " +
+            "79 ordinary, 197 specialized, 123 event-owned, and 62 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -643,7 +643,7 @@ public sealed partial class ValidationRoot
             "ordinary generic adapter.");
 
         GD.Print(
-            "Validated all 460 generated NPC records have exactly one " +
+            "Validated all 461 generated NPC records have exactly one " +
             "implementation classification and non-ordinary actors cannot " +
             "enter the ordinary adapter.");
     }
@@ -837,6 +837,7 @@ public sealed partial class ValidationRoot
             "maskSalesman.s:maskSalesmanScript",
             "oldZora.s:oldZoraScript",
             "kingZora.s:interactionCode9c",
+            "fakeOctorok.s:greatFairyOctorokCode $32:$02",
             "zora.s:$10-$12",
             "mamamuYan.s:mamamuYanScript",
             "dumbellMan.s:dumbbellManScript",

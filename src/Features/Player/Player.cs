@@ -2373,6 +2373,15 @@ public partial class Player : Node2D
         if (_world.PlayingInstrument != 0) return;
         if (itemImmobilized)
         {
+            // linkState01@notInAir dispatches swimming before testing the
+            // movement lock. Side-view state2 skips displacement while an
+            // aiming Shooter/Hook owns Link, but still ticks counter2/bubbles.
+            if (_world.SideScrolling && SideScrollSwimming)
+            {
+                UpdateSideScrollMovement(delta, input, movementAllowed: false);
+                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                QueueRedraw();
+            }
             // linkState01 publishes adjacent walls after checkUseItems even
             // when a parent immobilizes Link. Later interaction movement
             // (including lever pulling) consumes these retained probes.
@@ -4366,6 +4375,10 @@ public partial class Player : Node2D
 
     private bool TryStartFeatherJump(string buttonAction)
     {
+        // featherParent state0 rejects isLinkUnderwater and swimming before
+        // writing speedZ/wLinkInAir. Underwater floors are otherwise walkable.
+        if (_world.Underwater || TopDownSwimming || SideScrollSwimming)
+            return false;
         return _world.SideScrolling
             ? TryStartSideScrollJump(buttonAction)
             : TryStartTopDownJump();
@@ -7634,7 +7647,7 @@ public partial class Player : Node2D
     private void StartHarpAction(bool flute = false)
     {
         if (_instrumentsDisabledCounter != 0 || _raftRideControlled ||
-            IsUsingItem || _world.BombchuParentAllocated || !IsGroundedForFloorButton ||
+            IsUsingItem || _world.BombchuParentAllocated || !IsOnGroundForBracelet ||
             _pullingIntoHole || _drowning || _fallingInHole)
         {
             return;
