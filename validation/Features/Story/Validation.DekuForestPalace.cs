@@ -198,7 +198,7 @@ public sealed partial class ValidationRoot
                 {
                     int expectedSpeed = terrainBefore switch
                     {
-                        TerrainType.Grass or TerrainType.Puddle =>
+                        TerrainType.Grass =>
                             record.NormalSpeed * 3 / 4,
                         TerrainType.Stairs or TerrainType.Vines =>
                             record.SlowSpeed,
@@ -218,8 +218,7 @@ public sealed partial class ValidationRoot
                         $"actual={actualDelta}.");
                     if (terrainBefore is TerrainType.Stairs or TerrainType.Vines)
                         sawStairsLinkEscortSpeed = true;
-                    else if (terrainBefore is not
-                        (TerrainType.Grass or TerrainType.Puddle))
+                    else if (terrainBefore is not TerrainType.Grass)
                     {
                         sawNormalLinkEscortSpeed = true;
                     }

@@ -817,6 +817,10 @@ internal sealed class RoomEntityFactory
         // ENEMY_SEEDS_ON_TREE is a main object. In room 0:78 it precedes the
         // old-lady interaction, and every controller creates its parts before
         // the remaining placed interactions receive their first update.
+        if (group == 1 && room.Id == 0x46)
+            yield return new PalaceApproachRoomEntity(owner, rooms!, Resources.PalaceApproach);
+        foreach (var button in Resources.PalaceButtons.GetRoomRecords(group, room.Id))
+            yield return new PalaceButtonRoomEntity(owner, rooms ?? throw new InvalidOperationException($"{button.Source}: palace button requires live room/save ownership."), button);
         foreach (SeedTreePlacementRecord record in
             Resources.SeedTrees.GetRoomRecords(group, room.Id))
         {
@@ -980,7 +984,14 @@ internal sealed class RoomEntityFactory
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
-                        yield return record is { Id: InteractionId.Plen, SubId: 0 }
+                        yield return record is { Id: 0x6d, SubId: 0 }
+                            ? new PalacePossessionRoomEntity(owner,Resources.PalacePossession,0x6d,0,new(record.X,record.Y),
+                                entryDirection: placementContext.BossEntryDirection==Vector2I.Down?2:
+                                    placementContext.BossEntryDirection==Vector2I.Left?3:
+                                    placementContext.BossEntryDirection==Vector2I.Right?1:0)
+                            : record is { Id: InteractionId.Ralph, SubId: 0x09 }
+                            ? new PalaceRalphRoomEntity(NpcCharacter.CreateFromRecord(record))
+                            : record is { Id: InteractionId.Plen, SubId: 0 }
                             ? new PlenRoomEntity(NpcCharacter.CreateFromRecord(record))
                             : record is { Id: InteractionId.KingMoblinDefeated, SubId: 0 }
                             ? new DefeatedMoblinActorRoomEntity(NpcCharacter.CreateFromRecord(record))
@@ -1946,7 +1957,7 @@ internal sealed class RoomEntityFactory
         actor.Initialize(Resources.Moosh.CreateExclamationRecord((int)spawn.Position.Y,(int)spawn.Position.X));
         actor.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // INTERAC $9f state0: visible80.
         owner.OnSoundRequested(SoundId.SndClink);
-        return new ExclamationMarkRoomEntity(actor,30);
+        return new ExclamationMarkRoomEntity(actor,spawn.Duration);
     }
 
     private IRoomEntity CreateEyesoar(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
@@ -2563,6 +2574,7 @@ internal sealed class RoomEntityFactory
 
     public IRoomEntity Create(RoomEntitySpawn spawn, OracleRoomData room) => spawn switch
     {
+        PalaceApproachRalphSpawn => new PalaceApproachRoomEntity(owner, rooms!, Resources.PalaceApproach, ralph: true),
         SmogEnemySpawn smog => CreateSmogEnemy(smog,room),
         DungeonSwitchSpawn switchPart => CreateDungeonSwitch(switchPart.Record,room),
         TimedSparkleSpawn sparkle => new TimedSparkleRoomEntity(sparkle),
@@ -3073,6 +3085,11 @@ internal sealed class RoomEntityFactory
     {
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
+
+        if (record is { Id: InteractionId.Soldier, SubId: 0x0d })
+            return new PalaceFriendlySoldierRoomEntity(NpcCharacter.CreateFromRecord(record),
+                Resources.PalaceSoldiers, _saveData!, _runtimeState, owner.IsScriptTextActive,
+                owner.OnRoomEntityDialogueRequested);
 
         if (record is { Id: InteractionId.Miscellaneous1, SubId: 0x13 or 0x14 })
             return new GoronBombStatueRoomEntity(

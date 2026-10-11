@@ -46,6 +46,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D
     // objectMarkSolidPosition is an initialization reservation, not a moving
     // collision rectangle. State-selected positions can explicitly relocate it.
     internal Vector2 TimeWarpSolidPosition { get; private set; }
+    internal bool TimeWarpSolidMarked { get; set; } = true;
     public bool Active => _active && _flagVisible;
     public string Message => Record.Message;
     public int TextId => Record.TextId;

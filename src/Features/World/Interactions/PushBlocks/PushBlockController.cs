@@ -97,7 +97,7 @@ public partial class PushBlockController : Node2D
         // @loadPushableTileProperties returns at its zero terminator on a
         // miss, leaving the freshly allocated var32..var34 bytes zero. A
         // pending state0 can observe a tile changed since its allocation.
-        _tiles.TryGet(_rooms.CurrentRoom.ActiveCollisions,tile,out var record);
+        var record = _tiles.GetNativeProperties(_rooms.CurrentRoom.ActiveCollisions,tile);
         Vector2I direction = (angle & ObjectAngle.Mask) switch {
             0 => Vector2I.Up, 8 => Vector2I.Right, 16 => Vector2I.Down, 24 => Vector2I.Left,
             _ => throw new NotSupportedException($"INTERAC $14: unsupported push angle ${angle:x2}.") };

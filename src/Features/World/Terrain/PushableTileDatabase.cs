@@ -9,6 +9,7 @@ public sealed class PushableTileDatabase
     private const int TileCount = 256;
     private const int RecordSize = 4;
     private readonly byte[] _records;
+    private readonly byte[] _nativeProperties;
     private readonly (byte Tile,byte Parameter)[] _somaria=new (byte,byte)[6];
 
     public PushableTileDatabase()
@@ -26,6 +27,9 @@ public sealed class PushableTileDatabase
             _=row.RequiredString(3);
         }
         _records = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/pushableTiles.bin");
+        _nativeProperties = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/native_pushblock_properties.bin");
+        if (_nativeProperties.Length != CollisionModeCount * TileCount * 3)
+            throw new InvalidOperationException("Native INTERAC $14 properties require all six collision-mode tables.");
         int expected = CollisionModeCount * TileCount * RecordSize;
         if (_records.Length != expected)
         {
@@ -40,6 +44,17 @@ public sealed class PushableTileDatabase
         if(mode is <0 or >=6 || _somaria[mode].Tile!=tile) return false;
         parameter=_somaria[mode].Parameter;
         return true;
+    }
+
+    internal PushableTileRecord GetNativeProperties(int mode, byte tile)
+    {
+        if (mode is < 0 or >= CollisionModeCount)
+            throw new InvalidOperationException($"INTERAC $14: unsupported collision mode ${mode:x2}.");
+        int offset = (mode * TileCount + tile) * 3;
+        // Native lookup returns at the zero terminator on a miss, leaving
+        // the newly allocated interaction's var32..var34 bytes zero.
+        return _nativeProperties[offset] == 0xff ? default :
+            new(0, _nativeProperties[offset], _nativeProperties[offset + 1], _nativeProperties[offset + 2]);
     }
 
     public bool TryGet(int activeCollisions, byte tile, out PushableTileRecord record)

@@ -43,7 +43,8 @@ static void RunSourceModelTests(string root)
         ".endif\r\n" +
         "@duplicate:\r\n" +
         "@duplicate:\r\n" +
-        "ALIAS equ rootLabel\r\n";
+        "ALIAS equ rootLabel\r\n" +
+        "writeobjectbyte, Interaction.pressedAButton, $00\r\n";
     File.WriteAllText(sourcePath, source, new UTF8Encoding(false));
 
     var repository = new AssemblySourceRepository(
@@ -52,7 +53,15 @@ static void RunSourceModelTests(string root)
     AssemblySourceFile file = repository.Open("fixture.s");
     Assert(ReferenceEquals(file, repository.Open(sourcePath)), "repository did not cache source");
     Assert(repository.PhysicalReadCount == 1, "source was physically read more than once");
-    Assert(file.Lines.Count == 17, "CRLF line split changed");
+    Assert(file.Lines.Count == 18, "CRLF line split changed");
+    AssemblyNode commaMacro = file.Nodes.Single(node => node.Name == "writeobjectbyte");
+    Assert(commaMacro.Kind == AssemblyNodeKind.MacroInvocation &&
+        commaMacro.Operands.SequenceEqual(new[] { "Interaction.pressedAButton", "$00" }) &&
+        commaMacro.Code == "writeobjectbyte, Interaction.pressedAButton, $00",
+        "macro-name comma lost operands or original source text");
+    Assert(AssemblySourceQuery.Select(file, "MACRO_INVOCATIONS", null, "writeobjectbyte")
+        .Single().OperandText == "Interaction.pressedAButton, $00",
+        "macro-name comma leaked into queried operand text");
     Assert(file.RequireUniqueLabel("rootLabel").Span.Start.Line == 2, "label span changed");
     Assert(file.GetLabels("@duplicate").Count == 2, "duplicate labels were discarded");
     Assert(file.GetDataDirectives("rootLabel").Count == 1, "global label block lost data");

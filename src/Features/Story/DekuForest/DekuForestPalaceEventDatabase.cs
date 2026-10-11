@@ -23,6 +23,8 @@ internal sealed class DekuForestPalaceEventDatabase
     internal IReadOnlyList<CutsceneCommand> AmbiCommands { get; }
     internal IReadOnlyList<CutsceneCommand> NayruCommands { get; }
     internal IReadOnlyList<CutsceneCommand> ExitGuardCommands { get; }
+    internal IReadOnlyList<CutsceneCommand> SideGuardCommands { get; } =
+        LoadCommands("palace_side_guard_commands.tsv");
     internal string InitialEscortAnimation { get; }
     internal Color[] PossessedNayruPalette { get; }
 

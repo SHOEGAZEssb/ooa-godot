@@ -215,6 +215,7 @@ internal sealed class EnemyHandlerRegistry
         "fireball-shooter" => EnemyHandlerKind.FireballShooter,
         "target-cart-crystal" => EnemyHandlerKind.TargetCartCrystal,
         "king-moblin" => EnemyHandlerKind.KingMoblin,
+        "ambi-guard" => EnemyHandlerKind.AmbiGuard,
         "maku-sprout-masked-moblin" =>
             EnemyHandlerKind.MakuSproutMaskedMoblin,
         _ => throw row.Invalid(column, "a registered enemy handler")
@@ -332,6 +333,7 @@ internal enum EnemyHandlerClassification
 
 internal enum EnemyHandlerKind
 {
+    AmbiGuard,
     KingMoblin,
     Beetle,
     None,

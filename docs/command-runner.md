@@ -84,6 +84,12 @@ the actor's native tail: always-update objects may still animate or move during
 dialogue or harp. Object eligibility and native ordering remain with the owning
 gameplay scheduler and source-specific controller.
 
+When a native script operation writes counter1, the host can preload the
+runner's native counter. It decrements only on eligible script updates and
+resumes dispatch on its zero update. Script-created treasures use the ground
+treasure owner for initialization, pickup, inventory and dialogue; the issuing
+script waits on its source counter rather than granting the item immediately.
+
 ## Hosts and actor bindings
 
 A command host translates stable actor IDs into runtime actors and implements

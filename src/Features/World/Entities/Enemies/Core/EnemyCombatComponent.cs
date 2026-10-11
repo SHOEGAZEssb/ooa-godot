@@ -255,6 +255,7 @@ internal readonly record struct EnemyCombatSourceDescriptor(
         EnemySwordResponse expected =
             (Handler, collisionMode) switch
         {
+            (EnemyHandlerKind.AmbiGuard, 0x5a) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.KingMoblin, 0x50) => EnemySwordResponse.None,
             (EnemyHandlerKind.RiverZora, 0x0f) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.PodobooTower, 0x0f) => EnemySwordResponse.NoKnockback,

@@ -119,6 +119,8 @@ internal static class CutsceneCommandCatalog
                 source, Required(path, physicalLine, "actor", actor)),
             "gate" => new CutsceneGateCommand(
                 source, Required(path, physicalLine, "payload", payload)),
+            "gatecontinue" => new CutsceneGateContinueCommand(
+                source, Required(path, physicalLine, "payload", payload)),
             "checkrupeedisplayupdated" => new CutsceneCheckRupeeDisplayCommand(source),
             "checkmemoryeq" => new CutsceneMemoryGateCommand(
                 source,
@@ -572,6 +574,9 @@ internal sealed record CutsceneJumpCommand(
 internal sealed record CutsceneGateCommand(
     CutsceneCommandSource Source,
     string Gate)
+    : CutsceneCommand(Source);
+
+internal sealed record CutsceneGateContinueCommand(CutsceneCommandSource Source, string Gate)
     : CutsceneCommand(Source);
 
 /// <summary>

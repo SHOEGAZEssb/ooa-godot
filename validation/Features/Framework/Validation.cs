@@ -664,6 +664,16 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDekuForestSoldierCutscene);
         RunIsolatedValidation(ValidateDekuForestPalaceCutscene);
         RunIsolatedValidation(ValidatePalaceEntranceGuardCollision);
+        RunIsolatedValidation(ValidatePalaceSoldierGatesRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePalaceRalphRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePalaceFriendlySoldiersRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAmbiGuardsRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePalaceButtonsRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePalaceApproachRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePalaceScrollPreloadRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePalacePossessionRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePalaceRescueRom, requiresRom: true);
+        RunIsolatedValidation(ValidateNayruRescueWarpRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom173SoldierPair);
         RunIsolatedValidation(ValidateRoom174PastOldLady);
         RunIsolatedValidation(ValidateRooms182And192NpcInteractions);

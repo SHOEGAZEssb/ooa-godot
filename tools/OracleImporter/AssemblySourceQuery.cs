@@ -71,6 +71,8 @@ public static class AssemblySourceQuery
         string operandText = code.StartsWith(node.Name, StringComparison.OrdinalIgnoreCase)
             ? code[node.Name.Length..].Trim()
             : string.Join(", ", node.Operands);
+        if (node.Kind == AssemblyNodeKind.MacroInvocation && operandText.StartsWith(','))
+            operandText = operandText[1..].TrimStart();
         return new AssemblyNodeQueryResult(
             node.Kind,
             node.Name,

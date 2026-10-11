@@ -985,6 +985,7 @@ public partial class Player : Node2D
     {
         CancelWallmasterGrab();
         CancelCollapse();
+        CancelPalaceToss();
         CancelEnemyGrab();
         _screenTransitionTerrainMotion = false;
         if (GaleActive) EndGale();
@@ -1051,6 +1052,7 @@ public partial class Player : Node2D
         BraceletObjectWeight = 0;
         _braceletActionPose = null;
         _braceletLiftCollisionsDisabled = false;
+        CancelNativeForcedMovement();
         _forcedRoomEntryMovement = false;
         _forcedRoomEntryInitializationPhase = 0;
         _spinnerControlled = false;
@@ -1878,6 +1880,8 @@ public partial class Player : Node2D
         // parents. A selected edge remains $04 while a toggle owns cutscene02.
         if (_world.RoomExitPending)
             return;
+        if (AdvanceNativeForcedMovement()) return;
+        if ((_palaceTossRequested || _palaceTossSubstate >= 0) && AdvancePalaceToss()) return;
         if ((CollapsedActive || CollapsePending && !_world.IsTransitioning && !IsDying) && AdvanceCollapse()) return;
         if (ConsumeContactDamageBeforeStateDispatch()) return;
         // updateSpecialObjects clears wForceLinkPushAnimation even when
@@ -1994,6 +1998,15 @@ public partial class Player : Node2D
                 CancelShovelAction();
                 _startedParentItemAnimations = 0;
                 SetScriptedLinkAnimationMode(0x10);
+            }
+            else if (_forcedState08Phase == 4)
+            {
+                // linkState08 returns through initLinkStateAndAnimateStanding
+                // on its first eligible update after input is released. That
+                // update restores normal presentation without moving Link.
+                _forcedState08Phase = 0;
+                SetScriptedLinkAnimationMode(null);
+                ResetLinkWalkAnimation();
             }
             return;
         }
@@ -2899,6 +2912,7 @@ public partial class Player : Node2D
 
     internal void EndForcedRoomEntryMovement()
     {
+        CancelNativeForcedMovement();
         _forcedRoomEntryMovement = false;
         _forcedRoomEntryInitializationPhase = 0;
         _walking = false;
@@ -3378,8 +3392,19 @@ public partial class Player : Node2D
     {
         if (owner is not null && !IsCutsceneControlOwner(owner))
             return;
+        if (_scriptControl == ScriptControl.ForcedState08)
+        {
+            if (_forcedState08Phase >= 3)
+                _forcedState08Phase = 4;
+            else
+            {
+                _forcedState08Phase = 0;
+                SetScriptedLinkAnimationMode(null);
+            }
+        }
+        else if (_forcedState08Phase != 4)
+            _forcedState08Phase = 0;
         _scriptControl = ScriptControl.None;
-        _forcedState08Phase = 0;
         _cutsceneIdleFacing = null;
         _forcedState08LowPriority = false;
         SetAlternateTextboxPalettePriority(false);
@@ -6521,13 +6546,15 @@ public partial class Player : Node2D
         if (_world.Pegasus is { Active: true } pegasus)
             return terrain switch
             {
-                TerrainType.Grass or TerrainType.Puddle => pegasus.GrassSpeed,
+                TerrainType.Grass => pegasus.GrassSpeed,
                 TerrainType.Stairs or TerrainType.Vines => pegasus.StairsSpeed,
                 _ => pegasus.NormalSpeed
             };
+        // link.s:updateLinkSpeed_withParam slows only TILETYPE_GRASS.
+        // Puddle presentation does not select that speed-table column.
         return terrain switch
         {
-            TerrainType.Grass or TerrainType.Puddle => GrassTopDownSpeed,
+            TerrainType.Grass => GrassTopDownSpeed,
             TerrainType.Stairs or TerrainType.Vines => StairsTopDownSpeed,
             _ => NormalTopDownSpeed
         };
@@ -6540,7 +6567,7 @@ public partial class Player : Node2D
         TerrainType terrain = _world.GetActiveTerrain(Position).Terrain.Type;
         return terrain switch
         {
-            TerrainType.Grass or TerrainType.Puddle => normalSpeed * 3 / 4,
+            TerrainType.Grass => normalSpeed * 3 / 4,
             TerrainType.Stairs or TerrainType.Vines => slowSpeed,
             _ => normalSpeed
         };

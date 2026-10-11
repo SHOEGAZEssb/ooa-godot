@@ -224,6 +224,12 @@ internal static partial class AssemblySourceParser
 
         string token = FirstToken(trimmed);
         string operandText = trimmed[token.Length..].Trim();
+        // WLA accepts a comma between a macro name and its first argument
+        // (scripts.s:soldierSubid0dScript uses "writeobjectbyte, ...").
+        // Preserve the original source span while exposing the same macro.
+        if (token.EndsWith(',') && IdentifierRegex().IsMatch(token[..^1]) &&
+            !Instructions.Contains(token[..^1]))
+            token = token[..^1];
         IReadOnlyList<string> operands = SplitOperands(operandText);
         AssemblyNodeKind kind;
         if (DataDirectives.Contains(token))

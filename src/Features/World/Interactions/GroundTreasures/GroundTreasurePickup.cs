@@ -35,6 +35,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     internal GroundTreasureDatabaseRecord Record { get; private set; }
     internal PickupState State => _state;
     internal bool Held { get; private set; }
+    internal bool ScriptGrantPending { get; private set; }
     internal bool Finished { get; private set; }
     internal ulong PixelHash { get; private set; }
     internal int ZFixed => _zFixed;
@@ -192,6 +193,16 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     /// </summary>
     internal bool TryCollectAfterSourceCheck(Player player) =>
         TryCollectCore(player, checkDefaultDistance: false);
+
+    internal void BeginScriptGrant() => ScriptGrantPending = true;
+
+    internal bool TryCollectScriptGrant()
+    {
+        if (!ScriptGrantPending || _state != PickupState.Waiting) return false;
+        ScriptGrantPending = false;
+        _state = PickupState.Collected;
+        return true;
+    }
 
     private bool TryCollectCore(Player player, bool checkDefaultDistance)
     {

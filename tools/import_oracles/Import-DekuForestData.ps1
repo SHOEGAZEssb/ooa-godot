@@ -714,3 +714,86 @@ Write-CutsceneGeneratedTable(
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\deku_forest_palace_exit_guard_commands.tsv'),
     $palaceExitRows)
+
+# $03 runs independently of the escort, including after the Bomb reward.
+# Preserve all native script yields: memory equality, speed/angle writes,
+# direct-ROM unconditional jump, and applyspeed's setup update. $03 calls
+# interactionSetScript directly, unlike $02's loadscript into wBigBuffer.
+$sideCommands = Read-AssemblyCutsceneCommands $palaceMainScriptPath `
+    'soldierSubid03Script' ([Collections.Generic.HashSet[string]]::new(
+        [string[]]@('jumpifobjectbyteeq','checkmemoryeq','setspeed',
+            'setangle','scriptjump','applyspeed','scriptend'))) 'soldierSubid04Script'
+$sideTargets = @{}
+foreach ($command in $sideCommands) {
+    if (-not $sideTargets.ContainsKey($command.Label)) {
+        $sideTargets[$command.Label] = $command.Index
+    }
+}
+$sideBindings = @{}
+foreach ($command in $sideCommands) {
+    if ($command.Opcode -ne 'jumpifobjectbyteeq') { continue }
+    if ($command.Operands -notmatch '^Interaction\.(?<axis>[xy])h,\s*\$(?<value>[0-9a-f]{2}),\s*(?<target>[A-Za-z0-9_]+)$' -or
+        -not $sideTargets.ContainsKey($Matches['target'])) {
+        throw "soldierSubid03Script:$($command.Line): unresolved object branch '$($command.Operands)'."
+    }
+    $sideBindings["jumpifobjectbyteeq|$($command.Operands)"] = @{
+        Opcode = 'jumpifmemoryeq'; Arg0 = $Matches['value']
+        Arg1 = $sideTargets[$Matches['target']].ToString()
+        Payload = "Guard$($Matches['axis'].ToUpperInvariant())"
+    }
+}
+$sideRows = ConvertTo-CutsceneCommandRows -commands $sideCommands -actor 'Guard' `
+    -symbols @{ 'SPEED_100' = 0x28; 'w1Link.yh' = 'LinkY' } `
+    -bindings $sideBindings
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\palace_side_guard_commands.tsv'), $sideRows)
+
+# The post-D6 entry actor is Ralph $37:$09, independent of the Bomb reward.
+$palaceRalphPath = Join-Path $Disassembly 'object_code\ages\interactions\ralph.s'
+$palaceRalphSource = Read-ImportText $palaceRalphPath
+if ($palaceRalphSource -notmatch '(?ms)^@initSubid09:.*?GLOBALFLAG_RALPH_ENTERED_AMBIS_PALACE.*?TREASURE_ESSENCE.*?bit 5,a.*?SPEED_200.*?MUS_RALPH.*?setLinkForceStateToState08.*?wScreenTransitionDirection.*?mainScripts\.ralphSubid09Script.*?xor a.*?interactionSetAnimation.*?objectSetVisiblec2' -or
+    $palaceRalphSource -notmatch '(?ms)^ralphSubid09:\s+call interactionRunScript\s+jp nc,interactionAnimateBasedOnSpeed.*?xor a\s+ld \(wDisabledObjects\),a\s+ld \(wMenuDisabled\),a\s+jp interactionDelete' -or
+    $dekuSoldierScriptSource -notmatch '(?ms)^ralph_faceLinkAndCreateExclamationMark:.*?objectGetAngleTowardEnemyTarget.*?add \$04.*?and \$18.*?interactionSetAnimation\s+ld a,\$1e.*?^ralph_createExclamationMarkShiftedRight:\s+ld bc,\$f30d\s+jp objectCreateExclamationMark') {
+    throw 'Palace Ralph $37:$09 story gates, input handoff, or exclamation native changed.'
+}
+$palaceRalphCommands = Read-AssemblyCutsceneCommands $palaceMainScriptPath `
+    'ralphSubid09Script' ([Collections.Generic.HashSet[string]]::new(
+        [string[]]@('wait','asm15','showtext','moveup','resetmusic','scriptend'))) `
+    'ralphSubid0aScript_unlinked'
+$palaceRalphFlag = $globalFlagValues['GLOBALFLAG_RALPH_ENTERED_AMBIS_PALACE']
+$palaceRalphMusicSource = Read-ImportText (Join-Path $Disassembly 'constants\common\music.s')
+if ($palaceRalphMusicSource -notmatch '(?m)^\s*MUS_RALPH\s+db\s*;\s*\$(?<music>[0-9a-f]{2})') {
+    throw 'Palace Ralph music could not be resolved from constants/common/music.s.'
+}
+$palaceRalphMusic = [Convert]::ToInt32($Matches['music'], 16)
+$palaceRalphBindings = @{
+    'asm15|scriptHelp.ralph_faceLinkAndCreateExclamationMark' = @{
+        Opcode='native'; Payload='FaceLinkAndExclaim'
+    }
+    'asm15|setGlobalFlag, GLOBALFLAG_RALPH_ENTERED_AMBIS_PALACE' = @{
+        Opcode='setglobalflag'; Arg0=$palaceRalphFlag.ToString('x2')
+    }
+    # scriptCmd_setMusic returns without carry, even for the $ff reset.
+    'resetmusic|' = @{ Opcode='nativeyield'; Payload='ResetRoomMusic' }
+}
+$palaceRalphAnimations = @{}
+0..3 | ForEach-Object { $palaceRalphAnimations[$_] = Resolve-NpcAnimation 0x37 $_ }
+$palaceRalphRows = ConvertTo-CutsceneCommandRows -commands $palaceRalphCommands `
+    -actor 'Ralph' -texts $allTexts -positions $allTextPositions `
+    -animations $palaceRalphAnimations -bindings $palaceRalphBindings
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\palace_ralph_commands.tsv'), $palaceRalphRows)
+$ralphAnimationRows = [Collections.Generic.List[string]]::new()
+$ralphAnimationRows.Add("# index`tanimation")
+foreach ($index in 0..3) { $ralphAnimationRows.Add("$index`t$($palaceRalphAnimations[$index])") }
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\palace_ralph_animations.tsv'), $ralphAnimationRows)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\palace_ralph_constants.tsv'), @(
+        "# key`tvalue`tsource",
+        "completion-flag`t$palaceRalphFlag`tralph.s:@initSubid09",
+        "speed`t80`tralph.s:@initSubid09:SPEED_200",
+        "music`t$palaceRalphMusic`tralph.s:@initSubid09",
+        "effect-y`t-13`tscriptHelper.s:ralph_createExclamationMarkShiftedRight",
+        "effect-x`t13`tscriptHelper.s:ralph_createExclamationMarkShiftedRight"
+    ))

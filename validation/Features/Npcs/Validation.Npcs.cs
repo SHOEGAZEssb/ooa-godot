@@ -522,9 +522,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 11 || adjacentHeartControls != 2 || byteEscapes != 4,
+            slowControls != 12 || adjacentHeartControls != 2 || byteEscapes != 4,
             "The generated dialogue inventory no longer contains the expected " +
-            $"six \\slow() Essence introductions and five Vire messages (TX_2f14..TX_2f18), two adjacent-heart, and four \\x20 source controls (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
+            $"six \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), and the possession taunt (TX_2f2a), two adjacent-heart, and four \\x20 source controls (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>
@@ -558,9 +558,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 57,
-                [NpcImplementationClassification.SpecializedNative] = 180,
-                [NpcImplementationClassification.EventOwned] = 102,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 121
+                [NpcImplementationClassification.SpecializedNative] = 196,
+                [NpcImplementationClassification.EventOwned] = 117,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 90
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -573,7 +573,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "57 ordinary, 180 specialized, 102 event-owned, and 121 " +
+            "57 ordinary, 196 specialized, 117 event-owned, and 90 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 

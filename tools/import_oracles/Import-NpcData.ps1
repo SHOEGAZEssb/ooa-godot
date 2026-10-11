@@ -604,7 +604,15 @@ $npcPaletteBySubid = @{
     # INTERAC_LINKED_GAME_GHINI overwrites oamFlags with `$02 after
     # interactionInitGraphics.
     '203:0' = 2
+    '64:4' = 3 # soldierSubid04: reward guard.
+    '64:11' = 2 # soldierSubid0b: red escort guard.
 }
+$palaceSoldierSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\soldier.s')
+if ($palaceSoldierSource -notmatch '(?ms)^soldierSubid04:.*?Interaction\.oamFlags\s+ld a,\$03' -or
+    $palaceSoldierSource -notmatch '(?ms)^soldierSubid0b:.*?Interaction\.oamFlags\s+ld \(hl\),\$02\s+ld a,\$01\s+call interactionSetAnimation') {
+    throw 'Palace reward/red soldier palette or initial animation changed.'
+}
+$npcInitialAnimationBySubid['64:11'] = 1
 
 # Room 1:58's late-story Impa and Nayru select their fixed text in assembly
 # before entering a generic NPC script. Preserve those selections and their
@@ -665,6 +673,7 @@ $npcTextByVariant = @{
     '88:1:1' = 0x1008
 }
 $npcCanFaceBySubid = @{
+    '64:13' = $true # soldierSubid0d: stationary facing and patrol dialogue.
     '157:0' = $true # interactionCode9d state 1: npcFaceLinkAndAnimate.
     '79:2' = $true
     '54:13' = $true
@@ -970,6 +979,19 @@ foreach ($key in @('5:c3:66:06:00','5:c3:66:06:01','5:c3:66:05:02',
 [void]$eventOwnedNpcImplementationKeys.Add('3:ed:5f:80:00')
 [void]$eventOwnedNpcImplementationKeys.Add('3:ed:c9:80:00')
 
+# The Mystery Seeds palace scripts share one ordered native event owner.
+# Keep the placed slots available even when their initial story gate deletes
+# an actor; the event resolves soldierCheckBeatD6 and GLOBALFLAG_0b live.
+foreach ($key in @('1:16:40:04:00','1:16:40:06:00',
+    '1:16:4d:00:00','1:16:36:01:00','1:26:40:05:00',
+    '1:36:40:05:00','1:36:40:03:00','1:46:40:02:00',
+    '1:46:40:09:00','1:46:40:0b:00')) {
+    [void]$eventOwnedNpcImplementationKeys.Add($key)
+}
+
+# Ralph's post-D6 palace-entry script shares the palace entry lifecycle.
+[void]$eventOwnedNpcImplementationKeys.Add('1:46:37:09:00')
+
 function Resolve-NpcImplementation(
     [int]$group,
     [int]$room,
@@ -1005,6 +1027,8 @@ function Resolve-NpcImplementation(
     if ($specializedNpcImplementationKeys.Contains($key)) {
         return 'specialized-native'
     }
+    if ($id -eq 0x40 -and $subid -eq 0x0d) { return 'specialized-native' }
+    if ($id -eq 0x6d -and $subid -eq 0) { return 'event-owned' }
     if ($eventOwnedNpcImplementationKeys.Contains($key)) {
         return 'event-owned'
     }
@@ -5010,9 +5034,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 57 -or
-    $npcImplementationCounts['specialized-native'] -ne 108 -or
-    $npcImplementationCounts['event-owned'] -ne 102 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 121 -or
+    $npcImplementationCounts['specialized-native'] -ne 124 -or
+    $npcImplementationCounts['event-owned'] -ne 117 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 90 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -32,14 +33,16 @@ internal sealed class DekuForestPalaceEvent :
     private readonly Dictionary<string, Vector2> _precisePositions =
         new(StringComparer.Ordinal);
     private readonly List<NpcCharacter> _genericGuards = new();
-    private readonly List<SideGuardState> _sideGuards = new();
+    private readonly List<PalaceSideGuardScriptHost> _sideGuards = new();
     private readonly CutsceneCommandRunner _singleRunner;
     private readonly CutsceneCommandLaneScheduler _lanes;
+    private readonly PalaceRalphEvent _ralph;
 
     private DekuForestPalaceStage _stage;
     private PalacePlayerInput _playerInput;
     private RewardGuardFlightStage _rewardFlightStage;
     private CutsceneCommandRunner? _corridorRunner;
+    private CutsceneCommandRunner? _rewardRunner;
     private int _signal;
     private int _textboxFlags;
     private int _playerInputCounter;
@@ -51,6 +54,7 @@ internal sealed class DekuForestPalaceEvent :
     private bool _fadeCompleted;
     private bool _returnRequested;
     private bool _directExit;
+    private bool _throneLinkGateReached;
 
     internal DekuForestPalaceEvent(RoomEventContext context)
     {
@@ -58,12 +62,15 @@ internal sealed class DekuForestPalaceEvent :
         _record = _database.Record;
         _singleRunner = new CutsceneCommandRunner(this);
         _lanes = new CutsceneCommandLaneScheduler(this);
+        _ralph = new(context);
     }
 
-    public bool HasState => _stage != DekuForestPalaceStage.Inactive;
+    public bool HasState => _stage != DekuForestPalaceStage.Inactive || _ralph.HasState;
     public bool BlocksGameplay => _stage is not
-        (DekuForestPalaceStage.Inactive or DekuForestPalaceStage.GenericGuards);
-    public bool MenusDisabled => _menusDisabled;
+        (DekuForestPalaceStage.Inactive or DekuForestPalaceStage.GenericGuards) &&
+        (_stage is not (DekuForestPalaceStage.Corridor or DekuForestPalaceStage.Throne) ||
+            _menusDisabled || InputControlHeld) || _ralph.BlocksGameplay;
+    public bool MenusDisabled => _menusDisabled || _ralph.MenusDisabled;
     internal DekuForestPalaceStage Stage => _stage;
     internal int Signal => _signal;
     internal bool DirectExit => _directExit;
@@ -94,10 +101,46 @@ internal sealed class DekuForestPalaceEvent :
                 $"{_context.Rooms.ActiveGroup:x}:{room.Id:x2}.");
         }
 
+        foreach (NpcCharacter actor in _context.Entities.Entities<NpcCharacter>())
+        {
+            if (actor.BaseRecord.Implementation == NpcImplementationClassification.EventOwned &&
+                (actor.Record.Id == InteractionId.Soldier ||
+                 actor.Record.Id is 0x4d or 0x36 || actor.Record is { Id: 0x37, SubId: 0x09 }))
+                actor.SetActive(false);
+        }
+
+        // soldier.s:soldierCheckBeatD6 compares the highest obtained essence
+        // with $05. Every palace soldier $02-$07/$09 and Ambi $00 uses it
+        // during initialization, independently of the Mystery Seeds flag.
         bool completed = _context.Rooms.SaveData.HasGlobalFlag(
             _record.CompletionFlag);
         bool hasMysterySeeds = _context.Inventory.HasTreasure(
             _record.MysterySeeds);
+
+        if (_context.Inventory.HasTreasure(TreasureId.Essence) && _context.Inventory.Essences >= 0x20)
+        {
+            if (room.Id == _record.EntranceRoom)
+            {
+                // $0b has no D6 gate; its own two predicates still apply.
+                if (!completed && hasMysterySeeds)
+                {
+                    _stage = DekuForestPalaceStage.GenericGuards;
+                    Spawn("RedEscortGuard", _database.RequireActor(room.Id, 0x40, 0x0b));
+                }
+                if ((_context.Inventory.Essences & 0x20) != 0 &&
+                    !_context.Rooms.SaveData.HasGlobalFlag(_ralph.CompletionFlag))
+                    _ralph.Start(_context.RequireNpc(1, room.Id, 0x37, 0x09, "ralph.s:$37:$09"));
+            }
+            else if (room.Id == _record.ThroneRoom && !completed)
+            {
+                // Nayru $01 has only GLOBALFLAG_0b's initialization gate.
+                // Her lane remains waiting for the signal whose writers
+                // (Ambi and soldiers $04/$06) have deleted themselves.
+                _stage = DekuForestPalaceStage.GenericGuards;
+                SpawnPossessedNayru();
+            }
+            return;
+        }
 
         if (room.Id == _record.EntranceRoom)
         {
@@ -108,20 +151,36 @@ internal sealed class DekuForestPalaceEvent :
             return;
         }
 
-        if (!hasMysterySeeds || completed)
+        if (completed)
+        {
+            if (room.Id == _record.CorridorRoom1)
+            {
+                _stage = DekuForestPalaceStage.GenericGuards;
+                SpawnSideGuards();
+            }
+            else if (room.Id == _record.ThroneRoom)
+            {
+                // Ambi $00 has a D6 gate, but no GLOBALFLAG_0b gate.
+                _stage = DekuForestPalaceStage.GenericGuards;
+                Spawn(Ambi, _database.RequireActor(room.Id, 0x4d, 0x00))
+                    .SetDialogue(0, string.Empty, false);
+            }
             return;
+        }
 
         if (room.Id == _record.ThroneRoom)
-            StartThroneRoom();
+            StartThroneRoom(hasMysterySeeds);
         else
-            StartCorridor(room.Id);
+            StartCorridor(room.Id, hasMysterySeeds);
     }
 
     public void UpdateFrame()
     {
+        _ralph.UpdateFrame();
         switch (_stage)
         {
             case DekuForestPalaceStage.GenericGuards:
+                UpdateSideGuards();
                 AnimateAllActors();
                 break;
 
@@ -141,6 +200,14 @@ internal sealed class DekuForestPalaceEvent :
 
             case DekuForestPalaceStage.Throne:
                 AdvancePlayerInput();
+                // soldierSubid06's state-1 gate also runs for an ordinary
+                // room entry: it disables Link on the exact high byte $68.
+                if (!_throneLinkGateReached && OracleObjectPosition.HighByte(_context.Player.Position.Y) == 0x68)
+                {
+                    _throneLinkGateReached = true;
+                    _playerInput = PalacePlayerInput.None;
+                    if (!InputControlHeld) SetInputEnabled(false);
+                }
                 UpdateRewardGuardFlight();
                 AnimateAllActors();
                 _lanes.AdvanceFrame();
@@ -174,6 +241,7 @@ internal sealed class DekuForestPalaceEvent :
 
     internal void Cancel(bool deactivateActors)
     {
+        _ralph.Cancel();
         bool restoreFade =
             _stage == DekuForestPalaceStage.Exit ||
             _stage == DekuForestPalaceStage.Throne && _signal == 0x07;
@@ -212,6 +280,7 @@ internal sealed class DekuForestPalaceEvent :
         _fadeCompleted = false;
         _returnRequested = false;
         _directExit = false;
+        _throneLinkGateReached = false;
         if (restoreFade)
             RestoreFade();
     }
@@ -366,6 +435,7 @@ internal sealed class DekuForestPalaceEvent :
                 $"${treasureId:x2}:${parameter:x2}.");
         }
 
+        if (!_context.Entities.InteractionSlotAvailable) return;
         _context.GrantScriptTreasure(
             _record.Group,
             _record.ThroneRoom,
@@ -373,7 +443,8 @@ internal sealed class DekuForestPalaceEvent :
             parameter,
             _record.RewardObject,
             "scripts.s:soldierSubid04Script giveitem TREASURE_OBJECT_BOMBS_02",
-            objectParameter: _record.RewardParameter);
+            objectParameter: _record.RewardParameter, nativeDispatch: true);
+        _rewardRunner!.WaitForNativeCounter(3);
     }
 
     public override void SetGlobalFlag(int flag)
@@ -517,12 +588,18 @@ internal sealed class DekuForestPalaceEvent :
             }));
     }
 
-    private void StartCorridor(int room)
+    private void StartCorridor(int room, bool escort)
     {
         _stage = DekuForestPalaceStage.Corridor;
-        _menusDisabled = true;
-        SetInputEnabled(enabled: false);
-        _playerInput = PalacePlayerInput.Enter;
+        // $05 always runs its own script before GLOBALFLAG_0b. Simulated
+        // Link input belongs to the preceding entrance escort, not this
+        // actor's initializer (eg a fresh direct entry without seeds).
+        if (escort)
+        {
+            _menusDisabled = true;
+            SetInputEnabled(enabled: false);
+            _playerInput = PalacePlayerInput.Enter;
+        }
         // soldierSubid05 state 0 writes only w1Link.xh. Preserve the 8.8 low
         // byte and all other Link state across the scrolling-room preload.
         _context.Player.SetScriptedCoordinateHigh(
@@ -542,22 +619,31 @@ internal sealed class DekuForestPalaceEvent :
 
         if (room != _record.CorridorRoom1)
             return;
+        SpawnSideGuards();
+    }
+
+    private void SpawnSideGuards()
+    {
         for (int occurrence = 0; occurrence < 4; occurrence++)
         {
             NpcCharacter guard = Spawn(
                 $"SideGuard{occurrence}",
-                _database.RequireActor(room, 0x40, 0x03, occurrence));
-            _sideGuards.Add(new SideGuardState(guard));
+                _database.RequireActor(_record.CorridorRoom1, 0x40, 0x03, occurrence));
+            _sideGuards.Add(new PalaceSideGuardScriptHost(
+                guard, _context, _database.SideGuardCommands));
         }
     }
 
-    private void StartThroneRoom()
+    private void StartThroneRoom(bool escort)
     {
         _stage = DekuForestPalaceStage.Throne;
-        _menusDisabled = true;
         _signal = 0;
-        SetInputEnabled(enabled: false);
-        _playerInput = PalacePlayerInput.Enter;
+        if (escort)
+        {
+            _menusDisabled = true;
+            SetInputEnabled(enabled: false);
+            _playerInput = PalacePlayerInput.Enter;
+        }
 
         Spawn(RewardGuard, _database.RequireActor(
             _record.ThroneRoom, 0x40, 0x04));
@@ -568,15 +654,21 @@ internal sealed class DekuForestPalaceEvent :
         escortGuard.SetScriptAnimation(_database.InitialEscortAnimation);
         Spawn(Ambi, _database.RequireActor(
             _record.ThroneRoom, 0x4d, 0x00));
-        NpcCharacter nayru = Spawn(Nayru, _database.RequireActor(
-            _record.ThroneRoom, 0x36, 0x01));
-        nayru.SetScriptVisible(false);
-        nayru.SetScriptPaletteOverride(_database.PossessedNayruPalette);
+        SpawnPossessedNayru();
 
-        _lanes.StartLane(RewardGuard, _database.RewardGuardCommands);
+        _rewardRunner = _lanes.StartLane(RewardGuard, _database.RewardGuardCommands);
         _lanes.StartLane(EscortGuard, _database.EscortGuardCommands);
         _lanes.StartLane(Ambi, _database.AmbiCommands);
         _lanes.StartLane(Nayru, _database.NayruCommands);
+    }
+
+    private void SpawnPossessedNayru()
+    {
+        NpcCharacter nayru = Spawn(Nayru, _database.RequireActor(
+            _record.ThroneRoom, 0x36, 0x01));
+        nayru.SetDialogue(0, string.Empty, false);
+        nayru.SetScriptVisible(false);
+        nayru.SetScriptPaletteOverride(_database.PossessedNayruPalette);
     }
 
     private void StartEntranceInput()
@@ -656,37 +748,8 @@ internal sealed class DekuForestPalaceEvent :
 
     private void UpdateSideGuards()
     {
-        if (_sideGuards.Count == 0)
-            return;
-
-        if (OracleObjectPosition.HighByte(_context.Player.Position.Y) ==
-            _record.SideGuardTriggerY)
-        {
-            foreach (SideGuardState guard in _sideGuards)
-            {
-                if (guard.Started ||
-                    OracleObjectPosition.HighByte(guard.Actor.Position.Y) == 0x28)
-                {
-                    continue;
-                }
-                guard.Started = true;
-                guard.Counter = _record.SideGuardMoveFrames;
-                guard.Angle =
-                    OracleObjectPosition.HighByte(guard.Actor.Position.X) == 0x48
-                        ? ObjectAngle.Left
-                        : ObjectAngle.Right;
-            }
-        }
-
-        foreach (SideGuardState guard in _sideGuards)
-        {
-            if (!guard.Started || guard.Counter <= 1)
-                continue;
-            Vector2 precise = guard.Actor.Position;
-            guard.Actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-                ref precise, _record.NormalSpeed, guard.Angle));
-            guard.Counter--;
-        }
+        foreach (PalaceSideGuardScriptHost guard in _sideGuards)
+            guard.Update();
     }
 
     private void UpdateCorridorGuardScreenBoundary()
@@ -825,9 +888,16 @@ internal sealed class DekuForestPalaceEvent :
         // The wrapper must expose these capabilities for SetBlocksLink and
         // the ordinary guard conversation to reach the gameplay router.
         bool entranceGuard = record.Id == InteractionId.Soldier && record.SubId is 0x02 or 0x07 or 0x09;
-        NpcCharacter actor = _context.Entities.Spawn<NpcCharacter>(
-            new CutsceneNpcSpawn(record, $"DekuForestPalace{name}",
-                Talkable: entranceGuard, Solid: entranceGuard));
+        NpcCharacter actor = _context.Entities.Entities<NpcCharacter>()
+            .FirstOrDefault(npc => npc.BaseRecord.Id == record.Id &&
+                npc.BaseRecord.SubId == record.SubId && npc.BaseRecord.X == record.X &&
+                npc.BaseRecord.Y == record.Y && !_actors.ContainsValue(npc)) ??
+            _context.Entities.Spawn<NpcCharacter>(
+                new CutsceneNpcSpawn(record, $"DekuForestPalace{name}",
+                    Talkable: entranceGuard, Solid: entranceGuard));
+        actor.SetActive(true);
+        actor.SetBlocksLink(entranceGuard);
+        actor.SetDialogue(record.TextId, record.Message, record.CanFace);
         actor.SetAnimationRate(0.0f);
         actor.SetScriptVisible(true);
         _actors.Add(name, actor);
@@ -854,11 +924,12 @@ internal sealed class DekuForestPalaceEvent :
 
     private void AnimateAllActors(bool corridor = false)
     {
-        foreach (NpcCharacter actor in _actors.Values)
+        foreach (var pair in _actors)
         {
+            NpcCharacter actor = pair.Value;
             if (!actor.Active)
                 continue;
-            actor.AdvanceAnimationUpdates(corridor ? 2 : 1);
+            actor.AdvanceAnimationUpdates(corridor && pair.Key == CorridorGuard ? 2 : 1);
         }
     }
 
@@ -868,13 +939,6 @@ internal sealed class DekuForestPalaceEvent :
         _context.Hud.SetHiddenStatusBarFade(Colors.Black, 0.0f);
     }
 
-    private sealed class SideGuardState(NpcCharacter actor)
-    {
-        public NpcCharacter Actor { get; } = actor;
-        public bool Started;
-        public int Counter;
-        public int Angle;
-    }
 }
 
 internal enum DekuForestPalaceStage

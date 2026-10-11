@@ -877,6 +877,8 @@ $pushableTable = Read-LocalHexByteTable `
     (Join-Path $Disassembly 'data\ages\tile_properties\pushableTiles.s') `
     'pushableTilePropertiesTable' 'dbrel'
 $pushableBytes = [byte[]]::new(6 * 256 * 4)
+$nativePushableBytes = [byte[]]::new(6 * 256 * 3)
+for ($i = 0; $i -lt $nativePushableBytes.Length; $i++) { $nativePushableBytes[$i] = 0xff }
 for ($i = 0; $i -lt $pushableBytes.Length; $i++) { $pushableBytes[$i] = 0xff }
 $interactableBytes = [byte[]]::new(6 * 256)
 for ($i = 0; $i -lt $interactableBytes.Length; $i++) { $interactableBytes[$i] = 0xff }
@@ -920,6 +922,12 @@ for ($mode = 0; $mode -lt 6; $mode++) {
             $pushableTable.Bytes[$offset + 1],
             $pushableTable.Bytes[$offset + 2],
             $pushableTable.Bytes[$offset + 3])
+        # Script-created INTERAC $14 also reads properties for tiles absent
+        # from nextToPushableBlock's player-input dispatch, such as palace $02.
+        $nativeOffset = ($mode * 256 + $tile) * 3
+        for ($column = 0; $column -lt 3; $column++) {
+            $nativePushableBytes[$nativeOffset + $column] = $properties[$tile][$column]
+        }
         $offset += 4
     }
 
@@ -953,6 +961,7 @@ if ($joinedPushableRecords -ne 51) {
 }
 $pushablePath = Join-Path $destination 'metadata\pushableTiles.bin'
 Write-GeneratedBytes($pushablePath, $pushableBytes)
+Write-GeneratedBytes((Join-Path $destination 'metadata/native_pushblock_properties.bin'), $nativePushableBytes)
 if ($interactableRecords -ne 115) { throw "interactableTilesTable: expected115 collision-mode/tile entries, got$interactableRecords." }
 Write-GeneratedBytes((Join-Path $destination 'metadata/interactableTiles.bin'), $interactableBytes)
 if ($somariaPushRows.Count -ne 7) { throw 'Expected Somaria push dispatch in all six collision modes.' }

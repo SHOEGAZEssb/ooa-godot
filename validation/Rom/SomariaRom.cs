@@ -38,11 +38,27 @@ internal sealed class SomariaRom
         if (this[0xcc04] != 0) _rom.Call(0x5e3d,1); // setCutsceneIndexIfCutsceneTriggerSet.
     }
     internal void AdvanceEnemyAndPartCollisions() => _rom.Call(0x41d1,7);
+    internal void HitEnemyWithItem(int slot,int collision,int damage,int itemId=0)
+    {
+        int enemy=0xd080+slot*256;
+        this[0xd724]=(byte)(0x80|collision); this[0xd728]=unchecked((byte)-damage);
+        this[0xd701]=(byte)itemId; this[0xd726]=this[0xd727]=6;
+        this[0xd70b]=this[enemy+11]; this[0xd70d]=(byte)(this[enemy+13]-1);
+        this[0xffae]=0x80; this[0xffaf]=(byte)(enemy>>8);
+        byte[] caller=[0x16,(byte)(enemy>>8),0x21,0x00,0xd6,0xcd,0xd1,0x41,0xc9];
+        for(int index=0;index<caller.Length;index++) this[0xc100+index]=caller[index];
+        _rom.Call(0xc100,7); this[0xd724]=0;
+    }
     internal void CheckTileWarps() => _rom.Call(0x60e9,1); // cutscene01, after toggle selection.
     internal void SelectNextActiveRoom() => _rom.Call(0x5f45,1); // getNextActiveRoom, after warp lookup.
     internal void InitializeRoomSpecificInteractions() => _rom.Call(0x5872,0x12); // Original runRoomSpecificCode/group dispatch.
     internal void ApplyRoomTileSubstitutions() => _rom.ApplyRoomTileSubstitutions();
     internal void AdvanceWallRetraction() => _rom.Call(0x701d,3); // bank3Cutscenes.func_701d, before objects.
+    internal void AdvancePalaceBoot() => _rom.Call(0x6275, 3); // CUTSCENE$14, before objects.
+    internal void AdvancePalacePassage() => _rom.Call(0x7493, 3); // CUTSCENE$1c, before objects.
+    internal void AdvanceNayruRescueWarp() => _rom.Call(0x6785,3); // CUTSCENE$0c @runStates, before objects.
+    internal void SelectTriggeredCutscene()
+    { if (this[0xcc04] != 0) _rom.Call(0x5e3d, 1); }
     internal void ApplyLinkDamage(byte rawDamage)
     {
         this[0xd025] = rawDamage;
@@ -105,6 +121,7 @@ internal sealed class SomariaRom
 
     internal void ClearPhysicalItems() => _rom.Call(0x19ad, 0);
     internal void ClearOutgoingInteractions() => _rom.Call(0x4a31,1); // clearInteractionsWithEnabled2.
+    internal void ClearOutgoingEnemies() => _rom.Call(0x4a38,1); // clearEnemiesWithEnabled2.
     internal void SetOutgoingInteractions() => _rom.Call(0x49f1,1); // setInteractionsEnabledTo2.
     internal void SetOutgoingParts() => _rom.Call(0x49ff,1); // setPartsEnabledTo2.
     internal void ClearOutgoingParts() => _rom.Call(0x4a3f,1); // clearPartsWithEnabled2.
@@ -118,6 +135,13 @@ internal sealed class SomariaRom
     {
         this[0xcc00] = (byte)frameCounter;
         _rom.Call(0x5e58,0x11); // Original updateParts, including modal/scroll masks.
+    }
+
+    internal void GeneratePlacementBuffer() => _rom.Call(0x3215, 0);
+    internal void AdvanceEnemies(int frameCounter)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        _rom.Call(0x2ea5, 0x0d); // Original updateEnemies, including scroll state-zero admission.
     }
 
     internal void InteractWithFrontTile() => CallLink(0x4000,6);

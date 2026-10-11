@@ -156,7 +156,27 @@ public sealed class RoomTransitionController
     internal bool TimeWarpActive => _timeWarp && _warpActive;
     // Palette-thread lifetime, including its terminal update. A held black
     // screen or a landing animation after fade-in is not an active fade.
-    internal bool PaletteFadeActive => _warpActive && (_warpPhase switch
+    private int _nativePaletteDirection, _nativePaletteOffset, _nativePaletteDelay = 1, _nativePaletteCounter = 1;
+    internal bool NativePaletteFadeActive => _nativePaletteDirection != 0;
+    internal void BeginNativeWhiteFade(bool fadeOut, int delay = 1)
+    {
+        if (delay < 1) throw new ArgumentOutOfRangeException(nameof(delay));
+        _nativePaletteDirection = fadeOut ? 1 : -1;
+        _nativePaletteOffset = fadeOut ? 0 : 32;
+        // setPaletteThreadDelay starts at one, then refills with the delay.
+        _nativePaletteDelay = delay; _nativePaletteCounter = 1;
+    }
+    internal void AdvanceNativeWhiteFade()
+    {
+        if (_nativePaletteDirection == 0) return;
+        if (--_nativePaletteCounter != 0) return;
+        _nativePaletteCounter = _nativePaletteDelay;
+        _nativePaletteOffset += _nativePaletteDirection;
+        if (_nativePaletteOffset >= 32 || _nativePaletteOffset < 0) { _nativePaletteDirection = 0; return; }
+        _warpFade.Color = new Color(1, 1, 1, Math.Min(_nativePaletteOffset, 31) / 31f);
+    }
+    internal void CancelNativeWhiteFade() => _nativePaletteDirection = 0;
+    internal bool PaletteFadeActive => NativePaletteFadeActive || _warpActive && (_warpPhase switch
     {
         WarpPhase.FadeOut => _warpFrame < _warpFadeOutFrames,
         WarpPhase.FadeIn => _warpFrame < WarpFadeInFrames,

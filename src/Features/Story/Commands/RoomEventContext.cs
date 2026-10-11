@@ -143,7 +143,8 @@ internal sealed class RoomEventContext(
         string treasureObject,
         string source,
         int textboxFlags = 0,
-        int? objectParameter = null)
+        int? objectParameter = null,
+        bool nativeDispatch = false)
     {
         Vector2 position = Player.Position;
         var request = new GroundTreasureGrantRequest(
@@ -162,7 +163,10 @@ internal sealed class RoomEventContext(
             ExpectedSubId = parameter,
             ExpectedObjectParameter = objectParameter ?? parameter
         };
-        return Entities.GrantGroundTreasure(request, Player);
+        if (!nativeDispatch) return Entities.GrantGroundTreasure(request, Player);
+        var treasure = Entities.SpawnGroundTreasure(request);
+        treasure.BeginScriptGrant();
+        return treasure;
     }
 
     private static bool Matches(NpcCharacter npc, int interactionId, int subId) =>

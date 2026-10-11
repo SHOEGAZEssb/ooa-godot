@@ -30,8 +30,11 @@ internal sealed class GroundTreasureRoomEntity(
         if (Entity.UpdatesDuringDialogue) Entity.UpdateFrame(frame.Player);
     }
 
-    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
+    {
         Entity.UpdateFrame(frame.Player);
+        if (Entity.TryCollectScriptGrant()) collected(Entity, frame.Player);
+    }
 
     public void HandleLinkContact(Player player)
     {

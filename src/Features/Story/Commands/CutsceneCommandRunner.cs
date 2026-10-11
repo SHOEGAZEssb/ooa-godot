@@ -25,6 +25,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     private Vector2 _startPosition2;
     private int _zFixed;
     private int _speedZ;
+    private bool _nativeCounterPending;
 
     public bool Active { get; private set; }
     public int Counter { get; private set; }
@@ -150,6 +151,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         _startPosition = Vector2.Zero;
         _startPosition2 = Vector2.Zero;
         Counter = 0;
+        _nativeCounterPending = false;
         Active = true;
     }
 
@@ -157,6 +159,13 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     {
         if (!Active || host.ScriptExecutionBlocked)
             return;
+
+        if (_nativeCounterPending)
+        {
+            SetCounter(Counter - 1);
+            if (Counter != 0) return;
+            _nativeCounterPending = false;
+        }
 
         _scriptUpdates++;
         int dispatches = 0;
@@ -216,8 +225,18 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         _startPosition = Vector2.Zero;
         _startPosition2 = Vector2.Zero;
         Counter = 0;
+        _nativeCounterPending = false;
         Active = false;
         host.SetActiveCommandSource(null);
+    }
+
+    // Native helpers can write counter1 before yielding; interactionRunScript
+    // decrements it only on eligible, non-text updates before the next opcode.
+    internal void WaitForNativeCounter(int frames)
+    {
+        if (frames <= 0) throw new ArgumentOutOfRangeException(nameof(frames));
+        SetCounter(frames);
+        _nativeCounterPending = true;
     }
 
     private CommandResult Execute(CutsceneCommand command)
@@ -305,6 +324,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                 return host.GateOpen(gate.Gate)
                     ? CommandResult.Yield
                     : CommandResult.Block;
+            case CutsceneGateContinueCommand gate:
+                return host.GateOpen(gate.Gate) ? CommandResult.Continue : CommandResult.Block;
 
             case CutsceneCheckRupeeDisplayCommand:
                 return host.GateOpen("RupeeDisplayUpdated")

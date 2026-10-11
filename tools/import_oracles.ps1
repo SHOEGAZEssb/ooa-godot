@@ -126,8 +126,12 @@ $stageContracts = @(
         -outputs @('globalFlagSource', 'ralphScriptSource', 'speedMatch', 'speedSource') `
         -functionInputs @('Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-deku-forest' 'Import-DekuForestData.ps1' `
-        -inputs @('allTextPositions', 'allTexts', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource', 'paletteDataSource', 'soundIds', 'speedSource', 'treasureIds', 'treasureObjectRecords') `
-        -functionInputs @('Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+        -inputs @('allTextPositions', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'mainObjectSource', 'paletteDataSource', 'soundIds', 'speedSource', 'treasureIds', 'treasureObjectRecords') `
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'palace' 'Import-PalaceData.ps1' `
+        -inputs @('allTextFallthroughIds', 'allTextPositions', 'allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'speedSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable') `
+        -functionOutputs @('Resolve-PalaceText')
     New-ImportStageContract 'cutscene-enter-past' 'Import-EnterPastData.ps1' `
         -inputs @('allTextPositions', 'allTexts', 'globalFlagSource', 'npcRows', 'ralphScriptSource', 'speedMatch', 'speedSource') `
         -functionInputs @('Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
@@ -275,6 +279,12 @@ $stageContracts = @(
     New-ImportStageContract 'king-moblin' 'Import-KingMoblin.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'gfxNames', 'globalFlagValues') `
         -functionInputs @('Get-EnemyDefinition', 'Copy-EnemySprite', 'Read-PaletteBytes')
+    New-ImportStageContract 'palace-possession' 'Import-PalacePossession.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'soundIds') `
+        -functionInputs @('Get-EnemyDefinition', 'Copy-EnemySprite', 'Read-PaletteBytes', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
+    New-ImportStageContract 'nayru-rescue-warp' 'Import-NayruRescueWarp.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'soundIds') `
+        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionInputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'pirate-ship' 'Import-PirateShip.ps1'

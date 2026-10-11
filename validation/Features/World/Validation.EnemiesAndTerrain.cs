@@ -1237,6 +1237,27 @@ public sealed partial class ValidationRoot
             [(0x4f, 0x00)] = (0xba, EnemySwordResponse.Knockback),
             [(0x52, 0x00)] = (0x3c, EnemySwordResponse.NoKnockback),
             [(0x52, 0x02)] = (0x3c, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x02)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x03)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x04)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x05)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x06)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x07)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x08)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x0a)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x0b)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x0c)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x82)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x83)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x84)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x85)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x86)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x87)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x88)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x89)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x8a)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x8b)] = (0xda, EnemySwordResponse.NoKnockback),
+            [(0x54, 0x8c)] = (0xda, EnemySwordResponse.NoKnockback),
             [(0x7f, 0x00)] = (0xd0, EnemySwordResponse.None)
         };
         var combatSourceFlags = new HashSet<(int Id, int SubId, int Flags)>();
@@ -1338,30 +1359,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 821 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 735 ||
+                EnemyHandlerClassification.OrderedImplemented) != 761 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 60 ||
+            classificationInstances.GetValueOrDefault(
+                EnemyHandlerClassification.OrderedImplemented) != 1075 ||
+            classificationInstances.GetValueOrDefault(
+                EnemyHandlerClassification.DynamicSpecial) != 0 ||
+            classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DeliberatelyUnsupported) != 86 ||
-            classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 1049 ||
-            classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DynamicSpecial) != 0 ||
-            classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 112 ||
             classifiedKeys.Count != 123 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 90 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 111 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 33 ||
-            combatSourceRows != 701 ||
-            combatSourceFlags.Count != 175 ||
-            expectedCombat.Count != 71 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 12 ||
+            combatSourceRows != 727 ||
+            combatSourceFlags.Count != 196 ||
+            expectedCombat.Count != 92 ||
             implementedHandler is not
             {
                 Id: EnemyId.Keese,
@@ -1412,7 +1433,7 @@ public sealed partial class ValidationRoot
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
             "The enemy handler registry lost its 821-row implementation " +
-            "classification, 537-row/125-flag typed combat descriptors, " +
+            "classification, 727-row/196-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
@@ -4313,6 +4334,7 @@ public sealed partial class ValidationRoot
             [0x3e] = (0x00, 0x00, 0x00),
             [0x50] = (0x00, 0x00, 0x00),
             [0x58] = (0x06, 0x05, 0x05),
+            [0x5a] = (0x00, 0x00, 0x00),
             [0x6e] = (0x00, 0x00, 0x00)
         };
         var auditedCombatKeys = new HashSet<(int Id, int SubId)>();
@@ -4360,9 +4382,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            auditedCombatKeys.Count != 71 ||
+            auditedCombatKeys.Count != 92 ||
             auditedNonCombatKeys.Count != 17,
-            "The shield audit did not cover all 71 implemented combat " +
+            "The shield audit did not cover all 92 implemented combat " +
             "enemy keys and 17 deliberately non-combat placed keys, including ENEMY $16, $50:$01 and $63:$05-$0b.");
 
         RoomObjectRecord octorokSource = RoomEnemyPlacements(
@@ -4620,8 +4642,8 @@ public sealed partial class ValidationRoot
         spiked.Free();
         shieldPlayer.Free();
         GD.Print(
-            "Validated all 53 implemented combat enemy keys against the " +
-            "clean-US L1/L2/L3 shield columns, 15 non-combat placed keys, common " +
+            "Validated all 92 implemented combat enemy keys against the " +
+            "clean-US L1/L2/L3 shield columns, 17 non-combat placed keys, common " +
             "Wooden/Iron enemy-and-Link recoil routing, fractional wall-bump " +
             "escape through side-view and Octorok top-down probes, and " +
             "Ghini/Hardhat/Spark/Spiked Beetle exceptions.");

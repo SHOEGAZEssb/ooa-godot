@@ -95,7 +95,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 84 ||
+        if (_importedDefinitions.Count != 85 ||
             ImportedEnemy(EnemyId.LikeLike) is not
                 { Health: 5, DamageQuarters: 2, RadiusY: 6, RadiusX: 6,
                     TileBase: 12, Palette: 3, Animations.Length: 2 } ||
@@ -823,8 +823,15 @@ public sealed class EnemyDatabase
 
     internal bool TryGetImportedEnemyDefinition(
         RoomObjectRecord source,
-        out ImportedEnemyDefinition record) =>
-        _importedDefinitions.TryGetValue((source.Id, source.SubId), out record);
+        out ImportedEnemyDefinition record)
+    {
+        // ENEMY_AMBI_GUARD uses its sub-ID for patrol and hostility, sharing
+        // the single enemyData/graphics definition for $54.
+        int graphicsSubId = source.Id == 0x54 && (source.SubId & 0x7f) <= 0x0c
+            ? 0
+            : source.SubId;
+        return _importedDefinitions.TryGetValue((source.Id, graphicsSubId), out record);
+    }
 
     private void ValidateEnemyHandlerDefinitions()
     {
@@ -874,6 +881,7 @@ public sealed class EnemyDatabase
     private bool HasOrderedHandlerDefinition(
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
+        EnemyHandlerKind.AmbiGuard => descriptor.Id == 0x54 && _importedDefinitions.ContainsKey((0x54, 0)),
         EnemyHandlerKind.KingMoblin => descriptor.Id == EnemyId.KingMoblin && descriptor.SubId == 0 &&
             new KingMoblinDatabase().Actor(0x7f).Health == 6,
         EnemyHandlerKind.CheepCheep => HasImportedDefinition(descriptor, 0x2c),

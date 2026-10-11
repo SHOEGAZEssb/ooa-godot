@@ -381,6 +381,7 @@ $commonEnemySprites = @{
     0x4d = @($gfxNames[0x8c])
 }
 $commonEnemySpecs = @(
+    @(0x54, 0x00),
     @(0x7c, 0x00),
     @(0x74, 0x00), @(0x74, 0x01),
     @(0x75, 0x00), @(0x75, 0x01),
@@ -470,7 +471,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations`t$($definition.RawDamage.ToString('x2'))")
 }
-if ($commonEnemyRows.Count -ne 85 -or
+if ($commonEnemyRows.Count -ne 86 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^74\t0[01]\tspr_smasher\t0\t3\t1\t6\t6\t2\t5\t'
     }).Count -ne 2 -or
@@ -1579,8 +1580,11 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '7f:00' = 'king-moblin'
 }
 $dynamicEnemyImplementationHandlers = [ordered]@{}
+foreach ($subid in @(0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x0a,0x0b,0x0c,0x82,0x83,0x84,0x85,0x86,0x87,0x88,0x89,0x8a,0x8b,0x8c)) {
+    $orderedEnemyImplementationHandlers['54:' + $subid.ToString('x2')] = 'ambi-guard'
+}
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 98 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 119 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1651,9 +1655,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 735 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 761 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 86) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 60) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -4794,6 +4798,17 @@ $bits = ($seedActiveRows[0x35].Operands -join '').Replace('%', '')
 if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_FLOORMASTER $35 requires 32 collision mask bits.' }
 Add-EnemyBehaviorProfile 'floormaster' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
     'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$35'
+$guardCollisionRows = [Collections.Generic.List[string]]::new()
+$guardCollisionRows.Add("# mode`tcollision`tenabled`teffect`tsource")
+$guardBits = ($seedActiveRows[0x54].Operands -join '').Replace('%', '')
+if ($guardBits -notmatch '^[01]{32}$') { throw 'ENEMY_AMBI_GUARD $54 requires 32 collision mask bits.' }
+foreach ($mode in @(0x5a,0x3d)) {
+    for ($collision=0; $collision -lt 32; $collision++) {
+        $effect = $enemyCollisionTableValues[$mode * 32 + $collision]
+        $guardCollisionRows.Add("$($mode.ToString('x2'))`t$($collision.ToString('x2'))`t$($guardBits[$collision])`t$($effect.ToString('x2'))`tdata/ages/objectCollisionTable.s:mode$($mode.ToString('x2'));data/ages/enemyActiveCollisions.s:enemy`$54")
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'objects/ambi_guard_collisions.tsv'), $guardCollisionRows)
 $linkWallmaster = Get-AssemblyLabelBody (Read-ImportText (Join-Path $Disassembly 'object_code\common\specialObjects\link.s')) 'linkState0c'
 if ($linkWallmaster -notmatch '(?ms)ld \(wWarpsDisabled\),a.*?SpecialObject.collisionType.*?wScrollMode.*?linkCancelAllItemUsage.*?SND_BOSS_DEAD.*?wWarpsDisabled.*?wActiveGroup.*?or \$80.*?wDungeonWallmasterDestRoom.*?TRANSITION_DEST_FALL.*?ld a,\$87.*?ld \(hl\),\$03' -or
     $galeCollisionCode -notmatch '(?ms)^collisionEffect37:.*?Object.invincibilityCounter.*?wWarpsDisabled.*?w1Link.state.*?LINK_STATE_NORMAL.*?Object.collisionType.*?LINK_STATE_GRABBED_BY_WALLMASTER.*?wLinkForceState.*?ENEMYDMG_1c') {

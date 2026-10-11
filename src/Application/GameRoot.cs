@@ -887,7 +887,9 @@ public partial class GameRoot : Node2D
         // updateSpecialObjects runs w1Companion before w1Link. A waiting raft
         // remains in the later interaction pass until it allocates that slot.
         _player.AdvanceDeathPrelude();
-        if (_transitions.AdvanceFadeOutWarpBeforeObjects(delta))
+        // A cutscene selected before this object pass may request CUTSCENE
+        // $03, but its new palette starts on the following main-thread update.
+        if (!nativeCutsceneOwnedUpdate && _transitions.AdvanceFadeOutWarpBeforeObjects(delta))
         {
             // mainThread advances wFrameCounter even when CUTSCENE_03
             // omits updateAllObjects, including its terminal room load.
@@ -897,7 +899,7 @@ public partial class GameRoot : Node2D
         if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnedUpdate && !_roomEvents.OwnsGameLogic)
             (_pirateShipCourse ??= new PirateShipCourse()).Update(
                 _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
-        bool arrivalPaletteAdvanced = _transitions.AdvanceBasicArrivalPaletteBeforeObjects(delta);
+        bool arrivalPaletteAdvanced = !nativeCutsceneOwnedUpdate && _transitions.AdvanceBasicArrivalPaletteBeforeObjects(delta);
         if (!IsTransitioning && !_harp.IsPlaying)
             _entities.UpdateSpecialObjectsBeforePlayer(_player);
         // updateAllObjects begins with updateSpecialObjects (companion, then
@@ -914,7 +916,7 @@ public partial class GameRoot : Node2D
         if (!initializingArrival) _player.AdvanceApplicationUpdate(advanceElectricShock: false);
         _roomEvents.UpdateSpecialObjects();
         _entities.ClearSignalsAfterPlayer();
-        if (!arrivalPaletteAdvanced) _transitions.UpdateWarpAndEffects(delta);
+        if (!nativeCutsceneOwnedUpdate && !arrivalPaletteAdvanced) _transitions.UpdateWarpAndEffects(delta);
         if (!_transitions.TimeWarpActive)
         {
             _deathRespawnPoints.Update();

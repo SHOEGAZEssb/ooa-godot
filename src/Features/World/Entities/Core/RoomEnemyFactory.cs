@@ -130,6 +130,10 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
 
         switch (handler.Handler)
         {
+            case EnemyHandlerKind.AmbiGuard:
+                var guard = new AmbiGuardCharacter { Name = $"AmbiGuard_54_{source.SubId:x2}_{source.Order}_{instance}" };
+                guard.Initialize(enemies.ImportedEnemy(0x54), resources.AmbiGuards.Require(source.SubId), room, position, owner, source.SubId);
+                return new AmbiGuardRoomEntity(guard, resources.AmbiGuards, combatSource, owner.OnSoundRequested);
             case EnemyHandlerKind.Candle:
                 CandleRoomEntity? candleOwner = null;
                 var candle = new CandleCharacter { Name = $"Candle_{source.Order}_{instance}" };

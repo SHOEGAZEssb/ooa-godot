@@ -41,6 +41,10 @@ focused validations; NPC classifications live in the
   shop's chest-choice game.
 - Raft travel and wreck/theft events; partial Tokay Island progression and
   minigames; fairy fountains and Tokkey's song lesson.
+- Ambi's Palace soldiers, guards and capture, passage switches, story scenes,
+  possessed Nayru/Veran fight, rescue, and Tune of Ages handoff, including
+  the linked-game continuation. Focused clean-US ROM comparisons cover these
+  systems; a complete manual palace playthrough remains unperformed.
 - Ricky, Dimitri, and Moosh riding and forest quests, flute summoning, and
   the three Nuun Highlands layouts with carpenter/bridge progression.
 

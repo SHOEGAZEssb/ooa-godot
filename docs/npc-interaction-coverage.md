@@ -52,9 +52,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 218 | Traced and covered by named NPC/event scenarios. |
+| **I** | 249 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 121 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 90 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **388** | **215 rooms and 300 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -62,9 +62,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 57 | 0 | 57 |
-| Specialized native interaction | 108 | 72 | 180 |
-| Event-owned actor | 102 | 0 | 102 |
-| Deliberately unsupported | 121 | 0 | 121 |
+| Specialized native interaction | 124 | 72 | 196 |
+| Event-owned actor | 117 | 0 | 117 |
+| Deliberately unsupported | 90 | 0 | 90 |
 | **Total** | **388** | **72** | **460** |
 
 ## Bipin and Blossom family variants
@@ -128,20 +128,20 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:cd` | [P] `$48:$13/v$00` tokay |
 | `0:dd` | [P] `$48:$14/v$00` tokay |
 | `1:03` | [I] `$bf:$0c/v$00` symmetryNpc |
-| `1:05` | [D] `$40:$0d/v$02` soldier |
-| `1:06` | [D] `$40:$0d/v$03` soldier<br>[D] `$40:$0d/v$04` soldier |
-| `1:07` | [D] `$40:$0d/v$05` soldier |
-| `1:16` | [D] `$40:$04/v$00` soldier<br>[D] `$40:$06/v$00` soldier<br>[D] `$4d:$00/v$00` ambi<br>[D] `$36:$01/v$00` nayru<br>[D] `$40:$0d/v$01` soldier |
+| `1:05` | [I] `$40:$0d/v$02` soldier |
+| `1:06` | [I] `$40:$0d/v$03` soldier<br>[I] `$40:$0d/v$04` soldier |
+| `1:07` | [I] `$40:$0d/v$05` soldier |
+| `1:16` | [I] `$40:$04/v$00` soldier<br>[I] `$40:$06/v$00` soldier<br>[I] `$4d:$00/v$00` ambi<br>[I] `$36:$01/v$00` nayru<br>[I] `$40:$0d/v$01` soldier |
 | `1:20` | [D] `$37:$0b/v$00` ralph |
-| `1:25` | [D] `$40:$0d/v$00` soldier |
-| `1:26` | [D] `$40:$05/v$00` soldier |
-| `1:27` | [D] `$40:$0d/v$06` soldier |
+| `1:25` | [I] `$40:$0d/v$00` soldier |
+| `1:26` | [I] `$40:$05/v$00` soldier |
+| `1:27` | [I] `$40:$0d/v$06` soldier |
 | `1:2d` | [D] `$4e:$04/v$00` subrosian |
-| `1:36` | [D] `$40:$05/v$00` soldier<br>[D] `$40:$03/v$00` soldier<br>[D] `$40:$03/v$00` soldier<br>[D] `$40:$03/v$00` soldier<br>[D] `$40:$03/v$00` soldier |
+| `1:36` | [I] `$40:$05/v$00` soldier<br>[I] `$40:$03/v$00` soldier<br>[I] `$40:$03/v$00` soldier<br>[I] `$40:$03/v$00` soldier<br>[I] `$40:$03/v$00` soldier |
 | `1:38` | [I] `$88:$00/v$00` makuSprout |
 | `1:39` | [I] `$3a:$0d/v$00` villager |
 | `1:45` | [I] `$43:$01/v$00` pastGuy |
-| `1:46` | [D] `$40:$02/v$00` soldier<br>[D] `$40:$09/v$00` soldier<br>[D] `$37:$09/v$00` ralph<br>[D] `$40:$0b/v$00` soldier |
+| `1:46` | [I] `$40:$02/v$00` soldier<br>[I] `$40:$09/v$00` soldier<br>[I] `$37:$09/v$00` ralph<br>[I] `$40:$0b/v$00` soldier |
 | `1:47` | [P] `$3a:$07/v$00` villager<br>[D] `$4f:$01/v$00` impaNpc<br>[D] `$ad:$08/v$00` zelda |
 | `1:48` | [I] `$57:$00/v$00` pickaxeWorker<br>[I] `$3a:$06/v$00` villager<br>[I] `$38:$00/v$00` pastGirl |
 | `1:49` | [I] `$3c:$0e/v$00` boy<br>[I] `$3a:$0c/v$00` villager<br>[I] `$43:$06/v$00` pastGuy |
@@ -278,14 +278,14 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:c8` | [D] `$52:$01/v$00` oldMan |
 | `5:ca` | [P] `$48:$06/v$00` tokay |
 | `5:cc` | [P] `$48:$09/v$00` tokay |
-| `5:ce` | [D] `$6d:$00/v$00` possessedNayru<br>[D] `$40:$0d/v$0e` soldier |
+| `5:ce` | [I] `$6d:$00/v$00` possessedNayru<br>[I] `$40:$0d/v$0e` soldier |
 | `5:cf` | [D] `$10:$00/v$00` farore |
 | `5:d0` | [D] `$3b:$07/v$00` femaleVillager<br>[D] `$ab:$0e/v$00` zora<br>[D] `$3c:$0b/v$00` boy<br>[D] `$2a:$00/v$00` librarian<br>[D] `$9a:$09/v$00` carpenter |
-| `5:d1` | [D] `$40:$0d/v$08` soldier<br>[D] `$40:$0d/v$09` soldier |
-| `5:d2` | [D] `$40:$0d/v$0a` soldier<br>[D] `$40:$0d/v$0b` soldier |
-| `5:d3` | [D] `$40:$0d/v$0c` soldier<br>[D] `$40:$0d/v$0d` soldier |
-| `5:d4` | [D] `$40:$0d/v$07` soldier |
-| `5:d5` | [D] `$40:$0d/v$0f` soldier |
+| `5:d1` | [I] `$40:$0d/v$08` soldier<br>[I] `$40:$0d/v$09` soldier |
+| `5:d2` | [I] `$40:$0d/v$0a` soldier<br>[I] `$40:$0d/v$0b` soldier |
+| `5:d3` | [I] `$40:$0d/v$0c` soldier<br>[I] `$40:$0d/v$0d` soldier |
+| `5:d4` | [I] `$40:$0d/v$07` soldier |
+| `5:d5` | [I] `$40:$0d/v$0f` soldier |
 | `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron |
 | `5:dc` | [I] `$66:$0e/v$05` goron<br>[I] `$66:$0c/v$06` goron |
 | `5:dd` | [I] `$66:$0c/v$07` goron |

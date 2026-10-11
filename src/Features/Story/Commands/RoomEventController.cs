@@ -74,6 +74,10 @@ public sealed class RoomEventController
             () => new HarpOfAgesEvent(_context),
             () => new DungeonEssenceEvent(_context),
             () => new WallRetractionEvent(_context),
+            () => new PalaceBootEvent(_context),
+            () => new PalacePassageEvent(_context),
+            () => new PalacePossessionEvent(_context,()=>Get<NayruRescueWarpEvent>().Begin()),
+            () => new NayruRescueWarpEvent(_context),
             () => new DefeatedMoblinEvent(_context),
             () => new RemoteMakuFirstEssenceEvent(_context),
             () => new RemoteMakuSecondEssenceEvent(_context),
@@ -242,18 +246,39 @@ public sealed class RoomEventController
         _context.Entities.ObjectFellInHole += NotifyObjectFellInHole;
         _context.Entities.DungeonEssenceTriggered += Get<DungeonEssenceEvent>().Begin;
         _context.Entities.WallRetractionTriggered += Get<WallRetractionEvent>().Begin;
+        var palaceBoot = Get<PalaceBootEvent>();
+        _context.Entities.PalaceBootTriggered += palaceBoot.Begin;
+        _context.Entities.PalacePassageTriggered += Get<PalacePassageEvent>().Begin;
+        _context.Entities.BeginPalacePossessionFade = Get<PalacePossessionEvent>().Fade;
+        _context.Entities.PalacePossessionPaletteActive = () => Get<PalacePossessionEvent>().PaletteActive;
+        _context.Entities.PalaceRescueTriggered += Get<PalacePossessionEvent>().BeginRescue;
+        _context.Entities.NayruRescueWarpTriggered += Get<PalacePossessionEvent>().RequestWarp;
+        palaceBoot.PrepareEntrance = () => Get<DekuForestPalaceEvent>().Cancel();
+        palaceBoot.AdvanceEntrance = () =>
+        {
+            if (palaceBoot.State == 2 && !Get<DekuForestPalaceEvent>().HasState)
+                Get<DekuForestPalaceEvent>().Start(_context.Rooms.CurrentRoom);
+            if (Get<DekuForestPalaceEvent>().HasState) Get<DekuForestPalaceEvent>().UpdateFrame();
+        };
     }
 
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
     internal bool OwnsGameLogic => _eventsByPriority.Any(roomEvent => roomEvent.OwnsGameLogic);
     internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled;
-    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState;
+    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState;
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
         var retraction=Get<WallRetractionEvent>();
-        bool owned=retraction.HasState;
+        var boot=Get<PalaceBootEvent>();
+        var passage=Get<PalacePassageEvent>();
+        var rescueWarp=Get<NayruRescueWarpEvent>();
+        bool owned=retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState;
         retraction.AdvanceBeforeObjects();
-        return owned;
+        boot.AdvanceBeforeObjects();
+        passage.AdvanceBeforeObjects();
+        Get<PalacePossessionEvent>().AdvanceBeforeObjects();
+        rescueWarp.AdvanceBeforeObjects();
+        return owned || rescueWarp.HasState;
     }
     internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);
     internal bool ObjectUpdateSuspended => _eventsByPriority.Any(roomEvent => roomEvent.ObjectUpdateSuspended);
