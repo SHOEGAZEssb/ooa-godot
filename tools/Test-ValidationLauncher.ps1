@@ -5,6 +5,8 @@ $temporary = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-launcher-' + 
 [void][IO.Directory]::CreateDirectory($temporary)
 $fixture = Join-Path $temporary 'fixture.exe'
 $timingProfile = Join-Path $temporary 'timing profile [fixture].tsv'
+# Explicit fixture input keeps this launcher test independent of ROM builds.
+$fixtureParameters = @{ Godot = $fixture; Rom = (Join-Path $temporary 'reference ROM [US].gbc') }
 try {
     Add-Type -OutputAssembly $fixture -OutputType ConsoleApplication -TypeDefinition @'
 using System;
@@ -74,29 +76,29 @@ public static class ValidationLauncherFixture {
 }
 '@
     # Load the launcher's interop type and exercise a successful focused run.
-    & $launcher -Godot $fixture -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
     & $launcher -Godot $fixture -ValidateOnly ValidateRomArgument `
         -Rom (Join-Path $temporary 'reference ROM [US].gbc') -TimeoutSeconds 15
-    & $launcher -Godot $fixture -ValidateOnly ValidateSkipRomArgument `
+    & $launcher @fixtureParameters -ValidateOnly ValidateSkipRomArgument `
         -SkipRomValidation -TimeoutSeconds 15
-    & $launcher -Godot $fixture -ValidateOnly ValidateFixture `
+    & $launcher @fixtureParameters -ValidateOnly ValidateFixture `
         -SkipRomValidation -TimeoutSeconds 15
-    & $launcher -Godot $fixture -SkipRomValidation -TimeoutSeconds 15
+    & $launcher @fixtureParameters -SkipRomValidation -TimeoutSeconds 15
     $profileText = "name`ttotal_ms`nValidateFixture`t1.500`n"
     [IO.File]::WriteAllText($timingProfile, $profileText)
     $previousProfileExpectation = [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_TIMING_PROFILE')
     try {
         [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_TIMING_PROFILE', $profileText)
-        & $launcher -Godot $fixture -TimingProfile $timingProfile -TimeoutSeconds 15
+        & $launcher @fixtureParameters -TimingProfile $timingProfile -TimeoutSeconds 15
         if ([IO.File]::ReadAllText($timingProfile) -ne $profileText) {
             throw 'Explicit timing profile was changed by the launcher.'
         }
     }
     finally { [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_TIMING_PROFILE', $previousProfileExpectation) }
-    & $launcher -Godot $fixture -ValidateOnly ValidateContinueArgument `
+    & $launcher @fixtureParameters -ValidateOnly ValidateContinueArgument `
         -ContinueOnFailure -TimeoutSeconds 15
     $failure = $null
-    try { & $launcher -Godot $fixture -ContinueOnFailure -TimeoutSeconds 15 }
+    try { & $launcher @fixtureParameters -ContinueOnFailure -TimeoutSeconds 15 }
     catch { $failure = $_.ToString() }
     if ($null -eq $failure -or -not $failure.Contains('7 passed, 0 skipped, 1 failed, 8 registered')) {
         throw "Continued failure lost coverage or counted a failure as passed: $failure"
@@ -106,7 +108,7 @@ public static class ValidationLauncherFixture {
     $expected = $original -bor 0x8000
     [void][OracleValidation.ErrorMode]::SetErrorMode($expected)
     try {
-        & $launcher -Godot $fixture -FailOnEngineDiagnostics -TimeoutSeconds 15
+        & $launcher @fixtureParameters -FailOnEngineDiagnostics -TimeoutSeconds 15
         if ([OracleValidation.ErrorMode]::GetErrorMode() -ne $expected) {
             throw 'Successful validation changed the calling process error mode.'
         }
@@ -117,7 +119,7 @@ public static class ValidationLauncherFixture {
         )) {
             $failure = $null
             try {
-                & $launcher -Godot $fixture -ValidateOnly $scenario -TimeoutSeconds 15 `
+                & $launcher @fixtureParameters -ValidateOnly $scenario -TimeoutSeconds 15 `
                     -FailOnEngineDiagnostics `
                     -SkipRomValidation:($scenario -eq 'ValidateIncompleteSkip')
             }

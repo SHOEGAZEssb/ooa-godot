@@ -1,6 +1,6 @@
 param(
     [string]$Disassembly = (Join-Path $PSScriptRoot '..\external\oracles-disasm'),
-    [string]$Rom = (Join-Path $PSScriptRoot "..\Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc"),
+    [string]$Rom,
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\assets\oracle'),
     [switch]$SkipBuild
 )
@@ -8,6 +8,8 @@ param(
 $ErrorActionPreference = "Stop"
 $importRoot = $PSScriptRoot
 $importModuleRoot = Join-Path $importRoot 'import_oracles'
+. (Join-Path $importRoot 'Resolve-OracleRom.ps1')
+$Rom = Resolve-OracleRom -Rom $Rom
 
 class ImportStageContract {
     [string]$Name

@@ -14,7 +14,8 @@ current high-level boundary.
 - Godot 4.7.1 with .NET support
 - .NET 8 SDK and PowerShell (PowerShell 7 on Linux)
 - The pinned `external/oracles-disasm` Git submodule
-- The clean US ROM with MD5 `C4639CC61C049E5A085526BB6CAC03BB`
+- ROM build tools: MSYS2 on Windows; Bash and WLA-DX 10.6 on Linux
+  (see [setup](docs/development.md#requirements))
 
 Initialize the disassembly after cloning (or clone with `--recurse-submodules`):
 
@@ -22,14 +23,11 @@ Initialize the disassembly after cloning (or clone with `--recurse-submodules`):
 git submodule update --init --recursive
 ```
 
-By default, the importer uses `external/oracles-disasm`, relative to the
-repository root, and the ROM is in the repository root as:
-
-```text
-Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc
-```
-
-The ROM is required to generate personal research assets. Do not commit it.
+The importer uses `external/oracles-disasm` by default. On first import it
+builds the clean US ROM from a separate pinned disassembly checkout, verifies
+MD5 `C4639CC61C049E5A085526BB6CAC03BB`, and caches it under `.cache/oracle-rom/`.
+Subsequent imports reuse the verified cache. You do not need to provide a ROM.
+The cache and generated assets are ignored by Git.
 
 ## Build and run
 
@@ -40,7 +38,7 @@ Import the source data, then build:
 dotnet build
 ```
 
-Use path overrides when needed:
+Use path overrides when needed. An explicit `-Rom` bypasses ROM building:
 
 ```powershell
 & .\tools\import_oracles.ps1 -Rom 'D:\roms\ages.gbc' -Disassembly 'D:\src\oracles-disasm'

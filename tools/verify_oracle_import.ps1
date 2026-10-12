@@ -1,13 +1,14 @@
 param(
     [string]$Disassembly = (Join-Path $PSScriptRoot '..\external\oracles-disasm'),
-    [string]$Rom = (Join-Path $PSScriptRoot `
-        "..\Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc"),
+    [string]$Rom,
     [ValidateRange(1, 2)][int]$Workers = 2,
     [ValidateRange(1, 86400)][int]$TimeoutSeconds = 600
 )
 
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
+. (Join-Path $PSScriptRoot 'Resolve-OracleRom.ps1')
+$Rom = Resolve-OracleRom -Rom $Rom
 $testsProject = Join-Path $PSScriptRoot `
     'OracleImporter.Tests\OracleImporter.Tests.csproj'
 $importScript = Join-Path $PSScriptRoot 'import_oracles.ps1'
@@ -36,6 +37,7 @@ try {
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-ImportStages.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-GeneratedTables.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-CutsceneNormalization.ps1')
+    & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-OracleRom.ps1')
 
     $Disassembly = (Resolve-Path -LiteralPath $Disassembly).Path
     $Rom = (Resolve-Path -LiteralPath $Rom).Path

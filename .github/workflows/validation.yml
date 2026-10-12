@@ -27,11 +27,6 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
   GODOT_VERSION: 4.7.1-stable
   GODOT_ARCHIVE_SHA256: 764a089809fb1a6f745686ce9f6d3ca83adce8fb60fb9a4e2324b63baaebaa45
-  WLA_DX_VERSION: '10.6'
-  WLA_DX_ARCHIVE_SHA256: cbb3f8878f8028e6c2fb5cccd79dc9746518ee99def533c8e0b77cbd46a66091
-  ORACLES_DISASM_REPOSITORY: https://github.com/stewmath/oracles-disasm.git
-  ORACLES_DISASM_MASTER_SHA: dfaba5238b102fa2b70f737a977a32219ba80c6b
-  ORACLE_OF_AGES_MD5: c4639cc61c049e5a085526bb6cac03bb
 
 jobs:
   validate:
@@ -51,6 +46,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Set up ROM build environment
+        id: msys2
         uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
         with:
           update: true
@@ -59,44 +55,17 @@ jobs:
             make
             python
             python-yaml
+            curl
             unzip
 
       - name: Rebuild verified Oracle of Ages source ROM
-        shell: msys2 {0}
+        shell: pwsh
+        env:
+          OOA_ROM_BUILD_BASH: ${{ steps.msys2.outputs.msys2-location }}/usr/bin/bash.exe
         run: |
-          set -euo pipefail
-
-          runner_temp="$(cygpath -u "$RUNNER_TEMP")"
-          wla_archive="$runner_temp/wla-dx.zip"
-          wla_root="$runner_temp/wla-dx"
-          disassembly="$runner_temp/oracles-disasm"
-          source_rom="$runner_temp/oracle-of-ages-us.gbc"
-
-          curl --fail --location --silent --show-error \
-            "https://github.com/vhelin/wla-dx/releases/download/v${WLA_DX_VERSION}/wla_dx_v${WLA_DX_VERSION}_Win64.zip" \
-            --output "$wla_archive"
-          echo "${WLA_DX_ARCHIVE_SHA256} *${wla_archive}" | sha256sum --check --strict
-          mkdir -p "$wla_root"
-          unzip -q "$wla_archive" -d "$wla_root"
-          export PATH="$wla_root/wla_dx_v${WLA_DX_VERSION}_Win64:$PATH"
-
-          mkdir -p "$disassembly"
-          git -C "$disassembly" init --quiet
-          git -C "$disassembly" remote add origin "$ORACLES_DISASM_REPOSITORY"
-          git -C "$disassembly" fetch --quiet --depth 1 origin "$ORACLES_DISASM_MASTER_SHA"
-          git -C "$disassembly" checkout --quiet --detach FETCH_HEAD
-          make -C "$disassembly" ages
-
-          actual_md5="$(md5sum "$disassembly/ages.gbc" | cut -d ' ' -f 1)"
-          if [[ "$actual_md5" != "$ORACLE_OF_AGES_MD5" ]]; then
-            echo "Expected Oracle of Ages MD5 $ORACLE_OF_AGES_MD5, got $actual_md5." >&2
-            exit 1
-          fi
-          mv "$disassembly/ages.gbc" "$source_rom"
-
-          {
-            echo "ORACLES_ROM=$(cygpath -w "$source_rom")"
-          } >> "$(cygpath -u "$GITHUB_ENV")"
+          . .\tools\Resolve-OracleRom.ps1
+          $rom = Resolve-OracleRom
+          "ORACLES_ROM=$rom" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Test importer and verify deterministic generated assets
         shell: pwsh

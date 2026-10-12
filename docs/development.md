@@ -4,9 +4,13 @@
 
 - Godot 4.7.1 with .NET support
 - .NET 8 SDK and PowerShell
-- A clean US Oracle of Ages ROM with MD5
-  `C4639CC61C049E5A085526BB6CAC03BB`
 - The pinned vanilla `external/oracles-disasm` Git submodule
+- Windows: MSYS2 with `git`, `make`, `python`, `python-yaml`, `curl` and `unzip`.
+  Install these in an MSYS2 shell with
+  `pacman -S --needed git make python python-yaml curl unzip`.
+- Linux: Bash, Git, Make, Python 3 with PyYAML, and WLA-DX 10.6 (`wla-gb`
+  and `wlalink` on `PATH`). Windows downloads and verifies the pinned WLA-DX
+  archive automatically.
 
 Initialize the disassembly with `git submodule update --init --recursive`, or
 clone this repository with `--recurse-submodules`.
@@ -19,8 +23,18 @@ Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm
 Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
 
-Pass `-Rom` or `-Disassembly` to the importer for other locations. Never commit
-the ROM.
+The importer builds and verifies the supported clean US ROM automatically,
+then reuses it from `.cache/oracle-rom/`. First use needs network access;
+cached imports work offline. The ROM build checkout is independent of the
+import submodule and never changes it. Build inputs are pinned in
+`tools/rom-build/pins.json`, shared with CI. A changed pin selects a new cache;
+a corrupt cached ROM is rebuilt.
+
+MSYS2 is discovered through `MSYS2_ROOT` or its default `C:/msys64` installation.
+For another installation set `OOA_ROM_BUILD_BASH` to the full path of its
+`usr/bin/bash.exe`. An explicit `-Rom PATH` uses a verified existing ROM and
+needs no ROM build tools or network. `-Disassembly` selects import sources;
+it does not change the ROM build pin. Never commit the ROM.
 
 ## Common commands
 
@@ -177,8 +191,8 @@ at an integer scale; the internal viewport is 160 by 144.
 
 ## Continuous validation
 
-[The validation workflow](../.github/workflows/validation.yml) rebuilds the
-supported ROM from pinned public sources, verifies its MD5, runs importer
+[The validation workflow](../.github/workflows/validation.yml) uses the same
+ROM builder and pins as local imports, verifies its MD5, runs importer
 ownership and determinism checks, builds with warnings as errors, downloads the
 pinned Godot .NET version, runs the complete headless suite, rejects Godot
 warnings/errors, and runs `git diff --check`.

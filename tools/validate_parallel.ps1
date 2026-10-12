@@ -36,6 +36,10 @@ namespace OracleValidation {
 }
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $validationArguments = @()
+if (-not $Rom -and -not $SkipRomValidation) {
+    . (Join-Path $PSScriptRoot 'Resolve-OracleRom.ps1')
+    $Rom = Resolve-OracleRom
+}
 if ($Rom) {
     $romPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Rom)
     $validationArguments += '"--validation-rom=' + $romPath + '"'

@@ -1,0 +1,10 @@
+{
+  "recipeVersion": 1,
+  "repository": "https://github.com/stewmath/oracles-disasm.git",
+  "revision": "dfaba5238b102fa2b70f737a977a32219ba80c6b",
+  "wlaVersion": "10.6",
+  "wlaLinkVersion": "5.21",
+  "windowsArchiveSha256": "cbb3f8878f8028e6c2fb5cccd79dc9746518ee99def533c8e0b77cbd46a66091",
+  "romLength": 1048576,
+  "romMd5": "c4639cc61c049e5a085526bb6cac03bb"
+}

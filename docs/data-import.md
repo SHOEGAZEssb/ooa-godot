@@ -14,9 +14,14 @@ regardless of the working directory. Keep the pinned revision for reproducible
 imports; updating it requires reviewing generated differences and rerunning
 verification. `external/.gdignore` keeps source assets outside Godot's resource
 scan and exports.
-The importer does not require building the disassembly. `hack-base` is not a
-supported input: its expanded tilesets and CROSSITEMS behavior differ from the
-original game.
+The import submodule is never built or modified. Without `-Rom`, the shared
+ROM resolver builds a separate checkout using `tools/rom-build/pins.json` and
+caches the verified image under `.cache/oracle-rom/`. The ROM-build revision
+is intentionally independent of the import revision, matching the proven CI
+recipe. A warm cache requires no build tools or network; concurrent callers
+share a build lock, and failed builds are retained for diagnostics without
+publishing an unverified image. `hack-base` is not a supported input: its
+expanded tilesets and CROSSITEMS behavior differ from the original game.
 
 Vanilla shared layout headers are resolved into per-tileset mapping/collision
 files, and clean-ROM main and unique graphics uploads compose each atlas in
@@ -32,10 +37,12 @@ The stable entry point validates the clean US ROM before doing any work:
 & .\tools\import_oracles.ps1 -Rom 'D:\roms\ages.gbc' -Disassembly 'D:\src\oracles-disasm'
 ```
 
-Expected MD5: `C4639CC61C049E5A085526BB6CAC03BB`. A different ROM must fail;
-bank addresses and source data are not interchangeable.
+Expected MD5: `C4639CC61C049E5A085526BB6CAC03BB`. An explicit `-Rom` bypasses
+the builder and cache but must pass the same size and hash checks. A different
+ROM must fail; bank addresses and source data are not interchangeable.
 
-On Linux, install PowerShell 7 and the .NET 8 SDK, then invoke the same entry
+On Linux, install PowerShell 7, the .NET 8 SDK and the ROM build dependencies
+listed in [Development](development.md#requirements), then invoke the same entry
 point with `pwsh -NoProfile -File tools/import_oracles.ps1`. ROM and disassembly
 overrides accept native Linux paths. Windows PowerShell 5.1 remains supported.
 

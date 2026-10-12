@@ -78,12 +78,13 @@ Run one exact registered method while developing:
 An unknown name fails. A focused run is a development aid; run the complete
 suite before handoff.
 
-ROM-backed comparisons are registered in the normal suite. They require the
-supported clean US ROM at the repository's default
-`Legend of Zelda, The - Oracle of Ages (U) [C][!].gbc` path. Use `-Rom PATH`
-to select another location; the launcher passes it as `--validation-rom=PATH`.
+ROM-backed comparisons are registered in the normal suite. The launcher
+automatically resolves the same verified ROM cache used by the importer,
+building it on first use. Use `-Rom PATH` to select an existing image;
+the launcher passes the resolved path as `--validation-rom=PATH`.
 Missing or unsupported ROMs fail explicitly when a ROM-backed scenario runs.
-Focused scenarios that do not execute the ROM do not require it.
+Use `-SkipRomValidation` for focused scenarios that do not need a ROM when
+the build tools and cache are unavailable.
 
 CI rebuilds the clean US ROM from a pinned disassembly revision, verifies its
 MD5, and passes it with `-Rom` to the complete 8-worker suite. Each worker also
