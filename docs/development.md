@@ -137,7 +137,6 @@ Development-only controls:
 | F3 | Arrange a normal Maple encounter |
 | F4 | Spawn enemies and item drops at room coordinates |
 | F5 | Toggle 4× fast forward (also works in the title flow and menus) |
-| V | Warp to the configured debug room (default `4:11`) |
 | Shift + 0-9 | Save a debug savestate |
 | 0-9 | Load a debug savestate |
 
@@ -159,8 +158,7 @@ room-completion counting and placed-enemy defeat bits disabled. Drops use their
 normal collection behavior. Spawned objects are transient and disappear on room
 reload; their ordinary gameplay effects can still change live state.
 
-Override the V target with `--debug-warp-group=` and
-`--debug-warp-room=`. Debug tools mutate live state and do not bypass the
+Debug tools mutate live state and do not bypass the
 project's explicit-save rules. Debug savestates are separate from the three
 retail-compatible file slots.
 

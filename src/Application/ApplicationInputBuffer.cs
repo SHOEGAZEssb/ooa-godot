@@ -22,7 +22,6 @@ internal sealed class ApplicationInputBuffer
         "map",
         "inventory",
         "debug_map_travel",
-        "debug_room_warp",
         "debug_collision",
         "debug_flags",
         "debug_maple",

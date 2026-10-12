@@ -48,7 +48,6 @@ public partial class GameRoot : Node2D
     internal ShovelController _shovel = null!;
     internal SeedSatchelController _seedSatchel = null!;
     internal HarpController _harp = null!;
-    internal DebugWarpController _debugWarps = null!;
     internal DebugCollisionController _debugCollision = null!;
     internal DebugMapleController _debugMaple = null!;
     internal MapMenuController _mapMenu = null!;
@@ -1010,7 +1009,6 @@ public partial class GameRoot : Node2D
             _rooms.MarkCurrentRoomVisited();
         }
         UpdateRoomDebugLabel();
-        _debugWarps.Update();
     }
 
     internal void UpdatePostObjectPlayerState(bool roomExitSampled = false)
@@ -1293,9 +1291,6 @@ public partial class GameRoot : Node2D
             _terrain, _combat, _entities,
             _bomb, _bracelet, _shovel, _seedSatchel, _harp, _roomEvents,
             _inventory, _sound, () => _debugCollision.CollisionsDisabled, _rooms);
-        _debugWarps = new DebugWarpController(
-            _player, LoadDebugRoom, FindSpawn,
-            _launchOptions.DebugWarpGroup, _launchOptions.DebugWarpRoom);
         _debugMaple = new DebugMapleController(
             _entities, _rooms, _saveData, _inventory, _player,
             LoadDebugRoom, FindSpawn,

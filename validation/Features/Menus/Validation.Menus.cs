@@ -1184,7 +1184,7 @@ public sealed partial class ValidationRoot
         GD.Print("Validated F2 Link noclip toggle, wall bypass, push suppression, and status label.");
     }
 
-    private void ValidateDebugRoomWarp()
+    private void ValidateRemovedDebugRoomShortcuts()
     {
         string[] removedActions =
         [
@@ -1193,33 +1193,22 @@ public sealed partial class ValidationRoot
             "debug_bush",
             "debug_house",
             "debug_chest",
-            "debug_bracelet_chest"
+            "debug_bracelet_chest",
+            "debug_room_warp"
         ];
         FailIf(
             removedActions.Any(action => InputMap.HasAction(action)),
             "A fixed test-room input action remained registered.");
 
-        InputEventKey[] bindings = InputMap.HasAction("debug_room_warp")
-            ? InputMap.ActionGetEvents("debug_room_warp").OfType<InputEventKey>().ToArray()
-            : [];
         FailIf(
-            bindings.Length != 1 || bindings[0].PhysicalKeycode != Key.V,
-            "The configurable debug room warp was not bound exclusively to physical V.");
-        FailIf(
-            _debugWarps.TargetGroup != 4 || _debugWarps.TargetRoom != 0x11,
-            $"Expected the default debug target 4:11, got " +
-            $"{_debugWarps.TargetGroup:x1}:{_debugWarps.TargetRoom:x2}.");
+            InputMap.GetActions().Any(action => InputMap.ActionGetEvents(action)
+                .OfType<InputEventKey>()
+                .Any(key => (key.PhysicalKeycode == Key.V || key.Keycode == Key.V) &&
+                    !key.CtrlPressed && !key.AltPressed &&
+                    !key.MetaPressed && !key.ShiftPressed)),
+            "The removed V debug shortcut remained bound to an input action.");
 
-        LoadValidationRoom(0, 0x11);
-        _debugWarps.WarpToTarget();
-        FailIf(
-            _activeGroup != 4 || _currentRoom.Id != 0x11 ||
-            _player.Position != FindSpawn() ||
-            _player.FacingVector != Vector2I.Down,
-            "The configurable debug warp did not load and place Link in 4:11.");
-
-        GD.Print("Validated the sole fixed-key room shortcut: V to configurable " +
-            "debug target 4:11.");
+        GD.Print("Validated removal of fixed test-room shortcuts, including V.");
     }
 
     private void ValidateDebugMapleShortcut()

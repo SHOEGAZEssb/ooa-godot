@@ -670,7 +670,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDebugObjectSpawner);
         RunIsolatedValidation(ValidateDebugObjectPreviews);
         RunIsolatedValidation(ValidateDebugCollision);
-        RunIsolatedValidation(ValidateDebugRoomWarp);
+        RunIsolatedValidation(ValidateRemovedDebugRoomShortcuts);
         RunIsolatedValidation(ValidateDebugMapleShortcut);
         RunIsolatedValidation(ValidateDeathRespawnCheckpoints);
         RunIsolatedValidation(ValidateStartupTransitionFromRoom011);
