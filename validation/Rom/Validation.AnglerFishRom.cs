@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         foreach(bool batch in new[]{false,true})
         {
-            ReinitializeGameplayForValidation();LoadValidationRoom(5,0x4a);
+            ReinitializeGameplayForValidation();LoadValidationRoom(7,0x4a);
             _inventory.EquipA(0);_inventory.EquipB(0);_player.WarpTo(new(24,152));
             FailIf(_collision.Collides(_player.Position),"Angler Fish fixture requires source floor in room$5:$4a.");
             var slots=SomariaPrivate<Dictionary<IRoomEntity,int>>(_entities,"_enemySlots");
@@ -27,6 +27,7 @@ public sealed partial class ValidationRoot
             rom[0xd026]=rom[0xd027]=6;rom[0xff94]=seed.Rng1;rom[0xff95]=seed.Rng2;
             rom[0xca4a]=_saveData.GetRoomFlags(5,0x4a);rom[0xca4d]=_saveData.GetRoomFlags(5,0x4d);
             int update=0;var states=new HashSet<int>();
+            var checkedAntennaTextures=new HashSet<ulong>();
             void Compare()
             {
                 rom.Update(_entities.FrameCounter,_player.Position);update++;
@@ -40,6 +41,8 @@ public sealed partial class ValidationRoot
                         (actor.InvincibilityCounter&255)!=rom[s+0x2b],
                         $"Angler slot${slot:x2} update{update}, batch={batch}: runtime sub/state/counts/angle/dir/speed/HP/XY/visible/anim={actor.SubId}/{actor.State}/{actor.Counter1},{actor.Counter2}/{actor.Angle}/{actor.Direction}/${actor.Speed:x2}/{actor.Health}/{actor.Position}/{actor.Visible}/{actor.AnimationParameter}; ROM={rom[s+2]}/{rom[s+4]}/{rom[s+6]},{rom[s+7]}/{rom[s+9]}/{rom[s+8]}/${rom[s+0x10]:x2}/{rom[s+0x29]}/{rom.Word(s+12)/256f},{rom.Word(s+10)/256f}/{rom[s+0x1a]:x2}/{rom[s+0x21]}.");
                 }
+                foreach(var antenna in _entities.Entities<AnglerFishCharacter>().Where(actor=>actor.IsAntenna && actor.State==9))
+                    ValidateAnglerAntennaPixels(antenna,checkedAntennaTextures);
                 states.Add(body.State);
                 var rng=_random.CaptureState();
                 FailIf(rng.Rng1!=rom[0xff94] || rng.Rng2!=rom[0xff95] || rng.Calls-seed.Calls!=rom.RandomCalls || _entities.RoomEnemyCount!=rom[0xcdd1],
@@ -67,14 +70,53 @@ public sealed partial class ValidationRoot
             var weak=slots.Single(pair=>pair.Key.Node is AnglerFishCharacter {IsAntenna:true});
             var antenna=(AnglerFishCharacter)weak.Key.Node;
             FailIf(antenna.Health!=30,"Angler weak spot retains independent source HP30.");
-            rom.HitWithSword(ItemCollisionType.L1Sword,30,weak.Value);
             ((ILinkSwordStateAwareRoomEntity)weak.Key).SetLinkSwordState(SwordActionState.Swing,1);
+            rom.HitWithSword(ItemCollisionType.L1Sword,1,weak.Value);
+            FailIf(!((ISwordHittableRoomEntity)weak.Key).ApplySwordHit(antenna.CollisionBounds,antenna.Position-Vector2.Right,1,
+                EnemyKnockbackStrength.Normal,new List<RoomEntitySpawn>()),"Angler antenna must accept a nonlethal native sword hit.");
+            StepGameplayUpdates(1,Vector2.Zero,batched:batch,afterUpdate:Compare);
+            FailIf(body.Health!=30 || antenna.Health!=29 || body.InvincibilityCounter!=32 || antenna.Visible,
+                "ENEMY$76:$01 copies its hit invincibility to the body and hides the glow, retaining independent HP.");
+            StepGameplayUpdates(40,Vector2.Zero,batched:batch,afterUpdate:Compare);
+            FailIf(body.InvincibilityCounter!=0 || antenna.InvincibilityCounter!=0,
+                "ENEMY$76 antenna/body must clear the native hit cooldown before a repeated sword hit.");
+            rom.HitWithSword(ItemCollisionType.L1Sword,30,weak.Value);
             FailIf(!((ISwordHittableRoomEntity)weak.Key).ApplySwordHit(antenna.CollisionBounds,antenna.Position-Vector2.Right,30,
                 EnemyKnockbackStrength.Normal,new List<RoomEntitySpawn>()),"Angler antenna must accept native sword damage.");
             StepGameplayUpdates(300,Vector2.Zero,batched:batch,afterUpdate:Compare);
             FailIf(!body.IsDead || _entities.RoomEnemyCount!=0 || !_saveData.HasRoomFlag(5,0x4a,0x80) || !_saveData.HasRoomFlag(5,0x4d,0x80),
                 $"Angler death must finish its counted explosion and persist both ladder/portal room flags: dead={body.IsDead}, count={_entities.RoomEnemyCount}, flags=${_saveData.GetRoomFlags(5,0x4a):x2}/${_saveData.GetRoomFlags(5,0x4d):x2}.");
+            LoadValidationRoom(7,0x4a);
+            StepGameplayUpdates(1,Vector2.Zero,batched:batch);
+            FailIf(_entities.Entities<AnglerFishCharacter>().Count!=0 || _entities.RoomEnemyCount!=0 ||
+                _entities.Entities<JabuLadderRoomEntity>().Count!=0,
+                "Room$7:$4a re-entry after flag$80 must suppress the defeated miniboss and completed ladder controller.");
         }
-        GD.Print("Validated clean-US Angler Fish entry, antenna allocation, side-view bounce/bubbles, Scent Seed deflation and independent weak-spot death through split/batched gameplay.");
+        GD.Print("Validated clean-US Angler Fish entry, antenna allocation/fixed-bank glow pixels, side-view bounce/bubbles, Scent Seed deflation and independent weak-spot death through split/batched gameplay.");
+    }
+
+    private void ValidateAnglerAntennaPixels(AnglerFishCharacter antenna,HashSet<ulong> checkedTextures)
+    {
+        Texture2D texture=antenna.CurrentAnimationTexture;
+        if(!checkedTextures.Add(texture.GetInstanceId()))return;
+        var native=new ObjectAnimationRom(1,0x76);native.Set(6);
+        FailIf(native.Oam!="8,4,0,0" || native.Counter!=127 || native.Parameter!=0 ||
+            antenna.AnimationIndex!=6 || antenna.Animation.CurrentOffset!=new Vector2(-4,-8) ||
+            texture.GetSize()!=new Vector2(8,16),
+            "ENEMY$76:$01 glow requires native animation$06, OAM Y$08/X$04/tile$00/flags$00 and positioned 8x16 bounds.");
+        // Independent golden from GFXH_COMMON_SPRITES at $8000/bank 1,
+        // 8x16 tile pair $1e/$1f, with common OBJ palette$05. The fish
+        // sheet's tile$1e is a deflated body fragment, not this round glow.
+        string[] pixels=["00000000","00000000","00000000","00000000","00000000",
+            "00111100","01233210","01333310","01333310","01233210","00111100",
+            "00000000","00000000","00000000","00000000","00000000"];
+        Color[] colors=[new(0,0,0,0),new(1,22/31f,6/31f),new(27/31f,0,0),new(0,0,0)];
+        using Image expected=Image.CreateEmpty(8,16,false,Image.Format.Rgba8);
+        for(int y=0;y<16;y++)for(int x=0;x<8;x++)expected.SetPixel(x,y,colors[pixels[y][x]-'0']);
+        using Image actual=texture.GetImage();
+        for(int y=0;y<16;y++)for(int x=0;x<8;x++)
+            FailIf(actual.GetPixel(x,y)!=expected.GetPixel(x,y),
+                $"ENEMY$76:$01 antenna pixel({x},{y}) differs from fixed-bank common glow tile$1e/palette$05: " +
+                $"actual={actual.GetPixel(x,y)}, expected={expected.GetPixel(x,y)}.");
     }
 }

@@ -136,7 +136,11 @@ internal sealed partial class AnglerFishCharacter : EnemyCharacter
         if(State==8)
         {
             int health=Health,inv=InvincibilityCounter;
-            InitializeEnemy(Position,EnemyCharacterConfiguration.FromImported(Record with {TileBase=0x1e,Palette=5}),initialAnimation:6,positionedOam:true);
+            // anglerFish_antenna/@state8 sets flags $0d: tile $1e is in
+            // fixed VRAM bank 1, independent of the body's loaded fish sheet.
+            InitializeEnemy(Position,EnemyCharacterConfiguration.FromImported(Record with {
+                Sprites=[_data.AntennaSprite],TileBase=_data.AntennaTileBase,Palette=_data.AntennaPalette}),
+                initialAnimation:_data.AntennaAnimation,positionedOam:true);
             Health=health;InvincibilityCounter=inv;State=9;CollisionMode=0x47;Visible=false;return;
         }
         CopyHigh(_related.Position.Floor()+_data.AntennaOffset(_related.Direction));

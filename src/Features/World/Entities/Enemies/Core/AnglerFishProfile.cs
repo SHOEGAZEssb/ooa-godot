@@ -9,6 +9,10 @@ internal sealed class AnglerFishProfile
     private static readonly Lazy<AnglerFishProfile> LazyShared=new(()=>new());
     internal static AnglerFishProfile Shared=>LazyShared.Value;
     internal IReadOnlyList<int> State {get;}
+    internal string AntennaSprite {get;}
+    internal int AntennaTileBase {get;}
+    internal int AntennaPalette {get;}
+    internal int AntennaAnimation {get;}
     private readonly IReadOnlyList<int> _offsets,_bodyEffects,_antennaEffects,_bubbleEffects,_active,_bubbleActive;
     private AnglerFishProfile()
     {
@@ -33,6 +37,12 @@ internal sealed class AnglerFishProfile
         _bodyEffects=Take("effects-64",32);_antennaEffects=Take("effects-47",32);_bubbleEffects=Take("effects-24",32);
         _active=Take("active-76",32);_bubbleActive=Take("active-26",32);
         if(profiles.Count!=0)throw new InvalidOperationException("anglerFish.s: unconsumed source tables.");
+        var visual=GeneratedTable.Load("res://assets/oracle/enemies/angler_fish_antenna.tsv",
+            new GeneratedTableSchema("Angler Fish fixed-bank antenna",GeneratedTableKeySemantics.Unique,
+                ["sprite","tile-base","palette","animation","source"],["sprite"],headerRequired:true));
+        var visualRow=visual.SingleRow();
+        AntennaSprite=visualRow.RequiredString(0);AntennaTileBase=visualRow.Decimal(1,0,255);
+        AntennaPalette=visualRow.Decimal(2,0,7);AntennaAnimation=visualRow.Decimal(3,0,6);_=visualRow.RequiredString(4);
     }
     internal Vector2I AntennaOffset(int direction)
     {

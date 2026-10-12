@@ -142,6 +142,27 @@ foreach ($species in @('anglerFish','plasmarine')) {
         }
     }
     $filename = if ($species -eq 'anglerFish') { 'angler_fish.tsv' } else { 'plasmarine.tsv' }
+    if ($species -eq 'anglerFish') {
+        # The antenna replaces the dynamically loaded fish graphics with a
+        # fixed VRAM-bank-1 sprite. Tile $1e belongs to the common glow sheet.
+        $antennaVisual = [regex]::Match($enemySource,
+            '(?ms)^anglerFish_antenna:.*?@state8:.*?Enemy\.oamTileIndexBase\s+ld \(hl\),\$(?<tile>[0-9a-f]{2}).*?' +
+            'Enemy\.oamFlagsBackup\s+ld a,\$(?<flags>[0-9a-f]{2}).*?ld a,\$(?<animation>[0-9a-f]{2})\s+jp enemySetAnimation')
+        $fixedGraphics = Read-ImportText (Join-Path $Disassembly 'data/ages/gfxHeaders.s')
+        if (!$antennaVisual.Success -or $antennaVisual.Groups['tile'].Value -ne '1e' -or
+            $antennaVisual.Groups['flags'].Value -ne '0d' -or $antennaVisual.Groups['animation'].Value -ne '06' -or
+            $fixedGraphics -notmatch '(?ms)^m_GfxHeaderStart \$83, GFXH_COMMON_SPRITES\s+m_GfxHeader (?<sprite>spr_common_sprites), \$8001\s+m_GfxHeaderEnd') {
+            throw 'anglerFish.s: antenna must select GFXH_COMMON_SPRITES bank 1, tile $1e, flags $0d, animation $06.'
+        }
+        $antennaSprite = $Matches.sprite
+        $antennaTile = [Convert]::ToInt32($antennaVisual.Groups['tile'].Value,16)
+        $antennaPalette = [Convert]::ToInt32($antennaVisual.Groups['flags'].Value,16) -band 7
+        $antennaAnimation = [Convert]::ToInt32($antennaVisual.Groups['animation'].Value,16)
+        Write-GeneratedTable((Join-Path $destination 'enemies/angler_fish_antenna.tsv'), @(
+            "# sprite`ttile-base`tpalette`tanimation`tsource",
+            "$antennaSprite`t$antennaTile`t$antennaPalette`t$antennaAnimation`t${relative}:anglerFish_antenna/@state8;gfxHeaders.s:GFXH_COMMON_SPRITES"
+        ))
+    }
     if ($species -eq 'plasmarine') {
         $projectileSource = Read-ImportText (Join-Path $Disassembly 'object_code/ages/parts/plasmarineProjectile.s')
         if ($projectileSource -notmatch '(?ms)^@state0:.*?cp \$03.*?SPEED_80.*?SPEED_e0.*?ld \(hl\),150.*?ld \(hl\),\$08' -or
