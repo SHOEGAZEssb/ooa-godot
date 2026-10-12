@@ -67,6 +67,7 @@ public sealed class RoomEventController
         var impa = new ImpaIntroEvent(_context);
         yield return false;
         var remoteMakuThirdEssence = new RemoteMakuThirdEssenceEvent(_context);
+        var remoteMakuSeventhEssence = new RemoteMakuSeventhEssenceEvent(_context);
         yield return false;
         // Entry precedence is explicit. Construction and typed lookup share this
         // one registration; A-button routing below has its own source order.
@@ -85,6 +86,8 @@ public sealed class RoomEventController
             () => new RemoteMakuFourthEssenceEvent(_context),
             () => new RemoteMakuFifthEssenceEvent(_context),
             () => new RemoteMakuSixthEssenceEvent(_context),
+            () => remoteMakuSeventhEssence,
+            () => new PostD7Event(_context, remoteMakuSeventhEssence),
             () => new RemoteMakuHarpEvent(_context),
             () => new RemoteMakuWingDungeonEvent(_context),
             () => new PostD3RemoteMakuEvent(_context, remoteMakuThirdEssence),
@@ -253,6 +256,7 @@ public sealed class RoomEventController
                 Get<TokayTradingEvent>().TryInteractPlayer)
         ];
         _context.Entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
+        _context.Entities.PostD7AmbiFactory = Get<PostD7Event>().CreatePlacedAmbi;
         Get<RemoteMakuFifthEssenceEvent>().SpawnTunnelGoron=Get<GoronCaveEvent>().SpawnTunnelGoron;
         _context.Entities.ObjectFellInHole += NotifyObjectFellInHole;
         _context.Entities.DungeonEssenceTriggered += Get<DungeonEssenceEvent>().Begin;
@@ -277,8 +281,8 @@ public sealed class RoomEventController
 
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
     internal bool OwnsGameLogic => _eventsByPriority.Any(roomEvent => roomEvent.OwnsGameLogic);
-    internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled;
-    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive;
+    internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled || Get<PostD7Event>().HasState;
+    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive;
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
         var retraction=Get<WallRetractionEvent>();
@@ -287,7 +291,8 @@ public sealed class RoomEventController
         var rescueWarp=Get<NayruRescueWarpEvent>();
         var jabu=Get<JabuExteriorEvent>();
         var cleanSeas=Get<CleanSeasEvent>();
-        bool owned=retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive;
+        var postD7 = Get<PostD7Event>();
+        bool owned=retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive;
         retraction.AdvanceBeforeObjects();
         boot.AdvanceBeforeObjects();
         passage.AdvanceBeforeObjects();
@@ -295,10 +300,12 @@ public sealed class RoomEventController
         rescueWarp.AdvanceBeforeObjects();
         jabu.AdvanceBeforeObjects();
         cleanSeas.AdvanceBeforeObjects();
+        postD7.AdvanceBeforeObjects();
         return owned || rescueWarp.HasState;
     }
     internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);
     internal bool ObjectUpdateSuspended => _eventsByPriority.Any(roomEvent => roomEvent.ObjectUpdateSuspended);
+    internal bool SkipsObjectUpdate => _eventsByPriority.Any(roomEvent => roomEvent.SkipsObjectUpdate);
     internal void ResumeObjectUpdate() =>
         _eventsByPriority.Single(roomEvent => roomEvent.ObjectUpdateSuspended).ResumeObjectUpdate();
     internal void UpdateSpecialObjects()

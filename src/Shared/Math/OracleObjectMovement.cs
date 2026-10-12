@@ -110,12 +110,13 @@ internal sealed class OracleObjectMovement
         ref OracleObjectPosition position,
         ref int speedZ,
         int gravity,
-        Func<Vector2, bool> isSolidAllowingHoles)
+        Func<Vector2, bool> isSolidAllowingHoles,
+        int yOffset = 6)
     {
         short signedSpeed = unchecked((short)speedZ);
         if (signedSpeed >= 0)
         {
-            int y = unchecked((byte)((position.YFixed >> 8) + 6));
+            int y = unchecked((byte)((position.YFixed >> 8) + yOffset));
             int x = position.XFixed >> 8;
             if (isSolidAllowingHoles(new Vector2(
                     unchecked((byte)(x - 4)), y)) ||

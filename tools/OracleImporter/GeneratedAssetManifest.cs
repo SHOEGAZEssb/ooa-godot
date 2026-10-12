@@ -30,7 +30,7 @@ public sealed class GeneratedAssetManifest
         var entries = new List<GeneratedAssetEntry>();
         foreach (string file in Directory
             .EnumerateFiles(fullRoot, "*", SearchOption.AllDirectories)
-            .OrderBy(path => Path.GetRelativePath(fullRoot, path), StringComparer.Ordinal))
+            .OrderBy(path => Path.GetRelativePath(fullRoot, path).Replace('\\', '/'), StringComparer.Ordinal))
         {
             if (string.Equals(Path.GetExtension(file), ".import", StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -81,7 +81,7 @@ public sealed class GeneratedAssetManifest
             entry.Sha256,
             entry.RecordCount?.ToString(CultureInfo.InvariantCulture) ?? "-",
             string.IsNullOrEmpty(entry.KeySequenceSha256) ? "-" : entry.KeySequenceSha256)));
-        File.WriteAllLines(path, lines, new UTF8Encoding(false));
+        File.WriteAllText(path, string.Join('\n', lines) + "\n", new UTF8Encoding(false));
     }
 
     public void AssertEquivalent(GeneratedAssetManifest actual)

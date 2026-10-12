@@ -1009,7 +1009,7 @@ public sealed partial class ValidationRoot
             _entities.RoomEnemyCount != 0 ||
             fallingKey.Position != new Vector2(0x88, 0x58) ||
             fallingKey.Record.TreasureObject != "TREASURE_OBJECT_SMALL_KEY_01" ||
-            fallingKey.Record.SpawnMode != 2 || fallingKey.Record.GrabMode != 2 ||
+            fallingKey.Record.SpawnMode != 2 || fallingKey.Record.GrabMode != TreasureGrabMode.NoChange ||
             fallingKey.Record.SpawnDelayFrames != 40 ||
             fallingKey.Record.BounceCount != 2 || fallingKey.Record.Gravity != 0x10 ||
             fallingKey.Record.BounceSpeed != -0xaa ||
@@ -1869,7 +1869,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
             fallingKey.Position != new Vector2(0x58, 0x58) ||
             fallingKey.Record.TreasureObject != "TREASURE_OBJECT_SMALL_KEY_01" ||
-            fallingKey.Record.SpawnMode != 2 || fallingKey.Record.GrabMode != 2 ||
+            fallingKey.Record.SpawnMode != 2 || fallingKey.Record.GrabMode != TreasureGrabMode.NoChange ||
             fallingKey.Record.SpawnDelayFrames != 40 ||
             fallingKey.Record.BounceCount != 2 ||
             fallingKey.Record.Gravity != 0x10 ||
@@ -2641,9 +2641,9 @@ public sealed partial class ValidationRoot
             "SND_GETSEED, and ROOMFLAG_ITEM on contact.");
         Step();
         FailIf(
-            !fallingKey.Held ||
-            _sound.PlayRequestsFor(SoundId.SndGetItem) != 1,
-            "Room 4:64's collected key did not enter its held SND_GETITEM pose.");
+            !fallingKey.Finished || fallingKey.Held ||
+            _sound.PlayRequestsFor(SoundId.SndGetItem) != 0,
+            "treasureObjectData30 SMALL_KEY_01 grab mode $00 must delete room $4:$64's key on the next update without a held pose or SND_GETITEM.");
 
         LoadValidationRoom(4, 0x64);
         Step();
@@ -2657,7 +2657,7 @@ public sealed partial class ValidationRoot
         GD.Print(
             "Compared bounded native room$04:$64 directional block/key handoffs, " +
             "pattern capacity/flags/scroll and falling physics; retained separate " +
-            "source collector/held-pose and ROOMFLAG_ITEM re-entry checks.");
+            "source collector/no-change grab and ROOMFLAG_ITEM re-entry checks.");
     }
 
     private void ValidateMoonlitGrottoCrystalCutsceneFreeze()

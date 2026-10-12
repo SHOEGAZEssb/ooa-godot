@@ -522,6 +522,7 @@ public sealed class RoomEntityManager : IDisposable
             "Native channel-volume writes require the sound driver owner."))(channel, value);
 
     public OracleRuntimeState RuntimeState => _runtimeState;
+    internal Func<NpcRecord, IRoomEntity>? PostD7AmbiFactory { get; set; }
     private ObjectGraphicsLoadState? _objectGraphics;
     internal ObjectGraphicsLoadState ObjectGraphics => _objectGraphics ??= new(_runtimeState);
     internal BipinBlossomFamilyStateResolver FamilyStateResolver =>
@@ -732,6 +733,7 @@ public sealed class RoomEntityManager : IDisposable
 
     internal IEnumerable<bool> PrepareResources() => _factory.PrepareResources();
     internal KeyholeControllerDatabase KeyholeControllers => _factory.Resources.KeyholeControllers;
+    internal JabuExteriorDatabase JabuExterior => _factory.Resources.JabuExterior;
 
     public List<T> Entities<T>() where T : Node2D => SelectNodes<T>(_activeEntities);
     internal IEnumerable<T> EntityAdapters<T>() where T : IRoomEntity =>
@@ -2661,7 +2663,7 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is NayruRescueLightningRoomEntity ? 1 :
-        entity is VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
+        entity is PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
             or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
@@ -2783,7 +2785,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or NayruRescueBowtieRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
+        PostD7ActorRoomEntity or PostD7BallRoomEntity or NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or NayruRescueBowtieRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
         CompanionTutorialRoomEntity { NativeAllocationEnabled: true } or
         KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or CleanSeasZoraRoomEntity or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
         LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
@@ -2793,7 +2795,7 @@ public sealed class RoomEntityManager : IDisposable
             or GrassDebrisEffect or RockDebrisEffect or ShovelDebrisEffect or SplashEffect or OverworldKeyUseEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or NuunBridgeRoomEntity or OrbBridgeControllerRoomEntity or DungeonOrbChestRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
             or DungeonStateController or ColoredCubeFloorSensorRoomEntity or MermaidChangingFloorRoomEntity or MermaidChangingFloorWorkerRoomEntity or MermaidBossKeyRoomEntity or MermaidTorchOrderRoomEntity or DungeonRoomFlagMirrorRoomEntity or MinecartGateRoomEntity or SwitchTileTogglerRoomEntity or MinecartShutterRoomEntity or DungeonSignalScriptRoomEntity
-            or OctogonInteractionRoomEntity or OctogonEncounterInitializerRoomEntity or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity or DungeonTilePatternFallingKeyRoomEntity or MoonlitGrottoFallingKeyRoomEntity
+            or JabuWaterControllerRoomEntity or JabuLadderRoomEntity or OctogonInteractionRoomEntity or OctogonEncounterInitializerRoomEntity or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity or DungeonTilePatternFallingKeyRoomEntity or MoonlitGrottoFallingKeyRoomEntity
             or DungeonSpinnerRoomEntity or DungeonSpinnerArrowRoomEntity or DungeonBossKeyMirrorRoomEntity or ChestContentsRoomEntity or MovingPlatformRoomEntity or CircularSideScrollPlatformRoomEntity or HeadThwompRewardScript or SpiritsGraveMovingPlatformSpawner or TileFillerRoomEntity or DungeonPatternTriggerRoomEntity or DungeonPatternKeyRoomEntity or GroundTreasureRoomEntity or ToggleFloorRoomEntity or ToggleFloorTileRoomEntity or FloorColorChangerRoomEntity or FloorColorWorkerRoomEntity;
 
     internal bool TryCreateMermaidChangingFloorWorker(int subid)
@@ -3641,7 +3643,8 @@ internal sealed record ItemDropSpawn(
     int Angle = ObjectAngle.Up,
     bool DugUp = false,
     bool UpdateThisFrame = false,
-    int ZHigh = 0) : RoomEntitySpawn(UpdateThisFrame);
+    int ZHigh = 0,
+    int InvincibilityCounter = 0) : RoomEntitySpawn(UpdateThisFrame);
 
 internal sealed record FallingDownHoleSpawn(Vector2 Position, bool Silent = false) : RoomEntitySpawn;
 

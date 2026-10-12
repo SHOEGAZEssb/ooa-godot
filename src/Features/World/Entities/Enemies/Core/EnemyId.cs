@@ -143,6 +143,11 @@ public static class EnemyId
     public const int ArmosWarrior = 0x73;
     // constants/ages/enemies.s: ENEMY_SMASHER
     public const int Smasher = 0x74;
+    // constants/ages/enemies.s: ENEMY_ANGLER_FISH / ENEMY_ANGLER_FISH_BUBBLE
+    public const int AnglerFish = 0x76;
+    public const int AnglerFishBubble = 0x26;
+    // constants/ages/enemies.s: ENEMY_PLASMARINE
+    public const int Plasmarine = 0x7e;
     // constants/ages/enemies.s: ENEMY_PUMPKIN_HEAD
     public const int PumpkinHead = 0x78;
     // constants/ages/enemies.s: ENEMY_HEAD_THWOMP

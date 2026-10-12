@@ -22,6 +22,7 @@ internal partial class Room149Ball : TransitionOffsetNode2D
     private bool _active;
 
     internal bool Idle { get; private set; } = true;
+    internal bool Stopped { get; private set; }
     internal int SubId { get; private set; }
     internal int ZFixed => _zFixed;
     internal int SpeedZ => _speedZ;
@@ -54,6 +55,7 @@ internal partial class Room149Ball : TransitionOffsetNode2D
     internal void Reset()
     {
         Idle = true;
+        Stopped = false;
         SubId = 0;
         _direction = 0;
         _preciseX = BoyX;
@@ -65,7 +67,7 @@ internal partial class Room149Ball : TransitionOffsetNode2D
 
     internal void Launch(int signal)
     {
-        if (!_active || !Idle || signal is not 1 and not 2)
+        if (!_active || !Idle || Stopped || signal is < 1 or > 3)
             return;
         // cfd3=$01 is the father throwing right (ball subid $00); cfd3=$02
         // is the boy throwing left (ball subid $01).
@@ -74,19 +76,34 @@ internal partial class Room149Ball : TransitionOffsetNode2D
         _preciseX = Position.X;
         _zFixed = 0;
         _speedZ = InitialSpeedZ;
+        if (signal == 3)
+        {
+            Position = new Vector2(BoyX, 0x50);
+            _preciseX = BoyX;
+            _zFixed = -0x600;
+        }
         Idle = false;
         QueueRedraw();
     }
 
     internal void UpdateFrame()
     {
-        if (!_active || Idle)
+        if (!_active || Idle || Stopped)
             return;
 
-        _preciseX += _direction * HorizontalSpeed;
-        Position = new Vector2(Mathf.Floor(_preciseX), InitialY);
+        _preciseX = (_preciseX + _direction * HorizontalSpeed + 256) % 256;
+        Position = new Vector2(Mathf.Floor(_preciseX), SubId == 2 ? 0x50 : InitialY);
         if (OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, Gravity))
         {
+            if (SubId == 2)
+            {
+                // interactionCode95@subid2 negates the unsigned half of
+                // the landing velocity, then compares it with signed -$80.
+                _speedZ = -((ushort)_speedZ >> 1);
+                Stopped = _speedZ >= -0x80;
+                QueueRedraw();
+                return;
+            }
             Position = new Vector2(SubId == 0 ? BoyX : FatherX, InitialY);
             _preciseX = Position.X;
             _speedZ = 0;

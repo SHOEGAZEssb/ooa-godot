@@ -391,7 +391,9 @@ $commonEnemySpecs = @(
     @(0x16, 0x00),
     @(0x39, 0x00),
     @(0x12, 0x00),
-    @(0x0e, 0x01),
+    @(0x0e, 0x00), @(0x0e, 0x01),
+    @(0x1c, 0x00), @(0x1c, 0x01),
+    @(0x45, 0x00), @(0x45, 0x01), @(0x45, 0x02), @(0x45, 0x03), @(0x45, 0x04),
     @(0x2a, 0x03),
     @(0x15, 0x00),
     @(0x3c, 0x00), @(0x3c, 0x01),
@@ -471,7 +473,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations`t$($definition.RawDamage.ToString('x2'))")
 }
-if ($commonEnemyRows.Count -ne 86 -or
+if ($commonEnemyRows.Count -ne 94 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^74\t0[01]\tspr_smasher\t0\t3\t1\t6\t6\t2\t5\t'
     }).Count -ne 2 -or
@@ -1507,6 +1509,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '21:01' = 'arrow-darknut'
     '2d:00' = 'podoboo-tower'
     '10:00' = 'rope'
+    '0e:00' = 'blade-trap'
     '0e:01' = 'blade-trap'
     '2a:03' = 'giant-blade-trap'
     '15:00' = 'bubble'
@@ -1553,6 +1556,14 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '36:00' = 'cucco'
     '38:00' = 'great-fairy'
     '16:00' = 'beamos'
+    '50:00' = 'fireball-shooter'
+    '1c:00' = 'iron-mask'
+    '1c:01' = 'iron-mask'
+    '45:00' = 'pincer'
+    '45:01' = 'pincer'
+    '45:02' = 'pincer'
+    '45:03' = 'pincer'
+    '45:04' = 'pincer'
     '50:01' = 'fireball-shooter'
     '3e:00' = 'peahat'
     '41:00' = 'crow'
@@ -1584,7 +1595,7 @@ foreach ($subid in @(0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x0a,0x0b,0x0c,0x82,0x83
     $orderedEnemyImplementationHandlers['54:' + $subid.ToString('x2')] = 'ambi-guard'
 }
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 119 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 128 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1655,9 +1666,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 761 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 789 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 60) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 32) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -1675,6 +1686,8 @@ foreach ($key in @(
     }
     if($key -match '^63:0[0-4]$') { $enemyHandlerKeys[$key]=@{Id=0x63;SubId=[Convert]::ToInt32($key.Substring(3),16)} }
     if($key -match '^35:0[12]$') { $enemyHandlerKeys[$key]=@{Id=0x35;SubId=[Convert]::ToInt32($key.Substring(3),16)} }
+    if($key -eq '1c:01') { $enemyHandlerKeys[$key]=@{Id=0x1c;SubId=1} }
+    if($key -match '^45:0[1-4]$') { $enemyHandlerKeys[$key]=@{Id=0x45;SubId=[Convert]::ToInt32($key.Substring(3),16)} }
     if (-not $enemyHandlerKeys.ContainsKey($key)) {
         throw "Enemy implementation key $key has no ordered source placement."
     }
@@ -1864,7 +1877,7 @@ foreach ($record in $enemyHandlerKeys.Values |
         "$($enemyCollisionTableValues[$collisionRowOffset + 3].ToString('x2'))`t" +
         $shieldSource)
 }
-if ($enemyHandlerRows.Count -ne 132 -or
+if ($enemyHandlerRows.Count -ne 137 -or
     -not $enemyHandlerRows.Contains((
         "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
         'constants/common/enemies.s:ENEMY_OCTOROK' +
@@ -1899,6 +1912,8 @@ Write-GeneratedTable((Join-Path $destination 'objects\native_enemy_spawns.tsv'),
     '# id`tsubid`tsource', "5f`t00`tobject_code/ages/interactions/patch.s:@spawnBeetle"
     "35`t01`tobject_code/common/enemies/floorMaster.s:floormaster_state1"
     "35`t02`tobject_code/common/enemies/floorMaster.s:floormaster_state1"
+    "1c`t01`tobject_code/ages/enemies/ironMask.s:ironMask_state_switchHook@substate0"
+    @(1..4|ForEach-Object{"45`t$($_.ToString('x2'))`tobject_code/common/enemies/pincer.s:pincer_state1"})
     @(0..4|ForEach-Object{"63`t$($_.ToString('x2'))`tobjects/ages/extraData3.s:targetCartCrystals"})
 ))
 if ($paletteHeaderSource -notmatch '(?s)m_PaletteHeaderStart \$8d, PALH_8d\s+m_PaletteHeaderSpr 6, 1, paletteData4948') {
@@ -2872,18 +2887,31 @@ function Export-VireProjectileData {
     Write-GeneratedTable((Join-Path $destination 'effects/vire_projectile.tsv'), $rows)
 }
 Export-VireProjectileData
-function Export-OctogonPartData {
+function Export-DungeonBossPartData {
+    param([int[]]$Ids = @(0x48,0x55), [string]$Prefix = 'octogon')
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add("# id`tanimation-index`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tpart-data`tsource")
     $partRows = @(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')
     $collisionRows = [Collections.Generic.List[string]]::new()
     $collisionRows.Add("# id`tcollision`tenabled`teffect`tsource")
-    foreach ($id in @(0x48,0x55)) {
+    foreach ($id in $Ids) {
         $hex = $id.ToString('x2')
         $bytes = @($partRows[$id].Operands | ForEach-Object { Convert-AssemblyInteger $_ })
         $labels = $zoraPartTables["part${hex}Animations"]
         $pointers = $zoraPartPointers["part${hex}OamDataPointers"]
-        if ($bytes.Count -ne 8 -or $labels.Count -ne 2) { throw "Octogon PART`$${hex} requires two animations and eight property bytes." }
+        if ($bytes.Count -ne 8 -or $labels.Count -ne 2) { throw "Dungeon boss PART`$${hex} requires two base animations and eight property bytes." }
+        if ($id -eq 0x43) {
+            # A projectile fired during the boss's damage flash copies live
+            # OAM palette$05, producing subid$04. Its animation lookup continues
+            # into part26/part48, and OAM offset$06 continues into part44.
+            $animationSource = Read-ImportText (Join-Path $Disassembly 'data/ages/partAnimations.s')
+            if ($animationSource -notmatch '(?s)part43Animations:\s*\.dw partAnimation5b98c\s*\.dw partAnimation5bab4\s*part26Animations:\s*part44Animations:\s*part4bAnimations:\s*part4dAnimations:\s*\.dw partAnimation5bae3\s*part48Animations:\s*\.dw partAnimation5b98c\s*\.dw partAnimation5b994' -or
+                $animationSource -notmatch '(?s)part43OamDataPointers:.*?\.dw partOamData53233\s*\.dw partOamData53245\s*\.dw partOamData5324e\s*part44OamDataPointers:.*?\.dw partOamData53269') {
+                throw 'PART$43 animation/OAM fallthrough for damage-flash subid$04 changed.'
+            }
+            $labels = @($labels) + @($zoraPartTables['part26Animations']) + @($zoraPartTables['part48Animations'])
+            $pointers = @($pointers) + @($zoraPartPointers['part44OamDataPointers'])
+        }
         $sprite = $gfxNames[$bytes[0]]
         $mask = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')[$id]
         $bits = ($mask.Operands -join '').Replace('%','')
@@ -2905,10 +2933,11 @@ function Export-OctogonPartData {
             $rows.Add("$hex`t$index`t$sprite`t$($bytes[5])`t$($bytes[6])`t$([int](Get-EnemySpriteSourceGrayscaleInverted $sprite))`t$animation`t$($bytes -join ',')`tdata/ages/partAnimations.s:$($labels[$index]);data/ages/partData.s:part$hex")
         }
     }
-    Write-GeneratedTable((Join-Path $destination 'effects/octogon_parts.tsv'),$rows)
-    Write-GeneratedTable((Join-Path $destination 'effects/octogon_part_collisions.tsv'),$collisionRows)
+    Write-GeneratedTable((Join-Path $destination "effects/${Prefix}_parts.tsv"),$rows)
+    Write-GeneratedTable((Join-Path $destination "effects/${Prefix}_part_collisions.tsv"),$collisionRows)
 }
-Export-OctogonPartData
+Export-DungeonBossPartData
+Export-DungeonBossPartData -Ids @(0x43) -Prefix 'plasmarine'
 function Export-SmogWallData {
     $relative = 'object_code/ages/enemies/smog.s'
     $path = Join-Path $Disassembly $relative
@@ -4267,6 +4296,11 @@ if ($bladeTrapSource -notmatch
 Add-EnemyBehaviorProfile 'blade-trap' 'state-profile' `
     @(8, 13, 0x3c, 0x1e, 0x78, 0x58, 7, 16) `
     'object_code/common/enemies/bladeAndFlameTrap.s:subid01-state-operands'
+if ($bladeTrapSource -notmatch '(?ms)^bladeTrap_subid00:.*?SPEED_c0.*?ld b,\$0e.*?bladeTrap_checkObstructionsToTarget.*?ld \(hl\),\$18.*?SND_MOVEBLOCK.*?ld a,\$02.*?^@stateA:.*?rrca\s+call c,ecom_applyVelocityForTopDownEnemyNoHoles.*?ecom_decCounter1.*?^@stateB:.*?ecom_applyVelocityForTopDownEnemyNoHoles.*?ld a,\$09.*?ld a,\$01') {
+    throw 'Red blade trap acceleration, animation, movement or wall-stop source changed.'
+}
+Add-EnemyBehaviorProfile 'blade-trap' 'red-state-profile' @(0x1e,14,24) `
+    'object_code/common/enemies/bladeAndFlameTrap.s:subid00-state-operands'
 $bladeTrapCollisionEffects = @(0..0x1f | ForEach-Object {
     $enemyCollisionTableValues[0x13 * 0x20 + $_]
 })
@@ -5555,8 +5589,37 @@ Add-EnemyBehaviorProfile 'vire' 'collision-effects' @(0..31 | ForEach-Object { $
 $vireBits = ($seedActiveRows[0x75].Operands -join '').Replace('%','')
 if ($vireBits -notmatch '^[01]{32}$' -or $enemyCollisionModes[0x75] -ne 0x46) { throw 'ENEMY_VIRE $75 must initialize inactive mode$46 with a complete collision mask.' }
 Add-EnemyBehaviorProfile 'vire' 'active-collisions' @($vireBits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) 'data/ages/enemyActiveCollisions.s:enemy$75'
-if ($enemyBehaviorRows.Count -ne 2932) {
-    throw "Expected 2931 enemy behavior-table rows, got " +
+$ironMaskSource = Read-ImportText (Join-Path $Disassembly 'object_code/ages/enemies/ironMask.s')
+if ($ironMaskSource -notmatch '(?ms)^ironMask_chooseRandomAngleAndCounter1:.*?ld bc,\$0703.*?@counter1Vals:\s+\.db 25, 30, 35, 40, 45, 50, 55, 60' -or
+    $ironMaskSource -notmatch '(?ms)^ironMask_chooseAmountOfTimeToStand:.*?and \$03.*?@counter1Vals:\s+\.db 15, 30, 45, 60' -or
+    $ironMaskSource -notmatch '(?ms)^ironMask_state_switchHook:.*?ecom_spawnUncountedEnemyWithSubid01.*?Enemy.enabled.*?objectCopyPosition.*?ld a,\$05.*?SND_BOMB_LAND.*?ld a,60.*?ld a,16' -or
+    $ironMaskSource -notmatch '(?ms)^ironMask_state_uninitialized:.*?SPEED_80.*?ENEMYCOLLISION_UNMASKED_IRON_MASK.*?ld \(hl\),\$10.*?ld \(hl\),\$e8') {
+    throw 'object_code/ages/enemies/ironMask.s: movement, mask transfer, or child recoil contract changed.'
+}
+Add-EnemyBehaviorProfile 'iron-mask' 'state' @(0x14,1,0x1d,0x53,60,16,0x10,0xe8,0x20) 'object_code/ages/enemies/ironMask.s:state-operands'
+Add-EnemyBehaviorProfile 'iron-mask' 'walk-counters' @(25,30,35,40,45,50,55,60) 'object_code/ages/enemies/ironMask.s:ironMask_chooseRandomAngleAndCounter1@counter1Vals'
+Add-EnemyBehaviorProfile 'iron-mask' 'stand-counters' @(15,30,45,60) 'object_code/ages/enemies/ironMask.s:ironMask_chooseAmountOfTimeToStand@counter1Vals'
+$ironMaskBits = ($seedActiveRows[0x1c].Operands -join '').Replace('%','')
+if ($ironMaskBits -notmatch '^[01]{32}$') { throw 'ENEMY_IRON_MASK $1c requires 32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'iron-mask' 'collision-mask' @($ironMaskBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/enemyActiveCollisions.s:enemy$1c'
+foreach ($mode in @(0x1d,0x53)) {
+    Add-EnemyBehaviorProfile 'iron-mask' ('effects-'+$mode.ToString('x2')) @(0..31 | ForEach-Object {$enemyCollisionTableValues[$mode*32+$_]}) "data/ages/objectCollisionTable.s:mode`$$($mode.ToString('x2'))"
+}
+$pincerSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/enemies/pincer.s')
+if ($pincerSource -notmatch '(?ms)^pincer_state1:.*?ld b,\$04.*?checkBEnemySlotsAvailable.*?Enemy.enabled.*?objectCopyPosition.*?pincer_setChildRelatedObj1.*?enemyDelete' -or
+    $pincerSource -notmatch '(?ms)^pincer_head_state9:.*?ld c,\$28.*?objectCheckLinkWithinDistance' -or
+    $pincerSource -notmatch '(?ms)^pincer_head_stateB:.*?pincer_updatePosition.*?add \$02.*?cp \$20.*?ld \(hl\),\$08' -or
+    $pincerSource -notmatch '(?ms)^pincer_head_stateD:.*?pincer_updatePosition.*?dec \(hl\).*?ld \(hl\),30.*?res 7,\(hl\)' -or
+    $pincerSource -notmatch '(?ms)^pincer_body:.*?ld a,\$09.*?enemySetAnimation.*?Object.id.*?enemyDelete.*?Enemy.angle.*?Enemy.invincibilityCounter.*?cp \$0b') {
+    throw 'object_code/common/enemies/pincer.s: four-slot allocation, head extension/cooldown, or body lifetime contract changed.'
+}
+Add-EnemyBehaviorProfile 'pincer' 'state' @(4,40,32,2,8,30,0x34,9,0xfa) 'object_code/common/enemies/pincer.s:state-operands'
+$pincerBits = ($seedActiveRows[0x45].Operands -join '').Replace('%','')
+if ($pincerBits -notmatch '^[01]{32}$') { throw 'ENEMY_PINCER $45 requires 32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'pincer' 'collision-mask' @($pincerBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/enemyActiveCollisions.s:enemy$45'
+Add-EnemyBehaviorProfile 'pincer' 'effects' @(0..31 | ForEach-Object {$enemyCollisionTableValues[0x34*32+$_]}) 'data/ages/objectCollisionTable.s:ENEMYCOLLISION_PINCER$34'
+if ($enemyBehaviorRows.Count -ne 3125) {
+    throw "Expected 3124 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

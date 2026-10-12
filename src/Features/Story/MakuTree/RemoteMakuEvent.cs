@@ -35,6 +35,7 @@ internal abstract class RemoteMakuEvent :
     public override RoomEventContext Context { get; }
     public bool HasState => _stage != RemoteMakuEventStage.Inactive;
     public bool BlocksGameplay => _stage == RemoteMakuEventStage.Running;
+    public virtual bool OwnsUpdatesOf(IRoomEvent other) => false;
     internal RemoteMakuEventStage Stage => _stage;
     internal int CommandInstruction => _runner.Instruction;
     internal int CommandCounter => _runner.Counter;
@@ -189,7 +190,7 @@ internal abstract class RemoteMakuEvent :
             Context.Rooms.SaveData.SetMakuMapTextPast(mapText);
         else
             Context.Rooms.SaveData.SetMakuMapTextPresent(mapText);
-        Context.ShowDialogue(message, textboxFlags: _textboxFlags);
+        Context.ShowDialogue(message, textboxFlags: _textboxFlags, sourceTextId: textId);
     }
 
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
@@ -248,6 +249,11 @@ internal abstract class RemoteMakuEvent :
                 break;
             case "ClearFadingPalettes":
                 Context.RoomView.ClearBackgroundFade();
+                break;
+            case "InitUnderwaterWaves":
+                if (record.Var03 != 0x09) throw UnsupportedCommand("restore underwater waves outside $8a/v$09");
+                Context.RoomView.SuspendUnderwaterWave(false);
+                Context.RoomView.UpdateUnderwaterWave(Context.Rooms.CurrentRoom, Context.Entities.FrameCounter);
                 break;
             case "ResetMusic":
                 Context.Sound.PlayRoomMusic(record.Group, record.Room);

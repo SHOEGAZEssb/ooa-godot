@@ -23,9 +23,13 @@ $mode = [IO.File]::ReadAllText((Join-Path $OutputDirectory 'mode.txt'))
 if ($mode -eq 'fail') { throw 'fixture source-aware failure: fixture.s:1:1' }
 if ($mode -eq 'timeout') {
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes('Start-Sleep -Seconds 60'))
-    $child = Start-Process -FilePath (Get-Process -Id $PID).Path `
-        -ArgumentList @('-NoProfile', '-NonInteractive', '-EncodedCommand', $encoded) `
-        -WindowStyle Hidden -PassThru
+    $startArguments = @{
+        FilePath = (Get-Process -Id $PID).Path
+        ArgumentList = @('-NoProfile', '-NonInteractive', '-EncodedCommand', $encoded)
+        PassThru = $true
+    }
+    if ($env:OS -eq 'Windows_NT') { $startArguments.WindowStyle = 'Hidden' }
+    $child = Start-Process @startArguments
     [IO.File]::WriteAllText((Join-Path $OutputDirectory 'child.pid'), [string]$child.Id)
     [IO.File]::WriteAllText((Join-Path $OutputDirectory 'worker.pid'), [string]$PID)
     Start-Sleep -Seconds 60

@@ -95,7 +95,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 85 ||
+        if (_importedDefinitions.Count != 93 ||
             ImportedEnemy(EnemyId.LikeLike) is not
                 { Health: 5, DamageQuarters: 2, RadiusY: 6, RadiusX: 6,
                     TileBase: 12, Palette: 3, Animations.Length: 2 } ||
@@ -909,6 +909,8 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x10),
         EnemyHandlerKind.BladeTrap =>
             HasImportedDefinition(descriptor, 0x0e),
+        EnemyHandlerKind.IronMask => HasImportedDefinition(descriptor, 0x1c),
+        EnemyHandlerKind.Pincer => HasImportedDefinition(descriptor,0x45),
         EnemyHandlerKind.Gibdo =>
             HasImportedDefinition(descriptor, 0x12),
         EnemyHandlerKind.LikeLike => HasImportedDefinition(descriptor, 0x24),
@@ -966,7 +968,7 @@ public sealed class EnemyDatabase
             HasImportedDefinition(descriptor, 0x38),
         EnemyHandlerKind.Beamos =>
             HasImportedDefinition(descriptor, 0x16),
-        EnemyHandlerKind.FireballShooter => descriptor.Id == EnemyId.FireballShooter && descriptor.SubId == 1,
+        EnemyHandlerKind.FireballShooter => descriptor.Id == EnemyId.FireballShooter && descriptor.SubId is 0 or 1,
         EnemyHandlerKind.Zol =>
             descriptor.Id == EnemyId.Zol &&
             _zolDefinitions.ContainsKey(descriptor.SubId),

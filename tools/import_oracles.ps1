@@ -159,6 +159,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-dungeon-story' 'Import-DungeonStoryData.ps1' `
         -inputs @('allTexts', 'blackTowerCutsceneSource', 'gfxNames', 'globalFlagValues', 'interactionGraphics', 'treasureIds') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-post-d7' 'Import-PostD7Data.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'gfxNames', 'interactionGraphics', 'cutsceneCommandHeader') `
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Read-AssemblyCutsceneCommands', 'New-CutsceneCommandRow', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-harp-story' 'Import-HarpStoryData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'objectGfxSource', 'treasureObjectRecords') `
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
@@ -273,6 +276,8 @@ $stageContracts = @(
         -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'mermaid-dungeon' 'Import-MermaidDungeon.ps1' `
         -inputs @('allTexts', 'allTextPositions')
+    New-ImportStageContract 'jabu-dungeon' 'Import-JabuDungeon.ps1' `
+        -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'octogon-effects' 'Import-OctogonEffects.ps1' `
         -inputs @('gfxNames','interactionGraphics') `
         -functionInputs @('Resolve-NpcAnimation','Copy-EnemySprite','Get-EnemySpriteSourceGrayscaleInverted')
@@ -315,7 +320,7 @@ $commonStageFunctionInputs = @(
     'Read-AssemblyMacroInvocations', 'Read-AssemblyNodes',
     'Read-AssemblyInstructions', 'Read-AssemblyLiteralValues',
     'Read-ImportLines', 'Read-ImportText', 'Select-CleanUsAssemblyLines',
-    'Resolve-AssemblySourceTextPath', 'Write-GeneratedBytes',
+    'Resolve-AssemblySourceTextPath', 'Write-GeneratedBytes', 'Write-GeneratedGrayscalePng',
     'Write-GeneratedTable')
 . (Join-Path $importModuleRoot 'Invoke-ImportStage.ps1')
 

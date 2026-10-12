@@ -36,6 +36,11 @@ focused validations; NPC classifications live in the
   and Bereft Peak Essence/Maku handoff. Major mechanics have clean-US ROM
   comparisons; a complete manual playthrough and exhaustive parity comparison
   remain unperformed.
+- Jabu-Jabu's Belly (`$07`) has its 44 source rooms, placed enemies, water
+  controls, Hook puzzles, Long Hook, Angler Fish, Plasmarine, rewards, and
+  Rolling Sea Essence handoff, including both Black Tower branches and the
+  seventh Maku conversation. Major mechanics have clean-US ROM comparisons;
+  a complete manual playthrough and exhaustive parity comparison remain unperformed.
 - Selected overworld dialogue, shops/trades, Gasha and Seed Trees, Maple,
   early story sequences, King Moblin's keep, Goron quests/minigames, Symmetry
   Village restoration, Patch's ceremony, the Library Key entrance, and the hidden
@@ -45,8 +50,7 @@ focused validations; NPC classifications live in the
 - Both eras' underwater Zora Village, palaces and houses, ocean dialogue,
   King Zora's cure, Library Key and Jabu permission, sword secret, Zora Scale,
   Sea of Storms guards, young Jabu, ocean whirlpools and pollution damage,
-  and Jabu's entrance opening. Dungeon 7 and
-  its Black Tower completion sequence remain outside this coverage.
+  and Jabu's entrance opening.
 - Ambi's Palace soldiers, guards and capture, passage switches, story scenes,
   possessed Nayru/Veran fight, rescue, and Tune of Ages handoff, including
   the linked-game continuation. Focused clean-US ROM comparisons cover these

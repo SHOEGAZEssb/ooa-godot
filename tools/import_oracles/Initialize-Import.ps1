@@ -10,7 +10,7 @@ if (-not (Test-Path -LiteralPath $Disassembly -PathType Container)) {
 $importerProject = Join-Path $project 'tools\OracleImporter\OracleImporter.csproj'
 if (-not $SkipBuild) {
     $importerBuildOutput = @(
-        & dotnet build $importerProject --nologo --verbosity quiet 2>&1)
+        & dotnet build $importerProject -t:Rebuild -p:Optimize=true --nologo --verbosity quiet 2>&1)
     if ($LASTEXITCODE -ne 0) {
         throw "Could not build the importer source host:`n$($importerBuildOutput -join "`n")"
     }
@@ -437,10 +437,17 @@ function Write-GeneratedTable([object[]]$arguments) {
     if (-not [string]::IsNullOrEmpty($parent)) {
         [IO.Directory]::CreateDirectory($parent) | Out-Null
     }
-    [IO.File]::WriteAllLines(
+    [IO.File]::WriteAllText(
         $path,
-        $rows,
+        $(if ($rows.Count -eq 0) { '' } else { ($rows -join "`n") + "`n" }),
         [Text.UTF8Encoding]::new($false))
+}
+
+function Write-GeneratedGrayscalePng(
+    [string]$path, [int]$width, [int]$height, [byte[]]$pixels
+) {
+    [void](Invoke-AssemblySourceHost $assemblySourceHost 'PNG_GRAYSCALE' (
+        "$path`0$width`0$height`0$([Convert]::ToBase64String($pixels))"))
 }
 
 function Write-GeneratedBytes([object[]]$arguments) {

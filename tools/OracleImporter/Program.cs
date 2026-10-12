@@ -60,6 +60,18 @@ internal static class Program
                     : utf8.GetString(Convert.FromBase64String(request[(separator + 1)..]));
                 switch (command)
                 {
+                    case "PNG_GRAYSCALE":
+                    {
+                        string[] fields = payload.Split('\0');
+                        if (fields.Length != 4)
+                            throw new InvalidDataException("PNG_GRAYSCALE requires path, width, height and pixels.");
+                        GeneratedGrayscalePng.Write(fields[0],
+                            int.Parse(fields[1], System.Globalization.CultureInfo.InvariantCulture),
+                            int.Parse(fields[2], System.Globalization.CultureInfo.InvariantCulture),
+                            Convert.FromBase64String(fields[3]));
+                        WriteSuccess(string.Empty, utf8);
+                        break;
+                    }
                     case "CUTSCENE_SCALAR":
                     {
                         int delimiter = payload.IndexOf('\0');

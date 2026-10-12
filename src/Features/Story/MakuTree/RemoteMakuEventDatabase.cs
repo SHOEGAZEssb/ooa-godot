@@ -131,6 +131,15 @@ internal abstract class RemoteMakuEventDatabase
 
     private void ValidateSharedContract()
     {
+        IReadOnlyList<CutsceneCommand> Commands = this.Commands;
+        if (Record.Var03 == 0x09)
+        {
+            if (Commands.Count != 21 || Commands[14] is not CutsceneNativeCommand { Handler: "InitUnderwaterWaves" })
+                throw new InvalidOperationException("Remote Maku $8a/v$09 requires the source underwater-wave restoration before the white fade.");
+            var sharedCommands = new List<CutsceneCommand>(Commands);
+            sharedCommands.RemoveAt(14);
+            Commands = sharedCommands;
+        }
         bool commonValid = Record is
             {
                 InteractionId: InteractionId.RemoteMakuCutscene, RoomFlag: 0x40,

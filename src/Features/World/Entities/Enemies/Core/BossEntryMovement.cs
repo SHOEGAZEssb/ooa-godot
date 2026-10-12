@@ -10,6 +10,7 @@ internal sealed class BossEntryMovement(Vector2I direction)
     private bool _armed;
     private bool _initialized;
     private int _counter;
+    internal bool IsActive=>_armed;
 
     internal void Arm()
     {

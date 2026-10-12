@@ -60,7 +60,7 @@ internal sealed partial class DungeonPatternKeyRoomEntity : Node2D,
         // Only $10 calls interactionDeleteAndRetIfEnabled02. The shared
         // $01/$05 handlers read the current room's flags and floor even while
         // retained as outgoing state-$00 objects.
-        if (_record.SubId == 0x10 && _isOutgoing(this)) Finished = true;
+        if ((_record.SubId == 0x10 || _record.Kind == DungeonObjectKind.JabuHookKey) && _isOutgoing(this)) Finished = true;
         if (_itemFlagSet()) Finished = true;
         if (Finished || !DungeonTilePattern.Matches(_activeRoom(), _firstTile, _patterns)) return;
         // createTreasure allocates INTERAC$60 before interactionDelete. A full

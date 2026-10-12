@@ -4,6 +4,8 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class TreasureGrabMode
 {
+    // constants/common/treasureSpawnModes.s: TREASURE_GRAB_MODE_NO_CHANGE
+    public const int NoChange = 0x00;
     // constants/common/treasureSpawnModes.s: TREASURE_GRAB_MODE_1_HAND
     public const int OneHand = 0x01;
     // constants/common/treasureSpawnModes.s: TREASURE_GRAB_MODE_2_HAND

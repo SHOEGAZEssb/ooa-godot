@@ -35,6 +35,10 @@ The stable entry point validates the clean US ROM before doing any work:
 Expected MD5: `C4639CC61C049E5A085526BB6CAC03BB`. A different ROM must fail;
 bank addresses and source data are not interchangeable.
 
+On Linux, install PowerShell 7 and the .NET 8 SDK, then invoke the same entry
+point with `pwsh -NoProfile -File tools/import_oracles.ps1`. ROM and disassembly
+overrides accept native Linux paths. Windows PowerShell 5.1 remains supported.
+
 ## Import organization
 
 `tools/import_oracles.ps1` is the authoritative ordered list of import stages
@@ -73,6 +77,11 @@ content. Every table or binary format must have:
 
 Use the shared generated-table writer and reader for TSV data. Preserve empty
 cells and escaping; do not split rows independently in feature databases.
+Generated tables and verification manifests use UTF-8 without BOM and LF
+newlines. Generated opaque grayscale PNGs use the importer host's portable
+writer, with stored DEFLATE blocks to keep Windows and Linux output identical.
+Tile placement, shade inversion and dimensions remain owned by their import
+stages; no platform image API or external image package is required.
 Binary readers validate exact expected byte counts or explicit format versions.
 Packaged binary inputs and schema-neutral TSV tokens are cached for the session
 and can be prepared by the startup I/O worker. Binary consumers receive copies,

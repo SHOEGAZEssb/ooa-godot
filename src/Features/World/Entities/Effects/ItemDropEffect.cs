@@ -76,7 +76,8 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
     private bool _attachmentPending;
     private int? _carrierId;
     internal bool CanAttachToItem => !Finished && _collisionEnabled && !_healthCleared &&
-        !_swordCollectionPending && !_attachmentPending;
+        !_swordCollectionPending && !_attachmentPending && InvincibilityCounter == 0;
+    internal int InvincibilityCounter { get; set; }
     internal void AttachToItem(Func<ItemDropCarrier?> carrier)
     {
         _carrier = carrier;
@@ -193,6 +194,10 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
             return;
 
         ElapsedFrames++;
+        // partCommon_standardUpdate advances signed invincibility toward zero
+        // before dispatch. Angler Fish bubbles seed PART$01 with $f0.
+        if (_state != DropState.Initializing && InvincibilityCounter != 0)
+            InvincibilityCounter = (InvincibilityCounter + (InvincibilityCounter >= 0x80 ? 1 : -1)) & 255;
         if (_state == DropState.Initializing) _healthCleared = false;
         if (_healthCleared)
         {
@@ -628,7 +633,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
 
     internal bool TryCollectWithSword(Rect2 hitbox)
     {
-        if (Finished || _swordCollectionPending || !_collisionEnabled ||
+        if (Finished || _swordCollectionPending || !_collisionEnabled || InvincibilityCounter != 0 ||
             !RoomEntityManager.ObjectCollisionZOverlaps(
                 _zFixed >> 8, SwordZ, ZCollisionRadius) ||
             !hitbox.Intersects(CollisionBounds))

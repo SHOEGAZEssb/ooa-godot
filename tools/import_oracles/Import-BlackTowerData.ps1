@@ -360,12 +360,20 @@ Export-BlackTowerOam 'oamData_718d' 'oamData_71ce' 16 `
     'black_tower_stage_1_tower_oam.tsv'
 Export-BlackTowerOam 'oamData_71ce' 'oamData_71f7' 10 `
     'black_tower_stage_1_workers_oam.tsv'
+Export-BlackTowerOam 'oamData_71f7' 'oamData_7220' 10 `
+    'black_tower_stage_2_top_oam.tsv'
+Export-BlackTowerOam 'oamData_7220' 'oamData_7249' 10 `
+    'black_tower_stage_2_base_oam.tsv'
 
 foreach ($asset in @(
     @('map_black_tower_stage_1.bin', 'map_black_tower_stage_1.bin'),
     @('flg_black_tower_stage_1.bin', 'flags_black_tower_stage_1.bin'),
     @('map_black_tower_stage_2.bin', 'map_black_tower_stage_2.bin'),
     @('flg_black_tower_stage_2.bin', 'flags_black_tower_stage_2.bin'),
+    @('map_black_tower_stage_3_middle.bin', 'map_black_tower_stage_3_middle.bin'),
+    @('flg_black_tower_stage_3_middle.bin', 'flags_black_tower_stage_3_middle.bin'),
+    @('map_black_tower_stage_3_top.bin', 'map_black_tower_stage_3_top.bin'),
+    @('flg_black_tower_stage_3_top.bin', 'flags_black_tower_stage_3_top.bin'),
     @('map_black_tower_middle.bin', 'map_black_tower_middle.bin'),
     @('flg_black_tower_middle.bin', 'flags_black_tower_middle.bin'),
     @('map_black_tower_base.bin', 'map_black_tower_base.bin'),

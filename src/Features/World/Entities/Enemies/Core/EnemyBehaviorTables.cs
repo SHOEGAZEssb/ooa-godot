@@ -85,6 +85,16 @@ internal sealed class EnemyBehaviorTables
     internal BoomerangMoblinBehaviorProfile BoomerangMoblin { get; }
     internal RopeBehaviorProfile Rope { get; }
     internal IReadOnlyList<EnemyBehaviorValue> BladeTrap { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> RedBladeTrap { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> IronMaskState { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> IronMaskWalkCounters { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> IronMaskStandCounters { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> IronMaskCollisionMask { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> IronMaskMaskedEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> IronMaskUnmaskedEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> PincerState { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> PincerCollisionMask { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> PincerEffects { get; }
     internal IReadOnlyList<EnemyBehaviorValue> BladeTrapCollisionEffects { get; }
     internal ArmosBehaviorProfile Armos { get; }
     internal IReadOnlyList<EnemyBehaviorValue> ArmosCollisionEffects { get; }
@@ -413,6 +423,16 @@ internal sealed class EnemyBehaviorTables
 
         values = TakeValues(groups, "rope", "state-profile", 11);
         BladeTrap = TakeValues(groups, "blade-trap", "state-profile", 8);
+        RedBladeTrap = TakeValues(groups, "blade-trap", "red-state-profile", 3);
+        IronMaskState = TakeValues(groups,"iron-mask","state",9);
+        IronMaskWalkCounters = TakeValues(groups,"iron-mask","walk-counters",8);
+        IronMaskStandCounters = TakeValues(groups,"iron-mask","stand-counters",4);
+        IronMaskCollisionMask = TakeValues(groups,"iron-mask","collision-mask",32);
+        IronMaskMaskedEffects = TakeValues(groups,"iron-mask","effects-1d",32);
+        IronMaskUnmaskedEffects = TakeValues(groups,"iron-mask","effects-53",32);
+        PincerState=TakeValues(groups,"pincer","state",9);
+        PincerCollisionMask=TakeValues(groups,"pincer","collision-mask",32);
+        PincerEffects=TakeValues(groups,"pincer","effects",32);
         Gibdo = TakeValues(groups, "gibdo", "state-profile", 7);
         FireKeese = new(TakeValues(groups, "fire-keese", "state-profile", 22));
         FireKeeseZOffsets = TakeValues(groups, "fire-keese", "z-offsets", 6);
@@ -766,10 +786,10 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "vire", "behaviors", 16), TakeValues(groups, "vire", "spawn-positions", 24),
             TakeValues(groups, "vire", "bat-z", 8), TakeValues(groups, "vire", "bat-offsets", 2),
             TakeValues(groups, "vire", "collision-effects", 32), TakeValues(groups, "vire", "active-collisions", 32));
-        if (table.Rows.Count != 2931 || groups.Count != 0)
+        if (table.Rows.Count != 3124 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 2931 rows and no " +
+                $"Enemy behavior table contract expected 3124 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

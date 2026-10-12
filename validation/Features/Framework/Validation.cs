@@ -495,6 +495,17 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateJabuFloodedTilesetsRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuWaterTilesRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuWaterTilePairsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuWaterControllerRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuRedTrapsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuIronMaskRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuIronMaskHookRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuPincerRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAnglerFishRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePlasmarineRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePlasmarineHookRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuEssenceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuLongHookRom, requiresRom: true);
+        RunIsolatedValidation(ValidateJabuHookKeyRom, requiresRom: true);
         RunIsolatedValidation(ValidatePollutedWaterTilesRom, requiresRom: true);
         RunIsolatedValidation(ValidateUnderwaterHoleRom, requiresRom: true);
         RunIsolatedValidation(ValidateSuctionPitsRom, requiresRom: true);
@@ -1271,6 +1282,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateItemDropDrawPriority);
         RunIsolatedValidation(ValidateHiddenShopInteractions);
         RunIsolatedValidation(ValidateVasuShopInteractions);
+        RunIsolatedValidation(ValidatePostD7Handoff);
+        RunIsolatedValidation(ValidatePostD7HandoffRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePostD7StoneRom, requiresRom: true);
         RunIsolatedValidation(ValidateRemoteMakuFirstEssenceCutscene);
         RunIsolatedValidation(ValidateRemoteMakuSecondEssenceCutscene);
         RunIsolatedValidation(ValidateRemoteMakuConfettiDrawOrder);

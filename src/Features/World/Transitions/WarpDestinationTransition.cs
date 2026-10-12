@@ -22,4 +22,6 @@ public static class WarpDestinationTransition
     public const int UnknownC = 0x0c;
     // constants/common/transitions.s: TRANSITION_DEST_X_SHIFTED
     public const int XShifted = 0x0e;
+    // constants/common/transitions.s: TRANSITION_DEST_INVISIBLE
+    public const int Invisible = 0x0f;
 }

@@ -244,6 +244,11 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 gibdo.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
                 return new GibdoRoomEntity(gibdo, source, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable, () => _random.Next().Value);
 
+            case EnemyHandlerKind.IronMask:
+                return CreateIronMask(enemies.ImportedEnemy(source.Id,source.SubId),room,position,combatSource);
+            case EnemyHandlerKind.Pincer:
+                return CreatePincer(room,position,combatSource);
+
             case EnemyHandlerKind.LikeLike:
                 var likeLike = new LikeLikeCharacter { Name = $"LikeLike_{source.Order}_{instance}" };
                 likeLike.Initialize(enemies.ImportedEnemy(source.Id, source.SubId), room, position, _random);
@@ -807,6 +812,46 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
             .CombatSource(spawn.ObjectFlags, spawn.KillableEnemyIndex,
                 "object_code/ages/enemies/bari.s:@spawnSmallBari/ecom_spawnEnemyWithSubid01");
         return new BariRoomEntity(child, source, owner.OnSoundRequested, () => _random.Next().Value);
+    }
+
+    private IronMaskRoomEntity CreateIronMask(ImportedEnemyDefinition record,OracleRoomData room,Vector2 position,
+        EnemyCombatSourceDescriptor source,int knockbackAngle=0)
+    {
+        var actor=new IronMaskCharacter {Name=$"IronMask_1c_{record.SubId:x2}"};
+        actor.Initialize(record,room,position,_random,owner.OnSoundRequested,parent=>
+            owner.TryAllocateEnemy(_=>CreateIronMask(enemies.ImportedEnemy(0x1c,1),room,parent.Position.Floor(),
+                source with {SubId=1,CollisionMode=0xd3,Source=source.Source+" via ironMask_state_switchHook"},parent.KnockbackAngle)) is not null,knockbackAngle);
+        return new(actor,source,owner.OnSoundRequested) {RandomSource=()=>_random.Next().Value,PartSlotAvailable=()=>owner.PartSlotAvailable};
+    }
+
+    private PincerRoomEntity CreatePincer(OracleRoomData room,Vector2 position,EnemyCombatSourceDescriptor source,Func<PincerCharacter?>? parent=null)
+    {
+        var actor=new PincerCharacter {Name=$"Pincer_45_{source.SubId:x2}"};
+        actor.Initialize(enemies.ImportedEnemy(0x45,source.SubId),room,position,_random,()=>
+        {
+            if(!owner.CanAllocateEnemies(EnemyBehaviorTables.Shared.PincerState[0].Value))return false;
+            var head=(PincerRoomEntity)owner.TryAllocateEnemy(_=>CreatePincer(room,actor.Position.Floor(),source with {SubId=1}))!;
+            int headSlot=((PincerCharacter)head.Node).NativeSlot;
+            for(int subid=2;subid<=4;subid++)
+            {
+                int childSubid=subid;
+                owner.TryAllocateEnemy(_=>CreatePincer(room,Vector2.Zero,source with {SubId=childSubid,ObjectFlags=2,KillableEnemyIndex=0},
+                    ()=>owner.ResolveEnemySlot(headSlot)?.Node as PincerCharacter));
+            }
+            return true;
+        },(point,spawns)=>
+        {
+            var breakables=new BreakableTileDatabase();
+            if(breakables.TryBreak(room,BreakableTileDatabase.SourceShovel,point,_saveData,room.Group,_animationTick,null,out var tile)==BreakableTileBreakStatus.Broken)
+            {
+                tile.ApplyCommonEffects(owner.OnSoundRequested,owner.SpawnBreakableDrop);
+                if(BreakableTileEffectSpawn.Create(room,point,tile.Record.Effect) is {} effect)spawns.Add(effect);
+                owner.OnRoomTileChanged();
+            }
+            if(room.GetTerrainInfo(point).Hazard==HazardType.Water && owner.InteractionSlotAvailable)
+                spawns.Add(new EnemySplashSpawn(point+Vector2.Up*6,HazardType.Water));
+        },parent);
+        return new(actor,source,owner.OnSoundRequested) {PartSlotAvailable=()=>owner.PartSlotAvailable};
     }
 
     private IRoomEntity CreateFloormasterChild(FloormasterRoomEntity parent, OracleRoomData room)

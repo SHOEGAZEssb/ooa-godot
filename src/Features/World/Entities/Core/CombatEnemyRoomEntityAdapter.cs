@@ -145,7 +145,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         if (!collisions.EnemyEnabled(DimitriCollisionType)) return false;
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, 0, 7) ||
-            !combatDescriptor.Combat.Intersects(hook.CollisionBounds)) return false;
+            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds,hook.CollisionBounds)) return false;
         int effect = collisions.Effect(DimitriCollisionMode);
         // Even a no-op collision returns out of this enemy's collision scan,
         // so Link contact is skipped for this enemy while later enemies run.
@@ -162,7 +162,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             "data/ages/objectCollisionTable.s:ITEMCOLLISION_SWITCH_HOOK $0d / object_code/common/items/switchHook.s:state3.");
     }
     protected virtual bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition) => false;
-    public bool CountsAsEnemy =>
+    public virtual bool CountsAsEnemy =>
         combatDescriptor.CountsAsEnemy &&
         // enemyDie transfers its count to PART_ENEMY_DESTROYED. Preserve
         // that count until OnFinished installs the replacement; interactions

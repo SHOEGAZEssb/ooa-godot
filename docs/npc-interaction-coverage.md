@@ -52,9 +52,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 290 | Traced and covered by named NPC/event scenarios. |
+| **I** | 291 | Traced and covered by named NPC/event scenarios. |
 | **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 50 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 49 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **389** | **216 rooms and 301 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -63,8 +63,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 79 | 0 | 79 |
 | Specialized native interaction | 137 | 72 | 209 |
-| Event-owned actor | 123 | 0 | 123 |
-| Deliberately unsupported | 50 | 0 | 50 |
+| Event-owned actor | 124 | 0 | 124 |
+| Deliberately unsupported | 49 | 0 | 49 |
 | **Total** | **389** | **72** | **461** |
 
 ## Bipin and Blossom family variants
@@ -260,7 +260,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `4:e7` | [I] `$40:$0c/v$00` soldier<br>[I] `$58:$03/v$00` hardhatWorker<br>[I] `$58:$03/v$01` hardhatWorker<br>[I] `$57:$03/v$04` pickaxeWorker<br>[I] `$57:$03/v$05` pickaxeWorker |
 | `4:e8` | [I] `$58:$03/v$02` hardhatWorker<br>[I] `$57:$03/v$06` pickaxeWorker<br>[I] `$57:$03/v$07` pickaxeWorker |
 | `4:f3` | [D] `$58:$03/v$04` hardhatWorker |
-| `4:f6` | [D] `$4d:$03/v$00` ambi |
+| `4:f6` | [I] `$4d:$03/v$00` ambi |
 | `4:fc` | [D] `$4d:$06/v$00` ambi |
 | `4:fe` | [D] `$37:$0c/v$00` ralph |
 | `5:ab` | [I] `$9c:$00/v$00` kingZora<br>[I] `$ab:$08/v$00` zora<br>[I] `$ab:$09/v$00` zora |

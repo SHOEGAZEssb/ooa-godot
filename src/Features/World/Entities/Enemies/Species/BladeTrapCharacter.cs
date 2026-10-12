@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-/// <summary>ENEMY_BLADE_TRAP $0e:$01, the blue center-limited trap.</summary>
+/// <summary>ENEMY_BLADE_TRAP $0e:$00/$01, spinning red and center-limited blue traps.</summary>
 internal partial class BladeTrapCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == BladeTrapState.Uninitialized;
@@ -23,8 +23,8 @@ internal partial class BladeTrapCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, Action<int> sound)
     {
-        if (record is not { Id: EnemyId.BladeTrap, SubId: 1 })
-            throw new ArgumentException("Blade trap requires imported $0e:$01.", nameof(record));
+        if (record is not { Id: EnemyId.BladeTrap, SubId: 0 or 1 })
+            throw new ArgumentException("Blade trap requires imported $0e:$00/$01.", nameof(record));
         Record = record;
         _room = room;
         _random = random;
@@ -40,6 +40,7 @@ internal partial class BladeTrapCharacter : EnemyCharacter
         // enemyCode0e animates before its dispatch, including the waiting and
         // cooldown states. It never calls the common hazard handler.
         AdvanceAnimation();
+        if (Record.SubId == 0) { UpdateRed(target); return; }
         switch (State)
         {
             case BladeTrapState.Uninitialized:
@@ -82,6 +83,31 @@ internal partial class BladeTrapCharacter : EnemyCharacter
         }
     }
 
+    private void UpdateRed(Vector2 target)
+    {
+        var red = EnemyBehaviorTables.Shared.RedBladeTrap;
+        switch (State)
+        {
+            case BladeTrapState.Uninitialized:
+                _random.Next();
+                SetAnimation(1); SpeedRaw=1; State=BladeTrapState.Initializing; Visible=true; return;
+            case BladeTrapState.Initializing:
+                State=BladeTrapState.Waiting; SpeedRaw=red[0].Value; SetAnimation(1); return;
+            case BladeTrapState.Waiting:
+                if (!CheckAligned(target,red[1].Value) || !HasUnobstructedTarget(target)) return;
+                State=BladeTrapState.Charging; Counter=red[2].Value;
+                _sound(SoundId.SndMoveBlock); SetAnimation(2); return;
+            case BladeTrapState.Charging:
+                if ((Counter&1) != 0) Move();
+                if (--Counter == 0) State=BladeTrapState.Retracting;
+                AdvanceAnimation(); return;
+            case BladeTrapState.Retracting:
+                if (!Move()) { State=BladeTrapState.Waiting; SetAnimation(1); return; }
+                AdvanceAnimation(); return;
+            default: throw new InvalidOperationException($"ENEMY$0e:$00: invalid state${(int)State:x2}.");
+        }
+    }
+
     internal void PrepareForScreenTransition()
     {
         // bank0._updateEnemiesIfStateIsZero runs enemyStandardUpdate and
@@ -94,11 +120,11 @@ internal partial class BladeTrapCharacter : EnemyCharacter
     private bool Move() => _movement.MoveUsingAdjacentWalls(Angle, SpeedRaw,
         allowHoles: false, topDown: true);
 
-    private bool CheckAligned(Vector2 target)
+    private bool CheckAligned(Vector2 target,int? alignmentRadius=null)
     {
         int x = Mathf.FloorToInt(Position.X), y = Mathf.FloorToInt(Position.Y);
         int tx = Mathf.FloorToInt(target.X), ty = Mathf.FloorToInt(target.Y);
-        int radius = _behavior[1].Value;
+        int radius = alignmentRadius ?? _behavior[1].Value;
         // bladeTrap_checkLinkAligned prefers a vertical attack when both
         // axes qualify, and compares high bytes with unsigned wrapping.
         if (((tx - x + radius) & 0xff) < radius * 2 + 1)

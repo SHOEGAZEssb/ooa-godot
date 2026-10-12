@@ -157,10 +157,19 @@ public sealed class RoomTransitionController
     // Palette-thread lifetime, including its terminal update. A held black
     // screen or a landing animation after fade-in is not an active fade.
     private int _nativePaletteDirection, _nativePaletteOffset, _nativePaletteDelay = 1, _nativePaletteCounter = 1;
+    private Color _nativePaletteColor = Colors.White;
+    private int _nativePaletteSpeed = 1;
     internal bool NativePaletteFadeActive => _nativePaletteDirection != 0;
     internal void BeginNativeWhiteFade(bool fadeOut, int delay = 1)
+        => BeginNativePaletteFade(Colors.White, fadeOut, delay);
+    internal void BeginNativeBlackFade(bool fadeOut, int speed = 1)
+        => BeginNativePaletteFade(Colors.Black, fadeOut, speed: speed);
+    private void BeginNativePaletteFade(Color color, bool fadeOut, int delay = 1, int speed = 1)
     {
         if (delay < 1) throw new ArgumentOutOfRangeException(nameof(delay));
+        if (speed < 1) throw new ArgumentOutOfRangeException(nameof(speed));
+        _nativePaletteColor = color;
+        _nativePaletteSpeed = speed;
         _nativePaletteDirection = fadeOut ? 1 : -1;
         _nativePaletteOffset = fadeOut ? 0 : 32;
         // setPaletteThreadDelay starts at one, then refills with the delay.
@@ -171,9 +180,14 @@ public sealed class RoomTransitionController
         if (_nativePaletteDirection == 0) return;
         if (--_nativePaletteCounter != 0) return;
         _nativePaletteCounter = _nativePaletteDelay;
-        _nativePaletteOffset += _nativePaletteDirection;
-        if (_nativePaletteOffset >= 32 || _nativePaletteOffset < 0) { _nativePaletteDirection = 0; return; }
-        _warpFade.Color = new Color(1, 1, 1, Math.Min(_nativePaletteOffset, 31) / 31f);
+        _nativePaletteOffset += _nativePaletteDirection * _nativePaletteSpeed;
+        // Black fades use the native negative offset ($e0..$ff). Fade-in
+        // stops on carry to $00; white fade-in stops below zero instead.
+        bool finished = _nativePaletteColor == Colors.Black
+            ? _nativePaletteOffset > 32 || _nativePaletteOffset <= 0
+            : _nativePaletteOffset >= 32 || _nativePaletteOffset < 0;
+        if (finished) { _nativePaletteDirection = 0; return; }
+        _warpFade.Color = new Color(_nativePaletteColor, Math.Min(_nativePaletteOffset, 31) / 31f);
     }
     internal void CancelNativeWhiteFade() => _nativePaletteDirection = 0;
     internal bool PaletteFadeActive => NativePaletteFadeActive || _warpActive && (_warpPhase switch
@@ -1714,6 +1728,8 @@ public sealed class RoomTransitionController
             _player.WarpTo(spawn);
         }
 
+        if (warp.DestinationTransition == WarpDestinationTransition.Invisible)
+            _player.Visible = false;
         if (_timeWarp)
         {
             _destinationWalk = false;

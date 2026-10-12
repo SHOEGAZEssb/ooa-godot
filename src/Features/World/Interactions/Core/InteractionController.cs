@@ -582,7 +582,7 @@ public sealed class InteractionController
         GroundTreasurePickup treasure,
         Player player)
     {
-        if (treasure.Record.CompletionOwner ==
+        if (treasure.Record.GrabMode == TreasureGrabMode.NoChange || treasure.Record.CompletionOwner ==
             GroundTreasureCompletionOwner.Caller)
         {
             return;

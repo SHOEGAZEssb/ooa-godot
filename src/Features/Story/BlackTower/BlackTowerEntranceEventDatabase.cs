@@ -14,6 +14,8 @@ internal sealed class BlackTowerEntranceEventDatabase
     public IReadOnlyList<CutsceneCommand> Aftermath { get; }
     public IReadOnlyList<OamRecord> Oam { get; }
     public IReadOnlyList<OamRecord> Stage1Oam { get; }
+    internal IReadOnlyList<OamRecord> Stage2TopOam { get; }
+    internal IReadOnlyList<OamRecord> Stage2BaseOam { get; }
     public Color[,] BackgroundPalettes { get; }
     public Color[,] SpritePalettes { get; }
 
@@ -52,6 +54,8 @@ internal sealed class BlackTowerEntranceEventDatabase
         stage1.AddRange(LoadOam(
             "black_tower_stage_1_workers_oam.tsv", "stage-one workers", 10));
         Stage1Oam = stage1;
+        Stage2TopOam = LoadOam("black_tower_stage_2_top_oam.tsv", "completed tower top", 10);
+        Stage2BaseOam = LoadOam("black_tower_stage_2_base_oam.tsv", "completed tower base", 10);
         BackgroundPalettes = OracleGraphicsData.LoadPalette(
             Root + "black_tower_bg_palette.bin", 7, firstPalette: 1);
         SpritePalettes = OracleGraphicsData.LoadPalette(
@@ -88,6 +92,7 @@ internal sealed class BlackTowerEntranceEventDatabase
     {
         0 => Oam,
         1 => Stage1Oam,
+        2 => Stage2TopOam,
         _ => throw new InvalidOperationException(
             $"Black Tower explanation stage {stage} is not imported.")
     };

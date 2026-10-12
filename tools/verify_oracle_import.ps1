@@ -24,12 +24,17 @@ try {
     & $ownershipAudit -Project $project
 
     # The test project builds its importer reference once, before any workers.
-    & dotnet run --project $testsProject --configuration Debug
+    & dotnet build $testsProject -t:Rebuild -p:Optimize=true --nologo
+    if ($LASTEXITCODE -ne 0) {
+        throw "OracleImporter test build exited with code $LASTEXITCODE."
+    }
+    & dotnet run --project $testsProject --configuration Debug --no-build
     if ($LASTEXITCODE -ne 0) {
         throw "OracleImporter unit tests exited with code $LASTEXITCODE."
     }
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-ImportWorkers.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-ImportStages.ps1')
+    & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-GeneratedTables.ps1')
     & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-CutsceneNormalization.ps1')
 
     $Disassembly = (Resolve-Path -LiteralPath $Disassembly).Path

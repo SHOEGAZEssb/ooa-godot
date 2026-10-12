@@ -224,6 +224,7 @@ $wingConstants = [ordered]@{
     'toggle-center-max' = 12
     'enemy-chest-wait' = 30
     'falling-key-spawn-delay' = 40
+    'falling-key-grab-mode' = 0
     'track-tl' = 0x59
     'track-br' = 0x5a
     'track-bl' = 0x5b
@@ -235,6 +236,12 @@ $wingConstants = [ordered]@{
     'minecart-speed' = 0x28
     'minecart-mount-push' = 4
 }
+$fallingKeySource = Join-Path $Disassembly 'data/ages/treasureObjectData.s'
+$fallingKeyRows = @(Read-AssemblyMacroInvocations $fallingKeySource 'treasureObjectData30' 'm_TreasureSubid')
+if (($fallingKeyRows[1].Operands -join ',') -ne '$28,$01,$ff,$42,TREASURE_OBJECT_SMALL_KEY_01') {
+    throw 'treasureObjectData30: falling Small Key requires spawn mode $02, no-change grab mode $00 and ROOMFLAG_ITEM.'
+}
+$wingConstants['falling-key-grab-mode'] = (Convert-AssemblyInteger $fallingKeyRows[1].Operands[0]) -band 7
 $tileNames = [ordered]@{
     'standard-floor' = 'TILEINDEX_STANDARD_FLOOR'
     'red-floor' = 'TILEINDEX_RED_FLOOR'

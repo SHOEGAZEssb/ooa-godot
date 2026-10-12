@@ -50,6 +50,8 @@ public static class CollisionEffect
     public const int Effect21 = 0x21;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_STUN
     public const int Stun = 0x22;
+    // constants/common/collisionEffects.s: COLLISIONEFFECT_26
+    public const int Effect26 = 0x26;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_BURN
     public const int Burn = 0x27;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_PEGASUS_SEED

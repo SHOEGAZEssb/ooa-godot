@@ -27,6 +27,9 @@ $dungeonBossSpriteSequences = @{
     0x79 = @($gfxNames[0xbf], $gfxNames[0xc0], $gfxNames[0xc1])
     0x7a = @($gfxNames[0xc2], $gfxNames[0xc3])
     0x7b = @($gfxNames[0xc4])
+    0x26 = @($gfxNames[0xa5])
+    0x76 = @($gfxNames[0xb8])
+    0x7e = @($gfxNames[0xcb], $gfxNames[0xcc], $gfxNames[0xcd])
 }
 $dungeonBossSourceGrayscaleInverted = @{
     0x11 = $true
@@ -49,6 +52,7 @@ foreach ($spec in @(
     @(0x3f, 0), @(0x42, 0), @(0x70, 0), @(0x71, 0), @(0x72, 0), @(0x78, 0),
     @(0x79, 0), @(0x7a, 0), @(0x73, 0), @(0x73, 1), @(0x73, 2), @(0x73, 3),
     @(0x7b, 0), @(0x7b, 1), @(0x11, 0), @(0x11, 1), @(0x11, 2), @(0x11, 3)
+    @(0x26, 0), @(0x76, 0), @(0x76, 1), @(0x7e, 0)
 )) {
     $id = [int]$spec[0]
     $subid = [int]$spec[1]
@@ -61,11 +65,13 @@ foreach ($spec in @(
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
     $animations = [Convert]::ToBase64String(
         [Text.Encoding]::UTF8.GetBytes($definition.Animations -join "`n"))
-    $sourceGrayscaleInverted = if ($dungeonBossSourceGrayscaleInverted[$id]) { 1 } else { 0 }
+    $inverted = if ($dungeonBossSourceGrayscaleInverted.ContainsKey($id)) { $dungeonBossSourceGrayscaleInverted[$id] }
+        else { Get-EnemySpriteSourceGrayscaleInverted $sprites[0] }
+    $sourceGrayscaleInverted = if ($inverted) { 1 } else { 0 }
     $dungeonBossRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
-if ($dungeonBossRows.Count -ne 19 -or
+if ($dungeonBossRows.Count -ne 23 -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^42\t00\tspr_shadowhag_2\t20\t2\t1\t6\t6\t1\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or
@@ -447,6 +453,7 @@ Add-DungeonInteractionVisual 'echoing-howl' 0x7f 0 @(2) 6 3
 Add-DungeonInteractionVisual 'burning-flame' 0x7f 0 @(2) 8 2
 Add-DungeonInteractionVisual 'sacred-soil' 0x7f 0 @(2) 10 0
 Add-DungeonInteractionVisual 'bereft-peak' 0x7f 0 @(2) 12 0
+Add-DungeonInteractionVisual 'rolling-sea' 0x7f 0 @(1) 14 1
 Add-DungeonInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
 Add-DungeonInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
@@ -943,8 +950,8 @@ if ($eyeStatueVisual.Sprite -ne 'spr_polsvoice_hardhatbeetle_spikedbeetle_beamon
 Add-DungeonPartVisualRow 'seed-shooter-eye-statue' $eyeStatueVisual.Sprite $eyeStatueVisual.TileBase `
     $eyeStatueVisual.Palette $eyeStatueVisual.SourceGrayscaleInverted $eyeStatueVisual.Animations
 
-if ($dungeonVisualRows.Count -ne 38) {
-    throw "Expected thirty-seven imported shared dungeon interaction visuals."
+if ($dungeonVisualRows.Count -ne 39) {
+    throw "Expected thirty-eight imported shared dungeon interaction visuals."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\dungeon_interaction_visuals.tsv'),

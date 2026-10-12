@@ -35,6 +35,12 @@ non-interaction freeze through `IRoomEvent`. The application supplies that
 live state to the entity manager, so enemies and items pause while ordinary
 interactions, including key sprites and opening effects, continue updating.
 
+Native cutscene controllers advance before the object pass. When the original
+cutscene selects a successor and returns without updating objects, the event
+exposes `SkipsObjectUpdate`; the application still advances the global frame
+counter. Room changes and event ownership must preserve the first eligible
+update of newly loaded actors, including events that begin during a return fade.
+
 ## Evidence packet
 
 Before implementing an interaction, record:

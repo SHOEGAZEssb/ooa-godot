@@ -48,6 +48,11 @@ internal enum DungeonObjectCondition
 
 internal enum DungeonObjectKind
 {
+    JabuWater,
+    JabuLadder,
+    JabuHookKey,
+    AnglerFish,
+    Plasmarine,
     WallSquish,
     ButtonBridge,
     PushBlockSynchronizer,

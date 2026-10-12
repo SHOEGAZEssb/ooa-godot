@@ -717,6 +717,14 @@ Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/remote_maku_sixt
     $remoteMakuEventHeader
     "3`t0f`t8a`t01`t08`t20`tff`t40`t05b8`t05c8`tb8`tc8`t1e`t77`t2`t65`t40`t240`t60`t1`t12`t$($pastConfettiDelays -join ',')`t$pastPositionPayload`t0`t0`t0`t45`tce`t0`t0`t0`tpast`t10`t-640`t1024`t-16"
 ))
+if ($remoteMakuInteractionSource -notmatch '(?ms)^@val09:\s*ld a,\$06\s*call @checkEssenceObtained\s*jp z,@deleteSelfAndReturn\s*ldbc \$00, <TX_05b9\s*jp @setTextForScript' -or
+    (Read-ImportText (Join-Path $Disassembly 'objects/ages/extraData3.s')) -notmatch '(?ms)^objectData7798:\s+obj_Interaction \$dc \$09\s+obj_Interaction \$dc \$0a\s+obj_Interaction \$8a \$00 \$00 \$00 \$09\s+obj_End') {
+    throw 'Seventh-Essence dynamic remote Maku $8a:$00/v$09 lost its final $2:$90 return stream or essence-bit gate.'
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/remote_maku_seventh_essence_event.tsv'), @(
+    $remoteMakuEventHeader
+    "2`t90`t8a`t00`t09`t40`tff`t40`t05b9`t05c9`tb9`tc9`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
+))
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\post_d3_remote_maku_event.tsv'),
     $postD3EventRows)
@@ -771,7 +779,8 @@ foreach ($variant in @(
     @('third_essence', 0x05b4, 0x05c4),
     @('fourth_essence', 0x05b5, 0x05c5),
     @('moblin', 0x05b6, 0x05c6),
-    @('fifth_essence', 0x05b7, 0x05c7)
+    @('fifth_essence', 0x05b7, 0x05c7),
+    @('seventh_essence', 0x05b9, 0x05c9)
 )) {
     $remoteMakuCommandRows = [Collections.Generic.List[string]]::new()
     $remoteMakuCommandRows.Add($remoteMakuCommandHeader)
@@ -791,9 +800,16 @@ foreach ($variant in @(
             $arg1 = $variant[2].ToString('x4')
             $payload = "$($allTexts[$variant[1]])`0$($allTexts[$variant[2]])"
         }
+        $runtimeIndex = $index
+        if($variant[0] -eq 'seventh_essence' -and $index -ge 14) { $runtimeIndex++ }
         $remoteMakuCommandRows.Add((New-CutsceneCommandRow `
-            'remoteMakuCutsceneScript' $index $sourceCommand.Label `
+            'remoteMakuCutsceneScript' $runtimeIndex $sourceCommand.Label `
             $sourceCommand.Line $spec[1] $spec[2] $arg0 $arg1 $payload))
+        if($variant[0] -eq 'seventh_essence' -and $index -eq 13) {
+            $sourceCommand=$remoteMakuParsed[20]
+            $remoteMakuCommandRows.Add((New-CutsceneCommandRow `
+                'remoteMakuCutsceneScript' 14 $sourceCommand.Label $sourceCommand.Line 'native' '' '' '' 'InitUnderwaterWaves'))
+        }
     }
     Write-CutsceneGeneratedTable(
         (Join-Path $destination "cutscenes\remote_maku_$($variant[0])_commands.tsv"),

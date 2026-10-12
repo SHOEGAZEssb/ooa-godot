@@ -525,9 +525,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 12 || adjacentHeartControls != 2 || byteEscapes != 6,
+            slowControls != 13 || adjacentHeartControls != 2 || byteEscapes != 6,
             "The generated dialogue inventory no longer contains the expected " +
-            $"six \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), and the possession taunt (TX_2f2a), two adjacent-heart, and six \\x20 source controls including library TX_3313/TX_3314 (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
+            $"seven \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), and the possession taunt (TX_2f2a), two adjacent-heart, and six \\x20 source controls including library TX_3313/TX_3314 (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>
@@ -562,8 +562,8 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 79,
                 [NpcImplementationClassification.SpecializedNative] = 209,
-                [NpcImplementationClassification.EventOwned] = 123,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 50
+                [NpcImplementationClassification.EventOwned] = 124,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 49
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -576,7 +576,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "79 ordinary, 209 specialized, 123 event-owned, and 50 " +
+            "79 ordinary, 209 specialized, 124 event-owned, and 49 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 

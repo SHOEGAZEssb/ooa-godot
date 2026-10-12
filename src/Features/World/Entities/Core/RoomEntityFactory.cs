@@ -483,6 +483,7 @@ internal sealed class RoomEntityFactory
         IReadOnlyList<DungeonObjectRecord> laterDungeonRecords =
             Resources.SkullDungeon.GetRoomRecords(group, room.Id).Concat(Resources.CrownDungeon.GetRoomRecords(group, room.Id))
                 .Concat(Resources.MermaidDungeon.GetRoomRecords(group,room.Id))
+                .Concat(Resources.JabuDungeon.GetRoomRecords(group,room.Id))
                 .Concat(Resources.TrapResets.GetRoomRecords(group,room.Id).Select(record => new DungeonObjectRecord(
                     group,room.Id,record.Order,DungeonObjectKind.PuzzleTrapReset,InteractionId.MiscPuzzles,0x1f,0,0,
                     DungeonObjectCondition.Always,record.Source)))
@@ -552,7 +553,9 @@ internal sealed class RoomEntityFactory
                 }
                 if (record.Kind == DungeonObjectKind.SeedShooterEyeStatue && !owner.PartSlotAvailable)
                     continue;
-                if (record.Kind is DungeonObjectKind.OctogonInitializer or DungeonObjectKind.SmogController or DungeonObjectKind.PushBlockSynchronizer
+                if (record.Kind is DungeonObjectKind.AnglerFish or DungeonObjectKind.Plasmarine && !owner.EnemySlotAvailable)
+                    continue;
+                if (record.Kind is DungeonObjectKind.JabuWater or DungeonObjectKind.JabuLadder or DungeonObjectKind.JabuHookKey or DungeonObjectKind.OctogonInitializer or DungeonObjectKind.SmogController or DungeonObjectKind.PushBlockSynchronizer
                     or DungeonObjectKind.WallSquish or DungeonObjectKind.ButtonBridge or DungeonObjectKind.PuzzleTrapReset
                     or DungeonObjectKind.PatternHint or DungeonObjectKind.TilePatternChest or DungeonObjectKind.TriggerChestScript
                     or DungeonObjectKind.BossReward or DungeonObjectKind.MinibossReward or DungeonObjectKind.Essence or DungeonObjectKind.OrbChest
@@ -576,8 +579,25 @@ internal sealed class RoomEntityFactory
                 }
                 yield return record.Kind switch
                 {
+                    DungeonObjectKind.JabuWater => new JabuWaterControllerRoomEntity(
+                        _saveData ?? throw new InvalidOperationException($"{record.Source}: Jabu water requires save state."),
+                        _runtimeState,() => (byte)owner.ActiveTriggers,owner.OnNativeSoundRequested,owner.BeginScreenShake,
+                        id => owner.OnRoomEntityDialogueRequested(id,Resources.JabuDungeon.Text(id),record.Position),
+                        owner.NativeActiveMusicSource),
+                    DungeonObjectKind.JabuLadder => new JabuLadderRoomEntity(record,
+                        () => owner.ActiveRoomHasFlag(_saveData!,0x80),() => {
+                            _saveData!.SetRoomFlag(owner.ActiveRoom.Group,owner.ActiveRoom.Id,0x80);
+                            _saveData.SetRoomFlag(5,0x4d,0x80);
+                        },() => owner.RoomEnemyCount,(position,tile) => {
+                            if (rooms!.TrySetTile(position,tile)) owner.OnRoomTileChanged();
+                        },owner.TryCreatePuzzlePuff,owner.OnNativeSoundRequested,owner.EnableLinkCollisionsAndMenu),
+                    DungeonObjectKind.JabuHookKey => new DungeonPatternKeyRoomEntity(record,
+                        () => owner.ActiveRoom,0xdb,Resources.JabuDungeon.HookKeyPattern,
+                        CreateFallingSmallKeyRequest(record),DungeonChestItemFlagSet,owner.TryCreateGroundTreasure,owner.IsOutgoingEntity),
                     DungeonObjectKind.ArmosWarrior => CreateArmosWarrior(record, room, placementContext),
                     DungeonObjectKind.Smasher => CreateSmasher(record, room, placementContext),
+                    DungeonObjectKind.AnglerFish => CreateAnglerFish(record,room,placementContext),
+                    DungeonObjectKind.Plasmarine => CreatePlasmarine(record,placementContext),
                     DungeonObjectKind.OctogonInitializer => new OctogonEncounterInitializerRoomEntity(
                         Resources.MermaidDungeon.OctogonInitialization,_runtimeState),
                     DungeonObjectKind.SignalScript => CreateDungeonSignalScript(record),
@@ -995,6 +1015,12 @@ internal sealed class RoomEntityFactory
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
+                        if (record is { Id: 0x4d, SubId: 3 })
+                        {
+                            yield return owner.PostD7AmbiFactory?.Invoke(record) ??
+                                throw new InvalidOperationException("INTERAC_AMBI $4d:$03 requires the post-D7 native controller.");
+                            break;
+                        }
                         if (record.Id == 0x32 && record.SubId == 2)
                         {
                             yield return new SeaFairyNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
@@ -1811,7 +1837,7 @@ internal sealed class RoomEntityFactory
             record.Source)
         {
             SpawnMode = TreasureSpawnMode.FromScreenTop,
-            GrabMode = TreasureGrabMode.TwoHands,
+            GrabMode = Resources.DungeonInteractions.Constant("falling-key-grab-mode"),
             SpawnDelayFrames =
                 Resources.DungeonInteractions.Constant("falling-key-spawn-delay"),
             BounceCount = 2,
@@ -1849,7 +1875,7 @@ internal sealed class RoomEntityFactory
             source)
         {
             SpawnMode = TreasureSpawnMode.FromScreenTop,
-            GrabMode = TreasureGrabMode.TwoHands,
+            GrabMode = Resources.DungeonInteractions.Constant("falling-key-grab-mode"),
             SpawnDelayFrames =
                 Resources.DungeonInteractions.Constant("falling-key-spawn-delay"),
             BounceCount = 2,
@@ -1919,6 +1945,62 @@ internal sealed class RoomEntityFactory
         var actor = new VireCharacter { Name = "Vire_75_Main" };
         actor.Initialize(enemies.ImportedEnemy(EnemyId.Vire,0),room,record.Position,_random,_runtimeState,world);
         return new VireRoomEntity(actor,world);
+    }
+
+    private IRoomEntity CreateAnglerFish(DungeonObjectRecord record,OracleRoomData room,EnemyPlacementContext placementContext)
+    {
+        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
+        AnglerFishEnvironment? world = null;
+        void SetLinkMask(int value)
+        {
+            _runtimeState.SetWramByte(WramAddress.wDisabledObjects,(byte)value);
+            _runtimeState.SetWramByte(WramAddress.wMenuDisabled,(byte)value);
+        }
+        world = new(room,_random,scrolling => {
+            owner.EnableLinkCollisionsAndMenu();
+            owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
+            owner.SetNativeActiveMusic(0xff);owner.BeginBossEntrySignal();entry.Arm();
+        },parent => (owner.TryAllocateEnemy(_ => {
+            var child = new AnglerFishCharacter { Name = "AnglerFish_76_Antenna" };
+            child.Initialize(Resources.DungeonBosses.Enemy(EnemyId.AnglerFish,1),Vector2.Zero,world!,false,parent);
+            return new AnglerFishRoomEntity(child,world!);
+        })?.Node as AnglerFishCharacter),parent => owner.TryAllocateEnemy(_ => {
+            var bubble = new AnglerFishCharacter { Name = "AnglerFishBubble_26" };
+            bubble.Initialize(Resources.DungeonBosses.Enemy(EnemyId.AnglerFishBubble),Vector2.Zero,world!,false,parent);
+            return new AnglerFishRoomEntity(bubble,world!);
+        }) is not null,(packed,tile) => {
+            if(rooms is null)throw new InvalidOperationException($"{record.Source}: Angler Fish tile writes require the room owner.");
+            if(rooms.TrySetTile((byte)packed,(byte)tile))owner.OnRoomTileChanged();
+        },() => SetLinkMask(1),() => {
+            SetLinkMask(0);owner.SetNativeActiveMusic(SoundId.MusMiniboss);owner.OnNativeSoundRequested(SoundId.MusMiniboss);
+        },owner.DisableLinkCollisionsAndMenu,
+        point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,EnemyId.AnglerFish)),
+        () => owner.OnRoomMusicRequested(record.Group,record.Room),owner.OnNativeSoundRequested,
+        point => owner.TryCreatePart(new ItemDropSpawn(ItemDropDatabase.ScentSeeds,point,InvincibilityCounter:0xf0)),
+        point => owner.TryCreateCandleExplosion(point)>=0,entry);
+        var actor = new AnglerFishCharacter { Name = "AnglerFish_76_Main" };
+        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.AnglerFish),record.Position,world,true);
+        return new AnglerFishRoomEntity(actor,world);
+    }
+
+    private IRoomEntity CreatePlasmarine(DungeonObjectRecord record,EnemyPlacementContext placementContext)
+    {
+        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
+        void SetLinkMask(int value)
+        {
+            _runtimeState.SetWramByte(WramAddress.wDisabledObjects,(byte)value);
+            _runtimeState.SetWramByte(WramAddress.wMenuDisabled,(byte)value);
+        }
+        var world = new PlasmarineEnvironment(_random,() => {
+            SetLinkMask(1);owner.EnableLinkCollisionsAndMenu();owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
+            owner.SetNativeActiveMusic(0xff);owner.BeginBossEntrySignal();entry.Arm();
+        },() => {
+            SetLinkMask(0);owner.SetNativeActiveMusic(SoundId.MusBoss);owner.OnNativeSoundRequested(SoundId.MusBoss);
+        },parent => owner.TryCreatePart(new PlasmarineProjectileSpawn(parent.Position.Floor()+new Vector2(0,-20),parent.CurrentOamFlags-1,parent.Slot)),
+        owner.DisableLinkCollisionsAndMenu,point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,EnemyId.Plasmarine)),owner.OnNativeSoundRequested,entry);
+        var actor = new PlasmarineCharacter {Name="Plasmarine_7e"};
+        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.Plasmarine),record.Position,world);
+        return new PlasmarineRoomEntity(actor,world);
     }
 
     private IRoomEntity CreateOctogon(DungeonObjectRecord record,Vector2 position,EnemyPlacementContext placementContext)
@@ -2060,13 +2142,14 @@ internal sealed class RoomEntityFactory
 
     private DungeonEssence CreateLaterDungeonEssence(DungeonObjectRecord record, OracleRoomData room)
     {
-        var definition = new[] { Resources.SkullDungeon.Essence, Resources.CrownDungeon.Essence, Resources.MermaidDungeon.Essence }.Single(definition =>
+        var definition = new[] { Resources.SkullDungeon.Essence, Resources.CrownDungeon.Essence, Resources.MermaidDungeon.Essence, Resources.JabuDungeon.Essence }.Single(definition =>
             definition.ExitWarp.SourceGroup == record.Group && definition.ExitWarp.SourceRoom == record.Room);
         string visual = definition.Index switch
         {
             3 => "burning-flame",
             4 => "sacred-soil",
             5 => "bereft-peak",
+            6 => "rolling-sea",
             _ => throw new InvalidOperationException($"{record.Source}: missing Essence visual for index${definition.Index:x2}.")
         };
         return new DungeonEssence(record, Resources.DungeonVisuals.Visual(visual),
@@ -2667,6 +2750,8 @@ internal sealed class RoomEntityFactory
             Resources.DungeonVisuals.Visual("energy-bead"), _random, _runtimeState),
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
+        PlasmarineProjectileSpawn projectile => new PlasmarineProjectileRoomEntity(new PlasmarineProjectile(projectile,room,_runtimeState,
+            slot => owner.ResolveEnemySlot(slot)?.Node as PlasmarineCharacter)),
         ArmosWarriorChildSpawn child => CreateArmosChild(child),
         DefeatedMoblinActorSpawn actor => new DefeatedMoblinActorRoomEntity(NpcCharacter.CreateFromRecord(actor.Record)),
         KingMoblinMinionSpawn child => CreateKingMoblinMinion(child),
@@ -4656,6 +4741,7 @@ internal sealed class RoomEntityFactory
             spawn.SubId, spawn.Position, room, _itemDrops.GetVisual(spawn.SubId),
             spawn.Angle, spawn.DugUp, owner.OnSoundRequested, collectionSound,
             _itemDrops, _random, owner.MaplePresent, owner.SpawnDiggingEnemy, spawn.ZHigh);
+        drop.InvincibilityCounter = spawn.InvincibilityCounter;
         return drop;
     }
 

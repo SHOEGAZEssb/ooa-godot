@@ -274,6 +274,8 @@ internal readonly record struct EnemyCombatSourceDescriptor(
               (EnemyHandlerKind.Wizzrobe, 0x30) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.Candle, 0x3e) => EnemySwordResponse.Bump,
             (EnemyHandlerKind.Gibdo, 0x16) => EnemySwordResponse.NoKnockback,
+            (EnemyHandlerKind.IronMask, 0x1d or 0x53) => EnemySwordResponse.Knockback,
+            (EnemyHandlerKind.Pincer,0x34) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.LikeLike, 0x22) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.BallChainSoldier, 0x37) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.FireKeese, 0x2b) => EnemySwordResponse.Knockback,

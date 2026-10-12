@@ -14,7 +14,8 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     int? ITerrainShadowSource.TerrainShadowZHigh =>
         _state == PickupState.Collected ? null : _zFixed >> 8;
 
-    private const float CombinedCollisionRadius = 12.0f;
+    // treasure.s:@state0 sets both interaction collision radii to $06.
+    private const int CollisionRadius = 6;
     private Texture2D _texture = null!;
     private Vector2 _textureOffset;
     private Action<int> _soundRequested = static _ => { };
@@ -56,7 +57,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     {
         Record = record;
         if (record.SpawnMode is not (TreasureSpawnMode.Instant or TreasureSpawnMode.Puff or TreasureSpawnMode.FromScreenTop or TreasureSpawnMode.Buried) ||
-            record.GrabMode is not (TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands or TreasureGrabMode.SpinSlash))
+            record.GrabMode is not (TreasureGrabMode.NoChange or TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands or TreasureGrabMode.SpinSlash))
         {
             throw new InvalidOperationException(
                 $"Ground treasure from {record.Source} uses unsupported " +
@@ -129,6 +130,11 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         }
         switch (_state)
         {
+            // treasure.s:@state3 dispatches grab mode $00 directly to
+            // interactionDelete on the update after the inventory grant.
+            case PickupState.Collected when Record.GrabMode == TreasureGrabMode.NoChange:
+                Finish(player);
+                return;
             case PickupState.Initializing:
                 InitializeGraphicsState();
                 return;
@@ -216,10 +222,10 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         {
             return false;
         }
-        Vector2 delta = player.Position - Position;
         if (checkDefaultDistance &&
-            (Mathf.Abs(delta.X) >= CombinedCollisionRadius ||
-             Mathf.Abs(delta.Y) >= CombinedCollisionRadius))
+            !Player.EnemyCollisionOverlaps(player.Position,
+                new Rect2(Position - Vector2.One * CollisionRadius,
+                    Vector2.One * (CollisionRadius * 2))))
         {
             return false;
         }

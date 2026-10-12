@@ -60,6 +60,17 @@ internal sealed class SomariaRom
     internal void LoadRoomTileset() => _rom.LoadRoomTileset();
     internal void AdvanceScreenShake() => _rom.Call(0x427d,1); // Original post-object Y/X shake and RNG draws.
     internal void AdvanceNayruRescueWarp() => _rom.Call(0x6785,3); // CUTSCENE$0c @runStates, before objects.
+    internal void AdvancePostD7()
+    {
+        // The original state handlers precede updateAllObjects. Their room,
+        // palette and temporary-object loads execute without replacements.
+        int entry = this[0xc2ef] switch
+        {
+            0x21 => 0x69be, 0x08 => 0x65b9, 0x10 => 0x6a97,
+            _ => throw new InvalidOperationException($"Post-D7 ROM cutscene ${this[0xc2ef]:x2}.")
+        };
+        _rom.Call(entry, 3);
+    }
     internal void SelectTriggeredCutscene()
     { if (this[0xcc04] != 0) _rom.Call(0x5e3d, 1); }
     internal void ApplyLinkDamage(byte rawDamage)

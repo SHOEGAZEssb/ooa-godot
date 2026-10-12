@@ -9,6 +9,7 @@ try
 {
     RunSourceModelTests(temporaryRoot);
     RunManifestTests(temporaryRoot);
+    GeneratedGrayscalePngTests.Run(temporaryRoot);
     RunImporterBoundaryTests();
     RunBallAndChainSourceContractTests();
     if (args is ["--verify-runtime-symbols", string disassemblyRoot])
@@ -177,6 +178,11 @@ static void RunManifestTests(string root)
     GeneratedAssetEntry table = expected.Entries.Single(entry => entry.Path == "two.tsv");
     Assert(table.RecordCount == 3, "manifest record count changed");
     expected.AssertEquivalent(GeneratedAssetManifest.Capture(assets));
+    string manifestPath = Path.Combine(root, "manifest.tsv");
+    expected.WriteTsv(manifestPath);
+    byte[] manifestBytes = File.ReadAllBytes(manifestPath);
+    Assert(!manifestBytes.Contains((byte)'\r') && manifestBytes[^1] == '\n' && manifestBytes[0] == '#',
+        "manifest must use LF newlines and UTF-8 without BOM on every platform");
 
     File.AppendAllText(Path.Combine(assets, "two.tsv"), "gamma\t4\n");
     bool rejected = false;
@@ -189,6 +195,13 @@ static void RunManifestTests(string root)
         rejected = exception.Message.Contains("two.tsv", StringComparison.Ordinal);
     }
     Assert(rejected, "manifest comparison accepted modified output");
+
+    Directory.CreateDirectory(Path.Combine(assets, "a"));
+    File.WriteAllBytes(Path.Combine(assets, "a", "z.bin"), new byte[] { 1 });
+    File.WriteAllBytes(Path.Combine(assets, "a.tsv"), new byte[] { 2 });
+    Assert(GeneratedAssetManifest.Capture(assets).Entries.Take(2).Select(entry => entry.Path)
+        .SequenceEqual(new[] { "a.tsv", "a/z.bin" }),
+        "manifest paths must sort ordinally after normalizing separators");
 }
 
 static void RunImporterBoundaryTests()

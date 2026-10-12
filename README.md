@@ -12,7 +12,7 @@ current high-level boundary.
 ## Requirements
 
 - Godot 4.7.1 with .NET support
-- .NET 8 SDK and PowerShell
+- .NET 8 SDK and PowerShell (PowerShell 7 on Linux)
 - The pinned `external/oracles-disasm` Git submodule
 - The clean US ROM with MD5 `C4639CC61C049E5A085526BB6CAC03BB`
 
@@ -45,6 +45,9 @@ Use path overrides when needed:
 ```powershell
 & .\tools\import_oracles.ps1 -Rom 'D:\roms\ages.gbc' -Disassembly 'D:\src\oracles-disasm'
 ```
+
+On Linux, run `pwsh -NoProfile -File tools/import_oracles.ps1`. The same
+`-Rom` and `-Disassembly` options accept native Linux paths.
 
 Generated files are written to `assets/oracle/`. Change the importer and
 regenerate them; never edit generated files directly.

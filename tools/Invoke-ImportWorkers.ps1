@@ -104,7 +104,12 @@ finally {
     foreach ($worker in $processes) {
         if (-not $worker.Process.HasExited) {
             # Stop the source-host child as well as its PowerShell worker.
-            & taskkill.exe /PID $worker.Process.Id /T /F 2>&1 | Out-Null
+            if ($PSVersionTable.PSEdition -eq 'Core') {
+                $worker.Process.Kill($true)
+            }
+            else {
+                & taskkill.exe /PID $worker.Process.Id /T /F 2>&1 | Out-Null
+            }
             $worker.Process.WaitForExit()
         }
         Save-ImportWorkerLogs $worker

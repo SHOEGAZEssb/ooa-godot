@@ -885,6 +885,11 @@ public partial class GameRoot : Node2D
         }
 
         bool nativeCutsceneOwnedUpdate = _roomEvents.AdvanceNativeCutscenesBeforeObjects();
+        if (_roomEvents.SkipsObjectUpdate)
+        {
+            _entities.AdvanceFrozenRoomFrame();
+            return;
+        }
         // updateSpecialObjects runs w1Companion before w1Link. A waiting raft
         // remains in the later interaction pass until it allocates that slot.
         _player.AdvanceDeathPrelude();
