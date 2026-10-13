@@ -323,6 +323,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateLinkDamageRom, requiresRom: true);
         RunIsolatedValidation(ValidateLinkInvincibilityRom, requiresRom: true);
         RunIsolatedValidation(ValidateLinkDamageGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSpikeTilesRom, requiresRom: true);
         RunIsolatedValidation(ValidateObjectCollisionGeometryRom, requiresRom: true);
         RunIsolatedValidation(ValidateCollisionMasksRom, requiresRom: true);
         RunIsolatedValidation(ValidateLinkContactGeometryRom, requiresRom: true);
@@ -1097,6 +1098,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSideScrollSwimmingBubbles);
         RunIsolatedValidation(ValidateSideScrollSwimmingKinematics);
         RunIsolatedValidation(ValidateLinkTerrainEffects);
+        RunIsolatedValidation(ValidateSpikeTileLanding);
         RunIsolatedValidation(ValidateHealth);
         RunIsolatedValidation(ValidateLinkDamagePaletteAssets);
         RunIsolatedValidation(ValidateChests);

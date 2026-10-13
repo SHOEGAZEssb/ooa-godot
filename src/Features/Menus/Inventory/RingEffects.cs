@@ -54,9 +54,9 @@ internal static class RingEffects
     {
         int raw = ContactDamageRaw(inventory, quarters, source);
         if (raw == 0) return 0;
-        // bombs.s calls linkApplyDamage directly, bypassing the ordinary
+        // These callers use linkApplyDamage directly, bypassing the ordinary
         // incoming ring modifiers; Protection is handled by linkApplyDamage.
-        if (source is RingDamageSource.Hole or RingDamageSource.TerrainHazard or RingDamageSource.OwnBomb)
+        if (source is RingDamageSource.Hole or RingDamageSource.TerrainHazard or RingDamageSource.OwnBomb or RingDamageSource.Spike)
         {
             if (Active(inventory, RingId.Protection))
                 raw = -8;

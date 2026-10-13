@@ -2102,6 +2102,7 @@ public partial class Player : Node2D
             if (!_world.IsTransitioning && !_world.DialogueOpen)
             {
                 UpdateRaisedFloorOffset();
+                ApplyTopDownSpikeDamage();
                 if (!_world.SideScrolling && !_companionRideControlled)
                     _world.UpdateLinkOnChest(_precisePosition, _topDownAirborne);
             }
@@ -2127,95 +2128,106 @@ public partial class Player : Node2D
             }
             if (!_world.SideScrolling && _world.PlayingInstrument == 0)
                 _tilePushWalls = _world.GetAdjacentWallsBitset(_precisePosition);
-            float frameDelta = (float)delta * 60.0f;
-            if (_raftRideControlled)
-            {
-                // The raft owns both the counter and movement; ordinary Link
-                // recoil must not add a second SPEED_140 displacement.
-            }
-            else if (_world.SideScrolling)
-            {
-                int decrement = _sideScrollAirborne ? 2 : 1;
-                float nextCounter = _enemyKnockbackFrames - decrement;
-                if (nextCounter >= 0.0f)
-                {
-                    _enemyKnockbackFrames = nextCounter;
-                    ApplySideScrollVelocity(
-                        _world.SideScrollParameters.KnockbackSpeed,
-                        SideScrollHorizontalAngle(
-                            AngleForVector(_enemyKnockbackDirection)),
-                        allowWallSlide: false);
-                }
-                else
-                {
-                    _enemyKnockbackFrames = 0.0f;
-                }
-
-                Vector2 sideInput = Input.GetVector(
-                    "move_left", "move_right", "move_up", "move_down");
-                if (_world.MovementDisabled)
-                    sideInput = Vector2.Zero;
-                _lastMovementInput = sideInput;
-                UpdateSideScrollMovement(
-                    delta,
-                    sideInput,
-                    // linkState01_sidescroll applies recoil first, then
-                    // state 2 still swims unless wLinkImmobilized is set.
-                    movementAllowed: _sideScrollAirborne || SideScrollSwimming ||
-                        _enemyKnockbackFrames == 0 && !recoilItemImmobilized &&
-                        !IsUsingBoomerang && (!IsUsingItem || SwordAllowsMovement));
-            }
-            else
-            {
-                // linkUpdateKnockback calls the native collision helper,
-                // including tile-edge adjustment and its scratch writes.
-                int decrement = _topDownAirborne ? 2 : 1;
-                float nextCounter = _enemyKnockbackFrames - decrement * frameDelta;
-                // A borrow clears the counter without applying another recoil
-                // step; subtraction reaching zero still applies SPEED_140.
-                if (nextCounter >= 0)
-                {
-                    Vector2 resolved = _world.ResolveNativeMovement(
-                        _precisePosition, 0x32,
-                        AngleForVector(_enemyKnockbackDirection), allowWallSlide: true,
-                        adjacentWalls: _tilePushWalls);
-                    _precisePosition += resolved * frameDelta;
-                }
-                _enemyKnockbackFrames = Mathf.Max(0, nextCounter);
-                if (_topDownAirborne)
-                {
-                    // linkState01 always runs linkUpdateInAir after recoil.
-                    // Retained jump momentum adds its own planar step, and
-                    // landing resumes ground input only after recoil clears.
-                    Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-                    UpdateTopDownAirMovement(delta, _lastMovementInput,
-                        !recoilItemImmobilized && !IsUsingBoomerang && (!IsUsingItem || SwordAllowsMovement),
-                        recoilMovementStart);
-                    return;
-                }
-            }
-            // linkUpdateKnockback still moves at counter zero. The normal
-            // handler then resumes grounded movement in this same update;
-            // checkUseItems has already run and must not run a second time.
-            if (!_world.SideScrolling && !_topDownAirborne && !TopDownSwimming &&
-                !_raftRideControlled && _enemyKnockbackFrames == 0 &&
-                !recoilItemImmobilized)
-            {
-                AdvanceMovementAfterItemParents(delta, _lastMovementInput, recoilMovementStart);
-                return;
-            }
-            _walking = false;
-            Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-            if (_world.SideScrolling && !_world.CheckTileWarp(this))
-                _world.CheckRoomExit(this);
-            else if (!_world.SideScrolling && !_topDownAirborne)
-                // linkUpdateKnockback returns from Link's handler, not from
-                // cutscene01: func_60e9 still runs after the object passes.
-                _world.CheckTileWarp(this);
-            QueueRedraw();
+            AdvanceKnockbackAfterItemParents(delta, recoilItemImmobilized, recoilMovementStart);
             return;
         }
 
+        AdvanceNormalLinkMovement(delta);
+    }
+
+    private void AdvanceKnockbackAfterItemParents(
+        double delta, bool recoilItemImmobilized, Vector2 recoilMovementStart)
+    {
+        float frameDelta = (float)delta * 60.0f;
+        if (_raftRideControlled)
+        {
+            // The raft owns both the counter and movement; ordinary Link
+            // recoil must not add a second SPEED_140 displacement.
+        }
+        else if (_world.SideScrolling)
+        {
+            int decrement = _sideScrollAirborne ? 2 : 1;
+            float nextCounter = _enemyKnockbackFrames - decrement;
+            if (nextCounter >= 0.0f)
+            {
+                _enemyKnockbackFrames = nextCounter;
+                ApplySideScrollVelocity(
+                    _world.SideScrollParameters.KnockbackSpeed,
+                    SideScrollHorizontalAngle(
+                        AngleForVector(_enemyKnockbackDirection)),
+                    allowWallSlide: false);
+            }
+            else
+            {
+                _enemyKnockbackFrames = 0.0f;
+            }
+
+            Vector2 sideInput = Input.GetVector(
+                "move_left", "move_right", "move_up", "move_down");
+            if (_world.MovementDisabled)
+                sideInput = Vector2.Zero;
+            _lastMovementInput = sideInput;
+            UpdateSideScrollMovement(
+                delta,
+                sideInput,
+                // linkState01_sidescroll applies recoil first, then
+                // state 2 still swims unless wLinkImmobilized is set.
+                movementAllowed: _sideScrollAirborne || SideScrollSwimming ||
+                    _enemyKnockbackFrames == 0 && !recoilItemImmobilized &&
+                    !IsUsingBoomerang && (!IsUsingItem || SwordAllowsMovement));
+        }
+        else
+        {
+            // linkUpdateKnockback calls the native collision helper,
+            // including tile-edge adjustment and its scratch writes.
+            int decrement = _topDownAirborne ? 2 : 1;
+            float nextCounter = _enemyKnockbackFrames - decrement * frameDelta;
+            // A borrow clears the counter without applying another recoil
+            // step; subtraction reaching zero still applies SPEED_140.
+            if (nextCounter >= 0)
+            {
+                Vector2 resolved = _world.ResolveNativeMovement(
+                    _precisePosition, 0x32,
+                    AngleForVector(_enemyKnockbackDirection), allowWallSlide: true,
+                    adjacentWalls: _tilePushWalls);
+                _precisePosition += resolved * frameDelta;
+            }
+            _enemyKnockbackFrames = Mathf.Max(0, nextCounter);
+            if (_topDownAirborne)
+            {
+                // linkState01 always runs linkUpdateInAir after recoil.
+                // Retained jump momentum adds its own planar step, and
+                // landing resumes ground input only after recoil clears.
+                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                UpdateTopDownAirMovement(delta, _lastMovementInput,
+                    !recoilItemImmobilized && !IsUsingBoomerang && (!IsUsingItem || SwordAllowsMovement),
+                    recoilMovementStart);
+                return;
+            }
+        }
+        // linkUpdateKnockback still moves at counter zero. The normal
+        // handler then resumes grounded movement in this same update;
+        // checkUseItems has already run and must not run a second time.
+        if (!_world.SideScrolling && !_topDownAirborne && !TopDownSwimming &&
+            !_raftRideControlled && _enemyKnockbackFrames == 0 &&
+            !recoilItemImmobilized)
+        {
+            AdvanceMovementAfterItemParents(delta, _lastMovementInput, recoilMovementStart);
+            return;
+        }
+        _walking = false;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        if (_world.SideScrolling && !_world.CheckTileWarp(this))
+            _world.CheckRoomExit(this);
+        else if (!_world.SideScrolling && !_topDownAirborne)
+            // linkUpdateKnockback returns from Link's handler, not from
+            // cutscene01: func_60e9 still runs after the object passes.
+            _world.CheckTileWarp(this);
+        QueueRedraw();
+    }
+
+    private void AdvanceNormalLinkMovement(double delta)
+    {
         if (_minecartJumpControlled)
         {
             // linkState01's text/palette gate precedes both checkUseItems and
@@ -2324,6 +2336,8 @@ public partial class Player : Node2D
         {
             Vector2 tileProbePosition = _precisePosition;
             terrainBeforeMotion = _world.GetActiveTerrain(Position);
+            if (!_topDownAirborne && terrainBeforeMotion.Value.Terrain.Type == TerrainType.Spike)
+                ApplySpikeDamage(_topDownMovementAngle);
             // linkApplyTileTypes reaches linkPullIntoHole before item use,
             // including the first uncovered update after rider support clears.
             // Text must not advance an already active partial pull.
@@ -2371,6 +2385,12 @@ public partial class Player : Node2D
         // after checkUseItems, before movement/standing can emit Pegasus dust.
         // The empty Harp's $00 byte still reaches that movement phase.
         if (_world.PlayingInstrument != 0) return;
+        if (_enemyKnockbackFrames > 0)
+        {
+            _tilePushWalls = _world.GetAdjacentWallsBitset(_precisePosition);
+            AdvanceKnockbackAfterItemParents(delta, itemImmobilized, movementStart);
+            return;
+        }
         if (itemImmobilized)
         {
             // linkState01@notInAir dispatches swimming before testing the
@@ -4142,7 +4162,7 @@ public partial class Player : Node2D
             return;
         }
         if (terrain.ActiveTile == parameters.SpikeTile)
-            ApplySideScrollSpikeDamage();
+            ApplySpikeDamage(_sideScrollAngle);
         AdvanceGroundedSideScroll(
             input, movementAllowed, terrain, parameters);
     }
@@ -4581,6 +4601,7 @@ public partial class Player : Node2D
             // ran earlier; refresh only the shared active tile/index here.
             _world.UpdateActiveLinkTile(_precisePosition);
             UpdateRaisedFloorOffset();
+            ApplyTopDownSpikeDamage();
             _world.PlaySound(parameters.LandSound);
             return;
         }
@@ -5559,27 +5580,39 @@ public partial class Player : Node2D
         SideScrollTerrainState terrain =
             _world.GetSideScrollTerrain(_precisePosition);
         if (terrain.ActiveTile == parameters.SpikeTile)
-            ApplySideScrollSpikeDamage();
+            ApplySpikeDamage(_sideScrollAngle);
         _world.PlaySound(parameters.LandSound);
     }
 
-    private void ApplySideScrollSpikeDamage()
+    private void ApplyTopDownSpikeDamage()
     {
-        if (_world.RidingObject || _enemyInvincibilityFrames > 0.0f ||
-            !ApplyDamage(4, RingDamageSource.Spike))
+        if (!_world.SideScrolling && !_topDownAirborne && !_companionRideControlled &&
+            _world.GetActiveTerrain(Position).Terrain.Type == TerrainType.Spike)
+            ApplySpikeDamage(_topDownMovementAngle);
+    }
+
+    private void ApplySpikeDamage(int movementAngle)
+    {
+        // common/specialObjects/commonCode.s:dealSpikeDamageToLink writes
+        // raw damage -$04 (two health quarters), then calls linkApplyDamage
+        // directly. Its var2a publication lasts until this Link pass ends.
+        if (_world.RidingObject || _enemyInvincibilityFrames != 0.0f)
         {
             return;
         }
 
         _enemyInvincibilityFrames = 40.0f;
-        _enemyKnockbackFrames += 10.0f;
-        int knockbackAngle = _sideScrollAngle < 0x80
-            ? (_sideScrollAngle ^ ObjectAngle.HalfTurn)
+        _enemyKnockbackFrames = RingEffects.KnockbackFrames(
+            _inventory, ((int)_enemyKnockbackFrames + 10) & 0xff);
+        _nativeContactSignal = true;
+        int knockbackAngle = movementAngle < 0x80
+            ? (movementAngle ^ ObjectAngle.HalfTurn)
             : 0xff;
         _enemyKnockbackDirection = knockbackAngle < 0x80
             ? OracleObjectMovement.Shared.Direction(knockbackAngle)
             : Vector2.Zero;
         _world.PlaySound(SoundId.SndDamageLink);
+        ApplyDamage(2, RingDamageSource.Spike);
     }
 
     private void AdvanceSideScrollAirAnimation(
