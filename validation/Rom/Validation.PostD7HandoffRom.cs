@@ -16,12 +16,15 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.Essence, 6);
             _saveData.SetRoomFlag(2, 0x90, 2);
             LoadValidationRoom(2, 0x90); _player.WarpTo(new(72, 72), recordSafe: false);
+            _sound.ClearActiveMusic();
+            var sounds = _sound.AttachPlayRequestAudit();
             StepGameplayUpdates(1, Vector2.Zero);
             var owner = _roomEvents.Get<PostD7Event>();
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 2, 72, 72)
                 { HostilePartsEnabled = true };
             rom.InitializeLinkGameplay(); rom[0xcc01] = (byte)(linked ? 1 : 0);
+            rom[0xcc35] = 0; // essence.s state7, retained throughout this native sequence.
             rom[0xc2ef] = 0x21; rom[0xcc03] = 0; rom[0xcc8a] = rom[0xcc02] = 1;
             int hold = 0, generation = 0, update = 1;
             void Compare()
@@ -42,6 +45,22 @@ public sealed partial class ValidationRoot
                 // room loader's placement RNG belongs to the next fixture.
                 if (owner.Stage == PostD7Stage.Ascent) return;
                 var rng = _random.CaptureState();
+                if (!linked && owner.Stage == PostD7Stage.Complete && owner.State == 5)
+                    FailIf(!_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
+                        _player.Visible || rom[0xc48a] != 0 || rom[0xc48c] != 0,
+                        $"Post-D7 update{update}: cloaked Twinrova must use the black room BG, with native LYC=$00/SCY=$00 and no HUD strip.");
+                FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds) ||
+                    _sound.NativeActiveMusic != rom[0xcc35],
+                    $"Post-D7 update{update}, linked={linked}: cues={string.Join(',', sounds.Requests)}/{string.Join(',', rom.Sounds)}, room-music gate=${_sound.NativeActiveMusic:x2}/${rom[0xcc35]:x2}.");
+                if (owner.Stage == PostD7Stage.Tower && owner.State > 0)
+                {
+                    FailIf(_hud.Visible || _player.Visible ||
+                        SomariaPrivate<int>(owner, "_scrollY") != rom[0xc486],
+                        $"Post-D7 update{update}: full-screen tower SCY/Link/HUD differs from gfx-register state $09.");
+                    foreach (int address in new[] { 0xcbb3, 0xcbb6, 0xcbb7, 0xcbb9, 0xcbba, 0xcbbb })
+                        FailIf(_entities.RuntimeState.ReadWramByte(address) != rom[address],
+                            $"Post-D7 update{update}: tower counter ${address:x4}={_entities.RuntimeState.ReadWramByte(address):x2}/{rom[address]:x2}.");
+                }
                 FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls,
                     $"Post-D7 update{update}, linked={linked}: RNG calls {rng.Calls - seed.Calls}/{rom.RandomCalls}, stage={owner.Stage}, state={owner.State}/{rom[0xcc03]}.");
                 if (owner.Stage != PostD7Stage.Ascent)
@@ -55,6 +74,7 @@ public sealed partial class ValidationRoot
                     int s = 0xd040 + slots[actor] * 256;
                     FailIf(rom[s + 1] != actor.Id || rom[s + 2] != actor.SubId || rom[s + 4] != actor.State || rom[s + 5] != actor.Substate,
                         $"Post-D7 update{update} slot${slots[actor]:x2}: port=${actor.Id:x2}:${actor.SubId:x2}/{actor.State}/{actor.Substate}, ROM=${rom[s + 1]:x2}:${rom[s + 2]:x2}/{rom[s + 4]}/{rom[s + 5]}.");
+                    ComparePostD7AnimationRom(rom, actor, s, $"Post-D7 update{update}");
                 }
                 if (generation != rom.TextGeneration)
                 {
@@ -70,5 +90,12 @@ public sealed partial class ValidationRoot
                 rom[0xcc49] != 0x0f || rom[0xcc4a] != 0x47 || rom[0xcc4b] != 3,
                 $"The native completed-tower scroll must publish invisible transition $0f to room $4:$f6/$47, parameter $03: stage={owner.Stage}, warp=${rom[0xcc47]:x2}/${rom[0xcc48]:x2}/${rom[0xcc49]:x2}/${rom[0xcc4a]:x2}/${rom[0xcc4b]:x2}.");
         }
+    }
+
+    private void ComparePostD7AnimationRom(SomariaRom rom, PostD7ActorRoomEntity entity, int slot, string context)
+    {
+        if (entity.State == 0) return;
+        CompareInteractionOamRom(rom, (NpcCharacter)entity.Node, slot,
+            $"{context} ${entity.Id:x2}:${entity.SubId:x2}");
     }
 }

@@ -167,18 +167,23 @@ internal sealed class Room149FamilyInteraction
 
         if (next == FamilyState.FatherStone)
         {
+            _father.SetBasePalette(6); // villager.s:@loadStoneAnimation.
             _father.SetScriptPaletteOverride(_database.StonePalette);
             _father.SetScriptAnimation(
                 _database.Visual("father-stone").Animation);
             _father.SetDialogue(0, string.Empty, canFace: false);
+            _observer.SetBasePalette(6);
             _observer.SetScriptPaletteOverride(_database.StonePalette);
+            // pastGuy.s:@subid6 keeps interactionInitGraphics' animation $04;
+            // it changes only oamFlags/var03 and freezes that initial frame.
             _observer.SetScriptAnimation(
-                _database.Visual("observer").Animation);
+                _observer.BaseRecord.DownAnimation);
             _observer.SetDialogue(0, string.Empty, canFace: false);
             _ball.SetActive(false);
         }
         else
         {
+            _father.SetBasePalette(_father.BaseRecord.Palette);
             _father.SetScriptPaletteOverride(null);
             _father.SetScriptAnimation(
                 _database.Visual("father-default").Animation);
@@ -188,6 +193,7 @@ internal sealed class Room149FamilyInteraction
             _father.SetDialogue(
                 fatherText, _database.Text(fatherText), canFace: false);
 
+            _observer.SetBasePalette(_observer.BaseRecord.Palette);
             _observer.SetScriptPaletteOverride(null);
             _observer.SetScriptAnimation(
                 _database.Visual("observer").Animation);

@@ -744,6 +744,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRooms145And3fcNpcInteractions);
         RunIsolatedValidation(ValidateRoom148NpcInteractions);
         RunIsolatedValidation(ValidateRoom149FamilyInteractions);
+        RunIsolatedValidation(ValidateRoom149StonePresentationRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom157NpcInteractions);
         RunIsolatedValidation(ValidateRoom158NpcInteractions);
         RunIsolatedValidation(ValidateRoom175NpcInteractions);

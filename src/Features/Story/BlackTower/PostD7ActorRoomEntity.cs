@@ -24,7 +24,9 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
     internal int ZFixed => _z;
     public Node2D Node => _actor;
     public bool Finished { get; private set; }
-    public bool UpdatesDuringDialogue => true;
+    // bank0._updateInteractionsIfStateIsZero admits initialization and
+    // enabled bit 7 only. sparkle.s and twinrovaFlame.s set that bit.
+    public bool UpdatesDuringDialogue => State == 0 || Id is 0x84 or 0xa9;
     public bool UpdatesDuringRoomEntityFreeze => true;
     public override bool DialogueOpen => _context.DialogueOpen;
     public override bool ScriptExecutionBlocked => _context.ScriptDialogueOpen || _context.Player.IsDying;
@@ -37,6 +39,10 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
         _counter = stoneCounter;
         _actor = NpcCharacter.CreateFromRecord(data.Actor(id, subId, position, context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id));
         _actor.SetGraphicsSourceOffset(data.SourceOffset(id, subId));
+        // Native interactionInitGraphics selects one imported animation. Use
+        // its complete OAM bounds even before a script changes animation;
+        // the ordinary facing compositor clips large effects to 32x32.
+        _actor.SetScriptAnimation(_actor.Record.DownAnimation);
         _actor.SetAnimationRate(0); _actor.SetBlocksLink(false); _runner = new(this);
     }
     private byte Read(int address) => _context.Entities.RuntimeState.ReadWramByte(address);
@@ -67,7 +73,7 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
                 _actor.SetBasePalette(6); _actor.SetScriptPaletteOverride(_data.PossessedPalette);
                 Start(SubId == 3 ? "ascent" : "ambi"); break;
             case 0x3c: Animation(3); Start("boy"); break;
-            case 0x3a: Start("father"); break;
+            case 0x3a: Animation(1); Start("father"); break;
             case 0x43: Start("observer"); break;
             case 0x4b:
                 if (SubId == 2) { _counter = 180; RandomSpawnDelay(); }
@@ -84,10 +90,10 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
         {
             case 0x8d: UpdateCloaked(); break;
             case 0xb0:
-                _actor.AdvanceAnimationUpdates(1);
-                if (SubId != 0) break;
+                if (SubId != 0) { _actor.AdvanceAnimationUpdates(1); break; }
                 if (Substate == 0)
                 {
+                    _actor.AdvanceAnimationUpdates(1);
                     _runner.AdvanceFrame();
                     if (_scriptEnded) { _owner.BeginFlash(); Substate = 1; }
                 }
@@ -117,7 +123,8 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
             case 0:
                 if (--_counter != 0) return;
                 _counter = _data.Table("unlinked")[5];
-                _context.Sound.PlaySound(SoundId.MusDisaster); _actor.Visible = true;
+                // cloakedTwinrova.s calls playSound without writing wActiveMusic.
+                _context.Sound.PlayNativeSound(SoundId.MusDisaster); _actor.Visible = true;
                 _context.Transitions.BeginNativeBlackFade(false); Substate = 1; return;
             case 1:
                 if (_context.Transitions.NativePaletteFadeActive || --_counter != 0) return;

@@ -1747,6 +1747,9 @@ public sealed class RoomTransitionController
         }
         _warpFrame = 0.0f;
         ResetCamera();
+        // Ages cutscene03 clears wDontUpdateStatusBar after initializeRoom.
+        // Full loading replaces any cutscene BG occupying the status strip.
+        _hud.ShowStatusBar();
         _hud.Refresh();
     }
 
@@ -1856,7 +1859,9 @@ public sealed class RoomTransitionController
         _warpActive = false;
         _roomPackArrival = null;
         _warpPhase = WarpPhase.None;
-        _player.Visible = true;
+        // link.s warpTransitionF keeps objectSetInvisible after arrival;
+        // FinishRoomWarpTransition/WarpTo must not publish Link again.
+        _player.Visible = _pendingWarp.DestinationTransition != WarpDestinationTransition.Invisible;
         ClearRoomLoadColumnReveal();
         SetFade(0.0f);
     }

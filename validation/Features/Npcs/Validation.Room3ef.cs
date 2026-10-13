@@ -87,7 +87,18 @@ public sealed partial class ValidationRoot
             var queen = _entities.EntityAdapters<CleansedFairyRoomEntity>().Single();
             FailIf(_inventory.HasTreasure(TreasureId.FairyPowder) || fairy.Active || queen.State != 0 || queen.Counter != 180,
                 "At ZH=$f0 the later $d5:$01 slot must initialize without decrementing its 180 counter.");
-            Step(179);
+            var flashOwner = _entities.EntityAdapters<SeaFairySparkleRoomEntity>()
+                .Single(effect => ((NpcCharacter)effect.Node).Record.SubId == 0x04);
+            var flash = (NpcCharacter)flashOwner.Node;
+            FailIf(flash.CurrentAnimationTextureSize != new Vector2I(48, 48) ||
+                flash.CurrentAnimationOffset != new Vector2(-24, -24),
+                "Fairy Powder transformation must initialize the full source $84:$04 circle without clipping its OAM.");
+            // The discarded Octorok's earlier slot is reused by the flash;
+            // it initializes on the next pass without consuming counter120.
+            Step(1);
+            FailIf(!flash.Visible || SomariaPrivate<int>(flashOwner, "_value") != 120,
+                "Fairy Powder flash must reveal on its first eligible slot update without decrementing counter120.");
+            Step(178);
             FailIf(_dialogue.IsOpen || queen.Counter != 1 || _player.Position != link,
                 "The healed fairy must wait 180 native updates with Link frozen.");
             Step(1);

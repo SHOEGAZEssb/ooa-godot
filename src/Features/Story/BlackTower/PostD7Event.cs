@@ -123,6 +123,11 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
                 { Write(0xcbb3, _data.Table("linked")[4]); State = 3; }
                 else
                 {
+                    // blackTowerComplete state2 writes GfxRegs1.LYC=$00
+                    // and GfxRegs2.SCY=$00: the black room BG replaces the
+                    // status strip during cloaked Twinrova's speech. Keep a
+                    // black strip covering the viewport's otherwise clear margin.
+                    context.Hud.SetHiddenStatusBarFade(Colors.Black, 1);
                     context.Entities.LoadCutsceneRoom(context.Rooms.ActiveGroup, context.Rooms.CurrentRoom, false);
                     context.Player.Visible = false;
                     context.Fade.Color = Colors.Black;
@@ -138,7 +143,8 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
                 if (!Flash(2)) return;
                 Load(5, 0xf1, "linked");
                 context.Hud.ShowStatusBar();
-                context.Sound.PlaySound(SoundId.MusDisaster);
+                // Native playSound retains essence.s state7's wActiveMusic=$00.
+                context.Sound.PlayNativeSound(SoundId.MusDisaster);
                 context.RoomCamera.Position += new Vector2(_data.Table("linked")[3], 0);
                 context.Transitions.BeginNativeWhiteFade(false);
                 State = 5;
@@ -158,6 +164,9 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
             _tower = new BlackTowerExplanationScreen(_towerData, 2);
             context.InterfaceLayer.AddChild(_tower);
             context.Hud.HideStatusBar();
+            // Gfx-register state $09 uses the tower BG on all 144 lines.
+            // The cleared room HUD strip must not cover the panorama.
+            context.Hud.Visible = false;
             Write(0xcbb3, _data.Table("tower")[1]);
             Write(0xcbb9, 0);
             context.Transitions.BeginNativeWhiteFade(false);
@@ -177,20 +186,31 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
         else if (State == 2)
         {
             if (!Decrement(0xcbb6)) return;
-            if (Decrement(0xcbb3)) { Write(0xcbb3, _data.Table("tower")[4]); State = 3; return; }
+            if (Decrement(0xcbb3))
+            {
+                Write(0xcbb3, _data.Table("tower")[4]);
+                State = 3;
+                // @cbb8_02@@state2 falls through to func_6733: run the
+                // lightning helper again and consume the first wait tick now.
+                UpdateTowerFlash();
+                AdvanceTowerPostWait();
+                return;
+            }
             Write(0xcbb6, Read(0xcbbb));
             _scrollY = (_scrollY - 1) & 0xff;
             if (_scrollY == 0) _topLoaded = true;
             _tower!.SetCompletedTowerScroll(_scrollY, _topLoaded);
         }
-        else if (State == 3 && Decrement(0xcbb3))
-        {
-            var table = _data.Table("tower");
-            RemoveTower();
-            context.Transitions.ApplyWarp(context.Player, new Warp(
-                context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id, -1, 0, WarpSourceTransition.Instant,
-                table[5], table[6], table[7], table[9], table[8]));
-        }
+        else if (State == 3) AdvanceTowerPostWait();
+    }
+    private void AdvanceTowerPostWait()
+    {
+        if (!Decrement(0xcbb3)) return;
+        var table = _data.Table("tower");
+        RemoveTower();
+        context.Transitions.ApplyWarp(context.Player, new Warp(
+            context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id, -1, 0, WarpSourceTransition.Instant,
+            table[5], table[6], table[7], table[9], table[8]));
     }
     private int _scrollY = 0x70;
     private bool _topLoaded;

@@ -78,6 +78,7 @@ public sealed partial class ValidationRoot
             _entities.Spawn(new CleansedFairySpawn(data, new(0x50, 0x28), () => fade = true, () => { }));
             var queen = _entities.EntityAdapters<CleansedFairyRoomEntity>().Single();
             int update = 0;
+            bool sawFlash = false;
             void Step(int count)
             {
                 StepGameplayUpdates(count, Vector2.Zero, batched: batched, afterUpdate: () =>
@@ -88,6 +89,19 @@ public sealed partial class ValidationRoot
                     rom.AdvanceParts(_entities.FrameCounter);
                     rom.AdvanceInteractions(_entities.FrameCounter);
                     string label = $"Room3:ef $d5:$01 batch={batched}, update{++update}";
+                    var flash = _entities.EntityAdapters<SeaFairySparkleRoomEntity>()
+                        .SingleOrDefault(effect => ((NpcCharacter)effect.Node).Record.SubId == 0x04);
+                    bool nativeFlash = rom[0xd340] != 0 && rom[0xd341] == 0x84 && rom[0xd342] == 0x04;
+                    FailIf((flash is not null) != nativeFlash,
+                        label + ": $84:$04 transformation flash lifetime differs.");
+                    if (flash is not null)
+                    {
+                        sawFlash = true;
+                        FailIf(_entities.InteractionSlot(flash.Node) != 3 ||
+                            SomariaPrivate<int>(flash, "_value") != rom[0xd346],
+                            label + ": $84:$04 flash slot order or 120-update counter differs.");
+                        CompareInteractionOamRom(rom, (NpcCharacter)flash.Node, 0xd340, label + " $84:$04");
+                    }
                     FailIf(queen.State != rom[0xd245] || queen.Counter != rom[0xd246] ||
                         queen.Height != unchecked((sbyte)rom[0xd24f]) || queen.Angle != rom[0xd249] ||
                         queen.Node.Position != new Vector2(rom[0xd24d], rom[0xd24b]),
@@ -97,7 +111,7 @@ public sealed partial class ValidationRoot
             }
             Step(181); Step(10); _dialogue.Close();
             for (int i = 0; i < 180 && !fade; i++) Step(1);
-            FailIf(!fade || queen.State != 3 || rom[0xc4ab] == 0,
+            FailIf(!sawFlash || !fade || queen.State != 3 || rom[0xc4ab] == 0,
                 "Clean-US $d5:$01 must reach its white-fade request after TX_4109 and the circle/rise tail.");
 
             ReinitializeGameplayForValidation(); LoadValidationRoom(3, 0xef);

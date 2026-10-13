@@ -19,6 +19,9 @@ internal sealed class SeaFairySparkleRoomEntity : NpcCharacterRoomEntityAdapter,
     {
         _position = spawn.Position; _role = spawn.Role; _value = spawn.Value;
         Entity.SetGraphicsSourceOffset(spawn.Data.SourceOffset(_role));
+        // sparkle.s initializes one native animation. Its $84:$04 circle
+        // spans 48x48 OAM; the ordinary facing canvas clips its outer cells.
+        Entity.SetScriptAnimation(Entity.Record.DownAnimation);
         Entity.SetBlocksLink(false); Entity.TimeWarpSolidMarked = false;
         Entity.SetScriptDrawOffset(new(0, _role == "trail" ? _value : -16));
     }

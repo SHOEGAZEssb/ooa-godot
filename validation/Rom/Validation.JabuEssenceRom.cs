@@ -57,6 +57,23 @@ public sealed partial class ValidationRoot
             FailIf(IsTransitioning || _rooms.ActiveGroup != 2 || _rooms.CurrentRoom.Id != 0x90 ||
                 !_roomEvents.Get<PostD7Event>().HasState,
                 "The actual Rolling Sea warp must hand control to the source post-D7 sequence in $2:$90.");
+            var postD7 = _roomEvents.Get<PostD7Event>();
+            bool sawTower = false;
+            for (int wait = 0; _dialogue.SourceTextId != 0x130b && wait < 2200; wait += 2)
+                StepGameplayUpdates(2, Vector2.Zero, batched: batch, afterUpdate: () => {
+                    if (postD7.Stage == PostD7Stage.Tower && postD7.State > 0)
+                    {
+                        sawTower = true;
+                        FailIf(_player.Visible || _hud.Visible,
+                            "The actual essence handoff must show the completed tower without Link or HUD.");
+                    }
+                    if (_dialogue.IsOpen && _dialogue.SourceTextId != 0x130b) _dialogue.Close();
+                });
+            FailIf(!sawTower || !_dialogue.IsOpen || _dialogue.SourceTextId != 0x130b ||
+                postD7.Stage != PostD7Stage.Ascent || IsTransitioning || _player.Visible ||
+                _hud.StatusBarHidden || !_hud.Visible || _sound.ActiveMusic != 0x21 || _sound.NativeActiveMusic != 0,
+                "Rolling Sea must reach Ambi's TX_130b after invisible arrival $0f, retaining MUS_DISASTER $21 and the cleared music gate.");
+            _dialogue.Close();
             LoadValidationRoom(5, 0x61); StepGameplayUpdates(3, Vector2.Zero);
             var collected = _entities.Entities<DungeonEssence>().Single();
             FailIf(!collected.Collected || collected.Visible, "Collected Rolling Sea must remain hidden on re-entry.");

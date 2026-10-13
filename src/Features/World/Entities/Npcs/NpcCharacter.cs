@@ -113,7 +113,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     {
         if (CurrentAnimation.Count == 0)
             return false;
-        Image image = CurrentAnimation[_animationFrame % CurrentAnimation.Count].Texture.GetImage();
+        using Image image = CurrentAnimation[_animationFrame % CurrentAnimation.Count].Texture.GetImage();
         for (int y = 0; y < image.GetHeight(); y++)
         for (int x = 0; x < image.GetWidth(); x++)
         {
@@ -782,6 +782,10 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     internal void SetScriptPaletteOverride(Color[]? palette)
     {
         _paletteOverride = palette is null ? null : (Color[])palette.Clone();
+        // Native oamFlags writes can recolor graphics-default frames without
+        // a setanimation command (pastGuySubid3Script's stone transition).
+        // Keep those facing frames synchronized with the live override too.
+        RebuildFacingAnimations();
         if (!_scriptAnimationActive || string.IsNullOrEmpty(_scriptAnimationSource))
         {
             QueueRedraw();
