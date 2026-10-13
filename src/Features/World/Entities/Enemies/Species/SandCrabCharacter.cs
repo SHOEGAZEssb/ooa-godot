@@ -2,7 +2,7 @@ using Godot;
 
 namespace oracleofages;
 
-internal partial class SandCrabCharacter : EnemyCharacter
+internal partial class SandCrabCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
     internal override bool InitializationPending => _state == SandCrabState.Uninitialized;
 
@@ -15,6 +15,8 @@ internal partial class SandCrabCharacter : EnemyCharacter
     private int _counter;
     private int _angle;
     private int _speedRaw;
+    private int _zFixed;
+    private int _speedZ;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal SandCrabState State => _state;
@@ -22,6 +24,11 @@ internal partial class SandCrabCharacter : EnemyCharacter
     internal int Angle => _angle;
     internal int SpeedRaw => _speedRaw;
     internal int ScentAttractionCounter => _scentAttraction.Counter;
+    internal int ZFixed => _zFixed;
+    internal int SwitchHookSubstate { get; private set; }
+    internal override bool CollisionEnabled => base.CollisionEnabled && _state != SandCrabState.SwitchHook;
+    int? ITerrainShadowSource.TerrainShadowZHigh => _zFixed >> 8;
+    protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + new Vector2(0, _zFixed >> 8);
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -44,7 +51,9 @@ internal partial class SandCrabCharacter : EnemyCharacter
         if (IsDead || BeginFrame())
             return;
 
-        if (_state != SandCrabState.Uninitialized &&
+        // commonCode.s:ecom_checkScentSeedActive only redirects states >= $08.
+        // State $04 continues its own scent handler; state $03 stays held.
+        if ((_state >= SandCrabState.ChoosingDirection || _state == SandCrabState.FollowingScentSeed) &&
             scentSeedTarget is { } scentPosition)
         {
             _state = SandCrabState.FollowingScentSeed;
@@ -66,6 +75,16 @@ internal partial class SandCrabCharacter : EnemyCharacter
 
         switch (_state)
         {
+            case SandCrabState.SwitchHook:
+                // sandCrab.s:@state_switchHook: $00 increments once, $01/$02
+                // wait; $03 uses commonCode.s:ecom_fallToGroundAndSetState8.
+                if (SwitchHookSubstate == 0) SwitchHookSubstate = 1;
+                else if (SwitchHookSubstate == 3 &&
+                    OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x20))
+                    _state = SandCrabState.ChoosingDirection;
+                QueueRedraw();
+                return;
+
             case SandCrabState.Uninitialized:
                 _state = SandCrabState.ChoosingDirection;
                 Visible = true;
@@ -108,11 +127,36 @@ internal partial class SandCrabCharacter : EnemyCharacter
         }
     }
 
+    public bool SwitchHookHeld => GodotObject.IsInstanceValid(this) && !IsDead &&
+        _state == SandCrabState.SwitchHook && SwitchHookSubstate < 3;
+    public Vector2 SwitchHookPosition => Position;
+    public void BeginSwitchHook(Vector2 linkPosition)
+    {
+        // collisionEffects.s:collisionEffect2e clears recoil, disables collision,
+        // and selects state $03:$00 without changing health, counters or RNG.
+        KnockbackCounter = 0;
+        KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), linkPosition.Floor()) ^ ObjectAngle.HalfTurn;
+        _state = SandCrabState.SwitchHook;
+        SwitchHookSubstate = 0;
+    }
+    public void CopySwitchHookPosition(Vector2 position, int zHigh)
+    {
+        Position = position.Floor() + Position - Position.Floor();
+        _zFixed = (zHigh << 8) | (_zFixed & 0xff);
+        QueueRedraw();
+    }
+    public void SwapSwitchHook() => SwitchHookSubstate = 2;
+    public void ReleaseSwitchHook()
+    {
+        if (SwitchHookHeld) SwitchHookSubstate = 3;
+    }
+
 }
 
 internal enum SandCrabState
 {
     Uninitialized,
+    SwitchHook = 3,
     FollowingScentSeed = 4,
     ChoosingDirection = 8,
     Moving

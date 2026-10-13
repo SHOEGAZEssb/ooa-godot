@@ -1140,6 +1140,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSwitchHookTileExchange);
         RunIsolatedValidation(ValidateSwitchHookGibdoExchange);
         RunIsolatedValidation(ValidateSwitchHookStalfosAndRope);
+        RunIsolatedValidation(ValidateSwitchHookSandCrab);
+        RunIsolatedValidation(ValidateSwitchHookSandCrabRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSwitchHookSplitGels);
+        RunIsolatedValidation(ValidateSwitchHookGelDamageRom, requiresRom: true);
         RunIsolatedValidation(ValidateSwitchHookShroudedStalfos);
         RunIsolatedValidation(ValidateSwitchHookDeflection);
         RunIsolatedValidation(ValidateSkullDungeonColorGels);

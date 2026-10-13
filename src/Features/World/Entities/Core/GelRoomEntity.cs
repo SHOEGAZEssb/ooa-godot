@@ -14,6 +14,19 @@ internal sealed class GelRoomEntity
             throw new InvalidOperationException("ENEMY_GEL $43 rejected eligible boomerang effect$0b.");
         CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
     }
+    protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
+    {
+        // objectCollisionTable's Gel mode $33 selects collisionEffect0b /
+        // ENEMYDMG_0c: $fe damage, $20 invincibility and zero recoil, with
+        // JUST_HIT left for gel.s's next dispatch. The hook retracts rather
+        // than exchanging this enemy (Gel's state $03 is a stub).
+        if (effect != CollisionEffect.SwordNoKnockback ||
+            !Entity.TakeDeferredNoKnockbackHit(linkPosition, hook.HitDamage)) return false;
+        Entity.DeferNativeHitStatus();
+        hook.NotifyObjectCollision();
+        CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
+        return true;
+    }
     public GelRoomEntity(
         GelCharacter gel,
         EnemyCombatSourceDescriptor combatSource,
