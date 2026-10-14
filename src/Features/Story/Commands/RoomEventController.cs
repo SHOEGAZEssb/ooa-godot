@@ -122,6 +122,7 @@ public sealed class RoomEventController
             () => new OldZoraEvent(_context),
             () => new LibraryEvent(_context),
             () => new KingZoraEvent(_context, oceanInteractions),
+            () => new PirateCaptainEvent(_context),
             () => new OceanZoraEvent(_context, oceanInteractions),
             () => new SeaFairyEvent(_context),
             () => new CleanSeasEvent(_context),
@@ -225,6 +226,7 @@ public sealed class RoomEventController
             Npc("oldZora.s:oldZoraScript", Get<OldZoraEvent>().TryInteractNpc),
             Npc("oldMan.s/bookOfSealsPodium.s", Get<LibraryEvent>().TryInteractNpc),
             Npc("kingZora.s:interactionCode9c", Get<KingZoraEvent>().TryInteractNpc),
+            Npc("pirateCaptain.s/pirate.s:$c3/$c4", Get<PirateCaptainEvent>().TryInteractPirate),
             Npc("fakeOctorok.s:greatFairyOctorokCode $32:$02", Get<SeaFairyEvent>().TryInteractNpc),
             Npc("zora.s:$10-$12", Get<OceanZoraEvent>().TryInteractNpc),
             Npc("mamamuYan.s:mamamuYanScript", Get<MamamuEvent>().TryInteractNpc),
@@ -269,6 +271,8 @@ public sealed class RoomEventController
         _context.Entities.BeginPalacePossessionFade = Get<PalacePossessionEvent>().Fade;
         _context.Entities.PalacePossessionPaletteActive = () => Get<PalacePossessionEvent>().PaletteActive;
         _context.Entities.PalaceRescueTriggered += Get<PalacePossessionEvent>().BeginRescue;
+        _context.Entities.InitializePirateCaptain = Get<PirateCaptainEvent>().InitializeCaptain;
+        _context.Entities.UpdatePirateCaptain = Get<PirateCaptainEvent>().AdvanceInteraction;
         _context.Entities.NayruRescueWarpTriggered += Get<PalacePossessionEvent>().RequestWarp;
         palaceBoot.PrepareEntrance = () => Get<DekuForestPalaceEvent>().Cancel();
         palaceBoot.AdvanceEntrance = () =>

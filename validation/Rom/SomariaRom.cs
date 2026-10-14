@@ -52,6 +52,7 @@ internal sealed class SomariaRom
     internal void CheckTileWarps() => _rom.Call(0x60e9,1); // cutscene01, after toggle selection.
     internal void SelectNextActiveRoom() => _rom.Call(0x5f45,1); // getNextActiveRoom, after warp lookup.
     internal void InitializeRoomSpecificInteractions() => _rom.Call(0x5872,0x12); // Original runRoomSpecificCode/group dispatch.
+    internal void InitializeRoomInteractions() => _rom.Call(0x30fe,1); // Full bank0.initializeRoom, with its original bank-1 caller.
     internal void ApplyRoomTileSubstitutions() => _rom.ApplyRoomTileSubstitutions();
     internal void AdvanceWallRetraction() => _rom.Call(0x701d,3); // bank3Cutscenes.func_701d, before objects.
     internal void AdvancePalaceBoot() => _rom.Call(0x6275, 3); // CUTSCENE$14, before objects.

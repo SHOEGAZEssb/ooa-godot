@@ -20,7 +20,9 @@ public sealed class OracleRoomData
     public int TilesetId { get; }
     public int AnimationGroup { get; }
     public int ActiveCollisions { get; }
-    public byte TilesetFlags { get; }
+    public byte TilesetFlags { get; private set; }
+    private readonly byte _importedTilesetFlags;
+    internal void OrTilesetFlags(byte flags) => TilesetFlags |= flags;
     internal bool IsCompanionRegion { get; init; }
     internal bool LoadsUniqueGraphicsAfterScroll { get; init; }
     internal int TilesetPaletteId { get; init; }
@@ -96,6 +98,7 @@ public sealed class OracleRoomData
         AnimationGroup = animationGroup;
         ActiveCollisions = activeCollisions;
         TilesetFlags = tilesetFlags;
+        _importedTilesetFlags = tilesetFlags;
         Layout = layout;
         _originalLayout = (byte[])layout.Clone();
         _underlyingLayout = (byte[])layout.Clone();
@@ -782,6 +785,7 @@ public sealed class OracleRoomData
         IReadOnlyDictionary<int, byte> changes,
         long animationTick)
     {
+        TilesetFlags = _importedTilesetFlags;
         ApplyRoomInitializationChanges(changes, animationTick, resetToOriginal: true);
     }
 

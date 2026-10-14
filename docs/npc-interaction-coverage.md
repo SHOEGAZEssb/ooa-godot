@@ -52,19 +52,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 291 | Traced and covered by named NPC/event scenarios. |
-| **P** | 49 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 49 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **I** | 296 | Traced and covered by named NPC/event scenarios. |
+| **P** | 45 | A production path exists with a documented incomplete or unverified boundary. |
+| **D** | 48 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **389** | **216 rooms and 301 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 79 | 0 | 79 |
-| Specialized native interaction | 137 | 72 | 209 |
-| Event-owned actor | 124 | 0 | 124 |
-| Deliberately unsupported | 49 | 0 | 49 |
+| Ordinary NPC adapter | 75 | 0 | 75 |
+| Specialized native interaction | 141 | 72 | 213 |
+| Event-owned actor | 125 | 0 | 125 |
+| Deliberately unsupported | 48 | 0 | 48 |
 | **Total** | **389** | **72** | **461** |
 
 ## Bipin and Blossom family variants
@@ -300,6 +300,6 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:ec` | [I] `$52:$03/v$00` oldMan<br>[I] `$52:$04/v$00` oldMan<br>[I] `$52:$05/v$00` oldMan<br>[I] `$52:$06/v$00` oldMan |
 | `5:f1` | [D] `$ad:$00/v$00` zelda |
 | `5:f6` | [I] `$bf:$08/v$00` symmetryNpc<br>[I] `$bf:$09/v$00` symmetryNpc |
-| `5:f8` | [D] `$c3:$00/v$00` pirateCaptain<br>[P] `$c4:$00/v$00` pirate<br>[P] `$c4:$01/v$00` pirate<br>[P] `$c4:$02/v$00` pirate<br>[P] `$c4:$03/v$00` pirate |
+| `5:f8` | [I] `$c3:$00/v$00` pirateCaptain<br>[I] `$c4:$00/v$00` pirate<br>[I] `$c4:$01/v$00` pirate<br>[I] `$c4:$02/v$00` pirate<br>[I] `$c4:$03/v$00` pirate |
 
 Implementation guidance is in [NPCs and room events](npcs-and-events.md).

@@ -51,6 +51,8 @@ focused validations; NPC classifications live in the
   King Zora's cure, Library Key and Jabu permission, sword secret, Zora Scale,
   Sea of Storms guards, young Jabu, ocean whirlpools and pollution damage,
   and Jabu's entrance opening.
+- Sea of Storms pirate ship in both linked and unlinked games, including
+  boarding, crew dialogue, the Zora Scale/Tokay Eyeball exchange, and departure.
 - Ambi's Palace soldiers, guards and capture, passage switches, story scenes,
   possessed Nayru/Veran fight, rescue, and Tune of Ages handoff, including
   the linked-game continuation. Focused clean-US ROM comparisons cover these

@@ -40,6 +40,22 @@ public sealed class RoomEntityManager : IDisposable
         if (signal) dust.Signal();
     }
     internal void RequestSound(int sound) => OnSoundRequested(sound);
+    internal Action<NpcCharacter> InitializePirateCaptain { get; set; } = null!;
+    internal Action UpdatePirateCaptain { get; set; } = null!;
+    internal void CheckLoadPirateShip()
+    {
+        if (_saveData is null || _saveData.HasGlobalFlag(GlobalFlag.PiratesGone)) return;
+        var room = _roomForActiveEntities;
+        var flags = (TilesetFlags)room.TilesetFlags;
+        if ((flags & (TilesetFlags.Outdoors | TilesetFlags.Underwater)) != TilesetFlags.Outdoors ||
+            ((flags & TilesetFlags.Past) == 0) != _saveData.IsLinkedGame ||
+            room.Id != _saveData.ReadWramByte(WramAddress.wPirateShipRoom) ||
+            ReservedPushBlock is { Active: true } ||
+            _interactionSlots.Any(pair => pair.Value == 1 && pair.Key is not IRoomEntityLifetime { Finished: true })) return;
+        var data = PirateShipDatabase.Shared;
+        AddEntity(new PirateShipRoomEntity(this, data.Ship(room.Group, room.Id, 0,
+            _saveData.ReadWramByte(WramAddress.wPirateShipY), _saveData.ReadWramByte(WramAddress.wPirateShipX))));
+    }
     internal PushBlockController? ReservedPushBlock { get; set; }
     internal DungeonKeyDoorController? ReservedKeyDoor { get; set; }
     internal bool DoorPaletteFadeActive => PaletteFadeActiveSource() ||
@@ -2428,7 +2444,7 @@ public sealed class RoomEntityManager : IDisposable
             npcActor.NativeActivationChanged = active => SetNpcInteractionActive(entity, active);
         if (UsesInteractionSlot(entity) && entity.Node is not NpcCharacter { Active: false })
         {
-            int slot = FindFreeInteractionSlot();
+            int slot = entity is PirateShipRoomEntity { Reserved: true } ? 1 : FindFreeInteractionSlot();
             if (slot < 0) throw new InvalidOperationException($"{entity.GetType().Name}: native dynamic INTERACTION pool is full ($d2-$df).");
             _interactionSlots.Add(entity, slot);
             if (_inactiveInteractionCounter2[slot] != 0)
@@ -2785,7 +2801,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        PostD7ActorRoomEntity or PostD7BallRoomEntity or NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or NayruRescueBowtieRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
+        PirateShipRoomEntity or PostD7ActorRoomEntity or PostD7BallRoomEntity or NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or NayruRescueBowtieRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
         CompanionTutorialRoomEntity { NativeAllocationEnabled: true } or
         KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or CleanSeasZoraRoomEntity or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
         LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
@@ -3425,6 +3441,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private void FreeEntity(IRoomEntity entity)
     {
+        if (entity is PirateShipRoomEntity ship) ship.Dispose();
         if (entity.Node is NpcCharacter npc) npc.NativeActivationChanged = null;
         _interactionSlots.Remove(entity);
         _partSlots.Remove(entity);

@@ -902,8 +902,11 @@ public partial class GameRoot : Node2D
             return;
         }
         if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnedUpdate && !_roomEvents.OwnsGameLogic)
+        {
+            _entities.CheckLoadPirateShip();
             (_pirateShipCourse ??= new PirateShipCourse()).Update(
                 _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
+        }
         bool arrivalPaletteAdvanced = !nativeCutsceneOwnedUpdate && _transitions.AdvanceBasicArrivalPaletteBeforeObjects(delta);
         if (!IsTransitioning && !_harp.IsPlaying)
             _entities.UpdateSpecialObjectsBeforePlayer(_player);

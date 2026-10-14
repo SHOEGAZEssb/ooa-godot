@@ -560,10 +560,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 79,
-                [NpcImplementationClassification.SpecializedNative] = 209,
-                [NpcImplementationClassification.EventOwned] = 124,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 49
+                [NpcImplementationClassification.OrdinaryGeneric] = 75,
+                [NpcImplementationClassification.SpecializedNative] = 213,
+                [NpcImplementationClassification.EventOwned] = 125,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 48
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -576,7 +576,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "79 ordinary, 209 specialized, 124 event-owned, and 49 " +
+            "75 ordinary, 213 specialized, 125 event-owned, and 48 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -842,6 +842,7 @@ public sealed partial class ValidationRoot
             "oldZora.s:oldZoraScript",
             "oldMan.s/bookOfSealsPodium.s",
             "kingZora.s:interactionCode9c",
+            "pirateCaptain.s/pirate.s:$c3/$c4",
             "fakeOctorok.s:greatFairyOctorokCode $32:$02",
             "zora.s:$10-$12",
             "mamamuYan.s:mamamuYanScript",

@@ -196,6 +196,10 @@ public static class InteractionId
     public const int PushBlockSynchronizer = 0xbd;
     // constants/ages/interactions.s: INTERAC_SYMMETRY_NPC
     public const int SymmetryNpc = 0xbf;
+    // constants/ages/interactions.s: INTERAC_PIRATE_SHIP
+    public const int PirateShip = 0xc2;
+    // constants/ages/interactions.s: INTERAC_PIRATE_CAPTAIN
+    public const int PirateCaptain = 0xc3;
     // constants/ages/interactions.s: INTERAC_PIRATE
     public const int Pirate = 0xc4;
     // constants/common/interactions.s: INTERAC_CREATE_OBJECT_AT_EACH_TILEINDEX

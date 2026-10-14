@@ -77,6 +77,10 @@ live flags. `IOrdinaryNpcEntity` exposes separate refresh gates and publishes
 completion after its imported initialization rules run; the adapter retains
 the source's selection lifetime without copying save state.
 
+A room event may own a script's input and cancellation lifecycle while its
+native entity dispatches the runner in the original interaction slot. Keep that
+slot as the sole dispatch owner when later actors consume its shared signals.
+
 An ordinary NPC entity owns only its actor behavior and presentation. It
 registers dialogue or script interaction through the central interaction
 router. It does not directly scan input, own a room-wide sequence, or duplicate

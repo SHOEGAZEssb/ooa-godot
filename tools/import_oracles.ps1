@@ -304,7 +304,9 @@ $stageContracts = @(
         -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionInputs @('Expand-TransitionGraphics')
-    New-ImportStageContract 'pirate-ship' 'Import-PirateShip.ps1'
+    New-ImportStageContract 'pirate-ship' 'Import-PirateShip.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'treasureObjectRecords', 'globalFlagValues') `
+        -functionInputs @('Resolve-NpcAnimation', 'Resolve-OceanText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
     New-ImportStageContract 'audio' 'Import-AudioData.ps1' `
         -inputs @('globalFlagValues')
     New-ImportStageContract 'inventory-icons' 'Import-InventoryIcons.ps1' `

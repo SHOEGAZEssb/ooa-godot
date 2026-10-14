@@ -122,6 +122,11 @@ internal sealed class RoomEntityFactory
         // code, before companions and the ordered placed object stream.
         if (SuctionPitDatabase.Shared.ShouldSpawn(room) && owner.PartSlotAvailable)
             yield return new SuctionPitRoomEntity(owner);
+        // bank0.initializeRoom calls checkLoadPirateShip after sea effects,
+        // before parsing companions and placed objects. This creates the
+        // reserved $d1 ship for destination state-0 scrolling preload without
+        // advancing the global course (which only runs in cutscene01).
+        owner.CheckLoadPirateShip();
         if (group == Resources.Patch.ResetGroup && room.Id == Resources.Patch.ResetRoom)
             for (int address = 0xcfd0; address < 0xcfd8; address++) _runtimeState.SetWramByte(address, 0);
         foreach (var waterfall in Resources.WaterfallWarps.Records)
@@ -320,6 +325,12 @@ internal sealed class RoomEntityFactory
         if (_saveData is not null)
         {
             var placements = new Dictionary<int, IRoomEntity>();
+            foreach (var ship in PirateShipDatabase.Shared.Placements)
+                if (ship.Group == group && ship.Room == room.Id &&
+                    _saveData.IsLinkedGame == (ship.SubId == 2) && _saveData.HasGlobalFlag(GlobalFlag.PiratesGone) &&
+                    !_saveData.HasRoomFlag(group, room.Id, PirateShipRoomEntity.DepartureCompletedRoomFlag))
+                    placements.Add(ship.Order, new PirateShipRoomEntity(owner,
+                        PirateShipDatabase.Shared.Ship(group, room.Id, ship.SubId, ship.Y, ship.X)));
             foreach (CompanionTutorialRecord tutorial in
                 Resources.CompanionTutorials.GetRoomRecords(activeGroup, room.Id))
             {
@@ -1015,6 +1026,11 @@ internal sealed class RoomEntityFactory
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
+                        if (record.Id == InteractionId.PirateCaptain)
+                        {
+                            yield return new PirateCaptainRoomEntity(NpcCharacter.CreateFromRecord(record), owner);
+                            break;
+                        }
                         if (record is { Id: 0x4d, SubId: 3 })
                         {
                             yield return owner.PostD7AmbiFactory?.Invoke(record) ??
@@ -3208,6 +3224,9 @@ internal sealed class RoomEntityFactory
     {
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
+
+        if (record is { Id: InteractionId.Pirate, SubId: <= 3 })
+            return new PirateCrewRoomEntity(NpcCharacter.CreateFromRecord(record), owner);
 
         if (record.Id == InteractionId.ChildJabu && record.SubId == 0)
             return new ChildJabuRoomEntity(record);

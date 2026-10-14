@@ -49,6 +49,9 @@ through `RoomSession` before preload, and reapply live persistent substitutions
 when loading cached data. Keep logical layout, underlying terrain, collision,
 and displayed tile mappings distinct.
 
+Native changes to live tileset flags belong to the active room data. Room
+initialization restores imported flags before native actors apply their writes.
+
 Room initialization applies imported live WRAM writes before allocating actors;
 switch-controlled tile restoration also precedes allocation. Those writes must
 still occur when an object pool is full. Interleaved graphics
