@@ -1120,6 +1120,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDungeonMechanics);
         RunIsolatedValidation(ValidateRoom29eOrbBridge,requiresRom:true);
         RunIsolatedValidation(ValidateRollingRidgeButtonBridges);
+        RunIsolatedValidation(ValidateAncientTombEntrance, requiresRom: true);
         RunIsolatedValidation(ValidateMoblinKeepCollapsingFloor);
         RunIsolatedValidation(ValidateRoom054SeedCliffsAndBridge);
         RunIsolatedValidation(ValidateRoom449EchoingHowl);

@@ -298,7 +298,7 @@ public sealed partial class ValidationRoot
             }
         }
         FailIf(
-            database.RecordCount != 241 || switchRecordCount != 7 ||
+            database.RecordCount != 242 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyFallingKeyCount != 2 ||

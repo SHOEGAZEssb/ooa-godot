@@ -2277,6 +2277,33 @@ if (-not $caveBridgeMatch.Success -or $bridgeSpawnerSource -notmatch
 }
 $caveBridgeCount = [Convert]::ToInt32($caveBridgeMatch.Groups['count'].Value, 16)
 $caveBridgePosition = [Convert]::ToInt32($caveBridgeMatch.Groups['position'].Value, 16)
+# $dc:$0e is a native grave puzzle, not a visible NPC or script stream.
+$ancientTombMatch = [regex]::Match($caveBridgeSource,
+    '(?ms)^interactiondc_subid0E:\s+ld e,Interaction.state\s+ld a,\(de\)\s+rst_jumpTable\s+\.dw @state0\s+\.dw @state1\s+\.dw @state2\s+' +
+    '@state0:\s+call getThisRoomFlags\s+and \$80\s+jp nz,interactionDelete\s+jp interactionIncState\s+' +
+    '@state1:\s+call objectGetTileAtPosition\s+cp TILEINDEX_GRAVE_STATIONARY\s+ret nz\s+call checkLinkVulnerable\s+ret nc\s+' +
+    'ld a,DISABLE_ALL_BUT_INTERACTIONS \| DISABLE_LINK\s+ld \(wDisabledObjects\),a\s+ld \(wMenuDisabled\),a\s+' +
+    'ld e,Interaction.counter1\s+ld a,(?<wait>\d+)\s+ld \(de\),a\s+call interactionIncState\s+' +
+    'ld c,\$(?<position0>[0-9a-f]{2})\s+ld a,\$(?<tile0>[0-9a-f]{2})\s+call setTile\s+inc c\s+ld a,\$(?<tile1>[0-9a-f]{2})\s+call setTile\s+' +
+    'ld c,\$(?<position2>[0-9a-f]{2})\s+ld a,\$(?<tile2>[0-9a-f]{2})\s+call setTile\s+inc c\s+ld a,\$(?<tile3>[0-9a-f]{2})\s+call setTile\s+' +
+    'ld c,\$04\s+call @spawnPuff\s+ld c,\$05\s+call @spawnPuff\s+ld c,\$14\s+call @spawnPuff\s+ld c,\$15\s+' +
+    '@spawnPuff:\s+call getFreeInteractionSlot\s+ret nz\s+ld \(hl\),INTERAC_PUFF\s+ld l,Interaction.yh\s+jp setShortPosition_paramC\s+' +
+    '@state2:\s+call interactionDecCounter1\s+ret nz\s+ld a,SND_SOLVEPUZZLE\s+call playSound\s+call getThisRoomFlags\s+set 7,\(hl\)\s+xor a\s+' +
+    'ld \(wDisabledObjects\),a\s+ld \(wMenuDisabled\),a\s+jp interactionDelete')
+if (-not $ancientTombMatch.Success -or
+    $tileIndexSource -notmatch '(?m)^\.define TILEINDEX_GRAVE_STATIONARY\s+\$(?<grave>[0-9a-f]{2})\b') {
+    throw 'miscellaneous2.s:interactiondc_subid0E grave puzzle state/tiles/puffs/completion contract changed.'
+}
+$ancientTombGraveTile = [Convert]::ToInt32($Matches.grave, 16)
+$ancientTombWait = [int]$ancientTombMatch.Groups['wait'].Value
+$ancientTombPositions = @(
+    [Convert]::ToInt32($ancientTombMatch.Groups['position0'].Value, 16)
+    (1 + [Convert]::ToInt32($ancientTombMatch.Groups['position0'].Value, 16))
+    [Convert]::ToInt32($ancientTombMatch.Groups['position2'].Value, 16)
+    (1 + [Convert]::ToInt32($ancientTombMatch.Groups['position2'].Value, 16)))
+if (($ancientTombPositions -join ',') -ne '4,5,20,21' -or $ancientTombWait -ne 45 -or $ancientTombGraveTile -ne 2) {
+    throw 'miscellaneous2.s:$dc:$0e expected 45-update delay, grave $02 and matching tile/puff positions $04,$05,$14,$15.'
+}
 $ridgeBridgeMatch = [regex]::Match($caveBridgeSource,
     '(?ms)^interactiondc_subid0C:\s+interactiondc_subid0D:\s+call checkInteractionState\s+jr z,@state0\s+@state1:\s+ld a,\(wActiveTriggers\)\s+or a\s+ret z.*?sub \$0c\s+ld bc,\$(?<pastCount>[0-9a-f]{2})(?<pastAngle>[0-9a-f]{2})\s+ld e,\$(?<pastPosition>[0-9a-f]{2})\s+jr z,\+\+\s+ld bc,\$(?<presentCount>[0-9a-f]{2})(?<presentAngle>[0-9a-f]{2})\s+ld e,\$(?<presentPosition>[0-9a-f]{2})\s+\+\+\s+call getFreePartSlot\s+ret nz\s+ld \(hl\),PART_BRIDGE_SPAWNER\s+ld l,Part.counter2\s+ld \(hl\),b\s+ld l,Part.angle\s+ld \(hl\),c\s+ld l,Part.yh\s+ld \(hl\),e\s+call getThisRoomFlags\s+set 7,\(hl\)\s+ld a,SND_SOLVEPUZZLE\s+call playSound\s+jp interactionDelete\s+@state0:\s+call getThisRoomFlags\s+and \$80\s+jp nz,interactionDelete\s+jp interactionIncState')
 if (-not $ridgeBridgeMatch.Success -or
@@ -2441,16 +2468,17 @@ foreach ($line in $mainObjectLines) {
             ($id -eq 0x23 -and $subid -le 0x07) -or
             ($id -eq 0x24 -and $subid -eq 0x02) -or
             ($id -eq 0x6b -and $subid -eq 0x0f) -or
+            ($id -eq 0xdc -and $subid -eq 0x0e) -or
             $dungeonScriptPredicate -ne '' -or
             ($id -eq 0x21 -and $subid -in @(0x09, 0x0e, 0x17)))) {
             $a = [Convert]::ToInt32($Matches['a'], 16)
             $b = [Convert]::ToInt32($Matches['b'], 16)
-            $position = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0x20 -or $id -eq 0x6b) {
+            $position = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0x20 -or $id -eq 0x6b -or $id -eq 0xdc) {
                 ($a -band 0xf0) -bor (($b -shr 4) -band 0x0f)
             } else {
                 $a
             }
-            $parameter = if ($id -eq 0x12 -or $id -eq 0x13) {
+            $parameter = if ($id -eq 0x12 -or $id -eq 0x13 -or $id -eq 0xdc) {
                 0
             } elseif ($id -eq 0x6b) {
                 1
@@ -2526,7 +2554,8 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 242 -or
+if ($dungeonMechanicRows.Count -ne 243 -or
+    -not ($dungeonMechanicRows -contains "1`t8c`t0`tdc`t0e`t34`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "3`te8`t0`tdc`t15`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "3`tff`t0`tdc`t16`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t54`t0`t1e`t11`t20`t00`tnone`t1") -or
@@ -2587,7 +2616,7 @@ if ($dungeonMechanicRows.Count -ne 242 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 241 reusable mechanics including chest override controllers; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 242 reusable mechanics including the ancient tomb grave puzzle; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2765,7 +2794,12 @@ foreach ($kind in @('creation', 'removal')) {
         }
     }
 }
-if ($dungeonEventTilePatternRows.Count -ne 54 -or
+for ($index = 0; $index -lt 4; $index++) {
+    $tile = $ancientTombMatch.Groups['tile' + $index].Value
+    $dungeonEventTilePatternRows.Add(
+        "dc`t0e`t$index`t$tile`t$($ancientTombPositions[$index].ToString('x2'))`tobject_code/ages/interactions/miscellaneous2.s:interactiondc_subid0E@state1")
+}
+if ($dungeonEventTilePatternRows.Count -ne 58 -or
     -not ($dungeonEventTilePatternRows -contains
         "21`t09`t0`t1d`t3b`tobject_code/ages/interactions/dungeonEvents.s:interaction21_subid09@tileData") -or
     -not ($dungeonEventTilePatternRows -contains
@@ -2825,6 +2859,8 @@ $dungeonMechanicConstantRows = @(
     "bridge-spawner-step-3`t255"
     "ridge-bridge-angle-0c`t$($ridgeBridgeVariants['0c'].Angle)"
     "ridge-bridge-angle-0d`t$($ridgeBridgeVariants['0d'].Angle)"
+    "ancient-tomb-grave-tile`t$ancientTombGraveTile"
+    "ancient-tomb-solve-wait`t$ancientTombWait"
     "overworld-switch-on`t158"
     "pushable-block`t29"
     "push-delay`t30"

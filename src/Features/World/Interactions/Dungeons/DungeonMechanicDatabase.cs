@@ -33,6 +33,8 @@ internal sealed class DungeonMechanicDatabase
     internal int DoorFrameWait => Constant("door-frame-wait");
     internal int OpenTile => Constant("open-tile");
     internal int SolveSound => Constant("solve-sound");
+    internal int AncientTombGraveTile => Constant("ancient-tomb-grave-tile");
+    internal int AncientTombSolveWait => Constant("ancient-tomb-solve-wait");
     internal int EnemyStairTile(int sourceTile) => Constant($"enemy-stair-tile-{sourceTile - 0x40}");
     internal int DoorSound => Constant("door-sound");
     internal int DoorTorchWait => Constant("door-torch-wait");
@@ -151,7 +153,7 @@ internal sealed class DungeonMechanicDatabase
                 row.Boolean01(8));
             if (record.Id is not (InteractionId.Splash or InteractionId.Puff or InteractionId.SnowDebris or InteractionId.DungeonStuff or InteractionId.PushBlockTrigger or InteractionId.DoorController or InteractionId.DungeonScript or InteractionId.DungeonEvents or InteractionId.ExtendableBridge or InteractionId.TriggerTranslator or InteractionId.SmogBoss or InteractionId.Miscellaneous1 or InteractionId.CreateObjectAtEachTileIndex or InteractionId.Miscellaneous2) ||
                 record.Id == InteractionId.Miscellaneous1 && record.SubId != 0x0f ||
-                record.Id == InteractionId.Miscellaneous2 && (record.SubId is not (0x0c or 0x0d or 0x12 or 0x15 or 0x16) ||
+                record.Id == InteractionId.Miscellaneous2 && (record.SubId is not (0x0c or 0x0d or 0x0e or 0x12 or 0x15 or 0x16) ||
                     record.SubId is 0x0c or 0x0d or 0x12 && record.Parameter == 0) ||
                 record.Id == InteractionId.Splash && record.SubId > 0x07 ||
                 record.Id == InteractionId.DungeonStuff && record.SubId is not (0x01 or 0x02 or 0x04) ||
@@ -246,7 +248,10 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(InteractionId.DungeonEvents, 0x09);
-        if (RecordCount != 241 || _constants.Count != 125 || _texts.Count != 2 ||
+        if (RecordCount != 242 || _constants.Count != 127 || _texts.Count != 2 ||
+            Constant("ancient-tomb-grave-tile") != 0x02 || Constant("ancient-tomb-solve-wait") != 45 ||
+            GetRoomRecords(1, 0x8c) is not [{ Id: InteractionId.Miscellaneous2, SubId: 0x0e, Order: 0, PackedPosition: 0x34 }] ||
+            TilePattern(InteractionId.Miscellaneous2, 0x0e).Count != 4 ||
             DoorTorchWait != 30 || DoorEntryScratchMask != 1 ||
             OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||

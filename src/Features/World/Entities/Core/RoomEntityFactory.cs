@@ -2267,6 +2267,19 @@ internal sealed class RoomEntityFactory
                     $"Room {group:x1}:{room.Id:x2} $dc:$12 requires live save state."),
                 _runtimeState, owner.OnSoundRequested, Resources.DungeonMechanics.SolveSound, rooms, owner.TryCreateBridgeSpawner);
         }
+        if (record.Id == InteractionId.Miscellaneous2 && record.SubId == 0x0e)
+        {
+            if (!owner.InteractionSlotAvailable) return null;
+            return new AncientTombEntranceRoomEntity(record, room,
+                _saveData ?? throw new InvalidOperationException($"Room {group:x1}:{room.Id:x2} $dc:$0e requires live save state."),
+                _runtimeState, Resources.DungeonMechanics,
+                (position, tile) =>
+                {
+                    if (rooms is null || !ReferenceEquals(rooms.CurrentRoom, room))
+                        throw new InvalidOperationException("miscellaneous2.s:$dc:$0e setTile requires its active room session.");
+                    rooms.TrySetTile(position, tile);
+                }, owner.TryCreatePuzzlePuff, owner.OnSoundRequested) { Visible = false };
+        }
         if (record.Id == InteractionId.Miscellaneous2 && record.SubId is 0x15 or 0x16)
         {
             if (!owner.InteractionSlotAvailable) return null;
