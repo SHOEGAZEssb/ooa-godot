@@ -991,6 +991,24 @@ public sealed class RoomTransitionController
         BeginWarp(player, warp, false, forceFadeOut: true);
     }
 
+    internal void CancelPendingFadeOutWarp(int destinationGroup, int destinationRoom)
+    {
+        // A cancelled room event may still have a source-side fade request.
+        // The terminal load invokes room-entry cancellation too; that committed
+        // load must retain its arrival transition.
+        if (!_warpActive || _timeWarp || _warpPhase != WarpPhase.FadeOut ||
+            _warpFrame >= _warpFadeOutFrames ||
+            _pendingWarp.DestinationGroup != destinationGroup || _pendingWarp.DestinationRoom != destinationRoom)
+            return;
+        _warpActive = false;
+        _warpPhase = WarpPhase.None;
+        _warpFrame = 0;
+        _warpTickAccumulator = 0;
+        _roomPackArrival = null;
+        ClearRoomLoadColumnReveal();
+        SetFade(0);
+    }
+
     public void ApplyWarpWithDelayedFadeOut(
         Player player, Warp warp, bool suppressDestinationMusic = false)
     {

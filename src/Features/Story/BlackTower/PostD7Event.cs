@@ -15,7 +15,9 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
     internal PostD7Stage Stage { get; private set; }
     internal int State { get; private set; }
     internal PostD7EventDatabase Database => _data;
-    internal bool NativeActive => Stage is PostD7Stage.Complete or PostD7Stage.Tower or PostD7Stage.Stone;
+    internal bool NativeActive =>
+        Stage is (PostD7Stage.Complete or PostD7Stage.Tower or PostD7Stage.Stone) &&
+        !context.Transitions.IsTransitioning;
     public bool HasState => Stage != PostD7Stage.Inactive;
     public bool BlocksGameplay => HasState;
     public bool OwnsGameLogic => NativeActive;
@@ -74,7 +76,9 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
     internal void AdvanceBeforeObjects()
     {
         SkipsObjectUpdate = false;
-        if (!HasState) return;
+        // cutscene08 consumes wWarpTransition2 before entering its handler.
+        // Once it selects cutscene03, the transition owner advances the fade.
+        if (!HasState || context.Transitions.IsTransitioning) return;
         context.Transitions.AdvanceNativeWhiteFade();
         if (_pendingTower)
         {
@@ -207,9 +211,11 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
     {
         if (!Decrement(0xcbb3)) return;
         var table = _data.Table("tower");
-        RemoveTower();
-        context.Transitions.ApplyWarp(context.Player, new Warp(
-            context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id, -1, 0, WarpSourceTransition.Instant,
+        // func_6733 writes @warpDest2's wWarpTransition2=$03 directly.
+        // Keep the tower BG until cutscene03 loads the destination; Link's
+        // TRANSITION_SRC_INSTANT handler would add SND_ENTERCAVE $6e.
+        context.Transitions.ApplyWarpWithFadeOut(context.Player, new Warp(
+            context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id, -1, 0, 0,
             table[5], table[6], table[7], table[9], table[8]));
     }
     private int _scrollY = 0x70;
@@ -330,6 +336,11 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
     public void Cancel()
     {
         bool owned = HasState;
+        if (Stage == PostD7Stage.Tower)
+        {
+            var table = _data.Table("tower");
+            context.Transitions.CancelPendingFadeOutWarp(table[5], table[6]);
+        }
         RemoveTower(); Stage = PostD7Stage.Inactive; State = 0;
         _pendingTower = _pendingStone = false; _scrollY = 0x70; _topLoaded = false;
         SkipsObjectUpdate = false;

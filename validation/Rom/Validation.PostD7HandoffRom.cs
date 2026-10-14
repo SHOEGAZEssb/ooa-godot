@@ -31,6 +31,17 @@ public sealed partial class ValidationRoot
             {
                 update++;
                 rom.AdvanceWarpPalette();
+                if (rom[0xcc4b] != 0)
+                {
+                    // A batched host frame may contain the next main-thread
+                    // update after publication. cutscene08 consumes the request
+                    // here; neither its handler nor Link's source path runs.
+                    rom.ApplyRequestedWarp();
+                    FailIf(sounds.Requests.Contains(SoundId.SndEnterCave) ||
+                        owner.NativeActive || owner.Stage != PostD7Stage.Tower,
+                        "Post-D7 pending $03 must hand the white fade to the transition owner without an entrance cue.");
+                    return;
+                }
                 if (rom[0xcc04] != 0)
                 {
                     rom.SelectTriggeredCutscene();
@@ -41,9 +52,6 @@ public sealed partial class ValidationRoot
                     rom.AdvancePostD7();
                     rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
                 }
-                // The source publishes its pending warp here. The normal
-                // room loader's placement RNG belongs to the next fixture.
-                if (owner.Stage == PostD7Stage.Ascent) return;
                 var rng = _random.CaptureState();
                 if (!linked && owner.Stage == PostD7Stage.Complete && owner.State == 5)
                     FailIf(!_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
@@ -84,10 +92,14 @@ public sealed partial class ValidationRoot
                 }
                 if (hold > 0 && --hold == 0) { _dialogue.Close(); rom[0xcba0] = 0; }
             }
-            for (int limit = 0; owner.Stage != PostD7Stage.Ascent && limit < 1800; limit += 2)
+            // Include the update publishing the warp: func_6733 writes the
+            // destination/request directly without dispatching Link's source
+            // handler. The room loader's placement RNG is a separate fixture.
+            for (int limit = 0; !IsTransitioning && limit < 1800; limit += 2)
                 StepGameplayUpdates(2, Vector2.Zero, batched: batch, afterUpdate: Compare);
-            FailIf(owner.Stage != PostD7Stage.Ascent || rom[0xcc47] != 0x84 || rom[0xcc48] != 0xf6 ||
-                rom[0xcc49] != 0x0f || rom[0xcc4a] != 0x47 || rom[0xcc4b] != 3,
+            FailIf(!IsTransitioning || owner.Stage != PostD7Stage.Tower || rom[0xcc47] != 0x84 || rom[0xcc48] != 0xf6 ||
+                rom[0xcc49] != 0x0f || rom[0xcc4a] != 0x47 ||
+                !(rom[0xcc4b] == 3 || rom[0xc2ef] == 3),
                 $"The native completed-tower scroll must publish invisible transition $0f to room $4:$f6/$47, parameter $03: stage={owner.Stage}, warp=${rom[0xcc47]:x2}/${rom[0xcc48]:x2}/${rom[0xcc49]:x2}/${rom[0xcc4a]:x2}/${rom[0xcc4b]:x2}.");
         }
     }

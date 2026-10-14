@@ -23,14 +23,18 @@ public sealed partial class ValidationRoot
             _player.WarpTo(new(72, 72), recordSafe: false);
             // essence.s state7 clears wActiveMusic before the return warp.
             _sound.ClearActiveMusic();
+            var sounds = _sound.AttachPlayRequestAudit();
             var owner = _roomEvents.Get<PostD7Event>();
             var remote = _roomEvents.Get<RemoteMakuSeventhEssenceEvent>();
             var texts = new List<int>();
             int hold = 0, updates = 0;
             bool sawTower = false, sawAscent = false, sawStone = false;
+            int towerFadeStart = -1;
             void Observe()
             {
                 updates++;
+                FailIf(sounds.Requests.Contains(SoundId.SndEnterCave),
+                    "Post-D7 direct room loads and func_6733's $03 white fade must not dispatch SND_ENTERCAVE $6e.");
                 if (!linked && owner.Stage == PostD7Stage.Complete && owner.State == 5)
                     FailIf(!_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black || _player.Visible,
                         "Post-D7 cloaked Twinrova scene must retain the black room BG across the status strip with no Link.");
@@ -39,9 +43,20 @@ public sealed partial class ValidationRoot
                     sawTower = true;
                     FailIf(_player.Visible || _hud.Visible,
                         "Post-D7 gfx-register state $09 must show the full tower panorama without Link or a HUD strip.");
+                    if (IsTransitioning)
+                    {
+                        if (towerFadeStart < 0) towerFadeStart = updates;
+                        FailIf(SomariaPrivate<BlackTowerExplanationScreen>(owner, "_tower") is null ||
+                            _entities.RuntimeState.ReadWramByte(0xcbb3) != 0 ||
+                            !Mathf.IsEqualApprox(_warpFade.Color.A, Math.Min(updates - towerFadeStart, 31) / 31f),
+                            "Post-D7 $03 must retain the tower panorama and freeze its handler during the 32-update white fade.");
+                    }
                 }
                 if (owner.Stage == PostD7Stage.Ascent)
                 {
+                    if (!sawAscent)
+                        FailIf(towerFadeStart < 0 || updates - towerFadeStart != 32,
+                            "Post-D7 $4:$f6 must load only on the terminal update of the source's 32-update white fade.");
                     sawAscent = true;
                     FailIf(_player.Visible || !_hud.Visible || _hud.StatusBarHidden,
                         "Post-D7 $4:$f6 arrival $0f must keep Link invisible and restore the room HUD.");
@@ -76,6 +91,37 @@ public sealed partial class ValidationRoot
                 "Post-D7 must persist the tower and remote-Maku flags and return control to Link in $2:$90.");
             LoadValidationRoom(2, 0x90); StepGameplayUpdates(4, Vector2.Zero);
             FailIf(owner.HasState || remote.HasState, "Completed post-D7 handoff must not replay on room re-entry.");
+        }
+        foreach (bool batch in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            _inventory.GiveTreasure(TreasureId.Essence, 6);
+            LoadValidationRoom(2, 0x90);
+            var owner = _roomEvents.Get<PostD7Event>();
+            var sounds = _sound.AttachPlayRequestAudit();
+            for (int wait = 0; !IsTransitioning && wait < 1800; wait += 2)
+                StepGameplayUpdates(2, Vector2.Zero, batched: batch, afterUpdate: () =>
+                { if (_dialogue.IsOpen) _dialogue.Close(); });
+            FailIf(!IsTransitioning || owner.Stage != PostD7Stage.Tower,
+                "Post-D7 cancellation fixture must reach the tower-to-interior white fade.");
+            StepGameplayUpdates(12, Vector2.Zero, batched: batch);
+            LoadValidationRoom(1, 0x36);
+            StepGameplayUpdates(40, Vector2.Zero, batched: batch);
+            FailIf(IsTransitioning || owner.HasState ||
+                SomariaPrivate<BlackTowerExplanationScreen>(owner, "_tower") is not null ||
+                _rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0x36 ||
+                !_player.Visible || !_hud.Visible || _hud.StatusBarHidden || _player.CutsceneControlled ||
+                _warpFade.Color.A != 0 || sounds.Requests.Contains(SoundId.SndEnterCave) ||
+                _saveData.HasRoomFlag(4, 0xf6, 0x40) || _saveData.HasRoomFlag(2, 0x90, 0x40),
+                $"Cancelling the tower fade must release its panorama/transition without a late interior load, entrance cue or completion flags: " +
+                $"transition={IsTransitioning}, stage={owner.Stage}, tower={SomariaPrivate<BlackTowerExplanationScreen>(owner, "_tower") is not null}, " +
+                $"room=${_rooms.ActiveGroup:x1}:${_rooms.CurrentRoom.Id:x2}, Link={_player.Visible}/{_player.CutsceneControlled}, " +
+                $"HUD={_hud.Visible}/{_hud.StatusBarHidden}, fade={_warpFade.Color.A}, cues={string.Join(',', sounds.Requests)}, " +
+                $"flags=${_saveData.GetRoomFlags(4, 0xf6):x2}/${_saveData.GetRoomFlags(2, 0x90):x2}.");
+            LoadValidationRoom(2, 0x90);
+            StepGameplayUpdates(2, Vector2.Zero, batched: batch);
+            FailIf(!owner.HasState,
+                "Cancelled post-D7 must remain eligible when its source room is re-entered.");
         }
         ReinitializeGameplayForValidation();
         _inventory.GiveTreasure(TreasureId.Essence, 6); LoadValidationRoom(2, 0x90);
