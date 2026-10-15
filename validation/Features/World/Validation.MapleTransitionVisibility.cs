@@ -5,6 +5,67 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateMapleCutsceneGates()
+    {
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            _inventory.GiveTreasure(TreasureId.Essence, 7);
+            var remote = _roomEvents.Get<RemoteMakuEighthEssenceEvent>();
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                _saveData.SetMapleKillCounter(30);
+                LoadValidationRoom(1, 0x5c);
+                var maple = _entities.Entities<MapleEncounter>().Single();
+                StepGameplayUpdates(1, Vector2.Zero);
+                MapleEncounterStage stage = maple.Stage;
+                Vector2 position = maple.Position;
+                StepGameplayUpdates(24, Vector2.Zero, batched: batched);
+                FailIf(!remote.HasState || maple.Stage != stage || maple.Position != position ||
+                    _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0x81,
+                    "Remote Maku $8a/v$0a must freeze Maple through disableinput on repeated incomplete entries.");
+                remote.Cancel();
+                FailIf(remote.HasState || _player.CutsceneControlled || _entities.PlayerMenusDisabled ||
+                    _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 ||
+                    _saveData.HasRoomFlag(1, 0x5c, 0x40),
+                    "Cancelling remote Maku must release its masks without marking room$1:$5c complete.");
+                StepGameplayUpdates(4, Vector2.Zero, batched: batched);
+                FailIf(maple.Finished || maple.Stage != MapleEncounterStage.Flying,
+                    "Cancelling remote Maku must release the waiting Maple encounter.");
+            }
+
+            // mapleState1 checks only wMenuDisabled on its zero decrement;
+            // DISABLE_COMPANION ($20) and DISABLE_ALL_BUT_INTERACTIONS ($80)
+            // instead suspend even Maple's uninitialized state.
+            _saveData.SetGlobalFlag(GlobalFlag.TuniNutPlaced);
+            foreach (byte mask in new byte[] { 0x20, 0x80, 0x81 })
+            {
+                _saveData.SetMapleKillCounter(30);
+                LoadValidationRoom(1, 0x02);
+                var maple = _entities.Entities<MapleEncounter>().Single();
+                int calls = _entities.RandomCalls;
+                _runtimeState.SetWramByte(WramAddress.wDisabledObjects, mask);
+                StepGameplayUpdates(8, Vector2.Zero, batched: batched);
+                FailIf(maple.Stage != MapleEncounterStage.Initializing || maple.Visible || _entities.RandomCalls != calls,
+                    $"Maple state0 must retain entrance RNG and visibility under wDisabledObjects=${mask:x2}.");
+                _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
+                _runtimeState.SetWramByte(WramAddress.wMenuDisabled, 0x80);
+                int meetings = _saveData.MapleState;
+                StepGameplayUpdates(1, Vector2.Zero);
+                StepGameplayUpdates(2, Vector2.Zero, batched: batched);
+                FailIf(maple.Finished || maple.Stage != MapleEncounterStage.EntryDelay,
+                    "Maple must not sample wMenuDisabled before the third entrance decrement.");
+                StepGameplayUpdates(1, Vector2.Zero);
+                FailIf(!maple.Finished || maple.Visible || _entities.MaplePresent() ||
+                    _saveData.MapleState != meetings || _saveData.MapleKillCounter != 0 ||
+                    _sound.ActiveMusic == SoundId.MusMapleTheme ||
+                    _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0x80,
+                    "Maple's menu-only abort must delete on decrement three, retain spent kills and meeting count, and preserve the menu owner's mask.");
+                _runtimeState.SetWramByte(WramAddress.wMenuDisabled, 0);
+            }
+        }
+    }
+
     private void ValidateMapleTransitionVisibility()
     {
         foreach (bool batched in new[] { false, true })

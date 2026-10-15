@@ -145,7 +145,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     internal void UpdateFrame(
         Player player,
         ICollection<RoomEntitySpawn> spawns,
-        int globalFrameCounter)
+        int globalFrameCounter,
+        bool menusDisabled = false)
     {
         if (Finished)
             return;
@@ -157,7 +158,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
                 InitializeState();
                 break;
             case MapleEncounterStage.EntryDelay:
-                UpdateEntryDelay();
+                UpdateEntryDelay(menusDisabled);
                 break;
             case MapleEncounterStage.Flying:
                 UpdateFlying(player, spawns);
@@ -245,12 +246,19 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         Visible = true; // mapleState0: objectSetVisiblec0, after setting XYZ.
     }
 
-    private void UpdateEntryDelay()
+    private void UpdateEntryDelay(bool menusDisabled)
     {
         _counter--;
         if (_counter != 0)
             return;
         Stage = MapleEncounterStage.Flying;
+        // maple.s: mapleState1 checks wMenuDisabled only after mapleState4's
+        // third decrement, then deletes without incrementing the meeting count.
+        if (menusDisabled)
+        {
+            FinishWithoutMeeting();
+            return;
+        }
         _soundRequested(SoundId.MusMapleTheme);
     }
 

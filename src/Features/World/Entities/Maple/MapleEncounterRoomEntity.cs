@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class MapleEncounterRoomEntity(MapleEncounter maple)
+internal sealed class MapleEncounterRoomEntity(MapleEncounter maple, RoomEntityManager owner)
     : RoomEntityAdapter<MapleEncounter>(
         maple, maple.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, IPlayerRestriction,
@@ -26,7 +26,15 @@ internal sealed class MapleEncounterRoomEntity(MapleEncounter maple)
 
     public void UpdateFrame(
         RoomEntityFrame frame,
-        ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame(frame.Player, spawns, frame.Counter);
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        // commonCode.s: companionRetIfInactiveWithoutStateCheck applies even
+        // to state0, independently of the interaction pass containing this adapter.
+        if ((owner.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects) & 0xa0) != 0 ||
+            owner.PaletteFadeActiveSource() || owner.NonInteractionObjectsDisabledSource())
+            return;
+        Entity.UpdateFrame(frame.Player, spawns, frame.Counter,
+            owner.RuntimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0);
+    }
 
 }

@@ -1206,7 +1206,7 @@ internal sealed class RoomEntityFactory
                 owner.OnSoundRequested,
                 owner.BeginHorizontalScreenShake,
                 owner.OnRoomMusicRequested);
-            yield return new MapleEncounterRoomEntity(maple);
+            yield return new MapleEncounterRoomEntity(maple, owner);
             // checkAndSpawnMaple allocates its interaction before parseObjectData.
             // The placed $dc:$05 must therefore consume its RNG after Maple.
             foreach (VolcanoPlacement record in Resources.Volcano.Placements(group, room.Id))

@@ -64,6 +64,15 @@ internal abstract class RemoteMakuEvent :
         _runner.Start(_database.Commands);
     }
 
+    public override void SetInputEnabled(bool enabled)
+    {
+        base.SetInputEnabled(enabled);
+        // code/scripting.s: disableinput writes both bytes; Link control alone
+        // does not freeze SPECIALOBJECT_MAPLE through its companion gate.
+        Context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, (byte)(enabled ? 0 : 0x81));
+        Context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, (byte)(enabled ? 0 : 0x80));
+    }
+
     public void UpdateFrame()
     {
         if (!HasState)
@@ -96,7 +105,8 @@ internal abstract class RemoteMakuEvent :
     public virtual void Cancel()
     {
         _runner.Clear();
-        Context.Player.EndCutsceneControl(this);
+        if (EventResources.InputLocked)
+            SetInputEnabled(true);
         Context.Hud.ShowStatusBar();
         Context.RoomView.ClearBackgroundFade();
         RestoreFadePresentation();

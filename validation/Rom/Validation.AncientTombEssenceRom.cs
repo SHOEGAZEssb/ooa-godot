@@ -13,6 +13,7 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             for (int i = 0; i < 7; i++) _inventory.GiveTreasure(TreasureId.Essence, i);
             LoadValidationRoom(5, 0x77);
+            _saveData.SetMapleKillCounter(30);
             var essence = _entities.Entities<DungeonEssence>().Single();
             FailIf(essence.EssenceIndex != 7 || essence.Position != new Vector2(120, 40) ||
                 !essence.Message.Contains("Falling Star", StringComparison.Ordinal) ||
@@ -51,15 +52,47 @@ public sealed partial class ValidationRoot
             FailIf(IsTransitioning || _rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0x5c ||
                 !_roomEvents.Get<RemoteMakuEighthEssenceEvent>().HasState,
                 "The actual Essence warp must admit past remote Maku $8a:$01/v$0a in room$1:$5c.");
-            for (int wait = 0; !_dialogue.IsOpen && wait < 1000; wait++) StepGameplayUpdates(1, Vector2.Zero);
+            var maple = _entities.Entities<MapleEncounter>().Single();
+            int mapleState = _saveData.MapleState;
+            int makuState = _saveData.MakuTreeState;
+            // initializeRoom spawns Maple and consumes the threshold before
+            // $8a runs disableinput ($81/$80). companionRetIfInactiveWithoutStateCheck
+            // must retain her entrance state throughout Maku, including text.
+            for (int wait = 0; _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0x81 && wait < 4; wait++)
+                StepGameplayUpdates(1, Vector2.Zero);
+            FailIf(_saveData.MapleKillCounter != 0 ||
+                _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0x81 ||
+                _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0x80,
+                "D8 return must consume Maple's 30 kills, then publish remote Maku's $81/$80 input masks.");
+            MapleEncounterStage frozenStage = maple.Stage;
+            Vector2 frozenPosition = maple.Position;
+            int frozenCounter = SomariaPrivate<int>(maple, "_counter");
+            void CheckMapleFrozen() => FailIf(maple.Finished || maple.Stage != frozenStage ||
+                maple.Position != frozenPosition || SomariaPrivate<int>(maple, "_counter") != frozenCounter ||
+                _saveData.MapleState != mapleState || _sound.ActiveMusic == SoundId.MusMapleTheme,
+                "Maple must retain her entrance counters/position without starting music or a meeting during D8 Maku.");
+            for (int wait = 0; !_dialogue.IsOpen && wait < 1000; wait += 2)
+                StepGameplayUpdates(2, Vector2.Zero, batched: batch, afterUpdate: CheckMapleFrozen);
             FailIf(!_dialogue.IsOpen || _saveData.MakuMapTextPast != 0xba ||
                 !_dialogue.CurrentMessage.Contains("Please visit me", StringComparison.Ordinal),
                 "Eighth-Essence handoff must reach Maku's source TX_05ba.");
+            StepGameplayUpdates(8, Vector2.Zero, batched: batch, afterUpdate: CheckMapleFrozen);
             _dialogue.Close();
             var remote = _roomEvents.Get<RemoteMakuEighthEssenceEvent>();
-            for (int wait = 0; remote.HasState && wait < 180; wait++) StepGameplayUpdates(1, Vector2.Zero);
-            FailIf(remote.HasState || _player.CutsceneControlled || _hud.StatusBarHidden || !_saveData.HasRoomFlag(1,0x5c,0x40),
+            for (int wait = 0; remote.HasState && wait < 180; wait += 2)
+                StepGameplayUpdates(2, Vector2.Zero, batched: batch, afterUpdate: () =>
+                {
+                    if (remote.HasState) CheckMapleFrozen();
+                });
+            FailIf(remote.HasState || _player.CutsceneControlled || _hud.StatusBarHidden || !_saveData.HasRoomFlag(1,0x5c,0x40) ||
+                _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 ||
+                _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0 || _saveData.MakuTreeState != makuState + 1,
                 "Eighth Maku handoff must persist completion and restore input/HUD.");
+            for (int wait = 0; maple.Stage != MapleEncounterStage.Flying && wait < 4; wait++)
+                StepGameplayUpdates(1, Vector2.Zero);
+            FailIf(maple.Finished || maple.Stage != MapleEncounterStage.Flying ||
+                _sound.ActiveMusic != SoundId.MusMapleTheme || _saveData.MapleState != mapleState,
+                "Maple must resume her delayed entrance after Maku releases $81/$80, without recording a collision.");
             LoadValidationRoom(1, 0x5c); StepGameplayUpdates(3, Vector2.Zero);
             FailIf(remote.HasState, "Completed eighth Maku message must not replay on re-entry.");
             LoadValidationRoom(5, 0x77); StepGameplayUpdates(3, Vector2.Zero);

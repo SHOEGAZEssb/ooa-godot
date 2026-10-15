@@ -7,18 +7,6 @@ internal sealed class RemoteMakuSeventhEssenceEvent(RoomEventContext context)
     : RemoteMakuEvent(context, new RemoteMakuSeventhEssenceDatabase())
 {
     public override bool OwnsUpdatesOf(IRoomEvent other) => other is JabuExteriorEvent;
-    public override void SetInputEnabled(bool enabled)
-    {
-        base.SetInputEnabled(enabled);
-        Context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, (byte)(enabled ? 0 : 0x81));
-        Context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, (byte)(enabled ? 0 : 0x80));
-    }
-    public override void Cancel()
-    {
-        bool owned = HasState;
-        base.Cancel();
-        if (owned) SetInputEnabled(true);
-    }
     internal void StartAfterStoneScene()
     {
         if (!MatchesEssenceRoom(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom))
