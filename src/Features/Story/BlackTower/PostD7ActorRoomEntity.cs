@@ -239,7 +239,7 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
     private void Finish() { Finished = true; _actor.SetActive(false); }
     private void Lightning(Vector2 position)
     {
-        if (_context.Entities.PartSlotAvailable) _context.Entities.AddEntity(new NayruRescueLightningRoomEntity(_context, position));
+        if (_context.Entities.PartSlotAvailable) _context.Entities.AddEntity(new LightningRoomEntity(_context, position));
     }
     private void Exclaim(Vector2 position, int duration)
     {

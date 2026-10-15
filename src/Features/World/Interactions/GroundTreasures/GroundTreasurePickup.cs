@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace oracleofages;
 
@@ -201,6 +202,17 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         TryCollectCore(player, checkDefaultDistance: false);
 
     internal void BeginScriptGrant() => ScriptGrantPending = true;
+
+    internal void SetSpritePaletteOverrides(IReadOnlyDictionary<int, Color[]> palettes)
+    {
+        Image source = OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{Record.Sprite}.png");
+        AnimationDefinition animation = OracleGraphicsCache.GetAnimationDefinition(Record.Animation);
+        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(
+            source, animation.Frames[0].EncodedOam, Record.TileBase, Record.Palette,
+            palettes, Record.SourceGrayscaleInverted);
+        PixelHash = HashImage(_texture.GetImage());
+        QueueRedraw();
+    }
 
     internal bool TryCollectScriptGrant()
     {

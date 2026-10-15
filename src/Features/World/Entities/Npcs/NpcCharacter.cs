@@ -12,6 +12,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     };
     private readonly int[] _facingAnimationLoopStarts = new int[4];
     private readonly List<NpcCharacterAnimationFrame> _scriptAnimation = new();
+    private IReadOnlyDictionary<int, Color[]>? _scriptPaletteOverrides;
     private Image _sourceImage = null!;
     private NpcCharacterFacing _facing = NpcCharacterFacing.Down;
     private NpcCharacterFacing _nativeNpcFacingAngle = NpcCharacterFacing.Up;
@@ -585,8 +586,26 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         _scriptAnimation.AddRange(BuildPositionedAnimation(
             _sourceImage, _scriptAnimationSource, Record.TileBase, Record.Palette,
             _graphicsSourceOffset, _paletteOverride, _sourceGrayscaleInverted,
-            _scriptAnimationSourceOffsets));
+            _scriptAnimationSourceOffsets, _scriptPaletteOverrides));
         _scriptAnimationActive = _scriptAnimation.Count > 0;
+    }
+
+    internal void SetScriptPaletteOverrides(IReadOnlyDictionary<int, Color[]> palettes)
+    {
+        var copy = new Dictionary<int, Color[]>();
+        foreach (var (index, colors) in palettes)
+        {
+            if (index is < 0 or > 7 || colors.Length != 4)
+                throw new ArgumentException("A script sprite palette must contain four colors at an index $00-$07.", nameof(palettes));
+            copy.Add(index, (Color[])colors.Clone());
+        }
+        _scriptPaletteOverrides = copy;
+        int frame = _animationFrame;
+        double ticks = _animationTicks;
+        RebuildScriptAnimation();
+        _animationFrame = frame;
+        _animationTicks = ticks;
+        QueueRedraw();
     }
 
     internal void SetFacingDirection(Vector2I direction)
@@ -988,7 +1007,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         int sourceOffset,
         Color[]? paletteOverride,
         bool sourceGrayscaleInverted,
-        int[]? frameSourceOffsets = null)
+        int[]? frameSourceOffsets = null,
+        IReadOnlyDictionary<int, Color[]>? paletteOverrides = null)
     {
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(encodedAnimation);
@@ -1004,7 +1024,11 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
             AnimationFrameDefinition frame = definition.Frames[index];
             int frameSourceOffset = sourceOffset +
                 (frameSourceOffsets?[index] ?? 0);
-            (Texture2D texture, Vector2 offset) = BuildPositionedOamTexture(
+            (Texture2D texture, Vector2 offset) = paletteOverrides is not null
+                ? BuildPositionedOamTextureWithPaletteOverrides(
+                    source, frame.EncodedOam, tileBase, basePalette, paletteOverrides,
+                    sourceGrayscaleInverted, frameSourceOffset)
+                : BuildPositionedOamTexture(
                 source, frame.EncodedOam, tileBase, basePalette,
                 paletteOverride, sourceGrayscaleInverted, frameSourceOffset);
             yield return new NpcCharacterAnimationFrame(

@@ -6,6 +6,58 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateMakuTreeFlowerTransitionPresentation()
+    {
+        foreach (bool batched in new[] { false, true })
+        foreach (int state in new[] { 4, 7 })
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.SetMakuTreeState(state);
+            _saveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
+            _saveData.SetGlobalFlag(GlobalFlag.MakuTreeSaved);
+            var advice = _roomEvents.Get<MakuTreeAdviceEvent>();
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                LoadValidationRoom(0, 0x48);
+                FailIf(advice.HasState || _entities.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x86),
+                    "Leaving Maku room $0:38 must release its $86 flower before re-entry.");
+                _player.WarpTo(new Vector2(0x50, 0x18));
+                FailIf(_currentRoom.IsSolid(_player.Position), "Maku $0:48 north approach begins in solid geometry.");
+                bool sawIncoming = false;
+                bool sawArrival = false;
+                void CheckFlower()
+                {
+                    if (_currentRoom.Id != 0x38) return;
+                    sawIncoming |= IsTransitioning;
+                    sawArrival |= !IsTransitioning;
+                    NpcCharacter flower = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x86);
+                    // interaction86 OAM $00/$01: Y=$cb/$d1/$c9,
+                    // X=$10/$18/$20/$21/$29, five 8x16 sprites. Their
+                    // signed bounds are independent of the generated animation.
+                    FailIf(!flower.Visible || flower.Position != new Vector2(0x50, 0x40) ||
+                        flower.CurrentAnimationOffset != new Vector2(8, -71) ||
+                        flower.CurrentAnimationTextureSize != new Vector2I(33, 24) ||
+                        flower.CurrentAnimationOpaquePixels == 0,
+                        $"Maku $86 flower lost its source OAM bounds/pixels during entry: state=${state:x2}, repeat={repeat}, transitioning={IsTransitioning}, offset={flower.CurrentAnimationOffset}, size={flower.CurrentAnimationTextureSize}, pixels={flower.CurrentAnimationOpaquePixels}.");
+                }
+                for (int update = 0; update < 60 && !IsTransitioning; update++)
+                    StepGameplayUpdates(1, Vector2.Up, batched: batched, afterUpdate: CheckFlower);
+                FailIf(!IsTransitioning, "Maku $0:48 north approach did not trigger its imported edge warp.");
+                for (int update = 0; update < 240 && !sawArrival; update += 4)
+                    StepGameplayUpdates(4, Vector2.Zero, batched: batched, afterUpdate: CheckFlower);
+                FailIf(!sawIncoming || !sawArrival,
+                    "Maku $86 flower regression must observe both the incoming transition and completed arrival.");
+                StepGameplayUpdates(4, Vector2.Zero, batched: batched, afterUpdate: CheckFlower);
+                FailIf(!advice.HasState || !advice.ButtonSensitive || _dialogue.IsOpen,
+                    "Maku flower initialization must retain the tree's repeatable idle script after arrival.");
+            }
+            LoadValidationRoom(0, 0x48);
+            FailIf(advice.HasState || _entities.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x86),
+                "Replacing Maku $0:38 must discard its initialized flower.");
+        }
+        GD.Print("Validated Maku $86 flower source OAM bounds and pixels throughout actual north-edge entry, arrival, replacement, repeated entry, and batched updates.");
+    }
+
     private void ValidateMakuTreeAdviceAndLayout()
     {
         var advice = _roomEvents.Get<MakuTreeAdviceEvent>();

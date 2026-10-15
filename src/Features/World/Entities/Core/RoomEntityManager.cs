@@ -1934,6 +1934,37 @@ public sealed class RoomEntityManager : IDisposable
         return (T)Spawn(spawn);
     }
 
+    internal void ReplaceEventOwnedNpc(NpcCharacter actor, IRoomEntity replacement)
+    {
+        IRoomEntity original = _activeEntities.Single(entity => ReferenceEquals(entity.Node, actor));
+        if (original is not EventOwnedNpcRoomEntity || !ReferenceEquals(replacement.Node, actor))
+            throw new InvalidOperationException($"NPC ${actor.Record.Id:x2}:${actor.Record.SubId:x2}: only an event-owned slot can transfer its native dispatch.");
+        int index = _activeEntities.IndexOf(original);
+        int slot = _interactionSlots[original];
+        _interactionSlots.Remove(original);
+        _interactionSlots.Add(replacement, slot);
+        _activeEntities[index] = replacement;
+        actor.NativeActivationChanged = active => SetNpcInteractionActive(replacement, active);
+    }
+
+    internal void ClearDynamicInteractions()
+    {
+        // bank0.s:clearDynamicInteractions preserves reserved $d0/$d1,
+        // enemies and PARTs. Native cutscenes supply the replacement stream.
+        foreach (var entity in _activeEntities.Where(entity =>
+            _interactionSlots.TryGetValue(entity, out int slot) && slot >= 2).ToArray())
+        {
+            _activeEntities.Remove(entity);
+            FreeEntity(entity);
+        }
+    }
+
+    internal void RetireEntity(IRoomEntity entity)
+    {
+        if (!_activeEntities.Remove(entity)) return;
+        FreeEntity(entity);
+    }
+
     internal TimePortal SpawnTemporaryTimePortal(Vector2 position)
     {
         IRoomEntity entity = AddEntity(
@@ -2706,7 +2737,7 @@ public sealed class RoomEntityManager : IDisposable
 
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
-        entity is NayruRescueLightningRoomEntity ? 1 :
+        entity is LightningRoomEntity ? 1 :
         entity is RamrockPart or BlueStalfosProjectileRoomEntity or LynelBeamRoomEntity or PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
             or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
@@ -2829,6 +2860,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
+        MakuSeedTreeRoomEntity or MakuSeedFallingRoomEntity or MakuSeedSparkleRoomEntity or TwinrovaRevealRoomEntity or MakuSeedFlowerRoomEntity or
         PirateShipRoomEntity or PostD7ActorRoomEntity or PostD7BallRoomEntity or NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or NayruRescueBowtieRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
         CompanionTutorialRoomEntity { NativeAllocationEnabled: true } or
         KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or CleanSeasZoraRoomEntity or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or

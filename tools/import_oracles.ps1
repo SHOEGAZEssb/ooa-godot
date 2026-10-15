@@ -304,6 +304,10 @@ $stageContracts = @(
     New-ImportStageContract 'nayru-rescue-warp' 'Import-NayruRescueWarp.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'soundIds') `
         -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
+    New-ImportStageContract 'maku-seed' 'Import-MakuSeedData.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'soundIds') `
+        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-PaletteBytes', `
+            'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionInputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'pirate-ship' 'Import-PirateShip.ps1' `

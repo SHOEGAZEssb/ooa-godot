@@ -26,6 +26,8 @@ public static class GlobalFlag
     public const int MakuTreeSaved = 0x12;
     // constants/common/globalFlags.s: GLOBALFLAG_SAW_TWINROVA_BEFORE_ENDGAME
     public const int SawTwinrovaBeforeEndgame = 0x13;
+    // constants/common/globalFlags.s: GLOBALFLAG_GOT_MAKU_SEED
+    public const int GotMakuSeed = 0x35;
     // constants/common/globalFlags.s: GLOBALFLAG_FINISHEDGAME
     public const int FinishedGame = 0x14;
     // constants/common/globalFlags.s: GLOBALFLAG_GAVE_ROPE_TO_RAFTON

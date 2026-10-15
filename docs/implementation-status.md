@@ -50,6 +50,8 @@ focused validations; NPC classifications live in the
   early story sequences, King Moblin's keep, Goron quests/minigames, Symmetry
   Village restoration, Patch's ceremony, the Library Key entrance, and the hidden
   shop's chest-choice game.
+- Normal-game Huge Maku Seed reward, Twinrova reveal, and subsequent Black
+  Tower advice. The linked-game Maku Seed reveal remains unsupported.
 - Raft travel and wreck/theft events; partial Tokay Island progression and
   minigames; fairy fountains and Tokkey's song lesson.
 - Both eras' underwater Zora Village, palaces and houses, ocean dialogue,

@@ -41,6 +41,10 @@ internal sealed class MakuTreeAdviceEvent : InteractiveInfiniteScriptHost<NpcCha
         _animation = 0;
         _flower = Context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
             _database.Flower, "MakuTreeFlower"));
+        // makuFlower.s state 0 falls through to its animation selection.
+        // Install positioned OAM now: its $c9-$d1 Y offsets lie outside
+        // the default 32x32 NPC canvas, including during room entry.
+        _flower.SetScriptAnimation(_database.Flower.UpAnimation);
         _flower.SetBlocksLink(false);
         _flower.SetAnimationRate(0);
         _flower.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // makuFlower.s: objectSetVisible82

@@ -87,7 +87,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:26` | [I] `$9a:$b3/v$00` carpenter<br>[I] `$9a:$c3/v$00` carpenter |
 | `0:27` | [I] `$9a:$b4/v$00` carpenter<br>[I] `$9a:$d4/v$00` carpenter |
 | `0:37` | [I] `$9a:$c4/v$00` carpenter |
-| `0:38` | [P] `$87:$00/v$00` makuTree |
+| `0:38` | [P] `$87:$00/v$00` makuTree (linked Maku Seed reveal unavailable) |
 | `0:39` | [I] `$37:$0d/v$00` ralph<br>[D] `$5d:$02/v$00` bear |
 | `0:3a` | [D] `$36:$13/v$00` nayru<br>[D] `$37:$11/v$00` ralph<br>[D] `$3c:$10/v$00` boy<br>[D] `$39:$07/v$01` monkey<br>[D] `$5d:$02/v$01` bear |
 | `0:45` | [I] `$3f:$01/v$00` boy2 |

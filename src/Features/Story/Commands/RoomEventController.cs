@@ -154,6 +154,7 @@ public sealed class RoomEventController
             () => new PoeEvent(_context),
             () => new MakuTreeSavedEvent(_context),
             () => new MakuTreeAdviceEvent(_context),
+            () => new MakuSeedEvent(_context),
             () => new MakuTreeDisappearanceEvent(_context),
             () => new RalphPortalEvent(_context),
             () => new PreBlackTowerEvent(_context),
@@ -287,7 +288,7 @@ public sealed class RoomEventController
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
     internal bool OwnsGameLogic => _eventsByPriority.Any(roomEvent => roomEvent.OwnsGameLogic);
     internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled || Get<PostD7Event>().HasState;
-    internal bool NativeCutsceneActive => Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive;
+    internal bool NativeCutsceneActive => Get<MakuSeedEvent>().OwnsGameLogic || Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive;
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
         var retraction=Get<WallRetractionEvent>();
@@ -297,7 +298,8 @@ public sealed class RoomEventController
         var jabu=Get<JabuExteriorEvent>();
         var cleanSeas=Get<CleanSeasEvent>();
         var postD7 = Get<PostD7Event>();
-        bool owned=retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive;
+        var makuSeed = Get<MakuSeedEvent>();
+        bool owned=makuSeed.OwnsGameLogic || retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive;
         retraction.AdvanceBeforeObjects();
         boot.AdvanceBeforeObjects();
         passage.AdvanceBeforeObjects();
@@ -306,7 +308,8 @@ public sealed class RoomEventController
         jabu.AdvanceBeforeObjects();
         cleanSeas.AdvanceBeforeObjects();
         postD7.AdvanceBeforeObjects();
-        return owned || rescueWarp.HasState;
+        makuSeed.AdvanceBeforeObjects();
+        return owned || rescueWarp.HasState || makuSeed.OwnsGameLogic;
     }
     internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);
     internal bool ObjectUpdateSuspended => _eventsByPriority.Any(roomEvent => roomEvent.ObjectUpdateSuspended);

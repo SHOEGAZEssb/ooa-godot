@@ -90,7 +90,7 @@ internal sealed class NayruRescueWarpEvent(RoomEventContext context) : IRoomEven
                 if(Decrement(0xcbb3))
                 {
                     if(context.Rooms.SaveData.IsLinkedGame)Write(0xcfd0,8);
-                    else {if(context.Entities.PartSlotAvailable)context.Entities.AddEntity(new NayruRescueLightningRoomEntity(context,new(0x88,0x40)));Actor(0x8d,0,0,0);}
+                    else {if(context.Entities.PartSlotAvailable)context.Entities.AddEntity(new LightningRoomEntity(context,new(0x88,0x40)));Actor(0x8d,0,0,0);}
                     State=12;return;
                 }
                 if(Decrement(0xcbb6)) {Write(0xcbb7,Read(0xcbb7)^2);context.Player.RequestNativeScriptFacing(this,Read(0xcbb7));RandomDelay();}
