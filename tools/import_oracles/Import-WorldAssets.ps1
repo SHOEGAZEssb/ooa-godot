@@ -1147,6 +1147,7 @@ function Resolve-TransformedLinkOam([int]$index) {
 }
 
 $transformedRingBySpecialObject = @{
+    2 = 0xff # SPECIALOBJECT_LINK_AS_BABY; no transformation ring
     3 = 0x2d # SUBROSIAN_RING
     4 = 0x2e # FIRST_GEN_RING
     5 = 0x2a # OCTO_RING
@@ -1156,7 +1157,7 @@ $transformedRingBySpecialObject = @{
 $transformedLinkRows = [Collections.Generic.List[string]]::new()
 $transformedLinkRows.Add(
     "# ring`tspecial-object`tdirection`tframe`tsprite`ttile-base`toam`tinitial-duration`tloop-duration")
-foreach ($specialObject in 3..7) {
+foreach ($specialObject in 2..7) {
     $block = [regex]::Match(
         $specialObjectAnimationSource,
         "(?ms)^specialObject0${specialObject}GfxPointers:\s*(?<body>(?:\s*m_SpecialObjectGfxPointer[^\r\n]+\r?\n){8})")
@@ -1184,6 +1185,17 @@ foreach ($specialObject in 3..7) {
 $transformedLinkPath = Join-Path $destination 'metadata\transformed_link.tsv'
 Write-GeneratedTable(
     $transformedLinkPath, $transformedLinkRows)
+$babyPath = Join-Path $Disassembly 'object_code/common/specialObjects/transformedLink.s'
+$baby = (Read-ImportText $babyPath) -replace '(?m);[^\r\n]*',''
+if ($baby -notmatch '(?ms)^@state0:.*?dropLinkHeldItem.*?clearAllParentItems.*?SPECIALOBJECT_LINK_AS_BABY.*?counter1\s*ld \(hl\),\$e0\s*inc l\s*ld \(hl\),\$01.*?SND_BECOME_BABY.*?@disableTransformationForBaby:\s*ld a,SND_MAGIC_POWDER' -or
+    $baby -notmatch '(?ms)^@state1:.*?wLinkForceState.*?wPaletteThread_mode.*?wScrollMode.*?updateLinkDamageTaken.*?wLinkDeathTrigger.*?retIfTextIsActive.*?wDisabledObjects.*?and \$81.*?decPegasusSeedCounter.*?decHlRef16WithCap.*?@disableTransformationForBaby.*?updateLinkSpeed_standard.*?srl \(hl\)' -or
+    $specialObjectAnimationSource -notmatch '(?ms)^animationData1a121:\s*\.db \$02 \$00 \$00\s*animationLoop1a124:\s*\.db \$06 \$04 \$84\s*\.db \$06 \$00 \$00\s*m_AnimationLoop animationLoop1a124') {
+    throw 'transformedLink.s: baby initialization, 480-update lifetime, gates, half speed or 2/6/6 animation changed.'
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/baby_link.tsv'),@(
+    "# duration`tspeed-shift`tstep-parameter`tsource",
+    "480`t1`t84`tobject_code/common/specialObjects/transformedLink.s;data/ages/specialObjectAnimationData.s:animationData1a121"
+))
 
 
 $tilesetAssignmentSource = Read-ImportText (

@@ -131,6 +131,12 @@ public sealed class RoomEntityManager : IDisposable
         return entity is IRoomEntityLifetime { Finished: true } ? null : entity;
     }
 
+    internal IRoomEntity? ResolvePartSlot(int slot)
+    {
+        var entity = _partSlots.FirstOrDefault(pair => pair.Value == slot).Key;
+        return entity is IRoomEntityLifetime { Finished: true } ? null : entity;
+    }
+
     internal BombchuTarget? BombchuTargetAt(int slot, bool requireVisible = false)
     {
         IRoomEntity? entity = ResolveEnemySlot(slot);
@@ -324,6 +330,14 @@ public sealed class RoomEntityManager : IDisposable
             enemy.Animation.SetPaletteOverride(_activeObjectPaletteOverride);
         else if (entity.Node is ZoraFireProjectile fire)
             fire.SetPaletteOverride(_activeObjectPaletteOverride);
+        else if (entity.Node is RamrockPart part)
+            part.Animation.SetPaletteOverride(_activeObjectPaletteOverride);
+    }
+
+    internal void SetNativeObjectPalette(IReadOnlyDictionary<int, Color[]> palette)
+    {
+        _activeObjectPaletteOverride = palette;
+        foreach (var entity in _activeEntities) ApplyObjectPaletteOverride(entity);
     }
 
     internal Func<bool> GameButtonJustPressedSource { get; set; } =
@@ -381,7 +395,10 @@ public sealed class RoomEntityManager : IDisposable
     private readonly List<(Rect2 Bounds, int Z, int Radius, int Damage)> _postObjectThrownHits = [];
     internal void ResolvePostObjectCollisions(Player player)
     {
-        if (!_screenTransitionActive && !TextActiveSource() && !RoomEntityFreezeActive())
+        // wDisabledObjects category bits stop object updates. The native
+        // collisionEffects.s walk still reads their live collision bytes;
+        // menu/death/Link collision gates remain in the contact dispatch.
+        if (!_screenTransitionActive && !TextActiveSource() && !LegacyRoomEntityFreezeActive())
         {
             ResolvePlayerProjectileCollisions(companionsOnly: true);
             foreach (var source in _activeEntities.OfType<IReservedBraceletCollisionRoomEntity>().ToArray())
@@ -1078,9 +1095,13 @@ public sealed class RoomEntityManager : IDisposable
                 ResolveSeedCollisions(preMovement: false);
             ProcessSpawns(frame);
             SwitchHook?.UpdateHelper(itemPassFrozen);
+            Vector2? scentTarget = ActiveScentSeedTarget();
             frame = frame with
             {
-                ScentSeedTarget = ActiveScentSeedTarget(),
+                ScentSeedTarget = scentTarget,
+                // hEnemyTarget is published once after items. A part pushing
+                // Link later in the walk does not change this shared target.
+                EnemyTarget = scentTarget ?? player.EnemyContactPosition,
                 SwitchHookState = SwitchHook?.ExchangeState ?? 0
             };
 
@@ -1202,7 +1223,8 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (!timeWarpArrival && !textActive &&
-                !RoomEntityFreezeActive() &&
+                !LegacyRoomEntityFreezeActive() &&
+                (_enemySlots.ContainsKey(entity) || _partSlots.ContainsKey(entity) || _updatedEntitiesThisFrame.Contains(entity)) &&
                 !_linkCollisionsAndMenuDisabled &&
                 (LinkContactDispatchEnabled(player, entity) ||
                     entity is TimePortalRoomEntity && player.AcceptsTimePortalContact) &&
@@ -1226,7 +1248,8 @@ public sealed class RoomEntityManager : IDisposable
         // contact. Ordinary Feather air is eligible; interaction callers
         // retain their separate ground-contact dispatch boundary.
         if (_enemySlots.ContainsKey(entity) || _partSlots.ContainsKey(entity))
-            return player.PatchCollisionsEnabled && player.EnemyContactHeightOverlaps(
+            return _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) == 0 &&
+                player.PatchCollisionsEnabled && player.EnemyContactHeightOverlaps(
                 entity is IObjectCollisionHeightRoomEntity height ? height.CollisionZ : 0);
         return player.AcceptsRoomEntityContact;
     }
@@ -1377,8 +1400,12 @@ public sealed class RoomEntityManager : IDisposable
         {
             if (ReservedBraceletChildActive) return false;
             foreach (var candidate in _grabbableObjects)
-                if (_activeEntities.Contains(candidate) && candidate.TryUseBracelet(player, releaseDirection))
-                    return true;
+                if (_activeEntities.Contains(candidate))
+                {
+                    if (releaseDirection == Vector2I.Zero && candidate is IBraceletPullInteractableRoomEntity pull && pull.TryBeginBraceletPull(player))
+                    { pullInteraction = pull; return true; }
+                    if (candidate.TryUseBracelet(player, releaseDirection)) return true;
+                }
         }
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
@@ -2463,6 +2490,7 @@ public sealed class RoomEntityManager : IDisposable
             if (slot >= 0) _partSlots.Add(entity, slot);
             if (entity.Node is VolcanoRock rock) rock.SetPartSlot(slot);
             if (entity.Node is FallingBoulder boulder) boulder.SetPartSlot(slot);
+            if (entity.Node is RamrockPart ramrockPart) ramrockPart.Slot = slot;
         }
         if (entity.Node is ItemDropEffect partDrop && _partSlots.TryGetValue(entity, out int dropSlot))
             partDrop.SetPartSlot(dropSlot);
@@ -2679,7 +2707,7 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is NayruRescueLightningRoomEntity ? 1 :
-        entity is LynelBeamRoomEntity or PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
+        entity is RamrockPart or BlueStalfosProjectileRoomEntity or LynelBeamRoomEntity or PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
             or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
@@ -2811,7 +2839,7 @@ public sealed class RoomEntityManager : IDisposable
             or GrassDebrisEffect or RockDebrisEffect or ShovelDebrisEffect or SplashEffect or OverworldKeyUseEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or NuunBridgeRoomEntity or OrbBridgeControllerRoomEntity or DungeonOrbChestRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
             or DungeonStateController or ColoredCubeFloorSensorRoomEntity or MermaidChangingFloorRoomEntity or MermaidChangingFloorWorkerRoomEntity or MermaidBossKeyRoomEntity or MermaidTorchOrderRoomEntity or DungeonRoomFlagMirrorRoomEntity or MinecartGateRoomEntity or SwitchTileTogglerRoomEntity or MinecartShutterRoomEntity or DungeonSignalScriptRoomEntity
-            or JabuWaterControllerRoomEntity or JabuLadderRoomEntity or OctogonInteractionRoomEntity or OctogonEncounterInitializerRoomEntity or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity or DungeonTilePatternFallingKeyRoomEntity or MoonlitGrottoFallingKeyRoomEntity
+            or GreenPoofRoomEntity or StonePanelRoomEntity or SarcophagusRoomEntity or EnemyAttachedKeyRoomEntity or SlateSlotRoomEntity or PanelStairsRoomEntity or DungeonTileScriptRoomEntity or JabuWaterControllerRoomEntity or JabuLadderRoomEntity or OctogonInteractionRoomEntity or OctogonEncounterInitializerRoomEntity or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity or DungeonTilePatternFallingKeyRoomEntity or MoonlitGrottoFallingKeyRoomEntity
             or DungeonSpinnerRoomEntity or DungeonSpinnerArrowRoomEntity or DungeonBossKeyMirrorRoomEntity or ChestContentsRoomEntity or MovingPlatformRoomEntity or CircularSideScrollPlatformRoomEntity or HeadThwompRewardScript or SpiritsGraveMovingPlatformSpawner or TileFillerRoomEntity or DungeonPatternTriggerRoomEntity or DungeonPatternKeyRoomEntity or GroundTreasureRoomEntity or ToggleFloorRoomEntity or ToggleFloorTileRoomEntity or FloorColorChangerRoomEntity or FloorColorWorkerRoomEntity;
 
     internal bool TryCreateMermaidChangingFloorWorker(int subid)
@@ -3176,6 +3204,11 @@ public sealed class RoomEntityManager : IDisposable
         return _interactionSlots[puff];
     }
 
+    internal void TryCreateBabyTransformationPoof(Vector2 position, int z)
+    {
+        if (InteractionSlotAvailable) AddEntity(_factory.Create(new GreenPoofSpawn(position, z), _roomForActiveEntities));
+    }
+
     internal int InteractionAnimationParameter(int slot)
     {
         IRoomEntity? owner = _interactionSlots.FirstOrDefault(pair => pair.Value == slot).Key;
@@ -3183,6 +3216,7 @@ public sealed class RoomEntityManager : IDisposable
         return owner.Node switch
         {
             PuzzlePuffEffect puff => puff.Initialized ? puff.CurrentParameter : 0,
+            GreenPoofRoomEntity poof => poof.Parameter,
             ClinkEffect clink => clink.AnimationParameter,
             KillEnemyPuffEffect puff => puff.AnimationParameter,
             FallingDownHoleEffect fall => fall.CurrentParameter,
@@ -3650,7 +3684,8 @@ internal readonly record struct RoomEntityFrame(
     int Counter,
     bool AnyButtonJustPressed,
     Vector2? ScentSeedTarget = null,
-    int SwitchHookState = 0);
+    int SwitchHookState = 0,
+    Vector2? EnemyTarget = null);
 
 internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
     : RoomEntitySpawn;

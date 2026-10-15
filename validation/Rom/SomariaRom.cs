@@ -271,6 +271,7 @@ internal sealed class SomariaRom
             this[0xcc68] = this[0xcc98] = 0;
             CallSpecialObject(0xd0);
         }
+        else if (this[0xd001] == 2) CallSpecialObject(0xd0);
         else CallLink(0x49b6);
         CallLink(0x4279); // updateLinkInvincibilityCounter.
         if (CompanionDispatchEnabled) this[0xcc96] = this[0xcc8d];

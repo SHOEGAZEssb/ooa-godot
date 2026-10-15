@@ -4,6 +4,8 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class WramAddress
 {
+    // include/wram.s: wChannelVolumes
+    public const int wChannelVolumes = 0xc07d;
     // include/wram.s: wDisabledObjects; Ages object dispatch mask.
     public const int wDisabledObjects = 0xcc8a;
     // include/wram.s: wDisableLinkCollisionsAndMenu

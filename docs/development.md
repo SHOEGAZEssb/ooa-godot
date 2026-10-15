@@ -73,10 +73,10 @@ checkpoint progression. For a side-scrolling dungeon room, name its source
 group (`4` or `5`); the development loader performs the retail active-group
 switch to `6` or `7`.
 
-`--skip-menu` without room arguments starts at Jabu-Jabu's Belly's entrance
-(`$5:$56`); normal file selection continues to use the saved checkpoint.
-The development start retains the existing inventory. F1 can grant the
-equipment and six essences earned before Dungeon 7 and adjust live flags.
+`--skip-menu` without room arguments starts at Ancient Tomb's entrance
+(`$5:$aa`); normal file selection continues to use the saved checkpoint.
+The development start retains the existing inventory. F1 can grant equipment
+and Essences and adjust live flags.
 
 After building, run all headless validations with the standard 8 workers,
 or one exact registered method:

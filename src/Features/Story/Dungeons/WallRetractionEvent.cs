@@ -21,8 +21,10 @@ internal sealed class WallRetractionEvent(RoomEventContext context) : IRoomEvent
 
     internal void Begin()
     {
-        if (HasState || context.Rooms.ActiveGroup != 5 || context.Rooms.CurrentRoom.Id != 0x43)
-            throw new InvalidOperationException($"{Data.Source}: wall retraction requires one handoff in room$5:$43.");
+        if (HasState) throw new InvalidOperationException($"{Data.Source}: wall retraction already active.");
+        _database = new(context.Rooms.CurrentDungeonIndex);
+        if (context.Rooms.ActiveGroup != 5 || context.Rooms.CurrentRoom.Id != Data.Room)
+            throw new InvalidOperationException($"{Data.Source}: wall retraction requires room$5:${Data.Room:x2}.");
         HasState=true; _pending=true; Phase=0; Counter=0; Retractions=0;
     }
     internal void AdvanceBeforeObjects()
@@ -69,7 +71,7 @@ internal sealed class WallRetractionEvent(RoomEventContext context) : IRoomEvent
         context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,0);
         context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled,0);
         context.Rooms.ReloadCurrentRoomLayout();
-        context.Rooms.CurrentRoom.SetPackedTileCollision(0x5d,Data.FinalCollision);
+        if (Data.FinalCollision is byte collision) context.Rooms.CurrentRoom.SetPackedTileCollision(0x5d,collision);
         HasState=false;
     }
     // The event scheduler's later interaction phase must not advance it twice.

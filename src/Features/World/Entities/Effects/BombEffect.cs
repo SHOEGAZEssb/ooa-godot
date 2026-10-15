@@ -243,6 +243,10 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
 
     internal void Discard() => Finish();
 
+    // ramrock_bombPhase clears Item.angle on body overlap. Gravity and fuse
+    // continue; only the thrown bomb's lateral movement stops.
+    internal void StopLateralMovement() => _throwDirection = Vector2I.Zero;
+
     /// <summary>
     /// Head Thwomp marks a bomb as consumed when it crosses the mouth window.
     /// The original item continues only long enough to raise the boss's

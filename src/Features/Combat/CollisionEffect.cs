@@ -30,6 +30,8 @@ public static class CollisionEffect
     public const int BumpHighKnockback = 0x0e;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_SHIELD_BUMP
     public const int ShieldBump = 0x0f;
+    // constants/common/collisionEffects.s: COLLISIONEFFECT_BUMP_WITH_CLINK_LOW_KNOCKBACK
+    public const int BumpWithClinkLowKnockback = 0x12;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_BUMP_WITH_CLINK_HIGH_KNOCKBACK
     public const int BumpWithClinkHighKnockback = 0x14;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_15
@@ -40,6 +42,8 @@ public static class CollisionEffect
     public const int Effect17 = 0x17;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_1b
     public const int Effect1b = 0x1b;
+    // constants/common/collisionEffects.s: COLLISIONEFFECT_1e
+    public const int Effect1e = 0x1e;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_1c
     public const int Effect1c = 0x1c;
     // constants/common/collisionEffects.s: COLLISIONEFFECT_1f

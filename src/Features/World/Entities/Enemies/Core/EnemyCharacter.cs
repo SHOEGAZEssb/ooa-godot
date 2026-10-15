@@ -541,7 +541,12 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         _collisionRadiusX = radiusX;
         _collisionRadiusY = radiusY;
     }
-    internal void SetNativeCollisionRadii(int radiusX, int radiusY) => SetCollisionRadii(radiusX, radiusY);
+    internal void SetNativeCollisionRadii(int radiusX, int radiusY)
+    {
+        if (radiusX is < 0 or > 255 || radiusY is < 0 or > 255)
+            throw new ArgumentOutOfRangeException(nameof(radiusX));
+        _collisionRadiusX = radiusX; _collisionRadiusY = radiusY;
+    }
 
     protected void Finish()
     {

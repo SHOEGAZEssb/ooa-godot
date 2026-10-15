@@ -42,7 +42,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     }
     private Action<INativeBraceletRoomEntity>? _publishGrabbable;
     private Player? _holder;
-    private SmasherBraceletThrow? _throw;
+    private NativeBraceletThrow? _throw;
     private static readonly Lazy<BraceletGrabGeometry> GrabGeometry = new(() => new());
     private static readonly Lazy<BraceletWeightDatabase> Weights = new(() => new());
     private static readonly Lazy<BraceletDatabaseRecord> Bracelet = new(() => new BraceletDatabase().Data);
@@ -58,7 +58,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         return true;
     }
     public bool ReservedBraceletChildActive => _throw?.Active == true;
-    internal SmasherBraceletThrow? ReservedThrow => _throw;
+    internal NativeBraceletThrow? ReservedThrow => _throw;
     public void BindGrabbablePublisher(Action<INativeBraceletRoomEntity> publish)
     {
         _publishGrabbable = publish;
@@ -241,7 +241,12 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
             {
                 if (weight != 0x20 || _holder != frame.Player)
                     throw new InvalidOperationException("$74 grabbed state requires Link and weight $20.");
-                _throw = new(Entity, Entity.Room, Weights.Value, new BombDatabase().Data);
+                _throw = new(Entity.Room, 2,
+                    () => Entity.IsBall && !Entity.IsDead && Entity.State == 2 && Entity.GrabSubstate < 2,
+                    () => !Entity.IsDead && Entity.State == 2 && Entity.GrabSubstate < 3,
+                    () => Entity.Position, () => Entity.ZFixed, Entity.CopyCarriedPosition,
+                    Entity.ReleaseGrab, Entity.FinishGrabBounce, Entity.ApplyMovementSpeed,
+                    Weights.Value, new BombDatabase().Data);
             },
             forceDrop: Drop,
             handleDeath: () => Entity.UpdateDeathFrame(Puff, Explosion, world.DisableLinkCollisionsAndMenu,

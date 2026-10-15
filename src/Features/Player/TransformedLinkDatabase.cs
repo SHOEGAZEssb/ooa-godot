@@ -5,13 +5,15 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Typed runtime view of special objects $03-$07, selected by the five
+/// Typed runtime view of special objects $02-$07: baby Link and the five
 /// transformation rings. Frames retain their source GFX pointer and shared
 /// special-object OAM composition.
 /// </summary>
 internal sealed class TransformedLinkDatabase
 {
-    internal const int ExpectedFrameCount = 5 * 4 * 2;
+    internal const int ExpectedFrameCount = 6 * 4 * 2;
+    internal int BabyDuration { get; }
+    internal int BabySpeedShift { get; }
 
     private readonly Dictionary<(int SpecialObject, int Direction, int Frame), FrameRecord>
         _records = new();
@@ -60,7 +62,7 @@ internal sealed class TransformedLinkDatabase
         if (_records.Count != ExpectedFrameCount)
             throw new InvalidOperationException(
                 $"Expected {ExpectedFrameCount} transformed-Link frames, got {_records.Count}.");
-        foreach (int specialObject in new[] { 3, 4, 5, 6, 7 })
+        foreach (int specialObject in new[] { 2, 3, 4, 5, 6, 7 })
         for (int direction = 0; direction < 4; direction++)
         for (int frame = 0; frame < 2; frame++)
         {
@@ -70,6 +72,14 @@ internal sealed class TransformedLinkDatabase
                     $"Missing transformed-Link frame {specialObject:x2}:{direction}:{frame}.");
             }
         }
+        var baby = GeneratedTable.Load("res://assets/oracle/metadata/baby_link.tsv",
+            new GeneratedTableSchema("Baby Link behavior", GeneratedTableKeySemantics.Ordered,
+                ["duration", "speed-shift", "step-parameter", "source"], headerRequired: true));
+        if (baby.Rows.Count != 1) throw new InvalidOperationException("Baby Link requires one native behavior profile.");
+        BabyDuration = baby.Rows[0].UnsignedDecimal(0); BabySpeedShift = baby.Rows[0].UnsignedDecimal(1);
+        if (BabyDuration == 0 || BabySpeedShift != 1 || baby.Rows[0].HexByte(2) != 0x84)
+            throw new InvalidOperationException("Baby Link lifetime, speed shift or footstep parameter is unsupported.");
+        _ = baby.Rows[0].RequiredString(3);
     }
 
     internal FrameRecord Record(int specialObject, int direction, int frame) =>
@@ -108,6 +118,7 @@ internal sealed class TransformedLinkDatabase
     {
         int expectedRing = record.SpecialObject switch
         {
+            2 => 0xff,
             3 => (int)RingId.Subrosian,
             4 => (int)RingId.FirstGen,
             5 => (int)RingId.Octo,

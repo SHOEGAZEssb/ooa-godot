@@ -141,6 +141,14 @@ internal sealed class EnemyStatusRom
     private void Write(int address, int value)
     {
         if (address == 0x2222) { _bank = value; return; }
+        // ramrockGloveFormArm.s: the terminal $82/$92 chain segment returns
+        // from state0func_6956 without getFreePartSlot. HL still points into
+        // the $67xx jump table, so state0func_6992 and the following stores
+        // target cartridge ROM. MBC5 ignores this $6000-$7fff write window.
+        // Restrict that hardware behavior to the traced clean-US tail path.
+        int active = this[0xffaf] * 256 + 0xc0;
+        if (_bank == 0x11 && address is >= 0x6700 and <= 0x67ff && this[0xffae] == 0xc0 &&
+            this[active + 1] == 0x35 && (this[active + 2] & 0x8f) == 0x82 && this[active + 4] == 1) return;
         if (address == 0xff94) RandomCalls++;
         if (address is >= 0xc0a0 and <= 0xc0af) Sounds.Add(value);
         if (address is >= 0xd000 and < 0xe000 && this[0xff70] > 1)

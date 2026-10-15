@@ -86,6 +86,7 @@ public sealed class RoomEventController
             () => new RemoteMakuFourthEssenceEvent(_context),
             () => new RemoteMakuFifthEssenceEvent(_context),
             () => new RemoteMakuSixthEssenceEvent(_context),
+            () => new RemoteMakuEighthEssenceEvent(_context),
             () => remoteMakuSeventhEssence,
             () => new PostD7Event(_context, remoteMakuSeventhEssence),
             () => new RemoteMakuHarpEvent(_context),

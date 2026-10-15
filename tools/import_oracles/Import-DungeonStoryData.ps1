@@ -725,6 +725,14 @@ Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/remote_maku_seve
     $remoteMakuEventHeader
     "2`t90`t8a`t00`t09`t40`tff`t40`t05b9`t05c9`tb9`tc9`t1e`t77`t2`t65`t40`t240`t180`t1`t5`t1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tpresent`t180`t0`t0`t0"
 ))
+if ($remoteMakuObjectSource -notmatch '(?ms)^group1Map5cObjectData:\s+obj_Interaction \$8a \$01 \$00 \$00 \$0a\s+obj_End' -or
+    $remoteMakuInteractionSource -notmatch '(?ms)^@val0a:\s+ld a,\$07\s+call @checkEssenceObtained\s+jp z,@deleteSelfAndReturn\s+ldbc \$00, <TX_05ba\s+jp @setTextForScript') {
+    throw 'Ancient Tomb return requires past remote Maku $8a:$01/v$0a, Essence bit7 and TX_05ba.'
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/remote_maku_eighth_essence_event.tsv'), @(
+    $remoteMakuEventHeader
+    "1`t5c`t8a`t01`t0a`t80`tff`t40`t05ba`t05ca`tba`tca`t1e`t77`t2`t65`t40`t240`t60`t1`t12`t$($pastConfettiDelays -join ',')`t$pastPositionPayload`t0`t0`t0`t45`tce`t0`t0`t0`tpast`t10`t-640`t1024`t-16"
+))
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\post_d3_remote_maku_event.tsv'),
     $postD3EventRows)
@@ -838,7 +846,7 @@ $remoteMakuSecondEssenceCommandSpecs = @(
     @($remoteMakuParsed[27], 'enableinput', '', '', '', ''),
     @($remoteMakuParsed[28], 'scriptend', '', '', '', '')
 )
-foreach ($pastVariant in @(@('second_essence',0x05b3,0x05c3),@('sixth_essence',0x05b8,0x05c8))) {
+foreach ($pastVariant in @(@('second_essence',0x05b3,0x05c3),@('sixth_essence',0x05b8,0x05c8),@('eighth_essence',0x05ba,0x05ca))) {
     $remoteMakuSecondEssenceCommandRows = [Collections.Generic.List[string]]::new()
     $remoteMakuSecondEssenceCommandRows.Add($remoteMakuCommandHeader)
 for ($index = 0; $index -lt $remoteMakuSecondEssenceCommandSpecs.Count; $index++) {

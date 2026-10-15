@@ -497,6 +497,18 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateJabuWaterTilesRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuWaterTilePairsRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuWaterControllerRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombPanelsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombSlateRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombEssenceRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombGloveRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombScriptsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombWallRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombSarcophagusRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombEnemyKeyRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBlueStalfosRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRamrockRom, requiresRom: true);
+        RunIsolatedValidation(ValidateAncientTombRoomClosure);
+        RunIsolatedValidation(ValidateBabyLinkRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuRedTrapsRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuIronMaskRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuIronMaskHookRom, requiresRom: true);

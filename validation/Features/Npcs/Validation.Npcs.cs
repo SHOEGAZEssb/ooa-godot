@@ -525,9 +525,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 13 || adjacentHeartControls != 2 || byteEscapes != 6,
+            slowControls != 14 || adjacentHeartControls != 2 || byteEscapes != 6,
             "The generated dialogue inventory no longer contains the expected " +
-            $"seven \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), and the possession taunt (TX_2f2a), two adjacent-heart, and six \\x20 source controls including library TX_3313/TX_3314 (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
+            $"eight \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), and the possession taunt (TX_2f2a), two adjacent-heart, and six \\x20 source controls including library TX_3313/TX_3314 (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>

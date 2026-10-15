@@ -41,6 +41,11 @@ focused validations; NPC classifications live in the
   Rolling Sea Essence handoff, including both Black Tower branches and the
   seventh Maku conversation. Major mechanics have clean-US ROM comparisons;
   a complete manual playthrough and exhaustive parity comparison remain unperformed.
+- Ancient Tomb (`$08`) has its 56 source rooms, placed enemies, panels and
+  slates, wall retraction, sarcophagi, Power Glove, Blue Stalfos and Ramrock,
+  rewards, and Falling Star Essence/eighth Maku handoff. Major mechanics have
+  clean-US ROM comparisons; a complete manual playthrough and exhaustive
+  parity comparison remain unperformed.
 - Selected overworld dialogue, shops/trades, Gasha and Seed Trees, Maple,
   early story sequences, King Moblin's keep, Goron quests/minigames, Symmetry
   Village restoration, Patch's ceremony, the Library Key entrance, and the hidden

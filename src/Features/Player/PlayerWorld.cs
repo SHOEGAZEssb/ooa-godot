@@ -166,6 +166,7 @@ public sealed class PlayerWorld : IPlayerWorld
         !_roomEvents.Active &&
         (_terrain.CurrentTilesetFlags & 0x60) == 0 &&
         !_entities.PlayerRingTransformationsDisabled && !SwitchHookActive;
+    public void CreateBabyTransformationPoof(Vector2 position, int z) => _entities.TryCreateBabyTransformationPoof(position, z);
 
     public PlayerWorld(
         RoomTransitionController transitions,

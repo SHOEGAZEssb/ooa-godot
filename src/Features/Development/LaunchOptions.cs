@@ -18,8 +18,8 @@ public sealed class LaunchOptions
     private int GetDefaultGroup()
     {
         // Keep room-only development commands and validation
-        // in overworld group 0. The development launch starts at Jabu-Jabu's
-        // Belly entrance, room $5:$56.
+        // in overworld group 0. The development launch starts at Ancient
+        // Tomb's entrance, room $5:$aa.
         return HasValidationFlag() || HasArgument("--room=") ? 0 : 5;
     }
 
@@ -27,7 +27,7 @@ public sealed class LaunchOptions
     {
         // Preserve the historical room $11 fallback when a group or a
         // validation was explicitly requested without a room.
-        return HasValidationFlag() || HasArgument("--group=") ? 0x11 : 0x56;
+        return HasValidationFlag() || HasArgument("--group=") ? 0x11 : 0xaa;
     }
 
     private bool HasValidationFlag() => Has("--validate");

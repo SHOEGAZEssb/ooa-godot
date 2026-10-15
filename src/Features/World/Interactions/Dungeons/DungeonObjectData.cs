@@ -48,6 +48,14 @@ internal enum DungeonObjectCondition
 
 internal enum DungeonObjectKind
 {
+    StonePanel,
+    Sarcophagus,
+    EnemyAttachedKey,
+    BlueStalfos,
+    Ramrock,
+    SlateSlot,
+    PanelStairs,
+    TileScript,
     JabuWater,
     JabuLadder,
     JabuHookKey,

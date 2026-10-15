@@ -2922,7 +2922,12 @@ function Export-DungeonBossPartData {
         $bytes = @($partRows[$id].Operands | ForEach-Object { Convert-AssemblyInteger $_ })
         $labels = $zoraPartTables["part${hex}Animations"]
         $pointers = $zoraPartPointers["part${hex}OamDataPointers"]
-        if ($bytes.Count -ne 8 -or $labels.Count -ne 2) { throw "Dungeon boss PART`$${hex} requires two base animations and eight property bytes." }
+        $animationCount = if ($id -in @(0x3d,0x34,0x35,0x4f)) { 5 } else { 2 }
+        if ($bytes.Count -ne 8 -or $labels.Count -ne $animationCount) { throw "Dungeon boss PART`$${hex} requires $animationCount base animations and eight property bytes." }
+        # The shared $34/$35 animation table also serves unrelated parts.
+        # These handlers use only animation$00 (laser) and $00/$01 (glove).
+        if ($id -eq 0x34) { $labels = @($labels[0]) }
+        if ($id -eq 0x35) { $labels = @($labels[0],$labels[1]) }
         if ($id -eq 0x43) {
             # A projectile fired during the boss's damage flash copies live
             # OAM palette$05, producing subid$04. Its animation lookup continues
@@ -2935,7 +2940,7 @@ function Export-DungeonBossPartData {
             $labels = @($labels) + @($zoraPartTables['part26Animations']) + @($zoraPartTables['part48Animations'])
             $pointers = @($pointers) + @($zoraPartPointers['part44OamDataPointers'])
         }
-        $sprite = $gfxNames[$bytes[0]]
+        $sprite = if ($id -in @(0x34,0x35)) { @($gfxNames[0xce],$gfxNames[0xcf]) -join ',' } else { $gfxNames[$bytes[0]] }
         $mask = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')[$id]
         $bits = ($mask.Operands -join '').Replace('%','')
         if ($bits -notmatch '^[01]{32}$') { throw "PART`$${hex}: malformed active mask." }
@@ -2943,7 +2948,7 @@ function Export-DungeonBossPartData {
             $effect = $enemyCollisionTableValues[($bytes[1] -band 0x7f)*32+$collision]
             $collisionRows.Add("$hex`t$($collision.ToString('x2'))`t$($bits[$collision])`t$($effect.ToString('x2'))`tdata/ages/partActiveCollisions.s:part$hex;data/ages/objectCollisionTable.s:mode$($bytes[1] -band 0x7f)")
         }
-        Copy-EnemySprite $sprite
+        foreach ($sheet in $sprite.Split(',')) { Copy-EnemySprite $sheet }
         for ($index = 0; $index -lt $labels.Count; $index++) {
             $definition = $zoraPartFrames[$labels[$index]]
             $frames = @($definition.Frames | ForEach-Object {
@@ -2953,7 +2958,7 @@ function Export-DungeonBossPartData {
             })
             $animation = $frames -join '|'
             if ($definition.LoopStart -ne 0) { $animation += "~$($definition.LoopStart)" }
-            $rows.Add("$hex`t$index`t$sprite`t$($bytes[5])`t$($bytes[6])`t$([int](Get-EnemySpriteSourceGrayscaleInverted $sprite))`t$animation`t$($bytes -join ',')`tdata/ages/partAnimations.s:$($labels[$index]);data/ages/partData.s:part$hex")
+            $rows.Add("$hex`t$index`t$sprite`t$($bytes[5])`t$($bytes[6])`t$([int](Get-EnemySpriteSourceGrayscaleInverted $sprite.Split(',')[0]))`t$animation`t$($bytes -join ',')`tdata/ages/partAnimations.s:$($labels[$index]);data/ages/partData.s:part$hex")
         }
     }
     Write-GeneratedTable((Join-Path $destination "effects/${Prefix}_parts.tsv"),$rows)
@@ -2961,6 +2966,8 @@ function Export-DungeonBossPartData {
 }
 Export-DungeonBossPartData
 Export-DungeonBossPartData -Ids @(0x43) -Prefix 'plasmarine'
+Export-DungeonBossPartData -Ids @(0x3d) -Prefix 'blue_stalfos'
+Export-DungeonBossPartData -Ids @(0x34,0x35,0x4f) -Prefix 'ramrock'
 function Export-SmogWallData {
     $relative = 'object_code/ages/enemies/smog.s'
     $path = Join-Path $Disassembly $relative

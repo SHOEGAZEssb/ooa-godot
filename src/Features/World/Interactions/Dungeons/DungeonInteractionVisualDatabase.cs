@@ -75,7 +75,10 @@ internal sealed class DungeonInteractionVisualDatabase
 
     private void ValidateContract()
     {
-        if (_visuals.Count != 38 ||
+        if (_visuals.Count != 44 ||
+            Visual("enemy-attached-key") is not { TileBase: 0x0c, Palette: 5, Animations.Length: 1 } ||
+            Visual("sarcophagus") is not { TileBase: 0x1c, Palette: 4, Animations.Length: 1 } ||
+            Visual("falling-star") is not { TileBase: 18, Palette: 5, Animations.Length: 1 } ||
             Visual("rolling-sea") is not { TileBase: 14, Palette: 1, Animations.Length: 1 } ||
             Visual("sacred-soil") is not { TileBase: 10, Palette: 0, Animations.Length: 1 } ||
             Visual("burning-flame") is not { TileBase: 8, Palette: 2, Animations.Length: 1 } ||

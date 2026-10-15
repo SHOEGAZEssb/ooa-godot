@@ -26,6 +26,7 @@ public interface IPlayerWorld
     bool NativePaletteChanging => false;
     bool LinkDisabled => false;
     bool RingTransformationsAllowed { get; }
+    void CreateBabyTransformationPoof(Vector2 position, int z) { }
     bool RidingObject { get; }
     int RaisedFloorOffset
     {

@@ -126,7 +126,10 @@ internal sealed class DungeonBossDatabase
 
     private void ValidateContract()
     {
-        if (_enemies.Count != 22 ||
+        if (_enemies.Count != 33 ||
+            Enemy(EnemyId.Ramrock) is not { Sprites.Length: 2, Animations.Length: 5 } ||
+            Enemy(EnemyId.RamrockArms, 5) is not { Sprites.Length: 2, Animations.Length: 8 } ||
+            Enemy(EnemyId.BlueStalfos,1) is not { Sprites.Length: 3, Animations.Length: 5 } ||
             Enemy(EnemyId.AnglerFish) is not { Health: 30, RadiusY: 12, RadiusX: 12, Animations.Length: 7 } ||
             Enemy(EnemyId.AnglerFish,1).Sprites is not ["spr_anglerfish"] ||
             Enemy(EnemyId.AnglerFishBubble) is not { Health: 127, Animations.Length: 2 } ||

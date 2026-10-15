@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
         return rom;
     }
 
-    private void CompareSomariaMotionRom(SomariaRom rom, string context)
+    private void CompareSomariaMotionRom(SomariaRom rom, string context, bool allowReservedBracelet = false)
     {
         Vector2 link = new(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f);
         FailIf(_player.PrecisePosition != link || CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008],
@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
             };
             FailIf(_bracelet.State != state, $"{context}: parent ITEM$16 runtime={_bracelet.State}, ROM={state}.");
         }
-        FailIf(rom[0xdc00] != 0 || _bracelet.LiftedObject != null,
+        FailIf(!allowReservedBracelet && rom[0xdc00] != 0 || _bracelet.LiftedObject != null,
             $"{context}: dynamic ITEM$18 must remain the physical child; no reserved ITEM$dc may be allocated.");
         var blocks = _entities.EntityAdapters<SomariaBlockRoomEntity>().Where(entity => !entity.Finished)
             .OrderBy(_entities.DynamicItemSlotOf).ToArray();

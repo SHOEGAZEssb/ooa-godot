@@ -14,6 +14,8 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
     internal JabuExteriorDatabase JabuExterior=>_jabuExterior ??= new();
     private JabuDungeonDatabase? _jabuDungeon;
     internal JabuDungeonDatabase JabuDungeon => _jabuDungeon ??= new();
+    private AncientTombDatabase? _ancientTomb;
+    internal AncientTombDatabase AncientTomb => _ancientTomb ??= new();
     private PalacePossessionDatabase? _palacePossession;
     internal PalacePossessionDatabase PalacePossession => _palacePossession ??= new();
     private PalaceApproachDatabase? _palaceApproach;

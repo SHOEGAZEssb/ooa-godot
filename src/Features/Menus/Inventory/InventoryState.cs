@@ -585,6 +585,14 @@ public sealed class InventoryState
         GiveTreasure(TreasureId.Ring, ring);
     }
 
+    internal bool TryConsumeSlate()
+    {
+        if (Slates == 0) return false;
+        SetVariable(TreasureVariable.Slates, Slates - 1);
+        NotifyChanged();
+        return true;
+    }
+
     internal bool ConsumeGashaSeed()
     {
         int count = FromBcd(GashaSeeds);

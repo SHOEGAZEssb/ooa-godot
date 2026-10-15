@@ -983,6 +983,8 @@ public partial class Player : Node2D
         bool preserveTopDownSwimming = false,
         bool preserveSideScrollSwimming = false)
     {
+        ClearBabyTransformation();
+        if (_activeTransformation == 2) _activeTransformation = 0;
         CancelWallmasterGrab();
         CancelCollapse();
         CancelPalaceToss();
@@ -1862,6 +1864,8 @@ public partial class Player : Node2D
 
     private void AdvanceLinkPhysics(double delta, bool advanceElectricShock)
     {
+        ResetBabyForForcedState();
+        if (InitializeBabyOverride()) return;
         // GameRoot advances cutscene01's shock phase before menus. Standalone
         // player updates retain that phase without a second counter owner.
         if (advanceElectricShock) AdvanceElectricShock();
@@ -1884,6 +1888,7 @@ public partial class Player : Node2D
         if ((_palaceTossRequested || _palaceTossSubstate >= 0) && AdvancePalaceToss()) return;
         if ((CollapsedActive || CollapsePending && !_world.IsTransitioning && !IsDying) && AdvanceCollapse()) return;
         if (ConsumeContactDamageBeforeStateDispatch()) return;
+        if (AdvanceBabyLink()) return;
         // updateSpecialObjects clears wForceLinkPushAnimation even when
         // DISABLE_LINK freezes Link's native state and item parents.
         // linkState01 checks forced state BEFORE text/$81 restrictions;
@@ -2316,7 +2321,12 @@ public partial class Player : Node2D
             !_world.SwordDisabled && (!IsUsingItem || IsUsingSomaria) &&
             !IsUsingSomaria && !_minecartRideControlled && !_raftRideControlled &&
             _world.TryInteract(this))
+        {
+            // Chest/sign handlers return carry before ordinary Link motion.
+            // Retained wall probes must not publish a new push on that return.
+            _frontTileInteractionReturned = true;
             return;
+        }
 
         // linkState01 dispatches the front tile before terrain, swimming
         // and item parents. Instrument/air/knockback/grab bypass the handler
@@ -6259,6 +6269,11 @@ public partial class Player : Node2D
             _lastMovementInput.Dot((Vector2)direction) > 0.01f;
     }
 
+    // bank0.objectCheckLinkPushingAgainstCenter: no control, facing or Z gate.
+    internal bool IsAttemptingCenteredObjectPush => _activeTransformation == 0 &&
+        _lastMovementInput != Vector2.Zero &&
+        !Input.IsActionPressed("attack") && !Input.IsActionPressed("item");
+
     internal bool IsAttemptingMinecartPush =>
         // checkLinkID0AndControlNormal jumps past the collision/menu and
         // invincibility tests in Ages. objectCheckLinkPushingAgainstCenter
@@ -8214,6 +8229,7 @@ public partial class Player : Node2D
 
     private void RefreshTransformationState()
     {
+        if (_activeTransformation == 2) return;
         int transformation = _world.RingTransformationsAllowed
             ? RingEffects.LinkTransformation(_inventory)
             : 0;

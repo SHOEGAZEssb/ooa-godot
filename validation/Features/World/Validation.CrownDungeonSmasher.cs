@@ -720,7 +720,12 @@ public partial class ValidationRoot
             ball.BindMovementMemory(memory);
             parent.InitializeLinked(database.ImportedEnemy(EnemyId.Smasher,1), room, new(140,32), random, ball);
             ball.UpdateNormalFrame(Vector2.Zero, 1, _ => true, () => { }, _ => { }); ball.BeginGrab();
-            var motion = new SmasherBraceletThrow(ball, room, new BraceletWeightDatabase(), new BombDatabase().Data);
+            var motion = new NativeBraceletThrow(room, 2,
+                () => ball.IsBall && !ball.IsDead && ball.State == 2 && ball.GrabSubstate < 2,
+                () => !ball.IsDead && ball.State == 2 && ball.GrabSubstate < 3,
+                () => ball.Position, () => ball.ZFixed, ball.CopyCarriedPosition,
+                ball.ReleaseGrab, ball.FinishGrabBounce, ball.ApplyMovementSpeed,
+                new BraceletWeightDatabase(), new BombDatabase().Data);
             motion.Hold(new(80.75f,64.5f), -4, 2, 1);
             FailIf(ball.Position != new Vector2(80.5f,64.25f) || ball.ZFixed != -18*256 || motion.Active,
                 "$74 held copy must include LinkZ and retain enemy fractions without creating the throw item.");

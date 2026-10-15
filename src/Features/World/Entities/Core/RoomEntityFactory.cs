@@ -495,6 +495,7 @@ internal sealed class RoomEntityFactory
             Resources.SkullDungeon.GetRoomRecords(group, room.Id).Concat(Resources.CrownDungeon.GetRoomRecords(group, room.Id))
                 .Concat(Resources.MermaidDungeon.GetRoomRecords(group,room.Id))
                 .Concat(Resources.JabuDungeon.GetRoomRecords(group,room.Id))
+                .Concat(Resources.AncientTomb.GetRoomRecords(group,room.Id))
                 .Concat(Resources.TrapResets.GetRoomRecords(group,room.Id).Select(record => new DungeonObjectRecord(
                     group,room.Id,record.Order,DungeonObjectKind.PuzzleTrapReset,InteractionId.MiscPuzzles,0x1f,0,0,
                     DungeonObjectCondition.Always,record.Source)))
@@ -564,16 +565,16 @@ internal sealed class RoomEntityFactory
                 }
                 if (record.Kind == DungeonObjectKind.SeedShooterEyeStatue && !owner.PartSlotAvailable)
                     continue;
-                if (record.Kind is DungeonObjectKind.AnglerFish or DungeonObjectKind.Plasmarine && !owner.EnemySlotAvailable)
+                if (record.Kind is DungeonObjectKind.AnglerFish or DungeonObjectKind.Plasmarine or DungeonObjectKind.BlueStalfos or DungeonObjectKind.Ramrock && !owner.EnemySlotAvailable)
                     continue;
-                if (record.Kind is DungeonObjectKind.JabuWater or DungeonObjectKind.JabuLadder or DungeonObjectKind.JabuHookKey or DungeonObjectKind.OctogonInitializer or DungeonObjectKind.SmogController or DungeonObjectKind.PushBlockSynchronizer
+                if (record.Kind is DungeonObjectKind.StonePanel or DungeonObjectKind.Sarcophagus or DungeonObjectKind.EnemyAttachedKey or DungeonObjectKind.SlateSlot or DungeonObjectKind.PanelStairs or DungeonObjectKind.JabuWater or DungeonObjectKind.JabuLadder or DungeonObjectKind.JabuHookKey or DungeonObjectKind.OctogonInitializer or DungeonObjectKind.SmogController or DungeonObjectKind.PushBlockSynchronizer
                     or DungeonObjectKind.WallSquish or DungeonObjectKind.ButtonBridge or DungeonObjectKind.PuzzleTrapReset
                     or DungeonObjectKind.PatternHint or DungeonObjectKind.TilePatternChest or DungeonObjectKind.TriggerChestScript
                     or DungeonObjectKind.BossReward or DungeonObjectKind.MinibossReward or DungeonObjectKind.Essence or DungeonObjectKind.OrbChest
                     or DungeonObjectKind.TileFiller or DungeonObjectKind.FloorFillChest or DungeonObjectKind.BlueFlameChest
                     or DungeonObjectKind.ColoredCube or DungeonObjectKind.CubeLightSensor or DungeonObjectKind.CubeFloorSensor or DungeonObjectKind.CubeFlame
                     or DungeonObjectKind.FloorPatternTrigger or DungeonObjectKind.FloorPatternKey or DungeonObjectKind.ToggleFloor or DungeonObjectKind.FloorColorChanger or DungeonObjectKind.MermaidChangingFloor or DungeonObjectKind.MermaidBossKey
-                    or DungeonObjectKind.FloorSwitchBit or DungeonObjectKind.CubeSwitchSensor or DungeonObjectKind.MinecartGate or DungeonObjectKind.RoomFlagMirror or DungeonObjectKind.MermaidTorchOrder or DungeonObjectKind.Spinner or DungeonObjectKind.BossKeyMirror or DungeonObjectKind.SignalScript)
+                    or DungeonObjectKind.FloorSwitchBit or DungeonObjectKind.CubeSwitchSensor or DungeonObjectKind.MinecartGate or DungeonObjectKind.RoomFlagMirror or DungeonObjectKind.MermaidTorchOrder or DungeonObjectKind.Spinner or DungeonObjectKind.BossKeyMirror or DungeonObjectKind.SignalScript or DungeonObjectKind.TileScript)
                 {
                     if (!owner.InteractionSlotAvailable) continue;
                 }
@@ -590,6 +591,27 @@ internal sealed class RoomEntityFactory
                 }
                 yield return record.Kind switch
                 {
+                    DungeonObjectKind.TileScript => CreateDungeonTileScript(record, lightableTorchState),
+                    DungeonObjectKind.EnemyAttachedKey => CreateEnemyAttachedKey(record),
+                    DungeonObjectKind.Sarcophagus => new SarcophagusRoomEntity(record,
+                        Resources.DungeonVisuals.Visual("sarcophagus"), Resources.DungeonVisuals.Visual("grotto-crystal-break"),
+                        room, _saveData!, _runtimeState, (position, tile) => {
+                            if (rooms!.TrySetTile((byte)room.GetPackedPosition(position), tile)) owner.OnRoomTileChanged();
+                        }, owner.OnNativeSoundRequested),
+                    DungeonObjectKind.StonePanel => new StonePanelRoomEntity(record,
+                        Resources.DungeonVisuals.Visual(record.SubId == 0 ? "stone-panel-left" : "stone-panel-right"),
+                        Resources.AncientTomb.PanelPalette,room,_saveData!,_runtimeState,() => owner.ActiveTriggers,
+                        owner.SetTrigger,owner.OnNativeSoundRequested,owner.NativeActiveMusicSource),
+                    DungeonObjectKind.PanelStairs => new PanelStairsRoomEntity(record,_saveData!,
+                        () => owner.ActiveTriggers,owner.SetTrigger,() => lightableTorchState?.LitCount ?? 0,
+                        owner.BeginScreenShake,owner.OnNativeSoundRequested,owner.TryCreatePuzzlePuff,(position,tile) => {
+                            if (rooms!.TrySetTile(position,tile)) owner.OnRoomTileChanged();
+                        }),
+                    DungeonObjectKind.SlateSlot => new SlateSlotRoomEntity(record,Resources.AncientTomb,
+                        _saveData!,_inventory!,_runtimeState,(position,tile) => {
+                            if (rooms!.TrySetTile(position,tile)) owner.OnRoomTileChanged();
+                        },owner.OnNativeSoundRequested,() => owner.OnRoomEntityDialogueRequested(
+                            0x5111,Resources.AncientTomb.Text(0x5111),record.Position)),
                     DungeonObjectKind.JabuWater => new JabuWaterControllerRoomEntity(
                         _saveData ?? throw new InvalidOperationException($"{record.Source}: Jabu water requires save state."),
                         _runtimeState,() => (byte)owner.ActiveTriggers,owner.OnNativeSoundRequested,owner.BeginScreenShake,
@@ -607,6 +629,8 @@ internal sealed class RoomEntityFactory
                         CreateFallingSmallKeyRequest(record),DungeonChestItemFlagSet,owner.TryCreateGroundTreasure,owner.IsOutgoingEntity),
                     DungeonObjectKind.ArmosWarrior => CreateArmosWarrior(record, room, placementContext),
                     DungeonObjectKind.Smasher => CreateSmasher(record, room, placementContext),
+                    DungeonObjectKind.BlueStalfos => CreateBlueStalfos(record, room, placementContext),
+                    DungeonObjectKind.Ramrock => CreateRamrock(record, room, placementContext),
                     DungeonObjectKind.AnglerFish => CreateAnglerFish(record,room,placementContext),
                     DungeonObjectKind.Plasmarine => CreatePlasmarine(record,placementContext),
                     DungeonObjectKind.OctogonInitializer => new OctogonEncounterInitializerRoomEntity(
@@ -1526,6 +1550,19 @@ internal sealed class RoomEntityFactory
             { Name=$"DungeonSignalScript_{record.SubId:x2}",Visible=false };
     }
 
+    private DungeonTileScriptRoomEntity CreateDungeonTileScript(DungeonObjectRecord record, LightableTorchState? torches)
+    {
+        if (rooms is null || _saveData is null) throw new InvalidOperationException($"{record.Source}: tile script requires room/save owners.");
+        var profile = Resources.AncientTomb.Script(record.SubId);
+        return new(record, profile, _runtimeState, () => owner.ActiveTriggers, () => torches?.LitCount ?? 0,
+            () => owner.RoomEnemyCount, () => owner.ActiveRoomHasFlag(_saveData, profile.Flag),
+            () => _saveData.SetRoomFlag(owner.ActiveRoom.Group, owner.ActiveRoom.Id, profile.Flag),
+            owner.IsScriptTextActive, tile => {
+                byte position = (byte)(((int)record.Position.Y & 0xf0) | ((int)record.Position.X >> 4));
+                if (rooms.TrySetTile(position, tile)) owner.OnRoomTileChanged();
+            }, owner.OnNativeSoundRequested, owner.TryCreatePuzzlePuff, owner.OnWallRetractionTriggered);
+    }
+
     private DungeonRoomFlagMirrorRoomEntity CreateRoomFlagMirror(DungeonObjectRecord record)
     {
         var profile = Resources.RoomFlagMirrors.Profile(record);
@@ -1914,6 +1951,97 @@ internal sealed class RoomEntityFactory
         return new ArmosWarriorRoomEntity(actor, entry);
     }
 
+    private IRoomEntity CreateBlueStalfos(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
+    {
+        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
+        int killableIndex = NextKillableEnemyIndex(0);
+        BlueStalfosEnvironment? world = null;
+        world = new(room, _random, () => {
+            owner.EnableLinkCollisionsAndMenu(); owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
+            owner.SetNativeActiveMusic(0xff); owner.BeginBossEntrySignal(); entry.Arm();
+        }, () => { owner.SetNativeActiveMusic(SoundId.MusMiniboss); owner.OnNativeSoundRequested(SoundId.MusMiniboss); },
+            () => owner.CanAllocateVireBats(3), (parent, subid, counted) =>
+                owner.TryAllocateEnemy(_ => {
+                    var child = new BlueStalfosCharacter { Name = $"BlueStalfos_{subid:x2}" };
+                    child.Initialize(Resources.DungeonBosses.Enemy(EnemyId.BlueStalfos, subid), parent.Position, world!,
+                        subid == 1 ? -1 : parent.Slot, parent.ZFixed);
+                    return new BlueStalfosRoomEntity(child, world!, counted, killableIndex);
+                })?.Node as BlueStalfosCharacter,
+            slot => owner.ResolveEnemySlot(slot)?.Node as BlueStalfosCharacter,
+            parent => owner.TryCreatePart(new BossShadowSpawn(() => parent.Position, () => parent.ZFixed >> 8,
+                () => !parent.IsDead, 1, 11)),
+            (position, z) => owner.TryCreateVirePuff(position, z, 2), owner.InteractionAnimationParameter,
+            parent => owner.TryCreatePart(new BlueStalfosProjectileSpawn(parent.Position, parent.ZFixed, parent.Slot, parent.Angle)),
+            owner.DisableLinkCollisionsAndMenu,
+            parent => owner.TryCreatePart(new BossDeathExplosionSpawn(parent.Position, EnemyId.BlueStalfos, parent.ZFixed >> 8)),
+            () => owner.OnRoomMusicRequested(record.Group, record.Room), owner.OnNativeSoundRequested, entry);
+        var actor = new BlueStalfosCharacter { Name = "BlueStalfos_Spawner" };
+        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.BlueStalfos, 0), record.Position, world);
+        return new BlueStalfosRoomEntity(actor, world, true, killableIndex);
+    }
+
+    private IRoomEntity CreateRamrock(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
+    {
+        var entry = new BossEntryMovement(placementContext.BossEntryDirection);
+        int killableIndex = NextKillableEnemyIndex(0);
+        RamrockEnvironment? world = null;
+        world = new(room, _runtimeState, _random, () => {
+            owner.EnableLinkCollisionsAndMenu(); owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
+            owner.SetNativeActiveMusic(0xff); owner.SetNativeObjectPalette(RamrockProfile.Shared.Palette(0x83));
+            owner.BeginBossEntrySignal(); entry.Arm();
+        }, () => {
+            _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); _runtimeState.SetWramByte(WramAddress.wMenuDisabled, 0);
+            owner.SetNativeActiveMusic(SoundId.MusBoss); owner.OnNativeSoundRequested(SoundId.MusBoss);
+        }, () => owner.BossEntrySignal != 0,
+        (parent, subid) => owner.TryAllocateEnemy(_ => {
+            var hand = new RamrockCharacter { Name = $"RamrockHand_{subid:x2}" };
+            hand.Initialize(Resources.DungeonBosses.Enemy(EnemyId.RamrockArms, subid), Vector2.Zero, world!, parent.Slot);
+            return new RamrockRoomEntity(hand, world!, 0);
+        })?.Node as RamrockCharacter,
+        slot => owner.ResolveEnemySlot(slot)?.Node as RamrockCharacter,
+        id => owner.SetNativeObjectPalette(RamrockProfile.Shared.Palette(id)),
+        parent => owner.TryCreatePart(new BossShadowSpawn(() => parent.Position, () => parent.ZFixed >> 8, () => !parent.IsDead, 0, 12)),
+        (position, z) => owner.TryCreateVirePuff(position, z, 0), owner.TryCreatePart,
+        () => owner.EntityAdapters<BombRoomEntity>().Where(b => !b.Finished).OrderBy(owner.DynamicItemSlotOf).Select(b => b.Bomb).ToArray(),
+        owner.ToScreen,
+        owner.DisableLinkCollisionsAndMenu,
+        parent => owner.TryCreatePart(new BossDeathExplosionSpawn(parent.Position, EnemyId.Ramrock, parent.ZFixed >> 8)),
+        owner.OnNativeSoundRequested, entry);
+        var actor = new RamrockCharacter { Name = "Ramrock_07" };
+        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.Ramrock), record.Position, world);
+        return new RamrockRoomEntity(actor, world, killableIndex);
+    }
+
+    private RamrockPart? AllocateRamrockPart(RamrockPartSpawn spawn)
+    {
+        if (!owner.TryCreatePart(spawn)) return null;
+        return owner.Entities<RamrockPart>().Last(part => part.Id == spawn.Id && part.State == 0);
+    }
+
+    private IRoomEntity CreateRamrockPart(RamrockPartSpawn spawn)
+    {
+        RamrockEnvironment world = spawn.ParentIsPart
+            ? (owner.ResolvePartSlot(spawn.ParentSlot)?.Node as RamrockPart)?.World ?? throw new NotSupportedException("Ramrock part references a deleted/reused part parent.")
+            : (owner.ResolveEnemySlot(spawn.ParentSlot)?.Node as RamrockCharacter)?.World ?? throw new NotSupportedException("Ramrock part references a deleted/reused enemy parent.");
+        return new RamrockPart(spawn, world, slot => {
+            var entity = owner.ResolvePartSlot(slot);
+            if (entity is not null && entity.Node is not RamrockPart)
+                throw new NotSupportedException($"Ramrock references reused PART slot${slot:x2} ({entity.GetType().Name}).");
+            return entity?.Node as RamrockPart;
+        }, AllocateRamrockPart);
+    }
+
+    private IRoomEntity CreateBlueStalfosProjectile(BlueStalfosProjectileSpawn spawn, OracleRoomData room) =>
+        new BlueStalfosProjectileRoomEntity(new(spawn, room, _runtimeState, slot => {
+            var entity = owner.ResolveEnemySlot(slot);
+            if (entity is not null && entity.Node is not BlueStalfosCharacter)
+                throw new NotSupportedException($"PART$3d references reused ENEMY slot${slot:x2} ({entity.GetType().Name}); its native field writes are not represented.");
+            return entity?.Node as BlueStalfosCharacter;
+        }, () => owner.CanAllocateParts(6), (parent, angle) => {
+            if (!owner.TryCreatePart(new BlueStalfosProjectileSpawn(parent.Position, parent.ZFixed, parent.ParentSlot, angle, 1)))
+                throw new InvalidOperationException("PART$3d checked six-child allocation failed.");
+        }, owner.OnNativeSoundRequested));
+
     private IRoomEntity CreateSmasher(DungeonObjectRecord record, OracleRoomData room, EnemyPlacementContext placementContext)
     {
         var entry = new BossEntryMovement(placementContext.BossEntryDirection);
@@ -2158,7 +2286,7 @@ internal sealed class RoomEntityFactory
 
     private DungeonEssence CreateLaterDungeonEssence(DungeonObjectRecord record, OracleRoomData room)
     {
-        var definition = new[] { Resources.SkullDungeon.Essence, Resources.CrownDungeon.Essence, Resources.MermaidDungeon.Essence, Resources.JabuDungeon.Essence }.Single(definition =>
+        var definition = new[] { Resources.SkullDungeon.Essence, Resources.CrownDungeon.Essence, Resources.MermaidDungeon.Essence, Resources.JabuDungeon.Essence, Resources.AncientTomb.Essence }.Single(definition =>
             definition.ExitWarp.SourceGroup == record.Group && definition.ExitWarp.SourceRoom == record.Room);
         string visual = definition.Index switch
         {
@@ -2166,6 +2294,7 @@ internal sealed class RoomEntityFactory
             4 => "sacred-soil",
             5 => "bereft-peak",
             6 => "rolling-sea",
+            7 => "falling-star",
             _ => throw new InvalidOperationException($"{record.Source}: missing Essence visual for index${definition.Index:x2}.")
         };
         return new DungeonEssence(record, Resources.DungeonVisuals.Visual(visual),
@@ -2174,6 +2303,21 @@ internal sealed class RoomEntityFactory
             _saveData?.HasRoomFlag(record.Group,record.Room,OracleSaveData.RoomFlagItem)==true,
             _animationTick,owner.OnDungeonEssenceTriggered,definition);
     }
+
+    private EnemyAttachedKeyRoomEntity CreateEnemyAttachedKey(DungeonObjectRecord record) => new(record,
+        Resources.DungeonVisuals.Visual("enemy-attached-key"),
+        () => owner.ActiveRoomHasFlag(_saveData!, OracleSaveData.RoomFlagItem),
+        () => {
+            var enemy = owner.ResolveEnemySlot(0);
+            if (enemy is null) return null;
+            if (enemy is not IBombchuTargetRoomEntity target || enemy is not IObjectCollisionHeightRoomEntity height)
+                throw new NotSupportedException($"{record.Source}: INTERAC$77 reads reused ENEMY slot$00 ({enemy.GetType().Name}) without a native ID/position/height owner.");
+            return new NativeEnemyAttachment(target.BombchuTarget.Id, enemy.Node.Position, height.CollisionZ);
+        }, position => owner.TryCreateGroundTreasure(new(record.Group, record.Room, record.Order,
+            (byte)(int)position.Y, (byte)(int)position.X, "TREASURE_OBJECT_SMALL_KEY_00", record.Source) {
+            SpawnMode = TreasureSpawnMode.Puff, GrabMode = TreasureGrabMode.NoChange,
+            SpawnDelayFrames = Resources.DungeonInteractions.Constant("treasure-puff-wait")
+        }));
 
     private DungeonRewardRoomEntity CreateEnemySmallKeyReward(
         GroundTreasureGrantRequest request)
@@ -2791,6 +2935,8 @@ internal sealed class RoomEntityFactory
         MoldormChildSpawn child => child.Spawner.CreateChild(child.SubId),
         EyesoarSpawnEffectSpawn effect => new FixedEffectRoomEntityAdapter<EyesoarSpawnEffect>(effect.Effect),
         BossShadowSpawn shadow => CreateBossShadow(shadow),
+        BlueStalfosProjectileSpawn shot => CreateBlueStalfosProjectile(shot, room),
+        RamrockPartSpawn part => CreateRamrockPart(part),
         SubterrorDirtSpawn dirt => CreateSubterrorDirt(dirt),
         ShadowHagShadowSpawn shadow => CreateShadowHagShadow(shadow),
         KillEnemyPuffSpawn puff => CreateKillPuff(puff),
@@ -2809,6 +2955,7 @@ internal sealed class RoomEntityFactory
         BombchuSpawn bombchu => CreateBombchu(bombchu, room),
         OwlStatueSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, 0, sparkle.Visual),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
+        GreenPoofSpawn poof => new GreenPoofRoomEntity(Resources.DungeonVisuals.Visual("green-poof"), poof.Position, poof.Z),
         TingleKoolooSparkleSpawn sparkle =>
             CreateInteractionSparkle(sparkle.Position, sparkle.SourceAngle, sparkle.Visual),
         GoronCaveNpcSpawn goron => new GoronCaveRoomEntity(NpcCharacter.CreateFromRecord(goron.Record), goron.Interactive),
@@ -5177,6 +5324,8 @@ internal sealed class RoomEntityFactory
             if (native.Kind is DungeonObjectKind.Smasher or DungeonObjectKind.SmogSentinel) hasSupportedNativeBossRecord = true;
         foreach (DungeonObjectRecord native in Resources.MermaidDungeon.GetRoomRecords(group,room.Id))
             if (native.Kind is DungeonObjectKind.Vire or DungeonObjectKind.Octogon) hasSupportedNativeBossRecord = true;
+        foreach (DungeonObjectRecord native in Resources.AncientTomb.GetRoomRecords(group,room.Id))
+            if (native.Kind is DungeonObjectKind.BlueStalfos or DungeonObjectKind.Ramrock) hasSupportedNativeBossRecord = true;
         bool hasEnemyCountConsumer = false;
         foreach (DungeonMechanicDatabaseRecord record in records)
         {
@@ -5379,6 +5528,8 @@ internal sealed record BossShadowSpawn(
     Func<bool> ParentExists,
     int Size,
     int YOffset) : RoomEntitySpawn(UpdateThisFrame: true);
+
+internal sealed record GreenPoofSpawn(Vector2 Position, int Z) : RoomEntitySpawn;
 
 internal sealed record CutsceneNpcSpawn(
     NpcRecord Record,

@@ -280,6 +280,8 @@ $stageContracts = @(
         -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'jabu-dungeon' 'Import-JabuDungeon.ps1' `
         -inputs @('allTexts', 'allTextPositions')
+    New-ImportStageContract 'ancient-tomb' 'Import-AncientTomb.ps1' `
+        -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'octogon-effects' 'Import-OctogonEffects.ps1' `
         -inputs @('gfxNames','interactionGraphics') `
         -functionInputs @('Resolve-NpcAnimation','Copy-EnemySprite','Get-EnemySpriteSourceGrayscaleInverted')
