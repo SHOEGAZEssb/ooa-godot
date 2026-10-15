@@ -10,6 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateAncientTombEnemyKeyRom()
     {
+        ValidateAncientTombEnemyKeyScrollRom();
         foreach (bool batch in new[] { false, true })
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(5, 0x98);
@@ -118,5 +119,81 @@ public sealed partial class ValidationRoot
         FailIf(!missed.Finished || missRom[missSlot] != 0,
             "Clean-US INTERAC$77 must preserve its first-enemy-slot mismatch bug despite a matching second Stalfos.");
         GD.Print("Validated clean-US D8 enemy-key slot attachment, XYZ/flicker, fall/puff, other-enemies-alive grant, re-entry and first-slot mismatch bug.");
+    }
+
+    private void ValidateAncientTombEnemyKeyScrollRom()
+    {
+        foreach (bool collected in new[] { false, true })
+        foreach (bool batch in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            if (collected) _saveData.SetRoomFlag(5, 0x98, OracleSaveData.RoomFlagItem);
+            LoadValidationRoom(5, 0x97);
+            _inventory.SetScriptedEquippedItems(0, 0);
+            int y = Enumerable.Range(16, _currentRoom.Height - 32).First(y =>
+                Enumerable.Range(_currentRoom.Width - 24, 24).All(x => !_collision.Collides(new(x, y))));
+            _player.WarpTo(new(_currentRoom.Width - 24, y));
+            void Enter(Vector2 direction, int target)
+            {
+                for (int update = 0; update < 40 && !_transitions.ScrollActive; update++)
+                    StepGameplayUpdates(1, direction, batched: batch);
+                FailIf(!_transitions.ScrollActive || _rooms.CurrentRoom.Id != target,
+                    $"D8 key scroll must reach room$5:${target:x2} through original collision geometry: room${_currentRoom.Id:x2}, position={_player.Position}, active={_transitions.ScrollActive}.");
+            }
+            FailIf(_entities.Entities<EnemyAttachedKeyRoomEntity>().Any(),
+                "Room$5:$97 must not contain the incoming INTERAC$77.");
+            // Repeat after completion, then cancel through session teardown
+            // during preload and enter again with the same item-flag branch.
+            for (int entry = 0; entry < 3; entry++)
+            {
+                Enter(Vector2.Right, 0x98);
+                var key = _entities.Entities<EnemyAttachedKeyRoomEntity>().SingleOrDefault();
+                var rom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0,
+                    (int)_player.Position.X, (int)_player.Position.Y);
+                int slot = 0xd040 + (key is null ? 2 : _entities.InteractionSlot(key)) * 256;
+                rom[slot] = 1; rom[slot + 1] = 0x77; rom[slot + 2] = 0x31;
+                // Independent source placements: group5Map98EnemyObjectData
+                // starts with ENEMY$31:$00 at Y$48/X$88 in slot $00.
+                rom[0xd080] = 1; rom[0xd081] = 0x31;
+                rom[0xd08b] = 0x48; rom[0xd08d] = 0x88;
+                rom[0xcd00] = 8;
+                rom.AdvanceInteractions(0);
+                void Compare()
+                {
+                    FailIf((key is null) != (rom[slot] == 0) || key is not null &&
+                        (key.State != rom[slot + 4] || key.Visible != ((rom[slot + 26] & 0x80) != 0) ||
+                        key.Position != new Vector2(rom[slot + 13], rom[slot + 11]) ||
+                        key.ZFixed != 0 || key.SpeedZ != 0 || key.Finished),
+                        $"INTERAC$77 preload/freeze differs from clean US, collected={collected}, batch={batch}, entry={entry}.");
+                    FailIf(_entities.Entities<GroundTreasurePickup>().Any() ||
+                        _inventory.GetDungeonSmallKeys(8) != 0,
+                        "Scrolling must not advance INTERAC$77 falling/key-grant states.");
+                }
+                Compare();
+                if (entry == 1)
+                {
+                    ReinitializeGameplayForValidation();
+                    if (collected) _saveData.SetRoomFlag(5, 0x98, OracleSaveData.RoomFlagItem);
+                    LoadValidationRoom(5, 0x97);
+                    _inventory.SetScriptedEquippedItems(0, 0);
+                    _player.WarpTo(new(_currentRoom.Width - 24, y));
+                    continue;
+                }
+                StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batch, afterUpdate: () =>
+                {
+                    rom.AdvanceInteractions(1);
+                    Compare();
+                });
+                FailIf(_transitions.ScrollActive, "D8 attached-key scroll did not complete.");
+                StepGameplayUpdates(1, Vector2.Zero, batched: batch);
+                FailIf(key is not null && (key.State != 1 || key.Visible != ((_entities.FrameCounter & 1) != 0)),
+                    "INTERAC$77 must resume attachment flicker on the first ordinary update after scrolling.");
+                if (entry == 0)
+                {
+                    Enter(Vector2.Left, 0x97);
+                    StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batch);
+                }
+            }
+        }
     }
 }

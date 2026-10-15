@@ -8,7 +8,8 @@ namespace oracleofages;
 // related pointer remains the native slot, so a reused slot is followed.
 internal sealed partial class EnemyAttachedKeyRoomEntity : DungeonInteractionVisualEntity,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
-    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity
 {
     private readonly DungeonObjectRecord _record;
     private readonly Func<bool> _itemCollected;
@@ -35,9 +36,7 @@ internal sealed partial class EnemyAttachedKeyRoomEntity : DungeonInteractionVis
         if (Finished) return;
         if (State == 0)
         {
-            if (_itemCollected() || _enemySlotZero() is not NativeEnemyAttachment enemy || enemy.Id != _record.SubId)
-            { Finished = true; return; }
-            State = 1; Visible = true; CopyPosition(enemy); return;
+            InitializeAttachment(); return;
         }
         if (State == 1)
         {
@@ -50,6 +49,20 @@ internal sealed partial class EnemyAttachedKeyRoomEntity : DungeonInteractionVis
         if (!_createKey(Position))
             throw new NotSupportedException($"{_record.Source}: INTERAC$77 createTreasure failure falls through objectCopyPosition with an invalid allocation; this source overflow is not represented.");
         Finished = true; Visible = false;
+    }
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        // bank0.updateInteractions admits state $00 under wScrollMode=$08.
+        // smallKeyOnEnemy.s initializes visibility and XYZ, then state $01
+        // remains frozen; preload must not run its flicker or falling motion.
+        if (!Finished && State == 0) InitializeAttachment();
+        return Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
+    private void InitializeAttachment()
+    {
+        if (_itemCollected() || _enemySlotZero() is not NativeEnemyAttachment enemy || enemy.Id != _record.SubId)
+        { Finished = true; return; }
+        State = 1; Visible = true; CopyPosition(enemy);
     }
     private void CopyPosition(NativeEnemyAttachment enemy)
     {
