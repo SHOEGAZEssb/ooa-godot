@@ -96,7 +96,7 @@ $stageContracts = @(
             'npcOamBlocks', 'npcOamPointerTables', 'npcRows',
             'partAnimationDefinitions', 'partAnimationTables', 'partOamBlocks', 'partOamPointerTables',
             'treasureObjectSource') `
-        -functionInputs @('Export-PaletteBlock') `
+        -functionInputs @('Export-PaletteBlock', 'Get-ImportSpriteSourceGrayscaleInverted') `
         -functionOutputs @('Resolve-NpcAnimation', 'Resolve-PartAnimation', 'Resolve-OceanText')
     New-ImportStageContract 'collapsing-floor' 'Import-CollapsingFloor.ps1' `
         -inputs @('mainObjectLines', 'soundIds')
@@ -239,7 +239,7 @@ $stageContracts = @(
             'octorokInstanceCount', 'orderedObjectRows', 'partAnimationSource',
             'partDataSource', 'partOamSource', 'stalfosInstanceCount',
             'zolInstanceCount') `
-        -functionInputs @('Read-PaletteBytes') `
+        -functionInputs @('Read-PaletteBytes', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted') `
         -functionOutputs @(
             'Copy-EnemySprite', 'Get-EnemyDefinition', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
     New-ImportStageContract 'volcano' 'Import-VolcanoData.ps1' `
@@ -345,7 +345,7 @@ $stageModules = [Collections.Generic.List[Management.Automation.PSModuleInfo]]::
 $initializeContract = New-ImportStageContract 'initialize' 'Initialize-Import.ps1' `
     -inputs @('importRoot', 'Disassembly', 'Rom', 'OutputDirectory', 'SkipBuild') `
     -outputs @('destination', 'romBytes', 'hash', 'assemblySourceHost') `
-    -functionOutputs (@($commonStageFunctionInputs) + @('Invoke-AssemblySourceHost'))
+    -functionOutputs (@($commonStageFunctionInputs) + @('Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted'))
 try {
     foreach ($contract in @($initializeContract) + @($stageContracts)) {
         $arguments = @{

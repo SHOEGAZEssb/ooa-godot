@@ -509,6 +509,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateAncientTombEnemyKeyRom, requiresRom: true);
         RunIsolatedValidation(ValidateBlueStalfosRom, requiresRom: true);
         RunIsolatedValidation(ValidateRamrockRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePlacedRespawnableBushRom, requiresRom: true);
         RunIsolatedValidation(ValidateAncientTombRoomClosure);
         RunIsolatedValidation(ValidateBabyLinkRom, requiresRom: true);
         RunIsolatedValidation(ValidateJabuRedTrapsRom, requiresRom: true);

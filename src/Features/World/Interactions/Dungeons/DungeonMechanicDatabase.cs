@@ -151,7 +151,8 @@ internal sealed class DungeonMechanicDatabase
                     _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
                 row.Boolean01(8));
-            if (record.Id is not (InteractionId.Splash or InteractionId.Puff or InteractionId.SnowDebris or InteractionId.DungeonStuff or InteractionId.PushBlockTrigger or InteractionId.DoorController or InteractionId.DungeonScript or InteractionId.DungeonEvents or InteractionId.ExtendableBridge or InteractionId.TriggerTranslator or InteractionId.SmogBoss or InteractionId.Miscellaneous1 or InteractionId.CreateObjectAtEachTileIndex or InteractionId.Miscellaneous2) ||
+            if (record.Id is not (PartId.RespawnableBush or InteractionId.Splash or InteractionId.Puff or InteractionId.SnowDebris or InteractionId.DungeonStuff or InteractionId.PushBlockTrigger or InteractionId.DoorController or InteractionId.DungeonScript or InteractionId.DungeonEvents or InteractionId.ExtendableBridge or InteractionId.TriggerTranslator or InteractionId.SmogBoss or InteractionId.Miscellaneous1 or InteractionId.CreateObjectAtEachTileIndex or InteractionId.Miscellaneous2) ||
+                record.Id == PartId.RespawnableBush && record.SubId is not (0x04 or 0x06) ||
                 record.Id == InteractionId.Miscellaneous1 && record.SubId != 0x0f ||
                 record.Id == InteractionId.Miscellaneous2 && (record.SubId is not (0x0c or 0x0d or 0x0e or 0x12 or 0x15 or 0x16) ||
                     record.SubId is 0x0c or 0x0d or 0x12 && record.Parameter == 0) ||
@@ -248,7 +249,7 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
             TilePattern(InteractionId.DungeonEvents, 0x09);
-        if (RecordCount != 242 || _constants.Count != 127 || _texts.Count != 2 ||
+        if (RecordCount != 244 || _constants.Count != 127 || _texts.Count != 2 ||
             Constant("ancient-tomb-grave-tile") != 0x02 || Constant("ancient-tomb-solve-wait") != 45 ||
             GetRoomRecords(1, 0x8c) is not [{ Id: InteractionId.Miscellaneous2, SubId: 0x0e, Order: 0, PackedPosition: 0x34 }] ||
             TilePattern(InteractionId.Miscellaneous2, 0x0e).Count != 4 ||

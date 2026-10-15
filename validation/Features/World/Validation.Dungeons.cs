@@ -257,6 +257,7 @@ public sealed partial class ValidationRoot
         int extendableBridgeCount = 0;
         int rotatableSeedThingCount = 0;
         int respawnableBushScannerCount = 0;
+        int respawnableBushPlacementCount = 0;
         for (int group = 0; group < 8; group++)
         for (int roomId = 0; roomId < 0x100; roomId++)
         {
@@ -295,10 +296,11 @@ public sealed partial class ValidationRoot
                     { Id: InteractionId.SmogBoss, SubId: 0x0a or 0x08 or 0x88 } ? 1 : 0;
                 respawnableBushScannerCount += record is
                     { Id: InteractionId.CreateObjectAtEachTileIndex, SubId: 0x04 } ? 1 : 0;
+                respawnableBushPlacementCount += record.Id == 0x0f ? 1 : 0;
             }
         }
         FailIf(
-            database.RecordCount != 242 || switchRecordCount != 7 ||
+            database.RecordCount != 244 || switchRecordCount != 7 ||
             buttonRecordCount != 49 ||
             triggerDoorRecordCount != 20 ||
             enemyFallingKeyCount != 2 ||
@@ -311,7 +313,7 @@ public sealed partial class ValidationRoot
             tilePatternFallingKeyCount != 1 ||
             torchTranslatorCount != 2 || torchScannerCount != 8 ||
             orbCount != 17 || extendableBridgeCount != 7 ||
-            rotatableSeedThingCount != 4 || respawnableBushScannerCount != 3 ||
+            rotatableSeedThingCount != 4 || respawnableBushScannerCount != 3 || respawnableBushPlacementCount != 2 ||
             database.GetRoomRecords(4, 0x0c).Select(record => record.Order)
                 .ToArray() is not [0, 1],
             "Expected two shared enemy-clear falling keys, 12 enemy-clear chests, " +
@@ -321,7 +323,7 @@ public sealed partial class ValidationRoot
             "handlers/parts, one direct-layout and one tile-pattern falling key, " +
             "two torch-count translators, eight tile-$08 torch scanners, " +
             "17 orbs, seven extendable bridges, two rotating seed bouncers, " +
-            "three respawnable-bush scanners, " +
+            "three respawnable-bush scanners and two direct PART$0f placements, " +
             "and 73 ordered $13:$01/enemy-shutter dungeon placements.");
 
         void Step() => _entities.Update(update, _player);

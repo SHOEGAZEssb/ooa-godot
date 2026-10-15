@@ -9,7 +9,10 @@ $pumpkinHeadSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\enemies\pumpkinHead.s')
 
 $dungeonBossSpriteSequences = @{
-    0x05 = @($gfxNames[0xce], $gfxNames[0xcf])
+    # ENEMY$05 loads header $cf directly. enemyLoadGraphicsAndProperties adds
+    # that resident slot's tile offset; its OAM starts at spr_ramrock_2, not
+    # at the $ce body sheet used by ENEMY$07.
+    0x05 = @($gfxNames[0xcf])
     0x07 = @($gfxNames[0xce], $gfxNames[0xcf])
     0x11 = @($gfxNames[0xc4])
     0x3f = @($gfxNames[0xad], $gfxNames[0xae])
@@ -77,6 +80,7 @@ foreach ($spec in @(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations")
 }
 if ($dungeonBossRows.Count -ne 34 -or
+    ($dungeonBossRows | Where-Object { $_ -match '^05\t0[0-5]\tspr_ramrock_2\t0\t6\t1\t' }).Count -ne 6 -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^3f\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t2\t2\t128\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^42\t00\tspr_shadowhag_2\t20\t2\t1\t6\t6\t1\t2\t' }) -or
     -not ($dungeonBossRows | Where-Object { $_ -match '^70\t00\tspr_giantghini_1,spr_giantghini_2\t0\t5\t0\t10\t10\t1\t12\t' }) -or

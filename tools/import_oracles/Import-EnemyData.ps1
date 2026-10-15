@@ -324,15 +324,7 @@ if ($keeseGfx -ne 0x9d -or
 }
 
 function Find-EnemySpriteSource([string]$name) {
-    $source = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
-        ForEach-Object {
-            Get-ChildItem $_.FullName -Recurse -File -Filter "$name.png"
-        } |
-        Select-Object -First 1
-    if ($null -eq $source) {
-        throw "Enemy sprite not found: $name.png"
-    }
-    return $source
+    return Find-ImportSpriteSource $name
 }
 
 function Copy-EnemySprite([string]$name) {
@@ -342,27 +334,7 @@ function Copy-EnemySprite([string]$name) {
 }
 
 function Get-EnemySpriteSourceGrayscaleInverted([string]$name) {
-    $source = Find-EnemySpriteSource $name
-    # tools/gfx/gfx.py defaults spr_* sheets to invert=true, but a sibling
-    # .properties file can deliberately reverse the four source color IDs.
-    $inverted = $source.BaseName.StartsWith(
-        'spr_', [StringComparison]::Ordinal)
-    $propertiesPath = [IO.Path]::ChangeExtension(
-        $source.FullName, '.properties')
-    if (Test-Path -LiteralPath $propertiesPath) {
-        $properties = Read-ImportText $propertiesPath
-        $invertMatch = [regex]::Match(
-            $properties,
-            '(?im)^\s*invert:\s*(?<value>\S+)\s*$')
-        if ($invertMatch.Success) {
-            $value = $invertMatch.Groups['value'].Value
-            if (-not [bool]::TryParse(
-                    $value, [ref]$inverted)) {
-                throw "Enemy sprite $name has invalid invert property: $value"
-            }
-        }
-    }
-    return $inverted
+    return Get-ImportSpriteSourceGrayscaleInverted $name
 }
 
 $commonEnemySprites = @{

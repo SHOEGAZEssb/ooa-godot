@@ -203,7 +203,7 @@ public sealed class TreasureDatabase
             new GeneratedTableSchema(
                 "treasure object visuals",
                 GeneratedTableKeySemantics.Unique,
-                ["graphic", "sprite", "tile-base", "palette", "default-animation", "animation"],
+                ["graphic", "sprite", "tile-base", "palette", "default-animation", "animation", "source-grayscale-inverted"],
                 ["graphic"],
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
@@ -215,7 +215,8 @@ public sealed class TreasureDatabase
                 row.HexByte(2),
                 row.HexByte(3),
                 row.HexByte(4),
-                row.RequiredString(5));
+                row.RequiredString(5),
+                row.Boolean01(6));
             _objectVisuals.Add(graphic, record);
         }
 
@@ -479,6 +480,6 @@ public readonly record struct BehaviourRecord(int TreasureId, TreasureVariable V
 
 public readonly record struct InventoryTextRecord(string Kind, int Index, int NameTextId, int DescriptionTextId, string Message);
 
-public readonly record struct TreasureObjectVisualRecord(int Graphic, string Sprite, int TileBase, int Palette, int DefaultAnimation, string Animation);
+public readonly record struct TreasureObjectVisualRecord(int Graphic, string Sprite, int TileBase, int Palette, int DefaultAnimation, string Animation, bool SourceGrayscaleInverted);
 
 public readonly record struct TreasureObjectRecord(string Name, int TreasureId, int SubId, int Parameter, int TextId, int Graphic, string Message);

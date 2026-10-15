@@ -10,6 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRamrockRom()
     {
+        ValidateRamrockHandPixelsRom();
         foreach (bool batch in new[] { false, true })
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(5,0x78);

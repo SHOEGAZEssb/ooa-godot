@@ -27,7 +27,7 @@ internal sealed class GroundTreasureDatabase
                     "completion-text-base64", "require-room-item-clear",
                     "set-room-item", "state-address", "state-mask", "state-value",
                     "require-treasure-clear", "spawn-mode", "grab-mode",
-                    "initial-speed-z", "gravity", "move-speed", "source"
+                    "initial-speed-z", "gravity", "move-speed", "source", "source-grayscale-inverted"
                 ],
                 ["group", "room"],
                 headerRequired: true));
@@ -61,7 +61,8 @@ internal sealed class GroundTreasureDatabase
                 RequireTreasureClear: row.HexByte(17),
                 BuriedInitialSpeedZ: row.Decimal(
                     20, short.MinValue, short.MaxValue),
-                BuriedMoveSpeed: row.HexByte(22));
+                BuriedMoveSpeed: row.HexByte(22),
+                SourceGrayscaleInverted: row.Boolean01(24));
             if (record.Group is < 0 or > 7 || record.Room is < 0 or > 0xff ||
                 record.Order < 0 || record.Y is < 0 or > 0xff ||
                 record.X is < 0 or > 0xff ||
@@ -176,4 +177,5 @@ internal readonly record struct GroundTreasureDatabaseRecord(
     int StateValue = 0,
     int RequireTreasureClear = 0,
     int BuriedInitialSpeedZ = 0,
-    int BuriedMoveSpeed = 0);
+    int BuriedMoveSpeed = 0,
+    bool SourceGrayscaleInverted = true);

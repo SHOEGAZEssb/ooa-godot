@@ -2433,6 +2433,7 @@ $extendableBridgeCount = 0
 $orbCount = 0
 $rotatableSeedThingCount = 0
 $respawnableBushScannerCount = 0
+$respawnableBushPlacementCount = 0
 $mechanicGroup = -1
 $mechanicRoom = -1
 $mechanicOrder = 0
@@ -2531,10 +2532,11 @@ foreach ($line in $mainObjectLines) {
     } elseif ($line -match '^\s*obj_Interaction\s+\$21\s+\$(?<subid>0a|0c|0d)\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t21`t$($Matches['subid'])`t00`t00`tnone`t1")
-    } elseif ($line -match '^\s*obj_Part\s+\$(?<id>03|05|09|24)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
+    } elseif ($line -match '^\s*obj_Part\s+\$(?<id>03|05|09|0f|24)\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<position>[0-9a-f]{2})\s*$') {
         $dungeonMechanicRows.Add(
             "$mechanicGroup`t$($mechanicRoom.ToString('x2'))`t$mechanicOrder`t$($Matches['id'])`t$($Matches['subid'])`t$($Matches['position'])`t00`tnone`t1")
         if ($Matches['id'] -eq '03') { $orbCount++ }
+        if ($Matches['id'] -eq '0f') { $respawnableBushPlacementCount++ }
     } elseif ($line -match '^\s*obj_Part\s+\$33\s+\$(?<subid>0a|08|88)\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s+\$(?<mask>[0-9a-f]{2})\s*$') {
         $y = [Convert]::ToInt32($Matches['y'], 16)
         $x = [Convert]::ToInt32($Matches['x'], 16)
@@ -2554,7 +2556,10 @@ foreach ($line in $mainObjectLines) {
     }
     $mechanicOrder++
 }
-if ($dungeonMechanicRows.Count -ne 243 -or
+if ($dungeonMechanicRows.Count -ne 245 -or
+    $respawnableBushPlacementCount -ne 2 -or
+    -not ($dungeonMechanicRows -contains "5`t78`t3`t0f`t04`t91`t00`tnone`t1") -or
+    -not ($dungeonMechanicRows -contains "5`t78`t4`t0f`t06`t9d`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "1`t8c`t0`tdc`t0e`t34`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "3`te8`t0`tdc`t15`t00`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "3`tff`t0`tdc`t16`t00`t00`tnone`t1") -or
@@ -2616,7 +2621,7 @@ if ($dungeonMechanicRows.Count -ne 243 -or
     -not ($dungeonMechanicRows -contains "4`t0b`t0`t1e`t08`t07`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t0b`t1`t1e`t0b`t50`t00`tnone`t1") -or
     -not ($dungeonMechanicRows -contains "4`t13`t0`t1e`t08`t07`t00`tnone`t0")) {
-    throw "Expected 242 reusable mechanics including the ancient tomb grave puzzle; parsed $($dungeonMechanicRows.Count - 1)."
+    throw "Expected 244 reusable mechanics including direct PART_RESPAWNABLE_BUSH placements; parsed $($dungeonMechanicRows.Count - 1)."
 }
 $moonlitCrystalSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\parts\grottoCrystal.s')
@@ -2989,7 +2994,7 @@ $overworldKeyholeConstantRows = @(
 # the unrelated inventory-button display tables.
 $treasureObjectVisualRows = [Collections.Generic.List[string]]::new()
 $treasureObjectVisualRows.Add(
-    "# graphic`tsprite`ttile-base`tpalette`tdefault-animation`tanimation")
+    "# graphic`tsprite`ttile-base`tpalette`tdefault-animation`tanimation`tsource-grayscale-inverted")
 $treasureObjectGraphics = @(
     $treasureObjectRecords.Values |
         ForEach-Object { [int]$_.Graphic } |
@@ -3005,8 +3010,9 @@ foreach ($graphicIndex in $treasureObjectGraphics) {
     }
     $spriteName = $gfxNames[$graphic.Gfx]
     [void]$npcSpriteNames.Add($spriteName)
+    $treasureSourceInverted = [int](Get-ImportSpriteSourceGrayscaleInverted $spriteName)
     $treasureObjectVisualRows.Add(
-        "$($graphicIndex.ToString('x2'))`t$spriteName`t$($graphic.TileBase.ToString('x2'))`t$($graphic.Palette.ToString('x2'))`t$($graphic.DefaultAnimation.ToString('x2'))`t$animation")
+        "$($graphicIndex.ToString('x2'))`t$spriteName`t$($graphic.TileBase.ToString('x2'))`t$($graphic.Palette.ToString('x2'))`t$($graphic.DefaultAnimation.ToString('x2'))`t$animation`t$treasureSourceInverted")
 }
 $smallKeyVisual = $interactionGraphics['96:66']
 if ($treasureObjectVisualRows.Count -ne 85 -or
@@ -5652,10 +5658,11 @@ if ($null -eq $heartPieceGraphic -or $heartPieceGraphic.Gfx -ne 0x79 -or
     throw 'Could not resolve static Heart Piece interaction $60 graphic $3a.'
 }
 $heartPieceSprite = $gfxNames[$heartPieceGraphic.Gfx]
+$heartPieceSourceInverted = [int](Get-ImportSpriteSourceGrayscaleInverted $heartPieceSprite)
 [void]$npcSpriteNames.Add($heartPieceSprite)
 $groundTreasureRows = [Collections.Generic.List[string]]::new()
 $groundTreasureRows.Add(
-    "# group`troom`torder`ty`tx`ttreasure-object`tsprite`ttile-base`tpalette`tanimation`tcompletion-text-id`tcompletion-text-base64`trequire-room-item-clear`tset-room-item`tstate-address`tstate-mask`tstate-value`trequire-treasure-clear`tspawn-mode`tgrab-mode`tinitial-speed-z`tgravity`tmove-speed`tsource")
+    "# group`troom`torder`ty`tx`ttreasure-object`tsprite`ttile-base`tpalette`tanimation`tcompletion-text-id`tcompletion-text-base64`trequire-room-item-clear`tset-room-item`tstate-address`tstate-mask`tstate-value`trequire-treasure-clear`tspawn-mode`tgrab-mode`tinitial-speed-z`tgravity`tmove-speed`tsource`tsource-grayscale-inverted")
 $currentGroup = -1
 $currentRoom = -1
 $objectOrder = 0
@@ -5669,7 +5676,7 @@ foreach ($line in $mainObjectLines) {
     if ($currentGroup -lt 0 -or $line -notmatch '^\s+obj_(?!End)') { continue }
     if ($line -match 'obj_Interaction\s+\$dc\s+\$07\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})') {
         $groundTreasureRows.Add(
-            "$currentGroup`t$($currentRoom.ToString('x2'))`t$objectOrder`t$($Matches['y'])`t$($Matches['x'])`tTREASURE_OBJECT_HEART_PIECE_00`t$heartPieceSprite`t$($heartPieceGraphic.TileBase)`t$($heartPieceGraphic.Palette)`t$heartPieceAnimation`t$($heartContainerFollowupText.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$heartContainerFollowupText])))`t1`t1`t0000`t00`t00`t00`t0`t2`t0`t0`t0`tmiscellaneous2.s:interactiondc_subid07")
+            "$currentGroup`t$($currentRoom.ToString('x2'))`t$objectOrder`t$($Matches['y'])`t$($Matches['x'])`tTREASURE_OBJECT_HEART_PIECE_00`t$heartPieceSprite`t$($heartPieceGraphic.TileBase)`t$($heartPieceGraphic.Palette)`t$heartPieceAnimation`t$($heartContainerFollowupText.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($allTexts[$heartContainerFollowupText])))`t1`t1`t0000`t00`t00`t00`t0`t2`t0`t0`t0`tmiscellaneous2.s:interactiondc_subid07`t$heartPieceSourceInverted")
     }
     $objectOrder++
 }
@@ -5720,9 +5727,10 @@ if ([string]::IsNullOrWhiteSpace($rickyGloveAnimation) -or
     throw "Could not resolve room 0:98 Ricky's Gloves visual or TX_0067."
 }
 $rickyGloveSprite = $gfxNames[$rickyGloveGraphic.Gfx]
+$rickyGloveSourceInverted = [int](Get-ImportSpriteSourceGrayscaleInverted $rickyGloveSprite)
 [void]$npcSpriteNames.Add($rickyGloveSprite)
 $groundTreasureRows.Add(
-    "0`t98`t0`t28`t48`tTREASURE_OBJECT_RICKY_GLOVES_00`t$rickyGloveSprite`t$($rickyGloveGraphic.TileBase)`t$($rickyGloveGraphic.Palette)`t$rickyGloveAnimation`t0000`t`t0`t0`tc646`t21`t01`t48`t5`t1`t-256`t16`t14`trickysGloveSpawner.s:interactionCode74;treasure.s:@spawnMode5")
+    "0`t98`t0`t28`t48`tTREASURE_OBJECT_RICKY_GLOVES_00`t$rickyGloveSprite`t$($rickyGloveGraphic.TileBase)`t$($rickyGloveGraphic.Palette)`t$rickyGloveAnimation`t0000`t`t0`t0`tc646`t21`t01`t48`t5`t1`t-256`t16`t14`trickysGloveSpawner.s:interactionCode74;treasure.s:@spawnMode5`t$rickyGloveSourceInverted")
 if ($groundTreasureRows.Count -ne 10) {
     throw "Expected eight Heart Pieces and room 0:98 Ricky's Gloves, got $($groundTreasureRows.Count - 1)."
 }

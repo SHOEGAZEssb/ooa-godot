@@ -136,7 +136,8 @@ internal readonly record struct GroundTreasureGrantRequest(
             SoundOrder,
             DialogueTiming,
             CompletionOwner,
-            TextboxPosition);
+            TextboxPosition,
+            SourceGrayscaleInverted: visual.SourceGrayscaleInverted);
     }
 }
 
@@ -144,11 +145,12 @@ internal readonly record struct GroundTreasureVisualOverride(
     string Sprite,
     int TileBase,
     int Palette,
-    string Animation)
+    string Animation,
+    bool SourceGrayscaleInverted = true)
 {
     internal static GroundTreasureVisualOverride From(
         TreasureObjectVisualRecord visual) =>
-        new(visual.Sprite, visual.TileBase, visual.Palette, visual.Animation);
+        new(visual.Sprite, visual.TileBase, visual.Palette, visual.Animation, visual.SourceGrayscaleInverted);
 }
 
 internal enum GroundTreasureInventoryWrite

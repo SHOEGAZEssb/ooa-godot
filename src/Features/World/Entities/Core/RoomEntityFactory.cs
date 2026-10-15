@@ -2489,6 +2489,11 @@ internal sealed class RoomEntityFactory
         }
         if (record.Id == InteractionId.CreateObjectAtEachTileIndex && record.SubId == 0x04)
             return new RespawnableBushScannerRoomEntity(record, room);
+        if (record.Id == PartId.RespawnableBush)
+        {
+            if (!owner.PartSlotAvailable) return null;
+            return Create(new RespawnableBushSpawn(record.PackedPosition, record.SubId), room);
+        }
         if (record.Id == InteractionId.DungeonEvents && record.SubId == 0x09)
         {
             if (!owner.InteractionSlotAvailable) return null;

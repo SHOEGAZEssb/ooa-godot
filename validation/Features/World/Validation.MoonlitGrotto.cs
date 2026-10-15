@@ -1439,13 +1439,16 @@ public sealed partial class ValidationRoot
         RespawnableBushRoomEntity bush = bushes[0];
         int rngCalls = _random.Calls;
         int dropsBefore = _entities.Entities<ItemDropEffect>().Count;
-        FailIf(!_entities.ApplySwordHit(bush.CollisionBounds, bush.Position),
+        FailIf(!bush.ApplySwordHit(bush.CollisionBounds, bush.Position, 1, EnemyKnockbackStrength.Normal, []),
             "The room 4:4e respawnable bush rejected an ordinary sword hit.");
+        FailIf(_random.Calls != rngCalls || room.GetMetatile(bush.Position) != 0x04,
+            "PART$0f collision publication must wait for its next eligible dispatch.");
+        Step();
         bool expectedDrop = (_random.LastResult.Value & 1) != 0;
         FailIf(
             _random.Calls != rngCalls + 1 ||
             bush.State != RespawnableBushState.CutDelay ||
-            bush.Counter != 0xf0 || room.GetMetatile(bush.Position) != 0x02 ||
+            bush.Counter != 0xf0 - (_entities.FrameCounter & 1) || room.GetMetatile(bush.Position) != 0x02 ||
             _entities.Entities<GrassDebrisEffect>().Count != 1 ||
             _entities.Entities<ItemDropEffect>().Count !=
                 dropsBefore + (expectedDrop ? 1 : 0) ||
@@ -1455,13 +1458,14 @@ public sealed partial class ValidationRoot
             "enter tile `$02/$f0 delay.");
 
         int delayUpdates = 0;
+        int expectedDelayUpdates = bush.Counter * 2 - ((_entities.FrameCounter & 1) == 0 ? 1 : 0);
         while (bush.State == RespawnableBushState.CutDelay && delayUpdates < 482)
         {
             Step();
             delayUpdates++;
         }
         FailIf(
-            delayUpdates is < 479 or > 480 ||
+            delayUpdates != expectedDelayUpdates ||
             bush.State != RespawnableBushState.Regenerating ||
             bush.Counter != 0x0c || room.GetMetatile(bush.Position) != 0x03,
             "PART_RESPAWNABLE_BUSH did not decrement `$f0 on alternating " +

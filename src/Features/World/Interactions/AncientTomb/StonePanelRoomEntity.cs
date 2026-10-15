@@ -18,6 +18,8 @@ internal sealed partial class StonePanelRoomEntity : DungeonInteractionVisualEnt
     private readonly Action<int, bool> _trigger;
     private readonly Action<int> _sound;
     private readonly Func<int> _music;
+    private Vector2 _precisePosition;
+    internal Vector2 PrecisePosition => _precisePosition;
     internal int State { get; private set; }
     internal int Substate { get; private set; }
     internal int Counter { get; private set; }
@@ -32,6 +34,7 @@ internal sealed partial class StonePanelRoomEntity : DungeonInteractionVisualEnt
         _record = record; _room = room; _save = save; _runtime = runtime;
         _triggers = triggers; _trigger = trigger; _sound = sound; _music = music;
         InitializeVisual(visual, record.Position, paletteOverrides: palette);
+        _precisePosition = record.Position;
         Visible = false; ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
     }
     private void Initialize()
@@ -39,7 +42,8 @@ internal sealed partial class StonePanelRoomEntity : DungeonInteractionVisualEnt
         Visible = true;
         if (_save.HasRoomFlag(_record.Group, _record.Room, 0x40))
         {
-            State = 3; Position += new Vector2(_record.SubId == 0 ? -16 : 16, 0);
+            State = 3; _precisePosition += new Vector2(_record.SubId == 0 ? -16 : 16, 0);
+            Position = _precisePosition.Floor();
             OpenCollision();
         }
         else
@@ -78,7 +82,10 @@ internal sealed partial class StonePanelRoomEntity : DungeonInteractionVisualEnt
                 Counter = 128; Substate = 1; _sound(SoundId.SndOpening); return;
             case 1:
                 if ((frame.Counter & 1) == 0) return;
-                Position += new Vector2(_record.SubId == 0 ? -0.125f : 0.125f, 0);
+                // objectApplySpeed retains xl; bank0.s:_getObjectPositionOnScreen
+                // reads only xh/yh. Keep SPEED_20's fractions out of the draw transform.
+                _precisePosition += new Vector2(_record.SubId == 0 ? -0.125f : 0.125f, 0);
+                Position = _precisePosition.Floor();
                 if (--Counter != 0) return;
                 Counter = 30; Substate = 2; return;
             case 2:

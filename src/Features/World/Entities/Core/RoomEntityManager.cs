@@ -410,7 +410,7 @@ public sealed class RoomEntityManager : IDisposable
                 if (_postObjectMeleeHits.TryGetValue(entity, out var melee) && melee()) continue;
                 if (entity is ISwitchHookHittableRoomEntity target && SwitchHook?.Item is { CollisionEnabled: true } hook &&
                     target.ApplySwitchHookHit(hook, SwitchHook.Player.Position)) continue;
-                if (entity is ISeedCollisionTarget or ISomariaBlockCollisionRoomEntity or IBoomerangCollisionRoomEntity or IBombCollisionRoomEntity && ResolveNativeItemCollision(entity)) continue;
+                if (entity is IPostObjectItemCollisionRoomEntity or ISeedCollisionTarget or ISomariaBlockCollisionRoomEntity or IBoomerangCollisionRoomEntity or IBombCollisionRoomEntity && ResolveNativeItemCollision(entity)) continue;
                 if (_deferredSwitchHookContacts.Contains(entity) &&
                     !_linkCollisionsAndMenuDisabled && entity is ILinkContactEntity contact)
                 {
@@ -2625,7 +2625,7 @@ public sealed class RoomEntityManager : IDisposable
             if (spawn is ZoraFireSpawn or SeaPowderSpawn && FindFreePartSlot() < 0) continue;
             // INTERAC $6b:$0f advances to state1 before attempting PART$05;
             // getFreePartSlot failure leaves it waiting without a retry.
-            if (spawn is DungeonSwitchSpawn && FindFreePartSlot() < 0) continue;
+            if (spawn is DungeonSwitchSpawn or RespawnableBushSpawn && FindFreePartSlot() < 0) continue;
             if (spawn is SpikedBallSpawn ball && FindFreePartSlot() < 0)
             {
                 // ecom_spawnProjectile checks failure for the head. The
@@ -2711,7 +2711,7 @@ public sealed class RoomEntityManager : IDisposable
             or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
-            or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity
+            or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity or RespawnableBushRoomEntity
             or CuccoAttackerRoomEntity or MoblinBoomerangRoomEntity or SeedOnTreeRoomEntity or ShootingGalleryBallRoomEntity
             or HeadThwompBombDropRoomEntity or PumpkinHeadProjectileRoomEntity or ShadowHagShadowRoomEntity or MapleDroppedItemRoomEntity ||
         entity.Node is OctorokRockProjectile or EnemyArrowProjectile or HeadThwompProjectile or HeadThwompBoulder or SubterrorDirtEffect ? 1 : 2;

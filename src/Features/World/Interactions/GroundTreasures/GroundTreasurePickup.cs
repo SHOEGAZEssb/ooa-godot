@@ -102,7 +102,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
             record.TileBase,
             record.Palette,
             paletteOverride: null,
-            sourceGrayscaleInverted: true);
+            sourceGrayscaleInverted: record.SourceGrayscaleInverted);
         PixelHash = HashImage(_texture.GetImage());
         _state = PickupState.Initializing;
         _spawnSubstate = 0;

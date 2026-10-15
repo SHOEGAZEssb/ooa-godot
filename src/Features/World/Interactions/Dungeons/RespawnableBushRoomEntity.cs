@@ -12,7 +12,9 @@ namespace oracleofages;
 internal sealed partial class RespawnableBushRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
     ISwordHittableRoomEntity, IItemCollisionHittableRoomEntity,
-    IObjectCollisionHeightRoomEntity
+    IObjectCollisionHeightRoomEntity, IPostObjectMeleeCollisionRoomEntity,
+    IPostObjectItemCollisionRoomEntity, IUpdatesDuringDialogueRoomEntity,
+    IUpdatesDuringRoomEntityFreeze
 {
     private readonly int _packedPosition;
     private readonly int _dropSubId;
@@ -22,12 +24,16 @@ internal sealed partial class RespawnableBushRoomEntity : Node2D,
     private readonly Func<long> _animationTick;
     private readonly Action _roomTileChanged;
     private bool _initialized;
+    private bool _hitPending;
     private RespawnableBushState _state;
     private int _counter;
 
     public Node2D Node => this;
     public bool Finished => false;
     public int CollisionZ => 0;
+    public bool MeleeReportsContact => true;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
     internal int PackedPosition => _packedPosition;
     internal int DropSubId => _dropSubId;
     internal RespawnableBushState State => _state;
@@ -80,6 +86,20 @@ internal sealed partial class RespawnableBushRoomEntity : Node2D,
             return;
         }
 
+        // cutscene01 publishes var2a after the object passes. partCode0f
+        // consumes it on its next eligible dispatch, then falls into state2
+        // and decrements counter1 immediately when wFrameCounter is odd.
+        if (_hitPending)
+        {
+            _hitPending = false;
+            _state = RespawnableBushState.CutDelay;
+            _counter = _data.RespawningBushDelay;
+            SetTile(_data.RespawningBushCutTile);
+            if ((_random.Next().Value & 0x01) != 0)
+                spawns.Add(new ItemDropSpawn(_dropSubId, Position));
+            spawns.Add(new GrassDebrisSpawn(Position));
+        }
+
         switch (_state)
         {
             case RespawnableBushState.Ready:
@@ -117,7 +137,7 @@ internal sealed partial class RespawnableBushRoomEntity : Node2D,
         Vector2 sourcePosition,
         int damage,
         EnemyKnockbackStrength knockbackStrength,
-        ICollection<RoomEntitySpawn> spawns) => Cut(hitbox, spawns);
+        ICollection<RoomEntitySpawn> spawns) => QueueHit(hitbox);
 
     public bool ApplyItemCollision(
         RoomEntityItemCollision collision,
@@ -125,19 +145,13 @@ internal sealed partial class RespawnableBushRoomEntity : Node2D,
         Vector2 sourcePosition,
         int damage,
         ICollection<RoomEntitySpawn> spawns) =>
-        collision == RoomEntityItemCollision.Bomb && Cut(hitbox, spawns);
+        collision == RoomEntityItemCollision.Bomb && QueueHit(hitbox);
 
-    private bool Cut(Rect2 hitbox, ICollection<RoomEntitySpawn> spawns)
+    private bool QueueHit(Rect2 hitbox)
     {
-        if (!CollisionEnabled || !hitbox.Intersects(CollisionBounds))
+        if (!CollisionEnabled || _hitPending || !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds, hitbox))
             return false;
-        _state = RespawnableBushState.CutDelay;
-        _counter = _data.RespawningBushDelay;
-        SetTile(_data.RespawningBushCutTile);
-
-        if ((_random.Next().Value & 0x01) != 0)
-            spawns.Add(new ItemDropSpawn(_dropSubId, Position));
-        spawns.Add(new GrassDebrisSpawn(Position));
+        _hitPending = true;
         return true;
     }
 

@@ -726,7 +726,8 @@ public sealed class InteractionController
             visual.Animation,
             treasureObject.TextId,
             treasureObject.Message,
-            "itemFromMaple.s:@func_4e6e");
+            "itemFromMaple.s:@func_4e6e",
+            SourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         GroundTreasurePickup pickup =
             _entities.Spawn<GroundTreasurePickup>(
                 new GroundTreasureSpawn(record));

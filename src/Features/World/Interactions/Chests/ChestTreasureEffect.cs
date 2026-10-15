@@ -43,7 +43,7 @@ public partial class ChestTreasureEffect : Node2D
             visual.TileBase,
             visual.Palette,
             paletteOverride: null,
-            sourceGrayscaleInverted: true);
+            sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         QueueRedraw();
     }
 

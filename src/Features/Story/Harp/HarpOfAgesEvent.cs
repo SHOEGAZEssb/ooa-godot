@@ -104,7 +104,8 @@ internal sealed class HarpOfAgesEvent :
             treasure.Message,
             "harpOfAgesSpawner.s:@state0",
             SpawnMode: TreasureSpawnMode.Instant,
-            GrabMode: TreasureGrabMode.TwoHands);
+            GrabMode: TreasureGrabMode.TwoHands,
+            SourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         _harp = _context.Entities.Spawn<GroundTreasurePickup>(
             new GroundTreasureSpawn(pickupRecord));
         _harpPosition = _harp.Position;

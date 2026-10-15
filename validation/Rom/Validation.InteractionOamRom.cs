@@ -7,6 +7,53 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void CompareInteractionSpritePixelsRom(SomariaRom rom, Texture2D texture,
+        Vector2 drawOffset, int slot, int expectedCells, string context)
+    {
+        // Decode executed native VRAM/OAM/palettes independently of the
+        // imported PNG, animation definitions and grayscale metadata.
+        var native = rom.CreateMenuView();
+        var source = ValidationRom.LoadCleanUs();
+        int address = 0x14 * 0x4000 + rom.Word(slot + 0x1e) - 0x4000;
+        FailIf(source.Span[address] != expectedCells, context + $": expected {expectedCells} native OBJ cells.");
+        using Image actual = texture.GetImage();
+        int width = actual.GetWidth(), height = actual.GetHeight();
+        var expected = new Color[width * height];
+        for (int cell = expectedCells - 1; cell >= 0; cell--)
+        {
+            int row = address + 1 + cell * 4;
+            int flags = source.Span[row + 3] ^ rom[slot + 0x1c];
+            int tile = (source.Span[row + 2] + rom[slot + 0x1d]) & 0xfe;
+            int originX = unchecked((sbyte)source.Span[row + 1]) - 8 - (int)drawOffset.X;
+            int originY = unchecked((sbyte)source.Span[row]) - 16 - (int)drawOffset.Y;
+            FailIf(originX < 0 || originX + 8 > width || originY < 0 || originY + 16 > height,
+                context + ": runtime texture bounds/offset clip native OAM.");
+            for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                int sourceY = (flags & 0x40) == 0 ? y : 15 - y;
+                int bit = (flags & 0x20) == 0 ? 7 - x : x;
+                int gfx = 0x8000 + tile * 16 + sourceY * 2;
+                int bank = flags >> 3 & 1;
+                int shade = (native.MapGfx(bank, gfx) >> bit & 1) |
+                    (native.MapGfx(bank, gfx + 1) >> bit & 1) << 1;
+                if (shade == 0) continue;
+                int rgb = native.HudColor(true, flags & 7, shade);
+                expected[(originY + y) * width + originX + x] =
+                    new Color((rgb & 31) / 31f, (rgb >> 5 & 31) / 31f, (rgb >> 10 & 31) / 31f);
+            }
+        }
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            Color pixel = actual.GetPixel(x, y), wanted = expected[y * width + x];
+            FailIf(Math.Abs(pixel.A - wanted.A) > 1f / 255 || wanted.A != 0 &&
+                (Math.Abs(pixel.R - wanted.R) > 1f / 255 || Math.Abs(pixel.G - wanted.G) > 1f / 255 ||
+                 Math.Abs(pixel.B - wanted.B) > 1f / 255),
+                context + $": pixel ({x},{y})={pixel}, clean-US OBJ={wanted}.");
+        }
+    }
+
     private void CompareInteractionPalettePixelsRom(SomariaRom rom, NpcCharacter actor, int paletteIndex, string context)
     {
         var palette = rom.CreateMenuView();

@@ -4,6 +4,8 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class PartId
 {
+    // constants/common/parts.s: PART_RESPAWNABLE_BUSH
+    public const int RespawnableBush = 0x0f;
     // constants/common/parts.s: PART_OWL_STATUE
     public const int OwlStatue = 0x13;
     // constants/common/parts.s: PART_ZORA_FIRE

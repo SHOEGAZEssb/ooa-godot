@@ -63,6 +63,59 @@ public sealed partial class ValidationRoot
             FailIf(_entities.Entities<SlateSlotRoomEntity>().Count != 3 || _inventory.Slates != 0,
                 "Re-entry must remove the filled slate socket and preserve consumed inventory.");
         }
-        GD.Print("Validated clean-US D8 slate socket approach, missing-slate text, repeated push, tile/torch writes, inventory and re-entry.");
+        ValidateSlateTreasurePixelsRom();
+        GD.Print("Validated clean-US D8 slate socket approach, missing-slate text, repeated push, tile/torch writes, inventory, re-entry and chest/ground sprite pixels.");
+    }
+
+    private void ValidateSlateTreasurePixelsRom()
+    {
+        ReinitializeGameplayForValidation(); LoadValidationRoom(5, 0x7e);
+        _entities.Clear(); _inventory.SetScriptedEquippedItems(0, 0);
+        _player.WarpTo(new(120, 72)); _player.Face(Vector2I.Up);
+        FailIf(_collision.Collides(_player.Position) || _currentRoom.GetPackedStorageMetatile(0x27) != 0xf1,
+            "Slate chest $5:$7e must be approached from its actual south floor at tile $27.");
+        var rom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, 120, 72);
+        rom.InitializeLinkGameplay(); rom.InitializeLinkWalkingAnimation(); rom[0xcc39] = 8;
+        var graphics = rom.CreateMenuView();
+        graphics.EnableVramDmaTransfers(); graphics.LoadHudGraphics();
+        void Step(int count = 1, bool move = false, bool press = false) => StepGameplayUpdates(count,
+            move ? Vector2.Up : Vector2.Zero, press ? ["attack"] : [], press ? ["attack"] : [],
+            afterUpdate: () => {
+                rom.UpdateGameplay(press ? 1 : 0, (move ? 0x40 : 0) | (press ? 1 : 0),
+                    move ? 0 : 0xff, _entities.FrameCounter);
+                press = false; rom.AdvanceTileGraphics();
+                CompareSomariaMotionRom(rom, "Slate chest $5:$7e");
+                FailIf(_inventory.Slates != rom[WramAddress.wNumSlates], "Slate chest grant differs from ROM.");
+            });
+        Step(2);
+        for (int walk = 0; _player.Position.Y > 50 && walk < 40; walk++) Step(move: true);
+        Step(12, move: true); Step(press: true); Step(8);
+        void CheckPixels(string context)
+        {
+            var reward = _interactions.ChestReward;
+            FailIf(reward is null || reward.VisualGraphic != 0x50 || rom[0xd042] != 0x50 ||
+                reward.RewardTexture.GetSize() != new Vector2I(8, 16),
+                context + ": TREASURE_SLATE $4b must select graphic $50 with one 8x16 OBJ cell.");
+            CompareInteractionSpritePixelsRom(rom, reward!.RewardTexture,
+                SomariaPrivate<Vector2>(reward, "_textureOffset"), 0xd040, 1, context);
+        }
+        CheckPixels("Rising Slate");
+        for (int wait = 0; !_dialogue.IsOpen && wait < 40; wait++) Step();
+        FailIf(!_dialogue.IsOpen || _inventory.Slates != 1 ||
+            !_saveData.HasRoomFlag(5, 0x7e, OracleSaveData.RoomFlagItem),
+            "Slate chest must grant exactly one slate and preserve its item flag.");
+        CheckPixels("Held Slate");
+
+        // The shared ground-pickup path must retain the same source metadata.
+        // Rendering needs no synthetic interaction or alternate room gameplay.
+        var request = new GroundTreasureGrantRequest(5, 0x7e, 0, 40, 120,
+            "TREASURE_OBJECT_SLATE_00", "Slate sprite regression");
+        using var ground = new GroundTreasurePickup();
+        ground.Initialize(request.Resolve(_treasures), static _ => { });
+        CompareInteractionSpritePixelsRom(rom, SomariaPrivate<Texture2D>(ground, "_texture"),
+            SomariaPrivate<Vector2>(ground, "_textureOffset"), 0xd040, 1, "Ground Slate visual");
+        _dialogue.Close(); rom[0xcba0] = 0; Step(3); Step(press: true);
+        FailIf(_interactions.ChestRewardActive || _inventory.Slates != 1,
+            "An opened Slate chest must not grant again.");
     }
 }

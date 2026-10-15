@@ -3,6 +3,35 @@ $project = Split-Path $importRoot -Parent
 $destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(
     $OutputDirectory)
 
+function Find-ImportSpriteSource([string]$name) {
+    $source = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
+        ForEach-Object {
+            Get-ChildItem $_.FullName -Recurse -File -Filter "$name.png"
+        } |
+        Select-Object -First 1
+    if ($null -eq $source) { throw "Sprite not found: $name.png" }
+    return $source
+}
+
+function Get-ImportSpriteSourceGrayscaleInverted([string]$name) {
+    $source = Find-ImportSpriteSource $name
+    # tools/gfx/gfx.py defaults spr_* to invert:true; sibling .properties
+    # files can reverse the source color IDs for any consumer of the sheet.
+    $inverted = $source.BaseName.StartsWith('spr_', [StringComparison]::Ordinal)
+    $propertiesPath = [IO.Path]::ChangeExtension($source.FullName, '.properties')
+    if (Test-Path -LiteralPath $propertiesPath) {
+        $invertMatch = [regex]::Match((Read-ImportText $propertiesPath),
+            '(?im)^\s*invert:\s*(?<value>\S+)\s*$')
+        if ($invertMatch.Success) {
+            $value = $invertMatch.Groups['value'].Value
+            if (-not [bool]::TryParse($value, [ref]$inverted)) {
+                throw "Sprite $name has invalid invert property: $value"
+            }
+        }
+    }
+    return $inverted
+}
+
 if (-not (Test-Path -LiteralPath $Disassembly -PathType Container)) {
     throw "Disassembly root not found: $Disassembly"
 }
