@@ -381,6 +381,7 @@ $commonEnemySprites = @{
     0x4d = @($gfxNames[0x8c])
 }
 $commonEnemySpecs = @(
+    @(0x0d, 0x00), @(0x0d, 0x01),
     @(0x54, 0x00),
     @(0x7c, 0x00),
     @(0x74, 0x00), @(0x74, 0x01),
@@ -473,7 +474,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations`t$($definition.RawDamage.ToString('x2'))")
 }
-if ($commonEnemyRows.Count -ne 94 -or
+if ($commonEnemyRows.Count -ne 96 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^74\t0[01]\tspr_smasher\t0\t3\t1\t6\t6\t2\t5\t'
     }).Count -ne 2 -or
@@ -1505,6 +1506,8 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '25:00' = 'goponga-flower'
     '0c:00' = 'arrow-moblin'
     '0c:01' = 'arrow-moblin'
+    '0d:00' = 'lynel'
+    '0d:01' = 'lynel'
     '21:00' = 'arrow-darknut'
     '21:01' = 'arrow-darknut'
     '2d:00' = 'podoboo-tower'
@@ -1595,7 +1598,7 @@ foreach ($subid in @(0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x0a,0x0b,0x0c,0x82,0x83
     $orderedEnemyImplementationHandlers['54:' + $subid.ToString('x2')] = 'ambi-guard'
 }
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 128 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 130 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1666,9 +1669,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 789 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 801 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 32) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 20) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -2845,6 +2848,26 @@ function Export-WizzrobeProjectileData {
     Write-GeneratedTable((Join-Path $destination 'effects/wizzrobe_projectile.tsv'), $rows)
 }
 Export-WizzrobeProjectileData
+function Export-LynelBeamData {
+    $bytes = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data/ages/partData.s') 'partData' '.db')[0x1b]).Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if (($bytes -join ',') -ne '149,239,34,250,64,26,5,0') { throw 'PART_LYNEL_BEAM $1b properties changed.' }
+    $labels = $zoraPartTables['part1bAnimations']
+    $pointers = $zoraPartPointers['part1bOamDataPointers']
+    if ($labels.Count -ne 5 -or $pointers.Count -ne 4) { throw 'PART$1b directional animation/OAM contract changed.' }
+    $rows = @("# animation-index`tsprite`ttile-base`tpalette`tsource-grayscale-inverted`tanimation`tsource")
+    for ($index = 0; $index -lt 4; $index++) {
+        $frames = @($zoraPartFrames[$labels[$index]].Frames)
+        if ($frames.Count -ne 1 -or $frames[0].Parameter -ne 0) { throw "PART$1b pose $index must remain one held frame." }
+        $frame = $frames[0]
+        $pointer = [int]($frame.PointerOffset / 2)
+        if ($pointer -ge $pointers.Count) { throw 'PART$1b OAM pointer out of range.' }
+        $animation = "$($frame.Duration),$($frame.Parameter)@$(Resolve-Oam $partOamSource $pointers[$pointer])"
+        $rows += "$index`t$($gfxNames[$bytes[0]])`t$($bytes[5])`t$($bytes[6])`t$([int](Get-EnemySpriteSourceGrayscaleInverted $gfxNames[$bytes[0]]))`t$animation`tdata/ages/partAnimations.s:$($labels[$index])"
+    }
+    Copy-EnemySprite $gfxNames[$bytes[0]]
+    Write-GeneratedTable((Join-Path $destination 'effects/lynel_beam.tsv'), $rows)
+}
+Export-LynelBeamData
 function Export-CandleFlameData {
     $labels = $zoraPartTables['part36Animations']
     $pointers = $zoraPartPointers['part36OamDataPointers']
@@ -5618,8 +5641,39 @@ $pincerBits = ($seedActiveRows[0x45].Operands -join '').Replace('%','')
 if ($pincerBits -notmatch '^[01]{32}$') { throw 'ENEMY_PINCER $45 requires 32 collision mask bits.' }
 Add-EnemyBehaviorProfile 'pincer' 'collision-mask' @($pincerBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/enemyActiveCollisions.s:enemy$45'
 Add-EnemyBehaviorProfile 'pincer' 'effects' @(0..31 | ForEach-Object {$enemyCollisionTableValues[0x34*32+$_]}) 'data/ages/objectCollisionTable.s:ENEMYCOLLISION_PINCER$34'
-if ($enemyBehaviorRows.Count -ne 3125) {
-    throw "Expected 3124 enemy behavior-table rows, got " +
+$lynelSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/enemies/lynel.s')
+foreach ($pattern in @(
+    '@var30Vals:\s+\.db \$07 \$03 \$01',
+    '@state_08:.*?ld c,\$30.*?ecom_randomBitwiseAndBCE.*?or b',
+    '@changeDirection:.*?ld \(hl\),\$09.*?ld a,\$30.*?add c',
+    '@prepareProjectile:.*?ld \(hl\),\$0a.*?ld \(hl\),\$08.*?ecom_updateCardinalAngleTowardTarget',
+    '@state_09:.*?ecom_decCounter1.*?jr z,@gotoState8.*?ecom_applyVelocityForSideviewEnemyNoHoles.*?jr z,@updateAngleAndSpeed',
+    '@state_0a:.*?ecom_decCounter1.*?PART_LYNEL_BEAM.*?ecom_spawnProjectile.*?jr nz,@gotoState8.*?getRandomNumber_noPreserveVars.*?and \$30.*?add \$30.*?SPEED_80',
+    '@updateAngleAndSpeed:.*?@chooseNewAngle.*?ld b,\$0e.*?objectCheckCenteredWithLink.*?SPEED_100.*?ld b,\$04.*?SPEED_80.*?ld b,\$00',
+    '@state_scentSeed:.*?wScentSeedActive.*?@gotoState8.*?ecom_updateAngleToScentSeed.*?add \$04.*?and \$18.*?ld b,\$04.*?ecom_applyVelocityForSideviewEnemy',
+    '@chooseNewAngle:.*?getRandomNumber_noPreserveVars.*?and \(hl\).*?jp nz,ecom_setRandomCardinalAngle.*?jp ecom_updateCardinalAngleTowardTarget'
+)) { if ($lynelSource -notmatch "(?s)$pattern") { throw "lynel.s: unsupported state contract: $pattern" } }
+Add-EnemyBehaviorProfile 'lynel' 'turn-masks' @(7,3,1) 'object_code/common/enemies/lynel.s:@var30Vals'
+Add-EnemyBehaviorProfile 'lynel' 'state' @(0x30,0x30,8,$enemySpeedCodes['SPEED_80'],$enemySpeedCodes['SPEED_100'],14,4) 'object_code/common/enemies/lynel.s:state-operands'
+$lynelBits = ($seedActiveRows[0x0d].Operands -join '').Replace('%','')
+if ($lynelBits -notmatch '^[01]{32}$') { throw 'ENEMY_LYNEL $0d collision mask malformed.' }
+Add-EnemyBehaviorProfile 'lynel' 'active-collisions' @($lynelBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/enemyActiveCollisions.s:enemy$0d'
+Add-EnemyBehaviorProfile 'lynel' 'effects' @(0..31 | ForEach-Object {$enemyCollisionTableValues[0x12*32+$_]}) 'data/ages/objectCollisionTable.s:mode$12'
+$beamSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/parts/lynelBeam.s')
+if ($beamSource -notmatch '(?s)res 7,a.*?cp \$04.*?jp c,partDelete.*?objectCheckWithinScreenBoundary.*?objectApplySpeed.*?wFrameCounter.*?and \$03.*?xor \$07' -or
+    $beamSource -notmatch '(?s)ld \(hl\),\$78.*?partCommon_setPositionOffsetAndRadiusFromAngle.*?partSetAnimation.*?objectSetVisible81') { throw 'lynelBeam.s: hit/boundary/speed/palette contract changed.' }
+Add-EnemyBehaviorProfile 'lynel-beam' 'part-data' @(149,239,34,250,64,26,5,0) 'data/ages/partData.s:PART$1b'
+Add-EnemyBehaviorProfile 'lynel-beam' 'state' @(0x78,3,7,0x81) 'object_code/common/parts/lynelBeam.s:operands'
+$partCommonSource = Read-ImportText (Join-Path $Disassembly 'object_code/common/parts/commonCode.s')
+$beamOffsets = @(Read-EnemyBehaviorValues ((Get-AssemblyLabelBody $partCommonSource 'partCommon_setPositionOffsetAndRadiusFromAngle')) $true)
+if (($beamOffsets -join ',') -ne '-8,-5,6,3,2,8,3,6,8,5,6,3,2,-8,3,6') { throw 'PART cardinal position/radius table changed.' }
+Add-EnemyBehaviorProfile 'lynel-beam' 'offsets' $beamOffsets 'object_code/common/parts/commonCode.s:partCommon_setPositionOffsetAndRadiusFromAngle@data'
+$beamBits = ((@(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')[0x1b]).Operands -join '').Replace('%','')
+if ($beamBits -notmatch '^[01]{32}$') { throw 'PART$1b active mask malformed.' }
+Add-EnemyBehaviorProfile 'lynel-beam' 'active-collisions' @($beamBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/partActiveCollisions.s:PART$1b'
+Add-EnemyBehaviorProfile 'lynel-beam' 'effects' @(0..31 | ForEach-Object {$enemyCollisionTableValues[0x6f*32+$_]}) 'data/ages/objectCollisionTable.s:mode$6f'
+if ($enemyBehaviorRows.Count -ne 3291) {
+    throw "Expected 3290 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

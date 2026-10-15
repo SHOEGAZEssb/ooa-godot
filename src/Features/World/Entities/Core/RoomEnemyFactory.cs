@@ -332,6 +332,13 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 darknut.Initialize(darknutRecord, room, position, _random);
                 return new ArrowDarknutRoomEntity(darknut, combatSource, owner.OnSoundRequested);
 
+            case EnemyHandlerKind.Lynel:
+                if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition lynelRecord))
+                    throw MissingEnemyDefinition(handler, source);
+                var lynel = new LynelCharacter { Name = $"Lynel_{source.Order}_{instance}", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
+                lynel.Initialize(lynelRecord, room, position, _random);
+                return new LynelRoomEntity(lynel, combatSource, owner);
+
             case EnemyHandlerKind.PodobooTower:
                 if (!enemies.TryGetImportedEnemyDefinition(source, out ImportedEnemyDefinition towerRecord))
                     throw MissingEnemyDefinition(handler, source);

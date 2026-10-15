@@ -2679,7 +2679,7 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) ? 0 :
         entity is NayruRescueLightningRoomEntity ? 1 :
-        entity is PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
+        entity is LynelBeamRoomEntity or PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
             or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity

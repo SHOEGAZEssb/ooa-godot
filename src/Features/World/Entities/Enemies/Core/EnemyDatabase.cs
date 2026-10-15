@@ -22,6 +22,7 @@ public sealed class EnemyDatabase
     public EnemyArrowRecord EnemyArrow { get; }
     internal EnemyProjectileVisualRecord MoblinBoomerang { get; }
     internal EnemyProjectileVisualRecord WizzrobeProjectile { get; }
+    internal EnemyProjectileVisualRecord LynelBeam { get; }
     internal EnemyProjectileVisualRecord CandleFlame { get; }
     internal EnemyProjectileVisualRecord VireProjectile { get; }
     public GelDefinition Gel { get; }
@@ -95,7 +96,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 93 ||
+        if (_importedDefinitions.Count != 95 ||
             ImportedEnemy(EnemyId.LikeLike) is not
                 { Health: 5, DamageQuarters: 2, RadiusY: 6, RadiusX: 6,
                     TileBase: 12, Palette: 3, Animations.Length: 2 } ||
@@ -225,6 +226,22 @@ public sealed class EnemyDatabase
                 "Imported common-enemy contract is incomplete.");
         }
 
+        var beamPoses = GeneratedTable.Load("res://assets/oracle/effects/lynel_beam.tsv",
+            new GeneratedTableSchema("PART_LYNEL_BEAM $1b", GeneratedTableKeySemantics.Unique,
+                ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
+                ["animation-index"], headerRequired: true));
+        if (beamPoses.Rows.Count != 4) throw new InvalidOperationException("PART$1b requires four directional poses.");
+        var firstBeam = beamPoses.Rows[0];
+        string[] beamAnimations = new string[4];
+        for (int i = 0; i < 4; i++)
+        {
+            var row = beamPoses.Rows[i];
+            if (row.UnsignedDecimal(0) != i || row.RequiredString(1) != firstBeam.RequiredString(1) ||
+                row.UnsignedDecimal(2) != 26 || row.UnsignedDecimal(3) != 5 || row.Boolean01(4) != firstBeam.Boolean01(4))
+                throw row.Invalid(0, "ordered PART$1b directional pose with source graphics");
+            beamAnimations[i] = row.RequiredString(5);
+        }
+        LynelBeam = new([firstBeam.RequiredString(1)], 26, 5, firstBeam.Boolean01(4), beamAnimations);
         var wizzrobePoses = GeneratedTable.Load("res://assets/oracle/effects/wizzrobe_projectile.tsv",
             new GeneratedTableSchema("PART_WIZZROBE_PROJECTILE $1f", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
@@ -889,6 +906,7 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),
         EnemyHandlerKind.GopongaFlower => HasImportedDefinition(descriptor, 0x25),
         EnemyHandlerKind.ArrowDarknut => HasImportedDefinition(descriptor, 0x21),
+        EnemyHandlerKind.Lynel => HasImportedDefinition(descriptor, EnemyId.Lynel),
         EnemyHandlerKind.PodobooTower => HasImportedDefinition(descriptor, 0x2d),
         EnemyHandlerKind.BuzzBlob => HasImportedDefinition(descriptor, 0x18),
         EnemyHandlerKind.Octorok =>

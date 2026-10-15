@@ -245,6 +245,11 @@ internal readonly record struct EnemyCombatSourceDescriptor(
                 EnemyKnockbackStrength.Normal,
                 LinkInvincibilityFrames: 0x0f,
                 LinkKnockbackFrames: 0x13),
+            // collisionEffect11 applies LINKDMG_$18 / ENEMYDMG_$18.
+            0x11 => new EnemyShieldBumpResponse(
+                EnemyKnockbackStrength.High,
+                LinkInvincibilityFrames: 0x16,
+                LinkKnockbackFrames: 0x19),
             _ => null
         };
     }
@@ -260,6 +265,7 @@ internal readonly record struct EnemyCombatSourceDescriptor(
             (EnemyHandlerKind.RiverZora, 0x0f) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.PodobooTower, 0x0f) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.ArrowDarknut, 0x20) => EnemySwordResponse.Knockback,
+            (EnemyHandlerKind.Lynel, 0x12) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.SwordEnemy, 0x20) => EnemySwordResponse.Knockback,
             (EnemyHandlerKind.GopongaFlower, 0x23) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.BuzzBlob, 0x1b) => EnemySwordResponse.ElectricShock,

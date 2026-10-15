@@ -1056,6 +1056,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSymmetryEnemies);
         RunIsolatedValidation(ValidateCheepCheeps);
         RunIsolatedValidation(ValidateArrowDarknuts);
+        RunIsolatedValidation(ValidateLynelRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLynelGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLynelCombatRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLynelPlacementsAndContacts);
         RunIsolatedValidation(ValidatePodobooTowers);
         RunIsolatedValidation(ValidateHostileProjectileLifecycle);
         RunIsolatedValidation(ValidateEnemyShieldBumps);

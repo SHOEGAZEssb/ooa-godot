@@ -4,6 +4,8 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class EnemyId
 {
+    // constants/common/enemies.s: ENEMY_LYNEL
+    public const int Lynel = 0x0d;
     // constants/common/enemies.s: ENEMY_VIRE
     public const int Vire = 0x75;
     // constants/ages/enemies.s: ENEMY_CANDLE

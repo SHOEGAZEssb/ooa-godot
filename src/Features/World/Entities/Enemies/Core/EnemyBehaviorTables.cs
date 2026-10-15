@@ -15,6 +15,15 @@ internal sealed class EnemyBehaviorTables
         new(static () => new EnemyBehaviorTables());
 
     internal static EnemyBehaviorTables Shared => LazyShared.Value;
+    internal IReadOnlyList<EnemyBehaviorValue> LynelState { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> LynelTurnMasks { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> LynelActiveCollisions { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> LynelEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> LynelBeamData { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> LynelBeamState { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> LynelBeamOffsets { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> LynelBeamActiveCollisions { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> LynelBeamEffects { get; }
     internal IReadOnlyList<EnemyBehaviorValue> Gibdo { get; }
     internal BeamosBehaviorProfile Beamos { get; }
     internal FireballShooterBehaviorProfile FireballShooter { get; }
@@ -430,6 +439,15 @@ internal sealed class EnemyBehaviorTables
         IronMaskCollisionMask = TakeValues(groups,"iron-mask","collision-mask",32);
         IronMaskMaskedEffects = TakeValues(groups,"iron-mask","effects-1d",32);
         IronMaskUnmaskedEffects = TakeValues(groups,"iron-mask","effects-53",32);
+        LynelState = TakeValues(groups,"lynel","state",7);
+        LynelTurnMasks = TakeValues(groups,"lynel","turn-masks",3);
+        LynelActiveCollisions = TakeValues(groups,"lynel","active-collisions",32);
+        LynelEffects = TakeValues(groups,"lynel","effects",32);
+        LynelBeamData = TakeValues(groups,"lynel-beam","part-data",8);
+        LynelBeamState = TakeValues(groups,"lynel-beam","state",4);
+        LynelBeamOffsets = TakeValues(groups,"lynel-beam","offsets",16);
+        LynelBeamActiveCollisions = TakeValues(groups,"lynel-beam","active-collisions",32);
+        LynelBeamEffects = TakeValues(groups,"lynel-beam","effects",32);
         PincerState=TakeValues(groups,"pincer","state",9);
         PincerCollisionMask=TakeValues(groups,"pincer","collision-mask",32);
         PincerEffects=TakeValues(groups,"pincer","effects",32);
@@ -786,10 +804,10 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "vire", "behaviors", 16), TakeValues(groups, "vire", "spawn-positions", 24),
             TakeValues(groups, "vire", "bat-z", 8), TakeValues(groups, "vire", "bat-offsets", 2),
             TakeValues(groups, "vire", "collision-effects", 32), TakeValues(groups, "vire", "active-collisions", 32));
-        if (table.Rows.Count != 3124 || groups.Count != 0)
+        if (table.Rows.Count != 3290 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 3124 rows and no " +
+                $"Enemy behavior table contract expected 3290 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

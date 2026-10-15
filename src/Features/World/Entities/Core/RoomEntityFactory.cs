@@ -2861,6 +2861,7 @@ internal sealed class RoomEntityFactory
         WizzrobeProjectileSpawn shot => new WizzrobeProjectileRoomEntity(
             new WizzrobeProjectile(enemies.WizzrobeProjectile, room, _runtimeState,
                 shot.Position, shot.Angle, shot.ZHigh), () => -owner.ToScreen(Vector2.Zero), owner.OnSoundRequested),
+        LynelBeamSpawn shot => new LynelBeamRoomEntity(enemies.LynelBeam, shot, owner),
         SwordBeamClinkSpawn clink => CreateSwordBeamClink(clink),
         SwordWallClinkSpawn clink => CreateSwordWallClink(clink),
         EnemyClinkSpawn clink => CreateEnemyClink(clink),
