@@ -111,7 +111,7 @@ public sealed partial class ValidationRoot
             enemyData.ImportedEnemy(EnemyId.Ghini) is not { Health: 10, DamageQuarters: 2 } ||
             enemyData.ImportedEnemy(EnemyId.Wallmaster) is not { Health: 5, DamageQuarters: 2 } ||
             !enemyData.TryGetImportedEnemyDefinition(fallingRope, out _) ||
-            enemyData.TryGetImportedEnemyDefinition(linkedGhini, out _) ||
+            !enemyData.TryGetImportedEnemyDefinition(linkedGhini, out _) ||
             bosses.Enemy(EnemyId.GiantGhiniChild) is not
                 { Health: 2, DamageQuarters: 128, SourceGrayscaleInverted: false } ||
             bosses.Enemy(EnemyId.GiantGhini) is not

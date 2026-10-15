@@ -502,6 +502,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateAncientTombEssenceRom, requiresRom: true);
         RunIsolatedValidation(ValidateAncientTombGloveRom, requiresRom: true);
         RunIsolatedValidation(ValidateAncientTombScriptsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTargetGhiniRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTargetGhiniStairs);
         RunIsolatedValidation(ValidateAncientTombWallRom, requiresRom: true);
         RunIsolatedValidation(ValidateAncientTombSarcophagusRom, requiresRom: true);
         RunIsolatedValidation(ValidateAncientTombEnemyKeyRom, requiresRom: true);

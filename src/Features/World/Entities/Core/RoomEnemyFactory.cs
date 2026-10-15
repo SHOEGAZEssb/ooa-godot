@@ -575,6 +575,13 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                     swordEnemy, combatSource, owner.OnSoundRequested, () => owner.PartSlotAvailable, () => _random.Next().Value);
 
             case EnemyHandlerKind.Ghini:
+                if (source.SubId == 2)
+                {
+                    var targetGhini = new TargetGhiniCharacter { Name = $"Ghini_{source.SubId:x2}_{source.Order}_{instance}" };
+                    targetGhini.Initialize(enemies.ImportedEnemy(EnemyId.Ghini, 2), room, position, _random, _runtimeState);
+                    return new TargetGhiniRoomEntity(targetGhini, combatSource, owner.OnSoundRequested,
+                        () => _random.Next().Value, () => owner.PartSlotAvailable);
+                }
                 if (!enemies.TryGetImportedEnemyDefinition(
                     source, out ImportedEnemyDefinition ghiniRecord))
                 {

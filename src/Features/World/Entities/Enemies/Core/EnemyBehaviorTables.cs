@@ -114,6 +114,7 @@ internal sealed class EnemyBehaviorTables
     internal MoldormBehaviorProfile Moldorm { get; }
     internal IReadOnlyList<EnemyBehaviorValue> MoldormCollisionEffects { get; }
     internal GhiniBehaviorProfile Ghini { get; }
+    internal TargetGhiniBehaviorProfile TargetGhini { get; }
     internal StalfosBehaviorProfile Stalfos { get; }
     internal HardhatBeetleBehaviorProfile HardhatBeetle { get; }
     internal SpikedBeetleBehaviorProfile SpikedBeetle { get; }
@@ -541,6 +542,11 @@ internal sealed class EnemyBehaviorTables
             values[1].Value,
             values[2].Value,
             values);
+        TargetGhini = new(TakeValues(groups, "target-ghini", "state-profile", 12),
+            TakeValues(groups, "target-ghini", "collision-effects", 32),
+            TakeValues(groups, "target-ghini", "active-collisions", 32),
+            TakeValues(groups, "target-ghini", "seed-status-2c", 4),
+            TakeValues(groups, "target-ghini", "seed-status-38", 4));
 
         values = TakeValues(groups, "stalfos", "state-profile", 7);
         Stalfos = new(values[0].Value, values[1].Value, values[2].Value,
@@ -804,10 +810,10 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "vire", "behaviors", 16), TakeValues(groups, "vire", "spawn-positions", 24),
             TakeValues(groups, "vire", "bat-z", 8), TakeValues(groups, "vire", "bat-offsets", 2),
             TakeValues(groups, "vire", "collision-effects", 32), TakeValues(groups, "vire", "active-collisions", 32));
-        if (table.Rows.Count != 3290 || groups.Count != 0)
+        if (table.Rows.Count != 3374 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 3290 rows and no " +
+                $"Enemy behavior table contract expected 3374 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

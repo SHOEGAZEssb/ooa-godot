@@ -407,7 +407,7 @@ $commonEnemySpecs = @(
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00), @(0x0c, 0x01),
     @(0x10, 0x00), @(0x10, 0x01), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
     @(0x51, 0x02), @(0x51, 0x03),
-    @(0x14, 0x00), @(0x17, 0x00), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
+    @(0x14, 0x00), @(0x17, 0x00), @(0x17, 0x02), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
     @(0x1a, 0x00), @(0x22, 0x00), @(0x22, 0x01), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x30, 0x00), @(0x30, 0x01), @(0x30, 0x02),
@@ -474,7 +474,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations`t$($definition.RawDamage.ToString('x2'))")
 }
-if ($commonEnemyRows.Count -ne 96 -or
+if ($commonEnemyRows.Count -ne 97 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^74\t0[01]\tspr_smasher\t0\t3\t1\t6\t6\t2\t5\t'
     }).Count -ne 2 -or
@@ -1533,6 +1533,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '13:00' = 'spark'
     '14:00' = 'spiked-beetle'
     '17:00' = 'ghini'
+    '17:02' = 'ghini'
     '19:00' = 'whisp'
     '1a:00' = 'sand-crab'
     '1b:01' = 'spiny-beetle'
@@ -1598,7 +1599,7 @@ foreach ($subid in @(0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x0a,0x0b,0x0c,0x82,0x83
     $orderedEnemyImplementationHandlers['54:' + $subid.ToString('x2')] = 'ambi-guard'
 }
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 130 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 131 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1669,9 +1670,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 123 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 801 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 804 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 20) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 17) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -4525,6 +4526,26 @@ Add-EnemyBehaviorProfile 'ghini' 'state-profile' `
     @(0x14, 0x30, 0x7f) `
     'object_code/common/enemies/ghini.s:ghini_subid00'
 
+$targetGhiniSource = $ghiniCodeSource -replace '(?m);[^\r\n]*',''
+foreach ($pattern in @(
+    '^enemyCode17:.*?ENEMYSTATUS_NO_HEALTH.*?ecom_updateKnockbackNoSolidity.*?@stunned:.*?Enemy.stunCounter.*?ret nz.*?Enemy.zh\s+ld a,\$fe',
+    '^@state_uninitialized:\s+ld a,SPEED_80\s+call ecom_setSpeedAndState8\s+ld l,Enemy.zh\s+ld \(hl\),\$fe.*?objectSetVisiblec1',
+    '^ghini_subid02:.*?@state8:.*?inc \(hl\).*?ld \(hl\),SPEED_40.*?ld \(hl\),\$24\s+call ghini_chooseTargetPosition\s+@state9:\s+call ecom_decCounter1.*?jr @stateA.*?and \$07.*?add SPEED_20',
+    '^ghini_subid02:.*?@stateA:.*?Enemy.var30\s+call ecom_readPositionVars\s+sub c\s+inc a\s+cp \$03.*?ldh a,\(<hFF8F\)\s+sub b\s+inc a\s+cp \$03.*?ld \(hl\),\$0b.*?ld \(hl\),\$1c\s+jr @stateB.*?call ecom_moveTowardPosition\s+call ghini_updateAnimationFromAngle.*?jp enemyAnimate',
+    '^ghini_subid02:.*?@stateB:\s+call ecom_decCounter1\s+jr z,@gotoState8.*?and \$07.*?sub SPEED_20.*?call objectApplySpeed.*?@gotoState8:.*?ld \(hl\),\$08\s+jr @state8',
+    '^ghini_chooseTargetPosition:\s+ldbc \$70,\$70\s+call ecom_randomBitwiseAndBCE\s+ld a,b\s+sub \$20\s+jr nc,\+\s+xor a.*?wRoomEdgeY.*?srl a\s+add b\s+sub \$28.*?srl a\s+add c\s+sub \$38.*?Enemy.var30\s+ld \(hl\),b\s+inc l\s+ld \(hl\),c'
+)) {
+    if ($targetGhiniSource -notmatch ('(?ms)' + $pattern)) { throw "ghini.s: unsupported ENEMY`$17:`$02 source flow: $pattern" }
+}
+Add-EnemyBehaviorProfile 'target-ghini' 'state-profile' @(0x14,0x0a,0x05,0x24,0x1c,7,0x70,0x20,0x28,0x38,-0x200,3) `
+    'object_code/common/enemies/ghini.s:state_uninitialized/ghini_subid02/ghini_chooseTargetPosition'
+Add-EnemyBehaviorProfile 'target-ghini' 'collision-effects' @(0..31 | ForEach-Object { $enemyCollisionTableValues[0x1a * 32 + $_] }) `
+    'data/ages/objectCollisionTable.s:objectCollisionTable+$0340'
+$bits = ($seedActiveRows[0x17].Operands -join '').Replace('%', '')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY_GHINI $17 requires 32 collision mask bits.' }
+Add-EnemyBehaviorProfile 'target-ghini' 'active-collisions' @($bits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions/$17'
+
 $stalfosCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\stalfos.s')
 if ($stalfosCodeSource -notmatch
@@ -4919,6 +4940,7 @@ foreach ($damage in @('2c', '38')) {
     $values = @($row.Groups['bytes'].Value.Trim() -split '\s+' | ForEach-Object { Convert-AssemblyInteger $_ })
     if ($values.Count -ne 4) { throw "Malformed Wizzrobe ENEMYDMG_$damage status." }
     Add-EnemyBehaviorProfile 'wizzrobe' "seed-status-$damage" $values "code/collisionEffects.s:ENEMYDMG_$damage"
+    Add-EnemyBehaviorProfile 'target-ghini' "seed-status-$damage" $values "code/collisionEffects.s:ENEMYDMG_$damage"
 }
 $partCode = Read-ImportText (Join-Path $Disassembly 'object_code/common/parts/wizzrobeProjectile.s')
 if ($partCode -notmatch '(?ms)^partCode1f:.*?jr nz,@normalStatus.*?objectCheckWithinScreenBoundary.*?partCommon_checkTileCollisionOrOutOfBounds.*?jp nc,objectApplySpeed.*?partDelete.*?func_5369:.*?ld \(hl\),\$50.*?swap a\s+rlca\s+call partSetAnimation\s+jp objectSetVisible81') { throw 'PART$1f initialization, motion or collision deletion changed.' }
@@ -5679,8 +5701,8 @@ $beamBits = ((@(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages
 if ($beamBits -notmatch '^[01]{32}$') { throw 'PART$1b active mask malformed.' }
 Add-EnemyBehaviorProfile 'lynel-beam' 'active-collisions' @($beamBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/partActiveCollisions.s:PART$1b'
 Add-EnemyBehaviorProfile 'lynel-beam' 'effects' @(0..31 | ForEach-Object {$enemyCollisionTableValues[0x6f*32+$_]}) 'data/ages/objectCollisionTable.s:mode$6f'
-if ($enemyBehaviorRows.Count -ne 3291) {
-    throw "Expected 3290 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 3375) {
+    throw "Expected 3374 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

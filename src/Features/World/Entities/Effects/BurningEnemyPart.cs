@@ -41,17 +41,21 @@ internal partial class BurningEnemyPart : TransitionOffsetNode2D
             _targetId = _target.BurnTargetId;
             _oldHealth = _target.BurnHealth;
             _target.BurnHealth = 1;
-            _z = _target.BurnZFixed;
+            // objectTakePosition copies high bytes; the cleared PART keeps
+            // its own Z fraction, independently of the stunned enemy.
+            _z = _target.BurnZFixed & ~255;
             Visible = true;
         }
         if (_target.BurnTargetId != _targetId) { Finish(); return; }
-        if (OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, _gravity) && _speedZ >= 256)
-            _speedZ = -_speedZ >> 1;
-        // The part writes only the enemy's high Z, then objectTakePosition
-        // copies that full position back, retaining the target's fraction.
+        if (OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, _gravity))
+        {
+            int bounce = unchecked((short)-_speedZ) >> 1;
+            if ((ushort)bounce <= 0xff80 || bounce == 0) _speedZ = bounce;
+        }
+        // flame.s writes only the enemy's high Z. objectTakePosition then
+        // copies high bytes back without replacing either object's fraction.
         _target.BurnZFixed = (_z & ~255) | (_target.BurnZFixed & 255);
-        _z = _target.BurnZFixed;
-        Position = _target.BurnPosition;
+        Position = _target.BurnPosition.Floor();
         if (--Counter == 0)
         {
             _target.BurnHealth = _oldHealth;
