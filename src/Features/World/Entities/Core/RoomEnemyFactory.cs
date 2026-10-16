@@ -125,6 +125,26 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
             return new CuccoRoomEntity(cucco);
         }
 
+        if(handler.Handler==EnemyHandlerKind.VeranFinal)
+        {
+            var world=new VeranFinalEnvironment(resources.VeranFinal,owner,room,
+                (parent,id,subid)=>
+                {
+                    if(!owner.PartSlotAvailable)return false;
+                    if(id==0x57){owner.AddEntity(new VeranAcidPoolRoomEntity(owner,resources.VeranFinal,parent.Position,rooms!.TrySetTile));return true;}
+                    if(id==0x56){owner.AddEntity(new VeranSpiderwebRoomEntity(owner,resources.VeranFinal,subid,parent.Slot,parent.Position,parent.ZFixed,parent.Angle));return true;}
+                    if(id==0x58){owner.AddEntity(new VeranBeeProjectileRoomEntity(owner,resources.VeranFinal,parent.Slot,parent.Position,parent.ZFixed));return true;}
+                    throw new NotSupportedException($"veranFinalForm.s: PART ${id:x2}:${subid:x2} continuation is not represented.");
+                },(parent,subid)=>
+                {
+                    if(owner.TryAllocateEnemy(_=>new VeranChildBeeRoomEntity(new(owner,resources.VeranFinal,subid,parent.Position,room),owner,resources.VeranFinal)) is not null)
+                        owner.OnSoundRequested(SoundId.SndBeam1);
+                },
+                parent=>owner.VeranFinalDeathFade?.Invoke(parent) ?? throw new InvalidOperationException("veranFinalForm.s: INTERAC_MISC_PUZZLES $90:$21 requires its palette owner."),
+                ()=> (owner.VeranFinalEscape??throw new InvalidOperationException("veranFinalForm.s: CUTSCENE_BLACK_TOWER_ESCAPE $09 requires its native controller."))());
+            return new VeranFinalRoomEntity(new(world,position));
+        }
+
         EnemyCombatSourceDescriptor combatSource =
             handler.CombatSource(source, killableEnemyIndex);
 

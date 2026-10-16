@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         var eyes = new TokayEntranceEyeDatabase();
         var enemies = new EnemyDatabase();
         FailIf(
-            enemies.RoomObjectRecordCount != 1145 ||
+            enemies.RoomObjectRecordCount != 1150 ||
             eyes.Eyes.Count != 2 ||
             enemies.GetRoomObjects(1, 0xba).Single(record =>
                 record.Id == 0x62) is not

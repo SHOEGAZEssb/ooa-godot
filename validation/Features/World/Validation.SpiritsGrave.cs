@@ -98,7 +98,15 @@ public sealed partial class ValidationRoot
             [6, 6, 5, 1],
             [6, 6, 5, 1],
             [6, 6, 5, 1],
-            [6, 6, 6, 1]
+            [6, 6, 6, 1],
+            [6, 6, 6, 1],
+            [6, 6, 5, 1],
+            [6, 6, 5, 1],
+            [6, 6, 5, 1],
+            [6, 6, 6, 1],
+            [6, 6, 5, 1],
+            [6, 6, 5, 1],
+            [6, 6, 5, 1]
         ];
         int nativeCount = dungeonRooms.Sum(
             room => data.GetRoomRecords(4, room).Count);
@@ -125,7 +133,7 @@ public sealed partial class ValidationRoot
                     TileBase: 0,
                     Palette: 4,
                     SourceGrayscaleInverted: false,
-                    Animations.Length: 8
+                    Animations.Length: 16
                 } ||
             energyBeadFirstOpaquePixels != 100 ||
             energyBeadAnimations.Where((animation, index) =>

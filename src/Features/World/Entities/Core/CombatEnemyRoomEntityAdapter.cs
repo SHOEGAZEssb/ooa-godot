@@ -62,7 +62,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     private bool _completedOutcomeTaken;
     private readonly GaleSeedEnemyMotion _gale = new(entity);
     private bool _nativeGaleHitPending;
-    public bool GaleCaught => _gale.Active;
+    public virtual bool GaleCaught => _gale.Active;
     protected virtual int GaleCollisionMode => DimitriCollisionMode;
 
     protected virtual bool BoomerangHitPending => Entity.NativeHitPending;
@@ -380,13 +380,9 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         Vector2 enemyPosition,
         Vector2 itemPosition)
     {
-        int enemyY = Mathf.FloorToInt(enemyPosition.Y);
-        int enemyX = Mathf.FloorToInt(enemyPosition.X);
-        int itemY = Mathf.FloorToInt(itemPosition.Y);
-        int itemX = Mathf.FloorToInt(itemPosition.X);
-        return new Vector2(
-            enemyX + ((itemX - enemyX) >> 1),
-            enemyY + ((itemY - enemyY) >> 1));
+        // collisionEffects.s:createClinkInteraction uses SUB/SRA/ADD on
+        // coordinate high bytes, including signed subtraction and wrapping.
+        return BoomerangCollisionResponse.Midpoint(enemyPosition.Floor(), itemPosition.Floor());
     }
 
     public virtual bool TryTakeEnemyOutcome(out RoomEnemyOutcome outcome)

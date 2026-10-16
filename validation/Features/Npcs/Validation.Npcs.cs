@@ -562,21 +562,21 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 75,
                 [NpcImplementationClassification.SpecializedNative] = 213,
-                [NpcImplementationClassification.EventOwned] = 125,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 48
+                [NpcImplementationClassification.EventOwned] = 128,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 46
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
                 .GroupBy(record => record.Implementation)
                 .ToDictionary(group => group.Key, group => group.Count());
         FailIf(
-            records.Count != 461 ||
+            records.Count != 462 ||
             actualCounts.Count != expectedCounts.Count ||
             expectedCounts.Any(expected =>
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "75 ordinary, 213 specialized, 125 event-owned, and 48 " +
+            "75 ordinary, 213 specialized, 128 event-owned, and 46 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -647,7 +647,7 @@ public sealed partial class ValidationRoot
             "ordinary generic adapter.");
 
         GD.Print(
-            "Validated all 461 generated NPC records have exactly one " +
+            "Validated all 462 generated NPC records have exactly one " +
             "implementation classification and non-ordinary actors cannot " +
             "enter the ordinary adapter.");
     }
@@ -832,6 +832,7 @@ public sealed partial class ValidationRoot
             "shootingGallery.s:shootingGalleryScript",
             "miscCutscenes.s:CUTSCENE_NAYRU_SINGING",
             "hardhatWorker.s:blackTowerEntrance",
+            "ralph.s:ralphSubid0c",
             "makuSprout.s:interactionCode88",
             "companionScripts.s:companionScript_subid00Script",
             "companionScripts.s:companionScript_subid03Script",
@@ -1772,7 +1773,9 @@ public sealed partial class ValidationRoot
             manager.Update(frame, _player);
         FailIf(
             !ball.Idle || ball.Position != new Vector2(0x3c, 0x4a) ||
-            ball.ZFixed != 0 || ball.SpeedZ != 0,
+            // ball.s leaves the $01c0 impact speed after the 29-update
+            // -$01c0/$20 flight; the next launch overwrites it.
+            ball.ZFixed != 0 || ball.SpeedZ != 0x1c0,
             "The boy's ball did not land at the father's original $4a/$3c " +
             "position after the exact SPEED_200/-$01c0/$20 flight.");
 

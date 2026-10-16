@@ -151,9 +151,9 @@ if ($flowerCode -notmatch '(?ms)@subid0State1:.*?Object.var3b.*?objectGetRelated
     throw 'Maku Tree related flower initialization/animation contract changed.'
 }
 $flowerSprite = $gfxNames[$flowerGraphic.Gfx]
-$flowerRows = @("# sprite`ttile-base`tpalette`tanimation0`tanimation1",
+$flowerRows = @("# sprite`ttile-base`tpalette`tanimation0`tanimation1`tanimation3",
     (@($flowerSprite, $flowerGraphic.TileBase, $flowerGraphic.Palette,
-        (Resolve-NpcAnimation 0x86 0), (Resolve-NpcAnimation 0x86 1)) -join "`t"))
+        (Resolve-NpcAnimation 0x86 0), (Resolve-NpcAnimation 0x86 1),(Resolve-NpcAnimation 0x86 3)) -join "`t"))
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\maku_tree_flower.tsv'), $flowerRows)
 $flowerSource = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
     ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$flowerSprite.png" } | Select-Object -First 1

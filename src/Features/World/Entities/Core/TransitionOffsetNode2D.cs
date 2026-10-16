@@ -14,6 +14,7 @@ public abstract partial class TransitionOffsetNode2D : Node2D
     private Func<int> _shadowSlot = static () => 0;
     private Func<bool> _shadowTransition = static () => false;
     private OracleRoomData? _shadowRoom;
+    private OracleRuntimeState _shadowMemory = null!;
     private static LinkTerrainEffectDatabase? _groundTerrainEffects;
 
     private protected LinkTerrainEffectFrame? GetGroundTerrainEffect(int? zHigh)
@@ -29,7 +30,7 @@ public abstract partial class TransitionOffsetNode2D : Node2D
         byte position = (byte)(((yh + 5) & 0xf0) | (xh >> 4));
         _groundTerrainEffects ??= new LinkTerrainEffectDatabase();
         return _groundTerrainEffects.FrameFor(
-            _shadowRoom.GetPackedStorageMetatile(position),
+            _shadowRoom.ReadNativeLayoutByte(position, _shadowMemory),
             new Vector2(xh, yh), _shadowCounter());
     }
 
@@ -49,10 +50,11 @@ public abstract partial class TransitionOffsetNode2D : Node2D
         : (-(int)_worldToScreen(Vector2.Zero).Y) & 0xff;
 
     internal void BindTerrainShadow(OracleRoomData room, Func<int> counter,
-        Func<int> slot, Func<bool> transition)
+        Func<int> slot, Func<bool> transition, OracleRuntimeState memory)
     {
         if (this is not ITerrainShadowSource) return;
         _shadowRoom = room;
+        _shadowMemory = memory;
         _shadowCounter = counter;
         _shadowSlot = slot;
         _shadowTransition = transition;

@@ -161,6 +161,7 @@ internal sealed class EnemyHandlerRegistry
         int column) => row.RequiredString(column) switch
     {
         "-" => EnemyHandlerKind.None,
+        "veran-final" => EnemyHandlerKind.VeranFinal,
         "octorok" => EnemyHandlerKind.Octorok,
         "river-zora" => EnemyHandlerKind.RiverZora,
         "goponga-flower" => EnemyHandlerKind.GopongaFlower,
@@ -336,6 +337,7 @@ internal enum EnemyHandlerClassification
 
 internal enum EnemyHandlerKind
 {
+    VeranFinal,
     AmbiGuard,
     KingMoblin,
     Beetle,

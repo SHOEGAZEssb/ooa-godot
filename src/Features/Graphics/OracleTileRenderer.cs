@@ -58,6 +58,26 @@ internal static class OracleTileRenderer
     public static Texture2D BuildMonochromeFontTexture(string path) =>
         OracleGraphicsCache.LoadMonochromeFont(path);
 
+    internal static byte[] CopyTextCharacterGraphics(ReadOnlySpan<byte> characters,byte fontXor)
+    {
+        // bank0.s:copyTextCharacterGfx, English font (C bit0 clear).
+        // gfx_font_start is gfx_font-$e0 because m_GfxDataSimple omits the
+        // PNG's first fourteen blank cells from the ROM. The PNG retains them.
+        Image font=OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/gfx_font.png");
+        byte[] pixels=font.GetData(),output=new byte[characters.Length*32];
+        for(int index=0;index<characters.Length;index++)
+        {
+            int character=characters[index]<0x0e?0x20:characters[index];
+            var origin=SourceTileOrigin(font,character*2,interleaved:true);
+            for(int y=0;y<16;y++)
+            {
+                byte row=0;for(int x=0;x<8;x++)if(pixels[((origin.Y+y)*font.GetWidth()+origin.X+x)*4]<128)row|=(byte)(0x80>>x);
+                output[index*32+y*2]=output[index*32+y*2+1]=(byte)(row^fontXor);
+            }
+        }
+        return output;
+    }
+
     internal static Texture2D BuildMonochromeFontTexture(Image source)
     {
         if (source.GetFormat() != Image.Format.Rgba8)

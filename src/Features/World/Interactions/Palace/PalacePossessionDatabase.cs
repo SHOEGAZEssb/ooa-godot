@@ -19,8 +19,8 @@ internal sealed class PalacePossessionDatabase
         foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/palace_possession_tables.tsv",
             new("palace possession tables", GeneratedTableKeySemantics.Unique, ["profile","values","source"],["profile"],headerRequired:true)).Rows)
             _tables.Add(row.RequiredString(0), Array.ConvertAll(row.SplitRequired(1,','), value => Convert.ToByte(value,16)));
-        foreach (var (key,count) in new[] {("pillars",12),("pillar-offsets",8),("attack-probabilities",10),("presets",10),
-            ("guard-motion",12),("guard-animations",6),("collision-06",32),("collision-43",32),("collision-5b",32),("collision-5c",32),("active-61",32),("active-37",32)})
+        foreach (var (key,count) in new[] {("pillars",12),("pillar-offsets",8),("attack-probabilities",10),("spider-probabilities",5),("presets",10),
+            ("guard-motion",12),("guard-animations",6),("collision-06",32),("collision-10",32),("collision-43",32),("collision-5b",32),("collision-5c",32),("active-0f",32),("active-61",32),("active-37",32)})
             if (!_tables.TryGetValue(key,out var bytes) || bytes.Length != count) throw new InvalidOperationException($"ENEMY $61 / INTERAC $6e: missing {key}.");
         foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/palace_possession_enemies.tsv",
             new("palace possession enemies", GeneratedTableKeySemantics.Unique,
@@ -32,6 +32,13 @@ internal sealed class PalacePossessionDatabase
                 ["id","subid","sprites","tile-base","palette","source-grayscale-inverted","radius-y","radius-x","damage-quarters","health","animations-base64"],["id","subid"],headerRequired:true)).Rows[0];
         Projectile=new(projectile.HexByte(0),0,projectile.SplitRequired(2,','),projectile.Decimal(3),projectile.Decimal(4),projectile.Boolean01(5),
             projectile.Decimal(6),projectile.Decimal(7),projectile.Decimal(8),projectile.Decimal(9),projectile.EncodedAnimations(10));
+        var spider=GeneratedTable.Load("res://assets/oracle/objects/veran_spider.tsv",
+            new("ENEMY_VERAN_SPIDER $0f",GeneratedTableKeySemantics.Unique,
+                ["id","subid","sprites","tile-base","palette","source-grayscale-inverted","radius-y","radius-x","damage-quarters","health","animations-base64"],["id","subid"],headerRequired:true)).SingleRow();
+        Spider=new(spider.HexByte(0),spider.HexByte(1),spider.SplitRequired(2,','),spider.Decimal(3),spider.Decimal(4),spider.Boolean01(5),
+            spider.Decimal(6),spider.Decimal(7),spider.Decimal(8),spider.Decimal(9),spider.EncodedAnimations(10));
+        var spiderPalette=OracleGraphicsData.LoadPalette("res://assets/oracle/objects/veran_spider_palette.bin",1,7);
+        SpiderPalettes=new Dictionary<int,Color[]> { [7]=[spiderPalette[7,0],spiderPalette[7,1],spiderPalette[7,2],spiderPalette[7,3]] };
         foreach (var row in GeneratedTable.Load("res://assets/oracle/cutscenes/palace_possession_visuals.tsv",
             new("palace possession actors", GeneratedTableKeySemantics.Unique,["subid","sprite","tile-base","palette","animation","source"],["subid"],headerRequired:true)).Rows)
         {
@@ -53,6 +60,8 @@ internal sealed class PalacePossessionDatabase
     }
     internal byte[] Table(string name) => _tables[name];
     internal ImportedEnemyDefinition Projectile { get; }
+    internal ImportedEnemyDefinition Spider { get; }
+    internal IReadOnlyDictionary<int,Color[]> SpiderPalettes { get; }
     internal ImportedEnemyDefinition Enemy(int subid) => _enemies[subid];
     internal NpcRecord Actor(int subid, Vector2 position, bool intro = false) => _actors[subid] with
         { Id = intro ? 0x6d : 0x6e, X=(int)position.X, Y=(int)position.Y };
@@ -61,5 +70,6 @@ internal sealed class PalacePossessionDatabase
     internal int Entry(string name) => _entries[name];
     internal int Collision(int mode,int item) => _tables[$"collision-{mode:x2}"][item];
     internal bool ActiveCollision(int item) => _tables["active-61"][item] != 0;
+    internal bool SpiderActiveCollision(int item) => _tables["active-0f"][item] != 0;
     internal bool ProjectileActiveCollision(int item) => _tables["active-37"][item] != 0;
 }

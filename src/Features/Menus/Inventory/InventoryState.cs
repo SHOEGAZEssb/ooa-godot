@@ -466,6 +466,22 @@ public sealed class InventoryState
         NotifyChanged();
     }
 
+    internal void SetScriptedHealth(int quarters)
+    {
+        HealthQuarters = Math.Clamp(quarters, 0, MaxHealthQuarters);
+        HealthChanged?.Invoke();
+        NotifyChanged();
+    }
+
+    // bank0.disableActiveRing/enableActiveRing preserve the equipped ring
+    // while temporarily making its exact-ID consumers ineligible.
+    internal void SetActiveRingEnabled(bool enabled)
+    {
+        if (enabled && ActiveRing != 0xff) ActiveRing &= ~0x40;
+        else if (!enabled) ActiveRing |= 0x40;
+        NotifyChanged();
+    }
+
     public void SwapStorageSlotWithButton(int storageIndex, bool isA)
     {
         if (storageIndex < 0 || storageIndex >= InventoryCapacity)

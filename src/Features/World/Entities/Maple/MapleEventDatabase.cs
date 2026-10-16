@@ -9,7 +9,7 @@ namespace oracleofages;
 /// Typed runtime view of the Ages Maple location, flight, visual, loot, and
 /// dialogue tables. All records are generated from the clean US disassembly.
 /// </summary>
-internal sealed class MapleEventDatabase
+internal sealed partial class MapleEventDatabase
 {
     private readonly HashSet<(int Group, int Companion, int Room)> _locations = [];
     private readonly Dictionary<(MaplePathKind Kind, int Index), MaplePathRecord>
@@ -38,6 +38,7 @@ internal sealed class MapleEventDatabase
         LoadTexts();
         LoadConstants();
         ValidateContract();
+        LoadCredits();
     }
 
     internal bool IsEligibleLocation(int group, int room, int animalCompanion)

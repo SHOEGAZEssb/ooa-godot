@@ -314,6 +314,14 @@ if ($interactionSubidCounts[0x60] -ne 0x7c) {
     throw "Expected 124 vanilla INTERAC_TREASURE subid graphics, parsed " +
         "$($interactionSubidCounts[0x60])."
 }
+function Resolve-InteractionGraphics([int]$id,[int]$subid) {
+    # loadGraphics.s:getDataForInteraction stops at the continue-bit row,
+    # even when the requested subid is larger than the table's last index.
+    $index=if($interactionSubidCounts.ContainsKey($id)){[Math]::Min($subid,$interactionSubidCounts[$id]-1)}else{0}
+    $graphic=$interactionGraphics["${id}:$index"]
+    if($null -eq $graphic){throw "interactionData.s: no graphics for INTERAC `$${id}:`$${subid}."}
+    return $graphic
+}
 $gfxNames = @{}
 foreach ($line in Read-ImportLines (Join-Path $Disassembly "data\ages\objectGfxHeaders.s")) {
     if ($line -match '/\* \$(?<id>[0-9a-f]{2}) \*/ m_ObjectGfxHeader (?<name>[A-Za-z0-9_]+)') {
@@ -1093,9 +1101,11 @@ function Resolve-NpcImplementation(
     if ($id -eq 0xab -and ($subid -lt 10 -or $subid -ge 0x13 -and $subid -le 0x1b)) { return 'ordinary-generic' }
     if ($id -eq 0xba -and $subid -eq 0) { return 'specialized-native' }
     if (($id -eq 0x9c -and $subid -lt 2) -or ($id -eq 0xab -and $subid -in @(0x10,0x11,0x12))) { return 'event-owned' }
+    if ($id -eq 0x2d -and $subid -eq 0) { return 'event-owned' }
     if ($id -eq 0x32 -and $subid -eq 2) { return 'event-owned' }
     if ($id -eq 0x6d -and $subid -eq 0) { return 'event-owned' }
-    if ($id -eq 0x4d -and $subid -eq 0x03) { return 'event-owned' }
+    if ($id -eq 0x4d -and $subid -in @(0x03,0x06)) { return 'event-owned' }
+    if ($id -eq 0x37 -and $subid -eq 0x0c) { return 'event-owned' }
     if ($eventOwnedNpcImplementationKeys.Contains($key)) {
         return 'event-owned'
     }
@@ -3071,8 +3081,8 @@ foreach ($line in $mainObjectLines) {
         if ($row) { $npcRows.Add($row) }
     }
 }
-if ($npcRows.Count -ne 381) {
-    throw "Expected 380 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 382) {
+    throw "Expected 381 clean-US positioned NPC/character records, including shared room labels in Ages mainData.s, parsed $($npcRows.Count - 1)."
 }
 $room1adTokayRows = @($npcRows | Where-Object {
     $_ -match '^1\tad\t48\t15\t'
@@ -5156,8 +5166,8 @@ foreach ($variant in $impaHouseVariants) {
     $npcRows.Add(
         "3`t9e`t4f`t00`t$(([int]$variant[1]).ToString('x2'))`t$(([int]$variant[2]).ToString('x2'))`t$(([int]$variant[0]).ToString('x2'))`t$($textId.ToString('x4'))`t$impaSpriteName`t$($impaGraphic.TileBase)`t$($impaGraphic.Palette)`t$(([int]$variant[4]).ToString('x2'))`t1`t$impaUpOam`t$impaRightOam`t$impaDownOam`t$impaLeftOam`t$encoded`tspecialized-native")
 }
-if ($npcRows.Count -ne 390) {
-    throw "Expected 380 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
+if ($npcRows.Count -ne 391) {
+    throw "Expected 381 clean-US positioned and 9 state-derived NPC records, got $($npcRows.Count - 1)."
 }
 $npcImplementationCounts = @{}
 foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
@@ -5167,8 +5177,8 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 75 -or
     $npcImplementationCounts['specialized-native'] -ne 141 -or
-    $npcImplementationCounts['event-owned'] -ne 125 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 48 -or
+    $npcImplementationCounts['event-owned'] -ne 128 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 46 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5568,6 +5578,38 @@ Write-GeneratedTable(
 Write-GeneratedTable(
     (Join-Path $destination 'objects\linked_secret_symbols.tsv'),
     $linkedSecretSymbolRows)
+# The same bank3 encoder generates the ending's twenty-character transfer secret.
+# Preserve its source field order and bit widths instead of a parallel layout.
+$secretWram=Read-ImportText (Join-Path $Disassembly 'include/wram.s')
+$secretRows=[Collections.Generic.List[string]]::new();$secretRows.Add("# stream`tindex`taddress`tbits`tsource")
+$secretPath=Join-Path $Disassembly 'code/bank3.s'
+$secretLabels=@(Read-AssemblyLabels $secretPath|Where-Object {$_.EnclosingGlobalLabel -eq 'secretDataToEncodeTable'})
+$secretNodes=@(Read-AssemblyDataDirectives $secretPath '' '.db'|Where-Object {$_.EnclosingGlobalLabel -eq 'secretDataToEncodeTable'})
+foreach($spec in @(@('header','@header',4),@('body','@entry1',17))) {
+    $start=@($secretLabels|Where-Object Name -eq $spec[1])
+    if($start.Count -ne 1){throw "bank3.s:secretDataToEncodeTable: missing scoped label $($spec[1])."}
+    $end=@($secretLabels|Where-Object {$_.Line -gt $start[0].Line}|Sort-Object Line)[0].Line
+    $nodes=@($secretNodes|Where-Object {$_.Line -gt $start[0].Line -and $_.Line -lt $end})
+    if($nodes.Count -ne $spec[2]+1 -or (Convert-AssemblyInteger $nodes[0].Operands[0]) -ne $spec[2]){throw "bank3.s:secretDataToEncodeTable $($spec[1]): incomplete field list."}
+    for($index=0;$index -lt $spec[2];$index++) {
+        $node=$nodes[$index+1]
+        if($node.Operands.Count -ne 2 -or $node.Operands[0] -notmatch '^<(?<symbol>\w+)(?:\+(?<offset>\d+))?$'){throw "bank3.s:$($spec[1]): unsupported field '$($node.OperandText)'."}
+        $symbol=$Matches['symbol'];$offset=if($Matches['offset']){[int]$Matches['offset']}else{0}
+        $match=[regex]::Match($secretWram,'(?m)^'+[regex]::Escape($symbol)+':\s*;\s*\$(?<address>c6[0-9a-f]{2})\b')
+        if(-not $match.Success){throw "include/wram.s: cannot resolve secret field $symbol."}
+        $address=[Convert]::ToInt32($match.Groups['address'].Value,16)+$offset
+        $secretRows.Add("$($spec[0])`t$index`t$($address.ToString('x4'))`t$(Convert-AssemblyInteger $node.Operands[1])`tcode/bank3.s:secretDataToEncodeTable$($spec[1]) / include/wram.s:$symbol")
+    }
+}
+Write-GeneratedTable((Join-Path $destination 'objects/linked_secret_transfer_fields.tsv'),$secretRows)
+$secretSpacing=@(Read-AssemblyDataDirectives $secretPath '' '.db'|Where-Object {
+    $_.EnclosingGlobalLabel -eq 'convertSecretBufferToText' -and $_.OperandText -match '^\$25\s+\$05\s+\$25\s+\$05\s+\$00$'})
+if($secretSpacing.Count -ne 1){throw 'bank3.s:convertSecretBufferToText: missing game-transfer spacing stream.'}
+$secretRows=[Collections.Generic.List[string]]::new();$secretRows.Add("# index`tvalue`tsource")
+for($index=0;$index -lt $secretSpacing[0].Operands.Count;$index++) {
+    $secretRows.Add("$index`t$((Convert-AssemblyInteger $secretSpacing[0].Operands[$index]).ToString('x2'))`tcode/bank3.s:convertSecretBufferToText@entry1")
+}
+Write-GeneratedTable((Join-Path $destination 'objects/linked_secret_transfer_spacing.tsv'),$secretRows)
 
 # State-selected position overrides remain separate from visibility and text.
 # INTERAC_MISC_MAN_2 $44:$04 moves only in getGameProgress_2 state $06;

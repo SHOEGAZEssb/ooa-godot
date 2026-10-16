@@ -120,7 +120,18 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _horizontalShakeRequested = horizontalShakeRequested;
         _roomMusicRequested = roomMusicRequested;
 
-        MapleVisualRecord visual = database.Visual;
+        InitializeVisuals();
+        _bookTexture = LoadBookTexture(database.BookVisual);
+        Stage = MapleEncounterStage.Initializing;
+        // checkAndSpawnMaple does not set visible. Unlike ordinary companion
+        // initialization, Maple's state0 is gated by scrolling too.
+        Visible = false;
+        QueueRedraw();
+    }
+
+    private void InitializeVisuals()
+    {
+        MapleVisualRecord visual = _database.Visual;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
@@ -132,12 +143,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         TerrainShadowDefinition shadow = TerrainShadow.Load();
         _shadowTexture = shadow.Texture;
         _shadowOffset = shadow.Offset;
-        _bookTexture = LoadBookTexture(database.BookVisual);
-        Stage = MapleEncounterStage.Initializing;
-        // checkAndSpawnMaple does not set visible. Unlike ordinary companion
-        // initialization, Maple's state0 is gated by scrolling too.
-        Visible = false;
-        QueueRedraw();
     }
 
     private int Group { get; set; }

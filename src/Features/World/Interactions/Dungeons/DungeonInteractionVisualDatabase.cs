@@ -123,7 +123,7 @@ internal sealed class DungeonInteractionVisualDatabase
                 { TileBase: 0, Palette: 4, Animations.Length: 1 } ||
             Visual("essence-glow") is not
                 { TileBase: 6, Palette: 4, Animations.Length: 1 } ||
-            Visual("energy-bead").Animations.Length != 8 ||
+            Visual("energy-bead").Animations.Length != 16 ||
             Visual("pumpkin-projectile").Animations.Length != 1 ||
             _cubePalettes.Count != 2)
         {

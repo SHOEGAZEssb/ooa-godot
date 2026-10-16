@@ -64,6 +64,10 @@ internal partial class Room149Ball : TransitionOffsetNode2D
         Position = new Vector2(BoyX, InitialY);
         QueueRedraw();
     }
+    internal void SetNativeInitialPosition(Vector2 position)
+    {
+        Reset();Position=position;_preciseX=position.X;
+    }
 
     internal void Launch(int signal)
     {
@@ -106,7 +110,6 @@ internal partial class Room149Ball : TransitionOffsetNode2D
             }
             Position = new Vector2(SubId == 0 ? BoyX : FatherX, InitialY);
             _preciseX = Position.X;
-            _speedZ = 0;
             Idle = true;
         }
         QueueRedraw();

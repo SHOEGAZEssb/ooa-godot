@@ -63,6 +63,13 @@ public sealed class BackgroundPaletteState
     }
 
     internal Color[,] Capture() => (Color[,])_colors.Clone();
+    internal void LoadSlots(int first,Color[,] colors)
+    {
+        int count=colors.GetLength(0);
+        if(first<0||first+count>PaletteCount||colors.GetLength(1)!=ColorsPerPalette)throw new ArgumentOutOfRangeException(nameof(first));
+        var updated=Capture();for(int index=0;index<count;index++)for(int shade=0;shade<4;shade++)updated[first+index,shade]=colors[index,shade];
+        Restore(updated);
+    }
 
     internal void Restore(Color[,] palettes)
     {

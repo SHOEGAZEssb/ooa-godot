@@ -34,6 +34,12 @@ internal sealed class DebugObjectPreview(EnemyDatabase enemies)
 
     private PreviewVisual? EnemyVisual(int id, int subId)
     {
+        if(id==0x02&&subId==0)
+        {
+            var veran=new VeranFinalDatabase();var actor=veran.Actor(id);
+            return new(actor.Sprites,actor.Animations,actor.TileBase,actor.Palette,
+                actor.SourceGrayscaleInverted,veran.Palettes);
+        }
         if (id == 0x7f && subId == 0)
         {
             var king = new KingMoblinDatabase();

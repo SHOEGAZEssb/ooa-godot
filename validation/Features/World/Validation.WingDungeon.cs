@@ -498,6 +498,11 @@ public sealed partial class ValidationRoot
                 Color color = uploadedFeatherRoom.GetPixel(x, y);
                 animatedColors.Add(color);
                 transparentAnimatedPixel |= color.A < 0.99f;
+                // Source group $12 starts with three forced writes. At this
+                // lifecycle's tick 34, header $6f is the solid shade-3 phase,
+                // independently pinned by the ROM initialization regression.
+                FailIf(color!=featherRoom.BackgroundPalettes.Resolve(featherRoom.GetBackgroundAttributeForValidation(x/8,y/8)&7,3),
+                    "Room $6:28 lost the source shade-3 side-view animation phase after menu restoration.");
             }
             FailIf(
                 _rooms.ActiveGroup != 6 ||
@@ -507,7 +512,7 @@ public sealed partial class ValidationRoot
                 !_saveData.HasRoomFlag(
                     4, 0x28, OracleSaveData.RoomFlagItem) ||
                 transparentAnimatedPixel ||
-                animatedColors.Count < 2,
+                animatedColors.Count != 1,
                 "Room 6:28 did not preserve its complete animated side-view " +
                 "texture through the Roc's Feather collection, textbox, and " +
                 $"inventory equip lifecycle: group={_rooms.ActiveGroup:x1}, " +

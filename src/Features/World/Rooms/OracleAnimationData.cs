@@ -9,12 +9,21 @@ public sealed class OracleAnimationData
 
     private readonly Header[] _headers;
     private readonly Dictionary<int, Frame[][]> _groups = new();
+    private readonly Dictionary<int,int> _initialStates=[];
     private readonly Image[] _sheets = new Image[3];
 
     public OracleAnimationData()
     {
         _headers = LoadHeaders();
         LoadTracks();
+        foreach(var row in GeneratedTable.Load("res://assets/oracle/animations/groups.tsv",new("Animation group initial state",GeneratedTableKeySemantics.Unique,
+            ["group","initial-state","source"],["group"],headerRequired:true)).Rows)
+        {
+            int group=row.Decimal(0,0,21),state=row.HexByte(1);
+            if((state&15)!=(1<<_groups[group].Length)-1)throw row.Invalid(1,"one active bit per native animation track");
+            _initialStates.Add(group,state);
+        }
+        if(_initialStates.Count!=_groups.Count)throw new InvalidOperationException("animationGroups.s: missing initial animation state.");
         for (int sheet = 0; sheet < _sheets.Length; sheet++)
             _sheets[sheet] = OracleGraphicsCache.LoadImage(
                 $"res://assets/oracle/gfx/gfx_animations_{sheet + 1}.png");
@@ -32,7 +41,7 @@ public sealed class OracleAnimationData
         // until another header overwrites that range.
         var result = new List<int>();
         foreach (Frame[] track in tracks)
-            AppendAppliedHeaders(track, tick, result);
+            AppendAppliedHeaders(track, tick, result,(_initialStates[group]&0x80)!=0);
         return result.ToArray();
     }
 
@@ -63,7 +72,7 @@ public sealed class OracleAnimationData
             for (int track = 0; track < tracks.Length; track++)
             {
                 counters[track]--;
-                if (counters[track] != 0)
+                if (counters[track] != 0&&!(update==0&&(_initialStates[group]&0x80)!=0))
                     continue;
 
                 Frame[] frames = tracks[track];
@@ -98,7 +107,7 @@ public sealed class OracleAnimationData
         return false;
     }
 
-    private static void AppendAppliedHeaders(Frame[] frames, long tick, List<int> result)
+    private static void AppendAppliedHeaders(Frame[] frames, long tick, List<int> result,bool initiallyForced)
     {
         int cycleLength = 0;
         foreach (Frame frame in frames)
@@ -114,11 +123,11 @@ public sealed class OracleAnimationData
             counter = frames[frameIndex].Duration;
         }
 
-        // initializeAnimations first performs one normal counter update, then
-        // two forced updates. A normal update only emits the first header when
-        // its initial duration is one; each forced update emits unconditionally.
+        // initializeAnimations retains the group's initial state for its
+        // first data update, then forces two more updates. Bit7 in the source
+        // group can therefore force all three eager writes.
         counter--;
-        if (counter == 0)
+        if (counter == 0||initiallyForced)
             ApplyCurrentFrame();
         ApplyCurrentFrame();
         ApplyCurrentFrame();

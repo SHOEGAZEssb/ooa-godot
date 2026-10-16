@@ -38,6 +38,9 @@ public sealed partial class ValidationRoot
         FailIf(_dialogue.Position.Y != 80 || _dialogue.TextboxFlagsForValidation != 1,
             "Cleared w1Link / tower gfx state $09 did not cancel offset $70 with SCY=$70.");
         _dialogue.Close();
+        _dialogue.ShowMessage("A",screens.ClearedLink(0x04),textboxFlags:1);
+        FailIf(_dialogue.Position.Y!=80,"Cleared Link / fullscreen ending gfx state $04 must place its textbox at native screen Y=$50.");
+        _dialogue.Close();
         _dialogue.ShowMessage("\\pos(0)A", DialogueScreenContext.Gameplay(0));
         FailIf(_dialogue.Position.Y != 24,
             "Initial text command $0c:$20 did not override automatic lower placement.");

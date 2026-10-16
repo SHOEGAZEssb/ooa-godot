@@ -13,6 +13,11 @@ but only 15 columns are playable. Dungeon neighbors come from imported floor
 layouts, never room-ID arithmetic. Side-view groups retain their identity even
 when source tilesets and objects alias another group.
 
+Native byte-indexed layout reads retain the cleared padding through `$cfbf`.
+Offsets `$c0..$ff` read the live script bytes at `$cfc0..$cfff` through the
+runtime state owner. Terrain drawing uses this view when an actor moves beyond
+the room; validated room-storage access remains strict.
+
 Gameplay positions use room/world coordinates. Preserve byte wrapping and 8.8
 fractions where the source does; camera, height drawing, and transition offsets
 must not rewrite logical positions. Geometry-only queries are read-only;
@@ -33,6 +38,9 @@ Airborne recoil runs before gravity and retained jump momentum, so both planar
 steps can occur in one update. Its counter decrements faster in air; a borrow
 cancels recoil without another step. Landing retains unfinished recoil and
 resumes ground input only after it clears.
+Shield recoil uses the shield hitbox center as its contact point. Its native
+sideways offset participates in angle quantization independently of Link's
+world position; the collision effect selects recoil and invincibility lengths.
 Cliff eligibility compares current cardinal input with the retained object angle
 before velocity convergence. Landing retains the cliff's planar speed for the
 next terrain update, including underwater and ice movement.
@@ -339,6 +347,9 @@ species handlers own specialized effects, and accepted common damage publishes
 the pending hit for the next enemy update. Ordinary Bomb contacts for owners
 without that identity retain their legacy dispatch; Bombchu reports an unsupported
 overlap explicitly rather than borrowing a collision row.
+Shovel's reserved child remains collidable for its full native lifetime.
+Targets using the native item phase read that child after enemy AI and before
+dynamic items; the single tile-dig attempt does not dispatch those collisions.
 The physical-item pass freezes initialized items during a palette thread,
 independently of text and object masks; state-zero handlers remain eligible.
 

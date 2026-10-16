@@ -70,6 +70,11 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
                 // room flags, so this leaves the actor's animation phase alone.
                 break;
             case 0x4d:
+                // ambi.s:@initSubid03 deletes before the shared subid04
+                // palette/script setup once this room's flag $40 is set.
+                if (SubId == 3 && _context.Rooms.SaveData.HasRoomFlag(
+                    _context.Rooms.ActiveGroup, _context.Rooms.CurrentRoom.Id, 0x40))
+                { Finish(); return; }
                 _actor.SetBasePalette(6); _actor.SetScriptPaletteOverride(_data.PossessedPalette);
                 Start(SubId == 3 ? "ascent" : "ambi"); break;
             case 0x3c: Animation(3); Start("boy"); break;

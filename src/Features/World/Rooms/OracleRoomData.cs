@@ -34,6 +34,14 @@ public sealed class OracleRoomData
     public int Height => HeightInTiles * MetatileSize;
     public byte[] Layout { get; }
     public byte[] Collisions { get; }
+    internal Action ClearNativeCutsceneTerrain()
+    {
+        // endgameCutscenes.s:$09 stage1 -> CUTSCENE_CREDITS clears the
+        // live wRoomLayout/wRoomCollisions, retaining imported room data.
+        var layout=(byte[])Layout.Clone();var collisions=(byte[])Collisions.Clone();
+        Array.Clear(Layout);Array.Clear(Collisions);
+        return ()=>{layout.CopyTo(Layout,0);collisions.CopyTo(Collisions,0);ReplaceRoomTexture(_activeAnimationHeaders);};
+    }
     public Texture2D Texture { get; }
     private Texture2D? _underwaterBackgroundTexture;
     internal Texture2D UnderwaterBackgroundTexture
@@ -499,6 +507,16 @@ public sealed class OracleRoomData
         return Layout[y*_layoutStride+x];
     }
 
+    internal byte ReadNativeLayoutByte(byte position, OracleRuntimeState memory)
+    {
+        // bank0.loadRoomLayout clears $cf00-$cfbf, including unused rows
+        // and small-room padding. The rest of the addressed page aliases
+        // live script variables ($cfc0-$cfff), not additional room storage.
+        if (position >= 0xc0) return memory.ReadWramByte(0xcf00 + position);
+        int x = position & 15, y = position >> 4;
+        return x < _layoutStride && y < HeightInTiles ? Layout[y * _layoutStride + x] : (byte)0;
+    }
+
     internal byte[] CaptureStorageCollisions()
     {
         byte[] result=new byte[Layout.Length];
@@ -507,15 +525,17 @@ public sealed class OracleRoomData
         return result;
     }
 
-    internal byte[] CaptureBackgroundMappings()
+    internal byte[] CaptureBackgroundMappings(bool nativeStorage=false)
     {
-        int width=WidthInTiles*2, height=HeightInTiles*2;
+        int width=nativeStorage?32:WidthInTiles*2, height=nativeStorage?22:HeightInTiles*2;
         byte[] result=new byte[width*height*2];
         for (int y=0;y<height;y++) for (int x=0;x<width;x++)
         {
             int index=y/2*_layoutStride+x/2, quarter=(y&1)*2+(x&1);
-            byte[] mapping=_positionMappingOverrides.TryGetValue(index,out byte[]? value) ? value :
-                _mappings[(GetRenderedMetatile(index)*8)..(GetRenderedMetatile(index)*8+8)];
+            bool playable=x<WidthInTiles*2&&y<HeightInTiles*2;
+            int metatile=playable?GetRenderedMetatile(index):_layoutStride==16&&index<Layout.Length?Layout[index]:0;
+            byte[] mapping=playable&&_positionMappingOverrides.TryGetValue(index,out byte[]? value) ? value :
+                _mappings[(metatile*8)..(metatile*8+8)];
             int output=(y*width+x)*2;
             result[output]=mapping[quarter]; result[output+1]=mapping[quarter+4];
         }

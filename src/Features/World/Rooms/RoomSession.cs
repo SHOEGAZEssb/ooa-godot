@@ -140,7 +140,7 @@ public sealed class RoomSession
     /// the room backing data without treating the viewed location as a room
     /// Link entered, so no visit/minimap state or ordinary room scripts change.
     /// </summary>
-    public OracleRoomData LoadCutsceneRoom(int group, int room)
+    public OracleRoomData LoadCutsceneRoom(int group, int room,bool restartAnimations=false)
     {
         TilePushCounter = 0; // disableLcdAndLoadRoom: $cc5c..$cce8.
         BlockPushAngle = 0;
@@ -151,7 +151,18 @@ public sealed class RoomSession
         CurrentRoom = GetRoom(group, room);
         InitializeShopState();
         World.SetCurrentPaletteRoom(CurrentRoom);
+        if(restartAnimations)_resetAnimationTick();
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
+        return CurrentRoom;
+    }
+    // bank0.func_131f replaces room layout/graphics without clearing WRAM1,
+    // scripts, or Link's live state. This is distinct from a room arrival.
+    internal OracleRoomData LoadCutsceneBackground(int group,int room)
+    {
+        int previousAnimationGroup=CurrentRoom.AnimationGroup;
+        ActiveGroup=group;CurrentRoom=GetRoom(group,room);
+        World.SetCurrentPaletteRoom(CurrentRoom);
+        SynchronizeAnimation(previousAnimationGroup,CurrentRoom);
         return CurrentRoom;
     }
 

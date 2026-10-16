@@ -1304,6 +1304,8 @@ if ($orderedRegionConditional -ne '') {
 # Prepend those five records to the same authoritative ordered stream and
 # shift pointer-owned orders in the two rooms which contain both forms.
 $directVines = @{}
+$directTowerParts = [Collections.Generic.List[string]]::new()
+$directFinalEnemies = [Collections.Generic.List[string]]::new()
 $mainObjectGroup = -1
 $mainObjectRoom = -1
 foreach ($line in Read-ImportLines (
@@ -1314,6 +1316,15 @@ foreach ($line in Read-ImportLines (
         continue
     }
     if ($mainObjectGroup -lt 0) { continue }
+    if ($line -match '^\s*obj_SpecificEnemyA\s+\$(?<flags>[0-9a-f]{2})\s+\$02\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2})\s*$') {
+        $packed=([Convert]::ToInt32($Matches['y'],16) -band 0xf0) -bor ([Convert]::ToInt32($Matches['x'],16) -shr 4)
+        $directFinalEnemies.Add("$mainObjectGroup`t$($mainObjectRoom.ToString('x2'))`t0`tF`t02`t$($Matches['subid'])`t$($Matches['flags'])`t1`t$($Matches['y'])`t$($Matches['x'])`t$($packed.ToString('x2'))`tff")
+        continue
+    }
+    if ($line -match '^\s*obj_Part\s+\$59\s+\$(?<subid>[0-9a-f]{2})\s+\$(?<packed>[0-9a-f]{2})\s*$') {
+        $directTowerParts.Add("$mainObjectGroup`t$($mainObjectRoom.ToString('x2'))`t$($directTowerParts.Count)`tP`t59`t$($Matches['subid'])`t00`t1`t-1`t-1`t$($Matches['packed'])`tff")
+        continue
+    }
     if ($line -match
         '^\s*obj_SpecificEnemyA\s+\$00\s+\$62\s+\$(?<subid>[0-9a-f]{2})\s+\$00\s+\$00\s*$') {
         $key = "$mainObjectGroup`:$($mainObjectRoom.ToString('x2'))"
@@ -1363,8 +1374,21 @@ foreach ($key in $directVines.Keys | Sort-Object) {
 }
 $orderedObjectRows = $mergedOrderedRows
 
-if ($orderedObjectRows.Count -ne 1146) {
-    throw "Expected 1145 clean-US ordered placement records, parsed $($orderedObjectRows.Count - 1)."
+# These direct PARTs occupy an otherwise empty main-data stream. Reject a
+# new interleaving rather than reordering it relative to an enemy pointer.
+if ($directTowerParts.Count -ne 4 -or
+    ($directTowerParts | Where-Object {$_ -notmatch '^4\td2\t[0-3]\tP\t59\t0[0-3]\t'}) -or
+    ($orderedObjectRows | Where-Object {$_ -match '^4\td2\t'})) {
+    throw 'mainData.s: expected four ordered direct PART $59 placements without an interleaved pointer.'
+}
+foreach ($row in $directTowerParts) { $orderedObjectRows.Add($row) }
+if ($directFinalEnemies.Count -ne 1 -or $directFinalEnemies[0] -ne "4`td4`t0`tF`t02`t00`t00`t1`t40`t78`t47`tff" -or
+    ($orderedObjectRows | Where-Object {$_ -match '^4\td4\t'})) {
+    throw 'mainData.s: expected the direct ENEMY $02:$00 at $4:d4 before respawningBushBombs.'
+}
+foreach ($row in $directFinalEnemies) { $orderedObjectRows.Add($row) }
+if ($orderedObjectRows.Count -ne 1151) {
+    throw "Expected 1150 clean-US ordered placement records, parsed $($orderedObjectRows.Count - 1)."
 }
 if (-not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t0\tF\t1b\t01\t00\t1\t68\t38\t63\tff$' }) -or
     -not ($orderedObjectRows | Where-Object { $_ -match '^5\tb0\t1\tF\t34\t00\t00\t1\t78\t58\t75\tff$' }) -or
@@ -1467,6 +1491,7 @@ Write-GeneratedTable(
 # ID/subid; each room-object row still owns its source order, count, flags, and
 # fixed/random/parameter placement semantics.
 $orderedEnemyImplementationHandlers = [ordered]@{
+    '02:00' = 'veran-final'
     '08:00' = 'river-zora'
     '18:00' = 'buzzblob'
     '09:00' = 'octorok'
@@ -1571,7 +1596,7 @@ foreach ($subid in @(0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x0a,0x0b,0x0c,0x82,0x83
     $orderedEnemyImplementationHandlers['54:' + $subid.ToString('x2')] = 'ambi-guard'
 }
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 131 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 132 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1640,9 +1665,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
     $enemyClassificationCounts[$classification]++
 }
 
-if ($enemyHandlerKeys.Count -ne 123 -or
+if ($enemyHandlerKeys.Count -ne 124 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 804 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 805 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
     $enemyClassificationCounts['deliberately-unsupported'] -ne 17) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
@@ -1853,7 +1878,7 @@ foreach ($record in $enemyHandlerKeys.Values |
         "$($enemyCollisionTableValues[$collisionRowOffset + 3].ToString('x2'))`t" +
         $shieldSource)
 }
-if ($enemyHandlerRows.Count -ne 137 -or
+if ($enemyHandlerRows.Count -ne 138 -or
     -not $enemyHandlerRows.Contains((
         "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
         'constants/common/enemies.s:ENEMY_OCTOROK' +

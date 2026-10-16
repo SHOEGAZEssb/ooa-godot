@@ -57,6 +57,7 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool LinkDisabled => _roomEvents.DisablesLink;
     public bool MovementDisabled => _roomEvents.Active ||
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;
+    public byte NativeObjectDisableMask => _entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects);
     public bool RidingObject => _entities.PlayerRidingObject;
     public bool BraceletParentActive => _bracelet.State is not (BraceletState.Idle or BraceletState.Projectile);
     public int RaisedFloorOffset
@@ -315,6 +316,10 @@ public sealed class PlayerWorld : IPlayerWorld
             return _collision.ResolveNativeMovement(position, speed, angle, allowWallSlide, adjacentWalls);
         var velocity = NativeObjectMovement.Velocity(_entities.RuntimeState, speed, angle);
         return new(velocity.XFixed / 256.0f, velocity.YFixed / 256.0f);
+    }
+    public Vector2 ApplyNativeUnblockedMovement(Vector2 position,int speed,int angle)
+    {
+        NativeObjectMovement.ApplySpeed(_entities.RuntimeState,ref position,speed,angle);return position;
     }
     public bool IsPushingAgainstWall(
         Vector2 position,

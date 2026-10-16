@@ -52,10 +52,10 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 296 | Traced and covered by named NPC/event scenarios. |
+| **I** | 299 | Traced and covered by named NPC/event scenarios. |
 | **P** | 45 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 48 | Original native/script ownership is not implemented, so no actor is instantiated. |
-| **Total** | **389** | **216 rooms and 301 unique ID/subid keys.** |
+| **D** | 46 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
 
@@ -63,9 +63,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 75 | 0 | 75 |
 | Specialized native interaction | 141 | 72 | 213 |
-| Event-owned actor | 125 | 0 | 125 |
-| Deliberately unsupported | 48 | 0 | 48 |
-| **Total** | **389** | **72** | **461** |
+| Event-owned actor | 128 | 0 | 128 |
+| Deliberately unsupported | 46 | 0 | 46 |
+| **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
 
@@ -261,8 +261,8 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `4:e8` | [I] `$58:$03/v$02` hardhatWorker<br>[I] `$57:$03/v$06` pickaxeWorker<br>[I] `$57:$03/v$07` pickaxeWorker |
 | `4:f3` | [D] `$58:$03/v$04` hardhatWorker |
 | `4:f6` | [I] `$4d:$03/v$00` ambi |
-| `4:fc` | [D] `$4d:$06/v$00` ambi |
-| `4:fe` | [D] `$37:$0c/v$00` ralph |
+| `4:fc` | [I] `$4d:$06/v$00` ambi |
+| `4:fe` | [I] `$37:$0c/v$00` ralph |
 | `5:ab` | [I] `$9c:$00/v$00` kingZora<br>[I] `$ab:$08/v$00` zora<br>[I] `$ab:$09/v$00` zora |
 | `5:ac` | [I] `$ab:$05/v$00` zora<br>[I] `$ab:$06/v$00` zora<br>[I] `$ab:$07/v$00` zora |
 | `5:ad` | [I] `$9c:$01/v$00` kingZora<br>[I] `$ab:$03/v$00` zora<br>[I] `$ab:$04/v$00` zora |
@@ -287,6 +287,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:d3` | [I] `$40:$0d/v$0c` soldier<br>[I] `$40:$0d/v$0d` soldier |
 | `5:d4` | [I] `$40:$0d/v$07` soldier |
 | `5:d5` | [I] `$40:$0d/v$0f` soldier |
+| `5:d7` | [I] `$2d:$00/v$00` veranCutsceneFace |
 | `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron |
 | `5:dc` | [I] `$66:$0e/v$05` goron<br>[I] `$66:$0c/v$06` goron |
 | `5:dd` | [I] `$66:$0c/v$07` goron |

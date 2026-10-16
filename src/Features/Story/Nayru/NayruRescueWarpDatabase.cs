@@ -30,7 +30,9 @@ internal sealed class NayruRescueWarpDatabase
             new("Nayru rescue animation",GeneratedTableKeySemantics.Unique,["id","index","animation","source"],["id","index"],headerRequired:true)).Rows)
             _animations.Add((row.HexByte(0),row.HexByte(1)),row.RequiredString(2));
         foreach(string script in new[] {"nayru-arrival","nayru-song","nayru-farewell","ralph-arrival","ralph-greeting","ralph-farewell",
-            "maku","cloaked","twinrova","boy","old-lady"})
+            "maku","cloaked","twinrova","boy","old-lady","nayru-escape","ralph-escape","nayru-ending","ralph-ending",
+            "nayru-palace","nayru-palace-farewell","ralph-palace","ralph-palace-farewell",
+            "nayru-credits-maku","ralph-credits-maku","ralph-credits-sword","maku-credits"})
             _commands.Add(script,CutsceneCommandCatalog.Load(Root+$"nayru_rescue_{script}_commands.tsv"));
         foreach(var row in GeneratedTable.Load(Root+"nayru_rescue_texts.tsv",
             new("Nayru rescue dialogue",GeneratedTableKeySemantics.Unique,["text-id","message-base64","source"],["text-id"],headerRequired:true)).Rows)

@@ -20,6 +20,8 @@ public static class ItemCollisionType
     public const int SwordHeld = 0x09;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_EXPERT_PUNCH
     public const int ExpertPunch = 0x0b;
+    // constants/common/itemCollisionTypes.s: ITEMCOLLISION_SHOVEL (Ages)
+    public const int Shovel = 0x0c;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_SWITCH_HOOK
     public const int SwitchHook = 0x0d;
     // constants/common/itemCollisionTypes.s: ITEMCOLLISION_SOMARIA_BLOCK

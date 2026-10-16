@@ -49,6 +49,10 @@ The player selects poses from its live gameplay state and performs drawing.
 The library has only imported graphics inputs, with no world, inventory, save,
 RNG or update-loop access.
 
+Native cutscene callers can omit normal menu dispatch or status-bar updates
+while continuing object updates. Room events expose those phase gates to the
+application loop; hiding the HUD alone does not freeze its counters or sounds.
+
 The gameplay scene contains stable nodes whose lifecycle and draw order should
 remain visible in the editor:
 
@@ -137,10 +141,19 @@ frame may run several original updates, but update N must complete before update
 N+1 starts.
 
 `ApplicationInputBuffer` preserves a host press until one original update
-consumes it. Every reader in that update sees the same immutable held/pressed
+consumes it. Physical-input readers in that update share an immutable held/pressed
 snapshot. Catch-up updates retain held state but do not receive the consumed
 edge. Timing and opening-frame suppression use original-update serials, not
 rendered-frame counters.
+
+Native simulated input replaces the gameplay key sample after menu dispatch
+and before special objects. The shared input facade derives fresh-key edges
+from consecutive gameplay samples without changing the physical snapshot.
+Its replacement lasts through the remaining object phases of that update.
+The text thread continues to read the physical snapshot, including choices
+opened while Link retains a terminal simulated-input stream.
+The script input owner retains native WRAM counters, palette gates and the
+terminal counter's held-key behavior.
 
 Frontend controllers publish their screen changes within the owning update.
 Preserve explicit source state transitions and input gates, including

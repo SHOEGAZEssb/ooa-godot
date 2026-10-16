@@ -41,6 +41,12 @@ exposes `SkipsObjectUpdate`; the application still advances the global frame
 counter. Room changes and event ownership must preserve the first eligible
 update of newly loaded actors, including events that begin during a return fade.
 
+Native background-only room loads retain live actor slots, scripts and shared
+signals while rebinding their terrain presentation to the new room. They do not
+dispatch ordinary room-entry events. A native warp request that returns to
+normal gameplay is consumed by the transition owner after the following object
+pass; selecting its destination alone must not move or reveal Link.
+
 ## Evidence packet
 
 Before implementing an interaction, record:

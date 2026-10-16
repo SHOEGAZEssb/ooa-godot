@@ -2,7 +2,7 @@
 $source = 'object_code/ages/enemies/veranPossessionBoss.s'
 $rows = [Collections.Generic.List[string]]::new()
 $rows.Add("# profile`tvalues`tsource")
-foreach ($spec in @(@('pillars','@pillarList',12), @('pillar-offsets','@pillarOffsets',8), @('attack-probabilities','@attackProbabilities',10))) {
+foreach ($spec in @(@('pillars','@pillarList',12), @('pillar-offsets','@pillarOffsets',8), @('attack-probabilities','@attackProbabilities',10), @('spider-probabilities','@spiderSpawnProbabilities',5))) {
     $values = @(Read-AssemblyDataDirectives (Join-Path $Disassembly $source) $spec[1] '.db' | ForEach-Object { $_.Operands } | ForEach-Object { Convert-AssemblyInteger $_ })
     if ($values.Count -ne $spec[2]) { throw "${source}:$($spec[1]): incorrect table boundary." }
     $rows.Add("$($spec[0])`t$(($values | ForEach-Object { $_.ToString('x2') }) -join ',')`t${source}:$($spec[1])")
@@ -14,13 +14,16 @@ foreach ($spec in @(@('presets','nayruSavedCutscene_angleAndAnimationPresets',10
 }
 $effects = @(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/objectCollisionTable.s') 'objectCollisionTable')
 if ($effects.Count -ne 4000) { throw 'Possession boss: incomplete collision table.' }
-foreach ($mode in @(0x06,0x43,0x5b,0x5c)) {
+foreach ($mode in @(0x06,0x10,0x43,0x5b,0x5c)) {
     $rows.Add("collision-$($mode.ToString('x2'))`t$(($effects[($mode*32)..($mode*32+31)] | ForEach-Object {$_.ToString('x2')}) -join ',')`tdata/ages/objectCollisionTable.s:objectCollisionTable")
 }
 $active = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/enemyActiveCollisions.s') 'enemyActiveCollisions' 'dbrev')
 $bits = ($active[0x61].Operands -join '').Replace('%','')
 if ($active.Count -ne 128 -or $bits -notmatch '^[01]{32}$') { throw 'Possession boss: incomplete active collisions.' }
 $rows.Add("active-61`t$(($bits.ToCharArray() | ForEach-Object {'0'+$_}) -join ',')`tdata/ages/enemyActiveCollisions.s:ENEMY_VERAN_POSSESSION_BOSS")
+$bits = ($active[0x0f].Operands -join '').Replace('%','')
+if ($bits -notmatch '^[01]{32}$') { throw 'ENEMY $0f: incomplete active collisions.' }
+$rows.Add("active-0f`t$(($bits.ToCharArray() | ForEach-Object {'0'+$_}) -join ',')`tdata/ages/enemyActiveCollisions.s:ENEMY_VERAN_SPIDER")
 $partActive = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages/partActiveCollisions.s') 'partActiveCollisions' 'dbrev')
 $bits = ($partActive[0x37].Operands -join '').Replace('%','')
 if ($partActive.Count -ne 90 -or $bits -notmatch '^[01]{32}$') { throw 'PART $37: incomplete active collisions.' }
@@ -29,7 +32,7 @@ Write-GeneratedTable((Join-Path $destination 'objects/palace_possession_tables.t
 
 $rows = [Collections.Generic.List[string]]::new()
 $rows.Add("# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64")
-foreach ($subid in @(0,2)) {
+foreach ($subid in 0..3) {
     $definition = Get-EnemyDefinition 0x61 $subid
     $sprites = @(0xd0..0xd3 | ForEach-Object { $gfxNames[$_] })
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
@@ -37,6 +40,24 @@ foreach ($subid in @(0,2)) {
     $rows.Add("61`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$encoded")
 }
 Write-GeneratedTable((Join-Path $destination 'objects/palace_possession_enemies.tsv'),$rows)
+$spiderSource=Read-ImportText (Join-Path $Disassembly 'object_code/ages/enemies/veranSpider.s')
+if ($spiderSource -notmatch '(?ms)^veranSpider_state_uninitialized:.*?PALH_8a.*?and \$7f.*?cp \$70 \+ SCREEN_WIDTH.*?hCameraX.*?hCameraY.*?getTileCollisionsAtPosition.*?ld c,\$08.*?SPEED_60' -or
+    $spiderSource -notmatch '(?ms)^veranSpider_state8:.*?ld c,\$0e.*?set 4,\(hl\).*?SND_BOMB_LAND' -or
+    $spiderSource -notmatch '(?ms)^veranSpider_state9:.*?and \$07.*?sub \$04.*?inc a.*?cp \$03.*?SPEED_140.*?ld \(hl\),120' -or
+    $spiderSource -notmatch '(?ms)^veranSpider_stateA:.*?ecom_applyVelocityForSideviewEnemyNoHoles.*?ld \(hl\),\$40.*?^veranSpider_setRandomAngleAndCounter1:.*?ld bc,\$1870.*?add \$70') {
+    throw 'veranSpider.s: ENEMY $0f initialization, charge or random-direction contract changed.'
+}
+$definition=Get-EnemyDefinition 0x0f 1
+if ($definition.Collision -ne 0x10 -or ($effects[(0x10*32)..(0x10*32+3)] -join ',') -ne '2,16,15,15') {
+    throw 'ENEMY $0f source contact/shield collision profile changed.'
+}
+Copy-EnemySprite $gfxNames[$definition.Gfx]
+$encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($definition.Animations -join "`n"))
+Write-GeneratedTable((Join-Path $destination 'objects/veran_spider.tsv'),@(
+    "# id`tsubid`tsprites`ttile-base`tpalette`tsource-grayscale-inverted`tradius-y`tradius-x`tdamage-quarters`thealth`tanimations-base64",
+    "0f`t01`t$($gfxNames[$definition.Gfx])`t$($definition.TileBase)`t$($definition.Palette)`t1`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$encoded"
+))
+Write-GeneratedBytes((Join-Path $destination 'objects/veran_spider_palette.bin'),(Read-PaletteBytes 'paletteData4978' 4))
 & {
     $path=Join-Path $Disassembly 'data/ages/partAnimations.s'
     $tables=Read-AssemblyDwTables $path 'part[0-9a-f]{2}Animations' 'partAnimation[0-9a-f]+'
@@ -129,7 +150,7 @@ foreach ($command in $commands) {
 Write-GeneratedTable((Join-Path $destination 'cutscenes/palace_possession_entries.tsv'),$rows)
 $rows = [Collections.Generic.List[string]]::new()
 $rows.Add("# text-id`tmessage-base64`tsource")
-foreach ($id in @(0x2f2a,0x560b,0x560c)) {
+foreach ($id in @(0x2f2a,0x560b,0x560c,0x5611)) {
     $message = Resolve-PalaceText $id ([Collections.Generic.HashSet[int]]::new())
     $rows.Add("$($id.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message)))`ttext/ages/text.yaml:TX_$($id.ToString('x4'))")
 }

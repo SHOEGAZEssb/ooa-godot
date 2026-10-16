@@ -11,10 +11,12 @@ internal sealed class MakuSproutRoomEntity
     : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker,
         ITalkTarget, IOrdinaryNpcEntity, INpcTalkLifecycle,
         IAlwaysUpdateDuringScreenTransitionRoomEntity,
-        IUpdatesDuringDialogueRoomEntity
+        IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze
 {
     private readonly MakuSproutRoomDatabase _database;
     private readonly OracleSaveData _save;
+    private readonly OracleRuntimeState? _creditsRuntime;
+    private int _creditsState,_creditsSubstate;
     private MakuSproutAdviceRecord? _advice;
     private int _talkCount;
     private int _happyRestoreUpdates;
@@ -22,11 +24,17 @@ internal sealed class MakuSproutRoomEntity
     public MakuSproutRoomEntity(
         NpcCharacter npc,
         MakuSproutRoomDatabase database,
-        OracleSaveData save)
+        OracleSaveData save,OracleRuntimeState? creditsRuntime=null)
         : base(npc, npc.SetTransitionDrawOffset)
     {
         _database = database;
         _save = save;
+        _creditsRuntime=creditsRuntime;
+        if(creditsRuntime is not null)
+        {
+            if(npc.Record is not {Id:0x88,SubId:2})throw new InvalidOperationException("Maku Sprout credits requires INTERAC $88:$02.");
+            return;
+        }
         if (!database.MatchesSprout(npc.Record))
         {
             throw new InvalidOperationException(
@@ -39,11 +47,19 @@ internal sealed class MakuSproutRoomEntity
 
     public NpcCharacter Npc => Entity;
     public NpcCharacter TalkNpc => Entity;
+    public bool UpdatesDuringRoomEntityFreeze=>_creditsRuntime is not null;
 
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
+        if(_creditsRuntime is not null)
+        {
+            if(_creditsState==0){_creditsState=1;Entity.SetScriptAnimation(_database.Record.SproutAnimation1);return;}
+            if(_creditsSubstate!=0){Entity.AdvanceAnimationUpdates(1);return;}
+            if(_creditsRuntime.ReadWramByte(0xcfc0)==6){_creditsSubstate=1;Entity.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);}
+            return;
+        }
         Entity.AnimateAsNpcOneUpdate(frame.Player);
         AdvancePostTalkWait();
     }

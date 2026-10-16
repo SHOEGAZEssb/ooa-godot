@@ -10,7 +10,7 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
     private PalacePossessionDatabase _data=null!;
     private PossessedNayruCharacter? _parent;
     private int _lastCollision, _z, _speedZ, _pillar=0xff, _palette=6, _puff=-1;
-    private bool _justHit, _collision, _taunted;
+    private bool _justHit, _collision, _taunted, _spiders;
     private Vector2I _target;
     internal int SubId { get; private set; }
     internal int State { get; private set; }
@@ -51,7 +51,7 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
         // state-zero handler. updateEnemies admits this during scrolling;
         // state$08's shadow, movement and music wait for normal dispatch.
         _owner.Random.Next(); State=8; Speed=0x50; SetAnimation(SubId*3); Visible=true;
-        if (SubId==2) { Counter=12; Speed=0x14; _palette=1; }
+        if (SubId>=2) { Counter=12; Speed=0x14; _palette=1; }
     }
     internal void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
@@ -62,16 +62,17 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
         }
         if (_justHit) WasHit(frame.Player);
         if (State==3) UpdateHook();
-        else if (SubId==0) UpdateNayru(frame,spawns);
-        else UpdateVeran(frame,spawns);
+        else if (SubId<=1) UpdateNayru(frame,spawns);
+        else if (SubId==2) UpdateVeran(frame,spawns);
+        else UpdateCollapsedAmbi();
         _justHit=false; AdvanceInvincibilityCounter(); QueueRedraw();
     }
     private void WasHit(Player player)
     {
         KnockbackCounter=0;
-        if (SubId==0)
+        if (SubId<=1)
         {
-            if (_lastCollision==0x18) { State=0x0e; Counter2=30; _collision=false; SetAnimation(2); }
+            if (_lastCollision==0x18) { State=0x0e; Counter2=30; _collision=false; SetAnimation(SubId*3+2); }
             else if (_lastCollision is >=4 and <=0x12)
             { InvincibilityCounter=-24; player.ApplyPossessionRetaliation(KnockbackAngle^0x10); }
         }
@@ -104,13 +105,21 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
             case 11:
                 if (--Counter!=0) { Visible=!Visible; break; }
                 int random=_owner.Random.Next().Value&15;
-                if (random>=_data.Table("attack-probabilities")[RemainingHits-1]) { BeginMoving(); Counter=30; Visible=!Visible; }
-                else { State=12; Counter=30; _collision=true; SetAnimation(1); Visible=true; }
+                if (random>=_data.Table("attack-probabilities")[SubId*5+RemainingHits-1]) { BeginMoving(); Counter=30; Visible=!Visible; }
+                else { State=12; Counter=30; _collision=true; SetAnimation(SubId*3+1); Visible=true; }
                 break;
             case 12:
-                if (--Counter==0) { Counter=142; State=13; _owner.TryCreateVeranProjectile(this,0,Position,_z,0); } break;
+                if (--Counter==0)
+                {
+                    Counter=142; State=13;
+                    _spiders=SubId==1 && (_owner.Random.Next().Value&15)>=_data.Table("spider-probabilities")[RemainingHits-1];
+                    if (!_spiders) _owner.TryCreateVeranProjectile(this,0,Position,_z,0);
+                }
+                break;
             case 13:
-                if (--Counter==0) { BeginMoving(); _collision=false; SetAnimation(0); } break;
+                if (--Counter==0) { BeginMoving(); _collision=false; SetAnimation(SubId*3); }
+                else if (_spiders && (Counter&31)==0 && _owner.RoomEnemyCount<6) _owner.TryCreateVeranSpider(Position);
+                break;
             case 14:
                 Counter2=(Counter2-1)&255;
                 if (Counter2!=0) break;
@@ -118,14 +127,17 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
                 State=15; _collision=false; _palette=1; Visible=true; break;
             case 15: break;
             case 16: State=17; _palette=6; Counter=15; Visible=true; break;
-            case 17: if (--Counter==0) { SetAnimation(0); BeginMoving(); } break;
+            case 17: if (--Counter==0) { SetAnimation(SubId*3); BeginMoving(); } break;
             case 18:
                 if (_owner.IsScriptTextActive()) break;
                 State=19; _owner.BeginPalacePossessionFade(true,2); break;
             case 19:
                 if (_owner.PalacePossessionPaletteActive()) break;
                 State=20; frame.Player.ClearNativeItemParents(); frame.Player.PutOnGroundForScript(); break;
-            case 20: _owner.CompletePalacePossessionFight(frame.Player); break;
+            case 20:
+                if (SubId==0) _owner.CompletePalacePossessionFight(frame.Player);
+                else if (!_owner.PalacePossessionPaletteActive()) _owner.CompleteBlackTowerPossessionFight(frame.Player);
+                break;
             default: throw new NotSupportedException($"veranPossessionBoss.s: Nayru state${State:x2}.");
         }
     }
@@ -159,7 +171,7 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
                 if (--Counter==0)
                 {
                     Counter=120; State=9; _collision=true; CollisionMode=0x5b;
-                    if (!_parent!._taunted) { _parent._taunted=true; Show(0x2f2a); }
+                    if (_parent!.SubId==0 && !_parent._taunted) { _parent._taunted=true; Show(0x2f2a); }
                 }
                 break;
             case 9: if (--Counter==0) { Counter=12; State=10; Angle=0x10; _collision=false; } break;
@@ -182,10 +194,21 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
                 State=15; _owner.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,1);
                 _owner.RuntimeState.SetWramByte(WramAddress.wMenuDisabled,1); Visible=false; return;
             case 15: if ((_owner.InteractionAnimationParameter(_puff)&0x80)!=0) State=16; return;
-            case 16: _parent!.State=18; Show(0x560b); Finish(); return;
+            case 16: _parent!.State=18; Show(_parent.SubId==0?0x560b:0x5611); Finish(); return;
             default: throw new NotSupportedException($"veranPossessionBoss.s: Veran state${State:x2}.");
         }
         AdvanceAnimation();
+    }
+    private void UpdateCollapsedAmbi()
+    {
+        if (_owner.PalacePossessionPaletteActive()) return;
+        if (State==8) { State=9; Counter2=60; SetAnimation(5); _owner.BeginPalacePossessionFade(false,1); }
+        else if (State==9)
+        {
+            Counter2=(Counter2-1)&255;
+            if (Counter2==0 && _owner.TryResumeBlackTowerAmbi(Position)) Finish();
+        }
+        else throw new NotSupportedException($"veranPossessionBoss.s: collapsed Ambi state ${State:x2}.");
     }
     private void Show(int id) => _owner.OnRoomEntityDialogueRequested(id,_data.Text(id),Position);
     public bool SwitchHookHeld => GodotObject.IsInstanceValid(this)&&!IsDead&&State==3&&Substate<3;

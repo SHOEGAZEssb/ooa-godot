@@ -40,8 +40,9 @@ public sealed partial class ValidationRoot
         foreach (var (group, tracks) in groups)
         {
             int period = tracks.Max(track => track.Sum(frame => frame.Duration));
-            // Source initializeAnimations performs a normal update followed
-            // by two forced writes. This reference decrements every counter,
+            // All supported groups start with bit7 set, so the first update
+            // and the next two explicit forced updates emit source writes.
+            // This reference decrements every counter,
             // including the zero boundary; production may skip idle updates.
             foreach (long tick in Enumerable.Range(0, period * 2 + 2).Select(t => (long)t)
                 .Concat(new[] { -1L, 1000000000L }))
@@ -57,7 +58,7 @@ public sealed partial class ValidationRoot
                         index = (index + 1) % track.Length;
                         counter = track[index].Duration;
                     }
-                    if (--counter == 0) Emit();
+                    Emit();
                     Emit();
                     Emit();
                     long updates = Math.Max(0, tick);
@@ -70,10 +71,10 @@ public sealed partial class ValidationRoot
             }
         }
         // Independent source pins for group $00: duration-3 waterfall first
-        // emits headers 0 and 24, then header 32 exactly four updates later.
-        FailIf(!animations.GetActiveHeaders(0, 0).Take(2).SequenceEqual(new[] { 0, 24 }) ||
-            animations.GetActiveHeaders(0, 3)[2] == 32 || animations.GetActiveHeaders(0, 4)[2] != 32,
-            "Animation group $00 lost its initial forced writes or duration-4 zero boundary.");
+        // emits headers 0, 24 and 32, then header 1 exactly three updates later.
+        FailIf(!animations.GetActiveHeaders(0, 0).Take(3).SequenceEqual(new[] { 0, 24,32 }) ||
+            animations.GetActiveHeaders(0, 2)[3] == 1 || animations.GetActiveHeaders(0, 3)[3] != 1,
+            "Animation group $00 lost its initial forced writes or duration-3 zero boundary.");
         var animationTimer = Stopwatch.StartNew();
         for (int iteration = 0; iteration < 1000; iteration++)
         foreach (int group in groups.Keys) animations.GetActiveHeaders(group, 1000000000L + iteration);

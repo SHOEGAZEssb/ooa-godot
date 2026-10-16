@@ -22,6 +22,7 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
     public bool HighKnockback { get; private set; }
     public bool Finished { get; private set; }
     public int EnemyId { get; private set; } = -1;
+    internal int ZHigh { get; private set; }
     internal int AnimationFrame => Math.Min(_animationFrame, _animation.Count - 1);
     internal int DurationFrames { get; private set; }
     internal int ElapsedFrames { get; private set; }
@@ -30,7 +31,8 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
     internal void Initialize(
         Vector2 position,
         bool highKnockback = false,
-        int enemyId = -1)
+        int enemyId = -1,
+        int zHigh = 0)
     {
         EnemyDeathPuffEffectDefinition definition = _definition ??= LoadDefinition();
         // enemyCreateDeathPuff uses objectCopyPosition: only YH/XH/ZH
@@ -38,6 +40,7 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
         Position = OracleObjectMath.ToPixelPosition(position);
         HighKnockback = highKnockback;
         EnemyId = enemyId;
+        ZHigh = zHigh;
         _palettes = definition.Palettes;
         _animation = highKnockback
             ? definition.HighKnockbackAnimation
@@ -83,7 +86,7 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
             return;
         DrawTexture(
             _animation[_animationFrame].PaletteTextures[_paletteIndex],
-            new Vector2(-16, -16) + TransitionDrawOffset);
+            new Vector2(-16, -16 + ZHigh) + TransitionDrawOffset);
     }
 
     private static EnemyDeathPuffEffectDefinition LoadDefinition()

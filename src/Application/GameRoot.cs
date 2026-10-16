@@ -165,11 +165,29 @@ public partial class GameRoot : Node2D
         if (_transitions is null ||
             _frontendIntro is not null ||
             _mainMenu is not null ||
-            _newGameIntro is not null ||
-            !DebugSavestateController.TryDecodeInput(@event, out var command))
+            _newGameIntro is not null)
         {
             return;
         }
+
+        if (@event is InputEventKey
+            {
+                PhysicalKeycode: Key.F6, Pressed: true, Echo: false,
+                CtrlPressed: false, AltPressed: false, MetaPressed: false,
+                ShiftPressed: false
+            })
+        {
+            if (!_player.IsDying)
+            {
+                _player.RefillHealth();
+                _statusBar.SynchronizeHealth();
+            }
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (!DebugSavestateController.TryDecodeInput(@event, out var command))
+            return;
 
         GetViewport().SetInputAsHandled();
         if (command.Kind == DebugSavestateCommandKind.Save)
@@ -781,18 +799,24 @@ public partial class GameRoot : Node2D
         }
         finally
         {
-            if (GodotObject.IsInstanceValid(dialogue))
+            if (!_nativeResetRequested&&GodotObject.IsInstanceValid(dialogue))
             {
                 dialogue.AdvanceApplicationUpdate();
                 _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
             }
         }
+        if(_nativeResetRequested)
+        {
+            _nativeResetRequested=false;_roomEvents.Get<BlackTowerEndingEvent>().Cancel();
+            ReleaseGameplayScene();StartFrontend(startAtTitle:false);
+        }
     }
 
     private GameplayObjectPass? _suspendedObjectPass;
+    private bool _nativeResetRequested;
     private readonly record struct GameplayObjectPass(
         bool ArrivalOwnsUpdate, bool FinishingArrival, bool ToggleOwnedUpdate,
-        bool RoomTransitionOwnedUpdate, bool ScrollOwnedUpdate, bool NativeCutsceneOwnedUpdate = false);
+        bool RoomTransitionOwnedUpdate, bool ScrollOwnedUpdate, bool NativeCutsceneOwnedUpdate = false,bool StatusBarUpdatesDisabled = false);
 
     private void AdvanceGameplayState(double delta)
     {
@@ -850,7 +874,7 @@ public partial class GameRoot : Node2D
         // before the IntroDone error cue. Active menus retain their dispatch.
         InventoryMenuController inventoryOwner = _inventoryMenu;
         if (!arrivalOwnsUpdate && !toggleOwnedUpdate && (_inventoryMenu.IsActive ||
-            _transitions.GameplayMenusAvailable && !DialogueOpen && !_player.IsDying && _harp.PlayingInstrument == 0))
+            !_roomEvents.NormalMenuDispatchSuppressed&&_transitions.GameplayMenusAvailable && !DialogueOpen && !_player.IsDying && _harp.PlayingInstrument == 0))
             _inventoryMenu.Update(delta);
         // Game Over restarts THREAD_1 into initializeGame. Its room's first
         // object update belongs to the following dispatch, not this old pass.
@@ -867,7 +891,7 @@ public partial class GameRoot : Node2D
         }
         bool mapOwnedUpdate = _mapMenu.IsActive;
         bool transitioningBeforeMap = IsTransitioning;
-        if (!arrivalOwnsUpdate && !toggleOwnedUpdate) _mapMenu.Update(delta);
+        if (!arrivalOwnsUpdate && !toggleOwnedUpdate&&(_mapMenu.IsActive||!_roomEvents.NormalMenuDispatchSuppressed)) _mapMenu.Update(delta);
         // Accepted Gale travel loads the destination at white. cutscene03
         // consumes that update; its new Link object starts on the next pass.
         if (mapOwnedUpdate && !transitioningBeforeMap && _transitions.IsTransitioning) return;
@@ -883,7 +907,11 @@ public partial class GameRoot : Node2D
             return;
         }
 
+        // Retain the caller's eligibility even when its handler selects a new
+        // native stage or an interaction suspends this object pass.
+        bool statusBarUpdatesDisabled=_roomEvents.StatusBarUpdatesDisabled;
         bool nativeCutsceneOwnedUpdate = _roomEvents.AdvanceNativeCutscenesBeforeObjects();
+        if(_nativeResetRequested)return;
         if (_roomEvents.SkipsObjectUpdate)
         {
             _entities.AdvanceFrozenRoomFrame();
@@ -908,6 +936,7 @@ public partial class GameRoot : Node2D
                 _saveData, _runtimeState, DialogueOpen, _harp.PlayingInstrument != 0);
         }
         bool arrivalPaletteAdvanced = !nativeCutsceneOwnedUpdate && _transitions.AdvanceBasicArrivalPaletteBeforeObjects(delta);
+        _roomEvents.PublishNativeGameInput();
         if (!IsTransitioning && !_harp.IsPlaying)
             _entities.UpdateSpecialObjectsBeforePlayer(_player);
         // updateAllObjects begins with updateSpecialObjects (companion, then
@@ -947,13 +976,13 @@ public partial class GameRoot : Node2D
             if (_roomEvents.ObjectUpdateSuspended)
             {
                 _suspendedObjectPass = new(arrivalOwnsUpdate, finishingArrival, toggleOwnedUpdate,
-                    roomTransitionOwnedUpdate, scrollOwnedUpdate, nativeCutsceneOwnedUpdate);
+                    roomTransitionOwnedUpdate, scrollOwnedUpdate, nativeCutsceneOwnedUpdate,statusBarUpdatesDisabled);
                 return;
             }
             _interactions.Update(delta, _player);
         }
         FinishGameplayObjectPass(delta, new(arrivalOwnsUpdate, finishingArrival, toggleOwnedUpdate,
-            roomTransitionOwnedUpdate, scrollOwnedUpdate, nativeCutsceneOwnedUpdate));
+            roomTransitionOwnedUpdate, scrollOwnedUpdate, nativeCutsceneOwnedUpdate,statusBarUpdatesDisabled));
     }
 
     private void FinishGameplayObjectPass(double delta, GameplayObjectPass pass)
@@ -995,7 +1024,7 @@ public partial class GameRoot : Node2D
         else if (!arrivalOwnsUpdate && !toggleOwnsPostObjects && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             UpdatePostObjectPlayerState(roomExitSampled: true);
         _harp.Update(delta);
-        _statusBar.Update(delta);
+        if(!pass.StatusBarUpdatesDisabled)_statusBar.Update(delta);
         UpdateAnimatedTiles(delta);
         if (!arrivalOwnsUpdate && !IsTransitioning && !toggleOwnsPostObjects && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             _entities.ResolvePostObjectCollisions(_player);
@@ -1022,9 +1051,10 @@ public partial class GameRoot : Node2D
         // required for side-view edge warps reached on a moving platform.
         if (!IsTransitioning)
         {
-            bool tileWarpStarted = _transitions.CheckRequestedTileWarp(_player);
-            bool deepWaterStarted = _transitions.BeginRequestedDeepWaterDive(_player);
-            if (!tileWarpStarted && !deepWaterStarted)
+            bool nativeWarpStarted = _transitions.BeginRequestedNativeWarp(_player);
+            bool tileWarpStarted = !nativeWarpStarted && _transitions.CheckRequestedTileWarp(_player);
+            bool deepWaterStarted = !nativeWarpStarted && _transitions.BeginRequestedDeepWaterDive(_player);
+            if (!nativeWarpStarted && !tileWarpStarted && !deepWaterStarted)
             {
                 if (roomExitSampled) _transitions.CommitRoomExit(_player);
                 else _transitions.CheckRoomExit(_player);
@@ -1189,6 +1219,7 @@ public partial class GameRoot : Node2D
             _transitions.WorldToGameplayScreen, () => (long)_animationTicks,
             _scene.InterfaceLayer, _warpFade, _hud, _inventory, _treasures,
             _sound, _roomCamera, deferPreparation: true);
+        _roomEvents.SetFileActions(SaveActiveFile,()=>_nativeResetRequested=true);
         foreach (bool step in _roomEvents.PrepareResources())
             yield return step;
         _interactions = new InteractionController(
@@ -1556,6 +1587,7 @@ public partial class GameRoot : Node2D
     /// </summary>
     internal void InitializeTransientSession(OracleSaveData save)
     {
+        _nativeResetRequested=false;
         _suspendedObjectPass = null;
         _bootLoading?.End();
         _bootLoading = null;

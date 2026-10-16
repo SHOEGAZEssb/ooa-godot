@@ -51,7 +51,19 @@ focused validations; NPC classifications live in the
   Village restoration, Patch's ceremony, the Library Key entrance, and the hidden
   shop's chest-choice game.
 - Normal-game Huge Maku Seed reward, Twinrova reveal, and subsequent Black
-  Tower advice. The linked-game Maku Seed reveal remains unsupported.
+  Tower advice, followed by the normal-game seed/Essence reveal that removes
+  the two false doors inside the tower, its four moving flames, and Ralph's
+  confrontation with Ambi.
+  The normal-game continuation is implemented through possessed Ambi and her
+  rescue, Fairy Veran, the escape attempt and Wallmaster capture, the face
+  interlude, and Veran's turtle, spider and bee forms with their attacks and
+  shared combat/item responses. Defeat leads through the outdoor escape,
+  palace reunions, restoration scenes, Link/Nayru and Twinrova ending scenes,
+  all credits vignettes and captions, the staff roll, THE END, transfer secret,
+  completion save choices and TO BE CONTINUED/reset. Focused clean-US ROM
+  comparisons cover these systems and their handoffs; a complete manual
+  playthrough and exhaustive parity comparison remain unperformed.
+  The linked-game Maku Seed reveal and linked ending remain unfinished.
 - Raft travel and wreck/theft events; partial Tokay Island progression and
   minigames; fairy fountains and Tokkey's song lesson.
 - Both eras' underwater Zora Village, palaces and houses, ocean dialogue,

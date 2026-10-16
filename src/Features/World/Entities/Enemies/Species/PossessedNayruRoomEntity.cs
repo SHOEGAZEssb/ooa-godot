@@ -18,7 +18,7 @@ internal sealed class PossessedNayruRoomEntity : CombatEnemyRoomEntityAdapter<Po
     public override BombchuTarget BombchuTarget => new(0x61,Entity.Visible,Entity.Position,Entity.CollisionBounds,Entity.Health);
     internal PossessedNayruRoomEntity(PossessedNayruCharacter actor) : base(actor,actor.SetTransitionDrawOffset,
         EnemyCombatDescriptor.Special(EnemyCombatComponent.WithContactDamage(()=>actor.IsDead,()=>actor.CollisionBounds,
-            (_,_)=>false,_=>false,actor.OverlapsLink,()=>actor.Position,4,()=>null),actor.SubId==0,0,
+            (_,_)=>false,_=>false,actor.OverlapsLink,()=>actor.Position,4,()=>null),actor.SubId<=1,0,
             ()=>RoomEnemyOutcome.SilentDeletion(false),actor.RequestSound),collisionZ:()=>actor.ZFixed>>8) { }
     public void BindEnemySlot(int slot,Func<int,IRoomEntity?> resolve) => Slot=slot;
     public void SetLinkSwordState(SwordActionState state,int level,int? collision=null) => _swordCollision=collision??SwordCollision.Type(state,level);
@@ -64,7 +64,7 @@ internal sealed class PossessedNayruRoomEntity : CombatEnemyRoomEntityAdapter<Po
         if (!Eligible(collision,bounds)) return default;
         int effect=Entity.Data.Collision(Entity.CollisionMode,collision);
         if (effect==0) return new(true,SeedHitResult.None,false);
-        int actual=seed.SeedItem==ItemId.MysterySeed && Entity.SubId==0 ? 0x18 : collision;
+        int actual=seed.SeedItem==ItemId.MysterySeed && Entity.SubId<=1 ? 0x18 : collision;
         // func_07_47b7 rewrites Mystery's identity only after table dispatch.
         Entity.MarkContact(actual,origin,effect==0x21?32:0,knockback:effect is 0x21 or 0x20,
             damage:effect==0x21?-unchecked((sbyte)seed.Damage):0);

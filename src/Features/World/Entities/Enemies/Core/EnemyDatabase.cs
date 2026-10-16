@@ -898,6 +898,7 @@ public sealed class EnemyDatabase
     private bool HasOrderedHandlerDefinition(
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
+        EnemyHandlerKind.VeranFinal => descriptor.Id==2&&descriptor.SubId==0&&new VeranFinalDatabase().Actor(2).Health==24,
         EnemyHandlerKind.AmbiGuard => descriptor.Id == 0x54 && _importedDefinitions.ContainsKey((0x54, 0)),
         EnemyHandlerKind.KingMoblin => descriptor.Id == EnemyId.KingMoblin && descriptor.SubId == 0 &&
             new KingMoblinDatabase().Actor(0x7f).Health == 6,
@@ -1078,6 +1079,8 @@ public readonly record struct RoomObjectRecord(
         SourceOverride ?? (Id == 0x62
             ? $"objects/ages/mainData.s:" +
                 $"group{Group:x1}Map{Room:x2}ObjectData[ENEMY_VINE_SPROUT]"
+            : Kind == RoomObjectKind.ReservingPart && Id == 0x59
+            ? $"objects/ages/mainData.s:group{Group:x1}Map{Room:x2}ObjectData[PART_BLACK_TOWER_MOVING_FLAMES]"
             : $"objects/ages/enemyData.s:" +
                 $"group{Group:x1}Map{Room:x2}EnemyObjectData[{Order}]");
 }

@@ -37,6 +37,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
 
     public int ActorSpeed(CutsceneActorId actor) =>
         _speeds.TryGetValue(actor, out int speed) ? speed : 0;
+    internal int ActorAngle(CutsceneActorId actor) =>
+        _angles.TryGetValue(actor, out int angle) ? angle : 0;
 
     // counter2 belongs to a started movement operation, not an ordinary wait
     // using counter1. On movement's zero update the runner has already yielded

@@ -5,19 +5,35 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Finished-game INTERAC_MISCELLANEOUS_1 $6b:$15 in room $1:$38.
+/// Native Link statue $6b:$0e and its finished-game $15 placement.
 /// </summary>
 internal sealed class MakuLinkStatueRoomEntity
     : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker
 {
+    private Action? _initializeNative;
+    internal bool Initialized=>_initializeNative is null;
     public MakuLinkStatueRoomEntity(
         NpcCharacter npc,
         MakuSproutRoomDatabase database,
         OracleRoomData room,
-        Func<long> animationTick)
+        Func<long> animationTick,Func<Color[]>? nativePaletteLoader=null)
         : base(npc, npc.SetTransitionDrawOffset)
     {
         MakuSproutRoomRecord record = database.Record;
+        if(nativePaletteLoader is not null)
+        {
+            if(npc.Record is not {Id:InteractionId.Miscellaneous1,SubId:0x0e})
+                throw new InvalidOperationException("Native Link statue requires INTERAC $6b:$0e.");
+            _initializeNative=()=>
+            {
+                Entity.SetScriptPaletteOverride(nativePaletteLoader());
+                Entity.SetSourceGrayscaleInverted(record.StatueSourceInverted);
+                Entity.SetCollisionRadii(record.StatueRadiusY,record.StatueRadiusX);
+                Entity.SetScriptAnimation(room.GetMetatile(npc.Position)==record.StatueAppearanceTile?record.StatueAlternateAnimation:record.StatueNormalAnimation);
+                Entity.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);Entity.ClearFixedDrawPriority();
+            };
+            return;
+        }
         if (npc.Record is not
             {
                 Group: 1,
@@ -51,8 +67,12 @@ internal sealed class MakuLinkStatueRoomEntity
 
     public void UpdateFrame(
         RoomEntityFrame frame,
-        ICollection<RoomEntitySpawn> spawns) =>
+        ICollection<RoomEntitySpawn> spawns)
+    {
+        if(_initializeNative is not null){_initializeNative();_initializeNative=null;}
         Entity.AnimateAsNpcOneUpdate(frame.Player);
+        Entity.SetFixedDrawPriority(Entity.ZIndex);Entity.ClearFixedDrawPriority();
+    }
 
     public bool BlocksLink(Vector2 linkCenter) =>
         Entity.BlocksLinkCenter(linkCenter);

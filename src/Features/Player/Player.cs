@@ -69,6 +69,8 @@ public partial class Player : Node2D
             CancelShovelAction();
             _startedParentItemAnimations = 0;
         }
+        else if (_enemyGrabSubstate == 2) StartGrabRelease();
+        else if (_enemyGrabSubstate == 3) AdvanceGrabRelease();
         else if (_enemyGrabSubstate == 4)
         {
             _enemyInvincibilityFrames = EnemyBehaviorTables.Shared.LikeLike.ReleaseInvincibility;
@@ -90,6 +92,7 @@ public partial class Player : Node2D
         _enemyGrabSubstate = -1;
         _enemyGrabCollisionDisabled = false;
         _enemyGrabUpdated = false;
+        _enemyGrabReleaseCounter = 0;
         _collapseUpdated = false;
     }
 
@@ -261,9 +264,9 @@ public partial class Player : Node2D
     // It survives healing, ring changes and room movement; it is not save health.
     private int _damageAccumulator = 1;
     private float _enemyKnockbackFrames;
-    private Vector2 _enemyKnockbackDirection;
+    private int _enemyKnockbackAngle;
     private int _pendingSwordKnockbackFrames;
-    private Vector2 _pendingSwordKnockbackDirection;
+    private int _pendingSwordKnockbackAngle;
     private double _deathUpdateAccumulator;
     private bool _deathPending;
     private bool _deathAnimationActive;
@@ -324,6 +327,7 @@ public partial class Player : Node2D
     private ScriptControl _scriptControl;
     private bool _cutsceneControlled => _scriptControl != ScriptControl.None;
     private int _forcedState08Phase;
+    private bool _state08ReleasedByObjectMask;
     private bool _forcedState08LowPriority;
     private object? _cutsceneControlOwner;
     private bool _getItemOneHandPose;
@@ -334,6 +338,7 @@ public partial class Player : Node2D
     private int? _scriptedLinkAnimationMode;
     private Texture2D? _scriptedCollapsedTexture;
     private readonly Texture2D?[] _scriptedWalkTextures = new Texture2D?[8];
+    private readonly Texture2D?[] _scriptedJumpTextures = new Texture2D?[32];
     private int _cutsceneDrawZFixed;
     private bool _carriedObjectPose;
     private BraceletActionPose? _braceletActionPose;
@@ -365,6 +370,10 @@ public partial class Player : Node2D
     // respawnLink request, consumed state02, then the shared instant respawn.
     private int _forcedRespawnPhase;
     private int _forcedRespawnParameter = 2;
+    private bool _nativeInitializationPending;
+    // A native room load clears w1Link. Re-enabling it dispatches state00
+    // once before state01 movement, even when text/$81 would block state01.
+    internal void RequestNativeLinkInitialization()=>_nativeInitializationPending=true;
 
     public int HealthQuarters => _inventory.HealthQuarters;
     public int Rupees => _inventory.Rupees;
@@ -772,7 +781,7 @@ public partial class Player : Node2D
             return 0xff;
         // SPECIALOBJECT_RAFT decrements Link's counter and still moves on zero.
         _enemyKnockbackFrames = Mathf.Max(0, _enemyKnockbackFrames - 1);
-        return OracleObjectMovement.Shared.RelativeAngle(Vector2.Zero, _enemyKnockbackDirection);
+        return _enemyKnockbackAngle;
     }
 
     internal void DisableInstruments(int frames) => _instrumentsDisabledCounter = frames;
@@ -983,11 +992,14 @@ public partial class Player : Node2D
         bool preserveTopDownSwimming = false,
         bool preserveSideScrollSwimming = false)
     {
+        _nativeInitializationPending=false;
+        CancelCreditsLink();
         ClearBabyTransformation();
         if (_activeTransformation == 2) _activeTransformation = 0;
         CancelWallmasterGrab();
         CancelCollapse();
         CancelPalaceToss();
+        CancelAmbiUnpossessedCutscene();
         CancelEnemyGrab();
         _screenTransitionTerrainMotion = false;
         if (GaleActive) EndGale();
@@ -1016,7 +1028,7 @@ public partial class Player : Node2D
         _enemyKnockbackFrames = 0.0f;
         ClearContactDamage();
         _pendingSwordKnockbackFrames = 0;
-        _pendingSwordKnockbackDirection = Vector2.Zero;
+        _pendingSwordKnockbackAngle = 0;
         _holePullCounter = 0;
         _holePullPackedPosition = -1;
         _fallInHoleWarpPending = false;
@@ -1039,6 +1051,7 @@ public partial class Player : Node2D
         _getItemTwoHandPose = false;
         _scriptedLinkAnimationMode = null;
         _forcedState08Phase = 0;
+        _state08ReleasedByObjectMask = false;
         _forcedState08LowPriority = false;
         SetAlternateTextboxPalettePriority(false);
         _cutsceneDrawZFixed = 0;
@@ -1522,8 +1535,7 @@ public partial class Player : Node2D
         _nativeContactSignal = true;
         _enemyInvincibilityFrames = 0x0c;
         _enemyKnockbackFrames = 8;
-        _enemyKnockbackDirection = OracleObjectMovement.Shared.Direction(
-            OracleObjectMovement.Shared.RelativeAngle(sourcePosition, Position));
+        _enemyKnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(sourcePosition, Position);
         CancelSwordAttack();
         ClearShieldParent();
         if (!ElectricShockActive) _electricShockPending = true;
@@ -1580,18 +1592,9 @@ public partial class Player : Node2D
         _enemyInvincibilityFrames = invincibilityFrames;
         _enemyKnockbackFrames = source == RingDamageSource.OwnBomb
             ? RingEffects.KnockbackFrames(_inventory, knockbackFrames) : knockbackFrames;
-        _enemyKnockbackDirection = EnemyContactPosition - sourcePosition;
-        if (_enemyKnockbackDirection.LengthSquared() < 0.01f)
-        {
-            _enemyKnockbackDirection = -(Vector2)FacingVector;
-        }
-        else
-        {
-            int angle = OracleObjectMovement.Shared.RelativeAngle(
-                sourcePosition, EnemyContactPosition);
-            _enemyKnockbackDirection =
-                OracleObjectMovement.Shared.Direction(angle);
-        }
+        // collisionEffects.s retains all five angle bits. Converting through
+        // an input vector quantizes oblique native recoil to eight directions.
+        _enemyKnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(sourcePosition, EnemyContactPosition);
         _walking = false;
         _pushing = false;
         if (source == RingDamageSource.OwnBomb)
@@ -1615,7 +1618,10 @@ public partial class Player : Node2D
             throw new InvalidOperationException(
                 "Link accepted shield recoil while collision-disabled.");
         }
-        ApplyCollisionRecoil(sourcePosition, invincibilityFrames, knockbackFrames);
+        // The shield branch of enemyCheckCollisions supplies wShieldY/X to
+        // @handleCollision. Recoil is directed toward that contact point,
+        // whose one-pixel sideways offset can change the quantized angle.
+        ApplyCollisionRecoil(sourcePosition, invincibilityFrames, knockbackFrames,ShieldCollisionBounds.GetCenter());
     }
 
     internal bool TryApplyHarmlessContactRecoil(Vector2 sourcePosition)
@@ -1626,7 +1632,7 @@ public partial class Player : Node2D
         return true;
     }
 
-    private void ApplyCollisionRecoil(Vector2 sourcePosition, int invincibilityFrames, int knockbackFrames)
+    private void ApplyCollisionRecoil(Vector2 sourcePosition, int invincibilityFrames, int knockbackFrames,Vector2? collisionTarget=null)
     {
         if (invincibilityFrames < 0)
             throw new ArgumentOutOfRangeException(nameof(invincibilityFrames));
@@ -1638,9 +1644,8 @@ public partial class Player : Node2D
         _nativeContactSignal = true;
         int angle = OracleObjectMovement.Shared.RelativeAngle(
             sourcePosition,
-            Position);
-        _enemyKnockbackDirection =
-            OracleObjectMovement.Shared.Direction(angle);
+            collisionTarget??Position);
+        _enemyKnockbackAngle = angle;
         _walking = false;
         _pushing = false;
         QueueRedraw();
@@ -1661,7 +1666,7 @@ public partial class Player : Node2D
             : (OracleObjectMovement.Shared.RelativeAngle(
                 sourcePosition, Position) & ObjectAngle.CardinalMask);
         _enemyKnockbackFrames = 0x18;
-        _enemyKnockbackDirection = OracleObjectMath.StrictCardinalVector(angle);
+        _enemyKnockbackAngle = angle;
         _walking = false;
         _pushing = false;
         InterruptCarriedItems(discard: false);
@@ -1688,8 +1693,7 @@ public partial class Player : Node2D
         int angle = OracleObjectMovement.Shared.RelativeAngle(
             sourcePosition,
             Position);
-        _pendingSwordKnockbackDirection =
-            OracleObjectMovement.Shared.Direction(angle);
+        _pendingSwordKnockbackAngle = angle;
     }
 
     internal void TransferSwordCollisionKnockback()
@@ -1698,15 +1702,15 @@ public partial class Player : Node2D
             return;
 
         int frames = _pendingSwordKnockbackFrames;
-        Vector2 direction = _pendingSwordKnockbackDirection;
+        int angle = _pendingSwordKnockbackAngle;
         _pendingSwordKnockbackFrames = 0;
-        _pendingSwordKnockbackDirection = Vector2.Zero;
+        _pendingSwordKnockbackAngle = 0;
 
         // itemTransferKnockbackToLink preserves a longer live counter but
         // always replaces Link's knockback angle.
         if (frames >= _enemyKnockbackFrames)
             _enemyKnockbackFrames = frames;
-        _enemyKnockbackDirection = direction;
+        _enemyKnockbackAngle = angle;
     }
 
     public bool Heal(int quarters)
@@ -1864,6 +1868,11 @@ public partial class Player : Node2D
 
     private void AdvanceLinkPhysics(double delta, bool advanceElectricShock)
     {
+        if(AdvanceCreditsLink())return;
+        if(_nativeInitializationPending&&!_world.LinkDisabled)
+        {
+            _nativeInitializationPending=false;ClearNativeItemParents();Visible=true;return;
+        }
         ResetBabyForForcedState();
         if (InitializeBabyOverride()) return;
         // GameRoot advances cutscene01's shock phase before menus. Standalone
@@ -1885,6 +1894,7 @@ public partial class Player : Node2D
         if (_world.RoomExitPending)
             return;
         if (AdvanceNativeForcedMovement()) return;
+        if (AdvanceAmbiUnpossessedCutscene()) return;
         if ((_palaceTossRequested || _palaceTossSubstate >= 0) && AdvancePalaceToss()) return;
         if ((CollapsedActive || CollapsePending && !_world.IsTransitioning && !IsDying) && AdvanceCollapse()) return;
         if (ConsumeContactDamageBeforeStateDispatch()) return;
@@ -1924,6 +1934,13 @@ public partial class Player : Node2D
             }
             else _forcedRespawnPhase = 2;
             return;
+        }
+        // A native state08 request is consumed before state01's text/$81
+        // gate. Once selected, state08 itself has neither of those gates.
+        if(_forcedState08Phase!=0&&_state08ReleasedByObjectMask&&!_world.LinkDisabled&&!IsDying)
+        {
+            if(_forcedState08Phase==1&&!_state08RequestWasActive&&(_world.NativePaletteChanging||_world.IsTransitioning||_world.RoomExitPending))return;
+            AdvanceState08Control();return;
         }
         if ((_world.PlayerUpdatesFrozen || _world.LinkDisabled) && _forcedRespawnPhase != 3 && !IsDying)
         {
@@ -1992,27 +2009,7 @@ public partial class Player : Node2D
         }
         if (_forcedState08Phase != 0)
         {
-            if (_forcedState08Phase == 1)
-                _forcedState08Phase = 2; // checkLinkForceState changes state, then returns.
-            else if (_forcedState08Phase == 2)
-            {
-                _forcedState08Phase = 3;
-                _world.ClearItemParents(this);
-                ClearShieldParent();
-                CancelSwordAttack();
-                CancelShovelAction();
-                _startedParentItemAnimations = 0;
-                SetScriptedLinkAnimationMode(0x10);
-            }
-            else if (_forcedState08Phase == 4)
-            {
-                // linkState08 returns through initLinkStateAndAnimateStanding
-                // on its first eligible update after input is released. That
-                // update restores normal presentation without moving Link.
-                _forcedState08Phase = 0;
-                SetScriptedLinkAnimationMode(null);
-                ResetLinkWalkAnimation();
-            }
+            AdvanceState08Control();
             return;
         }
         if (_cutsceneControlled)
@@ -2159,7 +2156,7 @@ public partial class Player : Node2D
                 ApplySideScrollVelocity(
                     _world.SideScrollParameters.KnockbackSpeed,
                     SideScrollHorizontalAngle(
-                        AngleForVector(_enemyKnockbackDirection)),
+                        _enemyKnockbackAngle),
                     allowWallSlide: false);
             }
             else
@@ -2193,7 +2190,7 @@ public partial class Player : Node2D
             {
                 Vector2 resolved = _world.ResolveNativeMovement(
                     _precisePosition, 0x32,
-                    AngleForVector(_enemyKnockbackDirection), allowWallSlide: true,
+                    _enemyKnockbackAngle, allowWallSlide: true,
                     adjacentWalls: _tilePushWalls);
                 _precisePosition += resolved * frameDelta;
             }
@@ -2566,7 +2563,7 @@ public partial class Player : Node2D
                 // linkUpdateKnockback, including native scratch and sliding.
                 _precisePosition += _world.ResolveNativeMovement(
                     _precisePosition, 0x32,
-                    AngleForVector(_enemyKnockbackDirection), allowWallSlide: true);
+                    _enemyKnockbackAngle, allowWallSlide: true);
                 _enemyKnockbackFrames = Mathf.Max(
                     0.0f, _enemyKnockbackFrames - 1.0f);
                 _walking = false;
@@ -2663,6 +2660,7 @@ public partial class Player : Node2D
     internal void BeginCutsceneControl(bool interruptBracelet = true, object? owner = null)
     {
         _forcedState08Phase = 0;
+        _state08ReleasedByObjectMask = false;
         _forcedState08LowPriority = false;
         if (interruptBracelet)
             InterruptCarriedItems(discard: true);
@@ -2685,6 +2683,7 @@ public partial class Player : Node2D
         _scriptControl = ScriptControl.SimulatedInput;
         _cutsceneControlOwner = owner;
     }
+    internal void ClearNativePegasusCounter()=>_world.Pegasus?.Clear();
     internal void RequestState08Control(object owner)
     {
         // setLinkForceStateToState08 only queues state08/wcc50=0. Link
@@ -2692,6 +2691,7 @@ public partial class Player : Node2D
         _scriptControl = ScriptControl.ForcedState08;
         _cutsceneControlOwner = owner;
         _forcedState08Phase = 1;
+        _state08ReleasedByObjectMask = false;
         _forcedState08LowPriority = true; // Portal writes visible=$82 immediately.
         SetAlternateTextboxPalettePriority(false);
         QueueRedraw();
@@ -2755,13 +2755,18 @@ public partial class Player : Node2D
     internal void SetScriptedLinkAnimationMode(int? mode)
     {
         if (mode is not null and not (0x02 or 0x06 or 0x07 or 0x08 or 0x09 or
-            0x0e or 0x0f or 0x10 or 0x1c))
+            0x0e or 0x0f or 0x10 or 0x18 or 0x1c))
         {
             throw new ArgumentOutOfRangeException(nameof(mode));
         }
         if (_scriptedLinkAnimationMode == mode)
             return;
         _scriptedLinkAnimationMode = mode;
+        if(mode==0x18)
+        {
+            _topDownAirAnimationPhase=0;
+            _topDownAirAnimationCounter=TopDownAirDatabase.Shared.Parameters.AnimationPhaseDurations[0];
+        }
         _walking = false;
         _pushing = false;
         QueueRedraw();
@@ -2943,7 +2948,8 @@ public partial class Player : Node2D
         Face(direction);
         // LINK_STATE_FORCE_MOVEMENT clears adjacentWallsBitset before each
         // standard-speed update, so this deliberately bypasses room blockers.
-        _precisePosition += (Vector2)direction;
+        int angle=CarriedObjectMotion.DirectionIndex(direction)*8;
+        _precisePosition=_world.ApplyNativeUnblockedMovement(_precisePosition,0x28,angle);
         AdvanceLinkWalkAnimation();
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
@@ -3310,9 +3316,9 @@ public partial class Player : Node2D
         // block. The portal's IPlayerRestriction owns collision eligibility.
         ClearInteractionKnockback(clearInvincibility: true);
         ClearContactDamage();
-        _enemyKnockbackDirection = Vector2.Zero;
+        _enemyKnockbackAngle = 0;
         _pendingSwordKnockbackFrames = 0;
-        _pendingSwordKnockbackDirection = Vector2.Zero;
+        _pendingSwordKnockbackAngle = 0;
     }
 
     internal void CopyPortalPosition(Vector2 position)
@@ -3430,8 +3436,7 @@ public partial class Player : Node2D
         _nativeContactSignal = true;
         _enemyInvincibilityFrames = 0x18;
         _enemyKnockbackFrames = 0x0c;
-        _enemyKnockbackDirection = OracleObjectMovement.Shared.Direction(
-            OracleObjectMovement.Shared.RelativeAngle(tileCenter, EnemyContactPosition));
+        _enemyKnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(tileCenter, EnemyContactPosition);
         _pendingContactDamageRaw = -2;
         _world.PlaySound(SoundId.SndDamageLink);
     }
@@ -3976,6 +3981,9 @@ public partial class Player : Node2D
                 : Sprites.GetItemTwoHandTexture,
             0x10 => _scriptedWalkTextures[(int)_facing + (damagePalette ? 4 : 0)] ??= new AtlasTexture
                 { Atlas = damagePalette ? Sprites.DamageTexture : Sprites.WalkTexture, Region = GetFrame(_facing, 0) },
+            0x18 => _scriptedJumpTextures[_topDownAirAnimationPhase*8+(int)_facing+(damagePalette?4:0)] ??= new AtlasTexture
+                {Atlas=damagePalette?Sprites.DamageLedgeJumpTexture:Sprites.LedgeJumpTexture,
+                    Region=new Rect2(_topDownAirAnimationPhase*16,(int)_facing*16,16,16)},
             0x1c => damagePalette
                 ? Sprites.DamageGetItemOneHandRightTexture
                 : Sprites.GetItemOneHandRightTexture,
@@ -4501,7 +4509,7 @@ public partial class Player : Node2D
             // After @landed, @notInAir returns through func_5631 while recoil
             // remains. Ice retains the knockback angle, without input motion.
             if (UsesTopDownIcePhysics)
-                _topDownMovementAngle = AngleForVector(_enemyKnockbackDirection);
+                _topDownMovementAngle = _enemyKnockbackAngle;
             _walking = false;
         }
         else if (!_topDownAirborne)
@@ -5618,9 +5626,7 @@ public partial class Player : Node2D
         int knockbackAngle = movementAngle < 0x80
             ? (movementAngle ^ ObjectAngle.HalfTurn)
             : 0xff;
-        _enemyKnockbackDirection = knockbackAngle < 0x80
-            ? OracleObjectMovement.Shared.Direction(knockbackAngle)
-            : Vector2.Zero;
+        _enemyKnockbackAngle = knockbackAngle;
         _world.PlaySound(SoundId.SndDamageLink);
         ApplyDamage(2, RingDamageSource.Spike);
     }

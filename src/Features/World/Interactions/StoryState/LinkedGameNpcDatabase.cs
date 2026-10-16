@@ -5,10 +5,10 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Source-derived linkedGameNpcScript records and the five-character secret
-/// generator used by the text engine's \secret1 command.
+/// Source-derived linkedGameNpcScript records and the shared secret encoder
+/// used by NPC dialogue and the normal ending's game-transfer secret.
 /// </summary>
-public sealed class LinkedGameNpcDatabase
+public sealed partial class LinkedGameNpcDatabase
 {
     private const int GameIdAddress = WramAddress.wUnappraisedRingsEnd;
     private const int SecretType = 3;
@@ -211,24 +211,7 @@ public sealed class LinkedGameNpcDatabase
         InsertBits(buffer, shortSecretIndex, 6);
         InsertBits(buffer, 0, 4);
 
-        int checksum = 0;
-        foreach (byte value in buffer)
-            checksum += value;
-        buffer[^1] |= (byte)(checksum & 0x0f);
-
-        byte[] shortBuffer = new byte[5];
-        Array.Copy(
-            buffer, buffer.Length - shortBuffer.Length,
-            shortBuffer, 0, shortBuffer.Length);
-        int cipherOffset = ((shortBuffer[0] & 0x38) >> 3) * 4;
-        for (int index = 0; index < shortBuffer.Length; index++)
-        {
-            int cipher = _xorCipher[cipherOffset + index];
-            if (index == 0)
-                cipher &= 0x07;
-            shortBuffer[index] ^= (byte)cipher;
-        }
-        return shortBuffer;
+        return FinishSecretValues(buffer,5);
     }
 
     internal bool ValidateSecret(ReadOnlySpan<byte> symbols, int expectedIndex, OracleSaveData save)

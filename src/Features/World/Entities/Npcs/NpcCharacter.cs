@@ -17,6 +17,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     private NpcCharacterFacing _facing = NpcCharacterFacing.Down;
     private NpcCharacterFacing _nativeNpcFacingAngle = NpcCharacterFacing.Up;
     private int _animationFrame;
+    private bool _animationParameterConsumed;
     private double _animationTicks;
     private double _faceCooldownFrames;
     private Vector2 _scriptDrawOffset;
@@ -63,9 +64,12 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     public Rect2 SpriteBounds => new(Position + new Vector2(-8, -8), new Vector2(16, 16));
     public int CurrentFrameColumn => GetFrameColumn();
     public int CurrentAnimationFrame => _animationFrame;
-    internal int CurrentAnimationParameter => CurrentAnimation.Count == 0
+    internal int CurrentAnimationCounter => CurrentAnimation.Count == 0 ? 0 :
+        (CurrentAnimation[_animationFrame % CurrentAnimation.Count].Duration - (int)_animationTicks) & 0xff;
+    internal int CurrentAnimationParameter => _animationParameterConsumed||CurrentAnimation.Count == 0
         ? 0
         : CurrentAnimation[_animationFrame % CurrentAnimation.Count].Parameter;
+    internal int ConsumeAnimationParameter(){int value=CurrentAnimationParameter;_animationParameterConsumed=true;return value;}
     internal Vector2 CurrentAnimationOffset => CurrentAnimation.Count == 0
         ? Vector2.Zero
         : CurrentAnimation[_animationFrame % CurrentAnimation.Count].Offset;
@@ -576,6 +580,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         RebuildScriptAnimation();
         _animationFrame = 0;
         _animationTicks = 0.0;
+        _animationParameterConsumed=false;
         QueueRedraw();
     }
 
@@ -711,6 +716,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         if (_animationFrame >= animation.Count)
             _animationFrame = CurrentAnimationLoopStart;
         _animationTicks = 0.0;
+        _animationParameterConsumed=false;
         QueueRedraw();
     }
 
@@ -888,6 +894,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         {
             _animationTicks -= animation[_animationFrame].Duration;
             _animationFrame++;
+            _animationParameterConsumed=false;
             if (_animationFrame >= animation.Count)
                 _animationFrame = CurrentAnimationLoopStart;
             QueueRedraw();

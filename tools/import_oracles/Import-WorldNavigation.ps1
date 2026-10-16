@@ -484,6 +484,7 @@ foreach ($block in $animationBlocks) {
 
 $animationGroupLines = Read-ImportLines (Join-Path $Disassembly "data\ages\animationGroups.s")
 $animationGroups = @{}
+$animationInitialStates=@{}
 $pendingGroups = [Collections.Generic.List[int]]::new()
 $currentTracks = [Collections.Generic.List[string]]::new()
 $readingGroupBody = $false
@@ -502,7 +503,8 @@ foreach ($line in $animationGroupLines) {
         $pendingGroups.Add([Convert]::ToInt32($Matches['id'], 16))
         continue
     }
-    if ($pendingGroups.Count -gt 0 -and $line -match '\.db\s+\$8[0-9a-f]') {
+    if ($pendingGroups.Count -gt 0 -and $line -match '\.db\s+\$(?<state>8[0-9a-f])') {
+        foreach($groupId in $pendingGroups){$animationInitialStates[$groupId]=[Convert]::ToInt32($Matches['state'],16)}
         $readingGroupBody = $true
         continue
     }
@@ -533,6 +535,9 @@ Write-GeneratedTable(
     (Join-Path $animationDestination "headers.tsv"), $animationHeaderRows)
 Write-GeneratedTable(
     (Join-Path $animationDestination "tracks.tsv"), $animationTrackRows)
+$states=[Collections.Generic.List[string]]::new();$states.Add("# group`tinitial-state`tsource")
+foreach($groupId in 0..21){$states.Add("$groupId`t$($animationInitialStates[$groupId].ToString('x2'))`tdata/ages/animationGroups.s:animationGroup$($groupId.ToString('x2'))")}
+Write-GeneratedTable((Join-Path $animationDestination 'groups.tsv'),$states)
 
 # Vanilla omits duplicate room files. Resolve the labels preceding each
 # m_RoomLayoutData declaration into concrete, address-independent assets.

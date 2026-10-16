@@ -17,6 +17,8 @@ internal partial class ArmMimicCharacter : EnemyCharacter
     private Vector2I _preloadLinkFacing;
     private int _angle;
     private int _direction;
+    private OracleRuntimeState? _nativeMemory;
+    private OracleRandom? _nativeRandom;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal bool Initialized => _initialized;
@@ -28,7 +30,9 @@ internal partial class ArmMimicCharacter : EnemyCharacter
         ImportedEnemyDefinition record,
         OracleRoomData room,
         Vector2 position,
-        Vector2I preloadLinkFacing = default)
+        Vector2I preloadLinkFacing = default,
+        System.Collections.Generic.IReadOnlyDictionary<int,Color[]>? paletteOverrides=null,
+        OracleRuntimeState? nativeMemory=null,OracleRandom? nativeRandom=null)
     {
         if (record.Animations.Length != 4)
         {
@@ -38,18 +42,21 @@ internal partial class ArmMimicCharacter : EnemyCharacter
         }
 
         Record = record;
+        _nativeMemory=nativeMemory;_nativeRandom=nativeRandom;
+        if(record.Id==0x64&&(nativeMemory is null||nativeRandom is null))
+            throw new System.ArgumentException("linkMimic.s: ENEMY $64 requires live object masks and the shared RNG.");
         _initialized = false;
         _preloadLinkFacing = preloadLinkFacing;
-        _angle = 0xff;
+        _angle = record.Id==0x64?0:0xff;
         _direction = 0;
         InitializeEnemy(
             position,
-            EnemyCharacterConfiguration.FromImported(record));
+            EnemyCharacterConfiguration.FromImported(record),paletteOverrides:paletteOverrides,positionedOam:record.Id==0x64);
         _movement = new EnemyTerrainMovement(this, room);
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.Terrain,
-            checksHazards: true);
+            checksHazards: record.Id!=0x64);
         Visible = false;
     }
 
@@ -57,7 +64,7 @@ internal partial class ArmMimicCharacter : EnemyCharacter
     {
         if (IsDead)
             return;
-        if (CheckHazards())
+        if (Record.Id!=0x64&&CheckHazards())
             return;
         if (BeginFrame())
             return;
@@ -67,9 +74,11 @@ internal partial class ArmMimicCharacter : EnemyCharacter
             _behavior.DirectionMask;
         if (!_initialized)
         {
+            if(Record.Id==0x64)_nativeRandom!.Next();
             InitializePresentation(linkFacing);
             return;
         }
+        if(Record.Id==0x64&&_nativeMemory!.ReadWramByte(WramAddress.wDisabledObjects)!=0)return;
 
         // wLinkAngle=$ff means Link is not supplying movement. The source
         // returns before both movement and enemyAnimate on that update.
@@ -121,6 +130,7 @@ internal partial class ArmMimicCharacter : EnemyCharacter
             _behavior.DirectionMask;
         SetAnimation(_direction);
         Visible = true;
+        if(Record.Id==0x64)ZIndex=ObjectDrawPriority.FixedLowPriorityZIndex;
         QueueRedraw();
     }
 

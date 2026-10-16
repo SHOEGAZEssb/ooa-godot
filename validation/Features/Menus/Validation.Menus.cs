@@ -615,12 +615,12 @@ public sealed partial class ValidationRoot
             horseFaceSparkle[1].A != 2 || horseFaceSparkle[1].B != 0 ||
             templeBackgroundAnimation.A != 0x10 ||
             templeBackgroundAnimation.B != 0 ||
-            directLoadTick8.Length != 0 ||
-            !directLoadTick9.SequenceEqual([64]) ||
-            !directLoadTick15.SequenceEqual([64]) ||
-            !directLoadTick16.SequenceEqual([64, 60]) ||
-            !directLoadTick18.SequenceEqual([64, 60, 68, 72]) ||
-            !directLoadTick19.SequenceEqual([64, 60, 68, 72, 65]) ||
+            !directLoadTick8.SequenceEqual([60,64,68,72]) ||
+            !directLoadTick9.SequenceEqual([60,64,68,72]) ||
+            !directLoadTick15.SequenceEqual([60,64,68,72,65]) ||
+            !directLoadTick16.SequenceEqual([60,64,68,72,65]) ||
+            !directLoadTick18.SequenceEqual([60,64,68,72,65,61,69]) ||
+            !directLoadTick19.SequenceEqual([60,64,68,72,65,61,69,73]) ||
             !templeAnimationHashes.SequenceEqual(
             [
                 0x0a7a1280e17d4d84UL,

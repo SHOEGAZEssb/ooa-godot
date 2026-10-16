@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
             Vector2 target = new(0x90, 0x48);
             enemy.Initialize(definition, room, start, random, sounds.Add);
             int shadowFrame = 0;
-            enemy.BindTerrainShadow(room, () => shadowFrame, () => subid, () => false);
+            enemy.BindTerrainShadow(room, () => shadowFrame, () => subid, () => false, _runtimeState);
             FailIf(enemy.Visible || random.Calls != 0, "$30 consumed RNG or became visible at construction.");
             enemy.UpdateFrame(target);
             // bank0 enemyStandardUpdate: $5e for var3d, then state0: $d4.

@@ -5,6 +5,9 @@ namespace oracleofages;
 public partial class RoomView : Node2D
 {
     private Texture2D? _current;
+    private bool _nativeTilemap;
+    private int _nativeScrollY;
+    internal void SetNativeScrollY(int value){_nativeScrollY=value&255;QueueRedraw();}
     private Texture2D? _previous;
     private Vector2I _direction;
     private Vector2 _transitionTextureOffset;
@@ -42,6 +45,7 @@ public partial class RoomView : Node2D
 
     public void SetRoom(Texture2D texture)
     {
+        _nativeTilemap=false;_nativeScrollY=0;
         _current = texture;
         _underwaterWaveActive = false;
         _underwaterWaveSuspended = false;
@@ -52,6 +56,10 @@ public partial class RoomView : Node2D
         _roomLoadRevealLoadedColumns = 0;
         _roomLoadClearedTilemap = null;
         QueueRedraw();
+    }
+    internal void SetNativeTilemap(Texture2D texture)
+    {
+        int scrollY=_nativeScrollY;SetRoom(texture);_nativeTilemap=true;_nativeScrollY=scrollY;
     }
 
     internal void SuspendUnderwaterWave(bool suspended)
@@ -165,6 +173,16 @@ public partial class RoomView : Node2D
     {
         if (_current is null)
             return;
+
+        if(_nativeTilemap)
+        {
+            // Native fullscreen SCY=$00 includes the rows above the room.
+            // World coordinates retain the ordinary gameplay-field origin.
+            int first=Mathf.Min(144,256-_nativeScrollY);
+            DrawTextureRectRegion(_current,new Rect2(0,-OracleRoomData.GameplayScreenTop,160,first),new Rect2(0,_nativeScrollY,160,first));
+            if(first<144)DrawTextureRectRegion(_current,new Rect2(0,first-OracleRoomData.GameplayScreenTop,160,144-first),new Rect2(0,0,160,144-first));
+            return;
+        }
 
         if (_previous is null)
         {

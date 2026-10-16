@@ -353,6 +353,17 @@ public sealed class OracleSaveData
             PublishChange();
     }
 
+    internal void MarkGameCompleted()
+    {
+        // scripts/common/scriptHelper.s:gameCompleteDialog_markGameAsComplete.
+        bool changed=WriteWramByte(WramAddress.wMapleKillCounter,0);
+        changed|=WriteWramByte(WramAddress.wFileIsCompleted,1);
+        changed|=WriteWramByte(WramAddress.wMakuMapTextPresent,0x1c);
+        changed|=WriteWramByte(WramAddress.wMakuMapTextPast,0x8c);
+        SetGlobalFlag(GlobalFlag.FinishedGame);
+        if(changed)PublishChange();
+    }
+
     internal void SetMapleState(int value)
     {
         if (value is < 0 or > 0xff)

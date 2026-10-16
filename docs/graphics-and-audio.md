@@ -76,6 +76,11 @@ counters retain byte semantics: a written zero takes 256 updates to advance,
 and single-frame loops still decrement and reload their counters. Frame
 parameter flags reload on frame entry, including a loop back to the same frame.
 
+Background animation groups retain their initial state byte. Its force-update
+bit applies to the first data update as well as the initializer's two later
+forced updates. Direct loads retain that initial bit and drain their queued
+uploads through the ordinary FIFO on subsequent updates.
+
 Partial-load Link frames encode absolute source tile indices, which can exceed
 one byte. Renderers clear only the 8-by-16 pairing bit; they must not truncate
 the index or overlap its high bits with palette fields in cache keys.
@@ -116,6 +121,23 @@ snapshot restore publishes one change after all slots are written; unchanged
 snapshots do not request a redraw. Per-object
 overrides select cached textures without resetting animation clocks or mutating
 source images.
+
+Fullscreen ending presentation retains the source graphics upload order,
+addressed tile ranges, saved secondary tilemaps and title window. Switching
+native display maps reuses those resident graphics. Partial palette headers
+write only their addressed slots in the shared background and sprite palette
+owners; cancellation restores the captured slots and releases the screen.
+Native OAM uses the shared cell renderer and original byte-wrapped coordinates.
+File-menu uploads retain their partial lengths, RAM overlay offsets and tile
+interleaving. Secret text copies the original font cells and spacing through
+the shared tile renderer before the native RAM-to-VRAM upload.
+Native background scroll samples the full 256-pixel tilemap with byte wrapping;
+it preserves actor world positions and survives palette-driven texture refreshes.
+Credits font buffers retain raw 2bpp bytes, upload padding and inversion
+properties, both VRAM banks and uploads shared with background tile addresses.
+Their column masks update those bytes before shared sprite decoding;
+they are not background tilemaps. Unwritten padding remains explicitly undefined
+and cannot be used as a glyph.
 
 Background scanline waves use imported byte coefficients and the shared fixed
 update counter. Underwater presentation samples the 256-pixel background
@@ -162,6 +184,10 @@ The sound owner also retains the native room-selection gate independently of
 the requested driver track. A native `playSound` request preserves that gate;
 clearing it suppresses room assignments while the existing song continues.
 Native handlers read and write this state through the sound owner.
+
+The room-selected music byte is retained separately from that gate and from
+the audible driver track. Background loads may select a room song while music
+is suppressed; native scenes can later restore that selection explicitly.
 
 The generated sound-bank image already contains the clean US driver as well
 as its tables and channel programs. A bounded interpreter executes its sound

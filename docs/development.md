@@ -137,6 +137,7 @@ Development-only controls:
 | F3 | Arrange a normal Maple encounter |
 | F4 | Spawn enemies and item drops at room coordinates |
 | F5 | Toggle 4× fast forward (also works in the title flow and menus) |
+| F6 | Fully heal Link and immediately refill the HUD hearts |
 | Shift + 0-9 | Save a debug savestate |
 | 0-9 | Load a debug savestate |
 

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 // The Maku arrival/reward actors retain independent INTERACTION dispatches.
-internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEntity, IFixedRoomEntity,
+internal sealed partial class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEntity, IFixedRoomEntity,
     IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IPlayerInteractable, IRoomBlocker
 {
     private readonly RoomEventContext _context;
@@ -20,6 +20,7 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
     private bool _scriptEnded,_pressed;
     private int _noteFrame=-1;
     private bool _flowerCreated;
+    private bool EscapeCompanion=>Id==0x36&&SubId==0x10||Id==0x37&&SubId==0x0e;
     internal int Id {get;}
     internal int SubId {get;}
     internal int State {get;private set;}
@@ -57,6 +58,18 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
     private void Initialize()
     {
         State=1;_actor.ShowInitializedPresentation();
+        if(CreditsSwordActor){InitializeCreditsSword();return;}
+        if(CreditsPerformanceActor){InitializeCreditsPerformance();return;}
+        if(CreditsMakuActor){InitializeCreditsMaku();return;}
+        if(EndingPalaceCompanion){InitializeEndingPalaceCompanion();return;}
+        if(EndingCompanion){SetAnimation(0);return;}
+        if(EscapeCompanion)
+        {
+            _presetIndex=255;_actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
+            Start(Id==0x36?"nayru-escape":"ralph-escape");
+            if(Id==0x37)UpdateEscapeCompanion();
+            _actor.SetStatePosition(_actor.Position);return;
+        }
         switch(Id)
         {
             case 0x36:
@@ -80,6 +93,7 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
         if(State==0) {Initialize();return;}
+        if(CreditsPerformanceActor){UpdateCreditsPerformance();return;}
         switch(Id)
         {
             case 0x36:case 0x37: UpdateCompanion();break;
@@ -102,6 +116,11 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
     }
     private void UpdateCompanion()
     {
+        if(CreditsSwordActor){UpdateCreditsSword();return;}
+        if(CreditsMakuActor){UpdateCreditsMaku();return;}
+        if(EndingPalaceCompanion){UpdateEndingPalaceCompanion();return;}
+        if(EndingCompanion){UpdateEndingCompanion();return;}
+        if(EscapeCompanion){UpdateEscapeCompanion();return;}
         if(Substate==0)
         {
             if(Read(0xcfd0)==7)
@@ -124,6 +143,23 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
             if(Id==0x36) {SetAnimation(1);return;}
         }
         AnimateMotion();_runner.AdvanceFrame();if(_scriptEnded) Finish();
+    }
+    private void UpdateEscapeCompanion()
+    {
+        int shake=_context.Entities.ScreenShakeCounter;
+        if(shake!=0&&shake<0x5a)
+        {
+            int direction=(CarriedObjectMotion.DirectionIndex(_context.Player.FacingVector)-(Id==0x36?1:2))&3;
+            if(direction!=_presetIndex){_presetIndex=direction;SetAnimation(direction);}
+        }
+        if(Id==0x36)AnimateMotion();
+        AdvanceScript();
+        if(_scriptEnded){Finish();return;}
+        if(Id==0x37)
+        {
+            _actor.AdvanceAnimationUpdates(1);_actor.PreventPlayerPassing(_context.Player);
+            _actor.UpdateDrawPriority(_context.Player.Position,0,withTerrainEffects:true);
+        }
     }
     private int RandomDelay() => ((_context.Entities.Random.Next().Value&3)<<2)+16;
     private void UpdateBoy()
@@ -156,7 +192,13 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
         _speedZ=_jumpSpeed=unchecked((short)_data.Table("monkey-jumps")[_context.Entities.Random.Next().Value&3]);
         _counter2=60;SetPalette(6);_actor.Visible=false;
         if(_index==9) {SetPosition(new(0x24,0x64));_motion=1;}
-        if(_index==8) {_counter=250;SetAnimation(7);if(_context.Entities.InteractionSlotAvailable)_context.Entities.AddEntity(new NayruRescueBowtieRoomEntity(_data,this));}
+        if(_index==8)
+        {
+            _counter=250;SetAnimation(7);
+            if(_context.Entities.InteractionSlotAvailable)_context.Entities.AddEntity(new AccessoryRoomEntity(
+                _data.CreateActor(0x63,0x3d,Vector2.Zero),_actor,()=>Finished,()=>_z,index=>_data.Animation(0x63,index),_data.Table("bowtie-offsets"),
+                actor=>{int palette=Substate is 2 or 3?6:2;actor.SetBasePalette(palette);actor.SetScriptPaletteOverride(palette==6?_data.StonePalette:null);}));
+        }
     }
     private void UpdateMonkey()
     {
@@ -228,7 +270,11 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
     {SetPosition(new(0xa0-(int)_parent!._precise.X+_precise.X%1,(int)_parent._precise.Y+_precise.Y%1));_z=(_parent._z&~255)|(_z&255);_actor.Visible=_parent._actor.Visible;SetTwinrovaAnimation(_parent._twinrovaAnimation switch {1=>3,3=>1,var value=>value});}
     private void PublishTarget(int offset=0)
     {Write(0xcfd5,(int)_precise.Y);Write(0xcfd6,((int)_precise.X+offset)&255);}
-    private void MoveRaw(int speed,int angle) => _actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _precise,speed,angle));
+    private void MoveRaw(int speed,int angle)
+    {
+        var point=CreditsMakuActor||CreditsSwordActor?NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,ref _precise,speed,angle):OracleObjectMovement.Shared.ApplySpeed(ref _precise,speed,angle);
+        if(EndingCompanion||EndingPalaceCompanion||CreditsMakuActor||CreditsSwordActor)_actor.Position=point;else _actor.SetStatePosition(point);
+    }
     private void Finish() {Finished=true;_actor.SetActive(false);}
     public bool BlocksLink(Vector2 center) => _actor.BlocksLinkCenter(center);
     public bool TryInteract(Player player) {if(!_actor.ScriptButtonSensitive||!_actor.CanTalkTo(player)) return false;_pressed=true;return true;}
@@ -242,13 +288,30 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
     public override void ShowText(int id,string message) => ShowText(id,message,null);
     public override void ShowText(int id,string message,int? position) => _context.ShowDialogue(message,position,sourceTextId:id);
     public override void ScriptEnded() => _scriptEnded=true;
-    public override int ReadMemory(string binding) => binding switch {"RescueSignal"=>Read(0xcfd0),"Linked"=>IsLinkedGame?1:0,_=>throw UnsupportedCommand(binding)};
+    public override int ReadMemory(string binding) => binding switch {"RescueSignal"=>Read(0xcfd0),"EscapeSignal"=>Read(0xcbb5),"Linked"=>IsLinkedGame?1:0,
+        "EndingJump"=>_endingJump,"EndingLinkY"=>(int)_context.Player.Position.Y,"EndingInput"=>Read(0xcbc3),"CreditsSignal"=>Read(0xcfc0),_=>throw UnsupportedCommand(binding)};
     public override bool MemoryEquals(string binding,int value) => ReadMemory(binding)==value;
     public override void WriteMemory(string binding,int value)
-    {if(binding=="RescueSignal")Write(0xcfd0,value);else if(binding=="MakuMapText")_context.Rooms.SaveData.SetMakuMapTextPresent(value);else throw UnsupportedCommand(binding);}
-    public override bool GateOpen(string gate) => gate switch {"PaletteDone"=>!_context.Transitions.NativePaletteFadeActive,"HarpDone"=>(Read(0xcfc0)&0x80)!=0,_=>throw UnsupportedCommand(gate)};
+    {
+        switch(binding)
+        {
+            case "RescueSignal":Write(0xcfd0,value);return;
+            case "CreditsSignal":Write(0xcfc0,value);return;
+            case "MakuMapText":_context.Rooms.SaveData.SetMakuMapTextPresent(value);return;
+            case "EscapeSignal":Write(0xcbb5,value);return;
+            case "EndingInput":Write(0xcbc3,value);return;
+            case "EscapeLinkDirection":_context.Player.Face(value switch {0=>Vector2I.Up,1=>Vector2I.Right,2=>Vector2I.Down,3=>Vector2I.Left,_=>throw UnsupportedCommand(binding)});return;
+            case "EscapeShakeY":_context.Entities.SetScreenShake(value,_context.Entities.HorizontalScreenShakeCounter,0);return;
+            case "EscapeShakeX":_context.Entities.SetScreenShake(_context.Entities.ScreenShakeCounter,value,0);return;
+            case "EscapeScroll":Write(WramAddress.wScrollMode,value);return;
+            default:throw UnsupportedCommand(binding);
+        }
+    }
+    public override bool GateOpen(string gate) => gate switch {"PaletteDone"=>!_context.Transitions.NativePaletteFadeActive,"TextDone"=>!DialogueOpen,"HarpDone"=>(Read(0xcfc0)&0x80)!=0,_=>throw UnsupportedCommand(gate)};
     public override void WriteObjectByte(string actor,int address,int value)
-    {if(address==0x48)_direction=value;else if(address==0x60)_actor.SetAnimationCounter(value);else throw UnsupportedCommand($"object byte${address:x2}");}
+    {if(address==0x48)_direction=value;else if(address==0x60)_actor.SetAnimationCounter(value);
+        else if(EscapeCompanion&&address is 0x4b or 0x4d)SetPosition(address==0x4b?new(_precise.X,value+_precise.Y%1):new(value+_precise.X%1,_precise.Y));
+        else throw UnsupportedCommand($"object byte${address:x2}");}
     public override void SetInputEnabled(bool enabled)
     {Write(WramAddress.wDisabledObjects,enabled?0:0x81);Write(WramAddress.wMenuDisabled,enabled?0:0x80);if(enabled)_context.Player.EndCutsceneControl();else _context.Player.ClearNativeItemParents();}
     public override void PlaySound(int sound) => _context.Sound.PlaySound(sound);
@@ -264,13 +327,18 @@ internal sealed class NayruRescueActorRoomEntity : CutsceneCommandHost, IRoomEnt
         var pieces=handler.Split(':');
         switch(pieces[0])
         {
-            case "Reveal":_actor.Visible=true;break;
+            case "Reveal":if(CreditsMakuActor)_actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);_actor.Visible=true;break;
+            case "CreditsJump":Substate++;break;
+            case "CreditsExclaim":if(_context.Entities.InteractionSlotAvailable)_context.Entities.CreatePalaceExclamation(_precise.Floor()+new Vector2(13,-13),40);break;
             case "LinkDirection":_context.Player.RequestNativeScriptFacing(this,int.Parse(pieces[1]));break;
             case "FaceTarget":if((FrameCounter&3)==0) {_direction=(((OracleObjectMovement.Shared.RelativeAngle(_precise.Floor(),new(Read(0xcfd6),Read(0xcfd5)))+4)&0x18)>>3);SetAnimation(_direction);}break;
             case "PublishTarget":PublishTarget(pieces.Length==1?0:unchecked((sbyte)int.Parse(pieces[1])));break;
             case "Disabled11":Write(WramAddress.wDisabledObjects,0x11);break;
             case "ResetMusic":_context.Sound.PlayRoomMusic(_context.Rooms.ActiveGroup,_context.Rooms.CurrentRoom.Id,_context.Rooms.SaveData);break;
             case "HarpSong":if(_context.Entities.InteractionSlotAvailable)_context.Entities.AddEntity(new NayruRescueHarpRoomEntity(_context));break;
+            case "Music":int music=int.Parse(pieces[1]);_context.Sound.SetNativeActiveMusic(music);_context.Sound.PlaySound(music);break;
+            case "EscapeClink":if(_context.Entities.InteractionSlotAvailable)
+                _context.Entities.Spawn(new SwordWallClinkSpawn(new(0x78,0x74),Flickers:false));break;
             default:throw UnsupportedCommand(handler);
         }
     }

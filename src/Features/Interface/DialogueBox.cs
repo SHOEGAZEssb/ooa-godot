@@ -392,9 +392,10 @@ public partial class DialogueBox : Node2D
         DialogueScreenContext screen,
         int initialChoice = 0,
         int? textPosition = null,
-        int textboxFlags = 0)
+        int textboxFlags = 0,
+        int? sourceTextId = null)
     {
-        ShowMessage(message, screen, textPosition, textboxFlags);
+        ShowMessage(message, screen, textPosition, textboxFlags,sourceTextId);
         _choiceActive = true;
         _selectedChoice = Math.Max(0, initialChoice);
     }
@@ -511,7 +512,7 @@ public partial class DialogueBox : Node2D
     private void Advance(double delta)
     {
         if (_consumeClosingInput &&
-            !Input.IsActionPressed("attack") && !Input.IsActionPressed("item"))
+            !Input.IsPhysicalActionPressed("attack") && !Input.IsPhysicalActionPressed("item"))
         {
             _consumeClosingInput = false;
         }
@@ -550,7 +551,7 @@ public partial class DialogueBox : Node2D
             if (_textSoundCooldownCounter > 0) _textSoundCooldownCounter--;
             if (_textSlowdownTimer > 0) _textSlowdownTimer--;
             bool skip = _textSlowdownTimer == 0 &&
-                (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"));
+                (Input.IsPhysicalActionJustPressed("attack") || Input.IsPhysicalActionJustPressed("item"));
             if (skip || --_characterDisplayTimer <= 0)
             {
                 _skipToLineEnd |= skip;
@@ -616,15 +617,15 @@ public partial class DialogueBox : Node2D
         // Standard text's final @checkShouldExit accepts any pressed key.
         // Continuations and option prompts retain their narrower controls.
         bool finalMenuPress = !HasContinuation && !_choiceActive &&
-            (Input.IsActionJustPressed("inventory") || Input.IsActionJustPressed("map"));
+            (Input.IsPhysicalActionJustPressed("inventory") || Input.IsPhysicalActionJustPressed("map"));
         if (Input.TimingFrame == _openedFrame ||
-            (!finalMenuPress && !Input.IsActionJustPressed("attack") && !Input.IsActionJustPressed("item") &&
-             !Input.IsActionJustPressed("move_left") && !Input.IsActionJustPressed("move_right") &&
-             !Input.IsActionJustPressed("move_up") && !Input.IsActionJustPressed("move_down")))
+            (!finalMenuPress && !Input.IsPhysicalActionJustPressed("attack") && !Input.IsPhysicalActionJustPressed("item") &&
+             !Input.IsPhysicalActionJustPressed("move_left") && !Input.IsPhysicalActionJustPressed("move_right") &&
+             !Input.IsPhysicalActionJustPressed("move_up") && !Input.IsPhysicalActionJustPressed("move_down")))
             return;
 
-        if (HasContinuation && !Input.IsActionJustPressed("attack") &&
-            !Input.IsActionJustPressed("item"))
+        if (HasContinuation && !Input.IsPhysicalActionJustPressed("attack") &&
+            !Input.IsPhysicalActionJustPressed("item"))
             return;
 
         AdvanceOrClose();
@@ -946,12 +947,12 @@ public partial class DialogueBox : Node2D
         }
         // A/B precede directions, and B selects the last option without
         // accepting it. Direction chords use getHighestSetBit priority.
-        if (Input.IsActionJustPressed("item")) MoveChoiceToLast();
-        else if (Input.IsActionJustPressed("attack")) SubmitChoice();
-        else if (Input.IsActionJustPressed("move_down") || Input.IsActionJustPressed("move_up"))
+        if (Input.IsPhysicalActionJustPressed("item")) MoveChoiceToLast();
+        else if (Input.IsPhysicalActionJustPressed("attack")) SubmitChoice();
+        else if (Input.IsPhysicalActionJustPressed("move_down") || Input.IsPhysicalActionJustPressed("move_up"))
             MoveChoiceVertically();
-        else if (Input.IsActionJustPressed("move_left")) MoveChoice(-1);
-        else if (Input.IsActionJustPressed("move_right")) MoveChoice(1);
+        else if (Input.IsPhysicalActionJustPressed("move_left")) MoveChoice(-1);
+        else if (Input.IsPhysicalActionJustPressed("move_right")) MoveChoice(1);
     }
 
     private void MoveChoiceVertically()
@@ -1044,7 +1045,7 @@ public partial class DialogueBox : Node2D
                     faceInputBlocked = true;
             }
             bool skip = !faceInputBlocked &&
-                (Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"));
+                (Input.IsPhysicalActionJustPressed("attack") || Input.IsPhysicalActionJustPressed("item"));
             if (!skip && --_characterDisplayTimer > 0)
                 continue;
 

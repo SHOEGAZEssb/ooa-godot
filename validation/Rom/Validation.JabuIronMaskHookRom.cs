@@ -60,7 +60,7 @@ public sealed partial class ValidationRoot
                 FailIf((int)SomariaPrivate<float>(_player,"_enemyKnockbackFrames")!=rom[0xd02d],
                     $"Iron Mask Hook update{update}: Link recoil runtime={SomariaPrivate<float>(_player,"_enemyKnockbackFrames")}, ROM={rom[0xd02d]}, inv={SomariaPrivate<float>(_player,"_enemyInvincibilityFrames")}/{rom[0xd02b]}, angle={rom[0xd02c]}.");
                 FailIf(_player.PrecisePosition!=new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f),
-                    $"Iron Mask Hook update{update}: Link exchange position differs {_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; angle runtime={SomariaPrivate<Vector2>(_player,"_enemyKnockbackDirection")}, native=${rom[0xd02c]:x2}.");
+                    $"Iron Mask Hook update{update}: Link exchange position differs {_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; angle runtime={SomariaPrivate<int>(_player,"_enemyKnockbackAngle"):x2}, native=${rom[0xd02c]:x2}.");
             }
             StepGameplayUpdates(1,Vector2.Zero,batched:batch,afterUpdate:()=>Compare(0));
             StepGameplayUpdates(1,Vector2.Zero,MenuRomActions(1),MenuRomActions(1),batch,()=>Compare(1));

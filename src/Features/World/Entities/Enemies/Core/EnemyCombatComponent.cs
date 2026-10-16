@@ -137,7 +137,8 @@ internal sealed class EnemyCombatDescriptor
         Func<bool>? deathPuffAllowed = null,
         Func<RoomEnemyOutcome>? completedOutcome = null,
         int acceptedHitSound = SoundId.SndDamageEnemy,
-        bool dropsItem = true)
+        bool dropsItem = true,
+        Func<int>? deathPuffZHigh = null)
     {
         var combat = EnemyCombatComponent.WithContactDamage(
             () => enemy.IsDead,
@@ -155,7 +156,8 @@ internal sealed class EnemyCombatDescriptor
                         deathPuffPosition?.Invoke() ?? enemy.Position,
                         HighKnockback: (enemy.KnockbackCounter & 0x80) != 0,
                         EnemyId: source.Id,
-                        DropsItem: dropsItem)
+                        DropsItem: dropsItem,
+                        ZHigh: deathPuffZHigh?.Invoke() ?? 0)
                     : null,
             (sourcePosition, strength) =>
             {
@@ -260,6 +262,7 @@ internal readonly record struct EnemyCombatSourceDescriptor(
         EnemySwordResponse expected =
             (Handler, collisionMode) switch
         {
+            (EnemyHandlerKind.VeranFinal, 0x6a) => EnemySwordResponse.None,
             (EnemyHandlerKind.AmbiGuard, 0x5a) => EnemySwordResponse.NoKnockback,
             (EnemyHandlerKind.KingMoblin, 0x50) => EnemySwordResponse.None,
             (EnemyHandlerKind.RiverZora, 0x0f) => EnemySwordResponse.NoKnockback,

@@ -6,9 +6,28 @@ public partial class Player
 {
     internal void RequestNativeScriptFacing(object owner,int direction)
     {
+        bool alreadyState08=_forcedState08Phase>=2;
         Face(direction switch {0=>Vector2I.Up,1=>Vector2I.Right,2=>Vector2I.Down,3=>Vector2I.Left,
             _=>throw new System.NotSupportedException($"forceLinkDirection ${direction:x2}.")});
         RequestState08Control(owner);
+        // forceLinkDirection does not perform the portal's visible=$82 write.
+        _forcedState08LowPriority=false;
+        _state08ReleasedByObjectMask=true;_state08RequestWasActive=alreadyState08;
+    }
+    private bool _state08RequestWasActive;
+    private void AdvanceState08Control()
+    {
+        if(_forcedState08Phase==1){_forcedState08Phase=2;return;}
+        if(_forcedState08Phase==2)
+        {
+            _forcedState08Phase=3;_world.ClearItemParents(this);ClearShieldParent();CancelSwordAttack();CancelShovelAction();
+            _startedParentItemAnimations=0;SetScriptedLinkAnimationMode(0x10);return;
+        }
+        if(_forcedState08Phase!=4&&(!_state08ReleasedByObjectMask||_world.NativeObjectDisableMask!=0))return;
+        bool nativeRelease=_state08ReleasedByObjectMask;
+        _forcedState08Phase=0;_state08ReleasedByObjectMask=false;
+        if(nativeRelease){_scriptControl=ScriptControl.None;_cutsceneControlOwner=null;_forcedState08LowPriority=false;}
+        SetScriptedLinkAnimationMode(null);ResetLinkWalkAnimation();
     }
     private int _nativeForcedMovementRequest = -1, _nativeForcedMovementCounter;
     private Vector2I _nativeForcedMovementDirection, _nativeForcedMovementFacing;

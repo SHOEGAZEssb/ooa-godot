@@ -421,3 +421,19 @@ $mapleConstantRows = @(
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\maple_constants.tsv'),
     $mapleConstantRows)
+
+$rows=[Collections.Generic.List[string]]::new();$rows.Add("# index`tspeed`tframes`ty`tanimation`tsource")
+$path=Join-Path $Disassembly 'object_code/ages/specialObjects/companionCutscene.s'
+$steps=@(Read-AssemblyDataDirectives $path '' '.db'|Where-Object {$_.EnclosingGlobalLabel -eq 'specialObjectCode_mapleCutscene'});$index=0
+foreach($step in $steps) {
+    if($step.Operands.Count -ne 4){throw 'Maple credits require four-byte movement rows.'}
+    $speed=switch($step.Operands[0]){'SPEED_200'{0x50};'SPEED_1c0'{0x46};'SPEED_180'{0x3c};'SPEED_040'{0x0a};default{throw "Unsupported Maple credits speed $($step.Operands[0])."}}
+    $values=@($step.Operands[1..3]|ForEach-Object {Convert-AssemblyInteger $_})
+    $rows.Add("$index`t$speed`t$($values[0])`t$($values[1].ToString('x2'))`t$($values[2].ToString('x2'))`tobject_code/ages/specialObjects/companionCutscene.s:specialObjectCode_mapleCutscene");$index++
+}
+if($index -ne 4){throw 'Maple credits require the original four fly-by records.'}
+Write-GeneratedTable((Join-Path $destination 'objects/maple_credits_flight.tsv'),$rows)
+$offsets=@(Read-AssemblyLiteralValues (Join-Path $Disassembly 'object_code/common/interactions/seasonsFairy.s') '@zOffsets')
+if($offsets.Count -ne 8){throw 'objectOscillateZ requires eight source offsets.'}
+Write-GeneratedTable((Join-Path $destination 'objects/maple_credits_z.tsv'),@("# offsets`tsource",
+    "$(( $offsets|ForEach-Object {$_.ToString('x2')}) -join ',')`tobject_code/common/interactions/seasonsFairy.s:objectOscillateZ_body"))

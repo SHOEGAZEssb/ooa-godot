@@ -7,6 +7,18 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void CompareInteractionSpritePixelsRom(SomariaRom rom, NpcCharacter actor,
+        int slot, int expectedCells, string context)
+    {
+        var frames = SomariaPrivate<List<NpcCharacterAnimationFrame>>(actor, "_scriptAnimation");
+        if (frames.Count == 0)
+            frames = SomariaPrivate<List<NpcCharacterAnimationFrame>[]>(actor, "_facingAnimations")
+                [(int)SomariaPrivate<NpcCharacterFacing>(actor, "_facing")];
+        var frame = frames[actor.CurrentAnimationFrame];
+        CompareInteractionOamRom(rom, actor, slot, context);
+        CompareInteractionSpritePixelsRom(rom, frame.Texture, frame.Offset, slot, expectedCells, context);
+    }
+
     private void CompareInteractionSpritePixelsRom(SomariaRom rom, Texture2D texture,
         Vector2 drawOffset, int slot, int expectedCells, string context)
     {

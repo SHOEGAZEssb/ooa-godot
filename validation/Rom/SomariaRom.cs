@@ -17,6 +17,7 @@ internal sealed class SomariaRom
     internal bool HostileEnemiesEnabled { get; set; }
     internal bool PostObjectCollisionsEnabled { get; set; } = true;
     internal bool CompanionDispatchEnabled { get; set; }
+    internal bool NativeGameKeysEnabled {get;set;}
     internal IReadOnlyList<int> Sounds => _rom.Sounds;
     internal int[] Blocks => Enumerable.Range(0xd7, 5).Select(page => page << 8)
         .Where(slot => this[slot] != 0 && this[slot + 1] == 0x18).ToArray();
@@ -38,12 +39,14 @@ internal sealed class SomariaRom
         if (this[0xcc04] != 0) _rom.Call(0x5e3d,1); // setCutsceneIndexIfCutsceneTriggerSet.
     }
     internal void AdvanceEnemyAndPartCollisions() => _rom.Call(0x41d1,7);
-    internal void HitEnemyWithItem(int slot,int collision,int damage,int itemId=0)
+    internal void AdvanceInteractions() => _rom.Call(0x3b36,0); // bank0.updateInteractions, including the scroll/always-update gates.
+    internal void HitEnemyWithItem(int slot,int collision,int damage,int itemId=0,Godot.Vector2? origin=null)
     {
         int enemy=0xd080+slot*256;
         this[0xd724]=(byte)(0x80|collision); this[0xd728]=unchecked((byte)-damage);
         this[0xd701]=(byte)itemId; this[0xd726]=this[0xd727]=6;
-        this[0xd70b]=this[enemy+11]; this[0xd70d]=(byte)(this[enemy+13]-1);
+        this[0xd70b]=origin is { } pointY?unchecked((byte)Godot.Mathf.FloorToInt(pointY.Y)):this[enemy+11];
+        this[0xd70d]=origin is { } pointX?unchecked((byte)Godot.Mathf.FloorToInt(pointX.X)):(byte)(this[enemy+13]-1);
         this[0xffae]=0x80; this[0xffaf]=(byte)(enemy>>8);
         byte[] caller=[0x16,(byte)(enemy>>8),0x21,0x00,0xd6,0xcd,0xd1,0x41,0xc9];
         for(int index=0;index<caller.Length;index++) this[0xc100+index]=caller[index];
@@ -60,7 +63,45 @@ internal sealed class SomariaRom
     internal void AdvanceJabuOpening() => _rom.Call(0x7565,3); // CUTSCENE$1d, before objects.
     internal void LoadRoomTileset() => _rom.LoadRoomTileset();
     internal void AdvanceScreenShake() => _rom.Call(0x427d,1); // Original post-object Y/X shake and RNG draws.
+    internal void AdvanceCameraPosition() => _rom.Call(0x4201, 1); // bank1.updateCameraPosition, after objects.
     internal void AdvanceNayruRescueWarp() => _rom.Call(0x6785,3); // CUTSCENE$0c @runStates, before objects.
+    internal void AdvanceBlackTowerEscapeAttempt()=>_rom.Call(0x7cb7,3); // CUTSCENE$1f, before status bar / objects.
+    internal void EnableVramDma()=>_rom.VramDmaTransfersEnabled=true;
+    internal void EnableResetHandoff()=>_rom.StopAtReset=true;
+    internal byte VramByte(int bank,int address)=>_rom.VramByte(bank,address);
+    internal byte BankByte(int bank,int address)=>_rom.BankByte(bank,address);
+    internal void AdvanceBlackTowerEnding()
+    {
+        if(this[0xc2ef]==0x0a){_rom.Call(0x5e16,3);return;} // endgameCutsceneHandler_0a@runStates, before func_3539.
+        if(this[0xcbc1]==0){_rom.Call(0x545b,3);return;}
+        // Original stage-selector table, not a port/imported timing table.
+        var bytes=ValidationRom.LoadCleanUs().Span;int at=3*0x4000+0x1450;
+        int handler=bytes[at]|bytes[at+1]<<8;int offset=3*0x4000+handler-0x4000;
+        if(bytes[offset]!=0xcd||bytes[offset+3]!=0xc3||bytes[offset+4]!=0x5b||bytes[offset+5]!=0x34)
+            throw new System.InvalidOperationException("Clean US native09 stage1 caller no longer matches the source dispatch boundary.");
+        _rom.Call(bytes[offset+1]|bytes[offset+2]<<8,3);
+    }
+    internal void UpdateCredits(int frameCounter)
+    {
+        this[0xcc00]=(byte)frameCounter;
+        _rom.Call(0x3539,0); // Complete native credits object caller, with no post-object collision pass.
+    }
+    internal void DrawCutsceneObjects()=>_rom.Call(0x0d9a,0); // bank0.drawAllSprites, after native credits object updates.
+    internal void LoadCutsceneGraphics(int graphics,int palette)
+    {
+        byte[] caller=[0x3e,(byte)graphics,0xcd,0x26,0x06,0x3e,(byte)palette,0xcd,0x0b,0x05,0xc9];
+        for(int index=0;index<caller.Length;index++)this[0xc100+index]=caller[index];
+        _rom.Call(0xc100,0);
+    }
+    internal void InitializeBackgroundAnimations(int group,bool direct)
+    {
+        this[0xcd25]=(byte)group;this[0xcc2c]=1;
+        if(!direct){_rom.Call(0x58e4,4);return;} // animations.s:initializeAnimations.
+        byte[] caller=[0x3e,(byte)group,0xcd,0x59,0x36,0xc9]; // bank0.loadAnimationData, preserving the group state byte.
+        for(int index=0;index<caller.Length;index++)this[0xc100+index]=caller[index];
+        _rom.Call(0xc100,0);
+    }
+    internal void AdvanceBackgroundAnimations()=>_rom.Call(0x5906,4); // animations.s:updateAnimations, including original FIFO drain.
     internal void AdvancePostD7()
     {
         // The original state handlers precede updateAllObjects. Their room,
@@ -80,6 +121,7 @@ internal sealed class SomariaRom
         CallLink(0x46bb, 6); // linkApplyDamage, including native death publication.
     }
     internal void AdvanceWarpPalette() => _rom.AdvancePalette();
+    internal void BeginCutsceneWhiteFade()=>_rom.Call(0x326c,0); // bank0.s:fadeoutToWhite.
     internal void ApplyRequestedWarp() => _rom.Call(0x5e0e, 1); // applyWarpTransition2, after objects.
     internal void UpdateFadeOutWarp() => _rom.Call(0x5bd8, 1); // cutscene03, including native room load.
     internal void CompleteGaleMenuHandoff() => _rom.Call(0x5de8, 1); // cutscene16 after updateMenus/ret nz.
@@ -260,11 +302,13 @@ internal sealed class SomariaRom
         Action? beforeInteractions = null, Action? afterInteractions = null)
     {
         this[0xcc00] = (byte)frameCounter;
-        this[0xcc29] = (byte)held; this[0xcc2a] = (byte)pressed; this[0xcc2b] = (byte)angle;
+        if(NativeGameKeysEnabled){this[0xc481]=(byte)held;this[0xc482]=(byte)pressed;}
+        else {this[0xcc29] = (byte)held; this[0xcc2a] = (byte)pressed; this[0xcc2b] = (byte)angle;}
         // updateSpecialObjects preparation/tail, with no companion or physical
         // controller input. The actual Link dispatch owns tile interaction,
         // item parents, wall probes, movement, facing and grab eligibility.
         _rom.UpdateSpecialObjectPrelude();
+        if(NativeGameKeysEnabled)_rom.Call(0x40b3,5); // updateGameKeysPressed, including original simulated-input reader.
         if (CompanionDispatchEnabled)
         {
             CallSpecialObject(0xd1);

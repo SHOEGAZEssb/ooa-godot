@@ -25,3 +25,9 @@ foreach ($respawnRepairKey in @('shop', 'outside')) {
         $respawnRepairMinimum, ($respawnRepairBytes -join "`t"), 'code/bank1.s:initializeGame/@respawnBuffers[03]') -join "`t")
 }
 Write-GeneratedTable((Join-Path $destination 'metadata\death_respawn_initialization.tsv'), $respawnRepairRows)
+$presetRows=[Collections.Generic.List[string]]::new();$presetRows.Add("# index`tmask`tvalues`tsource")
+for($index=0;$index -lt $respawnPresetRows.Count;$index++) {
+    $bytes=@([regex]::Matches($respawnPresetRows[$index].Groups['bytes'].Value,'\$([0-9a-f]{2})')|ForEach-Object {$_.Groups[1].Value})
+    $presetRows.Add("$index`t$($bytes[0])`t$($bytes[1..7] -join ',')`tcode/bank1.s:loadDeathRespawnBufferPreset@respawnBuffers")
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/death_respawn_presets.tsv'),$presetRows)

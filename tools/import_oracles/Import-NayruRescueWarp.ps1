@@ -6,11 +6,16 @@ $ops = [Collections.Generic.HashSet[string]]::new([string[]]@(
     'checkmemoryeq','jumpifmemoryeq','writememory','scriptjump','scriptend','asm15','showtext','showtextlowindex',
     'showtextdifferentforlinked','playsound','resetmusic','disableinput','enableinput','setdisabledobjectsto11',
     'giveitem','spawninteraction','checkcfc0bit','checkpalettefadedone','writeobjectbyte','setcollisionradii',
-    'makeabuttonsensitive','checkabutton'))
-$symbols=@{'SPEED_0c0'=0x1e;'SPEED_100'=0x28;'SPEED_180'=0x3c;'SPEED_200'=0x50;
+    'makeabuttonsensitive','checkabutton','checktext','setmusic','checkobjectbyteeq','addobjectbyte'))
+$symbols=@{'SPEED_080'=0x14;'SPEED_0c0'=0x1e;'SPEED_100'=0x28;'SPEED_180'=0x3c;'SPEED_200'=0x50;
     'DIR_UP'=0;'DIR_RIGHT'=1;'DIR_DOWN'=2;'DIR_LEFT'=3;'TREASURE_TUNE_OF_AGES'=0x27;
     'Interaction.animCounter'=0x60;'Interaction.direction'=0x48;'<TX_0556'=0x56;
-    'wTmpcfc0.genericCutscene.cfd0'='RescueSignal';'wIsLinkedGame'='Linked';'wMakuMapTextPresent'='MakuMapText'}
+    'wTmpcfc0.genericCutscene.cfd0'='RescueSignal';'wIsLinkedGame'='Linked';'wMakuMapTextPresent'='MakuMapText';
+    'wTmpcbb5'='EscapeSignal';'wGenericCutscene.cbb5'='EscapeSignal';'w1Link.direction'='EscapeLinkDirection';
+    'wScreenShakeCounterY'='EscapeShakeY';'wScreenShakeCounterX'='EscapeShakeX';'wScrollMode'='EscapeScroll';
+    'Interaction.yh'=0x4b;'Interaction.xh'=0x4d;'Interaction.var3e'='EndingJump';
+    'wUseSimulatedInput'='EndingInput';'w1Link.yh'='EndingLinkY';
+    'wTmpcfc0.genericCutscene.state'='CreditsSignal'}
 foreach($key in $soundIds.Keys) { $symbols[$key]=[int]$soundIds[$key] }
 $musicConstants=Read-ImportText (Join-Path $Disassembly 'constants/common/music.s')
 foreach($match in [regex]::Matches($musicConstants,'(?m)^\.define\s+(?<name>SNDCTRL_\w+)\s+\$(?<value>[0-9a-f]{2})')) {$symbols[$match.Groups['name'].Value]=[Convert]::ToInt32($match.Groups['value'].Value,16)}
@@ -20,12 +25,11 @@ $rows.Add("# id`tsubid`tsprites`ttile-base`tpalette`tanimation`tsource")
 $animationsById=@{}
 $animationRows=[Collections.Generic.List[string]]::new()
 $animationRows.Add("# id`tindex`tanimation`tsource")
-foreach($spec in @(@(0x36,2,7),@(0x37,4,3),@(0x87,3,4),@(0x8d,0,3),@(0x3c,5,3),@(0x3d,3,3),@(0x39,4,8),@(0x93,0,3),@(0x93,1,3),@(0x63,0x3d,0x0a))) {
-    $id=[int]$spec[0];$subid=[int]$spec[1];$graphic=$interactionGraphics["${id}:$subid"]
-    if($null -eq $graphic) { $graphic=$interactionGraphics["${id}:0"] }
+foreach($spec in @(@(0x36,2,7),@(0x36,3,7),@(0x36,4,7),@(0x36,5,7),@(0x36,6,7),@(0x36,0x10,7),@(0x37,4,0x0b),@(0x37,5,3),@(0x37,6,3),@(0x37,7,3),@(0x37,8,0x0b),@(0x37,0x0e,3),@(0x5e,0,0x14),@(0x87,3,4),@(0x87,4,4),@(0x8d,0,3),@(0x3c,5,3),@(0x3d,3,3),@(0x39,4,8),@(0x39,6,8),@(0x93,0,3),@(0x93,1,3),@(0x63,0x3d,0x0a),@(0x63,0x3f,0x0a))) {
+    $id=[int]$spec[0];$subid=[int]$spec[1];$graphic=Resolve-InteractionGraphics $id $subid
     if($null -eq $graphic) {throw "Nayru rescue: missing INTERAC 0x$($id.ToString('x2')):$subid graphics."}
     $sprites=@($gfxNames[$graphic.Gfx])
-    if($id -in @(0x36,0x87)) { $sprites+=@($gfxNames[$graphic.Gfx+1]) }
+    if($id -in @(0x36,0x37,0x87)) { $sprites+=@($gfxNames[$graphic.Gfx+1]) }
     if($id -eq 0x93) {$sprites=@(0x2c..0x2e | ForEach-Object {$gfxNames[$_]})}
     foreach($sprite in $sprites) {Copy-EnemySprite $sprite}
     $rows.Add("$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($graphic.TileBase)`t$($graphic.Palette)`t$(Resolve-NpcAnimation $id $graphic.DefaultAnimation)`tdata/ages/interactionData.s")
@@ -49,6 +53,18 @@ foreach($spec in @(
     @('ralph-arrival',0x37,$main,'ralphSubid04Script_part1','ralphSubid04Script_part2',$false),
     @('ralph-greeting',0x37,$main,'ralphSubid04Script_part2','ralphSubid04Script_part3',$false),
     @('ralph-farewell',0x37,$main,'ralphSubid04Script_part3','ralphSubid05Script',$false),
+    @('nayru-escape',0x36,$helper,'nayruScript10','nayruScript11',$true),
+    @('ralph-escape',0x37,$main,'ralphSubid0eScript','ralphSubid11Script',$false),
+    @('nayru-ending',0x36,$helper,'nayruScript03','nayruScript07',$true),
+    @('ralph-ending',0x37,$main,'ralphSubid05Script','ralphSubid06Script_part1',$false),
+    @('nayru-palace',0x36,$main,'nayruScript04_part1','nayruScript04_part2',$false),
+    @('nayru-palace-farewell',0x36,$main,'nayruScript04_part2','nayruScript05',$false),
+    @('ralph-palace',0x37,$main,'ralphSubid06Script_part1','ralphSubid06Script_part2',$false),
+    @('ralph-palace-farewell',0x37,$main,'ralphSubid06Script_part2','ralphSubid07Script',$false),
+    @('nayru-credits-maku',0x36,$main,'nayruScript05','nayruScript07',$false),
+    @('ralph-credits-maku',0x37,$main,'ralphSubid07Script','ralphSubid08Script',$false),
+    @('ralph-credits-sword',0x37,$main,'ralphSubid08Script','ralphSubid09Script',$false),
+    @('maku-credits',0x87,$main,'makuTree_subid04Script','makuTree_subid05Script',$false),
     @('maku',0x87,$main,'makuTree_subid03Script','makuTree_subid04Script',$false),
     @('cloaked',0x8d,$helper,'cloakedTwinrova_subid00Script_body','cloakedTwinrova_subid02Script_body',$true),
     @('twinrova',0x93,$helper,'twinrova_subid00Script_body','twinrova_subid02Script_body',$true),
@@ -63,6 +79,10 @@ foreach($spec in @(
     $bindings=@{}
     foreach($command in $commands) {
         switch($command.Opcode) {
+            'addobjectbyte' {
+                if($command.Operands -ne 'Interaction.substate, $01'){throw "Nayru rescue: unsupported object increment '$($command.Operands)'."}
+                $bindings["addobjectbyte|$($command.Operands)"]=@{Opcode='native';Payload='CreditsJump'}
+            }
             'playsound' {
                 if(-not $symbols.ContainsKey($command.Operands)) {throw "Nayru rescue: unknown sound '$($command.Operands)'."}
                 $bindings["playsound|$($command.Operands)"]=@{Opcode='playsound';Arg0=([int]$symbols[$command.Operands]).ToString('x2')}
@@ -86,12 +106,17 @@ foreach($spec in @(
                 }
             }
             'checkpalettefadedone' {$bindings['checkpalettefadedone|']=@{Opcode='gate';Payload='PaletteDone'}}
+            'checktext' {$bindings['checktext|']=@{Opcode='gate';Payload='TextDone'}}
+            'setmusic' {$bindings["setmusic|$($command.Operands)"]=@{Opcode='nativeyield';Payload="Music:$($symbols[$command.Operands])"}}
             'checkcfc0bit' {
                 if($command.Operands -ne '7') {throw 'Nayru rescue: unknown harp completion bit.'}
                 $bindings['checkcfc0bit|7']=@{Opcode='gate';Payload='HarpDone'}
             }
             'setdisabledobjectsto11' {$bindings['setdisabledobjectsto11|']=@{Opcode='nativeyield';Payload='Disabled11'}}
             'spawninteraction' {
+                if($spec[0] -eq 'nayru-escape' -and $command.Operands -eq 'INTERAC_CLINK, $80, $74, $78') {
+                    $bindings["spawninteraction|$($command.Operands)"]=@{Opcode='nativeyield';Payload='EscapeClink'};break
+                }
                 if($command.Operands -ne 'INTERAC_PLAY_HARP_SONG, $02, $00, $00') {throw 'Nayru rescue: unknown actor spawn.'}
                 $bindings["spawninteraction|$($command.Operands)"]=@{Opcode='nativeyield';Payload='HarpSong'}
             }
@@ -100,6 +125,7 @@ foreach($spec in @(
                 $handler=switch -Regex ($command.Operands) {
                     '^(?:scriptHelp\.)?forceLinkDirection, DIR_(?<direction>UP|RIGHT|DOWN|LEFT)$' { 'LinkDirection:'+(@('UP','RIGHT','DOWN','LEFT').IndexOf($Matches['direction']));break }
                     '^objectSetVisible(?:c2|82)$' {'Reveal';break}
+                    '^scriptHelp.ralph_createExclamationMarkShiftedRight, \$28$' {'CreditsExclaim';break}
                     '^scriptHelp.turnToFaceSomethingAtInterval, \$03$' {'FaceTarget';break}
                     '^objectWritePositionTocfd5$' {'PublishTarget';break}
                     '^twinrova_writePositionWithXOffsetTocfd5, \$(?<offset>[0-9a-f]{2})$' {'PublishTarget:'+([Convert]::ToInt32($Matches['offset'],16));break}
@@ -136,7 +162,7 @@ $positionBlock=$positionBlock -replace '(?ms)\.ifdef REGION_JP.*?\.else\s*','' -
 $values=@([regex]::Matches($positionBlock,'\$([0-9a-f]{2})') | ForEach-Object {[Convert]::ToInt32($_.Groups[1].Value,16)})
 if($values.Count -ne 40) {throw 'Nayru rescue: incomplete clean-US monkey placement table.'}
 $rows.Add("monkey-positions`t$(($values | ForEach-Object {$_.ToString('x4')}) -join ',')`t${monkey}:@monkeyPositions")
-foreach($spec in @(@('monkey-jumps',$monkey,'@jumpSpeeds','.dw',4),@('twinrova-arrival','object_code/ages/interactions/twinrova.s','@data0','.db',0),@('twinrova-departure','object_code/ages/interactions/twinrova.s','@data1','.db',0))) {
+foreach($spec in @(@('monkey-jumps',$monkey,'@jumpSpeeds','.dw',4),@('twinrova-arrival','object_code/ages/interactions/twinrova.s','@data0','.db',0),@('twinrova-departure','object_code/ages/interactions/twinrova.s','@data1','.db',0),@('ralph-credits-sword','object_code/ages/interactions/twinrova.s','@data2','.db',34))) {
     # @data1 is an empty label alias immediately preceding @data5.
     $dataLabel=if($spec[0] -eq 'twinrova-departure') {'@data5'} else {$spec[2]}
     $values=@(Read-AssemblyDataDirectives (Join-Path $Disassembly $spec[1]) $dataLabel $spec[3] | ForEach-Object {$_.Operands} | ForEach-Object {Convert-AssemblyInteger $_})

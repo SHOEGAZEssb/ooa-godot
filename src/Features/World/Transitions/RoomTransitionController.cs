@@ -90,6 +90,7 @@ public sealed class RoomTransitionController
     private bool _suppressDestinationMusic;
     private WarpPhase _warpPhase;
     private Warp _pendingWarp;
+    private bool _nativeWarpRequested;
     private bool _deepWaterDiveRequested;
     private float _warpFrame;
     private double _warpTickAccumulator;
@@ -160,10 +161,12 @@ public sealed class RoomTransitionController
     private Color _nativePaletteColor = Colors.White;
     private int _nativePaletteSpeed = 1;
     internal bool NativePaletteFadeActive => _nativePaletteDirection != 0;
-    internal void BeginNativeWhiteFade(bool fadeOut, int delay = 1)
-        => BeginNativePaletteFade(Colors.White, fadeOut, delay);
-    internal void BeginNativeBlackFade(bool fadeOut, int speed = 1)
-        => BeginNativePaletteFade(Colors.Black, fadeOut, speed: speed);
+    internal int NativePaletteThreadMode=>_nativePaletteDirection==0?0:
+        (_nativePaletteColor==Colors.Black?(_nativePaletteDirection>0?3:4):(_nativePaletteDirection>0?1:2))|(_nativePaletteDelay>1?8:0);
+    internal void BeginNativeWhiteFade(bool fadeOut, int delay = 1, int speed = 1)
+        => BeginNativePaletteFade(Colors.White, fadeOut, delay, speed);
+    internal void BeginNativeBlackFade(bool fadeOut, int speed = 1,int delay=1)
+        => BeginNativePaletteFade(Colors.Black, fadeOut,delay:delay,speed: speed);
     private void BeginNativePaletteFade(Color color, bool fadeOut, int delay = 1, int speed = 1)
     {
         if (delay < 1) throw new ArgumentOutOfRangeException(nameof(delay));
@@ -435,6 +438,19 @@ public sealed class RoomTransitionController
         // change Z after Link's air-state update. Screen edges are separate.
         if (player.TopDownAirZ != 0 || _entities.MenuDisablesWarpTiles || player.GrabStateActive)
             return FinishUnmatchedTileWarpCheck();
+
+        // Ages bank4.findWarpSourceAndDest checks this byte before source
+        // lookup. setWarpDestDefault reloads this room at the entered tile;
+        // screen-edge warps and the separate diving interaction ignore it.
+        if (_entities.RuntimeState.ReadWramByte(WramAddress.wDisableWarps) != 0 &&
+            WarpDatabase.IsWarpTile(room.ActiveCollisions, tile) &&
+            LinkWithinTileWarpBounds(room, position, linkPosition))
+        {
+            ApplyWarp(player, new Warp(_rooms.ActiveGroup, room.Id, position, 0,
+                WarpSourceTransition.FadeOut, _rooms.ActiveGroup, room.Id, position, 0,
+                WarpDestinationTransition.Basic));
+            return true;
+        }
 
         bool dungeonStairFallback = false;
         if (!_warps.TryGetTileWarp(
@@ -980,6 +996,26 @@ public sealed class RoomTransitionController
     {
         BeginWarp(player, warp, false);
     }
+
+    // setWarpDestVariables installs bytes only. A native cutscene may return
+    // to CUTSCENE_01, which consumes them after the following object pass.
+    internal void RequestNativeFadeOutWarp(Warp warp)
+    {
+        if (_nativeWarpRequested || IsTransitioning)
+            throw new InvalidOperationException("setWarpDestVariables: a warp is already pending.");
+        _pendingWarp = warp;
+        _nativeWarpRequested = true;
+    }
+
+    internal bool BeginRequestedNativeWarp(Player player)
+    {
+        if (!_nativeWarpRequested) return false;
+        _nativeWarpRequested = false;
+        BeginWarp(player, _pendingWarp, false, forceFadeOut: true);
+        return true;
+    }
+
+    internal void CancelRequestedNativeWarp() => _nativeWarpRequested = false;
 
     /// <summary>
     /// Starts cutscene $03's ordinary white fade even when the source warp
@@ -1714,6 +1750,9 @@ public sealed class RoomTransitionController
             ClearDeactivatedWarp();
             _player.WarpTo(spawn);
             _player.Face(Vector2I.Up); // clearScreenVariablesAndWramBank1.
+            // The cleared Link object stays hidden until linkState00 consumes
+            // the forced warp state and initializes its airborne presentation.
+            _player.Visible = false;
         }
         else
         {
@@ -1769,6 +1808,11 @@ public sealed class RoomTransitionController
         // Full loading replaces any cutscene BG occupying the status strip.
         _hud.ShowStatusBar();
         _hud.Refresh();
+        // cutscene03 starts fadeinFromWhiteToRoom after initializeRoom.
+        // Outgoing event cleanup can restore its old fade color during that
+        // load; the new arrival owns the final white endpoint.
+        if (!_timeWarp && !_roomLoadColumnReveal)
+            SetFade(1.0f);
     }
 
     /// <summary>

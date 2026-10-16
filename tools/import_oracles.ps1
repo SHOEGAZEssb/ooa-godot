@@ -97,7 +97,7 @@ $stageContracts = @(
             'partAnimationDefinitions', 'partAnimationTables', 'partOamBlocks', 'partOamPointerTables',
             'treasureObjectSource') `
         -functionInputs @('Export-PaletteBlock', 'Get-ImportSpriteSourceGrayscaleInverted') `
-        -functionOutputs @('Resolve-NpcAnimation', 'Resolve-PartAnimation', 'Resolve-OceanText')
+        -functionOutputs @('Resolve-NpcAnimation', 'Resolve-PartAnimation', 'Resolve-OceanText', 'Resolve-InteractionGraphics')
     New-ImportStageContract 'collapsing-floor' 'Import-CollapsingFloor.ps1' `
         -inputs @('mainObjectLines', 'soundIds')
     New-ImportStageContract 'gasha' 'Import-GashaData.ps1' `
@@ -303,13 +303,43 @@ $stageContracts = @(
         -functionInputs @('Get-EnemyDefinition', 'Copy-EnemySprite', 'Read-PaletteBytes', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
     New-ImportStageContract 'nayru-rescue-warp' 'Import-NayruRescueWarp.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'soundIds') `
-        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
+        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-InteractionGraphics', 'Resolve-PalaceText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
     New-ImportStageContract 'maku-seed' 'Import-MakuSeedData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'soundIds') `
         -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-PaletteBytes', `
             'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionInputs @('Expand-TransitionGraphics')
+    New-ImportStageContract 'black-tower-seed' 'Import-BlackTowerSeed.ps1' `
+        -inputs @('gfxNames', 'interactionGraphics') `
+        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Read-PaletteBytes')
+    New-ImportStageContract 'black-tower-confrontation' 'Import-BlackTowerConfrontation.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'musicConstantSource') `
+        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-SoundConstant', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
+    New-ImportStageContract 'black-tower-flames' 'Import-BlackTowerFlames.ps1' `
+        -inputs @('partOamSource') `
+        -functionInputs @('Copy-EnemySprite', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
+    New-ImportStageContract 'black-tower-possession' 'Import-BlackTowerPossession.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics') `
+        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
+    New-ImportStageContract 'veran-fairy' 'Import-VeranFairy.ps1' `
+        -inputs @('allTexts','allTextPositions','allTextFallthroughIds','gfxNames') `
+        -functionInputs @('Get-EnemyDefinition','Copy-EnemySprite','Read-PaletteBytes','Resolve-PalaceText')
+    New-ImportStageContract 'black-tower-escape-attempt' 'Import-BlackTowerEscapeAttempt.ps1' `
+        -inputs @('gfxNames','interactionGraphics') `
+        -functionInputs @('Copy-EnemySprite','Resolve-NpcAnimation')
+    New-ImportStageContract 'veran-face' 'Import-VeranFace.ps1' `
+        -inputs @('allTexts','allTextPositions','allTextFallthroughIds','cutsceneCommandHeader','musicConstantSource') `
+        -functionInputs @('Read-AssemblyCutsceneCommands','ConvertTo-CutsceneCommandRows','Read-PaletteBytes','Resolve-PalaceText','Resolve-SoundConstant')
+    New-ImportStageContract 'black-tower-ending' 'Import-BlackTowerEnding.ps1' `
+        -inputs @('allTexts','allTextPositions','allTextFallthroughIds','gfxNames','interactionGraphics','soundIds') `
+        -functionInputs @('Read-AssemblyMacroInvocations','Read-AssemblyDataDirectives','Copy-EnemySprite','Resolve-NpcAnimation','Resolve-InteractionGraphics','Resolve-PalaceText','Read-AssemblyCutsceneCommands','ConvertTo-CutsceneCommandRows')
+    New-ImportStageContract 'veran-final' 'Import-VeranFinal.ps1' `
+        -inputs @('allTexts','allTextPositions','allTextFallthroughIds','gfxNames') `
+        -functionInputs @('Get-EnemyDefinition','Copy-EnemySprite','Read-PaletteBytes','Resolve-PalaceText')
+    New-ImportStageContract 'ending-screens' 'Import-EndingScreens.ps1' `
+        -inputs @('allTexts','allTextPositions','allTextFallthroughIds') `
+        -functionInputs @('Read-PaletteBytes','Resolve-PalaceText','Resolve-NpcAnimation')
     New-ImportStageContract 'pirate-ship' 'Import-PirateShip.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'treasureObjectRecords', 'globalFlagValues') `
         -functionInputs @('Resolve-NpcAnimation', 'Resolve-OceanText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')

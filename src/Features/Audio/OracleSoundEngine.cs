@@ -45,6 +45,9 @@ public partial class OracleSoundEngine : Node
     // wActiveMusic is a room-selection gate, independent of the song queued
     // in the driver. Octogon clears it while MUS_BOSS continues playing.
     internal int NativeActiveMusic { get; private set; } = 0xff;
+    // wActiveMusic2 retains the room's selected song while a boss or script
+    // owns the active song. Native cutscenes restore this byte explicitly.
+    internal int NativeRoomMusic { get; private set; } = 0xff;
     internal void SetNativeActiveMusic(int music) => NativeActiveMusic = music;
     public bool Disabled => _driver.ReadState(WramAddress.wSoundDisabled) != 0;
     public int MusicVolume => _requestedVolume;
@@ -109,12 +112,16 @@ public partial class OracleSoundEngine : Node
     internal void AdvanceApplicationUpdate() => Tick();
     public void PlayRoomMusic(int group, int room)
     {
-        if (NativeActiveMusic != 0) PlayMusicIfChanged(_data.RoomMusic(group, room));
+        int music=SelectRoomMusic(group,room);
+        if (NativeActiveMusic != 0) PlayMusicIfChanged(music);
     }
     public void PlayRoomMusic(int group, int room, OracleSaveData save)
     {
-        if (NativeActiveMusic != 0) PlayMusicIfChanged(_data.RoomMusic(group, room, save));
+        int music=SelectRoomMusic(group,room,save);
+        if (NativeActiveMusic != 0) PlayMusicIfChanged(music);
     }
+    internal int SelectRoomMusic(int group,int room,OracleSaveData? save=null)=>
+        NativeRoomMusic=save is null?_data.RoomMusic(group,room):_data.RoomMusic(group,room,save);
 
     public void PlayMusicIfChanged(int music)
     {
@@ -145,6 +152,7 @@ public partial class OracleSoundEngine : Node
         _requestHead = _requestTail = 0;
         ActiveMusic = 0;
         NativeActiveMusic = 0xff;
+        NativeRoomMusic = 0xff;
     }
 
     // Native playSound queues a request without writing wActiveMusic.

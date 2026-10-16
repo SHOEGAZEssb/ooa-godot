@@ -16,6 +16,7 @@ internal sealed class PalacePossessionEvent(RoomEventContext context, System.Act
     }
     internal void BeginRescue() {HasState=true;context.Transitions.ResetCamera();}
     internal void RequestWarp() { HasState=true; _warpRequested=true; }
+    internal void ReleaseForNativeContinuation(bool restoreColor=true){HasState=false;_warpRequested=false;_resources.ReleaseFullScreenFade(restoreColor);}
     internal void AdvanceBeforeObjects()
     {
         if (!HasState) return;

@@ -55,6 +55,7 @@ public sealed partial class ValidationRoot
         _ = new DebugCollisionController();
 
         ValidateDebugFastForward();
+        ValidateDebugHeal();
 
         GD.Print(
             "Validated application-owned 60 Hz update counts, split/" +
@@ -123,6 +124,31 @@ public sealed partial class ValidationRoot
             _roomDebug.Text.Contains("FF x4", StringComparison.Ordinal),
             "The second F5 press did not restore normal speed, preserve the " +
             "pending partial update, and clear the fast-forward indicator.");
+    }
+
+    private void ValidateDebugHeal()
+    {
+        int maximum = _inventory.MaxHealthQuarters;
+        Vector2 position = _player.PrecisePosition;
+        _inventory.SetScriptedHealth(1);
+        _statusBar.SynchronizeHealth();
+        using var key = new InputEventKey { PhysicalKeycode = Key.F6, Pressed = true, Echo = true };
+        _Input(key);
+        key.Echo = false;
+        key.ShiftPressed = true;
+        _Input(key);
+        FailIf(_inventory.HealthQuarters != 1,
+            "Debug healing must ignore keyboard repeat and modified F6.");
+        key.ShiftPressed = false;
+        _Input(key);
+        FailIf(_player.HealthQuarters != maximum || _statusBar.DisplayedHealth != maximum ||
+            _saveData.ReadWramByte(WramAddress.wLinkHealth) != maximum ||
+            _inventory.MaxHealthQuarters != maximum || _player.PrecisePosition != position,
+            "F6 must immediately refill existing hearts through the health owner and HUD without moving Link or granting containers.");
+        _inventory.SetScriptedHealth(1);
+        _Input(key);
+        FailIf(_player.HealthQuarters != maximum || _statusBar.DisplayedHealth != maximum,
+            "Debug full healing must work again after subsequent damage.");
     }
 
     private static (int HeldAttackUpdates, int PressedAttackUpdates) RunSchedulerRegression(

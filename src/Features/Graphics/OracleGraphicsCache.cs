@@ -122,6 +122,19 @@ internal static class OracleGraphicsCache
                 $"{path} should contain {expectedByteLength} bytes, got {bytes.Length}.");
         }
 
+        Image image = DecodeTwoBitSpriteSheet(bytes, cellsPerRow);
+        SourceImages.Add(cacheKey, image);
+        ImageHashes.Add(image.GetInstanceId(), PixelHash(image));
+        Observe(OracleGraphicsCacheOperation.SourceLoad, path);
+        return image;
+    }
+
+    // Mutable native graphics owners decode their own snapshots through the
+    // same rasterizer; only immutable asset loads enter SourceImages.
+    internal static Image DecodeTwoBitSpriteSheet(ReadOnlySpan<byte> bytes,int cellsPerRow=16,bool spriteEncoding=true)
+    {
+        if(bytes.Length==0||(bytes.Length&31)!=0||cellsPerRow<=0)
+            throw new ArgumentException("A 2bpp sprite snapshot requires complete 32-byte cells and a positive row width.");
         int cellCount = bytes.Length / 32;
         int cellRows = (cellCount + cellsPerRow - 1) / cellsPerRow;
         int width = cellsPerRow * 8;
@@ -142,7 +155,7 @@ internal static class OracleGraphicsCache
             {
                 int bit = 7 - x;
                 int shade = ((low >> bit) & 1) | (((high >> bit) & 1) << 1);
-                byte value = (byte)(shade * 85);
+                byte value = (byte)((spriteEncoding?shade:3-shade) * 85);
                 int pixelOffset = ((cell / cellsPerRow * 16 + tileY * 8 + y) * width +
                     cell % cellsPerRow * 8 + x) * 4;
                 pixels[pixelOffset] = value;
@@ -151,11 +164,7 @@ internal static class OracleGraphicsCache
             }
         }
 
-        Image image = Image.CreateFromData(width, height, false, Image.Format.Rgba8, pixels);
-        SourceImages.Add(cacheKey, image);
-        ImageHashes.Add(image.GetInstanceId(), PixelHash(image));
-        Observe(OracleGraphicsCacheOperation.SourceLoad, path);
-        return image;
+        return Image.CreateFromData(width, height, false, Image.Format.Rgba8, pixels);
     }
 
     internal static Image AppendGraphics(Image source, string extraPath)

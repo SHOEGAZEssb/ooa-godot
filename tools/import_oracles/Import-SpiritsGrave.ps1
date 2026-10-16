@@ -488,8 +488,8 @@ Add-DungeonInteractionVisual 'green-poof' 0x02 0 @(0)
 Add-DungeonInteractionVisual 'essence-pedestal' 0x7f 1 @(0)
 Add-DungeonInteractionVisual 'essence-glow' 0x7f 2 @(3)
 
-# PART_BLUE_ENERGY_BEAD $53 supplies the eight inward-swirl variants used by
-# the common essence script. Part data $53 selects gfx $87, tile base 0,
+# PART_BLUE_ENERGY_BEAD $53 supplies eight inward and eight outward variants.
+# Part data $53 selects gfx $87, tile base 0,
 # palette 4; retain its source animation and OAM order.
 $energyAnimationStart = $partAnimationSource.IndexOf(
     'part53Animations:', [StringComparison]::Ordinal)
@@ -532,7 +532,7 @@ function Resolve-DungeonEnergyAnimation([string]$label) {
     if ($frames.Count -eq 0) { throw "$label has no energy-bead frames." }
     return $frames -join '|'
 }
-$energyAnimations = @($energyAnimationLabels[0..7] | ForEach-Object {
+$energyAnimations = @($energyAnimationLabels | ForEach-Object {
     Resolve-DungeonEnergyAnimation $_
 })
 $energySprite = $gfxNames[0x87]

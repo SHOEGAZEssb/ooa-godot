@@ -80,6 +80,7 @@ public sealed class RoomEventController
             () => new PalacePassageEvent(_context),
             () => new PalacePossessionEvent(_context,()=>Get<NayruRescueWarpEvent>().Begin()),
             () => new NayruRescueWarpEvent(_context),
+            () => new BlackTowerEscapeAttemptEvent(_context,()=>Get<PalacePossessionEvent>().ReleaseForNativeContinuation()),
             () => new DefeatedMoblinEvent(_context),
             () => new RemoteMakuFirstEssenceEvent(_context),
             () => new RemoteMakuSecondEssenceEvent(_context),
@@ -159,6 +160,10 @@ public sealed class RoomEventController
             () => new RalphPortalEvent(_context),
             () => new PreBlackTowerEvent(_context),
             () => new BlackTowerDoorwayEvent(_context),
+            () => new BlackTowerSeedEvent(_context),
+            () => new BlackTowerConfrontationEvent(_context),
+            () => new BlackTowerPossessionEvent(_context),
+            () => new BlackTowerEndingEvent(_context,()=>Get<PalacePossessionEvent>().ReleaseForNativeContinuation(restoreColor:false),()=>Get<PostD7Event>().Flash(2)),
             () => new BlackTowerEntranceEvent(_context),
             () => new EnterPastEvent(_context),
             () => new GraveyardGhostKidsEvent(_context),
@@ -202,6 +207,7 @@ public sealed class RoomEventController
                 Get<NayruIntroEvent>().TryInteractNpc),
             Npc("hardhatWorker.s:blackTowerEntrance",
                 Get<BlackTowerEntranceEvent>().TryInteractNpc),
+            Npc("ralph.s:ralphSubid0c", Get<BlackTowerConfrontationEvent>().TryInteract),
             Npc("makuSprout.s:interactionCode88",
                 Get<MakuSproutRescueEvent>().TryInteractNpc),
             Npc("companionScripts.s:companionScript_subid00Script",
@@ -261,6 +267,20 @@ public sealed class RoomEventController
         ];
         _context.Entities.RoomEntitiesLoaded += OnRoomEntitiesLoaded;
         _context.Entities.PostD7AmbiFactory = Get<PostD7Event>().CreatePlacedAmbi;
+        _context.Entities.BlackTowerRalphFactory = Get<BlackTowerConfrontationEvent>().CreateRalph;
+        _context.Entities.BlackTowerAmbiFactory = Get<BlackTowerPossessionEvent>().CreateAmbi;
+        VeranFaceDatabase? veranFace=null;
+        _context.Entities.VeranFaceFactory=record=>new VeranFaceRoomEntity(_context,veranFace??=new(),record);
+        _context.Entities.VeranFinalDeathFade=parent=>
+        {
+            if(!_context.Entities.InteractionSlotAvailable)return false;
+            _context.Entities.AddEntity(new VeranDeathFadeRoomEntity(_context,parent.Data,parent.Position,parent.ZFixed>>8,
+                delay=>Get<PalacePossessionEvent>().Fade(true,delay)));
+            return true;
+        };
+        _context.Entities.VeranFinalEscape=Get<BlackTowerEndingEvent>().Begin;
+        _context.Entities.BlackTowerPossessionAftermath = Get<BlackTowerPossessionEvent>().Aftermath;
+        Get<BlackTowerPossessionEvent>().BeginEscapeAttempt=Get<BlackTowerEscapeAttemptEvent>().Begin;
         Get<RemoteMakuFifthEssenceEvent>().SpawnTunnelGoron=Get<GoronCaveEvent>().SpawnTunnelGoron;
         _context.Entities.ObjectFellInHole += NotifyObjectFellInHole;
         _context.Entities.DungeonEssenceTriggered += Get<DungeonEssenceEvent>().Begin;
@@ -287,8 +307,11 @@ public sealed class RoomEventController
 
     public bool Active => _eventsByPriority.Any(roomEvent => roomEvent.BlocksGameplay);
     internal bool OwnsGameLogic => _eventsByPriority.Any(roomEvent => roomEvent.OwnsGameLogic);
+    internal bool StatusBarUpdatesDisabled=>_eventsByPriority.Any(roomEvent=>roomEvent.HasState&&roomEvent.SuppressesStatusBar);
+    internal bool NormalMenuDispatchSuppressed=>_eventsByPriority.Any(roomEvent=>roomEvent.HasState&&roomEvent.SuppressesNormalMenuDispatch);
     internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled || Get<PostD7Event>().HasState;
-    internal bool NativeCutsceneActive => Get<MakuSeedEvent>().OwnsGameLogic || Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive;
+    internal bool NativeCutsceneActive => Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || Get<MakuSeedEvent>().OwnsGameLogic || Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive;
+    internal void PublishNativeGameInput()=>Get<BlackTowerEndingEvent>().PublishGameKeys();
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
         var retraction=Get<WallRetractionEvent>();
@@ -299,11 +322,15 @@ public sealed class RoomEventController
         var cleanSeas=Get<CleanSeasEvent>();
         var postD7 = Get<PostD7Event>();
         var makuSeed = Get<MakuSeedEvent>();
-        bool owned=makuSeed.OwnsGameLogic || retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive;
+        bool owned=Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || makuSeed.OwnsGameLogic || retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive;
         retraction.AdvanceBeforeObjects();
         boot.AdvanceBeforeObjects();
         passage.AdvanceBeforeObjects();
         Get<PalacePossessionEvent>().AdvanceBeforeObjects();
+        Get<BlackTowerEscapeAttemptEvent>().AdvanceBeforeObjects();
+        Get<BlackTowerEndingEvent>().AdvanceBeforeObjects();
+        Get<BlackTowerSeedEvent>().AdvanceBeforeObjects();
+        Get<BlackTowerConfrontationEvent>().AdvanceBeforeObjects();
         rescueWarp.AdvanceBeforeObjects();
         jabu.AdvanceBeforeObjects();
         cleanSeas.AdvanceBeforeObjects();
@@ -332,6 +359,8 @@ public sealed class RoomEventController
         Action<bool> interrupter,
         Action advance) =>
         _context.SetBraceletActions(interrupter, advance);
+    internal void SetFileActions(Func<SaveResult> save,Action reset)
+    {_context.SaveFile=save;_context.ResetGame=reset;}
     internal void NotifyBraceletTileLifted(BraceletTileLifted lifted) =>
         Get<WingDungeonCollapseEvent>().OnTileLifted(lifted);
     internal void NotifyBraceletTileLiftCompleted(BraceletTileLifted lifted) =>
@@ -431,6 +460,7 @@ public sealed class RoomEventController
 
     private void OnRoomEntitiesLoaded(int group, OracleRoomData room)
     {
+        _context.Transitions.CancelRequestedNativeWarp();
         ImpaIntroEvent impa = Get<ImpaIntroEvent>();
         NayruIntroEvent nayru = Get<NayruIntroEvent>();
         Get<TingleEvent>().OnRoomLoaded(group, room);

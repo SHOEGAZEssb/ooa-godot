@@ -13,7 +13,7 @@ internal sealed partial class VeranProjectileRoomEntity : EnemyCharacter, IRoomE
     IObjectCollisionHeightRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly RoomEntityManager _owner;
-    private readonly PossessedNayruCharacter _parent;
+    private readonly EnemyCharacter _parent;
     private readonly PalacePossessionDatabase _data;
     private int _z, _angle, _swordCollision=4;
     private bool _hit;
@@ -32,7 +32,7 @@ internal sealed partial class VeranProjectileRoomEntity : EnemyCharacter, IRoomE
     public override Rect2 CollisionBounds => new(Position-Vector2.One*(SubId==0?6:4),Vector2.One*(SubId==0?12:8));
     public bool UpdatesDuringDialogue => State==0;
     public bool UpdatesDuringRoomEntityFreeze => State==0;
-    internal VeranProjectileRoomEntity(RoomEntityManager owner,PalacePossessionDatabase data,PossessedNayruCharacter parent,
+    internal VeranProjectileRoomEntity(RoomEntityManager owner,PalacePossessionDatabase data,EnemyCharacter parent,
         int subid,Vector2 position,int z,int angle)
     {
         _owner=owner; _data=data; _parent=parent; SubId=subid; _z=z; _angle=angle;

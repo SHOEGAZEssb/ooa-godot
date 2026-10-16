@@ -10,6 +10,7 @@ internal sealed class MakuTreeAdviceDatabase
     internal SavedEventRecord Graphics { get; } = new MakuTreeSavedDatabase().Record;
     internal NpcRecord Flower { get; }
     internal string FrowningFlower { get; }
+    internal string CreditsFlower {get;}
 
     internal MakuTreeAdviceDatabase()
     {
@@ -28,13 +29,14 @@ internal sealed class MakuTreeAdviceDatabase
         }
         GeneratedTableRow flower = GeneratedTable.Load(Root + "maku_tree_flower.tsv",
             new GeneratedTableSchema("Maku Tree related flower", GeneratedTableKeySemantics.Ordered,
-                ["sprite", "tile-base", "palette", "animation0", "animation1"], headerRequired: true)).SingleRow();
+                ["sprite", "tile-base", "palette", "animation0", "animation1","animation3"], headerRequired: true)).SingleRow();
         string animation = flower.RequiredString(3);
         Flower = new NpcRecord(Graphics.Group, Graphics.Room, InteractionId.MakuFlower, 0,
             0x40, 0x50, 0, 0, flower.RequiredString(0), flower.UnsignedDecimal(1),
             flower.UnsignedDecimal(2), 0, false, animation, animation, animation, animation,
             string.Empty, NpcImplementationClassification.EventOwned);
         FrowningFlower = flower.RequiredString(4);
+        CreditsFlower=flower.RequiredString(5);
     }
 
     internal bool TryGet(int state, bool linked, out MakuTreeAdviceRecord record) =>

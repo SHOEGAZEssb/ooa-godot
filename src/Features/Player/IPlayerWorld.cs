@@ -25,6 +25,7 @@ public interface IPlayerWorld
     bool PlayerUpdatesFrozen => false;
     bool NativePaletteChanging => false;
     bool LinkDisabled => false;
+    byte NativeObjectDisableMask => 0;
     bool RingTransformationsAllowed { get; }
     void CreateBabyTransformationPoof(Vector2 position, int z) { }
     bool RidingObject { get; }
@@ -131,7 +132,9 @@ public interface IPlayerWorld
     Vector2 ResolveNativeMovement(Vector2 position, int speed, int angle, bool allowWallSlide,
         int? adjacentWalls = null) =>
         (angle & 0x80) != 0 ? Vector2.Zero :
-        ResolveMovement(position, OracleObjectMovement.Shared.Delta(speed, angle), allowWallSlide);
+          ResolveMovement(position, OracleObjectMovement.Shared.Delta(speed, angle), allowWallSlide);
+    Vector2 ApplyNativeUnblockedMovement(Vector2 position,int speed,int angle)=>
+        OracleObjectMovement.Shared.ApplySpeed(OracleObjectPosition.FromPixels(position),speed,angle).PrecisePosition;
     bool IsPushingAgainstWall(
         Vector2 playerPosition,
         Vector2I facing,

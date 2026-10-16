@@ -1050,6 +1050,24 @@ internal sealed class RoomEntityFactory
                             yield return shovel;
                         break;
                     case NpcImplementationClassification.EventOwned:
+                        if(record is {Id:0x2d,SubId:0})
+                        {
+                            yield return owner.VeranFaceFactory?.Invoke(record) ??
+                                throw new InvalidOperationException("INTERAC_VERAN_CUTSCENE_FACE $2d:$00 requires its native script host.");
+                            break;
+                        }
+                        if (record is {Id:0x4d,SubId:6})
+                        {
+                            yield return owner.BlackTowerAmbiFactory?.Invoke(record) ??
+                                throw new InvalidOperationException("INTERAC_AMBI $4d:$06 requires its Black Tower event owner.");
+                            break;
+                        }
+                        if (record is { Id: 0x37, SubId: 0x0c })
+                        {
+                            yield return owner.BlackTowerRalphFactory?.Invoke(record) ??
+                                throw new InvalidOperationException("INTERAC_RALPH $37:$0c requires its Black Tower event owner.");
+                            break;
+                        }
                         if (record.Id == InteractionId.PirateCaptain)
                         {
                             yield return new PirateCaptainRoomEntity(NpcCharacter.CreateFromRecord(record), owner);
@@ -1331,6 +1349,11 @@ internal sealed class RoomEntityFactory
                         yield return new FallingBoulderRoomEntity(new FallingBoulder(
                             source.SubId, PointForPackedPosition(source.PackedPosition),
                             Resources.FallingBoulders, _random, owner.OnSoundRequested, room, owner.ToScreen));
+                    }
+                    else if (source.Id == 0x59)
+                    {
+                        yield return new BlackTowerFlameRoomEntity(owner, Resources.BlackTowerFlames, source.SubId,
+                            PointForPackedPosition(source.PackedPosition));
                     }
                     break;
 
@@ -2925,7 +2948,7 @@ internal sealed class RoomEntityFactory
         BabyCuccoReplacementSpawn babyCucco =>
             CreateBabyCuccoReplacement(babyCucco, room),
         BlueEnergyBeadSpawn bead => new BlueEnergyBeadRoomEntity(bead.Index, bead.Center, bead.Duration,
-            Resources.DungeonVisuals.Visual("energy-bead"), _random, _runtimeState),
+            Resources.DungeonVisuals.Visual("energy-bead"), _random, _runtimeState,bead.Outgoing),
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
         BossDeathExplosionSpawn explosion => CreateBossDeathExplosion(explosion),
         PlasmarineProjectileSpawn projectile => new PlasmarineProjectileRoomEntity(new PlasmarineProjectile(projectile,room,_runtimeState,
@@ -4679,7 +4702,7 @@ internal sealed class RoomEntityFactory
     private IRoomEntity CreateSwordWallClink(SwordWallClinkSpawn spawn)
     {
         var clink = new ClinkEffect { Name = "SwordWallClink", ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
-        clink.Initialize(spawn.Position, spawn.Flickers);
+        clink.Initialize(spawn.Position, spawn.Flickers,spawn.ZHigh);
         // Ordinary subid$01 plays its sound in state0; bombable subid$80
         // suppresses it because the item caller already played SND_CLINK2.
         return new SwordBeamClinkRoomEntity(clink, spawn.Flickers
@@ -4835,7 +4858,7 @@ internal sealed class RoomEntityFactory
     private IRoomEntity CreateDeathPuff(EnemyDeathPuffSpawn spawn)
     {
         var puff = new EnemyDeathPuffEffect { Name = "EnemyDeathPuff", ZIndex = ObjectDrawPriority.BehindLinkZIndex };
-        puff.Initialize(spawn.Position, spawn.HighKnockback, spawn.EnemyId);
+        puff.Initialize(spawn.Position, spawn.HighKnockback, spawn.EnemyId, spawn.ZHigh);
         owner.OnSoundRequested(SoundId.SndKillEnemy);
         return new DeathPuffRoomEntity(
             puff, _itemDrops, _random, _inventory, _saveData,
@@ -5575,7 +5598,7 @@ internal sealed record BombchuSpawn(Player Player, int Group, Vector2 Position, 
 internal sealed record SwordBeamClinkSpawn(Vector2 Position)
     : RoomEntitySpawn;
 
-internal sealed record SwordWallClinkSpawn(Vector2 Position, bool Flickers)
+internal sealed record SwordWallClinkSpawn(Vector2 Position, bool Flickers,int ZHigh=0)
     : RoomEntitySpawn;
 
 internal sealed record EnemyClinkSpawn(Vector2 Position, bool InitializeOnUpdate = false, int ZHigh = 0)

@@ -52,6 +52,8 @@ internal sealed class RoomEventContext(
     }
     internal DialogueScreenDatabase DialogueScreens { get; } = new();
     internal Func<DialogueScreenContext?> NativeDialogueScreen { get; set; } = () => null;
+    internal Func<SaveResult> SaveFile {get;set;}=()=>throw new InvalidOperationException("Room scripts have no application save binding.");
+    internal Action ResetGame {get;set;}=()=>throw new InvalidOperationException("Room cutscenes have no application reset binding.");
     internal ICutsceneCommandTraceSink? CommandTraceSink { get; set; }
 
     internal void SetBraceletActions(
@@ -125,16 +127,18 @@ internal sealed class RoomEventContext(
         string message,
         int initialChoice = 0,
         int? textboxPosition = null,
-        int textboxFlags = 0)
+        int textboxFlags = 0,
+        int? sourceTextId = null)
     {
         float playerScreenY = _worldToScreen(Player.Position).Y;
         DialogueScreenContext screen = NativeDialogueScreen() ??
             DialogueScreenContext.Gameplay(Player.Position.Y, Player.Position.Y - playerScreenY);
-        _dialogue.ShowChoiceMessage(message, screen, initialChoice, textboxPosition, textboxFlags);
+        _dialogue.ShowChoiceMessage(message, screen, initialChoice, textboxPosition, textboxFlags,sourceTextId);
     }
 
     public bool TryTakeDialogueChoice(out int choice) =>
         _dialogue.TryTakeChoiceResult(out choice);
+    internal void CloseDialogue()=>_dialogue.Close();
 
     public GroundTreasurePickup GrantScriptTreasure(
         int group,

@@ -14,6 +14,10 @@ internal interface IRoomEvent
     void UpdateSpecialObjectFrame() { }
     bool FreezesNonInteractionObjects => false;
     bool MenusDisabled => false;
+    // Some native cutscene callers omit updateStatusBar while still running
+    // objects. Hidden presentation alone does not establish that eligibility.
+    bool SuppressesStatusBar => false;
+    bool SuppressesNormalMenuDispatch => false;
     bool ScreenTransitionsDisabled => false;
     bool AllScreenTransitionsDisabled => false;
     // Composite sequences own their children's dispatch, including reduced

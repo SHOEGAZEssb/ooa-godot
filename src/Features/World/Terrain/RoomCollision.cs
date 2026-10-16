@@ -241,8 +241,12 @@ public sealed class RoomCollision
         // Moving INTERAC$14 blocks clamp Link after objectApplySpeed in the
         // interaction pass. Rejecting movement against their old position
         // here adds a one-update lag compared with synchronized partners.
-        return position.X >= 0 && position.X < room.Width &&
-            position.Y >= 0 && position.Y < room.Height &&
+        // wScrollMode bit0 disables screenTransitionState2's boundary owner.
+        // Native escape input deliberately walks Link beyond the viewport;
+        // objectApplySpeed itself does not clamp him to the room rectangle.
+        bool nativeBoundsDisabled=(_entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode)&1)==0;
+        return (nativeBoundsDisabled||position.X >= 0 && position.X < room.Width &&
+            position.Y >= 0 && position.Y < room.Height) &&
             !_entities.BlocksLink(position, beforeInteractions: true);
     }
 
