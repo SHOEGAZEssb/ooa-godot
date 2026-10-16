@@ -88,7 +88,6 @@ public sealed class OracleSaveData
     private OracleSaveData(byte[] data)
     {
         _data = data;
-        new VineSproutDatabase().InitializeMissingPositions(this);
     }
 
     public static OracleSaveData CreateStandardGame()
@@ -127,6 +126,7 @@ public sealed class OracleSaveData
         save.WriteWramByte(
             punchFlagAddress,
             (byte)(1 << (TreasureId.Punch & 7)));
+        new VineSproutDatabase().InitializePositions(save);
         return save;
     }
 

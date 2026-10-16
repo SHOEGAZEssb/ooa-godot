@@ -1,3 +1,4 @@
+using Godot;
 using System;
 using System.IO;
 using System.Linq;
@@ -6,6 +7,37 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private static void ValidateSavedStatePreservationRom()
+    {
+        // initializeGame reads the checkpoint verbatim outside its traced
+        // Advance Shop correction. It never initializes loaded vine positions.
+        var rom = new FrontendRom();
+        foreach (bool completed in new[] { false, true })
+        foreach (int group in new[] { 0, 1, 2 })
+        foreach (int room in new[] { 0x38, 0x39 })
+        foreach (int modifier in new[] { 0, 1 })
+        foreach (var position in new[] { Vector2I.Zero, new Vector2I(0, 0x68), new Vector2I(0x50, 0) })
+        {
+            var save = OracleSaveData.CreateStandardGame();
+            save.SetDeathRespawnPoint(group, room, modifier, 1, position.Y, position.X);
+            if (completed) save.MarkGameCompleted();
+            save.WriteWramByte(0xc8f0, 0);
+            save.WriteWramByte(0xc8f2, 0);
+            byte[] before = save.Serialize();
+            FailIf(!OracleSaveData.TryDeserialize(before, out OracleSaveData? loaded) ||
+                !loaded!.Serialize().SequenceEqual(before),
+                "Loading a checksum-valid save must preserve every byte, including zero vine positions.");
+            for (int address = 0xc5b0; address < 0xcb00; address++) rom[address] = loaded!.ReadWramByte(address);
+            rom.InitializeSavedGame();
+            DeathRespawnInitialization.Apply(loaded!);
+            foreach (int address in Enumerable.Range(0xc62b, 13).Concat(Enumerable.Range(0xc8f0, 6)))
+                FailIf(loaded!.ReadWramByte(address) != rom[address],
+                    $"Saved-state preservation at {group:x1}:{room:x2}, X=${position.X:x2}/Y=${position.Y:x2}: byte ${address:x4} differs from native initializeGame.");
+            FailIf(!loaded!.Serialize().SequenceEqual(before),
+                "Saved-game initialization introduced a port-specific checkpoint or vine repair.");
+        }
+    }
+
     private static void ValidateSaveIntegrityRom()
     {
         byte[] first = OracleSaveData.CreateStandardGame().Serialize();
@@ -106,24 +138,28 @@ public sealed partial class ValidationRoot
                 string path = Path.Combine(directory, $"slot-{slot}.sav");
                 File.WriteAllBytes(path, primary);
                 File.WriteAllBytes(path + ".bak", backup);
-                OracleSaveData recovered = OracleSaveStore.LoadOrCreate(path);
                 if (primaryValid || backupValid)
+                {
+                    OracleSaveData recovered = OracleSaveStore.LoadOrCreate(path);
                     FailIf(!recovered.Serialize().SequenceEqual(nativeResult),
                         $"Disk recovery slot ${slot:x2} mask ${mask:x2} selected a different native image.");
+                }
                 else
                 {
-                    FailIf(OracleSaveData.TryDeserialize(nativeResult, out _) ||
-                        !recovered.Serialize().SequenceEqual(first),
-                        "Both invalid copies did not yield native rejection and the documented port new-save fallback.");
+                    bool rejected = false;
+                    try { OracleSaveStore.LoadOrCreate(path); }
+                    catch (InvalidDataException) { rejected = true; }
+                    FailIf(OracleSaveData.TryDeserialize(nativeResult, out _) || !rejected,
+                        "Both invalid copies must be rejected without inventing a new-save fallback.");
                 }
-                // The documented filesystem policy keeps generations and repairs
-                // only on explicit saves; native SRAM verification repairs now.
+                // Filesystem reads select the native valid image without an
+                // implicit explicit-save transaction or state migration.
                 FailIf(!File.ReadAllBytes(path).SequenceEqual(primary) ||
                     !File.ReadAllBytes(path + ".bak").SequenceEqual(backup),
-                    "Reading a disk generation unexpectedly persisted SRAM-style repairs.");
+                    "Reading a disk save unexpectedly persisted SRAM-style repairs.");
             }
         }
         finally { Directory.Delete(directory, recursive: true); }
-        Console.WriteLine("Validated clean-US save integrity at every $550-byte offset in all three slots, correctly signed invalid signatures, checksum collisions, four copy-validity combinations, native repair bytes and disk recovery selection; filesystem generation/repair policy remains the documented port contract.");
+        Console.WriteLine("Validated clean-US save integrity at every $550-byte offset in all three slots, correctly signed invalid signatures, checksum collisions, four copy-validity combinations, native repair bytes and disk copy selection, including rejection when neither copy is valid.");
     }
 }

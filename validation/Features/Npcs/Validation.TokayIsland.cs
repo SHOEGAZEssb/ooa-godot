@@ -23,8 +23,8 @@ public sealed partial class ValidationRoot
             "Direct mainData ENEMY_VINE_SPROUT or Tokay entrance-eye imports changed.");
 
         _saveData.SetRoomFlag(1, 0xba, OracleSaveData.RoomFlag80, value: false);
-        for (int subId = 0; subId < 6; subId++)
-            _saveData.WriteWramByte(VineSproutDatabase.PositionAddress + subId, 0);
+        // fileManagement.initializeFile supplies packed $16 for sprout $02.
+        _saveData.WriteWramByte(0xc8f2, 0x16);
         _inventory.LoseTreasure(TreasureId.TokayEyeball);
         LoadValidationRoom(1, 0xba);
         FailIf(

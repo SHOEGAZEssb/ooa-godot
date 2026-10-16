@@ -68,16 +68,13 @@ internal sealed class VineSproutDatabase
 
     internal bool HasSubId(int subId) => _records.ContainsKey(subId);
 
-    internal void InitializeMissingPositions(OracleSaveData save)
+    internal void InitializePositions(OracleSaveData save)
     {
         // fileManagement.initializeFile -> initializeVinePositions copies all
-        // six defaults before the first room load. Older port saves omitted
-        // this copy. Repair only zero entries: native sprout writes clamp both
-        // coordinates away from the room boundary, so $00 is never persisted.
+        // six defaults only when creating a new file, never when loading one.
         for (int subId = 0; subId < _records.Count; subId++)
         {
-            if (save.ReadWramByte(PositionAddress + subId) == 0)
-                ResetPosition(subId, save);
+            ResetPosition(subId, save);
         }
     }
 
@@ -94,7 +91,7 @@ internal sealed class VineSproutDatabase
     {
         VineSproutRecord record = Record(subId);
         int packed = save.ReadWramByte(PositionAddress + subId);
-        if (packed == 0 || IsRespawnableTile(room.GetMetatile(Point(packed))))
+        if (IsRespawnableTile(room.GetMetatile(Point(packed))))
             packed = record.DefaultPosition;
         return Point(packed);
     }

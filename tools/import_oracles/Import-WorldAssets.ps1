@@ -698,8 +698,8 @@ $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'
 Write-GeneratedTable(
     $roomTileChangePath, $roomTileChangeRows)
 
-# roomSpecificCode index $06 calls setDeathRespawnPoint every update. Preserve
-# that table instead of embedding the two Ages rooms in runtime code.
+# initializeRoom calls roomSpecificCode index $06 once before object parsing.
+# Preserve its room table; the output retains its legacy filename.
 $roomSpecificCodeSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomSpecificCode.s')
 $continuousRespawnRows = [Collections.Generic.List[string]]::new()

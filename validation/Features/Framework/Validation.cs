@@ -696,6 +696,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRemovedDebugRoomShortcuts);
         RunIsolatedValidation(ValidateDebugMapleShortcut);
         RunIsolatedValidation(ValidateDeathRespawnCheckpoints);
+        RunIsolatedValidation(ValidateSavedStatePreservationRom, requiresRom: true);
         RunIsolatedValidation(ValidateStartupTransitionFromRoom011);
         RunIsolatedValidation(ValidateScreenTransitionSourceBoundaries);
         RunIsolatedValidation(ValidateScreenTransitionSourceTiming);

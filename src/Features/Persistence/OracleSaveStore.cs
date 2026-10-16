@@ -17,6 +17,8 @@ public static class OracleSaveStore
             return save!;
         if (TryLoad(absolutePath + ".bak", out save))
             return save!;
+        if (File.Exists(absolutePath) || File.Exists(absolutePath + ".bak"))
+            throw new InvalidDataException($"Neither save copy is valid: {absolutePath}");
         return OracleSaveData.CreateStandardGame();
     }
 
@@ -25,7 +27,7 @@ public static class OracleSaveStore
         string absolutePath = ProjectSettings.GlobalizePath(path);
         string temporaryPath = absolutePath + ".tmp";
         string backupPath = absolutePath + ".bak";
-        string previousGenerationPath = absolutePath + ".previous.tmp";
+        string backupTemporaryPath = backupPath + ".tmp";
         try
         {
             string? directory = Path.GetDirectoryName(absolutePath);
@@ -40,32 +42,13 @@ public static class OracleSaveStore
             if (!TryLoad(temporaryPath, out _))
                 return SaveResult.Failed("The temporary save could not be read back and validated.");
 
-            if (!File.Exists(absolutePath))
-            {
-                // There is no previous generation to preserve on the first save.
-                File.Move(temporaryPath, absolutePath);
-                return SaveResult.Succeeded;
-            }
-
-            bool primaryIsValid = TryLoad(absolutePath, out _);
-            if (!primaryIsValid)
-            {
-                // LoadOrCreate may have recovered from .bak. Never rotate a corrupt
-                // primary over that known-good backup.
-                File.Move(temporaryPath, absolutePath, overwrite: true);
-                return SaveResult.Succeeded;
-            }
-
-            try
-            {
-                File.Replace(temporaryPath, absolutePath, backupPath,
-                    ignoreMetadataErrors: true);
-            }
-            catch (PlatformNotSupportedException)
-            {
-                ReplaceWithPortableFallback(
-                    temporaryPath, absolutePath, backupPath, previousGenerationPath);
-            }
+            // fileManagement.saveFile copies the same image to both slots,
+            // including the first save. There is no previous-generation history.
+            File.Move(temporaryPath, absolutePath, overwrite: true);
+            WriteDurably(backupTemporaryPath, serialized);
+            if (!TryLoad(backupTemporaryPath, out _))
+                return SaveResult.Failed("The temporary backup save could not be read back and validated.");
+            File.Move(backupTemporaryPath, backupPath, overwrite: true);
             return SaveResult.Succeeded;
         }
         catch (Exception exception) when (IsSaveException(exception))
@@ -75,7 +58,7 @@ public static class OracleSaveStore
         finally
         {
             DeleteIfPresent(temporaryPath);
-            DeleteIfPresent(previousGenerationPath);
+            DeleteIfPresent(backupTemporaryPath);
         }
     }
 
@@ -98,6 +81,7 @@ public static class OracleSaveStore
         DeleteIfPresent(absolutePath);
         DeleteIfPresent(absolutePath + ".bak");
         DeleteIfPresent(absolutePath + ".tmp");
+        DeleteIfPresent(absolutePath + ".bak.tmp");
     }
 
     public static string PathForSlot(int slot)
@@ -129,19 +113,6 @@ public static class OracleSaveStore
             path, FileMode.Create, System.IO.FileAccess.Write, FileShare.None);
         stream.Write(data);
         stream.Flush(flushToDisk: true);
-    }
-
-    private static void ReplaceWithPortableFallback(
-        string temporaryPath,
-        string primaryPath,
-        string backupPath,
-        string previousGenerationPath)
-    {
-        File.Copy(primaryPath, previousGenerationPath, overwrite: true);
-        if (!TryLoad(previousGenerationPath, out _))
-            throw new IOException("The previous save generation could not be staged for backup.");
-        File.Move(temporaryPath, primaryPath, overwrite: true);
-        File.Move(previousGenerationPath, backupPath, overwrite: true);
     }
 
     private static bool IsSaveException(Exception exception) => exception is

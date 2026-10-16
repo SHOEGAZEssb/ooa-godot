@@ -372,9 +372,10 @@ public sealed partial class ValidationRoot
             save.SetLinkName("ONE");
             SaveResult result = OracleSaveStore.Save(save, primary);
             FailIf(
-                !result.Success || !File.Exists(primary) || File.Exists(backup) ||
+                !result.Success || !File.Exists(primary) || !File.Exists(backup) ||
+                !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)) ||
                 OracleSaveStore.LoadOrCreate(primary).LinkName != "ONE",
-                $"The first-save path failed or invented a backup generation: {result.ErrorMessage}");
+                $"The first save did not write identical native primary/backup images: {result.ErrorMessage}");
 
             save.SetLinkName("TWO");
             result = OracleSaveStore.Save(save, primary);
@@ -382,8 +383,9 @@ public sealed partial class ValidationRoot
                 !result.Success ||
                 OracleSaveStore.LoadOrCreate(primary).LinkName != "TWO" ||
                 !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? first) ||
-                first!.LinkName != "ONE",
-                $"The second save did not rotate generation ONE into .bak: {result.ErrorMessage}");
+                first!.LinkName != "TWO" ||
+                !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)),
+                $"The second save retained a previous-generation backup: {result.ErrorMessage}");
 
             save.SetLinkName("THREE");
             result = OracleSaveStore.Save(save, primary);
@@ -391,19 +393,33 @@ public sealed partial class ValidationRoot
                 !result.Success ||
                 OracleSaveStore.LoadOrCreate(primary).LinkName != "THREE" ||
                 !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? second) ||
-                second!.LinkName != "TWO",
-                $"A later save did not preserve the immediately previous generation: {result.ErrorMessage}");
+                second!.LinkName != "THREE" ||
+                !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)),
+                $"A later save did not update both native copies: {result.ErrorMessage}");
 
             File.WriteAllBytes(primary, new byte[] { 0xde, 0xad, 0xbe, 0xef });
             OracleSaveData recovered = OracleSaveStore.LoadOrCreate(primary);
-            FailIf(recovered.LinkName != "TWO", "A corrupt primary did not load generation TWO from .bak.");
+            FailIf(recovered.LinkName != "THREE", "A corrupt primary rolled back progress instead of loading the current backup.");
             recovered.SetLinkName("FOUR");
             result = OracleSaveStore.Save(recovered, primary);
             FailIf(
                 !result.Success || OracleSaveStore.LoadOrCreate(primary).LinkName != "FOUR" ||
                 !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? preserved) ||
-                preserved!.LinkName != "TWO",
-                "Saving after backup recovery overwrote the good backup with the corrupt primary.");
+                preserved!.LinkName != "FOUR",
+                "Saving after native backup recovery did not update both copies.");
+
+            File.WriteAllBytes(primary, new byte[] { 0xde });
+            File.WriteAllBytes(backup, new byte[] { 0xad });
+            bool rejected = false;
+            try { OracleSaveStore.LoadOrCreate(primary); }
+            catch (InvalidDataException) { rejected = true; }
+            FailIf(!rejected || !File.ReadAllBytes(primary).SequenceEqual(new byte[] { 0xde }) ||
+                !File.ReadAllBytes(backup).SequenceEqual(new byte[] { 0xad }),
+                "Two invalid save copies must be rejected without manufacturing a new game or rewriting them.");
+            string absent = Path.Combine(directory, "absent.sav");
+            FailIf(!OracleSaveStore.LoadOrCreate(absent).Serialize().SequenceEqual(OracleSaveData.CreateStandardGame().Serialize()) ||
+                File.Exists(absent) || File.Exists(absent + ".bak"),
+                "An absent development-launch save must initialize in memory without an implicit commit.");
 
             string blockingFile = Path.Combine(directory, "not-a-directory");
             File.WriteAllText(blockingFile, "blocked");
@@ -413,8 +429,8 @@ public sealed partial class ValidationRoot
                 result.Success || string.IsNullOrWhiteSpace(result.ErrorMessage),
                 "A save I/O failure escaped or returned success.");
             FailIf(
-                File.Exists(primary + ".tmp") || File.Exists(primary + ".previous.tmp"),
-                "A completed save left temporary generation files behind.");
+                File.Exists(primary + ".tmp") || File.Exists(primary + ".bak.tmp"),
+                "A completed save left temporary files behind.");
         }
         finally
         {
@@ -423,7 +439,7 @@ public sealed partial class ValidationRoot
         }
 
         GD.Print("Validated durable temporary save serialization, first-save promotion, " +
-            "previous-generation .bak rotation, corrupt-primary recovery, cleanup, and surfaced I/O errors.");
+            "identical native primary/backup images, invalid-copy rejection, cleanup, and surfaced I/O errors.");
     }
 
     private void ValidateTreasureInterpreter()
@@ -707,26 +723,30 @@ public sealed partial class ValidationRoot
     private void ValidateDeathRespawnCheckpoints()
     {
         FailIf(
-            !_deathRespawnPoints.UpdatesContinuously(0, 0x38) ||
-            !_deathRespawnPoints.UpdatesContinuously(1, 0x38) ||
-            _deathRespawnPoints.UpdatesContinuously(0, 0x39),
+            !_deathRespawnPoints.RecordsRoomInitialization(0, 0x38) ||
+            !_deathRespawnPoints.RecordsRoomInitialization(1, 0x38) ||
+            _deathRespawnPoints.RecordsRoomInitialization(0, 0x39),
             "The imported roomSpecificCode $06 death-respawn room table regressed.");
 
         int saveWrites = _saveWriteRequests;
         LoadValidationRoom(0, 0x38);
         _player.WarpTo(new Vector2(0x38, 0x58));
         _player.Face(Vector2I.Left);
-        _deathRespawnPoints.Update();
+        _deathRespawnPoints.RecordRoomInitialization();
         FailIf(
             _saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x38 ||
             _saveData.RespawnFacing != 3 || _saveData.RespawnY != 0x58 ||
             _saveData.RespawnX != 0x38 || _saveWriteRequests != saveWrites,
             "Room 0:38 did not update its live death checkpoint without autosaving.");
 
+        StepGameplayUpdates(4, Vector2.Right);
+        FailIf(_saveData.RespawnX != 0x38 || _saveData.RespawnY != 0x58,
+            "Room 0:38 must retain its initialization checkpoint while Link moves.");
+
         LoadValidationRoom(0, 0x39);
         _player.WarpTo(new Vector2(0x78, 0x68));
         _player.Face(Vector2I.Down);
-        _deathRespawnPoints.Update();
+        _deathRespawnPoints.RecordRoomInitialization();
         FailIf(
             !OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? restored) ||
             restored!.RespawnGroup != 0 || restored.RespawnRoom != 0x38 ||
@@ -734,7 +754,42 @@ public sealed partial class ValidationRoot
             restored.RespawnX != 0x38,
             "An ordinary room replaced the checkpoint, or saving captured Link's arbitrary position.");
 
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
+            _saveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
+            _saveData.SetMakuTreeState(0x0f);
+            LoadValidationRoom(0, 0x48);
+            _saveData.SetDeathRespawnPoint(0, 0x48, 0, 2, 0x58, 0x50);
+            _transitions.ApplyWarp(_player, new Warp(0, 0x48, -1, 0, WarpSourceTransition.FadeOut,
+                0, 0x38, 0x65, 0, WarpDestinationTransition.Basic));
+            int updates = 0;
+            bool loaded = false;
+            while (IsTransitioning && updates < 256)
+                StepGameplayUpdates(4, Vector2.Zero, batched: batched, afterUpdate: () =>
+                {
+                    updates++;
+                    if (_rooms.CurrentRoom.Id != 0x38)
+                    {
+                        FailIf(_saveData.RespawnRoom != 0x48, "Warp changed its checkpoint before initializeRoom.");
+                        return;
+                    }
+                    loaded = true;
+                    // bank4.applyWarpDest_b04 writes packed $65 before
+                    // initializeRoom, with the cleared Link direction $00.
+                    FailIf(_saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x38 ||
+                        _saveData.RespawnX != 0x58 || _saveData.RespawnY != 0x68 || _saveData.RespawnFacing != 0,
+                        "Room 0:38 must capture packed $65 and direction $00 before Link's warp handler, retaining them through arrival.");
+                });
+            FailIf(!loaded || IsTransitioning, "Room 0:38 checkpoint warp did not finish.");
+            StepGameplayUpdates(4, Vector2.Down, batched: batched);
+            FailIf(_saveData.RespawnX != 0x58 || _saveData.RespawnY != 0x68 || _saveData.RespawnFacing != 0,
+                "Room 0:38 movement overwrote the initialization checkpoint after arrival.");
+        }
+
         GD.Print("Validated imported roomSpecificCode $06 checkpoint rooms and save-image " +
             "retention of the maintained checkpoint instead of Link's arbitrary position.");
     }
+
 }

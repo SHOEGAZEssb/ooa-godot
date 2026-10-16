@@ -13,7 +13,14 @@ public sealed partial class ValidationRoot
         // decline/retry/save, cancellation, and the two full-pool signal gates.
         for(int fixture=0;fixture<6;fixture++)
         {
-            ReinitializeGameplayForValidation();LoadValidationRoom(1,0x65);_entities.Clear();
+            // The final construction vignette leaves the background at 1:38
+            // and hidden Link at zero. forceLoadRoom never runs room code.
+            ReinitializeGameplayForValidation();LoadValidationRoom(1,0x38);_entities.Clear();
+            _player.WarpTo(Vector2.Zero,recordSafe:false);
+            _saveData.SetGlobalFlag(GlobalFlag.PregameIntroDone);
+            _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
+            _saveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
+            _saveData.SetMakuTreeState(0x0f); // makuTree_subid03Script: after receiving the Maku Seed.
             _saveData.WriteWramByte(0xc600,0x34);_saveData.WriteWramByte(0xc601,0x12);
             _saveData.WriteWramByte(0xc629,4);_dialogue.MessageSpeed=4;
             _saveData.WriteWramByte(WramAddress.wMapleKillCounter,17);
@@ -31,6 +38,7 @@ public sealed partial class ValidationRoot
             {_runtimeState.SetWramByte(pair.Item1,(byte)pair.Item2);rom[pair.Item1]=(byte)pair.Item2;}
             int update=0,pressed=0,secretAt=0,firstHoldAt=0,secondHoldAt=0,dialogAt=0,promptCount=0,continuedAt=0,continuedHoldAt=0;
             bool checkedSecret=false,checkedContinued=false,poolFull=false;int capturedSaves=saves;var sounds=_sound.AttachPlayRequestAudit();
+            byte[]? committed=null;
             void Picture(string label)
             {
                 using var image=screen.BackgroundTexture!.GetImage();
@@ -70,6 +78,7 @@ public sealed partial class ValidationRoot
                 if(_saveWriteRequests!=capturedSaves)
                 {
                     capturedSaves=_saveWriteRequests;byte[] payload=_saveData.Serialize();
+                    committed=payload;
                     for(int index=0;index<payload.Length;index++)foreach(bool backup in new[]{false,true})
                         FailIf(payload[index]!=menu.SavedByte(0,0xc5b0+index,backup),$"Completion save {(backup?"backup":"primary")} byte${0xc5b0+index:x4} differs.");
                 }
@@ -156,6 +165,38 @@ public sealed partial class ValidationRoot
             Step(keys:0x0e);FailIf(owner.State!=10,"Only A can leave TO BE CONTINUED.");Step(keys:1);
             while(update<2200&&!menu.ResetHandoff)Step();
             FailIf(!menu.ResetHandoff||_saveWriteRequests-saves!=(fixture==1?0:1),"Ending reset must occur once after the white fade without another save.");
+            if(committed is not null)
+            {
+                FailIf(!OracleSaveData.TryDeserialize(committed,out var restored),"Completion save could not reload.");
+                ValidateEndingFileReload(restored!,batched:fixture==2);
+            }
         }
+    }
+
+    private void ValidateEndingFileReload(OracleSaveData save,bool batched)
+    {
+        byte[] disk=save.Serialize();
+        using var root=new FrontendValidationRoot();AddChild(root);
+        try
+        {
+            root.Initialize(save);
+            root.Step(241,batched);root.Step(1,batched,"inventory");root.Step(9,batched);
+            root.Step(1,batched,"inventory");root.Step(32,batched);
+            FailIf(root._mainMenu?.CurrentPage!=Page.FileSelect,"Ending reload did not reach file select.");
+            root.Step(1,batched,"inventory");root.Step(1,batched);
+            FailIf(root._mainMenu?.CurrentPage!=Page.TextSpeed,"Ending reload did not select its completed file.");
+            root.Step(1,batched,"inventory");root.Step(MainMenuController.WhiteFadeFrames,batched);
+            FailIf(root._mainMenu is not null||root._rooms.ActiveGroup!=0||root._rooms.CurrentRoom.Id!=0x38||
+                root._player.Position!=new Vector2(0x50,0x68)||root._player.FacingVector!=Vector2I.Down||!root._saveData.IsCompleted,
+                "Completed file must resume at preset $01: room 0:38, X=$50/Y=$68, facing down.");
+            var application=new ApplicationValidationFixture(root);
+            application.Step(4,Vector2.Zero,batched:batched);
+            FailIf(root._player.Position!=new Vector2(0x50,0x68),"Completed-file spawn moved during neutral updates.");
+            application.Step(4,Vector2.Down,batched:batched);
+            FailIf(root._player.Position.Y<=0x68||root._player.Position.X!=0x50||root._dialogue.IsOpen,
+                $"Completed-file Link cannot walk away through room 0:38's actual collision geometry: position={root._player.Position}, transition={root.IsTransitioning}, dialogue={root._dialogue.IsOpen}, event={root._roomEvents.Active}, state=${root._runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}.");
+            FailIf(!disk.SequenceEqual(root.FileSlotSnapshot(0)),"Completed-file load wrote to disk.");
+        }
+        finally{root.Free();}
     }
 }

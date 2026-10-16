@@ -613,6 +613,8 @@ public partial class GameRoot : Node2D
         EnemyPlacementContext placementContext = useSavedSpawn
             ? EnemyPlacementContext.Warp(_rooms.CurrentRoom.GetPackedPosition(spawn))
             : EnemyPlacementContext.Unrestricted;
+        if (useSavedSpawn && initialRoomLoadKind == InitialRoomLoadKind.Ordinary)
+            _deathRespawnPoints.RecordRoomInitialization(spawn, _saveData.RespawnFacing);
         if (initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
             _entities.LoadRoom(_rooms.ActiveGroup, _rooms.CurrentRoom, placementContext);
         TryDisplayEraInfoAfterInitialRoomLoad(initialRoomLoadKind);
@@ -655,6 +657,8 @@ public partial class GameRoot : Node2D
                 _ => Vector2I.Left
             });
         }
+        if (!useSavedSpawn && !useDebugSavestate && initialRoomLoadKind == InitialRoomLoadKind.Ordinary)
+            _deathRespawnPoints.RecordRoomInitialization();
         _inventory.Changed += SyncHudToInventory;
         SyncHudToInventory();
         _transitions.ResetCamera();
@@ -956,7 +960,6 @@ public partial class GameRoot : Node2D
         if (!nativeCutsceneOwnedUpdate && !arrivalPaletteAdvanced) _transitions.UpdateWarpAndEffects(delta);
         if (!_transitions.TimeWarpActive)
         {
-            _deathRespawnPoints.Update();
             if (_harp.IsPlaying)
                 _entities.UpdateDuringHarp(delta, _player);
             else

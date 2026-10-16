@@ -37,6 +37,9 @@ behavior understandable and extensible without a parallel CPU-cost model.
   presentation; fixed UI uses screen space.
 - Import general tables instead of encoding observed room exceptions. A
   room-specific branch is correct only when the original has one.
+- Keep recovery behavior source-derived. Do not add save migrations, automatic
+  state repairs, or unstuck rules to compensate for port bugs; fix their cause
+  and validate the original behavior.
 - Use the shared game RNG for original random behavior. Do not introduce a
   private or nondeterministic generator into gameplay.
 - Reject unsupported data with actionable source context or represent it

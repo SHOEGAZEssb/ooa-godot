@@ -14,7 +14,7 @@ public sealed class DeathRespawnPointController
     private readonly RoomSession _rooms;
     private readonly Player _player;
     private readonly OracleRuntimeState? _runtimeState;
-    private readonly HashSet<(int Group, int Room)> _continuousRooms = new();
+    private readonly HashSet<(int Group, int Room)> _initializationRooms = new();
 
     public DeathRespawnPointController(
         RoomSession rooms,
@@ -28,24 +28,29 @@ public sealed class DeathRespawnPointController
         GeneratedTable table = GeneratedTable.Load(
             "res://assets/oracle/metadata/continuous_death_respawn_rooms.tsv",
             new GeneratedTableSchema(
-                "continuous death-respawn rooms",
+                "room-initialization death-respawn rooms",
                 GeneratedTableKeySemantics.Unique,
                 ["group", "room"],
                 ["group", "room"],
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            _continuousRooms.Add((row.Decimal(0, 0, 7), row.HexByte(1)));
+            _initializationRooms.Add((row.Decimal(0, 0, 7), row.HexByte(1)));
         }
-        if (_continuousRooms.Count != 2)
+        if (_initializationRooms.Count != 2)
             throw new InvalidOperationException(
-                $"Expected 2 continuous death-respawn rooms, loaded {_continuousRooms.Count}.");
+                $"Expected 2 roomSpecificCode $06 checkpoint rooms, loaded {_initializationRooms.Count}.");
     }
 
-    public void Update()
+    internal void RecordRoomInitialization() =>
+        RecordRoomInitialization(_player.Position, FacingIndex(_player.FacingVector));
+
+    internal void RecordRoomInitialization(Vector2 position, int facing)
     {
-        if (_continuousRooms.Contains((_rooms.ActiveGroup, _rooms.CurrentRoom.Id)))
-            RecordCurrentPoint();
+        // bank0.s:initializeRoom calls roomSpecificCode $06 once, before
+        // object parsing. forceLoadRoom and ordinary object updates omit it.
+        if (_initializationRooms.Contains((_rooms.ActiveGroup, _rooms.CurrentRoom.Id)))
+            RecordPoint(position, facing);
     }
 
     public void RecordWarpDestination(int destinationTransition)
@@ -58,10 +63,13 @@ public sealed class DeathRespawnPointController
             RecordCurrentPoint();
     }
 
-    internal bool UpdatesContinuously(int group, int room) =>
-        _continuousRooms.Contains((group, room));
+    internal bool RecordsRoomInitialization(int group, int room) =>
+        _initializationRooms.Contains((group, room));
 
-    internal void RecordCurrentPoint()
+    internal void RecordCurrentPoint() =>
+        RecordPoint(_player.Position, FacingIndex(_player.FacingVector));
+
+    private void RecordPoint(Vector2 position, int facing)
     {
         int stateModifier = (_rooms.CurrentRoom.TilesetFlags & TilesetFlagUnderwater) != 0 ? 1 : 0;
         if (_rooms.SaveData.HasRoomFlag(
@@ -70,7 +78,6 @@ public sealed class DeathRespawnPointController
             stateModifier++;
         }
 
-        Vector2 position = _player.Position;
         int y = Mathf.Clamp(Mathf.FloorToInt(position.Y), 0, 0xff);
         int x = Mathf.Clamp(Mathf.FloorToInt(position.X), 0, 0xff);
         if (_runtimeState is null)
@@ -79,7 +86,7 @@ public sealed class DeathRespawnPointController
                 _rooms.ActiveGroup,
                 _rooms.CurrentRoom.Id,
                 stateModifier,
-                FacingIndex(_player.FacingVector),
+                facing,
                 y,
                 x);
             return;
@@ -89,7 +96,7 @@ public sealed class DeathRespawnPointController
             _rooms.ActiveGroup,
             _rooms.CurrentRoom.Id,
             stateModifier,
-            FacingIndex(_player.FacingVector),
+            facing,
             y,
             x,
             CompanionRuntimeState.ReadRemembered(_runtimeState),

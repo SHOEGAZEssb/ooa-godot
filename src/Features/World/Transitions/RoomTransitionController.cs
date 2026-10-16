@@ -877,6 +877,7 @@ public sealed class RoomTransitionController
         // before destination object initialization observes Link.
         if (transitionOwner is null)
             player.SetScriptedPosition(start);
+        _deathRespawnPoints.RecordRoomInitialization();
         _roomView.StartScreenTransition(
             target.Texture, direction, _scrollDistance, sourceCameraOrigin, destinationCameraOrigin);
         _entities.BeginScreenTransition(
@@ -1682,9 +1683,20 @@ public sealed class RoomTransitionController
             _sound.PlaySound(SoundId.SndWarpStart);
         }
         else
+        {
+            // bank4.applyWarpDest_b04 installs the unadjusted packed position
+            // before initializeRoom. Link's warp handler changes facing and
+            // applies entrance/fall/$0e offsets only after room code has run.
+            if (_roomPackArrival is not null || returningThroughTime)
+                _deathRespawnPoints.RecordRoomInitialization();
+            else
+                _deathRespawnPoints.RecordRoomInitialization(
+                    new Vector2((warp.DestinationPosition & 0x0f) * 16 + 8,
+                        (warp.DestinationPosition >> 4) * 16 + 8), facing: 0);
             _entities.LoadRoom(
                 _rooms.ActiveGroup, room,
                 EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));
+        }
         CheckDisplayEraInfoAfterFullRoomLoad();
 
         Vector2 spawn;

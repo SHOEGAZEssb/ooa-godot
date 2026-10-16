@@ -23,10 +23,11 @@ user://oracle_of_ages_2.sav
 user://oracle_of_ages_3.sav
 ```
 
-Each may have a `.bak` from the previous validated generation. Saves use a
-temporary file, validation/readback, flush, and replacement so a corrupt write
-does not destroy a known-good primary or backup. I/O failure returns a result
-the save UI can present and retry.
+Each has a `.bak` containing the same explicit-save image, matching the
+original's two SRAM copies. Loads prefer a valid primary, then a valid backup;
+existing invalid copies never become a new game automatically. Saves use
+temporary files, validation/readback, flush, and replacement. I/O failure
+returns a result the save UI can present and retry.
 
 ## Explicit persistence
 
@@ -68,10 +69,10 @@ and reconstruct transient actors from room data on load. They never change a
 retail slot, backup, or explicit-save count.
 
 New files initialize all vine positions from the imported defaults before room
-loading. Loading an older port save repairs only zero vine-position entries,
-which native sprout movement cannot produce; existing nonzero positions remain
-intact. This compatibility repair changes the live image and reaches disk only
-through an explicit save.
+loading. Deserialization preserves the saved image, including zero vine
+positions and invalid checkpoints. Loading applies only initialization traced
+to the original game; port-specific save migrations and state repairs are not
+part of this boundary.
 
 ## Flags, rooms, and inventory
 

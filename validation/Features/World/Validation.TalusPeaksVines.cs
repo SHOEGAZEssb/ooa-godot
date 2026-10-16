@@ -69,36 +69,34 @@ public sealed partial class ValidationRoot
             FailIf(fresh.ReadWramByte(0xc8f0 + subId) != defaults[subId],
                 $"New file wVinePositions+${subId:x2} must start at ${defaults[subId]:x2} before visiting the past.");
 
-        // Older port saves may have zero entries, including a mixture of
-        // unvisited sprouts and positions already moved by the player.
+        // Loading preserves the stored bytes. initializeVinePositions is a
+        // new-file operation, including when a loaded entry happens to be zero.
         fresh.WriteWramByte(0xc8f0, 0);
         fresh.WriteWramByte(address, 0x27);
         fresh.WriteWramByte(0xc8f2, 0);
-        byte[] legacy = fresh.Serialize();
-        FailIf(!OracleSaveData.TryDeserialize(legacy, out OracleSaveData? restored),
-            "Legacy vine-position save failed to load.");
-        byte[] repaired = restored!.Serialize();
-        for (int offset = 2; offset < legacy.Length; offset++)
-        {
-            byte expected = offset switch
-            {
-                0x340 => 0x41, // $c8f0 - $c5b0
-                0x342 => 0x16,
-                _ => legacy[offset]
-            };
-            FailIf(repaired[offset] != expected,
-                $"Legacy vine repair changed save byte ${offset:x3} incorrectly.");
-        }
+        byte[] stored = fresh.Serialize();
+        FailIf(!OracleSaveData.TryDeserialize(stored, out OracleSaveData? restored) ||
+            !restored!.Serialize().SequenceEqual(stored),
+            "Loading vine positions must preserve the entire saved image.");
 
-        foreach (bool legacySave in new[] { false, true })
+        var sprouts = new VineSproutDatabase();
+        OracleRoomData rawRoom = _world.LoadRoom(1, 0x61);
+        restored!.WriteWramByte(address, 0);
+        rawRoom.SetPositionTileAndCollision(Point(0), 0x00, 0, 0);
+        FailIf(sprouts.ResolvePosition(1, rawRoom, restored) != Point(0) || restored.ReadWramByte(address) != 0,
+            "vineSprout_getPosition must use saved $00 when its tile is not a native respawnable tile.");
+        rawRoom.SetPositionTileAndCollision(Point(0), 0xc0, 0, 0);
+        FailIf(sprouts.ResolvePosition(1, rawRoom, restored) != Point(0x22) || restored.ReadWramByte(address) != 0,
+            "vineSprout_getPosition must retain its native $c0 tile fallback without rewriting the save.");
+
+        foreach (bool reloaded in new[] { false, true })
         foreach (bool batched in new[] { false, true })
         {
             OracleSaveData firstVisit = OracleSaveData.CreateStandardGame();
-            if (legacySave)
+            if (reloaded)
             {
-                firstVisit.WriteWramByte(address, 0);
                 FailIf(!OracleSaveData.TryDeserialize(firstVisit.Serialize(), out restored),
-                    "Legacy present-first save failed to load.");
+                    "Present-first save failed to reload.");
                 firstVisit = restored!;
             }
             _saveData.RestoreFrom(firstVisit);
@@ -115,7 +113,7 @@ public sealed partial class ValidationRoot
                 }
                 finally { Input.ActionRelease("move_up"); }
                 FailIf(IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x51 || _player.Position.Y >= 120,
-                    $"Present-first vine climb failed on visit {visit + 1}, legacy={legacySave}, batched={batched} " +
+                    $"Present-first vine climb failed on visit {visit + 1}, reloaded={reloaded}, batched={batched} " +
                     $"(room {_activeGroup:x1}:{_currentRoom.Id:x2}, Link {_player.Position}).");
                 CheckLayout(_currentRoom, 0x22);
                 FailIf(_saveData.HasRoomFlag(1, 0x61, OracleSaveData.RoomFlagVisited),
@@ -203,7 +201,7 @@ public sealed partial class ValidationRoot
                 $"Sprout ${target:x2} vine failed a repeated climb after room re-entry.");
         }
         GD.Print("Validated Talus Peaks $62:$01 push cancellation/completion, saved positions $22/$27, " +
-            "new/legacy save defaults, present-first 0:61/0:51 climbing, vine tiles and collision, " +
+            "new-file defaults, exact loaded bytes, native respawnable-tile fallback, present-first 0:61/0:51 climbing, vine tiles and collision, " +
             "misaligned/solid branches, time travel, repeated climbing, and batched updates.");
     }
 }
