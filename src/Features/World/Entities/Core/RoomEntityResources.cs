@@ -98,6 +98,8 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
     private StoneRabbitDatabase? _stoneRabbitData;
     internal StoneRabbitDatabase StoneRabbit => _stoneRabbitData ??= new();
     private BusinessScrubDatabase? _businessScrubData;
+    private SharedNpcDatabase? _sharedNpcData;
+    internal SharedNpcDatabase SharedNpcs => _sharedNpcData ??= new();
     internal BusinessScrubDatabase BusinessScrub => _businessScrubData ??= new();
     private NayruHouseDatabase? _nayruHouseData;
     internal NayruHouseDatabase NayruHouse => _nayruHouseData ??= new();

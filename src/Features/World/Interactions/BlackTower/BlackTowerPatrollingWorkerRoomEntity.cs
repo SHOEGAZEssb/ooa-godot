@@ -17,6 +17,9 @@ internal sealed class BlackTowerPatrollingWorkerRoomEntity : BlackTowerNpcRoomEn
     private int _postTalkWait;
     private int _direction;
     private bool _talking;
+    private Func<bool>? _pendingDialogue;
+    public override bool TryQueueDialogue(Func<bool> tryShowDialogue)
+    { _pendingDialogue = tryShowDialogue; return true; }
 
     internal BlackTowerPatrollingWorkerRoomEntity(
         NpcCharacter npc,
@@ -43,7 +46,7 @@ internal sealed class BlackTowerPatrollingWorkerRoomEntity : BlackTowerNpcRoomEn
     public bool DisablesMovement => DisablesSword;
 
     public override NpcCharacter? FindTalkTarget(Player player) =>
-        !_talking && _postTalkWait == 0 && _wait == 0 &&
+        !_talking && _pendingDialogue is null && _postTalkWait == 0 &&
         base.FindTalkTarget(player) is { } npc
             ? npc
             : null;
@@ -53,6 +56,11 @@ internal sealed class BlackTowerPatrollingWorkerRoomEntity : BlackTowerNpcRoomEn
         if (!Entity.Active)
             return;
         Entity.AdvanceAnimationUpdates(1);
+
+        // pressedAButton survives the patrol's wait-20. Consume it only
+        // when hardhatWorkerFunc_patrol next reaches its A-button branch.
+        if (_pendingDialogue is not null && _wait == 0 && _postTalkWait == 0 && _pendingDialogue.Invoke())
+        { _pendingDialogue = null; _talking = true; }
 
         if (_talking)
         {
@@ -91,7 +99,7 @@ internal sealed class BlackTowerPatrollingWorkerRoomEntity : BlackTowerNpcRoomEn
         FinishNpcUpdate(frame.Player);
     }
 
-    public void OnNpcTalkStarted() => _talking = true;
+    public void OnNpcTalkStarted() { }
 
     public void OnNpcTalkEnded()
     {

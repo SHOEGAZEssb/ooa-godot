@@ -1208,6 +1208,7 @@ public partial class GameRoot : Node2D
         _entities.RoomWarpRequested += warp =>
             _transitions.ApplyWarp(_player, warp);
         _entities.SoundRequested += _sound.PlaySound;
+        _entities.NativeMusicSelectionRequested += _sound.SetNativeMusicSelection;
         _entities.NativeSoundRequested += _sound.PlayNativeSound;
         _entities.NativeActiveMusicWritten += _sound.SetNativeActiveMusic;
         _entities.NativeActiveMusicSource = () => _sound.NativeActiveMusic;
@@ -1254,7 +1255,8 @@ public partial class GameRoot : Node2D
         _keyholes.SetEventHandler(
             _roomEvents.SupportsOverworldKeyhole,
             _roomEvents.TriggerOverworldKeyhole);
-        _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects;
+        _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects ||
+            _interactions?.FreezesNonInteractionObjects == true;
         _entities.CameraUpdatesDisabledSource = () => _roomEvents.CameraUpdatesDisabled;
         _entities.InitializedObjectsDisabledSource = () => _transitions.AwaitingLinkWarpState;
         _entities.TextAllowsScriptSource = () => _dialogue.AllowsNativeScriptCommands;

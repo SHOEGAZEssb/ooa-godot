@@ -988,7 +988,7 @@ internal sealed class RoomEntityFactory
             }
         }
         else if (group == Resources.LynnaShop.Group &&
-            (room.Id == Resources.LynnaShop.Room || room.Id == Resources.HiddenShop.Room))
+            (room.Id == Resources.LynnaShop.Room || room.Id == Resources.HiddenShop.Room) || group == 3 && room.Id == 0xfe)
         {
             foreach (IRoomEntity entity in CreateLynnaShop(room, roomNpcs))
                 yield return entity;
@@ -1039,7 +1039,10 @@ internal sealed class RoomEntityFactory
                     case NpcImplementationClassification.OrdinaryGeneric:
                         yield return record.Id == InteractionId.Zora
                             ? new ZoraNpcRoomEntity(NpcCharacter.CreateFromRecord(record))
-                            : new NpcRoomEntity(NpcCharacter.CreateFromRecord(record));
+                            : new NpcRoomEntity(NpcCharacter.CreateFromRecord(record),
+                                initializeStoryOnce: record is { Id: InteractionId.MiscMan, SubId: 2 or 3 or 5 or 6 }
+                                    or { Id: InteractionId.MiscMan2, SubId: 3 }
+                                    or { Id: InteractionId.Nayru, SubId: 0x0c });
                         break;
                     case NpcImplementationClassification.SpecializedNative:
                         IRoomEntity specialized = CreateSpecializedNpc(record, room);
@@ -3439,6 +3442,30 @@ internal sealed class RoomEntityFactory
         if (record is { Id: InteractionId.ForestFairy, SubId: >= 0x0e and <= 0x10 })
             return new ForestHintFairyRoomEntity(NpcCharacter.CreateFromRecord(record));
 
+        if (record is { Id: InteractionId.ForestFairy, SubId: >= 5 and <= 0x0d })
+            return new ForestNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
+        if (record is { Id: 0x5d, SubId: 2, Var03: 0 })
+            return new WaitingNayruAnimalRoomEntity(NpcCharacter.CreateFromRecord(record), owner,
+                Resources.SharedNpcs, _saveData ?? throw new InvalidOperationException("bear.s:$02 requires save state."));
+
+        if (record is { Id: 0x36, SubId: 0x13 } or { Id: 0x37, SubId: 0x11 }
+            or { Id: 0x3c, SubId: 0x10 } or { Id: 0x39, SubId: 7, Var03: 1 }
+            or { Id: 0x5d, SubId: 2, Var03: 1 } or { Id: 0x29, SubId: 0 }
+            or { Id: 0x2e, SubId: 0 })
+            return new SharedScriptNpcRoomEntity(NpcCharacter.CreateFromRecord(record), Resources.SharedNpcs, owner);
+
+        if (record is { Id: InteractionId.ImpaNpc, SubId: 1 })
+        {
+            var impa = NpcCharacter.CreateFromRecord(record);
+            int text = _saveData?.IsLinkedGame == true ? 0x012e : 0x012b;
+            impa.SetDialogue(text, Resources.SharedNpcs.Text(text), true);
+            return new PastImpaRoomEntity(impa);
+        }
+
+        if (record is { Id: InteractionId.HardhatWorker, SubId: 3 })
+            return new BlackTowerPatrollingWorkerRoomEntity(
+                NpcCharacter.CreateFromRecord(record), Resources.BlackTower, _random);
+
         if (record is { Group: 1, Room: 0xba, Id: InteractionId.Pirate, SubId: 0x04 })
         {
             if (_saveData is null || _inventory is null)
@@ -3630,7 +3657,7 @@ internal sealed class RoomEntityFactory
             cheval.InitializeCheval(record, Resources.Cheval.Record);
             return new ChevalRoomEntity(cheval, Resources.Cheval.Record);
         }
-        if (Resources.RalphAfterCheval.Matches(record))
+        if (Resources.RalphAfterCheval.Matches(record) || record is { Id: InteractionId.Ralph, SubId: 0x0b })
         {
             var ralph = new RalphAfterChevalCharacter
             {
@@ -4065,7 +4092,7 @@ internal sealed class RoomEntityFactory
         OracleRoomData room,
         IReadOnlyList<NpcRecord> records)
     {
-        LynnaShopDatabase database = room.Id == Resources.HiddenShop.Room ? Resources.HiddenShop : Resources.LynnaShop;
+        LynnaShopDatabase database = room.Id == 0xfe ? new(advance: true) : room.Id == Resources.HiddenShop.Room ? Resources.HiddenShop : Resources.LynnaShop;
         if (records.Count != 1 || records[0].Id != InteractionId.Shopkeeper ||
             records[0].SubId != database.ShopkeeperSubId)
         {
@@ -4097,7 +4124,7 @@ internal sealed class RoomEntityFactory
 
         // The final $71:$0c object is invisible and deletes itself after this
         // one entry-side effect.
-        if (!database.Hidden)
+        if (!database.Hidden && !database.Advance)
             database.ApplyCompanionEntryState(_saveData);
     }
 

@@ -24,6 +24,8 @@ internal sealed class NayruRescueMusicNoteRoomEntity : IRoomEntity,IFixedRoomEnt
     }
     internal static void Spawn(RoomEventContext context,Vector2 position,bool left)
     {if(context.Entities.InteractionSlotAvailable)context.Entities.AddEntity(new NayruRescueMusicNoteRoomEntity(new SharedEffectDatabase().Effect("MusicNote"),position,left,context.Entities.RuntimeState));}
+    internal static void Spawn(RoomEntityManager entities, Vector2 position, bool left)
+    { if (entities.InteractionSlotAvailable) entities.AddEntity(new NayruRescueMusicNoteRoomEntity(new SharedEffectDatabase().Effect("MusicNote"), position, left, entities.RuntimeState)); }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
         if(!_initialized) {_initialized=true;_actor.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex);return;}

@@ -18,6 +18,8 @@ internal sealed class NpcInteractionScriptController
     private readonly OldManRupeesScriptHost _oldMan;
     private double _frameAccumulator;
     private KnowItAllBirdScriptHost? _birdTalk;
+    private readonly List<SharedNpcScriptHost> _shared = new();
+    private readonly SharedNpcDatabase _sharedData = new();
 
     public NpcInteractionScriptController(
         RoomSession rooms,
@@ -61,6 +63,12 @@ internal sealed class NpcInteractionScriptController
         _hosts = [_linked, _pastBipin, _hardhat, _postman, _oldMan];
         _handlers =
         [
+            NpcInteractionHandler.ForNpc("sharedNpcScript", (target, player) =>
+            {
+                foreach (var host in _shared)
+                    if (host.TryInteract(target, player)) return true;
+                return false;
+            }),
             NpcInteractionHandler.ForNpc("knowItAllBirdScript", (target, player) =>
             {
                 if (target.Npc is not KnowItAllBirdCharacter bird) return false;
@@ -85,6 +93,15 @@ internal sealed class NpcInteractionScriptController
         rooms.RoomChanged += OnRoomChanged;
         entities.RoomEntitiesLoaded += (_, _) =>
         {
+            foreach (var host in _shared) host.Cancel();
+            _shared.Clear();
+            foreach (var slot in entities.EntityAdapters<SharedScriptNpcRoomEntity>())
+            {
+                var host = new SharedNpcScriptHost(slot, _sharedData,
+                    rooms, entities, dialogue, inventory, rupeeDisplayUpdated);
+                slot.Script = host;
+                _shared.Add(host);
+            }
             _postman.Cancel();
             foreach (PostmanCharacter postman in entities.Entities<PostmanCharacter>())
                 postman.BindScript(_postman);
@@ -100,6 +117,8 @@ internal sealed class NpcInteractionScriptController
                 if (host.BlocksGameplay)
                     return true;
             }
+            foreach (var host in _shared)
+                if (host.BlocksGameplay) return true;
             return false;
         }
     }
@@ -140,6 +159,8 @@ internal sealed class NpcInteractionScriptController
         _ = room;
         foreach (NpcInteractionCommandHost host in _hosts)
             host.Cancel();
+        foreach (var host in _shared) host.Cancel();
+        _shared.Clear();
         _frameAccumulator = 0.0;
     }
 }

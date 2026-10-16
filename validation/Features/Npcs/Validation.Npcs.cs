@@ -458,7 +458,7 @@ public sealed partial class ValidationRoot
             ["cutscenes/library_secret_commands.tsv|\\secret1"] = 2,
             ["cutscenes/goron_cave_data.tsv|\\num1"] = 4,
             ["cutscenes/goron_cave_data.tsv|\\secret1"] = 2,
-            ["objects/lynna_shop_texts.tsv|\\num1"] = 9,
+            ["objects/lynna_shop_texts.tsv|\\num1"] = 10,
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
             ["objects/tingle_texts.tsv|\\secret1"] = 1,
             ["objects/tokay_interaction_texts.tsv|\\secret1"] = 1,
@@ -560,10 +560,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 75,
-                [NpcImplementationClassification.SpecializedNative] = 213,
+                [NpcImplementationClassification.OrdinaryGeneric] = 81,
+                [NpcImplementationClassification.SpecializedNative] = 234,
                 [NpcImplementationClassification.EventOwned] = 128,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 46
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 19
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -576,7 +576,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "75 ordinary, 213 specialized, 128 event-owned, and 46 " +
+            "81 ordinary, 234 specialized, 128 event-owned, and 19 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -856,6 +856,7 @@ public sealed partial class ValidationRoot
             "poe.s:poeScript",
             "comedian.s:comedianScript",
             "soldier.s:soldierSubid02/07/09",
+            "sharedNpcScript",
             "knowItAllBirdScript",
             "oldManScript_takesRupees",
             "linkedGameNpcScript",
@@ -3517,8 +3518,8 @@ public sealed partial class ValidationRoot
         _player.WarpTo(stoppedPosition + Vector2.Down * 12);
         _player.Face(Vector2I.Up);
         FailIf(
-            patrolManager.FindTalkTarget(_player) is not null,
-            "Hardhat patrol accepted A-button interaction inside its 20-update between-leg wait.");
+            !ReferenceEquals(patrolManager.FindTalkTarget(_player), patroller),
+            "Hardhat patrol lost its A-button sensitivity during wait 20; the source retains the press until the next patrol branch.");
         _player.WarpTo(new Vector2(0x100, 0x20));
         for (int update = 0; update < data.PatrolWait; update++)
             patrolManager.Update(frame, _player);
@@ -3861,7 +3862,7 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 357 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 373 ||
             new NpcDialogueRuleDatabase().RuleCount != 170 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
             "Expected 353 NPC visibility, 122 NPC dialogue, and two NPC " +
@@ -4180,9 +4181,9 @@ public sealed partial class ValidationRoot
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x3a));
         FailIf(
-            manager.Entities<NpcCharacter>().Count != 0,
-            "Room 0:3a instantiated deliberately unsupported postgame " +
-            "actors through the generic NPC path.");
+            manager.Entities<NpcCharacter>().Count != 5 ||
+            manager.Entities<NpcCharacter>().Any(npc => npc.Active || npc.Record.Implementation != NpcImplementationClassification.SpecializedNative),
+            "Room 0:3a must retain five specialized postgame records with state-zero FINISHEDGAME deletion before completion.");
 
         save.SetGlobalFlag(GlobalFlag.FinishedGame, value: false);
         save.SetGlobalFlag(
@@ -4217,9 +4218,10 @@ public sealed partial class ValidationRoot
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x82));
         FailIf(
-            manager.Entities<NpcCharacter>().Any(npc => npc.Record.Id != 0x49 || npc.Record.SubId < 0x0e),
-            "Room 0:82 instantiated deliberately unsupported placed " +
-            "Forest Fairy phases.");
+            manager.EntityAdapters<ForestNpcRoomEntity>().Count() != 4 ||
+            manager.EntityAdapters<ForestHintFairyRoomEntity>().Count() != 3 ||
+            manager.Entities<NpcCharacter>().Any(npc => npc.Record.Id != 0x49 || npc.Record.Implementation != NpcImplementationClassification.SpecializedNative),
+            "Room 0:82 must retain four native phase records and three companion-search hints, with their separate initialization owners.");
 
         manager.LoadRoom(2, _world.LoadRoom(2, 0xe7));
         FailIf(

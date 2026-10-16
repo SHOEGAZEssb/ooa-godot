@@ -46,7 +46,7 @@ internal sealed partial class LynnaShopEvent
     }
 
     public bool Matches(int group, OracleRoomData room) =>
-        group == 2 && (room.Id == _normalDatabase.Room || room.Id == _hiddenDatabase.Room);
+        group == 2 && (room.Id == _normalDatabase.Room || room.Id == _hiddenDatabase.Room) || group == 3 && room.Id == 0xfe;
 
     public void Start(OracleRoomData room)
     {

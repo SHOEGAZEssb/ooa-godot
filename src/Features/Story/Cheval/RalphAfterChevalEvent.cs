@@ -1,12 +1,14 @@
 using Godot;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
 /// <summary>
 /// INTERAC_RALPH $37:$10 and ralphSubid10Script after leaving Cheval's house.
 /// </summary>
-internal sealed class RalphAfterChevalEvent :
+internal class RalphAfterChevalEvent :
     InteractiveInfiniteScriptHost<RalphAfterChevalCharacter>,
     IRoomEntryEvent,
     ICutsceneCommandHost
@@ -16,20 +18,27 @@ internal sealed class RalphAfterChevalEvent :
     private readonly RalphAfterChevalEventDatabase _database = new();
     private readonly RalphAfterChevalEventRecord _record;
     private Vector2 _precisePosition;
-    private bool _facingBit;
+    private bool FacingSignal => (Context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) & 1) != 0;
     private int _substate;
     private bool _menusDisabled;
+    private readonly bool _beforeCurrents;
+    private readonly IReadOnlyList<CutsceneCommand> _commands;
 
-    internal RalphAfterChevalEvent(RoomEventContext context)
+    internal RalphAfterChevalEvent(RoomEventContext context, bool beforeCurrents = false)
         : base(context, ActorName)
     {
-        _record = _database.Record;
+        _beforeCurrents = beforeCurrents;
+        // ralph.s:$0b and $10 share @setScriptAndDisableObjects and their
+        // entire state-one native dispatcher, including dust and facing.
+        _record = beforeCurrents ? _database.Record with { Room = 0x20, SubId = 0x0b, WarpDestination = 0x24 } : _database.Record;
+        _commands = beforeCurrents ? CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/ralph_before_currents_commands.tsv") : _database.Commands;
     }
 
     internal RalphAfterChevalEventDatabase Database => _database;
     internal int Substate => _substate;
-    internal bool FacingBit => _facingBit;
+    internal bool FacingBit => FacingSignal;
     public bool MenusDisabled => _menusDisabled;
+    public bool FreezesNonInteractionObjects => _menusDisabled;
 
     public bool Matches(int group, OracleRoomData room) =>
         group == _record.Group && room.Id == _record.Room;
@@ -59,7 +68,7 @@ internal sealed class RalphAfterChevalEvent :
         OracleSaveData save = Context.Rooms.SaveData;
         if (save.HasRoomFlag(
                 _record.Group, _record.Room, (byte)_record.RoomFlag) ||
-            !save.HasGlobalFlag(_record.TalkedGlobalFlag) ||
+            (_beforeCurrents ? save.HasTreasure(TreasureId.TuneOfCurrents) || Context.Transitions.ScreenEntryDirection != Vector2I.Zero : !save.HasGlobalFlag(_record.TalkedGlobalFlag)) ||
             Context.Transitions.ActiveWarpDestinationPosition !=
                 _record.WarpDestination)
         {
@@ -68,10 +77,9 @@ internal sealed class RalphAfterChevalEvent :
         }
 
         _precisePosition = ralph.Position;
-        _facingBit = false;
         _substate = 0;
         _menusDisabled = _record.MenuDisabled != 0;
-        StartInfiniteScript(ralph, _database.Commands);
+        StartInfiniteScript(ralph, _commands);
         SetInputEnabled(enabled: false);
 
         // @setScriptAndDisableObjects jumps directly into ralphRunSubid from
@@ -87,7 +95,7 @@ internal sealed class RalphAfterChevalEvent :
         if (ralph is null || !ralph.Active)
             return;
 
-        if (_facingBit)
+        if (FacingSignal)
             TurnLinkTowardRalph(ralph);
 
         int entrySubstate = _substate;
@@ -115,8 +123,8 @@ internal sealed class RalphAfterChevalEvent :
     public override void ShowText(int textId, string message)
     {
         CutsceneShowTextCommand imported =
-            (CutsceneShowTextCommand)_database.Commands[12];
-        if (textId != 0x2a20 ||
+            _commands.OfType<CutsceneShowTextCommand>().Single();
+        if (textId != (_beforeCurrents ? 0x2a1a : 0x2a20) ||
             textId != imported.TextId ||
             message != imported.Message)
         {
@@ -135,6 +143,8 @@ internal sealed class RalphAfterChevalEvent :
         {
             ObjectAngle.Up => 0,
             ObjectAngle.Down => 2,
+            ObjectAngle.Right when _beforeCurrents => 1,
+            ObjectAngle.Left when _beforeCurrents => 3,
             _ => throw new InvalidOperationException(
                 $"ralphSubid10Script requested unsupported angle ${angle:x2}.")
         };
@@ -144,6 +154,12 @@ internal sealed class RalphAfterChevalEvent :
                 $"Ralph movement animation ${direction:x2} changed.");
         }
         RequireScriptActor(actor).SetDirection(direction);
+    }
+    public override void SetActorAnimation(string actor, int animation, string encodedAnimation)
+    {
+        if (!_beforeCurrents || animation != 0 || encodedAnimation != _record.Animation(0))
+            throw UnsupportedCommand($"Ralph animation ${animation:x2}");
+        RequireScriptActor(actor).SetDirection(animation);
     }
 
     public override void MoveActorAtSpeed(string actor, int speed, int angle)
@@ -155,6 +171,9 @@ internal sealed class RalphAfterChevalEvent :
                  upSpeed == _record.Speed100 ||
                  upSpeed == _record.Speed080) ||
             angle == ObjectAngle.Down && speed == _record.Speed200;
+        if (_beforeCurrents)
+            supported = angle == ObjectAngle.Left && (speed == _record.Speed200 || speed == _record.Speed100 || speed == _record.Speed080) ||
+                angle == ObjectAngle.Right && (speed == _record.Speed100 || speed == _record.Speed200);
         if (!supported)
         {
             throw new InvalidOperationException(
@@ -191,7 +210,8 @@ internal sealed class RalphAfterChevalEvent :
         switch (handler)
         {
             case "ToggleFacingBit":
-                _facingBit = !_facingBit;
+                var memory = Context.Entities.RuntimeState;
+                memory.SetWramByte(WramAddress.wTmpcfc0, (byte)(memory.ReadWramByte(WramAddress.wTmpcfc0) ^ 1));
                 return;
 
             case "IncrementSubstate":
@@ -232,7 +252,6 @@ internal sealed class RalphAfterChevalEvent :
     protected override void ResetEventState()
     {
         _precisePosition = Vector2.Zero;
-        _facingBit = false;
         _substate = 0;
         _menusDisabled = false;
     }

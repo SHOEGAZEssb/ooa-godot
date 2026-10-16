@@ -787,6 +787,26 @@ $npcTextBySubid['154:0'] = 0x2301
 
 # forestFairy_initNpcFromData packs palette and animation in its second byte.
 $forestHintSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\forestFairy.s')
+$forestNpcRows = @([regex]::Matches(
+    $forestHintSource.Substring($forestHintSource.IndexOf('forestFairy_subid5To7NpcData:')),
+    '\.db <TX_(?<text>[0-9a-f]{4}), \$(?<packed>[0-9a-f]{2})'))
+if ($forestNpcRows.Count -ne 11) { throw 'forestFairy.s:$05-$10 NPC tables changed.' }
+foreach ($entry in @(@(5,0),@(6,1),@(7,2),@(8,3),@(9,4),@(10,5),@(12,6),@(13,7))) {
+    $key = "73:$($entry[0])"
+    $row = $forestNpcRows[$entry[1]]
+    $packed = [Convert]::ToInt32($row.Groups['packed'].Value,16)
+    $npcTextBySubid[$key] = [Convert]::ToInt32($row.Groups['text'].Value,16)
+    $npcPaletteBySubid[$key] = $packed -band 0x0f
+    $npcInitialAnimationBySubid[$key] = $packed -shr 4
+    $npcCanFaceBySubid[$key] = $false
+}
+$npcTextBySubid['54:12'] = 0x1d15 # nayru.s:@init0c -> @runGenericNpc
+$npcInitialAnimationBySubid['54:12'] = 2
+$npcCanFaceBySubid['54:12'] = $true
+$npcTextBySubid['79:1'] = 0x012b
+$npcInitialAnimationBySubid['79:1'] = 2
+$npcCanFaceBySubid['79:1'] = $true
+foreach ($subid in @(2,3,5,6)) { $npcPaletteBySubid["65:$subid"] = 1 }
 $forestHintSource = $forestHintSource.Substring($forestHintSource.IndexOf('forestFairy_subid0e:'))
 $forestHintRows = @([regex]::Matches($forestHintSource, '\.db <TX_(?<text>[0-9a-f]{4}), \$(?<packed>[0-9a-f]{2})'))
 if ($forestHintRows.Count -ne 3) { throw 'forestFairy.s:$0e-$10 hint table changed.' }
@@ -1036,6 +1056,20 @@ if ($ordinaryNpcImplementationKeys.Count -ne 52 -or
     $eventOwnedNpcImplementationKeys.Count -ne 48) {
     throw 'NPC implementation registry key counts changed.'
 }
+foreach ($key in @('0:46:41:02:00','0:46:41:05:00','0:67:41:03:00',
+    '0:a7:41:06:00','0:77:44:03:00','1:68:36:0c:00')) {
+    [void]$ordinaryNpcImplementationKeys.Add($key)
+}
+foreach ($key in @('0:71:49:07:00','0:72:49:0c:00','0:80:49:06:00',
+    '0:81:49:0d:00','0:82:49:05:00','0:82:49:08:00',
+    '0:82:49:09:00','0:82:49:0a:00','1:70:ce:06:00','4:f3:58:03:04',
+    '1:47:4f:01:00')) {
+    [void]$specializedNpcImplementationKeys.Add($key)
+}
+foreach ($key in @('0:3a:36:13:00','0:3a:37:11:00','0:3a:3c:10:00',
+    '0:3a:39:07:01','0:3a:5d:02:01','3:fa:29:00:00','3:e9:2e:00:00','3:fe:46:02:00','1:20:37:0b:00','0:39:5d:02:00')) {
+    [void]$specializedNpcImplementationKeys.Add($key)
+}
 foreach ($key in @('3:be:94:00:00','5:e8:94:01:00','5:e8:94:02:00')) {
     [void]$eventOwnedNpcImplementationKeys.Add($key)
 }
@@ -1164,6 +1198,10 @@ function New-NpcDataRow(
         $textIdOverride = 0
         $canFaceOverride = 0
     }
+    if ($id -eq 0x37 -and $subid -eq 0x0b) {
+        $initialAnimationOverride = 2
+        $canFaceOverride = 1
+    }
     if ($id -eq 0xe3) {
         if ($subid -ge 10) { throw "Unsupported knowItAllBird subid `$$($subid.ToString('x2'))." }
         $textIdOverride = 0x3200 + $subid
@@ -1171,10 +1209,10 @@ function New-NpcDataRow(
         $canFaceOverride = 0
     }
     # oldManWithRupees.s overwrites the object-data coordinates in state 0.
-    if ($id -eq 0x2e -and $subid -eq 1) {
+    if ($id -eq 0x2e -and $subid -le 1) {
         $y = 0x38
         $x = 0x28
-        $textIdOverride = 0x3315
+        $textIdOverride = if ($subid -eq 0) { 0x3318 } else { 0x3315 }
         $initialAnimationOverride = 2
         $canFaceOverride = 1
     }
@@ -4085,8 +4123,19 @@ $lynnaShopDefinitions = @(
     @(0x0d, 0x67, 150, 0x0e, 0x0c, 0x0e1b, 0x003b, 0xc643, 0x00, 0xff, 0),
     @(0x11, 0x6f,  50, 0x01, 0x02, 0x0e29, 0x0020, 0xc6af, 0x01, 0x12, 0),
     @(0x12, 0x6c,  80, 0x01, 0x03, 0x0e2a, 0x0021, 0xc6af, 0x00, 0xff, 0),
-    @(0x13, 0x6c,  30, 0x34, 0x01, 0x0e1d, 0x004b, 0xc642, 0x20, 0x03, 0)
+    @(0x13, 0x6c,  30, 0x34, 0x01, 0x0e1d, 0x004b, 0xc642, 0x20, 0x03, 0),
+    @(0x0e, 0x67, 100, 0x34, 0x01, 0x0e1d, 0x004b, 0xc643, 0x01, 0xff, 0),
+    @(0x0f, 0x67, 100, 0x2d, 0x0e, 0x0e23, 0x0054, 0xc643, 0x02, 0xff, 0),
+    @(0x10, 0x67, 100, 0x00, 0x01, 0x0e25, 0x0054, 0xc643, 0x04, 0xff, 0)
 )
+foreach ($advance in @(@('0e','TREASURE_GASHA_SEED','\$01','01'), @('0f','TREASURE_RING','GBA_TIME_RING','02'), @('10','\$00','\$01','04'))) {
+    $prefix='/\* \$'+$advance[0]+' \*/\s+\.db\s+'
+    if($shopItemSource -notmatch ($prefix+'RUPEEVAL_100\b') -or
+       $shopItemSource -notmatch ($prefix+$advance[1]+'\s+'+$advance[2]+'\b') -or
+       $shopItemSource -notmatch ($prefix+'<wBoughtShopItems2\s+\$'+$advance[3]+'\s+\$ff\s+\$00')) {
+        throw "Advance shop item `$47:`$$($advance[0]) price, reward or sold-bit source changed."
+    }
+}
 # Independently bind the new records to the source table rows and purchase
 # scripts. Fail on table changes rather than retaining stale native values.
 $hiddenShopSourceRows = @(
@@ -4110,6 +4159,9 @@ foreach ($row in $hiddenShopSourceRows) {
     }
 }
 $lynnaShopPlacementBySubId = @{
+    0x0e = @(9, 0x28, 0x44)
+    0x0f = @(10, 0x28, 0x64)
+    0x10 = @(11, 0x28, 0x84)
     0x0b = @(6, 0x28, 0x44)
     0x07 = @(7, 0x28, 0x4c)
     0x08 = @(8, 0x28, 0x74)
@@ -4156,7 +4208,7 @@ $lynnaShopTextIds = @(
     0x0e12, 0x0e13, 0x0e14, 0x0e15, 0x0e16, 0x0e17, 0x0e18, 0x0e1a, 0x0e25,
     0x0058, 0x0059, 0x0054, 0x0017, 0x0049,
     0x0e00, 0x0e02, 0x0e03, 0x0e04, 0x0e05, 0x0e06, 0x0e07,
-    0x0e1b, 0x0e1d, 0x0e26, 0x0e29, 0x0e2a,
+    0x0e1b, 0x0e1d, 0x0e20, 0x0e23, 0x0e26, 0x0e29, 0x0e2a,
     0x004b, 0x004c, 0x004d, 0x001f, 0x0020, 0x0021, 0x003b)
 $lynnaShopTextRows = [Collections.Generic.List[string]]::new()
 $lynnaShopTextRows.Add("# text-id`tutf8-base64")
@@ -5175,10 +5227,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 75 -or
-    $npcImplementationCounts['specialized-native'] -ne 141 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 81 -or
+    $npcImplementationCounts['specialized-native'] -ne 162 -or
     $npcImplementationCounts['event-owned'] -ne 128 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 46 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 19 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -6388,13 +6440,15 @@ Add-NpcCurrentRoomVisibility 0x3f 0x02 -1 0 0x40 $false 'boy2.s:@@state0'
 Add-NpcGlobalVisibility 0xca 0x01 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'scriptHelper.s:troySubid1Script'
 
 # Forest-fairy phases use global progress plus room $90's entrance-open flag.
-Add-NpcGlobalVisibility 0x49 0x07 -1 0 'GLOBALFLAG_WON_FAIRY_HIDING_GAME' $true 'forestFairy.s:forestFairy_subid07'
-Add-NpcGlobalVisibility 0x49 0x07 -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $true 'forestFairy.s:forestFairy_subid07'
-Add-NpcSpecificRoomVisibility 0x49 0x07 -1 0 0 0x90 0x40 $false 'forestFairy.s:forestFairy_subid07' 'wPresentRoomFlags+$90'
-Add-NpcGlobalVisibility 0x49 0x0a -1 0 'GLOBALFLAG_WON_FAIRY_HIDING_GAME' $true 'forestFairy.s:forestFairy_subid0a'
-Add-NpcGlobalVisibility 0x49 0x0a -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $true 'forestFairy.s:forestFairy_subid0a'
-Add-NpcSpecificRoomVisibility 0x49 0x0a -1 0 0 0x90 0x40 $true 'forestFairy.s:forestFairy_subid0a' 'wPresentRoomFlags+$90'
-Add-NpcGlobalVisibility 0x49 0x0a -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'forestFairy.s:forestFairy_subid0a'
+foreach ($subid in 5..10) {
+    Add-NpcGlobalVisibility 0x49 $subid -1 0 'GLOBALFLAG_WON_FAIRY_HIDING_GAME' $true 'forestFairy.s:forestFairy_subid05-0a'
+    Add-NpcGlobalVisibility 0x49 $subid -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $true 'forestFairy.s:forestFairy_subid05-0a'
+    Add-NpcSpecificRoomVisibility 0x49 $subid -1 0 0 0x90 0x40 ($subid -ge 8) 'forestFairy.s:forestFairy_subid05-0a' 'wPresentRoomFlags+$90'
+    if ($subid -ge 8) { Add-NpcGlobalVisibility 0x49 $subid -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'forestFairy.s:forestFairy_subid08-0a' }
+}
+foreach ($subid in @(0x0c,0x0d)) {
+    Add-NpcGlobalVisibility 0x49 $subid -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'forestFairy.s:forestFairy_subid0c-0d'
+}
 Add-NpcGlobalVisibility 0x49 0x0b -1 0 'GLOBALFLAG_FINISHEDGAME' $true 'forestFairy.s:forestFairy_subid0b'
 Add-NpcGlobalVisibility 0x49 0x10 -1 0 'GLOBALFLAG_GOT_FLUTE' $false 'forestFairy.s:forestFairy_subid10'
 Add-NpcGlobalVisibility 0x49 0x10 -1 0 'GLOBALFLAG_FOREST_UNSCRAMBLED' $false 'forestFairy.s:forestFairy_subid10'
@@ -6684,8 +6738,8 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 foreach ($subid in @(6,7,8,9)) {
     Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
 }
-if ($npcVisibilityRows.Count -ne 358) {
-    throw "Expected 357 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 374) {
+    throw "Expected 373 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
@@ -7162,6 +7216,20 @@ Write-GeneratedTable ((Join-Path $destination 'objects\fountain_palette_rooms.ts
 Export-PaletteBlock 'paletteData5948' 4 'objects\fountain_ruined_palette.bin'
 Export-PaletteBlock 'paletteData5940' 4 'objects\fountain_normal_palette.bin'
 
+$waitingSource=Read-ImportText (Join-Path $Disassembly 'objects\ages\extraData3.s')
+$waitingBlock=[regex]::Match($waitingSource,'(?ms)^animalsWaitingForNayru:\s*(?<body>.*?)\s*obj_End')
+$waitingRows=[Collections.Generic.List[string]]::new();$waitingRows.Add($npcRows[0])
+$waitingObjects=@([regex]::Matches($waitingBlock.Groups['body'].Value,'obj_Interaction \$(?<id>[0-9a-f]{2}) \$(?<subid>[0-9a-f]{2}) \$(?<y>[0-9a-f]{2}) \$(?<x>[0-9a-f]{2}) \$(?<var>[0-9a-f]{2})'))
+if($waitingObjects.Count -ne 3){throw 'animalsWaitingForNayru no longer has three positioned children.'}
+foreach($obj in $waitingObjects){
+    $id=[Convert]::ToInt32($obj.Groups['id'].Value,16);$sub=[Convert]::ToInt32($obj.Groups['subid'].Value,16)
+    if($id -notin @(0x39,0x4b) -or $sub -ne 7){throw 'Unsupported animalsWaitingForNayru child.'}
+    $y=[Convert]::ToInt32($obj.Groups['y'].Value,16);$x=[Convert]::ToInt32($obj.Groups['x'].Value,16);$v=[Convert]::ToInt32($obj.Groups['var'].Value,16)
+    $text=if($id -eq 0x4b){0x5717}elseif($v -eq 0){0x5715}else{0x5719}
+    $animation=if($id -eq 0x4b){2}elseif($v -eq 0){6}else{5}
+    $waitingRows.Add((New-NpcDataRow 0 0x39 $id $sub $y $x $v $text $animation ([int]($id -eq 0x4b)) 'specialized-native'))
+}
+Write-GeneratedTable((Join-Path $destination 'objects\animals_waiting_for_nayru.tsv'),$waitingRows)
 foreach ($spriteName in $npcSpriteNames) {
     $sourceSprite = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
         ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Filter "$spriteName.png" } |

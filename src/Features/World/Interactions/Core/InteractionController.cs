@@ -38,6 +38,7 @@ public sealed class InteractionController
     private float _familyLinkScreenY;
     private double _familyWaitTicks;
     private NpcInteractionTarget? _activeNpcTalkTarget;
+    private bool _activeNpcDialoguePending;
     private GashaState _gashaState;
     private GashaSpotInteraction? _gashaSpot;
     private Player? _gashaPlayer;
@@ -52,6 +53,7 @@ public sealed class InteractionController
         _familyNamingState != FamilyNamingState.None ||
         _kidNameEntry.Active;
     public bool GameplayMenuActive => _kidNameEntry.Active;
+    internal bool FreezesNonInteractionObjects => _npcScripts.BlocksGameplay;
     internal bool ChestRewardActive => _chestTreasure is not null;
     internal ChestTreasureEffect? ChestReward => _chestTreasure;
     internal GroundTreasurePickup? GroundTreasureForValidation => _groundTreasure;
@@ -160,7 +162,7 @@ public sealed class InteractionController
 
     public void Update(double delta, Player player)
     {
-        if (_activeNpcTalkTarget is not null && !_dialogue.IsOpen)
+        if (_activeNpcTalkTarget is not null && !_activeNpcDialoguePending && !_dialogue.IsOpen)
         {
             _activeNpcTalkTarget.End();
             _activeNpcTalkTarget = null;
@@ -357,11 +359,15 @@ public sealed class InteractionController
         Player player)
     {
         NpcCharacter npc = target.Npc;
-        npc.FaceToward(player.Position);
         target.Begin();
         _activeNpcTalkTarget = target;
-        void ShowDialogue() => _dialogue.ShowGameplayMessage(
-            npc.Message, _worldToScreen(player.Position).Y, npc.TextPosition);
+        _activeNpcDialoguePending = true;
+        void ShowDialogue()
+        {
+            _activeNpcDialoguePending = false;
+            npc.FaceToward(player.Position);
+            _dialogue.ShowGameplayMessage(npc.Message, _worldToScreen(player.Position).Y, npc.TextPosition);
+        }
         bool TryShowDialogue()
         {
             // interactionRunScript samples live text/death state even when
@@ -631,6 +637,7 @@ public sealed class InteractionController
     {
         _activeNpcTalkTarget?.Cancel();
         _activeNpcTalkTarget = null;
+        _activeNpcDialoguePending = false;
         _kidNameEntry.Cancel();
         _familyNamingState = FamilyNamingState.None;
         _pendingChildName = string.Empty;

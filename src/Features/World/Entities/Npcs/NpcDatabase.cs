@@ -70,7 +70,7 @@ public sealed class NpcDatabase
         out IReadOnlyList<FamilyNpcRecord> records) =>
         _familyByRoom.TryGetValues(MakeKey(group, room), out records);
 
-    private static NpcRecord ParseNpcRecord(
+    internal static NpcRecord ParseNpcRecord(
         GeneratedTableRow row,
         int selectorColumns)
     {

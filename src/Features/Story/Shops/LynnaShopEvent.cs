@@ -15,7 +15,9 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
     private RoomEventResources EventResources => _resources ??= new(_context, this);
     private readonly LynnaShopDatabase _normalDatabase = new();
     private readonly LynnaShopDatabase _hiddenDatabase = new(hidden: true);
-    private LynnaShopDatabase _database => _context.Rooms.CurrentRoom.Id == _hiddenDatabase.Room
+    private readonly LynnaShopDatabase _advanceDatabase = new(advance: true);
+    private LynnaShopDatabase _database => _context.Rooms.ActiveGroup == 3 && _context.Rooms.CurrentRoom.Id == 0xfe
+        ? _advanceDatabase : _context.Rooms.CurrentRoom.Id == _hiddenDatabase.Room
         ? _hiddenDatabase : _normalDatabase;
     private LynnaShopItem? _item;
     private NpcCharacter? _shopkeeper;
@@ -23,6 +25,9 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
     private int _counter;
     private bool _cannotBuy;
     private bool _completesHeartContainer;
+    private AdvanceShopTheftScriptHost? _advanceTheft;
+    private readonly System.Collections.Generic.IReadOnlyList<CutsceneCommand> _advanceTheftCommands =
+        CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/advance_shop_theft_commands.tsv");
 
     public LynnaShopEvent(RoomEventContext context)
     {
@@ -122,7 +127,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         }
         else
         {
-            ShowText(HasAvailableStock() ? 0x0e00 : 0x0e26);
+            ShowText(HasAvailableStock() ? _database.Advance ? 0x0e20 : 0x0e00 : 0x0e26);
             _stage = LynnaShopEventStage.ShopkeeperText;
         }
         return true;
@@ -130,6 +135,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
 
     public void UpdateFrame()
     {
+        if (_advanceTheft is { } theft) { theft.Advance(); return; }
         UpdateChestPrizeVisual();
         if (UpdateHiddenShop())
             return;
@@ -195,6 +201,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
 
     public void Cancel()
     {
+        _advanceTheft?.Cancel();_advanceTheft=null;
         if (_item?.Purchasing == true)
         {
             _item.FinishPurchase(_context.Player);
@@ -257,7 +264,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
             GiveRandomRing(item.Parameter);
         else
             _context.Inventory.GiveTreasure(treasure);
-        if (_database.Hidden)
+        if (_database.Hidden || _database.Advance)
             MarkHiddenPurchase(item.SubId);
         if (item.SubId == 0x13)
             SetBoughtItems1Mask(_database.NormalGashaBoughtMask);
@@ -283,6 +290,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
             _context.Inventory.HasTreasure(TreasureId.Shield),
         0x0d => _context.Inventory.HasTreasure(TreasureId.Flute),
         0x13 => false,
+        0x0e or 0x0f or 0x10 => false,
         _ => throw new InvalidOperationException(
             $"Unsupported normal-shop stock $47:${item.SubId:x2}.")
     };
@@ -350,6 +358,14 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         _context.Player.SetScriptedCoordinateHigh(
             horizontal: false, coordinate: _database.TheftLinkY);
         _context.Player.BeginCutsceneControl(owner: this);
+        if (_database.Advance)
+        {
+            _stage=LynnaShopEventStage.TheftDown;
+            _advanceTheft=new(_context,_shopkeeper,_advanceTheftCommands,
+                () => { _context.Player.EndCutsceneControl(this);_stage=LynnaShopEventStage.Holding; },
+                () => { _advanceTheft=null;FinishTheftPrevention(); });
+            return;
+        }
         if (_database.Hidden)
         {
             BeginHiddenTheft();

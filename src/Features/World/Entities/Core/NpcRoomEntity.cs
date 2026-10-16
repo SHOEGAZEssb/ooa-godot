@@ -4,12 +4,15 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class NpcRoomEntity(NpcCharacter npc)
+internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce = false)
     : NpcCharacterRoomEntityAdapter(
         RequireOrdinaryGeneric(npc), npc.SetTransitionDrawOffset),
     IFixedRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
     private Func<bool>? _pendingDialogue;
+    private bool _storyInitialized;
+    public bool RefreshStoryState => !initializeStoryOnce || !_storyInitialized;
+    public void CompleteStoryInitialization() => _storyInitialized = true;
     public NpcCharacter Npc => Entity;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
@@ -18,9 +21,12 @@ internal sealed class NpcRoomEntity(NpcCharacter npc)
         // before its final animation update. The next pass freezes for text.
         if (_pendingDialogue?.Invoke() == true)
             _pendingDialogue = null;
-        Entity.FaceLinkAndAnimateOneUpdate(frame.Player, preventPassing: false);
+        if (initializeStoryOnce && !Entity.Record.CanFace)
+            Entity.AnimateAsNpcOneUpdate(frame.Player);
+        else Entity.FaceLinkAndAnimateOneUpdate(frame.Player, preventPassing: false);
     }
-    internal void QueueDialogue(Func<bool> tryShowDialogue) => _pendingDialogue = tryShowDialogue;
+    public bool TryQueueDialogue(Func<bool> tryShowDialogue)
+    { _pendingDialogue = tryShowDialogue; return true; }
     public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
     public NpcCharacter? FindTalkTarget(Player player) =>
         _pendingDialogue is null && Entity.CanTalkTo(player) ? Entity : null;

@@ -135,6 +135,7 @@ public sealed class RoomEventController
             () => new TokkeyEvent(_context),
             () => new ChevalEvent(_context),
             () => new RalphAfterChevalEvent(_context),
+            () => new RalphBeforeCurrentsEvent(_context),
             () => new RalphAfterRaftonEvent(_context),
             () => new RaftwreckEvent(_context),
             () => new TokayTheftEvent(_context),

@@ -213,6 +213,40 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\ralph_after_cheval_event.tsv'),
     $ralphAfterChevalEventRows)
 
+# Ralph $0b uses the same native handler as $10, with a horizontal route.
+# Follow its external jump into ralphEndCutscene, skipping the intervening
+# $10 body instead of mistaking the next global label for script termination.
+& {
+$ops=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach($op in @('wait','setmusic','xorcfc0bit','setspeed','moveleft','moveright','setsubstate',
+    'setangleandanimation','showtext','scriptjump','orroomflag','resetmusic','enableinput','scriptend')){[void]$ops.Add($op)}
+$commands=@(Read-AssemblyCutsceneCommands $ralphAfterChevalScriptPath 'ralphSubid0bScript' $ops 'ralphSubid10Script')
+$tail=@(Read-AssemblyCutsceneCommands $ralphAfterChevalScriptPath 'ralphEndCutscene' $ops 'ralphSubid0cScript')
+$tailIndex=$commands.Count
+$rows=[Collections.Generic.List[string]]::new();$rows.Add($cutsceneCommandHeader)
+$index=0
+foreach($c in @($commands)+@($tail)) {
+    $op=$c.Opcode;$args=$c.Operands.Trim();$actor='';$a='';$b='';$payload=''
+    switch($op){
+        'wait'{$a=$args}
+        'setmusic'{$a=$ralphAfterChevalMusic.ToString('x2')}
+        'xorcfc0bit'{if($args -ne '0'){throw 'Ralph $0b facing bit changed.'};$op='nativeyield';$payload='ToggleFacingBit'}
+        'setspeed'{$actor='Ralph';$name=$args.Replace('SPEED_','');if($name -eq '080'){$name='80'};$a=(Resolve-ObjectSpeed $name).ToString('x2')}
+        {$_ -in @('moveleft','moveright')}{$op='move';$actor='Ralph';$direction=if($c.Opcode -eq 'moveleft'){3}else{1};$a=($direction*8).ToString('x2');$b=$args.Substring(1);$payload=$ralphAfterChevalAnimations[$direction]}
+        'setsubstate'{$op='nativeyield';$payload=if($args -eq '$ff'){'IncrementSubstate'}elseif($args -eq '$00'){'SetSubstate0'}else{throw 'Ralph $0b substate changed.'}}
+        'setangleandanimation'{if($args -ne '$00'){throw 'Ralph $0b talk direction changed.'};$op='setanimationcontinue';$actor='Ralph';$a='00';$payload=$ralphAfterChevalAnimations[0]}
+        'showtext'{if($args -ne 'TX_2a1a'){throw 'Ralph $0b text changed.'};$a='2a1a';$payload=$allTexts[0x2a1a]}
+        'scriptjump'{if($args -ne 'ralphEndCutscene'){throw 'Ralph $0b continuation changed.'};$a=[string]$tailIndex}
+        'orroomflag'{if($args -ne '$40'){throw 'Ralph $0b completion flag changed.'};$a='40'}
+        'resetmusic'{$op='nativeyield';$payload='ResetMusic'}
+        {$_ -in @('enableinput','scriptend')}{}
+        default{throw "Ralph `$0b unsupported $op $args at $($c.Line)."}
+    }
+    $rows.Add((New-CutsceneCommandRow $c.Script $index $c.Label $c.Line $op $actor $a $b $payload));$index++
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\ralph_before_currents_commands.tsv'),$rows)
+}
+
 # Past room 1:97 Ralph event after giving Rafton the Cheval Rope.
 # INTERAC_RALPH $37:$03 owns an eight-substate native entrance sequence before
 # installing ralphSubid03Script. State 0 does not jump into the state-1 handler,

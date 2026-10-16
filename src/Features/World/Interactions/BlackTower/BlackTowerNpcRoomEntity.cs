@@ -11,6 +11,7 @@ internal abstract class BlackTowerNpcRoomEntity(
         IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
     public NpcCharacter Npc => Entity;
+    public virtual bool TryQueueDialogue(Func<bool> tryShowDialogue) => false;
     public virtual bool BlocksLink(Vector2 linkCenter) =>
         Entity.BlocksLinkCenter(linkCenter);
     public virtual NpcCharacter? FindTalkTarget(Player player) =>

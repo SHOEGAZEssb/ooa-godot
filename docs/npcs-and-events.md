@@ -30,10 +30,11 @@ Complexity is not the decision. A moving villager may remain an ordinary room
 entity; a short sequence that owns input, room changes, or persistent story
 state may require a room event.
 
-Room events that write the original `$81` object-disable mask expose their
-non-interaction freeze through `IRoomEvent`. The application supplies that
-live state to the entity manager, so enemies and items pause while ordinary
-interactions, including key sprites and opening effects, continue updating.
+Room events and NPC script hosts that write the original `$81` object-disable
+mask expose their non-interaction freeze through their owning controllers.
+The application supplies that live state to the entity manager, so enemies and
+items pause while ordinary interactions, including key sprites and opening
+effects, continue updating.
 
 Native cutscene controllers advance before the object pass. When the original
 cutscene selects a successor and returns without updating objects, the event
@@ -96,6 +97,8 @@ An ordinary A-button selection queues its dialogue for the actor's own update
 slot. The generic script consumes the selection and opens text before that
 actor's final animation update; active text freezes initialized objects from
 the next pass. Room replacement discards pending selections with their actors.
+A pending selection retains its talk lifecycle until its own slot opens text,
+including a native actor that is still finishing a script wait.
 
 Collision initialization and explicit radius changes are separate operations.
 The Ages `initcollisions` opcode initializes both radii to `$06` only when the

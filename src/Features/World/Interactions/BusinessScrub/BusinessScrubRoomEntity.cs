@@ -23,6 +23,9 @@ internal sealed class BusinessScrubRoomEntity
     public Node2D Node => _npc;
     internal BusinessScrubOffer Offer { get; }
     internal bool Talking { get; set; }
+    internal BusinessScrubBushRoomEntity? BushSlot { get; private set; }
+    internal BusinessScrubBushRoomEntity AllocateBushSlot() =>
+        BushSlot = BushSlot is null ? new(this) : throw new InvalidOperationException("businessScrub.s:$ce:$80 child was allocated twice.");
 
     public BusinessScrubRoomEntity(
         NpcCharacter npc,
@@ -85,7 +88,6 @@ internal sealed class BusinessScrubRoomEntity
         _npc.AnimateAndUpdateDrawPriorityOneUpdate(frame.Player);
         if (Talking)
         {
-            UpdateBushPosition();
             return;
         }
 
@@ -103,7 +105,6 @@ internal sealed class BusinessScrubRoomEntity
             _npc.SetScriptAnimation(_database.Animation(3));
         }
 
-        UpdateBushPosition();
     }
 
     public NpcCharacter? FindTalkTarget(Player player) =>
@@ -116,11 +117,14 @@ internal sealed class BusinessScrubRoomEntity
             ? _npc
             : null;
 
-    private void UpdateBushPosition() =>
+    internal void UpdateBushPosition()
+    {
+        _bush.Visible = _npc.Visible;
         _bush.Position = _transitionDrawOffset + new Vector2(
             0,
             _database.BushOffsetForParameter(
                 _npc.CurrentAnimationParameter));
+    }
 
     private static NpcCharacter RequireBusinessScrub(
         NpcCharacter npc,

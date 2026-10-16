@@ -181,6 +181,9 @@ public sealed class RoomEntityManager : IDisposable
         return null;
     }
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
+    internal event Action<int, int>? NativeMusicSelectionRequested;
+    internal void RequestNativeMusicSelection(int roomMusic, int activeMusic) =>
+        NativeMusicSelectionRequested?.Invoke(roomMusic, activeMusic);
     public event Action<TimePortal>? TimePortalEntered;
     internal event Action<int, string>? DungeonEntranceTriggered;
     internal event Action<Warp>? RoomWarpRequested;
@@ -1410,11 +1413,10 @@ public sealed class RoomEntityManager : IDisposable
 
     internal bool TryQueueOrdinaryNpcDialogue(NpcCharacter npc, Func<bool> tryShowDialogue)
     {
-        foreach (var entity in _activeEntities.OfType<NpcRoomEntity>())
+        foreach (var entity in _activeEntities.OfType<IOrdinaryNpcEntity>())
         {
             if (!ReferenceEquals(entity.Npc, npc)) continue;
-            entity.QueueDialogue(tryShowDialogue);
-            return true;
+            return entity.TryQueueDialogue(tryShowDialogue);
         }
         return false;
     }
@@ -2248,6 +2250,8 @@ public sealed class RoomEntityManager : IDisposable
     {
         // parseObjectData clears wNumEnemies even when outgoing slots are
         // retained during a scroll. Failed allocation counts are room-local.
+        // Its $cfc0 clear does not clear the later persistent scratch bytes.
+        _runtimeState.SetWramByte(WramAddress.wTmpcfc0, 0);
         _unreleasedEnemyCounts = 0;
         _enemyCountOffset = 0;
         _bossShutterSignal.Clear();
@@ -2293,6 +2297,14 @@ public sealed class RoomEntityManager : IDisposable
             companion.RoomInitialization = new(room, _runtimeState,
                 position => TimeWarpPositionOccupied(_companionSolidPositions ??= new(), room.GetPackedPosition(position)));
             entity.Node.Visible = false;
+        }
+        // The placed object stream allocates before native state zero creates
+        // $ce:$80 children. Retain each child allocation after that stream.
+        foreach (var scrub in _activeEntities.OfType<BusinessScrubRoomEntity>().ToArray())
+        {
+            if (!InteractionSlotAvailable)
+                throw new NotSupportedException("businessScrub.s:$ce:$80 has no free native interaction slot after the placed object stream.");
+            AddEntity(scrub.AllocateBushSlot());
         }
         RefreshNpcState(_activeEntities);
         if (notifyEntry) RoomEntitiesLoaded?.Invoke(group, room);
@@ -2910,6 +2922,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
+        BusinessScrubRoomEntity or BusinessScrubBushRoomEntity or
         GameCompleteDialogRoomEntity or
         BlackTowerSeedRoomEntity or BlackTowerConfrontationActor or BlackTowerPossessionActor or BlackTowerEndingActor or ImpaCreditsRoomEntity or CreditsLinkLoaderRoomEntity or CreditsCompanionLoaderRoomEntity or CreditsHorizontalRoomEntity or CreditsVerticalRoomEntity or ForestAudienceRoomEntity or RestoredRabbitRoomEntity or LinkedSwordRoomEntity or FallingRockRoomEntity or VeranCutsceneWallmasterRoomEntity or VeranFaceRoomEntity or VeranDeathFadeRoomEntity or ExplosionWithDebrisRoomEntity or PickaxeWorkerCreditsRoomEntity or MakuStatueConstructionRoomEntity or
         MakuSeedTreeRoomEntity or MakuSeedFallingRoomEntity or MakuSeedSparkleRoomEntity or TwinrovaRevealRoomEntity or MakuSeedFlowerRoomEntity or

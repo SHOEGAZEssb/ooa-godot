@@ -49,7 +49,7 @@ internal sealed class BusinessScrubDatabase
 
     public bool Matches(NpcRecord npc) =>
         npc.Id == InteractionId &&
-        npc.SubId is 0x00 or 0x03;
+        npc.SubId is 0x00 or 0x03 or 0x06;
 
     public BusinessScrubOffer OfferFor(int baseSubid, int shieldLevel) =>
         _allOffers[baseSubid + Math.Max(0, shieldLevel - 1)] with { ShieldLevel = shieldLevel };

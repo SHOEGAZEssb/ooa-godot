@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 internal sealed class LynnaShopkeeperRoomEntity
     : NpcCharacterRoomEntityAdapter, IVariableRoomEntity, IFixedRoomEntity,
-        IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IPlayerRestriction
+        IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IPlayerRestriction, IUpdatesDuringDialogueRoomEntity
 {
     public LynnaShopkeeperRoomEntity(
         NpcCharacter npc,
@@ -21,11 +21,12 @@ internal sealed class LynnaShopkeeperRoomEntity
         npc.SetScriptButtonSensitive(true);
         npc.SetCollisionRadii(
             database.ShopkeeperRadiusY, database.ShopkeeperRadiusX);
-        npc.SetScriptAnimation(database.Animation(InteractionId.Shopkeeper, database.Hidden ? 0 : 3));
+        npc.SetScriptAnimation(database.Animation(InteractionId.Shopkeeper, database.Hidden || database.Advance ? 0 : 3));
     }
 
     public NpcCharacter Npc => Entity;
     public bool DisablesSword => false;
+    public bool UpdatesDuringDialogue => true;
     public bool DisablesItems => true;
     public bool DisablesRingTransformations => true;
 

@@ -49,6 +49,8 @@ public partial class OracleSoundEngine : Node
     // owns the active song. Native cutscenes restore this byte explicitly.
     internal int NativeRoomMusic { get; private set; } = 0xff;
     internal void SetNativeActiveMusic(int music) => NativeActiveMusic = music;
+    internal void SetNativeMusicSelection(int roomMusic, int activeMusic)
+    { NativeRoomMusic = roomMusic; NativeActiveMusic = activeMusic; }
     public bool Disabled => _driver.ReadState(WramAddress.wSoundDisabled) != 0;
     public int MusicVolume => _requestedVolume;
     internal OracleSoundData Data => _data;

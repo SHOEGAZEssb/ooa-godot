@@ -782,6 +782,15 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePalaceRescueRom, requiresRom: true);
         RunIsolatedValidation(ValidateNayruRescueWarpRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom173SoldierPair);
+        RunIsolatedValidation(ValidateSharedTownNpcRecords);
+        RunIsolatedValidation(ValidateForestNpcRecords);
+        RunIsolatedValidation(ValidatePostgameNpcRecords);
+        RunIsolatedValidation(ValidateAdlarAndRupeeGift);
+        RunIsolatedValidation(ValidatePastNayruAndImpaRecords);
+        RunIsolatedValidation(ValidateWaitingNayruAnimals);
+        RunIsolatedValidation(ValidateCheapScrubAndPatrol);
+        RunIsolatedValidation(ValidateAdvanceShopRecord);
+        RunIsolatedValidation(ValidateRalphBeforeCurrentsRecord);
         RunIsolatedValidation(ValidateRoom174PastOldLady);
         RunIsolatedValidation(ValidateRooms182And192NpcInteractions);
         RunIsolatedValidation(ValidateRoom183MiscManAndDrops);

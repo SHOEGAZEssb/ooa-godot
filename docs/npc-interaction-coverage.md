@@ -52,19 +52,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 299 | Traced and covered by named NPC/event scenarios. |
+| **I** | 326 | Traced and covered by named NPC/event scenarios. |
 | **P** | 45 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 46 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 19 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 75 | 0 | 75 |
-| Specialized native interaction | 141 | 72 | 213 |
+| Ordinary NPC adapter | 81 | 0 | 81 |
+| Specialized native interaction | 162 | 72 | 234 |
 | Event-owned actor | 128 | 0 | 128 |
-| Deliberately unsupported | 46 | 0 | 46 |
+| Deliberately unsupported | 19 | 0 | 19 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -88,10 +88,10 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:27` | [I] `$9a:$b4/v$00` carpenter<br>[I] `$9a:$d4/v$00` carpenter |
 | `0:37` | [I] `$9a:$c4/v$00` carpenter |
 | `0:38` | [P] `$87:$00/v$00` makuTree (linked Maku Seed reveal unavailable) |
-| `0:39` | [I] `$37:$0d/v$00` ralph<br>[D] `$5d:$02/v$00` bear |
-| `0:3a` | [D] `$36:$13/v$00` nayru<br>[D] `$37:$11/v$00` ralph<br>[D] `$3c:$10/v$00` boy<br>[D] `$39:$07/v$01` monkey<br>[D] `$5d:$02/v$01` bear |
+| `0:39` | [I] `$37:$0d/v$00` ralph<br>[I] `$5d:$02/v$00` bear |
+| `0:3a` | [I] `$36:$13/v$00` nayru<br>[I] `$37:$11/v$00` ralph<br>[I] `$3c:$10/v$00` boy<br>[I] `$39:$07/v$01` monkey<br>[I] `$5d:$02/v$01` bear |
 | `0:45` | [I] `$3f:$01/v$00` boy2 |
-| `0:46` | [D] `$41:$02/v$00` miscMan<br>[D] `$41:$05/v$00` miscMan<br>[P] `$3d:$02/v$00` oldLady |
+| `0:46` | [I] `$41:$02/v$00` miscMan<br>[I] `$41:$05/v$00` miscMan<br>[P] `$3d:$02/v$00` oldLady |
 | `0:48` | [I] `$3a:$03/v$00` villager<br>[D] `$54:$01/v$03` mamamuDog |
 | `0:50` | [I] `$83:$00/v$00` bombUpgradeFairy |
 | `0:55` | [D] `$54:$01/v$01` mamamuDog |
@@ -103,25 +103,25 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh |
 | `0:65` | [D] `$31:$07/v$00` impaInCutscene<br>[D] `$4c:$04/v$00` bird |
 | `0:66` | [I] `$3b:$01/v$00` femaleVillager |
-| `0:67` | [D] `$41:$03/v$00` miscMan |
+| `0:67` | [I] `$41:$03/v$00` miscMan |
 | `0:68` | [I] `$44:$02/v$00` miscMan2<br>[I] `$3a:$05/v$00` villager<br>[I] `$3b:$02/v$00` femaleVillager<br>[I] `$3c:$02/v$00` boy |
 | `0:6a` | [I] `$31:$00/v$00` impaInCutscene |
 | `0:70` | [D] `$49:$0b/v$00` forestFairy |
-| `0:71` | [D] `$49:$07/v$00` forestFairy |
-| `0:72` | [D] `$49:$0c/v$00` forestFairy |
-| `0:77` | [D] `$44:$03/v$00` miscMan2 |
+| `0:71` | [I] `$49:$07/v$00` forestFairy |
+| `0:72` | [I] `$49:$0c/v$00` forestFairy |
+| `0:77` | [I] `$44:$03/v$00` miscMan2 |
 | `0:78` | [D] `$3d:$04/v$00` oldLady |
 | `0:79` | [P] `$c8:$00/v$00` tingle |
 | `0:7b` | [I] `$3c:$03/v$00` boy<br>[I] `$3c:$04/v$00` boy<br>[I] `$3f:$02/v$00` boy2 |
 | `0:7c` | [I] `$59:$00/v$00` poe<br>[I] `$59:$00/v$02` poe |
-| `0:80` | [D] `$49:$06/v$00` forestFairy |
-| `0:81` | [D] `$49:$0d/v$00` forestFairy |
-| `0:82` | [D] `$49:$05/v$00` forestFairy<br>[D] `$49:$08/v$00` forestFairy<br>[D] `$49:$09/v$00` forestFairy<br>[D] `$49:$0a/v$00` forestFairy<br>[I] `$49:$0e/v$00` forestFairy<br>[I] `$49:$0f/v$00` forestFairy<br>[I] `$49:$10/v$00` forestFairy |
+| `0:80` | [I] `$49:$06/v$00` forestFairy |
+| `0:81` | [I] `$49:$0d/v$00` forestFairy |
+| `0:82` | [I] `$49:$05/v$00` forestFairy<br>[I] `$49:$08/v$00` forestFairy<br>[I] `$49:$09/v$00` forestFairy<br>[I] `$49:$0a/v$00` forestFairy<br>[I] `$49:$0e/v$00` forestFairy<br>[I] `$49:$0f/v$00` forestFairy<br>[I] `$49:$10/v$00` forestFairy |
 | `0:83` | [I] `$d5:$00/v$00` greatFairy |
 | `0:86` | [D] `$54:$01/v$00` mamamuDog |
 | `0:88` | [D] `$54:$01/v$02` mamamuDog |
 | `0:a0` | [D] `$cd:$00/v$00` masterDiver |
-| `0:a7` | [D] `$41:$06/v$00` miscMan |
+| `0:a7` | [I] `$41:$06/v$00` miscMan |
 | `0:aa` | [P] `$48:$0f/v$00` tokay<br>[P] `$48:$10/v$00` tokay |
 | `0:bb` | [P] `$48:$1e/v$00` tokay |
 | `0:bd` | [P] `$48:$12/v$00` tokay |
@@ -132,7 +132,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:06` | [I] `$40:$0d/v$03` soldier<br>[I] `$40:$0d/v$04` soldier |
 | `1:07` | [I] `$40:$0d/v$05` soldier |
 | `1:16` | [I] `$40:$04/v$00` soldier<br>[I] `$40:$06/v$00` soldier<br>[I] `$4d:$00/v$00` ambi<br>[I] `$36:$01/v$00` nayru<br>[I] `$40:$0d/v$01` soldier |
-| `1:20` | [D] `$37:$0b/v$00` ralph |
+| `1:20` | [I] `$37:$0b/v$00` ralph |
 | `1:25` | [I] `$40:$0d/v$00` soldier |
 | `1:26` | [I] `$40:$05/v$00` soldier |
 | `1:27` | [I] `$40:$0d/v$06` soldier |
@@ -142,15 +142,15 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:39` | [I] `$3a:$0d/v$00` villager |
 | `1:45` | [I] `$43:$01/v$00` pastGuy |
 | `1:46` | [I] `$40:$02/v$00` soldier<br>[I] `$40:$09/v$00` soldier<br>[I] `$37:$09/v$00` ralph<br>[I] `$40:$0b/v$00` soldier |
-| `1:47` | [P] `$3a:$07/v$00` villager<br>[D] `$4f:$01/v$00` impaNpc<br>[D] `$ad:$08/v$00` zelda |
+| `1:47` | [P] `$3a:$07/v$00` villager<br>[I] `$4f:$01/v$00` impaNpc<br>[D] `$ad:$08/v$00` zelda |
 | `1:48` | [I] `$57:$00/v$00` pickaxeWorker<br>[I] `$3a:$06/v$00` villager<br>[I] `$38:$00/v$00` pastGirl |
 | `1:49` | [I] `$3c:$0e/v$00` boy<br>[I] `$3a:$0c/v$00` villager<br>[I] `$43:$06/v$00` pastGuy |
 | `1:57` | [I] `$3b:$05/v$00` femaleVillager |
 | `1:58` | [I] `$44:$04/v$00` miscMan2<br>[I] `$4f:$02/v$00` impaNpc<br>[I] `$36:$0d/v$00` nayru |
 | `1:65` | [P] `$3b:$04/v$00` femaleVillager<br>[P] `$4d:$0a/v$00` ambi<br>[P] `$37:$12/v$00` ralph |
 | `1:66` | [P] `$3a:$08/v$00` villager |
-| `1:68` | [P] `$3b:$03/v$00` femaleVillager<br>[I] `$43:$02/v$00` pastGuy<br>[D] `$4e:$00/v$00` subrosian<br>[D] `$36:$0c/v$00` nayru |
-| `1:70` | [D] `$ce:$06/v$00` businessScrub |
+| `1:68` | [P] `$3b:$03/v$00` femaleVillager<br>[I] `$43:$02/v$00` pastGuy<br>[D] `$4e:$00/v$00` subrosian<br>[I] `$36:$0c/v$00` nayru |
+| `1:70` | [I] `$ce:$06/v$00` businessScrub |
 | `1:72` | [I] `$40:$00/v$00` soldier |
 | `1:73` | [I] `$40:$00/v$01` soldier |
 | `1:74` | [I] `$45:$00/v$00` pastOldLady |
@@ -241,7 +241,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `3:df` | [I] `$ab:$16/v$00` zora |
 | `3:e3` | [I] `$ab:$15/v$00` zora |
 | `3:e7` | [I] `$30:$01/v$00` shootingGallery<br>[I] `$8b:$02/v$00` goronElder |
-| `3:e9` | [D] `$2e:$00/v$00` oldManWithRupees |
+| `3:e9` | [I] `$2e:$00/v$00` oldManWithRupees |
 | `3:ea` | [I] `$bf:$00/v$00` symmetryNpc |
 | `3:eb` | [I] `$bf:$02/v$00` symmetryNpc |
 | `3:ec` | [I] `$bf:$02/v$00` symmetryNpc |
@@ -250,16 +250,16 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `3:f6` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:f7` | [I] `$e3:$08/v$00` knowItAllBird<br>[I] `$e3:$09/v$00` knowItAllBird<br>[I] `$e3:$06/v$00` knowItAllBird<br>[I] `$e3:$07/v$00` knowItAllBird<br>[I] `$e3:$04/v$00` knowItAllBird<br>[I] `$e3:$05/v$00` knowItAllBird<br>[I] `$e3:$02/v$00` knowItAllBird<br>[I] `$e3:$03/v$00` knowItAllBird<br>[I] `$e3:$00/v$00` knowItAllBird<br>[I] `$e3:$01/v$00` knowItAllBird |
 | `3:f8` | [I] `$cc:$00/v$00` plen<br>[I] `$3d:$05/v$00` oldLady |
-| `3:fa` | [D] `$29:$00/v$00` adlar |
+| `3:fa` | [I] `$29:$00/v$00` adlar |
 | `3:fb` | [I] `$ca:$01/v$00` troy |
 | `3:fc` | [I] `$28:$0a/v$00` bipin |
-| `3:fe` | [D] `$46:$02/v$00` shopkeeper |
+| `3:fe` | [I] `$46:$02/v$00` shopkeeper |
 | `4:e0` | [I] `$3a:$02/v$00` villager |
 | `4:e1` | [I] `$58:$00/v$00` hardhatWorker<br>[I] `$40:$0c/v$00` soldier<br>[I] `$57:$03/v$00` pickaxeWorker<br>[I] `$57:$03/v$01` pickaxeWorker |
 | `4:e2` | [I] `$40:$0c/v$00` soldier<br>[I] `$58:$00/v$01` hardhatWorker<br>[I] `$58:$03/v$03` hardhatWorker<br>[I] `$57:$03/v$02` pickaxeWorker<br>[I] `$57:$03/v$03` pickaxeWorker |
 | `4:e7` | [I] `$40:$0c/v$00` soldier<br>[I] `$58:$03/v$00` hardhatWorker<br>[I] `$58:$03/v$01` hardhatWorker<br>[I] `$57:$03/v$04` pickaxeWorker<br>[I] `$57:$03/v$05` pickaxeWorker |
 | `4:e8` | [I] `$58:$03/v$02` hardhatWorker<br>[I] `$57:$03/v$06` pickaxeWorker<br>[I] `$57:$03/v$07` pickaxeWorker |
-| `4:f3` | [D] `$58:$03/v$04` hardhatWorker |
+| `4:f3` | [I] `$58:$03/v$04` hardhatWorker |
 | `4:f6` | [I] `$4d:$03/v$00` ambi |
 | `4:fc` | [I] `$4d:$06/v$00` ambi |
 | `4:fe` | [I] `$37:$0c/v$00` ralph |

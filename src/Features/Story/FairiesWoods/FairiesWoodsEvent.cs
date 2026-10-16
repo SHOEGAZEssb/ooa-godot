@@ -81,9 +81,9 @@ internal sealed class FairiesWoodsEvent :
             ClearTransientState();
         if (!ForestRooms.Contains(room.Id))
             return;
-        // Later Jabu and linked-game variants remain unsupported. Companion
-        // search hints $0e-$10 have their own imported predicates and owner.
-        for (int subId = 0; subId < 0x0e; subId++)
+        // Only the hide-and-seek slots belong to this owner. Ordinary later
+        // phases retain their state-zero predicates and native actor slots.
+        for (int subId = 0; subId < 5; subId++)
             _context.DeactivateNpcs(InteractionId.ForestFairy, subId);
     }
 
