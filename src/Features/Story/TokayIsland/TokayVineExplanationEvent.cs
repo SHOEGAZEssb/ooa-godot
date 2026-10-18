@@ -61,6 +61,8 @@ internal sealed class TokayVineExplanationEvent : IRoomEntryEvent
             _context.Player.Face(Vector2I.Left);
             _effect = (TokayAttachedVisualRoomEntity?)_context.Entities.TryCreateInteraction(new TokayAttachedVisualSpawn(
                 _actor, _native.Visual("exclamation", 0, 0xbb), new Vector2(-13, -13)));
+            // objectCreateExclamationMark_body requests its cue only after admission.
+            if (_effect is not null) _context.Sound.PlayNativeSound(SoundId.SndClink);
             // Both script writes target speedZ low: the resulting $00ff is
             // positive, and the next gravity update clamps Z to the ground.
             int z = 0, speedZ = 0xff;
