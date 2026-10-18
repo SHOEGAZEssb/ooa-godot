@@ -110,10 +110,18 @@ public sealed partial class ValidationRoot
         // Rendering needs no synthetic interaction or alternate room gameplay.
         var request = new GroundTreasureGrantRequest(5, 0x7e, 0, 40, 120,
             "TREASURE_OBJECT_SLATE_00", "Slate sprite regression");
-        using var ground = new GroundTreasurePickup();
-        ground.Initialize(request.Resolve(_treasures), static _ => { });
-        CompareInteractionSpritePixelsRom(rom, SomariaPrivate<Texture2D>(ground, "_texture"),
-            SomariaPrivate<Vector2>(ground, "_textureOffset"), 0xd040, 1, "Ground Slate visual");
+        var ground = new GroundTreasurePickup();
+        try
+        {
+            ground.Initialize(request.Resolve(_treasures), static _ => { });
+            CompareInteractionSpritePixelsRom(rom, SomariaPrivate<Texture2D>(ground, "_texture"),
+                SomariaPrivate<Vector2>(ground, "_textureOffset"), 0xd040, 1, "Ground Slate visual");
+        }
+        finally
+        {
+            ground.Free();
+        }
+        FailIf(GodotObject.IsInstanceValid(ground), "The standalone Slate visual fixture must free its native node.");
         _dialogue.Close(); rom[0xcba0] = 0; Step(3); Step(press: true);
         FailIf(_interactions.ChestRewardActive || _inventory.Slates != 1,
             "An opened Slate chest must not grant again.");

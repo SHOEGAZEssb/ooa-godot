@@ -91,12 +91,16 @@ public sealed partial class ValidationRoot
             typeof(VeranChildBeeCharacter).GetProperty("State",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(actor,9);
             typeof(VeranChildBeeCharacter).GetProperty("Counter",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(actor,200);
             actor.Health=spec.Health;rom[0xd084]=9;rom[0xd086]=200;rom[0xd0a9]=(byte)actor.Health;
+            var reservations=new List<EnemyAiSlotReservation>();
             if(spec.Full)
             {
                 var parts=SomariaPrivate<Dictionary<IRoomEntity,int>>(_entities,"_partSlots");
                 for(int slot=0;slot<16;slot++)
                 {
-                    parts.Add(new EnemyAiSlotReservation(),slot);
+                    var reservation=new EnemyAiSlotReservation();
+                    parts.Add(reservation,slot);
+                    _entities.AddEntity(reservation);
+                    reservations.Add(reservation);
                     int at=0xd0c0+slot*256;rom[at]=1;rom[at+1]=0x0a;rom[at+4]=1; // Native nil PART, no updates or RNG.
                 }
             }
@@ -127,6 +131,8 @@ public sealed partial class ValidationRoot
             else Step(collision is 0x1b or 0x1e?116:28);
             LoadValidationRoom(4,0xd5);StepGameplayUpdates(2,Vector2.Zero);
             FailIf(_entities.EntityAdapters<VeranChildBeeRoomEntity>().Any()||_entities.EntityAdapters<BurningEnemyRoomEntity>().Any(),"Room replacement must retire the child bee and its native flame.");
+            FailIf(reservations.Any(reservation=>GodotObject.IsInstanceValid(reservation.Node)&&!reservation.Node.IsQueuedForDeletion()),
+                "Room replacement must release the full-PART fixture's owned reservation nodes.");
         }
     }
 }
