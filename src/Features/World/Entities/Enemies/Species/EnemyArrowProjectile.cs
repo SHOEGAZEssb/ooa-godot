@@ -39,8 +39,10 @@ public partial class EnemyArrowProjectile
         var wall = _behavior.WallArrowShooter;
         int cardinalAngle = angle & ObjectAngle.CardinalMask;
         int direction = cardinalAngle / 8;
-        Position =
-            subId == 0 ? position + _behavior.EnemyArrowSpawnOffsets[direction].Vector : position.Floor();
+        // ecom_spawnProjectile calls objectCopyPosition: only whole-pixel
+        // XYZ are copied into a freshly cleared PART, never the parent's fractions.
+        Position = position.Floor() +
+            (subId == 0 ? _behavior.EnemyArrowSpawnOffsets[direction].Vector : Vector2.Zero);
         _lifecycle = new HostileProjectileLifecycle(
             this,
             room,

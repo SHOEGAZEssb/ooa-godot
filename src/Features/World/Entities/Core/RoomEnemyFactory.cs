@@ -42,7 +42,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
         {
             return new FountainFairyRoomEntity(enemies.ImportedEnemy(EnemyId.GreatFairy),
                 resources.FountainFairies, position, owner.OnSoundRequested, owner.OnRoomEntityDialogueRequested,
-                () => owner.OnSoundRequested(SoundId.MusFairyFountain), owner.ReadDisplayedHealth);
+                () => owner.OnSoundRequested(SoundId.MusFairyFountain), owner.ReadDisplayedHealth, owner.TryCreatePart);
         }
 
         if (handler.Handler == EnemyHandlerKind.FireballShooter)

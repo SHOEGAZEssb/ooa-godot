@@ -1948,8 +1948,9 @@ public sealed class RoomEntityManager : IDisposable
             error = $"PART_ITEM_DROP ${subId:x2} has no supported runtime handler.";
             return false;
         }
-        Spawn(new ItemDropSpawn(subId, position));
-        return true;
+        if (TryCreatePart(new ItemDropSpawn(subId, position))) return true;
+        error = $"PART_ITEM_DROP ${subId:x2}: all $10 PART slots are occupied.";
+        return false;
     }
 
     private bool CanSpawnDebugObject(Vector2 position, out string error)
@@ -2513,7 +2514,11 @@ public sealed class RoomEntityManager : IDisposable
         {
             enemy.TryCreateKnockbackDust = TryCreateKnockbackDust;
             enemy.BindMovementMemory(_runtimeState);
+            enemy.BindNativePartAllocation(TryCreateQueuedPart, CanAllocateParts);
         }
+        if (entity.Node is ItemDropProducer producer) producer.BindPartCreation(TryCreatePart);
+        if (entity.Node is MapleEncounter maple) maple.BindPartCreation(TryCreateQueuedPart);
+        if (entity.Node is PumpkinHeadBoss pumpkin) pumpkin.BindNativePartAllocation(TryCreateQueuedPart);
         if (entity.Node is SmogProjectilePart smogProjectile)
             smogProjectile.BindMovementMemory(_runtimeState);
         if (entity.Node is EnemyArrowProjectile arrowProjectile)
@@ -2581,7 +2586,12 @@ public sealed class RoomEntityManager : IDisposable
         if (EntityPhase(entity) == 1 && !_partSlots.ContainsKey(entity))
         {
             int slot = FindFreePartSlot();
-            if (slot >= 0) _partSlots.Add(entity, slot);
+            if (slot < 0)
+            {
+                entity.Node.Free();
+                throw new InvalidOperationException($"getFreePartSlot: {entity.GetType().Name} bypassed checked allocation with all $10 native PART slots occupied ($d0c0-$dfc0).");
+            }
+            _partSlots.Add(entity, slot);
             if (entity.Node is VolcanoRock rock) rock.SetPartSlot(slot);
             if (entity.Node is FallingBoulder boulder) boulder.SetPartSlot(slot);
             if (entity is FallingFireRoomEntity fire) fire.Slot = slot;
@@ -2590,6 +2600,8 @@ public sealed class RoomEntityManager : IDisposable
         }
         if (entity.Node is ItemDropEffect partDrop && _partSlots.TryGetValue(entity, out int dropSlot))
             partDrop.SetPartSlot(dropSlot);
+        if (entity.Node is MapleDroppedItem mapleDrop && _partSlots.TryGetValue(entity, out int mapleSlot))
+            mapleDrop.SetPartSlot(mapleSlot);
         if (_activeObjectPaletteOverride is not null) ApplyObjectPaletteOverride(entity);
         // Children created by enemy handlers also occupy the shared pool.
         // Placed entities and itemDrop_spawnEnemy already registered their slot.
@@ -2704,6 +2716,14 @@ public sealed class RoomEntityManager : IDisposable
         {
             RoomEntitySpawn spawn = _pendingSpawns[0];
             _pendingSpawns.RemoveAt(0);
+            if (spawn is AllocatedPartUpdateSpawn birth)
+            {
+                if (frame is null) throw new InvalidOperationException($"{birth.Entity.GetType().Name}: allocated PART birth requires an active object update.");
+                if (birth.Entity is IFixedRoomEntity fixedPart)
+                    fixedPart.UpdateFrame(frame.Value, _pendingSpawns);
+                _updatedEntitiesThisFrame.Add(birth.Entity);
+                continue;
+            }
             // Bari's two ordered counted allocations retain the parent's slot
             // until after both attempts; failure drops that child, without retry.
             if (spawn is BariChildSpawn && !EnemySlotAvailable) continue;
@@ -2759,9 +2779,7 @@ public sealed class RoomEntityManager : IDisposable
                 if (puff.DecrementsRoomCount) _unreleasedEnemyCounts++;
                 continue; // No retry, kill sound, or item drop on allocation failure.
             }
-            IRoomEntity? entity = spawn is PuzzlePuffSpawn puzzlePuff
-                ? TryCreatePuzzlePuffSpawn(puzzlePuff)
-                : AddEntity(_factory.Create(spawn, _roomForActiveEntities));
+            IRoomEntity? entity = TryCreateQueuedEntity(spawn);
             if (entity is null) continue;
             if (spawn.UpdateThisFrame && entity is not ItemDropRoomEntity && EntityPhase(entity) != 0 &&
                 frame.HasValue && entity is IFixedRoomEntity fixedEntity)
@@ -2771,6 +2789,34 @@ public sealed class RoomEntityManager : IDisposable
                 _updatedEntitiesThisFrame.Add(entity);
             }
         }
+    }
+
+    private IRoomEntity? TryCreateQueuedEntity(RoomEntitySpawn spawn)
+    {
+        // During transition preparation the live child is already enrolled;
+        // the preload walk owns its presentation rather than a fixed dispatch.
+        if (spawn is AllocatedPartUpdateSpawn birth) return birth.Entity;
+        if (spawn is PuzzlePuffSpawn puff) return TryCreatePuzzlePuffSpawn(puff);
+        if (spawn is HeadThwompBombDropSpawn bomb)
+        {
+            if (!CanAllocateParts(2)) return null;
+            var drop = TryCreatePartEntity(new ItemDropSpawn(ItemDropDatabase.Bombs, bomb.Position.Floor()))!;
+            TryCreatePartEntity(new HeadThwompBombDropperSpawn(_partSlots[drop], bomb.Position.Floor()));
+            return null;
+        }
+        // ecom_spawnProjectile / createFlamePart: getFreePartSlot failure
+        // creates nothing. Check at commit too: post-object collisions can
+        // queue several burn requests while only one physical slot is free.
+        var entity = spawn is OctorokRockSpawn or MoblinBoomerangSpawn or BurningEnemySpawn or
+            EnemyArrowSpawn or StalfosBoneSpawn or CuccoAttackerSpawn or MoonlitGrottoOrbSpawn or
+            SubterrorDirtSpawn or LightableTorchSpawn or ShootingGalleryBallSpawn or ItemDropSpawn or MapleDroppedItemSpawn or
+            HeadThwompProjectileSpawn or HeadThwompBoulderSpawn or BossShadowSpawn or BossDeathExplosionSpawn or PumpkinHeadProjectileSpawn
+            ? TryCreatePartEntity(spawn)
+            : AddEntity(_factory.Create(spawn, _roomForActiveEntities));
+        if (entity is null) return null;
+        if (spawn is OctorokRockSpawn) OnSoundRequested(SoundId.SndThrow);
+        if (spawn is MoblinBoomerangSpawn boomerang) boomerang.Owner.BeginWaitingForBoomerang();
+        return entity;
     }
 
     private IEnumerable<IRoomEntity> EntitiesForUpdatePhase(int phase)
@@ -3164,8 +3210,8 @@ public sealed class RoomEntityManager : IDisposable
         {
             RoomEntitySpawn spawn = _pendingSpawns[0];
             _pendingSpawns.RemoveAt(0);
-            IRoomEntity entity =
-                AddEntity(_factory.Create(spawn, _roomForActiveEntities));
+            IRoomEntity? entity = TryCreateQueuedEntity(spawn);
+            if (entity is null) continue;
             if (spawn.UpdateThisFrame &&
                 entity is not IScreenTransitionPreloadRoomEntity)
             {
@@ -3291,18 +3337,26 @@ public sealed class RoomEntityManager : IDisposable
         return AddEntity(_factory.Create(spawn, _roomForActiveEntities));
     }
 
-    internal bool TryCreateWallArrow(EnemyArrowSpawn spawn)
+    internal bool TryCreateWallArrow(EnemyArrowSpawn spawn) => TryCreatePart(spawn);
+
+    internal bool TryCreatePart(RoomEntitySpawn spawn) => TryCreatePartEntity(spawn) is not null;
+
+    private bool TryCreateQueuedPart(RoomEntitySpawn spawn)
     {
-        if (!PartSlotAvailable) return false;
-        AddEntity(_factory.Create(spawn, _roomForActiveEntities));
+        var entity = TryCreatePartEntity(spawn);
+        if (entity is null) return false;
+        // Return the real allocation result to the caller, then retain the
+        // queued route's birth boundary after the parent has finished. This
+        // also keeps Maple's selection RNG before all admitted-child RNG.
+        if (spawn.UpdateThisFrame && entity is not ItemDropRoomEntity)
+            _pendingSpawns.Add(new AllocatedPartUpdateSpawn(entity));
         return true;
     }
 
-    internal bool TryCreatePart(RoomEntitySpawn spawn)
+    private IRoomEntity? TryCreatePartEntity(RoomEntitySpawn spawn)
     {
-        if (!PartSlotAvailable) return false;
-        AddEntity(_factory.Create(spawn,_roomForActiveEntities));
-        return true;
+        if (!PartSlotAvailable) return null;
+        return AddEntity(_factory.Create(spawn, _roomForActiveEntities));
     }
 
     internal void TryCreateMinibossPortal()
@@ -3828,6 +3882,8 @@ internal readonly record struct RoomEntityFrame(
 
 internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
     : RoomEntitySpawn;
+
+internal sealed record AllocatedPartUpdateSpawn(IRoomEntity Entity) : RoomEntitySpawn;
 
 internal sealed record ItemDropSpawn(
     int SubId,

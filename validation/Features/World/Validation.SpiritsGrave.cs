@@ -1208,6 +1208,11 @@ public sealed partial class ValidationRoot
                 OracleObjectMovement.Shared.Direction(pumpkin.Angle) * 32.0f);
             StepEntities();
         }
+        // The checked primary allocates its siblings in PART$42 state0,
+        // on its first actual PART dispatch after this logical boss update.
+        FailIf(_entities.Entities<PumpkinHeadProjectile>().Count != 1,
+            "Pumpkin Head must first allocate only its primary PART$42.");
+        StepEntities();
         List<PumpkinHeadProjectile> pumpkinShots =
             _entities.Entities<PumpkinHeadProjectile>();
         Vector2 mouthOffset = pumpkin.Angle switch

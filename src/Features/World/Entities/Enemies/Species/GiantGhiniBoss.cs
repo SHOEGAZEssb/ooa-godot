@@ -87,8 +87,9 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
             Visible = (_deathCounter & 1) != 0;
             if (--_deathCounter == 0)
             {
+                if (!TrySpawnNativePart(new BossDeathExplosionSpawn(Position, Record.Id), spawns))
+                { _deathCounter = 1; return; }
                 Finish();
-                spawns.Add(new BossDeathExplosionSpawn(Position, Record.Id));
                 _restoreRoomMusic();
             }
             QueueRedraw();

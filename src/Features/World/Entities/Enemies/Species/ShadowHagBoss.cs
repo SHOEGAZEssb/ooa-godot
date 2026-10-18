@@ -125,8 +125,9 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
             Visible = (_deathCounter & 1) != 0;
             if (--_deathCounter == 0)
             {
+                if (!TrySpawnNativePart(new BossDeathExplosionSpawn(Position, Record.Id), spawns))
+                { _deathCounter = 1; return; }
                 Finish();
-                spawns.Add(new BossDeathExplosionSpawn(Position, Record.Id));
                 _restoreRoomMusic();
             }
             QueueRedraw();
@@ -139,17 +140,17 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                 _disableLink();
                 if (!_shuttersClosed())
                     return;
-                Position = new Vector2(player.Position.X, player.Position.Y + 4);
-                _zFixed = -0x100;
-                _angle = ObjectAngle.Left;
-                _state = ShadowHagState.IntroMovingToCenter;
-                spawns.Add(new BossShadowSpawn(
+                if (!TrySpawnNativePart(new BossShadowSpawn(
                     () => Position,
                     () => _zFixed >> 8,
                     () => !Defeated &&
                         _state == ShadowHagState.IntroMovingToCenter,
                     Size: 1,
-                    YOffset: 4));
+                    YOffset: 4), spawns)) break;
+                Position = new Vector2(player.Position.X, player.Position.Y + 4);
+                _zFixed = -0x100;
+                _angle = ObjectAngle.Left;
+                _state = ShadowHagState.IntroMovingToCenter;
                 break;
 
             case ShadowHagState.IntroMovingToCenter:
@@ -388,6 +389,9 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
             Visible = !Visible;
             return;
         }
+        // shadowHag_state9 requires four PART slots before any parent state
+        // or shared shadow-return count changes.
+        if (!NativePartsAvailable(4)) return;
         _state = ShadowHagState.ShadowsChasing;
         _counter1 = 150;
         _counter2 = 4;

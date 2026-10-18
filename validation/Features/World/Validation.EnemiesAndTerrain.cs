@@ -3871,7 +3871,8 @@ public sealed partial class ValidationRoot
             arrows.Count != 1 ||
             arrows[0].State != HostileProjectileState.Flying ||
             arrows[0].ElapsedFrames != 1 ||
-            arrows[0].Position != firstShotOrigin + expectedArrowOffset,
+            // ecom_spawnProjectile copies high XY into a cleared PART.
+            arrows[0].Position != firstShotOrigin.Floor() + expectedArrowOffset,
             "ENEMY_ARROW_MOBLIN did not fire PART_ENEMY_ARROW on its first " +
             "eligible facing route, or the child moved during its state-0 update.");
 

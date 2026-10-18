@@ -27,9 +27,9 @@ public sealed partial class ValidationRoot
                 var drops = new[]
                 {
                     _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(
-                        data.Item(12), encounter, encounter.AllocateSlot(), new(80, 64), -8 * 256)),
+                        data.Item(12), encounter, 0, new(80, 64), -8 * 256)),
                     _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(
-                        data.Item(13), encounter, encounter.AllocateSlot(), new(112, 64), 0))
+                        data.Item(13), encounter, 0, new(112, 64), 0))
                 };
                 FailIf(drops.Any(drop => drop.TerrainShadowDrawn),
                     "PART$14/$15 must not cast shadows before state0 enables visiblec3.");

@@ -435,11 +435,14 @@ public sealed partial class ValidationRoot
         List<MapleDroppedItem> droppedItems =
             harness.Manager.Entities<MapleDroppedItem>();
         int dropped = droppedItems.Count;
+        // mapleSpawnItemDrop_variant returns nonzero airborne Z on successful
+        // unique allocations, so those items do not consume the five attempts.
+        int mapleDrops = droppedItems.TakeWhile(item => item.ZFixed < 0).Count();
+        int uniqueMapleDrops = droppedItems.Take(mapleDrops).Count(item => item.ItemIndex < 5);
         FailIf(
             maple.Stage != MapleEncounterStage.Recoiling ||
-            dropped is < 5 or > 10 ||
-            droppedItems.Take(5).Any(item => item.ZFixed >= 0) ||
-            droppedItems.Skip(5).Any(item => item.ZFixed != 0) ||
+            mapleDrops != 5 + uniqueMapleDrops || dropped - mapleDrops is < 0 or > 5 ||
+            droppedItems.Skip(mapleDrops).Any(item => item.ZFixed != 0) ||
             !maple.ScreenTransitionsDisabled ||
             !maple.MenusDisabled ||
             harness.Manager.HorizontalScreenShakeCounter != 14 ||
@@ -583,7 +586,7 @@ public sealed partial class ValidationRoot
                     new MapleDroppedItemSpawn(
                         record,
                         encounter,
-                        encounter.AllocateSlot(),
+                        0,
                         origin,
                         0));
             harness.Player.WarpTo(

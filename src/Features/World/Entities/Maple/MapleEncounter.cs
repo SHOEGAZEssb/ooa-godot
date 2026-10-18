@@ -13,6 +13,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
 {
     private MapleEventDatabase _database = null!;
     private MapleEncounterState _encounter = null!;
+    private Func<MapleDroppedItemSpawn, bool>? _createPart;
+    internal void BindPartCreation(Func<MapleDroppedItemSpawn, bool> create) => _createPart = create;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private OracleSaveData _save = null!;
@@ -786,13 +788,19 @@ public partial class MapleEncounter : TransitionOffsetNode2D
                     : MapleDistributionKind.Standard));
             if (!CanMapleDrop(index))
                 continue;
-            AddDrop(index, _precisePosition, _zFixed, spawns);
-            mapleItems--;
+            bool admitted = AddDrop(index, _precisePosition, _zFixed, spawns);
+            // mapleSpawnItemDrop_variant returns the copied Z high byte's
+            // flags on success. With nonzero airborne Z, a unique item does
+            // not decrement counter1; a failed allocation sets carry and does.
+            if (!admitted || index >= 5 || unchecked((byte)(_zFixed >> 8)) == 0)
+                mapleItems--;
         }
 
         int attempts = 0x20;
         int linkItems = 5;
-        while (attempts-- > 0 && linkItems > 0)
+        // mapleSpawnItemDrops decrements hFF8C before the zero test, so
+        // an exhausted $20 counter permits $1f selections.
+        while (--attempts > 0 && linkItems > 0)
         {
             int selected = ChooseDistribution(
                 _database.Distribution(MapleDistributionKind.Link));
@@ -833,19 +841,22 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         return true;
     }
 
-    private void AddDrop(
+    private bool AddDrop(
         int index,
         Vector2 sourcePosition,
         int sourceZFixed,
         ICollection<RoomEntitySpawn> spawns)
     {
-        spawns.Add(new MapleDroppedItemSpawn(
+        var spawn = new MapleDroppedItemSpawn(
             _database.Item(index),
             _encounter,
-            _encounter.AllocateSlot(),
+            0, // Replaced by the authoritative shared PART slot at admission.
             sourcePosition,
             sourceZFixed,
-            UpdateThisFrame: true));
+            UpdateThisFrame: true);
+        if (_createPart is not null) return _createPart(spawn);
+        spawns.Add(spawn);
+        return true;
     }
 
     private int ChooseDistribution(IReadOnlyList<int> weights)

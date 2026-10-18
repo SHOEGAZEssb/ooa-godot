@@ -17,6 +17,18 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     // Species initialized at construction explicitly return false.
     internal abstract bool InitializationPending { get; }
 
+    private Func<RoomEntitySpawn, bool>? _nativePartFactory;
+    private Func<int, bool>? _nativePartCapacity;
+    internal void BindNativePartAllocation(Func<RoomEntitySpawn, bool> create, Func<int, bool> capacity)
+    { _nativePartFactory = create; _nativePartCapacity = capacity; }
+    private protected bool NativePartsAvailable(int count) => _nativePartCapacity?.Invoke(count) ?? true;
+    private protected bool TrySpawnNativePart(RoomEntitySpawn spawn, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_nativePartFactory is not null) return _nativePartFactory(spawn);
+        spawns.Add(spawn);
+        return true;
+    }
+
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private EnemyAnimationPlayer _animation = null!;
     private int _animationCount;

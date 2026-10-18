@@ -2984,8 +2984,9 @@ internal sealed class RoomEntityFactory
             boomerang.Angle, boomerang.ZHigh, () => RingEffects.BoomerangDamage(BoomerangDatabase.Shared.Damage,
                 _inventory ?? throw new InvalidOperationException("ITEM_BOOMERANG $06 requires the live inventory ring owner.")),
             owner.OnSoundRequested, owner.TryCreateBoomerangClink) { Name = "Boomerang", ZIndex = ObjectDrawPriority.BehindLinkZIndex }),
-        HeadThwompBombDropSpawn drop =>
-            CreateHeadThwompBombDrop(drop, room),
+        HeadThwompBombDropSpawn => throw new InvalidOperationException("headThwomp.s: bomb pair requires the manager's checked two-PART allocation."),
+        HeadThwompBombDropperSpawn dropper => new HeadThwompBombDropRoomEntity(room, _random,
+            () => owner.ResolvePartSlot(dropper.DropSlot)?.Node as ItemDropEffect, dropper.Position),
         ShovelDebrisSpawn debris => CreateShovelDebris(debris),
         GrassDebrisSpawn debris => CreateGrassDebris(debris),
         RockDebrisSpawn debris => CreateRockDebris(debris),
@@ -3330,7 +3331,7 @@ internal sealed class RoomEntityFactory
                 Resources.DungeonVisuals.Visual("pumpkin-projectile"),
                 room,
                 spawn.Position,
-                spawn.Angle));
+                spawn.Angle, spawn.SubId, owner.TryCreatePart));
 
     private IRoomEntity CreateHeadThwompProjectile(
         HeadThwompProjectileSpawn spawn,
@@ -4957,16 +4958,6 @@ internal sealed class RoomEntityFactory
         return new ItemDropRoomEntity(drop, owner.OnItemDropEnteredHazard);
     }
 
-    private IRoomEntity CreateHeadThwompBombDrop(
-        HeadThwompBombDropSpawn spawn,
-        OracleRoomData room)
-    {
-        ItemDropEffect drop = CreateItemDropEffect(
-            new ItemDropSpawn(ItemDropDatabase.Bombs, spawn.Position), room);
-        return new HeadThwompBombDropRoomEntity(
-            drop, room, _random, owner.OnItemDropEnteredHazard);
-    }
-
     private ItemDropEffect CreateItemDropEffect(
         ItemDropSpawn spawn,
         OracleRoomData room)
@@ -5681,7 +5672,7 @@ internal sealed record PuzzlePuffSpawn(
 
 internal sealed record BoomerangSpawn(Vector2 Position, int Angle, int ZHigh = 0) : RoomEntitySpawn;
 
-internal sealed record PumpkinHeadProjectileSpawn(Vector2 Position, int Angle)
+internal sealed record PumpkinHeadProjectileSpawn(Vector2 Position, int Angle, int SubId = 0)
     : RoomEntitySpawn;
 
 internal sealed record HeadThwompProjectileSpawn(

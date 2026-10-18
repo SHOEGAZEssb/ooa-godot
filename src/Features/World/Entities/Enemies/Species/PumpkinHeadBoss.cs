@@ -11,6 +11,13 @@ namespace oracleofages;
 /// </summary>
 internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 {
+    private Func<RoomEntitySpawn, bool>? _createNativePart;
+    internal void BindNativePartAllocation(Func<RoomEntitySpawn, bool> create) => _createNativePart = create;
+    private bool TrySpawnNativePart(RoomEntitySpawn spawn, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_createNativePart is not null) return _createNativePart(spawn);
+        spawns.Add(spawn); return true;
+    }
 
     private readonly EnemyAnimationPlayer _body;
     private readonly EnemyAnimationPlayer _ghost;
@@ -202,13 +209,13 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             case BossState.WaitingForDoors:
                 if (_shuttersClosed())
                 {
-                    _state = BossState.Falling;
-                    spawns.Add(new BossShadowSpawn(
+                    if (!TrySpawnNativePart(new BossShadowSpawn(
                         () => Position,
                         () => BodyZ,
                         () => ShadowOwnerExists,
                         Size: 1,
-                        YOffset: 6));
+                        YOffset: 6), spawns)) break;
+                    _state = BossState.Falling;
                 }
                 break;
             case BossState.Falling:
@@ -319,15 +326,9 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                     _projectileFired = true;
                     Vector2 origin = _headPosition + new Vector2(0, _headZ) +
                         ProjectileOriginOffset(_angle);
-                    foreach (EnemyBehaviorValue offset in
-                        _behavior.PumpkinHeadProjectileAngleOffsets)
-                    {
-                        spawns.Add(new PumpkinHeadProjectileSpawn(
-                            origin,
-                            (_angle + offset.Value) & ObjectAngle.Mask));
-                    }
+                    bool admitted = TrySpawnNativePart(new PumpkinHeadProjectileSpawn(origin, _angle), spawns);
                     _head.SetAnimation((_angle >> 2) & 6);
-                    _playSound(SoundId.SndVeranFairyAttack);
+                    if (admitted) _playSound(SoundId.SndVeranFairyAttack);
                 }
                 if (--_counter == 0)
                 {
@@ -347,9 +348,10 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                 Visible = (_counter & 1) != 0;
                 if (--_counter == 0)
                 {
+                    if (!TrySpawnNativePart(new BossDeathExplosionSpawn(Position, BossId: EnemyId.PumpkinHead), spawns))
+                    { _counter = 1; break; }
                     Visible = false;
                     _state = BossState.Dead;
-                    spawns.Add(new BossDeathExplosionSpawn(Position, BossId: EnemyId.PumpkinHead));
                     _restoreRoomMusic();
                 }
                 break;

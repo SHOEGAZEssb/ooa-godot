@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace oracleofages;
 
 /// <summary>
 /// Shared PART_ITEM_FROM_MAPLE slot stream and race scores for one encounter.
-/// List order is the original part-slot allocation order.
+/// Target selection walks the authoritative shared PART slots.
 /// </summary>
 internal sealed class MapleEncounterState
 {
@@ -14,10 +15,6 @@ internal sealed class MapleEncounterState
     internal int MapleScore { get; set; }
     internal int LinkScore { get; set; }
     internal bool ObjectsDisabled { get; set; }
-    internal int NextSlot { get; private set; }
-
-    internal int AllocateSlot() => NextSlot++;
-
     internal void Register(MapleDroppedItem item)
     {
         if (_items.Count >= 16)
@@ -30,7 +27,7 @@ internal sealed class MapleEncounterState
     {
         for (int itemIndex = 0; itemIndex < 5; itemIndex++)
         {
-            foreach (MapleDroppedItem item in _items)
+            foreach (MapleDroppedItem item in _items.OrderBy(item => item.Slot))
             {
                 if (item.CanMapleTarget && item.ItemIndex == itemIndex)
                     return item;
@@ -41,7 +38,7 @@ internal sealed class MapleEncounterState
         {
             MapleDroppedItem? closest = null;
             int closestDistance = 0;
-            foreach (MapleDroppedItem item in _items)
+            foreach (MapleDroppedItem item in _items.OrderBy(item => item.Slot))
             {
                 if (!item.CanMapleTarget || item.ItemIndex != itemIndex)
                     continue;

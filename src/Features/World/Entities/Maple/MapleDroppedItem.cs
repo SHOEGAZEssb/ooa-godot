@@ -38,6 +38,7 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D, ITerrainShadowSo
 
     internal int ItemIndex => _record.Index;
     internal int Slot { get; private set; }
+    internal void SetPartSlot(int slot) => Slot = slot;
     internal int ZFixed => _zFixed;
     internal MapleDroppedItemState State => _state;
     internal bool Finished { get; private set; }

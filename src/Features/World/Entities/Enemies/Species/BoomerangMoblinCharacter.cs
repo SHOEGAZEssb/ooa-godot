@@ -95,7 +95,6 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
                     Position, linkPosition) + 4) & ObjectAngle.CardinalMask;
                 if (target == _angle)
                 {
-                    _state = BoomerangMoblinCharacterMoblinState.WaitingForBoomerang;
                     return _angle;
                 }
                 break;
@@ -113,6 +112,11 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
     }
 
     internal void ReturnBoomerang() => _boomerangReturned = true;
+
+    // boomerangMoblin.s @state_9 changes state only after
+    // ecom_spawnProjectile succeeds. Failure retains the newly chosen route.
+    internal void BeginWaitingForBoomerang() =>
+        _state = BoomerangMoblinCharacterMoblinState.WaitingForBoomerang;
 
     private void ChooseDirection()
     {

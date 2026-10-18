@@ -123,9 +123,11 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSo
         int varyingPosition = _behavior.EdgeAxisValues[
             axisOffset + (random & _behavior.AxisIndexMask)].Value;
         int edgePosition = _behavior.ScreenEdgePositions[edge].Value;
+        // cuccoAttacker.s: even edge indices fix Y and vary X; odd
+        // indices fix X and vary Y (Part.yh/$cb versus Part.xh/$cd).
         _precisePosition = (edge & 1) == 0
-            ? new Vector2(edgePosition, varyingPosition)
-            : new Vector2(varyingPosition, edgePosition);
+            ? new Vector2(varyingPosition, edgePosition)
+            : new Vector2(edgePosition, varyingPosition);
         Position = _precisePosition;
         _angle = OracleObjectMovement.Shared.RelativeAngle(
             Position, linkPosition);

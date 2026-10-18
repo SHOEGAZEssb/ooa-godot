@@ -15,6 +15,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
     private readonly Action<int, string, Vector2> _dialogue;
     private readonly Action _music;
     private readonly Func<int> _displayedHealth;
+    private readonly Func<RoomEntitySpawn, bool> _createPart;
     private PuzzlePuffEffect? _puff;
     private Player? _controlledPlayer;
     private int _counter;
@@ -35,13 +36,15 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
 
     internal FountainFairyRoomEntity(ImportedEnemyDefinition visual,
         FountainFairyDatabase database, Vector2 position, Action<int> sound,
-        Action<int, string, Vector2> dialogue, Action music, Func<int> displayedHealth)
+        Action<int, string, Vector2> dialogue, Action music, Func<int> displayedHealth,
+        Func<RoomEntitySpawn, bool> createPart)
     {
         _database = database;
         _sound = sound;
         _dialogue = dialogue;
         _music = music;
         _displayedHealth = displayedHealth;
+        _createPart = createPart;
         Position = position;
         Name = "FountainFairy_38_00";
         Visible = false;
@@ -112,8 +115,9 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
                     }
                     else
                     {
-                        HeartCount++;
-                        spawns.Add(new FountainFairyHeartSpawn(this));
+                        // greatFairy.s increments var31 only after the checked
+                        // PART$30 allocation succeeds; the cadence still advances.
+                        if (_createPart(new FountainFairyHeartSpawn(this))) HeartCount++;
                     }
                 }
                 break;

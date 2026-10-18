@@ -111,8 +111,9 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
             Visible = !Visible;
             if (--_deathCounter == 0)
             {
+                if (!TrySpawnNativePart(new BossDeathExplosionSpawn(Position, Record.Id), spawns))
+                { _deathCounter = 1; return; }
                 Finish();
-                spawns.Add(new BossDeathExplosionSpawn(Position, Record.Id));
                 _restoreRoomMusic();
             }
             QueueRedraw();

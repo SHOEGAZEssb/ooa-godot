@@ -230,7 +230,8 @@ public sealed partial class ValidationRoot
             cucco.RevengeCounter != 30 ||
             attacker.State != CuccoAttackerState.Entering ||
             attacker.Counter != 24 ||
-            attacker.Position != new Vector2(0x08, 0x05) ||
+            // cuccoAttacker.s edge$00 fixes Y=$08 and varies X ($05).
+            attacker.Position != new Vector2(0x05, 0x08) ||
             attacker.Speed != 0x32 ||
             _random.Calls != callsBeforeAttacker + 1,
             "The sixteenth Cucco hit did not spawn/update PART_CUCCO_ATTACKER " +

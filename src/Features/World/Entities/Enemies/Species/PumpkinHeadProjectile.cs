@@ -13,15 +13,20 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
     private readonly OracleRoomData _room;
     private readonly int _angle;
     private int _delay;
+    private readonly int _subId;
+    private readonly Func<RoomEntitySpawn, bool> _createPart;
+    private bool _initialized;
 
     internal PumpkinHeadProjectile(
         DungeonInteractionVisual visual,
         OracleRoomData room,
         Vector2 position,
-        int angle)
+        int angle, int subId, Func<RoomEntitySpawn, bool> createPart)
     {
         _room = room;
         _angle = angle & ObjectAngle.Mask;
+        _subId = subId;
+        _createPart = createPart;
         _delay = _behavior.DelayFrames;
         Position = position;
         Name = "PumpkinHeadProjectile";
@@ -50,6 +55,21 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
     {
         if (Finished)
             return;
+        if (!_initialized)
+        {
+            _initialized = true;
+            // PART$42 state0 admits siblings in source subid order $02,$01,
+            // stopping on the first failure while the primary retains its slot.
+            if (_subId == 0)
+                for (int subId = 2; subId >= 1; subId--)
+                {
+                    // Imported fan rows are center, minus, plus (source
+                    // offsets $00,$02,$01), rather than subid order.
+                    int offset = EnemyBehaviorTables.Shared.PumpkinHeadProjectileAngleOffsets[3 - subId].Value;
+                    if (!_createPart(new PumpkinHeadProjectileSpawn(Position.Floor(), (_angle + offset) & 31, subId))) break;
+                }
+            return;
+        }
         _animation.Advance();
         if (_delay > 0)
         {
