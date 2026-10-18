@@ -1260,6 +1260,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateEnemyLavaAvoidance);
         RunIsolatedValidation(ValidateSkullDungeonGibdos);
         RunIsolatedValidation(ValidateSkullDungeonFireKeese);
+        RunIsolatedValidation(ValidateFireKeeseBiggoronHitStatusRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFireKeeseBombHitStatusRom, requiresRom: true);
         RunIsolatedValidation(ValidateFireKeeseScreenTransition);
         RunIsolatedValidation(ValidateSwitchHookSourceData);
         RunIsolatedValidation(ValidateSwitchHookFlight);

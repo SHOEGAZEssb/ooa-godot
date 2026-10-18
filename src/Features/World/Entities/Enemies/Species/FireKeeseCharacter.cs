@@ -13,12 +13,11 @@ internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private bool _linkHitPending;
-    private bool _otherHitPending;
     private int _rotation;
     private int _scanPosition;
     private int _stunCounter;
     internal int StunCounter => _stunCounter;
-    internal bool HasPendingHit => _linkHitPending || _otherHitPending;
+    internal bool HasPendingHit => NativeHitPending;
     internal void ClearSeedStun() => _stunCounter = 0;
     private int _speedZ;
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -40,6 +39,7 @@ internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
         if (record.SubId != 0 || room.Layout.Length != _behavior.LayoutSize)
             throw new InvalidOperationException($"ENEMY_FIRE_KEESE ${record.Id:x2}:${record.SubId:x2} requires the source subid00 and 176-byte room layout.");
         Record = record;
+        _linkHitPending = false;
         _room = room;
         _random = random;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), paletteVariants: [1]);
@@ -49,24 +49,20 @@ internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
     internal bool UpdateFrame(Vector2 target, int frameCounter = 0)
     {
         if (IsDead) return false;
-        if (_linkHitPending)
+        // enemyStandardUpdate consumes one var2a signal. Preserve its Link
+        // classification for enemyCode39's fire-shedding branch; other hits
+        // return through the same shared JUST_HIT update.
+        bool hitLink = NativeHitPending && _linkHitPending;
+        if (BeginFrame())
         {
             _linkHitPending = false;
-            AdvanceInvincibilityCounter();
-            if (!Lit) return false;
+            if (!hitLink || !Lit) return false;
             Lit = false;
             State = 8;
             Speed = _behavior.SeekSpeed;
             RestartAnimation(3);
             return true;
         }
-        if (_otherHitPending)
-        {
-            _otherHitPending = false;
-            AdvanceInvincibilityCounter();
-            return false;
-        }
-        if (BeginFrame()) return false;
         if (_stunCounter > 0)
         {
             int z = ZFixed;
@@ -216,8 +212,8 @@ internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
         if (_scanPosition == _behavior.LayoutSize) _scanPosition = 0;
         return false;
     }
-    internal void NotifyLinkCollision() { _linkHitPending = true; _otherHitPending = false; }
-    internal void NotifyOtherCollision() { _otherHitPending = true; _linkHitPending = false; }
+    internal void NotifyLinkCollision() { _linkHitPending = true; DeferNativeHitStatus(); }
+    internal void NotifyOtherCollision() { _linkHitPending = false; DeferNativeHitStatus(); }
     internal bool BeginPegasusHit()
     {
         if (!CollisionEnabled || InvincibilityCounter != 0) return false;
