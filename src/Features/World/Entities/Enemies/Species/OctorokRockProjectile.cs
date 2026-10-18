@@ -17,6 +17,7 @@ public partial class OctorokRockProjectile
     internal int ZFixed => _lifecycle.ZFixed;
     internal int ElapsedFrames => _lifecycle.ElapsedFrames;
     public Rect2 CollisionBounds => _lifecycle.CollisionBounds;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _lifecycle.BindMovementMemory(memory);
 
     internal void Initialize(
         OctorokProjectileRecord record,

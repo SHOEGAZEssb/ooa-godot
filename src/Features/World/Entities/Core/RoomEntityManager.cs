@@ -2544,6 +2544,8 @@ public sealed class RoomEntityManager : IDisposable
             smogProjectile.BindMovementMemory(_runtimeState);
         if (entity.Node is EnemyArrowProjectile arrowProjectile)
             arrowProjectile.BindMovementMemory(_runtimeState);
+        if (entity.Node is OctorokRockProjectile rockProjectile)
+            rockProjectile.BindMovementMemory(_runtimeState);
         if (entity.Node is SwordBeamEffect swordBeam)
             swordBeam.BindMovementMemory(_runtimeState);
         if (entity.Node is BombEffect bomb)
