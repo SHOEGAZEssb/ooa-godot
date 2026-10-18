@@ -34,6 +34,8 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
     public bool MenusDisabled => InputControlHeld;
     public bool ScreenTransitionsDisabled => InputControlHeld;
     internal bool FreezesObjects => State == 3;
+    internal bool KeepsInteractionsRunning => FreezesObjects && (Read(WramAddress.wDisabledObjects) & 0x82) == 0;
+    internal bool SlotInitializationPending(int subid) => subid is 4 or 5 ? _brokenState == 0 : subid is 6 or 7 && _fixedCounter < 0;
     internal int State { get; private set; }
     internal int BeetlesRemaining => _managerCounter;
     internal int ScriptIndex => _runner.Instruction;
@@ -105,23 +107,6 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
     }
     public void UpdateFrame()
     {
-        UpdateFade();
-        // updateInteractions selects its dispatcher once before the slot pass.
-        // A textbox opened by Patch does not retroactively freeze later slots.
-        bool ordinary = !Context.DialogueOpen && !Context.Player.IsUsingHarp;
-        if (_patch is not null)
-        {
-            if (_upstairs) UpdateUpstairs(); else UpdateDownstairs();
-        }
-        // The cart is an ordinary interaction; Patch sets the always-update bit.
-        if (ordinary)
-        {
-            UpdateCart();
-            UpdateSwitch();
-            UpdateManager();
-            UpdateBrokenItem();
-            UpdateFixedItem();
-        }
         // Enemy-created $0f slots follow the manager. Their state-0 writes
         // become visible to the manager on its next update, including text.
         while (_pendingHoleEvents > 0)
@@ -132,6 +117,19 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
                 if (Read(address) != 0xff) continue;
                 Write(address, 0x80); Write(address + 1, 0x5f); break;
             }
+        }
+    }
+    internal void UpdateActorSlot(int subid)
+    {
+        switch (subid)
+        {
+            case 0: case 1:
+                UpdateFade();
+                if (_patch is not null) { if (_upstairs) UpdateUpstairs(); else UpdateDownstairs(); }
+                break;
+            case 2: UpdateCart(); UpdateSwitch(); break;
+            case 4: case 5: UpdateBrokenItem(); break;
+            case 6: case 7: UpdateFixedItem(); break;
         }
     }
     private void OnObjectFellInHole(ObjectFellInHoleKind kind)
@@ -172,7 +170,9 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
                 Write(0xcfd4, 1);
                 Context.Sound.PlaySound(Database.Constant("whistle"));
                 Context.Sound.PlaySound(SoundId.MusMiniboss); // MUS_MINIBOSS
+                if (!Context.Entities.InteractionSlotAvailable) return;
                 _managerState = 1; _managerCounter = Database.Constant("beetle-delay");
+                Context.Entities.AddEntity(new PatchBeetleManagerRoomEntity(this));
                 _extraPending = _extraSpawned = 0;
                 ClearHoleBuffer();
                 Context.Inventory.SetRestorationItemState(Read(0xcfd0) == 0 ? TreasureVariable.TuniNutState : TreasureVariable.TradeItem,
@@ -260,7 +260,9 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         if (value == _switchState) return;
         _switchState = value; SetTile(0x05, (value & 1) != 0 ? 0x5d : 0x5c);
     }
-    private void UpdateManager()
+    internal bool ManagerInitializationPending => _managerState == 1;
+    internal bool ManagerFinished => _managerState == 0;
+    internal void UpdateManager()
     {
         if (_managerState == 0) return;
         if (_managerState == 1)
@@ -307,8 +309,10 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         {
             if (Fading) { _brokenState = 2; return; }
             if (!Player.EnemyCollisionOverlaps(_cart!.Position, new Rect2(_broken.Position - Vector2.One * 6, Vector2.One * 12))) return;
-            Write(0xcfd5, 1); _brokenState = 2;
+            Write(0xcfd5, 1);
+            if (!Context.Entities.InteractionSlotAvailable) return;
             Context.Entities.Spawn(new InteractionExplosionSpawn(_broken.Position - Vector2.Right * 8, 0, Database.ExplosionVisual));
+            _brokenState = 2;
         }
         else if (Read(0xcfd6) != 0) { _broken.SetActive(false); _broken = null; }
     }
@@ -332,7 +336,10 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         var record = new NpcRecord(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, InteractionId.Patch, subid,
             (int)position.Y, (int)position.X, 0, 0, visual.Sprite, visual.TileBase, visual.Palette, 0, false,
             visual.Animation, visual.Animation, visual.Animation, visual.Animation, string.Empty, NpcImplementationClassification.EventOwned);
-        var actor = Context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(record, $"PatchItem{subid:x2}"));
+        var actor = NpcCharacter.CreateFromRecord(record);
+        actor.Name = $"PatchItem{subid:x2}";
+        var owner = new PatchRoomEntity(actor); owner.Bind(this);
+        Context.Entities.AddEntity(owner);
         actor.SetAnimationRate(0);
         // patch_subid04/05 uses objectSetVisible83: the broken item is behind
         // Patch and the cart. Only the repaired item (06/07) uses visible81.

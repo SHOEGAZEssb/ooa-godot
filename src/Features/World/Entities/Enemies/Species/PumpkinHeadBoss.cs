@@ -105,6 +105,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
 
     internal BossState State => _state;
+    internal bool InitializationPending => !_initialized;
     internal bool IsDead => _state == BossState.Dead;
     internal bool IntroActive => _state is BossState.WaitingForDoors or BossState.Falling;
     internal bool HeadHeld => _headHeld;

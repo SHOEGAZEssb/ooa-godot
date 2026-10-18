@@ -2883,6 +2883,12 @@ public sealed class RoomEntityManager : IDisposable
                     (phase==0||pair.Key is not IRoomEntityLifetime {Finished:true})).Key;
                 if (entity is not null) yield return entity;
             }
+            // Composite ENEMY owners still dispatch before PARTs even while
+            // their separate native actor slots are not yet represented.
+            if (phase == 0)
+                foreach (var entity in _activeEntities.Where(entity => EntityPhase(entity) == 0 &&
+                    !_enemySlots.ContainsKey(entity)).ToArray())
+                    yield return entity;
             yield break;
         }
         // updateInteractions walks live slots $d0-$df. A child allocated above
@@ -2904,7 +2910,7 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     private int EntityPhase(IRoomEntity entity) =>
-        _enemySlots.ContainsKey(entity) ? 0 :
+        _enemySlots.ContainsKey(entity) || entity is PumpkinHeadBossRoomEntity ? 0 :
         entity is LightningRoomEntity ? 1 :
         entity is VeranAcidPoolRoomEntity or VeranSpiderwebRoomEntity or VeranBeeProjectileRoomEntity ? 1 :
         entity is RamrockPart or BlueStalfosProjectileRoomEntity or LynelBeamRoomEntity or PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or VeranFairyProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
@@ -3029,7 +3035,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or
+        PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
         TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or
         TokayAttachedVisualRoomEntity { IsNativeExclamation: true } or

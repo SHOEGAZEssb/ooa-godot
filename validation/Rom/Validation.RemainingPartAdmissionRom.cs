@@ -17,13 +17,13 @@ public sealed partial class ValidationRoot
         foreach (var actor in _entities.EntityAdapters<IRoomEntity>().Where(actor => !ReferenceEquals(actor, parent)).ToArray())
             _entities.RetireEntity(actor);
     }
-    private void F1Fill(int free, SomariaRom native)
+    private void F1Fill(int free, SomariaRom native, Action? observePart = null)
     {
         // Declared no-op occupied slots are high, avoiding the separate source
         // checkBPartSlotsAvailable out-of-pool scan when its last slot is free.
         foreach (int slot in Enumerable.Range(0, 16).Where(slot => !F1Parts.Values.Contains(slot)).Skip(free).ToArray())
         {
-            var actor = new ItemPhaseValidationEntity(() => { });
+            var actor = new ItemPhaseValidationEntity(observePart ?? (() => { }));
             F1Parts.Add(actor, slot); _entities.AddEntity(actor);
             int at = 0xd0c0 + slot * 256;
             native[at] = 1; native[at + 1] = 0x7f; native[at + 4] = 1;
@@ -46,6 +46,7 @@ public sealed partial class ValidationRoot
         byte[] caller = [0x16, 0xd0, 0xcd, 0x07, 0x2f, 0xc9];
         for (int i = 0; i < caller.Length; i++) native[0xc100 + i] = caller[i];
         native[0xcc00] = (byte)_entities.FrameCounter;
+        native[0xffae] = 0x80; native[0xffaf] = 0xd0;
         SomariaPrivate<FrontendRom>(native, "_rom").Call(0xc100, 0x0d);
     }
     private void F1Birth(SomariaRom native)
@@ -153,27 +154,63 @@ public sealed partial class ValidationRoot
             F1Retain(parent); F1Set(boss, "_initialized", true); F1Set(parent, "_initialized", true);
             F1Set(boss, "_state", BossState.Firing); F1Set(boss, "_counter", 36); F1Set(boss, "_angle", 8);
             F1Set(boss, "_headPosition", new Vector2(80, 72)); F1Set(boss, "_headZ", 0); F1Set(boss, "_bodyZFixed", 0);
-            var native = F1Native(0x78, 3, 0x0c, new(80, 72)); native[0xd086] = 1; F1Fill(free, native);
+            var native = F1Native(0x78, 3, 0x0c, new(80, 72)); native[0xd086] = 1;
+            int observed = 0;
+            F1Fill(free, native, () =>
+            {
+                observed++;
+                FailIf(_sound.PlayRequestsFor(SoundId.SndVeranFairyAttack) != (free == 0 ? 0 : 1),
+                    "Pumpkin Head's ENEMY firing cue must precede every physical PART observer.");
+            });
             _sound.ClearPlayRequestAudit(); StepGameplayUpdates(1, Vector2.Zero, batched: batched); F1Enemy(native);
-            FailIf(_entities.Entities<PumpkinHeadProjectile>().Count != (free == 0 ? 0 : 1) || F1Count(native, 0x42) != (free == 0 ? 0 : 1),
+            FailIf(F1Count(native, 0x42) != (free == 0 ? 0 : 1) || observed != 16 - free,
                 "Pumpkin Head must admit only the checked primary in its parent dispatch.");
-            // The existing logical boss phase (F16) is separate: compare the
-            // first actual PART dispatch on each side, where sibling allocation belongs.
+            // The native ENEMY handler precedes PART; the primary and its
+            // later siblings therefore initialize in this same gameplay update.
+            F1Birth(native);
             F1Set(boss, "_projectileFired", true); F1Set(boss, "_counter", 10000);
-            StepGameplayUpdates(1, Vector2.Zero, batched: batched); F1Birth(native);
             var shots = _entities.Entities<PumpkinHeadProjectile>();
             FailIf(shots.Count != free || F1Count(native, 0x42) != free || shots.Any(shot => shot.Delay != 8),
                 "Pumpkin PART$42 must stop its ordered $02/$01 sibling attempts at the first allocation failure.");
             for (int slot = 0; slot < free; slot++)
             {
                 var shot = (PumpkinHeadProjectile)_entities.ResolvePartSlot(slot)!.Node;
-                FailIf(shot.Angle != native[0xd0c9 + slot * 256], $"Pumpkin siblings must retain original physical-slot angle order: free={free}, slot={slot}, runtime=${shot.Angle:x2}, native=${native[0xd0c9 + slot * 256]:x2}, nativeState={native[0xd0c4 + slot * 256]}.");
+                FailIf(shot.Angle != native[0xd0c9 + slot * 256] || native[0xd0c4 + slot * 256] != 1 || native[0xd0c6 + slot * 256] != 8,
+                    $"Pumpkin siblings must initialize on birth in source slot/angle order: free={free}, slot={slot}, runtime=${shot.Angle:x2}, native=${native[0xd0c9 + slot * 256]:x2}, nativeState={native[0xd0c4 + slot * 256]}.");
             }
             FailIf(_sound.PlayRequestsFor(SoundId.SndVeranFairyAttack) != native.Sounds.Count(sound => sound == SoundId.SndVeranFairyAttack),
                 "Failed Pumpkin primary allocation must skip the attack sound.");
-            StepGameplayUpdates(2, Vector2.Zero, batched: batched);
+            StepGameplayUpdates(2, Vector2.Zero, batched: batched, afterUpdate: () =>
+            {
+                // Original initialized projectile updates, with the declared
+                // inert filler reservations excluded from native execution.
+                var held = Enumerable.Range(0, 16).Select(slot => 0xd0c0 + slot * 256)
+                    .Where(at => native[at + 1] == 0x7f).Select(at => (At: at, Enabled: native[at])).ToArray();
+                foreach (var row in held) native[row.At] = 0;
+                native.AdvanceParts(_entities.FrameCounter);
+                foreach (var row in held) native[row.At] = row.Enabled;
+                foreach (var shot in shots)
+                {
+                    int slot = F1Parts.Single(pair => pair.Key.Node == shot).Value;
+                    FailIf(shot.Delay != native[0xd0c6 + slot * 256], "Pumpkin's post-birth counter must advance on the same native updates.");
+                }
+            });
             FailIf(shots.Any(shot => shot.Delay != 6), "Every admitted Pumpkin projectile must continue advancing without unpooled siblings.");
+            foreach (var shot in shots)
+                _entities.RetireEntity(F1Parts.Single(pair => pair.Key.Node == shot).Key);
+            // partDelete clears all $40 bytes; merely clearing enabled would
+            // leave a stale state1 and suppress the next primary's setup.
+            for (int slot = 0; slot < free; slot++)
+                for (int offset = 0; offset < 0x40; offset++) native[0xd0c0 + slot * 256 + offset] = 0;
+            F1Set(boss, "_projectileFired", false); F1Set(boss, "_counter", 36);
+            native[0xd084] = 0x0c; native[0xd086] = 1; observed = 0;
+            _sound.ClearPlayRequestAudit();
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched); F1Enemy(native); F1Birth(native);
+            FailIf(observed != 16 - free || _entities.Entities<PumpkinHeadProjectile>().Count != free || F1Count(native, 0x42) != free ||
+                _entities.Entities<PumpkinHeadProjectile>().Any(shot => shot.Delay != 8),
+                $"Repeated firing free={free}: PART observers={observed}, runtime children={_entities.Entities<PumpkinHeadProjectile>().Count}, source={F1Count(native, 0x42)}, delays={string.Join(',', _entities.Entities<PumpkinHeadProjectile>().Select(shot => shot.Delay))}; ENEMY must precede PART.");
             _entities.Clear();
+            FailIf(F1Parts.Count != 0, "Pumpkin cancellation must release all real PART slots.");
         }
     }
 }

@@ -252,6 +252,10 @@ later slot can run in the same update; a reused earlier slot waits for the next
 pass. Deletion frees capacity before scene-node cleanup. Do not substitute
 scene insertion order, a collection snapshot, or separate incoming/outgoing
 walks. Preserve checked and unchecked allocation-failure behavior explicitly.
+An event-backed actor invokes its script or handler from that physical slot;
+running the actor's work after the object pass loses newborn dispatch timing.
+Composite enemy representations still run in the enemy category before parts,
+even while their separate native actor allocations remain unrepresented.
 
 Levers allocate their graphical connection during state-zero dispatch and retry
 if the pool is full. An earlier free slot becomes the parent; initialization

@@ -8,7 +8,8 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
     ILinkContactEntity, ISwordHittableRoomEntity, ISeedHittableRoomEntity,
     IRoomEntityLifetime, IRoomEnemyCounterEntity, IRoomEnemyOutcomeSource,
     IPlayerRestriction, IBraceletInteractableRoomEntity, IPlayerForcedMovement,
-    IObjectCollisionHeightRoomEntity
+    IObjectCollisionHeightRoomEntity, IUpdatesDuringDialogueRoomEntity,
+    IUpdatesDuringRoomEntityFreeze
 {
     private readonly PumpkinHeadBoss _boss;
     private readonly int _damage;
@@ -28,6 +29,8 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
     public Node2D Node => _boss;
     public bool Finished => _boss.IsDead;
     public bool CountsAsEnemy => !_boss.IsDead;
+    public bool UpdatesDuringDialogue => _boss.InitializationPending;
+    public bool UpdatesDuringRoomEntityFreeze => _boss.InitializationPending;
     public bool DisablesSword => false;
     public bool DisablesItems => _boss.IntroActive;
     public bool DisablesMovement => _boss.IntroActive;
