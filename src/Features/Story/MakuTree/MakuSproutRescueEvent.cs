@@ -542,7 +542,7 @@ internal sealed class MakuSproutRescueEvent :
         Vector2 position = actor.Position;
         actor.SetActive(false);
         actor = null;
-        _context.Entities.Spawn<MaskedMoblinCharacter>(
+        _context.Entities.TryCreateEnemy(
             new MaskedMoblinSpawn(position));
     }
 

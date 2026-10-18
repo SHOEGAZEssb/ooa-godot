@@ -18,6 +18,14 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
     internal abstract bool InitializationPending { get; }
 
     private Func<RoomEntitySpawn, bool>? _nativePartFactory;
+    private Func<RoomEntitySpawn, bool>? _nativeEnemyFactory;
+    internal void BindNativeEnemyAllocation(Func<RoomEntitySpawn, bool> create) => _nativeEnemyFactory = create;
+    private protected bool TrySpawnNativeEnemy(RoomEntitySpawn spawn, ICollection<RoomEntitySpawn> spawns)
+    {
+        if (_nativeEnemyFactory is not null) return _nativeEnemyFactory(spawn);
+        spawns.Add(spawn);
+        return true;
+    }
     private Func<int, bool>? _nativePartCapacity;
     internal void BindNativePartAllocation(Func<RoomEntitySpawn, bool> create, Func<int, bool> capacity)
     { _nativePartFactory = create; _nativePartCapacity = capacity; }

@@ -180,6 +180,10 @@ public sealed class RoomEntityManager : IDisposable
         }
         return null;
     }
+    internal bool TryCreateEnemy(RoomEntitySpawn spawn) => TryCreateEnemyEntity(spawn) is not null;
+
+    private IRoomEntity? TryCreateEnemyEntity(RoomEntitySpawn spawn) =>
+        TryAllocateEnemy(_ => _factory.Create(spawn, _roomForActiveEntities));
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
     internal event Action<int, int>? NativeMusicSelectionRequested;
     internal void RequestNativeMusicSelection(int roomMusic, int activeMusic) =>
@@ -2515,6 +2519,7 @@ public sealed class RoomEntityManager : IDisposable
             enemy.TryCreateKnockbackDust = TryCreateKnockbackDust;
             enemy.BindMovementMemory(_runtimeState);
             enemy.BindNativePartAllocation(TryCreateQueuedPart, CanAllocateParts);
+            enemy.BindNativeEnemyAllocation(TryCreateEnemy);
         }
         if (entity.Node is ItemDropProducer producer) producer.BindPartCreation(TryCreatePart);
         if (entity.Node is MapleEncounter maple) maple.BindPartCreation(TryCreateQueuedPart);
@@ -2613,6 +2618,11 @@ public sealed class RoomEntityManager : IDisposable
                 if (_reservedEnemySlots.Contains(slot)) continue;
                 RegisterEnemySlot(entity, slot);
                 break;
+            }
+            if (!_enemySlots.ContainsKey(entity))
+            {
+                FreeEntity(entity);
+                throw new InvalidOperationException($"getFreeEnemySlot: {entity.GetType().Name} bypassed checked allocation with all $10 ENEMY slots occupied ($d080-$df80); native in-place replacements require objectReplaceWithID ownership.");
             }
         }
         if (entity is INpcTalkLifecycle lifecycle &&
@@ -2797,6 +2807,13 @@ public sealed class RoomEntityManager : IDisposable
         // the preload walk owns its presentation rather than a fixed dispatch.
         if (spawn is AllocatedPartUpdateSpawn birth) return birth.Entity;
         if (spawn is PuzzlePuffSpawn puff) return TryCreatePuzzlePuffSpawn(puff);
+        // ecom_spawnEnemyWithSubid01 and object opcode7 retain the parent
+        // allocation during the attempt. A failed checked request creates no
+        // node and never becomes a logical interaction-phase enemy.
+        if (spawn is GelSpawn or FlyingTileSpawn or ArmosSpawnerSpawn or ArmosSpawn or
+            BariChildSpawn or GiantGhiniChildSpawn or ShadowHagBugSpawn or FireballShooterChildSpawn or
+            MaskedMoblinSpawn or GhiniSpawn)
+            return TryCreateEnemyEntity(spawn);
         if (spawn is HeadThwompBombDropSpawn bomb)
         {
             if (!CanAllocateParts(2)) return null;

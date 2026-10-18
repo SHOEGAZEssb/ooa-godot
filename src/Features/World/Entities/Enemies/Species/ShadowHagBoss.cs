@@ -245,8 +245,8 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                 }
                 else if ((_counter1 & 0x0f) == 0 && _bugsAlive < 7)
                 {
-                    _bugsAlive++;
-                    spawns.Add(new ShadowHagBugSpawn(this, Position));
+                    if (TrySpawnNativeEnemy(new ShadowHagBugSpawn(this, Position.Floor()), spawns))
+                        _bugsAlive++;
                 }
                 break;
 

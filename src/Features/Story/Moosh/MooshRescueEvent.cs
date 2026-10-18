@@ -284,7 +284,7 @@ internal sealed class MooshRescueEvent :
         actor.SetActive(false);
         _actors.Remove(actorName);
         _positions.Remove(actorName);
-        _context.Entities.Spawn<GhiniCharacter>(
+        _context.Entities.TryCreateEnemy(
             new GhiniSpawn(position, $"Rescue{actorName}"));
     }
 

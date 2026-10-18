@@ -217,11 +217,13 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
 
     private void SpawnChildren(ICollection<RoomEntitySpawn> spawns)
     {
-        _childrenAlive = 3;
         // giantGhini_spawnChildren allocates subids 3, 2, 1 in that order:
         // right, up, then left around the parent.
         for (int index = 0; index < 3; index++)
-            spawns.Add(new GiantGhiniChildSpawn(this, index));
+        {
+            if (!TrySpawnNativeEnemy(new GiantGhiniChildSpawn(this, index), spawns)) break;
+            _childrenAlive++;
+        }
     }
 
     private void BeginDeath()
