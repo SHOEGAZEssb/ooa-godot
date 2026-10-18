@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
             0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(p, direction, 0, 0x2a, Riding: true)),
             _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(p, direction, 0, 0x2a, Riding: true))
         };
-        CompanionRuntimeState.Begin(_runtimeState, id, 0x2a, p, direction);
+        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, id, 0x2a, p, direction);
         var rom = new CompanionRom(id, p, direction, _currentRoom);
         rom[0xcc21] = 40; rom[0xcc22] = 40; rom[0xcc23] = (byte)direction;
         rom[0xc6aa] = (byte)_player.HealthQuarters;
@@ -219,7 +219,7 @@ public sealed partial class ValidationRoot
                 rom.WaitForMount(new(8, 8));
             }
             Vector2 expectedRespawn = fallback ? new(112, 88) : new(40, 40);
-            CompanionRuntimeState.SetLastAnimalMountPosition(_runtimeState, new(112, 88));
+            CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, new(112, 88));
             rom[0xc638] = 88; rom[0xc639] = 112;
             if (fallback) SetCompanionRomTile(rom, 2, 2, 0, 15);
             SetCompanionRomTile(rom, 4, 4, tile);

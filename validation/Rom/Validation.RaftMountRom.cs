@@ -76,7 +76,7 @@ public sealed partial class ValidationRoot
                     x is 0 or 9 || y == 0 ? (byte)0x0f : afloat ? (byte)0x10 : (byte)0, 0);
             }
             var raft = new RaftRoomEntity(new RaftSpawn(new(80, 88), 0, 1, 0xa7),
-                _currentRoom, new RaftDatabase().Behavior, _runtimeState);
+                _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState);
             _entities.AddEntity(raft);
             Vector2 start = new(80.25f, 72.5f);
             _player.WarpTo(start); _player.Face(Vector2I.Down);

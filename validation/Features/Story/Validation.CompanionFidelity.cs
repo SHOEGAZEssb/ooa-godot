@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
         PrepareCompanionFidelityRoom();
         _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(72, 72), 0xd4, 3, 0);
         var moosh = _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(new Vector2(72, 64), ObjectDirection.Down, 0, 0x2a, Riding: true));
-        CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Moosh, 0x2a, moosh.Position, ObjectDirection.Down);
+        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, SpecialObjectId.Moosh, 0x2a, moosh.Position, ObjectDirection.Down);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["move_down"], justPressed: [], movement: Vector2.Down));
         try
         {
@@ -101,7 +101,7 @@ public sealed partial class ValidationRoot
     {
         PrepareCompanionFidelityRoom();
         var moosh = _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(new Vector2(72, 56), ObjectDirection.Right, 0, 0x2a, Riding: true));
-        CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Moosh, 0x2a, moosh.Position, ObjectDirection.Right);
+        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, SpecialObjectId.Moosh, 0x2a, moosh.Position, ObjectDirection.Right);
         _rooms.CurrentRoom.SetPositionTileAndCollision(moosh.Position, 0x04, 0, 0);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["move_right"], justPressed: [], movement: Vector2.Right));
         try

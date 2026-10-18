@@ -199,7 +199,7 @@ internal sealed class MooshRescueEvent :
 
     private void SpawnMoosh()
     {
-        CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, new(_record.MooshX, _record.MooshY));
+        CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, _context.Rooms.SaveData, new(_record.MooshX, _record.MooshY));
         _moosh = _context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
             _database.CreateMooshRecord(), Moosh, Talkable: true, Solid: true));
         _actors.Add(Moosh, _moosh);
@@ -227,7 +227,7 @@ internal sealed class MooshRescueEvent :
         }
         if (CompanionRuntimeState.AnyActive(_context.Entities.RuntimeState) ||
             _context.Entities.EntityAdapters<IRoomEntity>().Any(actor => actor is IRoomInitializedCompanion)) return;
-        CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, new(_record.MooshX, _record.MooshY));
+        CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, _context.Rooms.SaveData, new(_record.MooshX, _record.MooshY));
         _companion = _context.Entities.Spawn<MooshCompanionRoomEntity>(
             new MooshCompanionSpawn(
                 new Vector2(_record.MooshX, _record.MooshY),

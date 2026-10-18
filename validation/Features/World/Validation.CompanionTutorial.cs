@@ -96,8 +96,8 @@ public sealed partial class ValidationRoot
                 record.FlagAddress,
                 (byte)(_saveData.ReadWramByte(record.FlagAddress) & ~flagMask));
         }
-        CompanionRuntimeState.Begin(
-            _runtimeState,
+        CompanionRuntimeState.BeginAnimalRide(
+            _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
             room,
             new Vector2(record.X - 8, record.Y),
@@ -182,8 +182,8 @@ public sealed partial class ValidationRoot
         CompanionRuntimeState.Clear(
             _runtimeState, CompanionRuntimeState.MooshId);
         const int leftNeighbor = 0x5a;
-        CompanionRuntimeState.Begin(
-            _runtimeState,
+        CompanionRuntimeState.BeginAnimalRide(
+            _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
             leftNeighbor,
             new Vector2(0x88, record.Y),

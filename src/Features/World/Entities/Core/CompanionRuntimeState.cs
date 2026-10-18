@@ -29,11 +29,6 @@ internal static class CompanionRuntimeState
     private const int RememberedY = 0xcc27;
     private const int RememberedX = 0xcc28;
 
-    // wLastAnimalMountPointY/X are live WRAM state, shared by every animal
-    // companion. companionFinalizeMounting and finishScrollingTransition
-    // overwrite them; companionRespawn reads them without a room-id guard.
-    private const int LastAnimalMountY = 0xc638;
-    private const int LastAnimalMountX = 0xc639;
     // Ages wDisallowMountingCompanion. The interaction owns its countdown.
     internal static bool MountingDisabled(OracleRuntimeState state) => state.ReadWramByte(WramAddress.wDisallowMountingCompanion) != 0;
     internal static void SetMountingLock(OracleRuntimeState state, int frames) => state.SetWramByte(WramAddress.wDisallowMountingCompanion, checked((byte)frames));
@@ -57,14 +52,26 @@ internal static class CompanionRuntimeState
         int id,
         int room,
         Vector2 position,
-        int direction,
-        bool updateMountPoint = true)
+        int direction)
     {
         state.SetWramByte(Active, 1);
         state.SetWramByte(Id, checked((byte)id));
         Update(state, id, room, position, direction);
-        if (updateMountPoint && id is RickyId or DimitriId or MooshId)
-            SetLastAnimalMountPosition(state, position);
+    }
+
+    internal static void BeginAnimalRide(
+        OracleRuntimeState state,
+        OracleSaveData saveData,
+        int id,
+        int room,
+        Vector2 position,
+        int direction)
+    {
+        if (id is not (RickyId or DimitriId or MooshId))
+            throw new ArgumentOutOfRangeException(nameof(id), id,
+                $"SPECIALOBJECT ${id:x2} cannot finalize animal mounting.");
+        Begin(state, id, room, position, direction);
+        SetLastAnimalMountPosition(saveData, position);
     }
 
     internal static void Update(
@@ -91,20 +98,17 @@ internal static class CompanionRuntimeState
             state.SetWramByte(address, 0);
     }
 
+    // wLastAnimalMountPointY/X belong to the live save image. Mounting and
+    // scrolling overwrite them; companionRespawn reads without a room guard.
     internal static Vector2 ReadLastAnimalMountPosition(
-        OracleRuntimeState state) => new(
-            state.ReadWramByte(LastAnimalMountX),
-            state.ReadWramByte(LastAnimalMountY));
+        OracleSaveData saveData) => new(saveData.LastAnimalMountX, saveData.LastAnimalMountY);
 
     internal static void SetLastAnimalMountPosition(
-        OracleRuntimeState state,
+        OracleSaveData saveData,
         Vector2 position)
     {
-        state.SetWramByte(
-            LastAnimalMountY,
-            (byte)Mathf.FloorToInt(position.Y));
-        state.SetWramByte(
-            LastAnimalMountX,
+        saveData.SetLastAnimalMountPoint(
+            (byte)Mathf.FloorToInt(position.Y),
             (byte)Mathf.FloorToInt(position.X));
     }
 
@@ -131,10 +135,10 @@ internal static class CompanionRuntimeState
 
     // companionSpawner.s:@loadCompanionPreset overwrites only the remembered
     // ID and last-mount coordinates; the remembered room/position survive.
-    internal static void InstallPreset(OracleRuntimeState state, Vector2 position)
+    internal static void InstallPreset(OracleRuntimeState state, OracleSaveData saveData, Vector2 position)
     {
         ForgetRemembered(state);
-        SetLastAnimalMountPosition(state, position);
+        SetLastAnimalMountPosition(saveData, position);
     }
 
     internal static bool TryGetRemembered(

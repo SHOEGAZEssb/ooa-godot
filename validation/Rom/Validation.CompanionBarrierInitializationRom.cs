@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
                 if (gate == 0) _saveData.WriteWramByte(0xc647,0x80);
                 int direction = gate == 4 ? 0 : 2;
                 _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(new(104,96),direction,0,0x89,Riding:true));
-                CompanionRuntimeState.Begin(_runtimeState,0x0c,0x89,new(104,96),direction);
+                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,0x0c,0x89,new(104,96),direction);
             }
             if (gate == 1) _saveData.WriteWramByte(0xc614,1);
             var barrier = _entities.Entities<CompanionBarrierRoomEntity>().Single();

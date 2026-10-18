@@ -311,7 +311,7 @@ public sealed partial class ValidationRoot
                 Enumerable.Range((int)point.X - 5, mainland.Width - (int)point.X + 5).All(x =>
                     !mainland.IsSolid(new Vector2(x, point.Y - 5)) &&
                     !mainland.IsSolid(new Vector2(x, point.Y + 8))));
-        CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Dimitri, 0x98, landing, ObjectDirection.Right);
+        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, SpecialObjectId.Dimitri, 0x98, landing, ObjectDirection.Right);
         LoadValidationRoom(0, 0x98);
         dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
         for (int frame = 0; frame < 180 && !_dialogue.IsOpen; frame++)

@@ -93,7 +93,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private readonly MooshRescueEventRecord _record;
     private readonly MooshCompanionVisualRecord _visual;
     private readonly MooshGoodbyeEventRecord? _goodbye;
-    private readonly OracleSaveData? _saveData;
+    private readonly OracleSaveData _saveData;
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _playSound;
     private readonly Action<int, string, Vector2> _dialogueRequested;
@@ -221,7 +221,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _record = database.Record;
         _visual = database.Visual;
         _goodbye = spawn.Goodbye;
-        _saveData = saveData;
+        _saveData = saveData ?? throw new ArgumentNullException(nameof(saveData));
         _runtime = runtime;
         _playSound = playSound;
         _dialogueRequested = dialogueRequested;
@@ -240,7 +240,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             _fluteEntrance = true;
             _flutePending = true;
             _angle = _direction * 8;
-            CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, destination);
+            CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, destination);
         }
         _phase = spawn.Goodbye is not null
             ? MooshCompanionPhase.GoodbyeInitializing
@@ -435,8 +435,8 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _speedZ = 0;
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         SetAnimation(0x13 + _direction);
-        CompanionRuntimeState.Begin(
-            _runtime, CompanionRuntimeState.MooshId,
+        CompanionRuntimeState.BeginAnimalRide(
+            _runtime, _saveData, CompanionRuntimeState.MooshId,
             _roomId, _precisePosition, _direction);
         SynchronizePlayer(player, Vector2.Zero, finishMount: true);
     }
@@ -831,7 +831,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
         HazardType completedHazard = _hazard.Type;
         Vector2 respawn = CompanionHazard.ResolveRespawn(
-            player, _runtime, CanRespawnAt);
+            player, _saveData, CanRespawnAt);
         _precisePosition = respawn;
         _hazard = default;
         _phase = _hazardMounted ? MooshCompanionPhase.Riding : MooshCompanionPhase.Waiting;
@@ -1107,7 +1107,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         Position = OracleObjectMath.ToPixelPosition(position);
         Vector2 respawn = OracleObjectMath.ToPixelPosition(position);
         player.SetLocalRespawnPosition(respawn);
-        CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, respawn);
+        CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, respawn);
         CompanionRuntimeState.Update(
             _runtime, CompanionRuntimeState.MooshId,
             _roomId, position, _direction);

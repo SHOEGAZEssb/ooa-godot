@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             else _inventory.LoseTreasure(TreasureId.ChevalRope);
             int room = subid switch { 0 => 0x6c, 1 => 0x6b, 2 => 0x6a, 3 => 0xaa, 4 => 0x81, _ => 0x63 };
             CompanionRuntimeState.Remember(_runtimeState, remembered ? id : 0, 0, room, new(72, 64));
-            CompanionRuntimeState.SetLastAnimalMountPosition(_runtimeState, new(24, 24));
+            CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, new(24, 24));
             var native = new CompanionSpawnRom(_world.LoadRoom(0, room), 0, new(8, 8));
             for (int address = 0xc600; address < 0xcb00; address++) native.Memory[address] = _saveData.ReadWramByte(address);
             for (int address = 0xcc24; address <= 0xcc28; address++) native.Memory[address] = _runtimeState.ReadWramByte(address);
@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
                 $"Preset ${subid:x2} did not preserve native allocation precedence for companion ${id:x2}, remembered={remembered}.");
             for (int address = 0xcc24; address <= 0xcc28; address++)
                 FailIf(_runtimeState.ReadWramByte(address) != native.Memory[address], $"Preset ${subid:x2} precedence changed remembered byte ${address:x4}.");
-            FailIf(CompanionRuntimeState.ReadLastAnimalMountPosition(_runtimeState) != new Vector2(native.Memory[0xc639], native.Memory[0xc638]),
+            FailIf(CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData) != new Vector2(native.Memory[0xc639], native.Memory[0xc638]),
                 $"Preset ${subid:x2} precedence changed the native fallback point.");
         }
     }
@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(position, 0, 0, 0);
             _currentRoom.SetPositionTileAndCollision(position + new Vector2(0, 5), 0, 0, 0);
             CompanionRuntimeState.Remember(_runtimeState, id, 0, 0x45, position);
-            CompanionRuntimeState.SetLastAnimalMountPosition(_runtimeState, new(40, 40));
+            CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, new(40, 40));
             _entities.LoadRoom(0, _currentRoom);
             _player.WarpTo(new(8, 8));
             var rom = new CompanionRom(id, position, 2, _currentRoom);
@@ -161,7 +161,7 @@ public sealed partial class ValidationRoot
             if (subid == 1) _inventory.GiveTreasure(TreasureId.ChevalRope, 0);
             else _inventory.LoseTreasure(TreasureId.ChevalRope);
             CompanionRuntimeState.Remember(_runtimeState, 0x0c, 1, 0x23, new(0x45, 0x67));
-            CompanionRuntimeState.SetLastAnimalMountPosition(_runtimeState, new(24, 24));
+            CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, new(24, 24));
             int room = subid == 0 ? 0x6c : subid == 1 ? 0x6b : subid == 2 ? 0x6a : 0xaa;
             var native = new CompanionSpawnRom(_world.LoadRoom(0, room), 0, new(8, 8));
             for (int address = 0xc600; address < 0xcb00; address++) native.Memory[address] = _saveData.ReadWramByte(address);
@@ -174,7 +174,7 @@ public sealed partial class ValidationRoot
                 $"Preset ${subid:x2} did not allocate one companion at the native preset position.");
             for (int address = 0xcc24; address <= 0xcc28; address++)
                 FailIf(_runtimeState.ReadWramByte(address) != native.Memory[address], $"Preset ${subid:x2} remembered byte ${address:x4} differs.");
-            FailIf(CompanionRuntimeState.ReadLastAnimalMountPosition(_runtimeState) != new Vector2(native.Memory[0xc639], native.Memory[0xc638]),
+            FailIf(CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData) != new Vector2(native.Memory[0xc639], native.Memory[0xc638]),
                 $"Preset ${subid:x2} did not install its native last-mount point.");
         }
     }
@@ -193,7 +193,10 @@ public sealed partial class ValidationRoot
             foreach (int id in new[] { 0x0a, 0x0b, 0x0c, 0x0d, 0x13 }) CompanionRuntimeState.Clear(_runtimeState, id);
             idField.SetValue(_currentRoom, room); flagsField.SetValue(_currentRoom, flags);
             _inventory.AssignAnimalCompanion(0x0c);
-            if (occupant != 0) CompanionRuntimeState.Begin(_runtimeState, occupant, room, new(72, 64), 2);
+            if (occupant is 0x0b or 0x0c or 0x0d)
+                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, occupant, room, new(72, 64), 2);
+            else if (occupant != 0)
+                CompanionRuntimeState.Begin(_runtimeState, occupant, room, new(72, 64), 2);
             var native = new CompanionSpawnRom(_currentRoom, 0, _player.Position);
             native.Memory[0xc610] = 0x0c; native.Memory[0xc6b5] = (byte)icon;
             native.Memory[0xd100] = occupant == 0 ? (byte)0 : (byte)1;
@@ -238,7 +241,7 @@ public sealed partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(position + new Vector2(0, 5), 0, (byte)collision, 0);
             _currentRoom.SetPositionTileAndCollision(fallback, 0, (byte)fallbackCollision, 0);
             CompanionRuntimeState.Remember(_runtimeState, id, 0, 0x2a, position);
-            CompanionRuntimeState.SetLastAnimalMountPosition(_runtimeState, fallback);
+            CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, fallback);
             _entities.LoadRoom(0, _currentRoom);
             var rom = new CompanionRom(id, position, 2, _currentRoom);
             rom.InitializeRemembered(_player.Position, fallback, false);
@@ -253,7 +256,7 @@ public sealed partial class ValidationRoot
                 if (actors.Length != 0)
                     FailIf(CompanionField<Vector2>(actors[0], "_precisePosition") != rom.Position,
                         $"Remembered ${id:x2} collision=${collision:x2}, fallback=${fallbackCollision:x2}: native={rom.Position}, runtime={actors[0].Node.Position}.");
-                FailIf(CompanionRuntimeState.ReadLastAnimalMountPosition(_runtimeState) != fallback,
+                FailIf(CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData) != fallback,
                     "Restoring a remembered companion changed the last mount point.");
             });
         }
@@ -300,7 +303,7 @@ public sealed partial class ValidationRoot
                 spawned++;
                 var actor = (IRoomEntity)actors.Single();
                 Vector2 p = CompanionField<Vector2>(actor, "_precisePosition");
-                Vector2 mount = CompanionRuntimeState.ReadLastAnimalMountPosition(_runtimeState);
+                Vector2 mount = CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData);
                 FailIf((byte)(int)p.X != native.Memory[0xd10d] || (byte)(int)p.Y != native.Memory[0xd10b] ||
                     CompanionField<int>(actor, "_direction") != native.Memory[0xd108] ||
                     mount != new Vector2(native.Memory[0xc639], native.Memory[0xc638]),

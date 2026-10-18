@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
                     water ? (byte)0xfc : (byte)0xa0, water ? (byte)0x10 : (byte)0, 0);
             }
             var raft = new RaftRoomEntity(new RaftSpawn(new(raftX, 88), 0, 1, 0xa7),
-                _currentRoom, new RaftDatabase().Behavior, _runtimeState);
+                _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState);
             _entities.AddEntity(raft);
             // Both takeoff points are open dry shore. The near point is
             // already inside the inner radius; rising Z must prevent boarding.

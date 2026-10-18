@@ -209,7 +209,7 @@ public sealed partial class ValidationRoot
         FailIf(CompanionRuntimeState.ReadRemembered(_entities.RuntimeState) != remembered ||
             CompanionRuntimeState.Read(_entities.RuntimeState).Room != 0xa8 ||
             _player.LocalRespawnPosition != new Vector2(8, 85) ||
-            CompanionRuntimeState.ReadLastAnimalMountPosition(_entities.RuntimeState) != new Vector2(8, 85),
+            CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData) != new Vector2(8, 85),
             "SPECIALOBJECT_RAFT $13 scroll finisher lost the active room/local checkpoint or rewrote remembered state.");
 
         _player.RequestForcedRespawn();

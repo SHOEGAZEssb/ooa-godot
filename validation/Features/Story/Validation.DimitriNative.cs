@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
         _rooms.CurrentRoom.SetPositionTileAndCollision(new Vector2(72, 72), 0xd4, 3, 0);
         var dimitri = _entities.Spawn<DimitriCompanionRoomEntity>(
             new DimitriCompanionSpawn(new Vector2(72, 64), ObjectDirection.Down, 0, 0x2a, Riding: true));
-        CompanionRuntimeState.Begin(_entities.RuntimeState, SpecialObjectId.Dimitri, 0x2a, new Vector2(72, 64), ObjectDirection.Down);
+        CompanionRuntimeState.BeginAnimalRide(_entities.RuntimeState, _saveData, SpecialObjectId.Dimitri, 0x2a, new Vector2(72, 64), ObjectDirection.Down);
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: ["move_down"], justPressed: [], movement: Vector2.Down));
         try
         {

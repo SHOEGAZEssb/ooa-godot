@@ -124,7 +124,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         {
             _phase = DimitriPhase.FlutePending;
             _angle = _direction * 8;
-            CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, destination);
+            CompanionRuntimeState.SetLastAnimalMountPosition(_save, destination);
         }
         _animation = new EnemyAnimationPlayer(this, data.Animations.Length);
         _animation.Load(OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_dimitri.png"),
@@ -268,7 +268,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
                 _angle = 0xff;
                 _mountStarted = false;
                 SetAnimation(0);
-                CompanionRuntimeState.Begin(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
+                CompanionRuntimeState.BeginAnimalRide(_runtime, _save, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
                 SynchronizePlayer(player, finishMount: true);
                 if (_rescueMount)
                 {
@@ -399,7 +399,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             case DimitriPhase.Hazard:
                 if (_hazard.Advance(ref _precisePosition, _animation, 0x25, 0x25, _animation.SetAnimation, _sound))
                 {
-                    _precisePosition = CompanionHazard.ResolveRespawn(player, _runtime, CanRespawnAt);
+                    _precisePosition = CompanionHazard.ResolveRespawn(player, _save, CanRespawnAt);
                     if (_hazardMounted) player.ApplyCompanionHazardDamage(_hazard.Type);
                     _phase = _hazardMounted ? DimitriPhase.Riding : DimitriPhase.Waiting;
                     _carried.ZFixed = 0; _carried.SpeedZ = 0;
@@ -587,7 +587,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         _holder = player;
         _water = 0;
         _direction = CarriedObjectMotion.DirectionIndex(player.FacingVector);
-        CompanionRuntimeState.Begin(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction, updateMountPoint: false);
+        CompanionRuntimeState.Begin(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
         SetAnimation(0x18);
         _carried = new CarriedObjectMotion(_precisePosition);
         player.BraceletObjectWeight = 4; // dimitriState2Substate0: wLinkGrabState2=$40.
@@ -776,7 +776,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         }
         _destination = null; _precisePosition = position; Position = OracleObjectMath.ToPixelPosition(position);
         player.SetLocalRespawnPosition(Position);
-        CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, Position);
+        CompanionRuntimeState.SetLastAnimalMountPosition(_save, Position);
         CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, position, _direction);
         SynchronizePlayer(player);
     }

@@ -29,6 +29,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
 
     private OracleRoomData _room;
     private readonly OracleRuntimeState _runtime;
+    private readonly OracleSaveData _saveData;
     private readonly RaftBehavior _behavior;
     private readonly EnemyAnimationPlayer _waitingAnimation;
     private readonly EnemyAnimationPlayer _mountedAnimation;
@@ -73,11 +74,13 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         RaftSpawn spawn,
         OracleRoomData room,
         RaftBehavior behavior,
+        OracleSaveData saveData,
         OracleRuntimeState runtime)
     {
         _room = room;
         _behavior = behavior;
         _runtime = runtime;
+        _saveData = saveData;
         _group = spawn.Group;
         _roomId = spawn.Room;
         _precisePosition = spawn.Position;
@@ -395,7 +398,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     private void SavePosition(Player player)
     {
         Vector2 pixels = OracleObjectMath.ToPixelPosition(_precisePosition);
-        CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, pixels);
+        CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, pixels);
         CompanionRuntimeState.Remember(
             _runtime, CompanionRuntimeState.RaftId, _group, _roomId, pixels);
         player.SetLocalRespawnPosition(pixels, DirectionVector(_direction));
@@ -490,7 +493,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         // finishScrollingTransition writes local respawn and last mount point,
         // but does not overwrite wRememberedCompanion until a later dismount.
         Vector2 pixels = OracleObjectMath.ToPixelPosition(position);
-        CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, pixels);
+        CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, pixels);
         player.SetLocalRespawnPosition(pixels, DirectionVector(_direction));
         SynchronizeRide(player);
     }

@@ -169,7 +169,7 @@ public partial class ValidationRoot
         {
             var record = tutorials.GetRoomRecords(0, room).Single();
             _saveData.WriteWramByte(record.FlagAddress, (byte)(_saveData.ReadWramByte(record.FlagAddress) & ~(1 << record.FlagBit)));
-            CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Dimitri, room, new Vector2(record.X, record.Y + 16), ObjectDirection.Up);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, SpecialObjectId.Dimitri, room, new Vector2(record.X, record.Y + 16), ObjectDirection.Up);
             LoadValidationRoom(0, room);
             _entities.Entities<DimitriCompanionRoomEntity>().Single().UpdatePlayerForcedMovement(_player);
             var tutorial = _entities.Entities<CompanionTutorialRoomEntity>().Single();
@@ -203,7 +203,7 @@ public partial class ValidationRoot
         _player.WarpTo(new Vector2(32, 24), recordSafe: false);
         StepRoomEventFrames(1);
         FailIf(_transitions.IsTransitioning, "Waterfall cave admitted Link on foot.");
-        CompanionRuntimeState.Begin(_runtimeState, SpecialObjectId.Dimitri, 0x37, new Vector2(32, 24), ObjectDirection.Up);
+        CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, SpecialObjectId.Dimitri, 0x37, new Vector2(32, 24), ObjectDirection.Up);
         _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(new Vector2(32, 24), ObjectDirection.Up, 0, 0x37, true));
         StepRoomEventFrames(1);
         FailIf(!_transitions.IsTransitioning, "Mounted Dimitri did not enter the waterfall cave.");

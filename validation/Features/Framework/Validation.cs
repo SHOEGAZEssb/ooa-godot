@@ -1033,6 +1033,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateBombchuDataRom, requiresRom: true);
         RunIsolatedValidation(ValidateBombchuGameplayRom, requiresRom: true);
         RunIsolatedValidation(ValidateBiggoronSwordGameplayRom, requiresRom: true);
+        RunIsolatedValidation(ValidateBiggoronSwordNoKnockbackRom, requiresRom: true);
         RunIsolatedValidation(ValidateSomariaSideViewRom, requiresRom: true);
         RunIsolatedValidation(ValidateSomariaHazardsRom, requiresRom: true);
         RunIsolatedValidation(ValidateSomariaBlockRom, requiresRom: true);

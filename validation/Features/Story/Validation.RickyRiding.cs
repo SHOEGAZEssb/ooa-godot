@@ -38,8 +38,8 @@ public sealed partial class ValidationRoot
                 record.Group,
                 record.Room,
                 Riding: true));
-        CompanionRuntimeState.Begin(
-            _runtimeState,
+        CompanionRuntimeState.BeginAnimalRide(
+            _runtimeState, _saveData,
             CompanionRuntimeState.RickyId,
             record.Room,
             mountPosition,
@@ -636,7 +636,7 @@ public sealed partial class ValidationRoot
             companion.PrecisePosition.X >= _currentRoom.Width / 2.0f ||
             _player.Position != screenRespawn ||
             _player.LocalRespawnPosition != screenRespawn ||
-            CompanionRuntimeState.ReadLastAnimalMountPosition(_runtimeState) !=
+            CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData) !=
                 screenRespawn,
             "Mounted Ricky did not finish the horizontal scroll in room " +
             "$0:6b with Link at Ricky's whole-pixel object position and both " +

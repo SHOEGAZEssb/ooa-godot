@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
                 0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(point, direction, 0, 0x2a, Riding: true)),
                 _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(point, direction, 0, 0x2a, Riding: true))
             };
-            CompanionRuntimeState.Begin(_runtimeState, id, 0x2a, point, direction);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, id, 0x2a, point, direction);
             _entities.Update(1.0 / 60, _player);
             FailIf(!_player.CompanionRideActive || _player.EnemyContactPosition != companion.Node.Position,
                 $"Companion ${id:x2}, direction ${direction:x2}: collision did not follow wLinkObjectIndex=$d1.");

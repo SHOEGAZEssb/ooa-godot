@@ -83,8 +83,8 @@ public sealed partial class ValidationRoot
             "wRickyState bit `$40 did not suppress room 0:6a Ricky.");
 
         Configure(prerequisite: true, state: 0, gloves: false);
-        CompanionRuntimeState.Begin(
-            _runtimeState,
+        CompanionRuntimeState.BeginAnimalRide(
+            _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
             record.Room,
             new Vector2(0x30, 0x30),

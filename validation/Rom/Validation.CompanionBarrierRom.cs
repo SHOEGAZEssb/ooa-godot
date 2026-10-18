@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
                 0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(start,2,0,0x89,Riding:true)),
                 _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(start,2,0,0x89,Riding:true))
             };
-            CompanionRuntimeState.Begin(_runtimeState,id,0x89,start,2);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,id,0x89,start,2);
             var mounted = new CompanionRom(id,start,2,_currentRoom);
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData,seed,_currentRoom,2,(int)start.X,(int)start.Y) { CompanionDispatchEnabled = true };
@@ -105,7 +105,7 @@ public sealed partial class ValidationRoot
                 active.Remove(actor);
                 typeof(RoomEntityManager).GetMethod("FreeEntity",flags)!.Invoke(_entities,[actor]);
                 actor = _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(start,2,0,0x89,Riding:true));
-                CompanionRuntimeState.Begin(_runtimeState,0x0c,0x89,start,2);
+                CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,0x0c,0x89,start,2);
                 mounted = new CompanionRom(0x0c,start,2,_currentRoom);
                 for (int address = 0xd000; address < 0xd040; address++) rom[address] = mounted[address];
                 for (int address = 0xd100; address < 0xd140; address++) rom[address] = mounted[address];

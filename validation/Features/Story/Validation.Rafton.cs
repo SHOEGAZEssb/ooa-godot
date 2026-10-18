@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             "Room 1:a8 no longer exposes a non-solid collision-$10 ocean tile.");
         var oceanRaft = new RaftRoomEntity(
             new RaftSpawn(deepWater, ObjectDirection.Up, 1, 0xa8, Riding: true),
-            oceanRoom, behavior, _entities.RuntimeState);
+            oceanRoom, behavior, _saveData, _entities.RuntimeState);
         FailIf(
             oceanRaft.CanDismountAt(deepWater),
             "SPECIALOBJECT_RAFT allowed a dismount onto collision-$10 ocean water.");

@@ -5,7 +5,7 @@ namespace oracleofages;
 
 // companionCheckCanSpawn state $00 yields once so interaction initializers
 // can mark solid positions. Rejection leaves remembered bytes untouched.
-internal sealed class CompanionRoomInitialization(OracleRoomData room, OracleRuntimeState runtime,
+internal sealed class CompanionRoomInitialization(OracleRoomData room, OracleSaveData saveData,
     Func<Vector2, bool> occupied)
 {
     private int _updates;
@@ -18,7 +18,7 @@ internal sealed class CompanionRoomInitialization(OracleRoomData room, OracleRun
         int collision = room.GetTerrainInfo(position + new Vector2(0, 5)).Collision;
         if (collision is 0x0f or 0x10)
         {
-            position = CompanionRuntimeState.ReadLastAnimalMountPosition(runtime);
+            position = CompanionRuntimeState.ReadLastAnimalMountPosition(saveData);
             Rejected = room.GetTerrainInfo(position).Collision != 0;
         }
         return true;

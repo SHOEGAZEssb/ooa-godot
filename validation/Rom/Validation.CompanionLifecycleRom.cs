@@ -93,7 +93,7 @@ public sealed partial class ValidationRoot
                     _transitions.ScrollActive != (rom[0xcd04] != 2) || CompanionField<int>(animation, "_frameCounter") != animationCounter,
                     $"Companion ${id:x2} scroll direction={direction}, update={update}: native XY={rom.Word(0xd10c)}/{rom.Word(0xd10a)}, runtime={x}/{y}.");
             });
-            FailIf(CompanionRuntimeState.ReadLastAnimalMountPosition(_runtimeState) != new Vector2(rom[0xc639], rom[0xc638]),
+            FailIf(CompanionRuntimeState.ReadLastAnimalMountPosition(_saveData) != new Vector2(rom[0xc639], rom[0xc638]),
                 "Companion scroll did not publish the native last-mount coordinates.");
         }
     }

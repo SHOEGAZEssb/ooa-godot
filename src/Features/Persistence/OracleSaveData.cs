@@ -76,6 +76,8 @@ public sealed class OracleSaveData
     public int RespawnFacing => ReadWramByte(0xc62e) & 0x03;
     public int RespawnY => ReadWramByte(0xc62f);
     public int RespawnX => ReadWramByte(0xc630);
+    internal byte LastAnimalMountY => ReadWramByte(0xc638);
+    internal byte LastAnimalMountX => ReadWramByte(0xc639);
     public bool IsLinkedGame => ReadWramByte(WramAddress.wFileIsLinkedGame) != 0;
     public bool IsCompleted => ReadWramByte(WramAddress.wFileIsCompleted) != 0;
     public int MapleKillCounter => ReadWramByte(WramAddress.wMapleKillCounter);
@@ -495,6 +497,15 @@ public sealed class OracleSaveData
         byte restored = (byte)Math.Max(0x0c, (ReadWramByte(WramAddress.wLinkMaxHealth) >> 1) & 0xfc);
         if (WriteWramByte(WramAddress.wLinkHealth, restored))
             PublishChange();
+    }
+
+    internal void SetLastAnimalMountPoint(byte y, byte x)
+    {
+        // companionFinalizeMounting writes the shared Y/X pair inside the
+        // live $c5b0-$caff image. Only an explicit save copies it to disk.
+        bool changed = WriteWramByte(0xc638, y);
+        changed |= WriteWramByte(0xc639, x);
+        if (changed) PublishChange();
     }
 
     public byte[] Serialize()

@@ -119,7 +119,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     private readonly RickyGlovesEventRecord _record;
     private readonly RickyCompanionVisualRecord _visual;
     private readonly RickyCompanionBehaviorRecord _behavior;
-    private readonly OracleSaveData? _saveData;
+    private readonly OracleSaveData _saveData;
     private readonly OracleRuntimeState _runtime;
     private readonly OracleRandom _random;
     private readonly LedgeJumpDatabase _ledgeJumps;
@@ -240,7 +240,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _record = database.Record;
         _visual = database.Visual;
         _behavior = database.Behavior;
-        _saveData = saveData;
+        _saveData = saveData ?? throw new ArgumentNullException(nameof(saveData));
         _runtime = runtime;
         _random = random;
         _ledgeJumps = ledgeJumps;
@@ -257,7 +257,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             _fluteEntrance = true;
             _flutePending = true;
             _angle = _direction * 8;
-            CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, destination);
+            CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, destination);
         }
         _phase = spawn.ForceMount
             ? RickyCompanionPhase.Mounting
@@ -482,8 +482,8 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _screenTransitionsDisabled = false;
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         SetAnimation(_behavior.IdleAnimation + _direction);
-        CompanionRuntimeState.Begin(
-            _runtime,
+        CompanionRuntimeState.BeginAnimalRide(
+            _runtime, _saveData,
             CompanionRuntimeState.RickyId,
             _roomId,
             _precisePosition,
@@ -1340,7 +1340,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
 
         HazardType completedHazard = _hazard.Type;
         Vector2 respawn = CompanionHazard.ResolveRespawn(
-            player, _runtime, CanRespawnAt);
+            player, _saveData, CanRespawnAt);
         _precisePosition = respawn;
         _hazard = default;
         _screenTransitionsDisabled = false;
@@ -1484,7 +1484,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         Position = OracleObjectMath.ToPixelPosition(position);
         Vector2 respawn = OracleObjectMath.ToPixelPosition(position);
         player.SetLocalRespawnPosition(respawn);
-        CompanionRuntimeState.SetLastAnimalMountPosition(_runtime, respawn);
+        CompanionRuntimeState.SetLastAnimalMountPosition(_saveData, respawn);
         CompanionRuntimeState.Update(
             _runtime,
             CompanionRuntimeState.RickyId,

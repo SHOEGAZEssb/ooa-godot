@@ -39,12 +39,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             return native.ApplyItemCollision(RoomEntityItemCollision.Bomb, bomb.CollisionBounds,
                 bomb.CollisionBounds.GetCenter(), bomb.Damage, spawns);
         if (effect == CollisionEffect.SwordNoKnockback)
-        {
-            if (!Entity.TakeDeferredNoKnockbackHit(bomb.CollisionBounds.GetCenter(), bomb.Damage)) return false;
-            Entity.DeferNativeHitStatus();
-            combatDescriptor.RequestSound(SoundId.SndDamageEnemy);
-            return true;
-        }
+            return ApplyNoKnockbackItemHit(bomb.CollisionBounds.GetCenter(), bomb.Damage);
         var strength = effect switch
         {
             CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
@@ -281,6 +276,16 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         // suppresses ordinary Link contact while the enemy remains stunned.
         if (!Stunned) combatDescriptor.Combat.HandleLinkContact(player);
     }
+    private bool ApplyNoKnockbackItemHit(Vector2 origin, int damage)
+    {
+        // collisionEffects.s:collisionEffect0b shares ENEMYDMG_0c across
+        // item types: damage, JUST_HIT, $20 invincibility and zero recoil.
+        if (!Entity.TakeDeferredNoKnockbackHit(origin, damage)) return false;
+        Entity.DeferNativeHitStatus();
+        combatDescriptor.RequestSound(SoundId.SndDamageEnemy);
+        return true;
+    }
+
     public virtual bool ApplyBiggoronSwordCollision(Rect2 bounds,Vector2 origin,int damage,ICollection<RoomEntitySpawn> spawns)
     {
         var data=BiggoronSwordCollisionDatabase.Shared;
@@ -289,6 +294,8 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         int effect=data.Effect(DimitriCollisionMode);
         // Even effect$00 ends this target's scan before its Link contact.
         if(effect==CollisionEffect.None) return true;
+        if (effect == CollisionEffect.SwordNoKnockback)
+            return ApplyNoKnockbackItemHit(origin, damage);
         var strength=effect switch
         {
             CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,

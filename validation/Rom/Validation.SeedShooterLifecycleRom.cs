@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
             if (raft)
             {
                 raftEntity = new RaftRoomEntity(new RaftSpawn(new(80, 56), 0, 1, 0xa7),
-                    _currentRoom, new RaftDatabase().Behavior, _runtimeState);
+                    _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState);
                 _entities.AddEntity(raftEntity);
             }
             MinecartRoomEntity? cart = null;

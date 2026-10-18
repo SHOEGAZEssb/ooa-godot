@@ -2294,7 +2294,7 @@ public sealed class RoomEntityManager : IDisposable
             if (entity is not IRoomInitializedCompanion companion ||
                 entity is IPlayerRideableRoomEntity { LinkRiding: true } ||
                 entity is MooshCompanionRoomEntity { GoodbyeActive: true }) continue;
-            companion.RoomInitialization = new(room, _runtimeState,
+            companion.RoomInitialization = new(room, _saveData ?? throw new InvalidOperationException("Animal companion initialization requires live save state."),
                 position => TimeWarpPositionOccupied(_companionSolidPositions ??= new(), room.GetPackedPosition(position)));
             entity.Node.Visible = false;
         }
@@ -2755,7 +2755,10 @@ public sealed class RoomEntityManager : IDisposable
                 if (puff.DecrementsRoomCount) _unreleasedEnemyCounts++;
                 continue; // No retry, kill sound, or item drop on allocation failure.
             }
-            IRoomEntity entity = AddEntity(_factory.Create(spawn, _roomForActiveEntities));
+            IRoomEntity? entity = spawn is PuzzlePuffSpawn puzzlePuff
+                ? TryCreatePuzzlePuffSpawn(puzzlePuff)
+                : AddEntity(_factory.Create(spawn, _roomForActiveEntities));
+            if (entity is null) continue;
             if (spawn.UpdateThisFrame && entity is not ItemDropRoomEntity && EntityPhase(entity) != 0 &&
                 frame.HasValue && entity is IFixedRoomEntity fixedEntity)
             {
@@ -3251,10 +3254,14 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     internal bool TryCreatePuzzlePuff(Vector2 position)
+        => TryCreatePuzzlePuffSpawn(new PuzzlePuffSpawn(position, SoundId.SndPoof)) is not null;
+
+    private IRoomEntity? TryCreatePuzzlePuffSpawn(PuzzlePuffSpawn spawn)
     {
-        if (FindFreeInteractionSlot() < 0) return false;
-        AddEntity(_factory.Create(new PuzzlePuffSpawn(position,SoundId.SndPoof),_roomForActiveEntities));
-        return true;
+        // objectCreatePuff returns without constructing an interaction when
+        // getFreeInteractionSlot fails. scriptCmd_createPuff still advances.
+        if (!InteractionSlotAvailable) return null;
+        return AddEntity(_factory.Create(spawn, _roomForActiveEntities));
     }
 
     internal bool TryCreateWallArrow(EnemyArrowSpawn spawn)

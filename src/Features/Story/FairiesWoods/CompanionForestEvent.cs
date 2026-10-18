@@ -94,7 +94,7 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
                     _ => throw UnsupportedCommand($"spawn forest companion ${_companionId:x2}")
                 };
                 _companion.UseForestInteraction(_role == 10);
-                CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, position);
+                CompanionRuntimeState.InstallPreset(_context.Entities.RuntimeState, Save, position);
             }
         }
         if (_role == 10)

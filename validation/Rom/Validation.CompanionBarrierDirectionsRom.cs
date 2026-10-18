@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             // Native Impa state0 suppresses her completed encounter in $6a;
             // keep that independent story script from owning these inputs.
             _saveData.SetRoomFlag(0,0x6a,0x40);
-            CompanionRuntimeState.Begin(_runtimeState,spec.Id,spec.Room,spec.Start,spec.Direction);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData,spec.Id,spec.Room,spec.Start,spec.Direction);
             LoadValidationRoom(0,spec.Room);
             FailIf(_currentRoom.IsSolid(spec.Start),"Generic barrier approach must start on original room floor.");
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;

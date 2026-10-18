@@ -958,8 +958,8 @@ public sealed partial class ValidationRoot
                 holeGroup,
                 holeRoom,
                 Riding: true));
-        CompanionRuntimeState.Begin(
-            _runtimeState,
+        CompanionRuntimeState.BeginAnimalRide(
+            _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
             holeRoom,
             holeCenter,
@@ -1020,8 +1020,8 @@ public sealed partial class ValidationRoot
                 waterGroup,
                 waterRoom,
                 Riding: true));
-        CompanionRuntimeState.Begin(
-            _runtimeState,
+        CompanionRuntimeState.BeginAnimalRide(
+            _runtimeState, _saveData,
             CompanionRuntimeState.MooshId,
             waterRoom,
             waterStart,

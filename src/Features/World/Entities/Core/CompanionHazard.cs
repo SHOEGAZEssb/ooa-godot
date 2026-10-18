@@ -66,7 +66,7 @@ internal struct CompanionHazard
 
     internal static Vector2 ResolveRespawn(
         Player player,
-        OracleRuntimeState runtime,
+        OracleSaveData saveData,
         Func<Vector2, bool> canRespawnAt)
     {
         Vector2 localRespawn = player.LocalRespawnPosition;
@@ -75,7 +75,7 @@ internal struct CompanionHazard
 
         // companionRespawn does not validate this second position.
         Vector2 lastMount =
-            CompanionRuntimeState.ReadLastAnimalMountPosition(runtime);
+            CompanionRuntimeState.ReadLastAnimalMountPosition(saveData);
         player.SetLocalRespawnCoordinates(lastMount);
         return lastMount;
     }

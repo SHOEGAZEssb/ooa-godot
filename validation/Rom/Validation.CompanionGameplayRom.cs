@@ -18,6 +18,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(position + new Vector2(0, 8));
             var rom = new CompanionRom(id, position, 2, _currentRoom);
             rom.WaitForMount(_player.PrecisePosition);
+            int saveWrites = _saveWriteRequests;
             int update = 0;
             void Compare(Vector2 movement, byte buttons)
             {
@@ -26,6 +27,9 @@ public sealed partial class ValidationRoot
                 FailIf(_player.CompanionRideActive != riding || _player.CompanionJumpActive != (rom[0xcc5c] != 0) ||
                     _player.Position != rom.LinkPixels,
                     $"ROM companion ${id:x2} mount update {update}: native ride={riding}, air=${rom[0xcc5c]:x2}, pos={rom.LinkPixels}; runtime ride={_player.CompanionRideActive}, air={_player.CompanionJumpActive}, pos={_player.Position}.");
+                FailIf(_saveData.ReadWramByte(0xc638) != rom[0xc638] ||
+                    _saveData.ReadWramByte(0xc639) != rom[0xc639] || _saveWriteRequests != saveWrites,
+                    $"Companion ${id:x2} mount update {update}: live save bytes $c638/$c639 must match native mounting without committing a file.");
             }
             void Step(int count, Vector2 movement = default, bool dismount = false, bool blocked = false)
             {
@@ -56,6 +60,7 @@ public sealed partial class ValidationRoot
             {
                 Step(35);
                 FailIf(!_player.CompanionRideActive, "ROM mount fixture did not complete mounting.");
+                CompareCompanionMountSaveImageRom(rom);
                 Step(35, dismount: true);
                 FailIf(_player.CompanionRideActive || _player.CompanionJumpActive, "ROM dismount fixture did not land.");
                 Step(10, Vector2.Down);
@@ -87,7 +92,7 @@ public sealed partial class ValidationRoot
                 0x0c => _entities.Spawn<DimitriCompanionRoomEntity>(new DimitriCompanionSpawn(initial, 1, 0, 0x2a, Riding: true)),
                 _ => _entities.Spawn<MooshCompanionRoomEntity>(new MooshCompanionSpawn(initial, 1, 0, 0x2a, Riding: true))
             };
-            CompanionRuntimeState.Begin(_runtimeState, id, 0x2a, initial, 1);
+            CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, id, 0x2a, initial, 1);
             var rom = new CompanionRom(id, initial, 1, _currentRoom);
             int update = 0;
             Vector2 Position() => actor switch

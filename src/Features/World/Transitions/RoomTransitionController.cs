@@ -1626,7 +1626,7 @@ public sealed class RoomTransitionController
                 if (warp.DestinationTransition == WarpDestinationTransition.XShifted) destination.X -= 8;
                 CompanionRuntimeState.Update(_entities.RuntimeState, companion.Id, warp.DestinationRoom,
                     destination, companion.Direction);
-                CompanionRuntimeState.SetLastAnimalMountPosition(_entities.RuntimeState, destination);
+                CompanionRuntimeState.SetLastAnimalMountPosition(_rooms.SaveData, destination);
             }
         }
         bool returningThroughTime = _timeWarp && _entities.RuntimeState.ReadWramByte(WramAddress.wcddf) != 0;

@@ -34,10 +34,9 @@ internal sealed partial class RiverZoraCharacter : EnemyCharacter
 
     internal void UpdateFrame(Vector2 cameraOrigin, ICollection<RoomEntitySpawn> spawns)
     {
-        if (IsDead) return;
-        // enemyCode08 ignores recoil/stun statuses; its sword collision uses
-        // collisionEffect0b and never writes an enemy knockback counter.
-        AdvanceInvincibilityCounter();
+        // enemyCode08 continues normal AI for JUST_HIT/recoil, but still
+        // consumes the shared hit flag and dispatches enemyDie at zero HP.
+        if (IsDead || BeginFrame(continueDuringHitAndKnockback: true)) return;
         switch (State)
         {
             case 0:

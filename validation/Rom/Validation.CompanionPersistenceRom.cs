@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
         {
             foreach (int animal in new[] { 0x0b, 0x0c, 0x0d }) CompanionRuntimeState.Clear(_runtimeState, animal);
             CompanionRuntimeState.Remember(_runtimeState, id, group, room, new(72, 64));
-            if (occupied != 0) CompanionRuntimeState.Begin(_runtimeState, occupied, 0x2a, new(40, 40), 1);
+            if (occupied != 0) CompanionRuntimeState.BeginAnimalRide(_runtimeState, _saveData, occupied, 0x2a, new(40, 40), 1);
             var native = new CompanionSpawnRom(_currentRoom, 0, new(8, 8));
             for (int address = 0xcc24; address <= 0xcc28; address++) native.Memory[address] = _runtimeState.ReadWramByte(address);
             native.Memory[0xd100] = occupied == 0 ? (byte)0 : (byte)1; native.Memory[0xd101] = (byte)occupied;

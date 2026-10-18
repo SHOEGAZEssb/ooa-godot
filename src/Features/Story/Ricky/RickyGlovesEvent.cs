@@ -64,7 +64,7 @@ internal sealed class RickyGlovesEvent :
 
         // The source spawner clears only wRememberedCompanionId after
         // installing Ricky's fixed preset.
-        CompanionRuntimeState.InstallPreset(Context.Entities.RuntimeState, new(_record.RickyX, _record.RickyY));
+        CompanionRuntimeState.InstallPreset(Context.Entities.RuntimeState, Context.Rooms.SaveData, new(_record.RickyX, _record.RickyY));
         _placedActor = Context.Entities.Spawn<NpcCharacter>(
             new CutsceneNpcSpawn(
                 _database.CreateActorRecord(),

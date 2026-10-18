@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
             if (raft)
             {
                 raftEntity = new RaftRoomEntity(new RaftSpawn(new(80, 56), 0, 1, 0xa7),
-                    _currentRoom, new RaftDatabase().Behavior, _runtimeState);
+                    _currentRoom, new RaftDatabase().Behavior, _saveData, _runtimeState);
                 _entities.AddEntity(raftEntity);
             }
             Vector2I[] cartDirections = [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];

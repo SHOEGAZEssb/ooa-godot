@@ -158,7 +158,7 @@ internal sealed class RoomEntityFactory
                 companionEntity = new RaftRoomEntity(
                     new RaftSpawn(active.Position, active.Direction,
                         activeGroup, room.Id, Riding: true),
-                    room, Resources.Raft.Behavior, _runtimeState);
+                    room, Resources.Raft.Behavior, _saveData, _runtimeState);
             }
         }
         else if (CompanionRuntimeState.IsActive(
@@ -241,7 +241,7 @@ internal sealed class RoomEntityFactory
             // INTERAC_COMPANION_SPAWNER $67:$01 writes only
             // wRememberedCompanionId after installing the fixed Moosh preset.
             MooshGoodbyeEventRecord goodbye = Resources.MooshGoodbye.Record;
-            CompanionRuntimeState.InstallPreset(_runtimeState, new(goodbye.MooshX, goodbye.MooshY));
+            CompanionRuntimeState.InstallPreset(_runtimeState, _saveData ?? throw new InvalidOperationException("INTERAC$67 requires live save state."), new(goodbye.MooshX, goodbye.MooshY));
             MooshCompanionRoomEntity moosh = CreateMoosh(new MooshCompanionSpawn(
                 new Vector2(goodbye.MooshX, goodbye.MooshY),
                 goodbye.FlightAngle >> 3,
@@ -260,7 +260,7 @@ internal sealed class RoomEntityFactory
                 // Room initialization restores a remembered companion before
                 // $67:$03; the spawner then sees the occupied slot and deletes.
                 Vector2 position = Resources.Dimitri.PresetPosition;
-                CompanionRuntimeState.InstallPreset(_runtimeState, position);
+                CompanionRuntimeState.InstallPreset(_runtimeState, _saveData ?? throw new InvalidOperationException("INTERAC$67 requires live save state."), position);
                 var dimitri = CreateDimitri(new(position, ObjectDirection.Down, activeGroup, room.Id), room);
                 companionEntity = dimitri;
                 companionBarrierTarget = dimitri;
@@ -271,7 +271,7 @@ internal sealed class RoomEntityFactory
         {
             var record = Resources.Ricky.Record;
             Vector2 position = new(record.RickyX, record.RickyY);
-            CompanionRuntimeState.InstallPreset(_runtimeState, position);
+            CompanionRuntimeState.InstallPreset(_runtimeState, _saveData ?? throw new InvalidOperationException("INTERAC$67 requires live save state."), position);
             var ricky = CreateRicky(new(position, ObjectDirection.Down, activeGroup, room.Id), room);
             companionEntity = ricky;
             companionBarrierTarget = ricky;
@@ -287,7 +287,7 @@ internal sealed class RoomEntityFactory
         {
             yield return new RaftRoomEntity(
                 new RaftSpawn(rememberedRaft, ObjectDirection.Up, activeGroup, room.Id),
-                room, Resources.Raft.Behavior, _runtimeState);
+                room, Resources.Raft.Behavior, _saveData, _runtimeState);
             raftCreated = true;
         }
         // Both placed subids pass through @subid1, which deletes the
@@ -317,7 +317,7 @@ internal sealed class RoomEntityFactory
                 yield return new RaftRoomEntity(
                     new RaftSpawn(new Vector2(placement.X, placement.Y), ObjectDirection.Up,
                         activeGroup, room.Id),
-                    room, Resources.Raft.Behavior, _runtimeState);
+                    room, Resources.Raft.Behavior, _saveData, _runtimeState);
                 raftCreated = true;
                 break;
             }
