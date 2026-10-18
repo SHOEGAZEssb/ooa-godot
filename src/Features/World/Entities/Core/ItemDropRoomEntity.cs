@@ -9,9 +9,10 @@ internal sealed class ItemDropRoomEntity(
     Action<Vector2, HazardType> enteredHazard)
     : RoomEntityAdapter<ItemDropEffect>(drop, drop.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime,
-        ILinkSwordCollectibleRoomEntity, INativePartHealthRoomEntity, IBoomerangCollisionRoomEntity
+        ILinkSwordCollectibleRoomEntity, INativePartHealthRoomEntity, IBoomerangCollisionRoomEntity,
+        IAttachableCollectibleRoomEntity
 {
-    internal void AttachToItem(Func<ItemDropCarrier?> carrier) => Entity.AttachToItem(carrier);
+    public void AttachToItem(Func<ItemDropCarrier?> carrier) => Entity.AttachToItem(carrier);
     public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
         var data = BoomerangCollisionDatabase.Shared;

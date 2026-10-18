@@ -1115,6 +1115,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCrownTorchTileQueue);
         RunIsolatedValidation(ValidateCrownRetractableChest);
         RunIsolatedValidation(ValidateCrownPlacedAllocation);
+        RunIsolatedValidation(ValidatePlacedPartPoolRom, requiresRom: true);
         RunIsolatedValidation(ValidateCrownButtons, requiresRom: true);
         RunIsolatedValidation(ValidateCrownButtonHeight, requiresRom: true);
         RunIsolatedValidation(ValidateCrownButtonChestItem);

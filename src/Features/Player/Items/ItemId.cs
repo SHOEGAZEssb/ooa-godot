@@ -14,6 +14,8 @@ public static class ItemId
     public const int Sword = 0x05;
     // constants/common/items.s: ITEM_BOOMERANG
     public const int Boomerang = 0x06;
+    // constants/common/items.s: ITEM_SWITCH_HOOK
+    public const int SwitchHook = 0x0a;
     // constants/common/items.s: ITEM_HARP
     public const int Harp = 0x11;
     // constants/common/items.s: ITEM_FEATHER

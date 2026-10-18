@@ -5,8 +5,10 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class KeeseRoomEntity
-    : CombatEnemyRoomEntityAdapter<KeeseCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
+    : CombatEnemyRoomEntityAdapter<KeeseCharacter>, IFixedRoomEntity, ISomariaBlockCollisionRoomEntity,
+        IBoomerangCollisionRoomEntity, INativeEnemyCounter2RoomEntity
 {
+    public int Counter2 { get => Entity.Counter2; set => Entity.Counter2 = value; }
     public KeeseRoomEntity(
         KeeseCharacter keese,
         EnemyCombatSourceDescriptor combatSource,

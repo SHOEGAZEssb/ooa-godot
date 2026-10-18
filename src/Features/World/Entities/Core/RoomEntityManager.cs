@@ -486,7 +486,7 @@ public sealed class RoomEntityManager : IDisposable
                 var boomerangResponse = boomerangTarget.ApplyBoomerangCollision(boomerang.Item, _pendingSpawns);
                 if (boomerangResponse.Contact)
                 {
-                    if (entity is ItemDropRoomEntity drop)
+                    if (entity is IAttachableCollectibleRoomEntity drop)
                     {
                         int carrierSlot = _dynamicItems.SlotOf(item);
                         drop.AttachToItem(() => ReadDropCarrier(carrierSlot));
@@ -2223,6 +2223,9 @@ public sealed class RoomEntityManager : IDisposable
         _reservedEnemySlots.Clear();
         _unownedOutgoingEnemySlots.Clear();
         Array.Clear(_deletedEnemyCounter1);
+        // clearEnemies clears inactive bytes too. PART$23 writes through
+        // this ENEMY.counter2 alias even when no enemy owns the page.
+        for (int slot = 0; slot < 16; slot++) _runtimeState.SetWramByte(0xd087 + slot * 0x100, 0);
         Array.Clear(_inactiveInteractionCounter2);
         _unreleasedEnemyCounts = 0;
         _enemyCountOffset = 0;
@@ -2581,6 +2584,7 @@ public sealed class RoomEntityManager : IDisposable
             if (slot >= 0) _partSlots.Add(entity, slot);
             if (entity.Node is VolcanoRock rock) rock.SetPartSlot(slot);
             if (entity.Node is FallingBoulder boulder) boulder.SetPartSlot(slot);
+            if (entity is FallingFireRoomEntity fire) fire.Slot = slot;
             if (entity.Node is RamrockPart ramrockPart) ramrockPart.Slot = slot;
             if (entity is VeranSpiderwebRoomEntity web) web.Slot=slot;
         }
@@ -2804,7 +2808,7 @@ public sealed class RoomEntityManager : IDisposable
         entity is LightningRoomEntity ? 1 :
         entity is VeranAcidPoolRoomEntity or VeranSpiderwebRoomEntity or VeranBeeProjectileRoomEntity ? 1 :
         entity is RamrockPart or BlueStalfosProjectileRoomEntity or LynelBeamRoomEntity or PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or VeranFairyProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
-            or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or BlackTowerFlameRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
+            or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or BlackTowerFlameRoomEntity or FallingFireRoomEntity or SmallFairyRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
             or BossShadowRoomEntity or BossDeathExplosionRoomEntity or DeathPuffRoomEntity or MovingOrbRoomEntity or DungeonOrbRoomEntity or SeedShooterEyeStatueRoomEntity or BlueEnergyBeadRoomEntity
             or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity or RespawnableBushRoomEntity
@@ -2998,6 +3002,29 @@ public sealed class RoomEntityManager : IDisposable
         return true;
     }
     internal bool PartSlotAvailable => FindFreePartSlot() >= 0;
+    internal bool TryCreateFallingFire(Vector2 position)
+    {
+        if (!PartSlotAvailable) return false;
+        AddEntity(new FallingFireRoomEntity(this, _factory.Resources.PlacedParts, 2, position));
+        return true;
+    }
+    internal int AdvanceFallingFireCycle(int slot)
+    {
+        if (slot is < 0 or >= 16) throw new ArgumentOutOfRangeException(nameof(slot));
+        if (ResolveEnemySlot(slot) is INativeEnemyCounter2RoomEntity counter)
+        {
+            counter.Counter2 = (counter.Counter2 + 1) & 3;
+            return counter.Counter2;
+        }
+        if (_reservedEnemySlots.Contains(slot))
+            throw new NotSupportedException($"fallingFire.s: PART$23 slot${slot:x2} writes ENEMY.counter2 ($87); " +
+                $"occupied {ResolveEnemySlot(slot)?.GetType().Name ?? "unowned enemy"} alias is not represented " +
+                $"in room${_roomForActiveEntities.Group:x1}:${_roomForActiveEntities.Id:x2}, scrolling={_screenTransitionActive}.");
+        int address = 0xd087 + slot * 0x100;
+        int cycle = (_runtimeState.ReadWramByte(address) + 1) & 3;
+        _runtimeState.SetWramByte(address, (byte)cycle);
+        return cycle;
+    }
     internal bool CanAllocateParts(int count)
     {
         bool Occupied(int slot) => _partSlots.Any(pair => pair.Value == slot && pair.Key is not IRoomEntityLifetime { Finished: true });

@@ -1358,6 +1358,14 @@ internal sealed class RoomEntityFactory
                         yield return new BlackTowerFlameRoomEntity(owner, Resources.BlackTowerFlames, source.SubId,
                             PointForPackedPosition(source.PackedPosition));
                     }
+                    else if (source.Id == PartId.FallingFire)
+                        yield return new FallingFireRoomEntity(owner, Resources.PlacedParts, source.SubId,
+                            PointForPackedPosition(source.PackedPosition));
+                    else if (source.Id == PartId.SmallFairy)
+                        yield return new SmallFairyRoomEntity(owner, Resources.PlacedParts,
+                            PointForPackedPosition(source.PackedPosition));
+                    else
+                        throw new NotSupportedException($"{source.Source}: unsupported placed PART${source.Id:x2}:${source.SubId:x2}.");
                     break;
 
                 case EnemyObjectSlotPolicy.ParameterPart:

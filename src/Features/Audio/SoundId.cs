@@ -6,7 +6,7 @@ public static class SoundId
 {
     // constants/common/music.s: MUS_CREDITS_2
     public const int MusCredits2 = 0x2a;
-    // constants/common/music.s: final Veran battle and transformations.
+    // constants/common/music.s: MUS_FINAL_BOSS (Veran battle and transformations).
     public const int MusFinalBoss = 0x32;
     public const int SndUnknown4 = 0x69;
     public const int SndTransform = 0xc0;

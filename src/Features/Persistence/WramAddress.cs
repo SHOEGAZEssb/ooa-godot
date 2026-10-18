@@ -4,7 +4,7 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class WramAddress
 {
-    // include/wram.s: room-view transition flags; bit 0 is used by native cutscenes.
+    // include/wram.s: wScrollMode; bit 0 is used by native cutscenes.
     public const int wScrollMode = 0xcd00;
     // include/wram.s: wChannelVolumes
     public const int wChannelVolumes = 0xc07d;
@@ -16,9 +16,9 @@ public static class WramAddress
     public const int wMenuDisabled = 0xcc02;
     // include/wram.s: wLoadedTreeGfxIndex; native cutscene graphics residency.
     public const int wLoadedTreeGfxIndex = 0xcc18;
-    // include/wram.s: native interactionLoadExtraGraphics request.
+    // include/wram.s: wInteractionIDToLoadExtraGfx; native interactionLoadExtraGraphics request.
     public const int wInteractionIDToLoadExtraGfx = 0xcc1e;
-    // include/wram.s: native background animation and menu/cutscene union.
+    // include/wram.s: wTilesetAnimation; background animation and menu/cutscene union.
     public const int wTilesetAnimation = 0xcd25;
     public const int wOpenedMenuType = 0xcbcb;
     // include/wram.s: wDungeonWallmasterDestRoom; copied by bank1.loadDungeonLayout_b01 from dungeonDataTable.

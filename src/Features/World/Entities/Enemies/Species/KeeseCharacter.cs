@@ -22,7 +22,7 @@ public partial class KeeseCharacter : EnemyCharacter
     public EnemyDatabaseEnemyRecord Record { get; private set; }
     internal KeeseState State => _state;
     internal int Counter1 => _counter1;
-    internal int Counter2 => _counter2;
+    internal int Counter2 { get => _counter2; set => _counter2 = checked((byte)value); }
     internal int Angle => _angle;
     internal bool Flying => _flying;
     internal int CurrentAnimationFrame => AnimationFrame;
@@ -192,7 +192,7 @@ public partial class KeeseCharacter : EnemyCharacter
         {
             _counter1 = _behavior.KeeseState.TurningInterval;
             _angle = (_angle + _turnAmount) & ObjectAngle.Mask;
-            _counter2--;
+            _counter2 = (_counter2 - 1) & 255;
             if (_counter2 == 0)
             {
                 _state = KeeseState.Resting;

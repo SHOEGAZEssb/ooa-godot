@@ -322,6 +322,9 @@ $stageContracts = @(
     New-ImportStageContract 'black-tower-flames' 'Import-BlackTowerFlames.ps1' `
         -inputs @('partOamSource') `
         -functionInputs @('Copy-EnemySprite', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
+    New-ImportStageContract 'placed-parts' 'Import-PlacedParts.ps1' `
+        -inputs @('partOamSource', 'gfxNames') `
+        -functionInputs @('Copy-EnemySprite', 'Get-EnemySpriteSourceGrayscaleInverted', 'Resolve-Oam')
     New-ImportStageContract 'black-tower-possession' 'Import-BlackTowerPossession.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics') `
         -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
