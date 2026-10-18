@@ -5,8 +5,9 @@ namespace oracleofages;
 internal sealed class FallingBoulderRoomEntity(FallingBoulder boulder)
     : RoomEntityAdapter<FallingBoulder>(boulder, boulder.SetTransitionDrawOffset),
         IFixedRoomEntity, ILinkContactEntity, IUpdatesDuringDialogueRoomEntity,
-        IScreenTransitionPreloadRoomEntity
+        IScreenTransitionPreloadRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;
     public bool UpdatesDuringDialogue => Entity.State == 0;
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {

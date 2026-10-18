@@ -6,8 +6,11 @@ namespace oracleofages;
 internal sealed class StalfosBoneRoomEntity(StalfosBoneProjectile bone)
     : RoomEntityAdapter<StalfosBoneProjectile>(bone, bone.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, ISwordHittableRoomEntity, ILinkContactEntity,
-        IObjectCollisionHeightRoomEntity, INativePartHealthRoomEntity
+        IObjectCollisionHeightRoomEntity, INativePartHealthRoomEntity,
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringDialogue => Entity.State == HostileProjectileState.Initializing;
+    public bool UpdatesDuringRoomEntityFreeze => Entity.State == HostileProjectileState.Initializing;
     public void ClearHealthAndCollision() => Entity.ClearHealthAndCollision();
     public bool Finished => Entity.Finished;
     public int CollisionZ => Entity.ZFixed >> 8;

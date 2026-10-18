@@ -960,10 +960,7 @@ public partial class GameRoot : Node2D
         if (!nativeCutsceneOwnedUpdate && !arrivalPaletteAdvanced) _transitions.UpdateWarpAndEffects(delta);
         if (!_transitions.TimeWarpActive)
         {
-            if (_harp.IsPlaying)
-                _entities.UpdateDuringHarp(delta, _player);
-            else
-                _entities.Update(delta, _player);
+            _entities.Update(delta, _player);
         }
         // A portal can begin the time warp from the contact pass above. The
         // original DISABLE_ALL_BUT_INTERACTIONS|DISABLE_LINK state freezes

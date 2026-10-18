@@ -15,8 +15,10 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
     IRoomBlocker,
     IRoomPushableEntity,
     IRoomEntityLifetime,
-    IScreenTransitionPreloadRoomEntity
+    IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
     private const float CombinedLinkRadius = 12.0f;
     private readonly VineSproutDatabase _database;
     private readonly VineSproutRecord _record;

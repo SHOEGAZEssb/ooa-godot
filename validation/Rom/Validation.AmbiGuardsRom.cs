@@ -51,6 +51,10 @@ public sealed partial class ValidationRoot
                 if (rom[0xc2ef] == 0x14) rom.AdvancePalaceBoot();
                 rom.UpdateGameplay(0, 0, 0xff, ++update);
                 rom.SelectTriggeredCutscene();
+                FailIf(_runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != rom[0xcc8a] ||
+                    _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != rom[0xcc02] ||
+                    _runtimeState.ReadWramByte(WramAddress.wDisableScreenTransitions) != rom[WramAddress.wDisableScreenTransitions],
+                    $"Guard capture masks at update={update}, batch={batch}: objects=${_runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}/${rom[0xcc8a]:x2}, menu=${_runtimeState.ReadWramByte(WramAddress.wMenuDisabled):x2}/${rom[0xcc02]:x2}, transitions=${_runtimeState.ReadWramByte(WramAddress.wDisableScreenTransitions):x2}/${rom[WramAddress.wDisableScreenTransitions]:x2}, room=${_rooms.ActiveGroup:x}:${_rooms.CurrentRoom.Id:x2}.");
                 FailIf(_rooms.ActiveGroup != rom[0xcc2d] || _rooms.CurrentRoom.Id != rom[0xcc30],
                     $"Palace capture room handoff differs at update {update}: port=${_rooms.ActiveGroup:x}:${_rooms.CurrentRoom.Id:x2}, ROM=${rom[0xcc2d]:x}:${rom[0xcc30]:x2}.");
                 if (_rooms.CurrentRoom.Id == 0x46)

@@ -1842,18 +1842,33 @@ public sealed partial class ValidationRoot
             _currentRoom.GetMetatile(mapChestPosition) == 0xf1,
             "Room 4:65 did not import INTERAC_DUNGEON_STUFF $12:$02 at " +
             "$58,$88 with its TREASURE_OBJECT_MAP_02 closed-chest record.");
+        // harpFluteParent.s publishes $7e throughout playback. Pols Voice's
+        // instrument check becomes reachable only on the release enemy pass.
+        EnsureHarpAndSongs();
+        _inventory.SetScriptedEquippedItems(equippedB: 0, equippedA: TreasureId.Harp);
+        _inventory.SelectHarpSong(1);
+        _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
+        StepGameplayUpdates(1, Vector2.Zero);
         int harpRandomCalls = _entities.RandomCalls;
         int killSounds =
             _sound.PlayRequestsFor(SoundId.SndKillEnemy);
         int defeats = 0;
         void RecordDefeat() => defeats++;
         _entities.EnemyDefeated += RecordDefeat;
-        _entities.UpdateDuringHarp(update, _player);
+        StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
+        FailIf(!_harp.IsPlaying, "Room $4:$65 must start the actual Harp parent.");
+        for (int wait = 0; _harp.IsPlaying && wait < 700; wait++)
+        {
+            FailIf(defeats != 0 || _entities.Entities<PolsVoiceCharacter>().Count != 2,
+                "Initialized Pols Voices must remain alive throughout Harp's $7e mask.");
+            harpRandomCalls = _entities.RandomCalls;
+            StepGameplayUpdates(1, Vector2.Zero, ["attack"], []);
+        }
         _entities.EnemyDefeated -= RecordDefeat;
         List<EnemyDeathPuffEffect> puffs =
             _entities.Entities<EnemyDeathPuffEffect>();
         FailIf(
-            _entities.Entities<PolsVoiceCharacter>().Count != 0 ||
+            _harp.IsPlaying || _entities.Entities<PolsVoiceCharacter>().Count != 0 ||
             puffs.Count != 2 ||
             puffs.Exists(puff =>
                 puff.EnemyId != 0x23 || puff.ElapsedFrames != 1) ||
@@ -1863,7 +1878,7 @@ public sealed partial class ValidationRoot
             _entities.RandomCalls != harpRandomCalls ||
             _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
                 killSounds + 2,
-            "The Harp phase did not instantly replace both room 4:65 Pols " +
+            "The Harp release pass did not replace both room 4:65 Pols " +
             "Voices with same-update PART_ENEMY_DESTROYED effects while " +
             "retaining the room count through each death animation " +
             $"(pols={_entities.Entities<PolsVoiceCharacter>().Count}, " +

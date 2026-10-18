@@ -12,8 +12,11 @@ namespace oracleofages;
 /// </summary>
 internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
-    IScreenTransitionPreloadRoomEntity
+    IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    // Subid $0c never increments its native state byte, even after a visit.
+    public bool UpdatesDuringDialogue => !_initialized || _record.SubId == 0x0c;
+    public bool UpdatesDuringRoomEntityFreeze => UpdatesDuringDialogue;
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly DungeonMechanicDatabase _data;
     private readonly OracleSaveData? _save;
@@ -69,7 +72,7 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         if (!_initialized)
         {
             Initialize(spawns);
-            return;
+            if (_record.SubId == 0x0a || Finished) return;
         }
 
         int armosTrigger;

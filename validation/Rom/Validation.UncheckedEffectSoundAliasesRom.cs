@@ -120,6 +120,25 @@ public sealed partial class ValidationRoot
             CheckSoundSweepAliasReader(native, moosh ? 0 : 1, snapshot[moosh ? 0xc03f : 0xc040]);
             native.AdvanceInteractions();
             if (!moosh) FailIf(native[0xd244] != 3 || native[0xd246] != 15, "Original Tingle must continue into state 3/wait 15 after failed balloon explosion.");
+            if (moosh && free == 1)
+            {
+                var child = _entities.EntityAdapters<MooshHoverExclamationRoomEntity>().Single();
+                int at = NativeAdmissionChildren(native, 0x9f, 0).Single();
+                FailIf(child.Counter != 60 || native[at + 6] != 60,
+                    "INTERAC $9f initialization must return without decrementing Moosh's $3c counter.");
+                _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 2); native[0xcc8a] = 2;
+                int age = 0;
+                StepGameplayUpdates(59, Vector2.Zero, batched: batched, afterUpdate: () =>
+                {
+                    age++; native.AdvanceInteractions(_entities.FrameCounter);
+                    FailIf(child.Counter != 60 - age || native[at + 6] != 60 - age || child.Finished || native[at] == 0,
+                        "Moosh's enabled-bit-7 exclamation must retain every countdown update under INTERACTION $02.");
+                });
+                StepGameplayUpdates(1, Vector2.Zero, batched: batched); native.AdvanceInteractions(_entities.FrameCounter);
+                FailIf(!child.Finished || native[at] != 0 || _entities.EntityAdapters<MooshHoverExclamationRoomEntity>().Any(),
+                    "Moosh's exclamation must delete on update60 after its setup-only visit, including under $02.");
+                _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); native[0xcc8a] = 0;
+            }
             StepGameplayUpdates(80, Vector2.Zero, batched: batched);
             FailIf(moosh ? _entities.EntityAdapters<MooshHoverExclamationRoomEntity>().Any() : !tingle!.Grounded || _entities.Entities<InteractionExplosionEffect>().Count != 0,
                 "Optional effects must expire without retry and Tingle must finish the fall after either allocation result.");

@@ -4542,7 +4542,7 @@ internal sealed class RoomEntityFactory
             Name = "Room148PickaxeDebris"
         };
         debris.Initialize(Resources.Room148.Record, spawn);
-        return new DialogueFixedEffectRoomEntityAdapter<Room148PickaxeDebris>(
+        return new AlwaysUpdateFixedEffectRoomEntityAdapter<Room148PickaxeDebris>(
             debris);
     }
 

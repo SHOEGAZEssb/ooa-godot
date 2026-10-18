@@ -29,9 +29,11 @@ public sealed partial class ValidationRoot
                 FailIf(_entities.InteractionSlot(banner) != (source.Single() >> 8) - 0xd0,
                     "Present/Past banner must reserve the same source interaction slot.");
             int updates = 0;
+            _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 2); native[0xcc8a] = 2;
             StepGameplayUpdates(87, Vector2.Zero, batched: batched, afterUpdate: () =>
             {
                 updates++; native.AdvanceInteractions(_entities.FrameCounter);
+                if (updates == 2) { _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); native[0xcc8a] = 0; }
                 var active = Enumerable.Range(2, 14).Select(slot => 0xd040 + slot * 256)
                     .Where(at => native[at] != 0 && native[at + 1] == 0xe0).ToArray();
                 if (banner is not null && active.Length == 1)

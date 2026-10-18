@@ -10,7 +10,7 @@ internal sealed class EraInfoRoomEntity(EraInfoDisplay display)
         IFixedRoomEntity,
         IRoomEntityLifetime,
         IAlwaysUpdateDuringScreenTransitionRoomEntity,
-        IUpdatesDuringDialogueRoomEntity
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     public bool Finished => Entity.Finished;
 

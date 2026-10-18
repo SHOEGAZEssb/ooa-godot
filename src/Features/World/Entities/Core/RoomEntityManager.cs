@@ -101,6 +101,9 @@ public sealed class RoomEntityManager : IDisposable
     };
     private static bool ItemSetupPending(IRoomEntity entity) => entity.Node switch
     {
+        RickyPunchAttackRoomEntity punch => punch.InitializationPending,
+        MooshStompAttackRoomEntity stomp => stomp.InitializationPending,
+        DimitriMouthRoomEntity mouth => mouth.InitializationPending,
         BombEffect bomb => bomb.SetupPending,
         SwordBeamEffect beam => !beam.Initialized,
         RickyTornadoRoomEntity tornado => !tornado.CollisionEnabled && !tornado.Finished,
@@ -1125,6 +1128,18 @@ public sealed class RoomEntityManager : IDisposable
             // and $90 object masks; state-zero items remain eligible.
             bool itemPassFrozen = textActive || (NativeObjectMask&0x90) != 0 ||
                 NativeObjectMask == 0 && roomEntityFreezeActive || PaletteFadeActiveSource();
+            // companionCreateWeaponItem owns $d6, before dynamic $d7-$db.
+            // These children use updateItems' $90/palette/text admission,
+            // independently of their companion and INTERACTION $02 gates.
+            foreach (var weapon in _activeEntities.Where(entity => entity is
+                RickyPunchAttackRoomEntity or MooshStompAttackRoomEntity or DimitriMouthRoomEntity).ToArray())
+                if (!_updatedEntitiesThisFrame.Contains(weapon) &&
+                    (!itemPassFrozen || ItemSetupPending(weapon)))
+                {
+                    ((IFixedRoomEntity)weapon).UpdateFrame(frame, _pendingSpawns);
+                    _updatedEntitiesThisFrame.Add(weapon);
+                    ProcessSpawns(frame);
+                }
             Shovel?.UpdateChild(itemPassFrozen);
             SwitchHook?.UpdateItem(player, itemPassFrozen);
             Somaria?.UpdateItem(player, itemPassFrozen);
@@ -1222,7 +1237,8 @@ public sealed class RoomEntityManager : IDisposable
                         continue;
                     if (player.ElectricShockActive && entity is IPlayerRideableRoomEntity)
                         continue;
-                    if (DynamicItemId(entity) >= 0 || entity is ISeedProjectileRoomEntity or PegasusDustRoomEntity)
+                    if (DynamicItemId(entity) >= 0 || entity is ISeedProjectileRoomEntity or PegasusDustRoomEntity or
+                        RickyPunchAttackRoomEntity or MooshStompAttackRoomEntity or DimitriMouthRoomEntity)
                         continue;
                     if (entity is IRoomEntityLifetime { Finished: true })
                     {
@@ -1254,7 +1270,11 @@ public sealed class RoomEntityManager : IDisposable
                     if (entity is IFixedRoomEntity fixedEntity)
                     {
                         SynchronizeEnemyFrameCounter(entity, frame.Counter);
-                        fixedEntity.UpdateFrame(frame, _pendingSpawns);
+                        // The species instrument check runs only AFTER native
+                        // enemy admission, including the parent's release update.
+                        if (phase == 0 && PlayingInstrumentSource() != 0 && entity is IInstrumentReactiveRoomEntity reactive)
+                            reactive.UpdateDuringInstrument(frame, _pendingSpawns);
+                        else fixedEntity.UpdateFrame(frame, _pendingSpawns);
                         _updatedEntitiesThisFrame.Add(entity);
                     }
                     if (entity is IRoomEnemyReplacementSource replacementSource &&
@@ -1334,48 +1354,9 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     internal void UpdateDuringHarp(double delta, Player player)
-    {
-        _platformRiding.BeginUpdate(PlayingInstrumentSource());
-        // ITEM_HARP writes $7e to wDisabledObjects: every ordinary object
-        // category is frozen. ENEMY_POLS_VOICE is the exception: its handler
-        // explicitly reads wLinkPlayingInstrument before ordinary state
-        // dispatch and dies during this enemy phase. The dormant portal
-        // spawner separately carries the interaction always-update bit, as do
-        // the floating notes owned by HarpController.
-        _enemyFrameAccumulator += delta * 60.0;
-        while (_enemyFrameAccumulator >= 1.0)
-        {
-            _enemyFrameAccumulator -= 1.0;
-            _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
-            var frame = new RoomEntityFrame(
-                player, _enemyFrameCounter, AnyButtonJustPressed: false,
-                ScentSeedTarget: null);
-            // ITEM_DUST retains state=$00. updateItems admits it despite
-            // Harp/Flute's $7e mask, before enemies and interactions.
-            foreach (var dust in _activeEntities.OfType<PegasusDustRoomEntity>().ToArray())
-                if (!dust.Finished)
-                    dust.UpdateFrame(frame, _pendingSpawns);
-            foreach (IRoomEntity entity in _activeEntities.ToArray())
-            {
-                if (entity is IInstrumentReactiveRoomEntity reactive)
-                {
-                    SynchronizeEnemyFrameCounter(entity, frame.Counter);
-                    reactive.UpdateDuringInstrument(frame, _pendingSpawns);
-                }
-            }
-            ProcessSpawns(frame);
-            // enemyDie creates PART_ENEMY_DESTROYED in the following part
-            // phase, before always-updating interactions run.
-            RemoveFinishedEntities(frame);
-            foreach (IRoomEntity entity in _activeEntities.ToArray())
-            {
-                if (entity is TimePortalRoomEntity portal)
-                    portal.UpdateFrame(frame, _pendingSpawns);
-            }
-            ProcessSpawns(frame);
-            RemoveFinishedEntities(frame);
-        }
-    }
+        // Harp/Flute publish their native $7e mask. The ordinary category
+        // dispatcher owns state-zero and enabled-bit-7 exceptions as usual.
+        => Update(delta, player);
 
     public bool BlocksLink(Vector2 linkCenter, bool beforeInteractions = false)
     {

@@ -37,7 +37,10 @@ internal sealed class PalaceBootEvent(RoomEventContext context) : IRoomEvent
                 if (context.Transitions.NativePaletteFadeActive) break;
                 context.Player.ClearNativeItemParents(); context.InterruptBracelet(false);
                 PrepareEntrance();
-                var room = context.Rooms.LoadCutsceneRoom(1, 0x46);
+                // The original clears screen variables/WRAM1, then calls
+                // func_131f. It preserves shared $cc8a instead of taking
+                // disableLcdAndLoadRoom's broader shared-variable clear.
+                var room = context.Rooms.LoadCutsceneBackground(1, 0x46);
                 // clearScreenVariablesAndWramBank1 clears Link's whole page;
                 // state$0f writes the visible throw position two updates later.
                 context.Player.WarpTo(Vector2.Zero, recordSafe: false);

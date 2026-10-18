@@ -8,8 +8,11 @@ internal sealed class TargetCartCrystalRoomEntity(NpcCharacter actor,int subid,
     OracleRuntimeState state,GoronCaveDatabase data,Action<int> sound)
     : RoomEntityAdapter<NpcCharacter>(actor,actor.SetTransitionDrawOffset),
       IFixedRoomEntity,IRoomEntityLifetime,IRoomEnemyCounterEntity,ISeedCollisionTarget,
-      IPostObjectItemCollisionRoomEntity,IObjectCollisionHeightRoomEntity,IScreenTransitionPreloadRoomEntity
+      IPostObjectItemCollisionRoomEntity,IObjectCollisionHeightRoomEntity,IScreenTransitionPreloadRoomEntity,
+      IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringDialogue => _state == 0;
+    public bool UpdatesDuringRoomEntityFreeze => _state == 0;
     private int _state, _behaviour, _counter, _angle;
     private Vector2 _position;
     public bool Finished {get;private set;}

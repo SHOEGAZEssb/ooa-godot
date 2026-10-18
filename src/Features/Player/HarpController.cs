@@ -46,6 +46,7 @@ public sealed class HarpController
         _sound.PlaySound(_fluteData.Sound(icon));
         _fluteIcon = icon;
         PlayingSong = 0xff;
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0x7e);
         return _fluteData.Duration(icon);
     }
 
@@ -73,6 +74,9 @@ public sealed class HarpController
         _ = _database.SoundForSong(song);
         PlayingSong = song;
         _emptySongPlaying = song == 0;
+        // harpFluteParent.s state0: freeze categories, preserving Link and
+        // the ordinary dispatcher's initialization/always-update exceptions.
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0x7e);
         _sound.PlaySound(_database.SoundForSong(song));
         return song;
     }
@@ -99,6 +103,7 @@ public sealed class HarpController
     {
         if (!IsPlaying)
             return;
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
         if (_fluteIcon is int icon)
         {
             _completedInstrument = PlayingSong;
@@ -152,6 +157,8 @@ public sealed class HarpController
 
     internal void Cancel()
     {
+        if (IsPlaying && _entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects) == 0x7e)
+            _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
         _completedInstrument = 0;
         PlayingSong = 0;
         _emptySongPlaying = false;

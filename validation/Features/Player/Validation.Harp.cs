@@ -154,8 +154,9 @@ public sealed partial class ValidationRoot
             "INTERAC_TIMEPORTAL at wWarpDestPos.");
 
         int initialPalette = currentsReturn.CurrentPalette;
-        _harp.BeginObjectUpdate(); // First ordinary Link update clears the completed song byte.
-        _entities.Update(2.0 / 60.0, _player);
+        // Resume the real Link/arrival handoff, then eligible portal palette
+        // visits. A direct entity-only step retains the arrival freeze owner.
+        StepGameplayUpdates(4, Vector2.Zero);
         FailIf(
             currentsReturn.CurrentPalette == initialPalette,
             "Temporary portal did not cycle its OAM palette on even updates.");
@@ -226,6 +227,9 @@ public sealed partial class ValidationRoot
             "ITEM_HARP parent exclusion case.");
 
         LoadValidationRoom(0, 0x74);
+        // updateEnemies permits native state zero even during playback.
+        // This parent-exclusion case measures already initialized targets.
+        StepGameplayUpdates(1, Vector2.Zero);
         OctorokCharacter target = _entities.Entities<OctorokCharacter>()[0];
         int firstSwingPhase = LinkItemDatabase.Shared.SwingPhase(1);
         int firstDownArc = (int)Facing.Down + firstSwingPhase * 4;

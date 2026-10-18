@@ -34,7 +34,7 @@ public partial class Player
             bool fromState08 = _forcedState08Phase >= 3;
             if (!fromState08 && (_world.IsTransitioning || IsDying || !NativeNormalStateForInteraction))
                 return false;
-            if (fromState08) _forcedState08Phase = 0;
+            if (fromState08) { _forcedState08Phase = 0; _state08RequestPending = false; }
             _getItemStatePhase = 2; // checkLinkForceState returns before state04 dispatch.
             return true;
         }

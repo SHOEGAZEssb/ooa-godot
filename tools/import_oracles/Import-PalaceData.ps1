@@ -171,7 +171,7 @@ $approachBindings = @{
     'checkcollidedwithlink_ignorez|'=@{Opcode='gatecontinue';Payload='LinkCollision'}
     'asm15|scriptHelp.setLinkToState08'=@{Opcode='native';Payload='ForceState08'}
     'spawninteraction|INTERAC_RALPH, $01, $50, $b0'=@{Opcode='nativeyield';Payload='SpawnRalph'}
-    'orroomflag|$40'=@{Opcode='native';Payload='FinishApproach'}
+    'orroomflag|$40'=@{Opcode='orroomflag';Arg0='40'}
 }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/palace_approach_commands.tsv'),
     (ConvertTo-CutsceneCommandRows -commands $approachCommands -actor 'Trigger' -bindings $approachBindings `

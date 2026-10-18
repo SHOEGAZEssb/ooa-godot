@@ -12,7 +12,7 @@ public partial class Player
     internal void CancelAmbiUnpossessedCutscene()
     {
         if(_ambiState>=0) {_topDownAirZFixed=0;_topDownAirSpeedZ=0;_scriptedLinkAnimationMode=null;_walking=false;}
-        if(_state08ReleasedByObjectMask) {_state08ReleasedByObjectMask=false;_forcedState08Phase=0;_scriptedLinkAnimationMode=null;}
+        if(_state08ReleasedByObjectMask) {_state08ReleasedByObjectMask=false;_forcedState08Phase=0;_state08RequestPending=false;_scriptedLinkAnimationMode=null;}
         _ambiRequested=false;_ambiState=-1;_ambiExclaim=null;_cutsceneDrawZFixed=0;
     }
     private bool AdvanceAmbiUnpossessedCutscene()
@@ -43,7 +43,7 @@ public partial class Player
                     _ambiState=-1;_ambiExclaim=null;_cutsceneDrawZFixed=0;
                     // Source changes directly to state08/substate0, rather
                     // than requesting it through checkLinkForceState.
-                    _forcedState08Phase=2;_state08ReleasedByObjectMask=true;return true;
+                    _forcedState08Phase=2;_state08RequestPending=false;_state08ReleasedByObjectMask=true;return true;
                 }
                 _cutsceneDrawZFixed=(_topDownAirZFixed>>8)<<8;break;
             default:throw new NotSupportedException($"link.s: LINK_STATE $09 substate ${_ambiState:x2}.");

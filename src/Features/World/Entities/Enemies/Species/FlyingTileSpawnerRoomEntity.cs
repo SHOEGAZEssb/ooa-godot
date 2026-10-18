@@ -10,8 +10,11 @@ namespace oracleofages;
 /// a time without consuming the room-placement RNG again.
 /// </summary>
 internal sealed partial class FlyingTileSpawnerRoomEntity : Node2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringDialogue => _state == FlyingTileSpawnerState.Uninitialized;
+    public bool UpdatesDuringRoomEntityFreeze => _state == FlyingTileSpawnerState.Uninitialized;
     private readonly ImportedEnemyDefinition _definition;
     private readonly FlyingTileBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.FlyingTile;

@@ -1052,6 +1052,7 @@ public partial class Player : Node2D
         _scriptedLinkAnimationMode = null;
         _forcedState08Phase = 0;
         _state08ReleasedByObjectMask = false;
+        _state08RequestPending = false;
         _forcedState08LowPriority = false;
         SetAlternateTextboxPalettePriority(false);
         _cutsceneDrawZFixed = 0;
@@ -1388,6 +1389,7 @@ public partial class Player : Node2D
     {
         if (GaleActive) EndGale();
         _forcedState08Phase = 0;
+        _state08RequestPending = false;
         _scriptControl = ScriptControl.None;
         _cutsceneControlOwner = null;
         _walking = false;
@@ -1937,9 +1939,9 @@ public partial class Player : Node2D
         }
         // A native state08 request is consumed before state01's text/$81
         // gate. Once selected, state08 itself has neither of those gates.
-        if(_forcedState08Phase!=0&&_state08ReleasedByObjectMask&&!_world.LinkDisabled&&!IsDying)
+        if(_forcedState08Phase!=0&&!_world.LinkDisabled&&!IsDying)
         {
-            if(_forcedState08Phase==1&&!_state08RequestWasActive&&(_world.NativePaletteChanging||_world.IsTransitioning||_world.RoomExitPending))return;
+            if(_forcedState08Phase==1&&(_world.NativePaletteChanging||_world.IsTransitioning||_world.RoomExitPending))return;
             AdvanceState08Control();return;
         }
         if ((_world.PlayerUpdatesFrozen || _world.LinkDisabled) && _forcedRespawnPhase != 3 && !IsDying)
@@ -2003,11 +2005,6 @@ public partial class Player : Node2D
             // LINK_STATE_DYING does not bypass cutscene01's post-object warp
             // check. Its remaining recoil can still carry Link onto a stair.
             if (!_topDownAirborne) _world.CheckTileWarp(this);
-            return;
-        }
-        if (_forcedState08Phase != 0)
-        {
-            AdvanceState08Control();
             return;
         }
         if (_cutsceneControlled)
@@ -2656,6 +2653,7 @@ public partial class Player : Node2D
     {
         _forcedState08Phase = 0;
         _state08ReleasedByObjectMask = false;
+        _state08RequestPending = false;
         _forcedState08LowPriority = false;
         if (interruptBracelet)
             InterruptCarriedItems(discard: true);
@@ -2685,7 +2683,13 @@ public partial class Player : Node2D
         // adopts it on his next dispatch and runs substate0 one update later.
         _scriptControl = ScriptControl.ForcedState08;
         _cutsceneControlOwner = owner;
-        _forcedState08Phase = 1;
+        if (_forcedState08Phase is 2 or 3)
+            _state08RequestPending = true;
+        else
+        {
+            _forcedState08Phase = 1;
+            _state08RequestPending = false;
+        }
         _state08ReleasedByObjectMask = false;
         _forcedState08LowPriority = true; // Portal writes visible=$82 immediately.
         SetAlternateTextboxPalettePriority(false);
@@ -3448,16 +3452,16 @@ public partial class Player : Node2D
             return;
         if (_scriptControl == ScriptControl.ForcedState08)
         {
-            if (_forcedState08Phase >= 3)
-                _forcedState08Phase = 4;
-            else
-            {
-                _forcedState08Phase = 0;
-                SetScriptedLinkAnimationMode(null);
-            }
+            // An interaction releasing control does not consume the queued
+            // wLinkForceState or run Link's state08 handler. Preserve both
+            // until its next dispatch, including substate0's setup-only visit.
+            _state08ReleasedByObjectMask = true;
         }
-        else if (_forcedState08Phase != 4)
+        else if (!_state08ReleasedByObjectMask)
+        {
             _forcedState08Phase = 0;
+            _state08RequestPending = false;
+        }
         _scriptControl = ScriptControl.None;
         _cutsceneIdleFacing = null;
         _forcedState08LowPriority = false;

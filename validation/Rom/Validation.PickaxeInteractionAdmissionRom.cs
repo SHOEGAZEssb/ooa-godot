@@ -56,7 +56,22 @@ public sealed partial class ValidationRoot
             // Existing movement regression covers the independently imported
             // fixed-point vectors. This check keeps the allocation/lifetime
             // handoff on the actual application loop and below the next strike.
-            StepGameplayUpdates(parentSlot == 2 ? 17 : 18, Vector2.Zero, batched: batched);
+            native[parentAt] = 0; // Isolate admitted chip handlers after their producer's attempt.
+            _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 2); native[0xcc8a] = 2;
+            int age = 0;
+            StepGameplayUpdates(parentSlot == 2 ? 17 : 18, Vector2.Zero, batched: batched, afterUpdate: () =>
+            {
+                age++; native.AdvanceInteractions(_entities.FrameCounter);
+                foreach (var chip in chips)
+                {
+                    if (chip.Finished) continue;
+                    int at = 0xd040 + _entities.InteractionSlot(chip) * 256;
+                    FailIf(native[at] == 0 || chip.PrecisePosition != new Vector2(native.Word(at + 12) / 256f, native.Word(at + 10) / 256f) ||
+                        chip.ZFixed != unchecked((short)native.Word(at + 14)),
+                        "Pickaxe chips must retain source motion/Z during $02 and after release.");
+                }
+                if (age == 2) { _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); native[0xcc8a] = 0; }
+            });
             FailIf(_entities.Entities<Room148PickaxeDebris>().Count != 0, "Admitted chips must retire and release their native slots after landing.");
             _entities.Clear();
             FailIf(InteractionAdmissionPool.Count != 0, "Pickaxe cancellation must release all native interaction owners.");

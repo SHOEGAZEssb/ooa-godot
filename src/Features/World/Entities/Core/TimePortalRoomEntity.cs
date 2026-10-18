@@ -8,8 +8,12 @@ internal sealed class TimePortalRoomEntity(TimePortal portal, Action<TimePortal>
     : RoomEntityAdapter<TimePortal>(portal, portal.SetTransitionDrawOffset),
         IFixedRoomEntity, ILinkContactEntity,
         IUpdatesDuringDialogueRoomEntity, IRoomEntityLifetime,
-        IScreenTransitionPreloadRoomEntity
+        IScreenTransitionPreloadRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    // INTERAC $e1 sets enabled bit 7. Temporary INTERAC $de does not;
+    // it receives only the ordinary state-zero exception under text/$02.
+    public bool UpdatesDuringDialogue => !Entity.Temporary || Entity.NativeInitializationPending;
+    public bool UpdatesDuringRoomEntityFreeze => UpdatesDuringDialogue;
     public bool Finished => Entity.Entered || Entity.Expired;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Counter, frame.Player);

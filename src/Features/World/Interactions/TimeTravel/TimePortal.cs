@@ -31,6 +31,7 @@ public partial class TimePortal : TransitionOffsetNode2D
     public bool Active => !Entered && !Expired && _state == TimePortalState.Active;
     public bool Temporary { get; private set; }
     internal bool Awakening => _state == TimePortalState.AwaitSongEnd;
+    internal bool NativeInitializationPending => Temporary ? _temporaryState == 0 : _state == TimePortalState.AwaitPortalTile;
     internal int CurrentFrame => _frame;
     internal int CurrentPalette => _palette;
 

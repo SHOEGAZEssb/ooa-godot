@@ -27,6 +27,7 @@ internal sealed partial class RickyPunchAttackRoomEntity : Node2D,
     public bool CollisionEnabled => _initialized && !Finished;
     public int Damage => _behavior.PunchDamage;
     internal int Counter => _counter;
+    internal bool InitializationPending => !_initialized;
     public Rect2 CollisionBounds
     {
         get

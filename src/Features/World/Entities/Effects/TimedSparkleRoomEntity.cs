@@ -7,7 +7,7 @@ namespace oracleofages;
 
 /// <summary>INTERAC_SPARKLE $84:$04: stationary, timed, animated flickering glow.</summary>
 internal sealed partial class TimedSparkleRoomEntity : TransitionOffsetNode2D,
-    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity
+    IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly EnemyAnimationPlayer _animation;
     public Node2D Node => this;

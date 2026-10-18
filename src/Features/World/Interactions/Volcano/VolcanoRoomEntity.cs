@@ -5,8 +5,11 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class VolcanoRoomEntity : RoomEntityAdapter<Node2D>, IFixedRoomEntity,
-    IRoomEntityLifetime, IScreenTransitionPreloadRoomEntity
+    IRoomEntityLifetime, IScreenTransitionPreloadRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringDialogue => State == 0;
+    public bool UpdatesDuringRoomEntityFreeze => State == 0;
     private readonly VolcanoPlacement _record;
     private readonly VolcanoDatabase _data;
     private readonly OracleRoomData _room;

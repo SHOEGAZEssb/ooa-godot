@@ -7,8 +7,11 @@ internal sealed class ZoraFireRoomEntity(ZoraFireProjectile projectile)
     : RoomEntityAdapter<ZoraFireProjectile>(projectile, projectile.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime, ISwordHittableRoomEntity,
         IItemCollisionHittableRoomEntity, INativePartHealthRoomEntity,
-        ILinkContactEntity, IPostObjectLinkContactRoomEntity
+        ILinkContactEntity, IPostObjectLinkContactRoomEntity,
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringDialogue => Entity.State == 0;
+    public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;
     public void ClearHealthAndCollision() => Entity.ClearHealthAndCollision();
     public bool Finished => Entity.Finished;
     public void HandleLinkContact(Player player) => Entity.HandleLinkContact(player);

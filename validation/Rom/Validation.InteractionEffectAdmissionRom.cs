@@ -112,7 +112,16 @@ public sealed partial class ValidationRoot
             }
             else
             {
-                StepGameplayUpdates(119, Vector2.Zero, batched: batched);
+                _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 2); native[0xcc8a] = 2;
+                int age = 0;
+                StepGameplayUpdates(119, Vector2.Zero, batched: batched, afterUpdate: () =>
+                {
+                    age++; native.AdvanceInteractions(_entities.FrameCounter);
+                    if (free == 1)
+                        FailIf(glows.Single().RemainingUpdates != native[source.Single() + 6],
+                            "Tingle's timed glow must retain the source counter through $02 and resume without missed updates.");
+                    if (age == 2) { _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); native[0xcc8a] = 0; }
+                });
                 FailIf(script.Counter != 1 || _inventory.SeedSatchelLevel != 1 || glows.Any(glow => glow.RemainingUpdates != 1),
                     "Failed glow admission must retain the full source wait; successful glow must retain its final counter update.");
                 StepGameplayUpdates(1, Vector2.Zero, batched: batched);

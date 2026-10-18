@@ -102,6 +102,37 @@ public sealed partial class ValidationRoot
                 $"Sparkle aliases queen={queenCase}, free={free}: ordered partial creation and last failed $e046/$e049 writes must match original code and sound ownership.");
             CheckSoundVibratoAliasReader(native, 4, active4);
             if (queenCase) CheckSoundVibratoAliasReader(native, 1, active1);
+            if (queenCase)
+            {
+                var queen = _entities.EntityAdapters<CleansedFairyRoomEntity>().Single();
+                int age = 0;
+                var priorText = _entities.TextActiveSource;
+                bool text = false;
+                _entities.TextActiveSource = () => text;
+                try
+                {
+                    _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0x13); native[0xcc8a] = 0x13;
+                    StepGameplayUpdates(120, Vector2.Zero, batched: batched, afterUpdate: () =>
+                    {
+                        age++; SourceChildren();
+                        FailIf(queen.Counter != 180 - age || native[0xd246] != 180 - age,
+                            "The Sea Fairy queen must count through text/$02 using its native always-update bit.");
+                        foreach (var effect in _entities.EntityAdapters<SeaFairySparkleRoomEntity>())
+                        {
+                            int at = 0xd040 + _entities.InteractionSlot(effect.Node) * 256;
+                            FailIf(native[at] == 0 || CompanionField<Vector2>(effect, "_position") != new Vector2(native.Word(at + 12) / 256f, native.Word(at + 10) / 256f),
+                                $"Sea Fairy effect age={age}, slot=${at:x4}, role={CompanionField<string>(effect, "_role")}: port={effect.Node.Position}, native=({native.Word(at + 12) / 256f},{native.Word(at + 10) / 256f}), enabled=${native[at]:x2}; positions/deletion must match during and after restricted passes.");
+                        }
+                        int sourceCount = NativeAdmissionChildren(native, 0x84, 4).Length + NativeAdmissionChildren(native, 0x84, 0x0a).Length;
+                        FailIf(_entities.EntityAdapters<SeaFairySparkleRoomEntity>().Count() != sourceCount ||
+                            free > 0 && (age < 120) != NativeAdmissionChildren(native, 0x84, 4).Any(),
+                            "The Sea Fairy flash must retain update119 and delete at update120 despite earlier text/$02 restrictions.");
+                        if (age == 2) { text = true; native[0xcba0] = 1; }
+                        if (age == 4) { text = false; native[0xcba0] = 0; _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0x11); native[0xcc8a] = 0x11; }
+                    });
+                }
+                finally { _entities.TextActiveSource = priorText; }
+            }
             if (!queenCase)
             {
                 StepGameplayUpdates(35, Vector2.Zero, batched: batched, afterUpdate: SourceChildren);

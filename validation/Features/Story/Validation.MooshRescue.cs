@@ -1026,23 +1026,18 @@ public sealed partial class ValidationRoot
             waterRoom,
             waterStart,
             waterDirection);
-        StepRoomEventFrames(1);
+        StepGameplayUpdates(1, Vector2.Zero);
         int waterClinks =
             _sound.PlayRequestsFor(SoundId.SndClink);
-        StepMooshApplicationInput(
-            pressed: ["attack"],
-            justPressed: ["attack"]);
-        Input.ActionPress(waterMovementAction);
-        StepMooshApplicationInput(
-            pressed: [waterMovementAction],
-            justPressed: []);
+        StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"]);
+        Vector2 waterMovement = (waterCenter - waterStart).Normalized();
+        StepGameplayUpdates(1, waterMovement, [waterMovementAction], []);
         for (int frame = 0; frame < 60 &&
             waterCompanion.Phase !=
                 MooshCompanionPhase.HoveringOverWater; frame++)
         {
-            StepRoomEventFrames(1);
+            StepGameplayUpdates(1, waterMovement, [waterMovementAction], []);
         }
-        Input.ActionRelease(waterMovementAction);
         NpcCharacter? waterExclamation =
             _entities.Entities<NpcCharacter>().SingleOrDefault(npc =>
                 npc.Name == "MooshHoverExclamation");
@@ -1065,13 +1060,15 @@ public sealed partial class ValidationRoot
             $"silent Z-$20/$3c-update exclamation (room=" +
             $"{waterGroup:x1}:{waterRoom:x2}, start={waterStart}, " +
             $"water={waterCenter}, position={waterCompanion.Position}).");
-        StepRoomEventFrames(59);
+        // updateSpecialObjects creates $9f before updateInteractions runs its
+        // setup-only state 0. Both source counters remain $3c on that update.
+        StepGameplayUpdates(59, Vector2.Zero);
         FailIf(
             waterCompanion.WaterHoverCounter != 1 ||
             !_entities.Entities<NpcCharacter>().Any(npc =>
                 npc.Name == "MooshHoverExclamation"),
             "Moosh's water hover or exclamation ended before `$3c updates.");
-        StepRoomEventFrames(1);
+        StepGameplayUpdates(1, Vector2.Zero);
         FailIf(
             waterCompanion.WaterHoverCounter != 0 ||
             waterCompanion.SpeedZ != 0x10 ||
@@ -1084,7 +1081,7 @@ public sealed partial class ValidationRoot
         for (int frame = 0; frame < 120 &&
             waterCompanion.Phase != MooshCompanionPhase.HazardFalling; frame++)
         {
-            StepRoomEventFrames(1);
+            StepGameplayUpdates(1, Vector2.Zero);
         }
         FailIf(
             waterCompanion.Phase != MooshCompanionPhase.HazardFalling ||

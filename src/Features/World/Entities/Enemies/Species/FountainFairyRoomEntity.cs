@@ -7,8 +7,10 @@ namespace oracleofages;
 /// <summary>Common enemyCode38, shared by all five Ages fairy fountains.</summary>
 internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IPlayerRestriction,
-    IScreenTransitionPreloadRoomEntity
+    IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringDialogue => State == 0;
+    public bool UpdatesDuringRoomEntityFreeze => State == 0;
     private readonly FountainFairyDatabase _database;
     private readonly EnemyAnimationPlayer _animation;
     private readonly Action<int> _sound;

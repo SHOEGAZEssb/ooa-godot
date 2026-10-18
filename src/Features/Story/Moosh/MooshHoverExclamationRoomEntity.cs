@@ -11,8 +11,9 @@ internal sealed class MooshHoverExclamationRoomEntity(
     NpcCharacter npc,
     int frames)
     : NpcCharacterRoomEntityAdapter(npc, npc.SetTransitionDrawOffset),
-        IFixedRoomEntity, IRoomEntityLifetime
+        IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    private bool _initialized;
     public bool Finished { get; private set; }
     internal int Counter { get; private set; } = frames;
 
@@ -23,6 +24,8 @@ internal sealed class MooshHoverExclamationRoomEntity(
         _ = spawns;
         if (Finished)
             return;
+        // INTERAC $9f state 0 sets enabled bit 7 and returns at counter $3c.
+        if (!_initialized) { _initialized = true; return; }
         Entity.AnimateAndUpdateDrawPriorityOneUpdate(frame.Player);
         if (--Counter == 0)
             Finished = true;

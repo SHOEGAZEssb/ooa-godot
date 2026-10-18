@@ -26,6 +26,23 @@ public sealed partial class ValidationRoot
             void Compare(int held, int angle)
             {
                 rom.UpdateGameplay(0, held, angle, ++update);
+                // Ralph queues state08 again on every eligible interaction
+                // visit. Link consumes it before state01's text/$81 gate;
+                // another request must not turn active state08 back into a
+                // pending normal state or starve substate0 initialization.
+                bool nativeNormal = rom[0xd004] == 1;
+                FailIf(_player.NativeNormalStateForInteraction != nativeNormal,
+                    $"Palace state08 admission differs at update={update}, batch={batch}: native=${rom[0xd004]:x2}/${rom[0xd005]:x2}, portNormal={_player.NativeNormalStateForInteraction}, mask=${rom[0xcc8a]:x2}.");
+                if (rom[0xd004] == 8 && rom[0xd005] == 1)
+                    FailIf(_player.ScriptedLinkAnimationMode != 0x10,
+                        $"Palace state08 substate0 must initialize walk mode before substate1 at update={update}, batch={batch}.");
+                if (rom[0xd004] == 8)
+                    FailIf(SomariaPrivate<int>(_player, "_forcedState08Phase") != rom[0xd005] + 2,
+                        $"Repeated Palace requests must preserve source state08 substate ${rom[0xd005]:x2} at update={update}, batch={batch}.");
+                FailIf(_runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != rom[0xcc8a] ||
+                    _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != rom[0xcc02] ||
+                    _saveData.HasRoomFlag(1, 0x46, 0x40) != ((rom[0xc846] & 0x40) != 0),
+                    $"Palace flag $40 must yield before restoring input/menu at update={update}, batch={batch}.");
                 var ralph = _entities.EntityAdapters<PalaceApproachRoomEntity>().FirstOrDefault(actor => actor.IsRalph);
                 int nativeRalph = Enumerable.Range(2, 14).Select(slot => 0xd040 + slot * 256)
                     .FirstOrDefault(slot => rom[slot] != 0 && rom[slot + 1] == 0x37 && rom[slot + 2] == 1);
@@ -62,6 +79,36 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(1, 0x46);
             StepGameplayUpdates(2, Vector2.Zero, batched: batch);
             FailIf(_entities.EntityAdapters<PalaceApproachRoomEntity>().Any(), "Completed palace approach repeats on re-entry.");
+        }
+        foreach (bool batched in new[] { false, true })
+        foreach (int cancelAt in new[] { 31, 33, 100 })
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.SetRoomFlag(0, 0x83, 0x80);
+            LoadValidationRoom(1, 0x46);
+            Vector2 start = Enumerable.Range(0x38, 0x30).Select(x => new Vector2(x, 0x60))
+                .First(position => Enumerable.Range(0, 40).All(distance => !_collision.Collides(position + Vector2.Up * distance)));
+            _player.WarpTo(start); _player.Face(Vector2I.Up);
+            StepGameplayUpdates(cancelAt, Vector2.Up, ["move_up"], batched: batched);
+            FailIf(!_player.CutsceneControlled || _saveData.HasRoomFlag(1, 0x46, 0x40),
+                $"Palace cancellation fixture must reach pending/initialized/repeated state08 at update {cancelAt}.");
+            if (cancelAt > 31)
+            {
+                _player.EndCutsceneControl();
+                _player.EndCutsceneControl();
+                FailIf(_player.NativeNormalStateForInteraction,
+                    "Repeated owner release must leave active state08 for Link's later dispatch.");
+            }
+            LoadValidationRoom(4, 0xa1);
+            StepGameplayUpdates(3, Vector2.Zero, batched: batched);
+            FailIf(!_player.NativeNormalStateForInteraction || _player.CutsceneControlled ||
+                _player.ScriptedLinkAnimationMode.HasValue || _saveData.HasRoomFlag(1, 0x46, 0x40),
+                $"Room cancellation at update {cancelAt} must clear active and queued state08 without completing the Palace approach.");
+            LoadValidationRoom(1, 0x46);
+            _player.WarpTo(start); _player.Face(Vector2I.Up);
+            StepGameplayUpdates(40, Vector2.Up, ["move_up"], batched: batched);
+            FailIf(_player.NativeNormalStateForInteraction || !_player.CutsceneControlled,
+                "An unfinished Palace approach must accept a fresh state08 request after room cancellation.");
         }
         ReinitializeGameplayForValidation();
         LoadValidationRoom(1, 0x46);

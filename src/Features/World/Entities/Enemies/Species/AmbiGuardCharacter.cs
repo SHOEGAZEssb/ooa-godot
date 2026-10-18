@@ -116,8 +116,10 @@ internal sealed partial class AmbiGuardCharacter : EnemyCharacter, ITerrainShado
             if (!Attacking)
             {
                 _owner.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0x80);
-                _owner.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 3);
-                _owner.RuntimeState.SetWramByte(WramAddress.wDisableScreenTransitions, 3);
+                // ambiGuard.s: DISABLE_COMPANION | DISABLE_LINK ($21).
+                // INTERACTION $02 must remain clear for the capture handoff.
+                _owner.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0x21);
+                _owner.RuntimeState.SetWramByte(WramAddress.wDisableScreenTransitions, 0x21);
                 Delay = 60; Exclaim(spawns);
             }
             Seen |= 2; State = 0x0f;

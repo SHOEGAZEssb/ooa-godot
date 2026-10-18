@@ -111,6 +111,13 @@ interactions and companions. A cutscene can freeze initialized actors while
 items and state-zero handlers continue; a single global freeze cannot represent
 that dispatch.
 
+Harp and Flute parents publish their native category mask through the shared
+runtime state. Playback uses the ordinary object dispatcher, including its
+initialization and always-update exceptions. An enemy's instrument reaction
+runs only after enemy-category admission. The completed instrument signal
+remains readable for the parent's release update; clearing it belongs to the
+next eligible Link update.
+
 Water-level reconstruction resolves the effective tileset and dungeon floor
 before replaying tile substitutions and room-specific platform changes in their
 source order. Cached rooms must restore earlier layouts when that save byte
@@ -373,6 +380,10 @@ lasts through that update. Camera admission also controls screen-shake counters
 and RNG. In-place layout reloads retain room identity and actor lifetime;
 layout, collision, underlying terrain and background mappings follow their
 separate source writes, including temporary collision-buffer scratch data.
+
+Screen-variable/WRAM1 clearing and the broader shared-variable clear are
+separate operations. A cutscene that only clears screen variables and WRAM1
+retains the shared object mask while replacing actors and loading its layout.
 
 The object pass samples and clamps ordinary screen boundaries before cutscene
 selection. The transition owner retains an accepted exit direction while a

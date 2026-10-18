@@ -105,6 +105,7 @@ internal sealed class PalaceApproachRoomEntity : CutsceneCommandHost, IRoomEntit
     }
     public override bool HasActorBinding(CutsceneActorId actor) => actor.Value == (IsRalph ? "Ralph" : "Trigger");
     public override bool RoomFlagSet(int flag) => _rooms.SaveData.HasRoomFlag(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, (byte)flag);
+    public override void OrRoomFlag(int flag) => _rooms.SaveData.SetRoomFlag(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, (byte)flag);
     public override int ReadMemory(string binding) => binding switch
     {
         "BombReward" => _rooms.SaveData.HasRoomFlag(0, 0x83, 0x80) ? 1 : 0,
@@ -150,7 +151,6 @@ internal sealed class PalaceApproachRoomEntity : CutsceneCommandHost, IRoomEntit
             case "ForceState08": _player.PutOnGroundForScript(); _player.RequestState08Control(this); return;
             case "SpawnRalph":
                 if (_owner.InteractionSlotAvailable) _spawns.Add(new PalaceApproachRalphSpawn()); return;
-            case "FinishApproach": _rooms.SaveData.SetRoomFlag(1, 0x46, 0x40); return;
             case "RalphMusic": _owner.SetNativeActiveMusic(0x35); _owner.OnSoundRequested(0x35); return;
             case "ResetRoomMusic": _owner.OnRoomMusicRequested(_rooms.ActiveGroup, _rooms.CurrentRoom.Id); return;
             case "BeginJump": _speedZ = -0x200; _owner.OnSoundRequested(SoundId.SndJump); return;

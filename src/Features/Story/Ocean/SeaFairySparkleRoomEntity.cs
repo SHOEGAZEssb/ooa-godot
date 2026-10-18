@@ -5,7 +5,7 @@ namespace oracleofages;
 
 // INTERAC_SPARKLE $84:$04/$0a/$02, with source state-0 setup-only dispatch.
 internal sealed class SeaFairySparkleRoomEntity : NpcCharacterRoomEntityAdapter,
-    IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity
+    IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly string _role;
     private int _value;

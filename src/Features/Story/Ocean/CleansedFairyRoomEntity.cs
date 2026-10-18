@@ -6,7 +6,8 @@ namespace oracleofages;
 
 // greatFairy.s:greatFairy_subid1. Always-update applies even during TX_4109.
 internal sealed class CleansedFairyRoomEntity : NpcCharacterRoomEntityAdapter,
-    IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IPlayerRestriction
+    IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IPlayerRestriction,
+    IUpdatesDuringRoomEntityFreeze
 {
     private readonly SeaFairyDatabase _data;
     private readonly Action _fade, _clean;

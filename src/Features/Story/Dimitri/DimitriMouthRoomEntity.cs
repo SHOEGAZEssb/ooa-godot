@@ -11,6 +11,7 @@ internal sealed partial class DimitriMouthRoomEntity : Node2D,
     private readonly CompanionAttackTileBreaker _tileBreaker;
     private int _counter = 12;
     private bool _enemyCollision;
+    internal bool InitializationPending { get; private set; } = true;
     public Node2D Node => this;
     public bool Finished => _counter == 0 || _owner.Phase != DimitriPhase.Eating;
     public bool CollisionEnabled => !Finished && !_enemyCollision;
@@ -23,6 +24,7 @@ internal sealed partial class DimitriMouthRoomEntity : Node2D,
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         if (Finished) return;
+        InitializationPending = false;
         UpdatePosition();
         // ITEM_DIMITRI_MOUTH consumes var2a before trying the tile, on its
         // next dispatch after the collision pass writes bit 1.
