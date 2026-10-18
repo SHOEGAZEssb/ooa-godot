@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class OctorokRoomEntity
-    : CombatEnemyRoomEntityAdapter<OctorokCharacter>, IFixedRoomEntity
+    : CombatEnemyRoomEntityAdapter<OctorokCharacter>, IFixedRoomEntity,
+      IBoomerangCollisionRoomEntity, ISomariaBlockCollisionRoomEntity
 {
     public OctorokRoomEntity(
         OctorokCharacter octorok,
@@ -25,10 +26,15 @@ internal sealed class OctorokRoomEntity
                 EnemySwordResponse.Knockback))
     { }
 
+    protected override bool Stunned => Entity.StunCounter != 0;
+
+    public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
+        ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
+
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.UpdateFrame(
-                frame.Player.Position, frame.ScentSeedTarget))
+                frame.Player.Position, frame.ScentSeedTarget, frame.Counter))
             spawns.Add(new OctorokRockSpawn(Entity.Position, Entity.Angle));
     }
 

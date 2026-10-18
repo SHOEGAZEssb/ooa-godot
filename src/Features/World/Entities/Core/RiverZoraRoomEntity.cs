@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class RiverZoraRoomEntity : CombatEnemyRoomEntityAdapter<RiverZoraCharacter>,
-    IFixedRoomEntity, IScreenTransitionPreloadRoomEntity
+    IFixedRoomEntity, IScreenTransitionPreloadRoomEntity,
+    IBoomerangCollisionRoomEntity, ISomariaBlockCollisionRoomEntity
 {
     private readonly Func<Vector2> _cameraOrigin;
     internal RiverZoraRoomEntity(RiverZoraCharacter enemy,
@@ -21,6 +22,9 @@ internal sealed class RiverZoraRoomEntity : CombatEnemyRoomEntityAdapter<RiverZo
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(_cameraOrigin(), spawns);
+
+    public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
+        ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);
 
     public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 sourcePosition,
         int seedItem, ICollection<RoomEntitySpawn> spawns)

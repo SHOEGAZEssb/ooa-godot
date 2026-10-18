@@ -421,7 +421,7 @@ public sealed class EnemyDatabase
                     "id", "subid", "sprite", "tile-base", "palette", "radius-y",
                     "radius-x", "damage-quarters", "health", "speed-raw",
                     "counter-mask", "up-animation", "right-animation",
-                    "down-animation", "left-animation"
+                    "down-animation", "left-animation", "raw-damage"
                 ],
                 ["id", "subid"],
                 headerRequired: true));
@@ -442,7 +442,8 @@ public sealed class EnemyDatabase
                 row.RequiredString(11),
                 row.RequiredString(12),
                 row.RequiredString(13),
-                row.RequiredString(14));
+                row.RequiredString(14),
+                row.HexByte(15));
             if (definition.Id != EnemyId.Octorok ||
                 !_octorokDefinitions.TryAdd(definition.SubId, definition))
             {
@@ -730,7 +731,8 @@ public sealed class EnemyDatabase
             definition.UpAnimation,
             definition.RightAnimation,
             definition.DownAnimation,
-            definition.LeftAnimation);
+            definition.LeftAnimation,
+            definition.RawDamage);
         return true;
     }
 
@@ -1043,7 +1045,7 @@ internal readonly record struct EnemyProjectileVisualRecord(string[] Sprites, in
 
 internal readonly record struct CrowDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
 
-internal readonly record struct OctorokDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);
+internal readonly record struct OctorokDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);
 
 internal readonly record struct StalfosDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
 
@@ -1095,4 +1097,4 @@ public enum RoomObjectKind
     ItemDrop
 }
 
-public readonly record struct OctorokRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);
+public readonly record struct OctorokRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);

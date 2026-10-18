@@ -15,11 +15,15 @@ public partial class OctorokCharacter : EnemyCharacter
     private int _counter1;
     private int _walkCounter;
     private int _angle;
+    private int _stunCounter;
+    private int _stunZFixed;
+    private int _stunSpeedZ;
 
     public OctorokRecord Record { get; private set; }
     internal OctorokState State => _state;
     internal int Counter1 => _counter1;
     internal int Angle => _angle;
+    internal int StunCounter => _stunCounter;
     internal int CurrentAnimationFrame => AnimationFrame;
     internal int ScentAttractionCounter => _scentAttraction.Counter;
 
@@ -62,19 +66,34 @@ public partial class OctorokCharacter : EnemyCharacter
         _walkCounter =
             _behavior.OctorokWalkCounterValues[initial.Low & 0x03].Value;
         _state = OctorokState.Walking;
+        _stunCounter = _stunZFixed = _stunSpeedZ = 0;
         SetAnimationFromAngle();
         QueueRedraw();
     }
 
-    internal bool UpdateFrame(Vector2 linkPosition, Vector2? scentSeedTarget = null)
+    internal override void ApplyBoomerangStun(int updates) => _stunCounter = updates;
+
+    internal bool UpdateFrame(Vector2 linkPosition, Vector2? scentSeedTarget = null, int frameCounter = 0)
     {
         if (IsDead)
             return false;
 
+        // enemyStandardUpdate gives pending hits and recoil priority over stun.
+        // Its final stun decrement still suppresses species AI for this update.
+        bool stunned = !NativeHitPending && !HasActiveKnockback && Health > 0 && _stunCounter != 0;
+        if (stunned)
+            Position = EnemyStunMotion.Update(Position, (int)_state, frameCounter,
+                ref _stunCounter, ref _stunZFixed, ref _stunSpeedZ);
         if (BeginFrame())
             return false;
         if (CheckHazards())
             return false;
+
+        if (stunned)
+        {
+            QueueRedraw();
+            return false;
+        }
 
         if (scentSeedTarget is { } scentPosition)
         {

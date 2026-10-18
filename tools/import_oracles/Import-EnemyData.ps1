@@ -796,11 +796,11 @@ if ($null -eq $octorokSourceSprite) { throw "Octorok sprite not found: $octorokS
 Copy-Item -LiteralPath $octorokSourceSprite.FullName -Destination (Join-Path $destination "gfx\$octorokSpriteName.png") -Force
 $octorokDefinitionRows = [Collections.Generic.List[string]]::new()
 $octorokDefinitionRows.Add(
-    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tcounter-mask`tup-animation`tright-animation`tdown-animation`tleft-animation")
+    "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tcounter-mask`tup-animation`tright-animation`tdown-animation`tleft-animation`traw-damage")
 foreach ($subid in 0..2) {
     $definition = $octorokDefinitions[$subid]
     $octorokDefinitionRows.Add(
-        "09`t$($subid.ToString('x2'))`t$octorokSpriteName`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($definition.SpeedRaw)`t$($definition.CounterMask)`t$($octorokAnimations -join "`t")")
+        "09`t$($subid.ToString('x2'))`t$octorokSpriteName`t$($definition.TileBase)`t$($definition.Palette)`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.DamageQuarters)`t$($definition.Health)`t$($definition.SpeedRaw)`t$($definition.CounterMask)`t$($octorokAnimations -join "`t")`t$($definition.RawDamage.ToString('x2'))")
 }
 $octorokPath = Join-Path $destination 'objects\octoroks.tsv'
 
