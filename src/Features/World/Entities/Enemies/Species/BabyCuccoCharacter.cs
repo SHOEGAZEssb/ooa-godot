@@ -49,7 +49,8 @@ internal partial class BabyCuccoCharacter : EnemyCharacter, ITerrainShadowSource
         BraceletDatabaseRecord bracelet,
         BombRecord throwing,
         Action<int> soundRequested,
-        Action<Rect2, int, int, int> applyThrownObjectHit)
+        Action<Rect2, int, int, int> applyThrownObjectHit,
+        int initialZHigh = 0)
     {
         if (record.Id != EnemyId.BabyCucco || record.SubId != 0x00 ||
             record.Animations.Length != 2)
@@ -69,6 +70,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter, ITerrainShadowSource
         _state = BabyCuccoState.Uninitialized;
         _angle = ObjectAngle.Up;
         _carried = new CarriedObjectMotion(position);
+        _carried.ZFixed = initialZHigh << 8;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));

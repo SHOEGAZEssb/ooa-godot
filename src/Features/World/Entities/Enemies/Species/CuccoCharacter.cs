@@ -41,6 +41,14 @@ internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
     private bool _giant;
     private bool _giantCollisionDisabled;
     private bool _transformToGiant;
+    private bool _babyReplacementPending;
+
+    internal bool TryTakeBabyReplacement()
+    {
+        bool pending = _babyReplacementPending;
+        _babyReplacementPending = false;
+        return pending;
+    }
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal CuccoState State => _state;
@@ -115,6 +123,7 @@ internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
         _giant = false;
         _giantCollisionDisabled = false;
         _transformToGiant = false;
+        _babyReplacementPending = false;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
@@ -206,8 +215,9 @@ internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
                         TransformIntoGiant();
                     else
                     {
-                        spawns.Add(new BabyCuccoReplacementSpawn(Position));
-                        Finish();
+                        // cucco_stateB tail-jumps to objectReplaceWithID;
+                        // this is a same-slot handoff, not enemyDelete/spawn.
+                        _babyReplacementPending = true;
                     }
                 }
                 return;

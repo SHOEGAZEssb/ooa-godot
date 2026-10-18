@@ -2957,8 +2957,6 @@ internal sealed class RoomEntityFactory
         GelSpawn gel => EnemyFactory.CreateGel(gel, room),
         BariChildSpawn bari => EnemyFactory.CreateBariChild(bari, room),
         CuccoAttackerSpawn attacker => CreateCuccoAttacker(attacker),
-        BabyCuccoReplacementSpawn babyCucco =>
-            CreateBabyCuccoReplacement(babyCucco, room),
         BlueEnergyBeadSpawn bead => new BlueEnergyBeadRoomEntity(bead.Index, bead.Center, bead.Duration,
             Resources.DungeonVisuals.Visual("energy-bead"), _random, _runtimeState,bead.Outgoing),
         EnemyDeathPuffSpawn puff => CreateDeathPuff(puff),
@@ -4492,28 +4490,6 @@ internal sealed class RoomEntityFactory
         return new CuccoAttackerRoomEntity(attacker);
     }
 
-    private IRoomEntity CreateBabyCuccoReplacement(
-        BabyCuccoReplacementSpawn spawn,
-        OracleRoomData room)
-    {
-        var babyCucco = new BabyCuccoCharacter
-        {
-            Name = "TransformedBabyCucco",
-            ZIndex = ObjectDrawPriority.BehindLinkZIndex
-        };
-        babyCucco.Initialize(
-            enemies.ImportedEnemy(
-                EnemyBehaviorTables.Shared.Cucco.BabyReplacementId),
-            room,
-            spawn.Position,
-            _random,
-            Resources.Bracelet.Data,
-            Resources.Bomb.Data,
-            owner.OnSoundRequested,
-            owner.ApplyThrownObjectHit);
-        return new BabyCuccoRoomEntity(babyCucco);
-    }
-
     private IRoomEntity CreateEnemyArrow(EnemyArrowSpawn spawn, OracleRoomData room)
     {
         var arrow = new EnemyArrowProjectile { Name = "EnemyArrow", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex };
@@ -5634,9 +5610,6 @@ internal sealed record EnemyClinkSpawn(Vector2 Position, bool InitializeOnUpdate
 
 internal sealed record CuccoAttackerSpawn(int HitCount)
     : RoomEntitySpawn(UpdateThisFrame: true);
-
-internal sealed record BabyCuccoReplacementSpawn(Vector2 Position)
-    : RoomEntitySpawn;
 
 internal sealed record StatueEyeballSpawn(Vector2 Position)
     : RoomEntitySpawn(UpdateThisFrame: true);

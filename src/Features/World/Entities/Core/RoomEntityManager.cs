@@ -2955,8 +2955,8 @@ public sealed class RoomEntityManager : IDisposable
         AddEntity(next);
         _activeEntities.Remove(next);
         _activeEntities.Insert(index, next);
-        // The enemy-pass snapshot contains the old slot's dispatch. Its
-        // replacement starts state0 next update, without a death outcome.
+        // The live enemy walk has consumed this physical slot's dispatch.
+        // Its replacement starts state0 next update, without a death outcome.
     }
 
     internal void KillMoldormRelatedParts(MoldormCharacter head)

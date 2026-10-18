@@ -95,7 +95,8 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 resources.Bracelet.Data,
                 resources.Bomb.Data,
                 owner.OnSoundRequested,
-                owner.ApplyThrownObjectHit);
+                owner.ApplyThrownObjectHit,
+                replacementZHigh);
             return new BabyCuccoRoomEntity(babyCucco);
         }
         if (handler.Handler == EnemyHandlerKind.Cucco)
@@ -122,7 +123,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 owner.OnSoundRequested,
                 owner.BeginScreenShake,
                 owner.ApplyThrownObjectHit);
-            return new CuccoRoomEntity(cucco);
+            return new CuccoRoomEntity(cucco, source);
         }
 
         if(handler.Handler==EnemyHandlerKind.VeranFinal)
@@ -790,8 +791,8 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
     internal IRoomEntity CreateEnemyReplacement(RoomEnemyReplacement replacement, OracleRoomData room)
     {
         var source = replacement.Source;
-        if (source.Id != 0x31 || source.SubId != 2)
-            throw new InvalidOperationException($"{source.Source}: unsupported enemyReplaceWithID target ${source.Id:x2}:${source.SubId:x2}.");
+        if (source is not ({ Id: EnemyId.Stalfos, SubId: 2 } or { Id: EnemyId.BabyCucco, SubId: 0 }))
+            throw new InvalidOperationException($"{source.Source}: unsupported objectReplaceWithID/enemyReplaceWithID target ${source.Id:x2}:${source.SubId:x2}.");
         var handler = enemies.EnemyHandlers.ResolveHandler(source);
         return CreateOrderedEnemy(handler, source, room, new Vector2(source.X, source.Y), 0,
             replacement.KillableEnemyIndex, EnemyPlacementContext.Unrestricted, replacement.ZHigh)

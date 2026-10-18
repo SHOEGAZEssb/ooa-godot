@@ -174,7 +174,7 @@ public sealed partial class ValidationRoot
             "Thrown adult Cucco did not land into source state $0a.");
 
         var transformationSpawns = new List<RoomEntitySpawn>();
-        var secondAdapter = new CuccoRoomEntity(cuccos[1]);
+        var secondAdapter = _entities.EntityAdapters<CuccoRoomEntity>().Single(adapter => ReferenceEquals(adapter.Node, cuccos[1]));
         SeedHitResult mysteryResult = secondAdapter.ApplySeedHit(
             cuccos[1].CollisionBounds.Grow(1),
             cuccos[1].Position,
@@ -238,7 +238,7 @@ public sealed partial class ValidationRoot
             "with the source delay, edge decode, speed, and RNG order.");
 
         var giantSpawns = new List<RoomEntitySpawn>();
-        var angryAdapter = new CuccoRoomEntity(cucco);
+        var angryAdapter = _entities.EntityAdapters<CuccoRoomEntity>().Single(adapter => ReferenceEquals(adapter.Node, cucco));
         mysteryResult = angryAdapter.ApplySeedHit(
             cucco.CollisionBounds.Grow(1),
             cucco.Position,

@@ -3,13 +3,13 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class CuccoRoomEntity(CuccoCharacter cucco)
+internal sealed class CuccoRoomEntity(CuccoCharacter cucco, RoomObjectRecord source)
     : RoomEntityAdapter<CuccoCharacter>(
         cucco, cucco.SetTransitionDrawOffset),
         IFixedRoomEntity, IBraceletInteractableRoomEntity,
         ISwordHittableRoomEntity, ISeedHittableRoomEntity,
         ILinkContactEntity, IRoomEntityLifetime, IRoomEnemyCounterEntity,
-        IGaleSeedTarget, IRoomEnemyOutcomeSource
+        IGaleSeedTarget, IRoomEnemyOutcomeSource, IRoomEnemyReplacementSource
 {
     private readonly GaleSeedEnemyMotion _gale = new(cucco);
     private bool _outcomeTaken;
@@ -36,6 +36,23 @@ internal sealed class CuccoRoomEntity(CuccoCharacter cucco)
     }
     public bool Finished => Entity.IsDead;
     public bool CountsAsEnemy => !Finished;
+
+    public bool TryTakeReplacement(out RoomEnemyReplacement replacement)
+    {
+        replacement = default;
+        if (!Entity.TryTakeBabyReplacement()) return false;
+        // objectReplaceWithID clears the object and keeps high XYZ only.
+        // Unlike enemyReplaceWithID, it does not preserve killableEnemyIndex.
+        replacement = new(source with
+        {
+            Id = EnemyBehaviorTables.Shared.Cucco.BabyReplacementId,
+            SubId = 0, Var03 = 0,
+            X = Mathf.FloorToInt(Entity.Position.X) & 0xff,
+            Y = Mathf.FloorToInt(Entity.Position.Y) & 0xff,
+            SourceOverride = source.Source + " via cucco.s:cucco_stateB/objectReplaceWithID"
+        }, 0, Entity.Z);
+        return true;
+    }
 
     public void UpdateFrame(
         RoomEntityFrame frame,
