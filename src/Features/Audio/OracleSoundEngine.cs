@@ -59,6 +59,8 @@ public partial class OracleSoundEngine : Node
     internal ChannelState Channel(int channel) => _channels[channel];
     internal void SetNativeChannelVolume(int channel, byte value) => _driver.SetChannelVolumeByte(channel, value);
     internal void SetNativeChannelPitchSlide(int channel, byte value) => _driver.SetChannelPitchSlideByte(channel,value);
+    internal byte ReadNativeAllocationAlias(int address) => _driver.ReadNativeAllocationAlias(address);
+    internal void WriteNativeAllocationAlias(int address, byte value) => _driver.WriteNativeAllocationAlias(address, value);
     internal bool OutputResourcesActiveForValidation => _player is not null || _playback is not null;
 
     public OracleSoundEngine() : this(new OracleSoundData(), true) { }

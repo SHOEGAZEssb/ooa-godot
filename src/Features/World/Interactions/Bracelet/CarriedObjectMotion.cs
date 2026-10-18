@@ -10,13 +10,30 @@ namespace oracleofages;
 internal struct CarriedObjectMotion
 {
     internal Vector2 GroundPosition;
-    internal Vector2I Direction;
+    private int _angle;
+    private bool _angleAssigned;
+    internal int Angle
+    {
+        get => _angleAssigned ? _angle : 0xff;
+        set
+        {
+            if (value is not (>= 0 and < 32) && value != 0xff)
+                throw new ArgumentOutOfRangeException(nameof(value));
+            _angle = value; _angleAssigned = true;
+        }
+    }
+    internal Vector2I Direction
+    {
+        get => Angle == 0xff ? Vector2I.Zero : (Vector2I)OracleObjectMath.StrictCardinalVector(Angle & ObjectAngle.CardinalMask);
+        set => Angle = value == Vector2I.Zero ? 0xff : DirectionAngle(value);
+    }
     internal int ZFixed;
     internal int SpeedZ;
     internal int SpeedRaw;
 
     internal CarriedObjectMotion(Vector2 position)
     {
+        _angle = 0xff; _angleAssigned = true;
         GroundPosition = position;
         Direction = Vector2I.Zero;
         ZFixed = 0;
@@ -66,7 +83,7 @@ internal struct CarriedObjectMotion
             return true;
         }
         OracleObjectMovement.Shared.ApplySpeed(
-            ref GroundPosition, SpeedRaw, DirectionAngle(Direction));
+            ref GroundPosition, SpeedRaw, Angle);
         return false;
     }
 

@@ -1129,6 +1129,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePickaxeInteractionAdmissionRom, requiresRom: true);
         RunIsolatedValidation(ValidateVolcanoTokayInteractionAdmissionRom, requiresRom: true);
         RunIsolatedValidation(ValidateCuccoReplacementRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSeedShooterReservedAngleRom, requiresRom: true);
+        RunIsolatedValidation(ValidateUncheckedEffectSoundAliasesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSparkleSoundAliasesRom, requiresRom: true);
         RunIsolatedValidation(ValidateCrownButtons, requiresRom: true);
         RunIsolatedValidation(ValidateCrownButtonHeight, requiresRom: true);
         RunIsolatedValidation(ValidateCrownButtonChestItem);

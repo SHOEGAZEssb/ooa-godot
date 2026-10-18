@@ -58,6 +58,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
         return true;
     }
     public bool ReservedBraceletChildActive => _throw?.Active == true;
+    public void WriteReservedBraceletAngle(int angle) => _throw!.SetAngle(angle);
     internal NativeBraceletThrow? ReservedThrow => _throw;
     public void BindGrabbablePublisher(Action<INativeBraceletRoomEntity> publish)
     {

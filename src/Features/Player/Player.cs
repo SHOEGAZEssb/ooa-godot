@@ -1997,10 +1997,8 @@ public partial class Player : Node2D
             // A merely requested explicit warp does not suspend death.
             if (_world.DeathUpdatesSuspendedByWarp)
                 return;
-            // updateAllObjects continues from Link to ITEM_BRACELET after
-            // linkCancelAllItemUsage/dropLinkHeldItem. Keep the released
-            // child falling while LINK_STATE_DYING owns Link's update.
-            _world.AdvanceBraceletProjectile();
+            // The later physical item pass keeps a released Bracelet child
+            // falling after Link's cancellation/held-item drop.
             UpdateDeath(delta);
             // LINK_STATE_DYING does not bypass cutscene01's post-object warp
             // check. Its remaining recoil can still carry Link onto a stair.
@@ -2124,9 +2122,6 @@ public partial class Player : Node2D
             else
             {
                 if (!_companionRideControlled) AdvanceSwordJinxForItemUse();
-                // When the parent pass is skipped, released Bracelet children
-                // still receive their independent gravity/object update.
-                _world.AdvanceBraceletProjectile();
             }
             if (!_world.SideScrolling && _world.PlayingInstrument == 0)
                 _tilePushWalls = _world.GetAdjacentWallsBitset(_precisePosition);
@@ -3499,7 +3494,6 @@ public partial class Player : Node2D
 
         if (_enemyGrabUpdated || _collapseUpdated || EnemyGrabActive || WallmasterGrabActive || CollapsedActive)
         {
-            _world.AdvanceBraceletProjectile();
             return;
         }
 
@@ -3514,9 +3508,8 @@ public partial class Player : Node2D
         if (_getItemStatePhase >= 2 || _forcedRespawnPhase == 2 || _squishAnimation is not null ||
             _sideScrollInstantRespawnCounter != 0 || _instantRespawnRecoveryCounter != 0)
         {
-            // Link's forced state owns the parent pass, while ITEM_BRACELET
-            // children still run in updateItems after a native held-item drop.
-            _world.AdvanceBraceletProjectile();
+            // Link's forced state owns the parent pass. Physical item children
+            // still run later, after a native held-item drop.
             return;
         }
 
@@ -3525,7 +3518,6 @@ public partial class Player : Node2D
             // Forced walk/state08 skip checkUseItems. Existing ITEM children
             // still advance; a consumed walk request retains its parents until
             // state0b initialization on the following Link update.
-            _world.AdvanceBraceletProjectile();
             return;
         }
 

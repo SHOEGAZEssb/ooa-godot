@@ -1723,11 +1723,15 @@ public sealed partial class ValidationRoot
             "Bracelet did not re-enable Link collisions and enter the " +
             "carried-object walk pose after the native lift sequence.");
 
+        bool throwing = _playerWorld.UpdateBracelet(
+            _player, Vector2.Zero,
+            primaryHeld: false, secondaryHeld: true,
+            itemButtonJustPressed: true);
+        // Parent setup precedes the independent physical ITEM C pass. The
+        // weight-0 drop's first gravity update changes speedZ $00 to $1c.
+        _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            !_playerWorld.UpdateBracelet(
-                _player, Vector2.Zero,
-                primaryHeld: false, secondaryHeld: true,
-                itemButtonJustPressed: true) ||
+            !throwing ||
             _bracelet.State != BraceletState.Throwing ||
             _bracelet.LiftedObject is not
                 { Thrown: true, SpeedRaw: ObjectSpeed.Speed0, SpeedZ: 0x1c } ||
@@ -1756,6 +1760,7 @@ public sealed partial class ValidationRoot
                 _player, Vector2.Zero,
                 primaryHeld: false, secondaryHeld: false,
                 itemButtonJustPressed: false);
+            _entities.Update(1.0 / 60.0, _player);
         }
         FailIf(
             _bracelet.State != BraceletState.Idle ||

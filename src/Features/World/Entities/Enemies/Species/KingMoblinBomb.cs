@@ -18,6 +18,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
     internal int Radius { get; private set; }
     internal bool Held => !Small && State==2 && !_released;
     internal bool ReservedBraceletChildActive => !Small && !IsDead && State == 2 && _released && !_settled;
+    internal void WriteReservedBraceletAngle(int angle) => _motion.Angle = angle;
     private CarriedObjectMotion _motion;
     private int _angle, _speed, _flashLimit;
     private bool _released, _damagedLink, _terrainEffects;

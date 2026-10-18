@@ -1213,6 +1213,8 @@ public partial class GameRoot : Node2D
         _entities.NativeActiveMusicWritten += _sound.SetNativeActiveMusic;
         _entities.NativeActiveMusicSource = () => _sound.NativeActiveMusic;
         _entities.NativeChannelVolumeWritten += _sound.SetNativeChannelVolume;
+        _entities.NativeSoundAllocationAliasWritten += _sound.WriteNativeAllocationAlias;
+        _entities.NativeSoundAllocationAliasSource = _sound.ReadNativeAllocationAlias;
         _entities.RoomMusicRequested += _sound.PlayRoomMusic;
         _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;
         yield return false;
@@ -1270,6 +1272,7 @@ public partial class GameRoot : Node2D
             _scene.WorldRoot, _rooms, new BreakableTileDatabase(), _roomView,
             _entities, _combat, _saveData, _sound.PlaySound,
             () => (long)_animationTicks, _collision.HasFullWall);
+        _entities.Bracelet = _bracelet;
         _bomb = new BombController(
             _inventory,
             _entities,

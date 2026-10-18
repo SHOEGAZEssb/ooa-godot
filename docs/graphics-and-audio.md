@@ -200,7 +200,7 @@ Gameplay writes that alias sound memory must reach this same owner. Native
 channel-volume writes go through the room entity event and sound engine to
 the driver's byte storage, retaining the full byte value. They do not become
 a second copy in general runtime WRAM or a queued sound request. Gameplay echo
-writes to channel pitch-slide bytes likewise change the driver's storage
+writes to channel pitch-slide and vibrato bytes likewise change the driver's storage
 immediately, before the next request drain and audio update.
 
 Eight logical programs share four physical CGB voices. Register writes control

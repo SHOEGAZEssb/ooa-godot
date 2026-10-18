@@ -3003,6 +3003,8 @@ internal sealed class RoomEntityFactory
         GoronMinecartSpawn cart => CreateMinecart(cart.Cart,room),
         InteractionExplosionSpawn explosion =>
             CreateInteractionExplosion(explosion),
+        TingleBalloonExplosionSpawn explosion =>
+            CreateInteractionExplosion(new(explosion.Position, explosion.ZOffset, explosion.Visual)),
         WildTokayMeatSpawn => CreateWildTokayMeat(),
         TokayEntranceEyeSpawn eye =>
             new TokayEntranceEyeRoomEntity(eye.Record),

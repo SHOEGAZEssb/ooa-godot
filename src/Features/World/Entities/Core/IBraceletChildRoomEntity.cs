@@ -5,5 +5,6 @@ namespace oracleofages;
 internal interface IBraceletChildRoomEntity
 {
     bool ReservedBraceletChildActive { get; }
+    void WriteReservedBraceletAngle(int angle);
     void UpdateBraceletChild(Player player);
 }

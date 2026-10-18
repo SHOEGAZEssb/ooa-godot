@@ -666,6 +666,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     }
 
     bool IBraceletChildRoomEntity.ReservedBraceletChildActive => _phase == DimitriPhase.Thrown;
+    void IBraceletChildRoomEntity.WriteReservedBraceletAngle(int angle) => _braceletChildMotion.Angle = angle;
 
     void IBraceletChildRoomEntity.UpdateBraceletChild(Player player)
     {
@@ -679,7 +680,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         else if (_phase == DimitriPhase.Thrown)
         {
             _braceletChildStarting = false;
-            _angle = CompanionMovement.AngleForInput(_braceletChildMotion.Direction);
+            _angle = _braceletChildMotion.Angle;
             _braceletChildMotion.AdvanceHorizontal(_throwing, CollisionAt);
             if (_braceletChildMotion.AdvanceVertical(_bracelet))
             {

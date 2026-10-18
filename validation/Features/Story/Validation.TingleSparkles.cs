@@ -44,12 +44,22 @@ public partial class ValidationRoot
             }
             // Finished native owners release allocation before node cleanup.
             foreach (var occupant in occupants.TakeLast(capacity)) occupant.Finished = true;
-            _runtimeState.SetWramByte(0xc049, 0);
-            Step();
+            _sound.WriteNativeAllocationAlias(0xc049, 0);
+            int failedAngles = 0;
+            void ObserveAlias(int address, byte value)
+            {
+                if (address != 0xc049) return;
+                failedAngles++;
+                FailIf(value != 0x10 || _sound.Driver.ReadState(address) != value,
+                    "Tingle's failed $e049 write must reach the sound driver's live vibrato-active byte before the audio update.");
+            }
+            _entities.NativeSoundAllocationAliasWritten += ObserveAlias;
+            try { Step(); }
+            finally { _entities.NativeSoundAllocationAliasWritten -= ObserveAlias; }
             var sparkles = _entities.Entities<InteractionSparkleEffect>().ToArray();
             Vector2[] offsets = [new(0,-24), new(8,-16), new(-8,-16)]; // tingle.s $e800/$f008/$f0f8
             FailIf(sparkles.Length != capacity ||
-                _runtimeState.ReadWramByte(0xc049) != (capacity < 3 ? 0x10 : 0),
+                failedAngles != 3 - capacity,
                 "Tingle $84:$00 must allocate only available slots and preserve failed angle writes at $e049/$c049.");
             for (int i = 0; i < sparkles.Length; i++)
                 FailIf(sparkles[i].Position != tingle.Npc.Position + offsets[i] ||

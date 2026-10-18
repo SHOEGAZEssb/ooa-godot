@@ -16,6 +16,17 @@ public sealed class RoomEntityManager : IDisposable
     private readonly List<INativeBraceletRoomEntity> _grabbableObjects = new(8);
     internal bool ReservedBraceletChildActive => _activeEntities.OfType<IBraceletChildRoomEntity>()
         .Any(child => child.ReservedBraceletChildActive);
+    internal BraceletController? Bracelet { get; set; }
+    internal void WriteReservedBraceletAngle(int angle)
+    {
+        // Failed getFreeItemSlot returns HL=$dc00. The unchecked Shooter
+        // writes ITEM C's angle before its later physical-item update.
+        var child = _activeEntities.OfType<IBraceletChildRoomEntity>().SingleOrDefault(child => child.ReservedBraceletChildActive);
+        if (child is not null) child.WriteReservedBraceletAngle(angle);
+        else if (Bracelet?.LiftedObject is { } tile) tile.WriteNativeAngle(angle);
+        // With no live ITEM C, the byte has no consumer. itemCreateChildWithID
+        // copies Link's direction/angle before a later child can move.
+    }
     internal void ClearSignalsAfterPlayer()
     {
         _grabbableObjects.Clear();
@@ -286,6 +297,15 @@ public sealed class RoomEntityManager : IDisposable
     internal void OnNativeSoundRequested(int sound) => NativeSoundRequested?.Invoke(sound);
     internal void SetNativeActiveMusic(int music) => NativeActiveMusicWritten?.Invoke(music);
     internal event Action<int, byte>? NativeChannelVolumeWritten;
+    internal event Action<int, byte>? NativeSoundAllocationAliasWritten;
+    internal Func<int, byte> NativeSoundAllocationAliasSource { get; set; } = address =>
+        throw new InvalidOperationException($"Allocation failure alias ${address:x4} has no authoritative sound owner.");
+    private void WriteSoundAllocationAlias(int address, byte value)
+    {
+        if (NativeSoundAllocationAliasWritten is null)
+            throw new InvalidOperationException($"Allocation failure alias ${address:x4} has no authoritative sound owner.");
+        NativeSoundAllocationAliasWritten(address, value);
+    }
     public event Action<int, int>? RoomMusicRequested;
     public event Action? RoomTileChanged;
     public event Action? EnemyDefeated;
@@ -1137,8 +1157,13 @@ public sealed class RoomEntityManager : IDisposable
                 }
             // Reserved item F ($df) follows the ordinary seed child slots.
             if (!itemPassFrozen)
+            {
                 foreach (var child in _activeEntities.OfType<IBraceletChildRoomEntity>().ToArray())
                     child.UpdateBraceletChild(player);
+                // Physical ITEM C follows all Link/item-parent writes and
+                // dynamic items, including an unchecked Shooter angle write.
+                Bracelet?.AdvanceProjectile();
+            }
             foreach (var dust in _activeEntities.OfType<PegasusDustRoomEntity>().ToArray())
                 // ITEM_DUST changes substate, never state. updateItems treats
                 // its zero state as uninitialized on every pass, so text and
@@ -2748,12 +2773,31 @@ public sealed class RoomEntityManager : IDisposable
             // until after both attempts; failure drops that child, without retry.
             if (spawn is BariChildSpawn && !EnemySlotAvailable) continue;
             if (spawn is KillEnemyPuffSpawn && !InteractionSlotAvailable) continue;
+            if (spawn is TingleBalloonExplosionSpawn balloon && !InteractionSlotAvailable)
+            {
+                // tingleBalloon.s @beenHit continues with HL=$e040. Echo
+                // writes reach the live sound arrays before balloon deletion.
+                WriteSoundAllocationAlias(0xc040, 0x56);
+                WriteSoundAllocationAlias(0xc043, 1);
+                WriteSoundAllocationAlias(0xc04b, unchecked((byte)Mathf.FloorToInt(balloon.Position.Y)));
+                WriteSoundAllocationAlias(0xc04d, unchecked((byte)Mathf.FloorToInt(balloon.Position.X)));
+                WriteSoundAllocationAlias(0xc04f, unchecked((byte)balloon.ZOffset));
+                continue;
+            }
+            if (spawn is MooshHoverExclamationSpawn && !InteractionSlotAvailable)
+            {
+                // mooshState8Substate1 decrements failed L=$40 to $3f,
+                // subtracts $20, then writes counter1 through H:$46.
+                WriteSoundAllocationAlias(0xc03f, unchecked((byte)(NativeSoundAllocationAliasSource(0xc03f) - 0x20)));
+                WriteSoundAllocationAlias(0xc046, 0x3c);
+                continue;
+            }
             if (spawn is SeaFairySparkleSpawn fairySparkle && !InteractionSlotAvailable)
             {
                 // objectCreateInteraction failure leaves HL=$e040. The queen
                 // still writes the flash counter or ray angle through that alias.
-                if (fairySparkle.Role == "flash") _runtimeState.SetWramByte(0xc046, (byte)fairySparkle.Value);
-                if (fairySparkle.Role == "ray") _runtimeState.SetWramByte(0xc049, (byte)fairySparkle.Value);
+                if (fairySparkle.Role == "flash") WriteSoundAllocationAlias(0xc046, (byte)fairySparkle.Value);
+                if (fairySparkle.Role == "ray") WriteSoundAllocationAlias(0xc049, (byte)fairySparkle.Value);
                 continue;
             }
             // River Zora consumes animParameter before ecom_spawnProjectile;
@@ -2782,7 +2826,7 @@ public sealed class RoomEntityManager : IDisposable
             {
                 // objectCreateSparkle returns HL=$e040 on failure. Tingle
                 // still writes Interaction.angle ($49), aliasing WRAM $c049.
-                _runtimeState.SetWramByte(0xc049, (byte)tingleSparkle.SourceAngle);
+                WriteSoundAllocationAlias(0xc049, (byte)tingleSparkle.SourceAngle);
                 continue;
             }
             if(spawn is TargetCartDebrisSpawn && !InteractionSlotAvailable) continue;

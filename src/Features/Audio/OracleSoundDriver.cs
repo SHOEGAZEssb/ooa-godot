@@ -27,10 +27,27 @@ internal sealed class OracleSoundDriver
     }
 
     internal int ReadState(int address) => _ram[address];
+    internal byte ReadNativeAllocationAlias(int address)
+    {
+        CheckNativeAllocationAlias(address);
+        return _ram[address];
+    }
+    internal void WriteNativeAllocationAlias(int address, byte value)
+    {
+        CheckNativeAllocationAlias(address);
+        _ram[address] = value;
+    }
+    private static void CheckNativeAllocationAlias(int address)
+    {
+        // include/wram.s: wChannelSweep, wChannelVibratoActive and
+        // wChannelVibratos are three consecutive six-channel byte arrays.
+        if (address is < 0xc03f or >= 0xc051)
+            throw new ArgumentOutOfRangeException(nameof(address), $"Allocation failure sound alias ${address:x4} is outside the traced channel arrays ($c03f-$c050).");
+    }
     internal void SetChannelPitchSlideByte(int channel, byte value)
     {
         if (channel is < 0 or > 5) throw new ArgumentOutOfRangeException(nameof(channel));
-        _ram[0xc03f + channel] = value;
+        WriteNativeAllocationAlias(0xc03f + channel, value);
     }
     internal void SetChannelVolumeByte(int channel, byte value)
     {

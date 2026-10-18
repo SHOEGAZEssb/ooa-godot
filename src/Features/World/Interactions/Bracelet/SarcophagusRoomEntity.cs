@@ -35,6 +35,7 @@ internal sealed partial class SarcophagusRoomEntity : TransitionOffsetNode2D,
     public bool UpdatesDuringDialogue => State == 0;
     public bool UpdatesDuringRoomEntityFreeze => State == 0;
     public bool ReservedBraceletChildActive => _throw.Active;
+    public void WriteReservedBraceletAngle(int angle) => _throw.SetAngle(angle);
 
     internal SarcophagusRoomEntity(DungeonObjectRecord record, DungeonInteractionVisual idle,
         DungeonInteractionVisual breaking, OracleRoomData room, OracleSaveData save,

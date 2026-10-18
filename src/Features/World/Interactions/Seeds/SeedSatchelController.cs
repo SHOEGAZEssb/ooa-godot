@@ -178,6 +178,8 @@ public sealed class SeedSatchelController
                 SeedLaunchKind.Shooter,
                 _shooterAngle,
                 player.ItemCreationZFixed));
+        else
+            _entities.WriteReservedBraceletAngle(_shooterAngle * 4);
         if (!_inventory.TryConsumeSelectedShooterSeed(out int consumed) ||
             consumed != seedItem)
         {

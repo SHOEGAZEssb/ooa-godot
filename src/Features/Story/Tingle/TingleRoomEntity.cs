@@ -176,7 +176,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
         _balloonActive = false;
         _balloon.SetScriptVisible(false);
         _state = 2;
-        spawns.Add(new InteractionExplosionSpawn(
+        spawns.Add(new TingleBalloonExplosionSpawn(
             _balloon.Position + new Vector2(
                 _record.ExplosionXOffset,
                 _record.ExplosionYOffset),
@@ -327,3 +327,9 @@ internal sealed partial class TingleRoomEntity : Node2D,
             _balloon.SetScriptDrawOffset(offset);
     }
 }
+
+// tingleBalloon.s writes through getFreeInteractionSlot's failure pointer;
+// other explosion producers have distinct checked/retry policies.
+internal sealed record TingleBalloonExplosionSpawn(
+    Vector2 Position, int ZOffset, InteractionExplosionVisual Visual)
+    : RoomEntitySpawn(UpdateThisFrame: true);

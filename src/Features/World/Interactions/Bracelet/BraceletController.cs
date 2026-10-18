@@ -221,13 +221,11 @@ public sealed class BraceletController
                 if (itemButtonJustPressed || player.NativeContactSignal)
                 {
                     Throw(player, movementInput);
-                    AdvanceProjectile();
                     return true;
                 }
                 return false;
 
             case BraceletState.Throwing:
-                AdvanceProjectile();
                 _counter++;
                 // state4 checks the terminal parameter before animating:
                 // eight animation updates precede the parent deletion update.
@@ -242,7 +240,6 @@ public sealed class BraceletController
                 return true;
 
             case BraceletState.Projectile:
-                AdvanceProjectile();
                 return false;
 
             default:

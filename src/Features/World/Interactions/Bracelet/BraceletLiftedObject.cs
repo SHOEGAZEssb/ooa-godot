@@ -40,7 +40,14 @@ internal partial class BraceletLiftedObject : Node2D
     internal int SpeedZ => _speedZ;
     internal int SpeedRaw { get; private set; }
     internal Texture2D Texture => _texture;
-    internal Vector2I ThrowDirection { get; private set; }
+    internal int Angle { get; private set; } = 0xff;
+    internal Vector2I ThrowDirection => Angle == 0xff ? Vector2I.Zero :
+        (Vector2I)OracleObjectMath.StrictCardinalVector(Angle & ObjectAngle.CardinalMask);
+    internal void WriteNativeAngle(int angle)
+    {
+        if (angle is not (>= 0 and < 32) && angle != 0xff) throw new ArgumentOutOfRangeException(nameof(angle));
+        Angle = angle;
+    }
     internal bool Thrown { get; private set; }
 
     internal void Initialize(Texture2D texture)
@@ -69,7 +76,7 @@ internal partial class BraceletLiftedObject : Node2D
         GroundY = Mathf.RoundToInt(groundPosition.Y * 256.0f);
         _zFixed = zFixed;
         _speedZ = speedZ;
-        ThrowDirection = direction;
+        WriteNativeAngle(direction == Vector2I.Zero ? 0xff : CarriedObjectMotion.DirectionIndex(direction) * 8);
         SpeedRaw = speedRaw;
         Thrown = true;
         SyncPosition();
@@ -80,7 +87,7 @@ internal partial class BraceletLiftedObject : Node2D
         // itemUpdateThrowingLaterally returns for angle $ff (dropped item).
         if (ThrowDirection == Vector2I.Zero) return;
         var velocity = NativeObjectMovement.Velocity(_movementMemory, SpeedRaw,
-            CarriedObjectMotion.DirectionIndex(ThrowDirection) * 8);
+            Angle);
         GroundX = unchecked((ushort)(GroundX + velocity.XFixed));
         GroundY = unchecked((ushort)(GroundY + velocity.YFixed));
         SyncPosition();
@@ -98,7 +105,7 @@ internal partial class BraceletLiftedObject : Node2D
         new(GroundX / 256.0f, GroundY / 256.0f);
 
     internal bool CanPassSolidTile(OracleRoomData room, Vector2 point) =>
-        _tilePassage.CanPass(room, point, CarriedObjectMotion.DirectionIndex(ThrowDirection) * 8);
+        _tilePassage.CanPass(room, point, Angle);
 
     internal Rect2 CollisionBounds(int radiusX, int radiusY)
     {

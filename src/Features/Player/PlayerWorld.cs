@@ -251,13 +251,6 @@ public sealed class PlayerWorld : IPlayerWorld
             primaryHeld,
             secondaryHeld,
             itemButtonJustPressed);
-    public void AdvanceBraceletProjectile()
-    {
-        // initiateWarp's $1e mask freezes an existing ITEM_BRACELET child
-        // even while dying Link continues to dispatch its special object.
-        if (!_transitions.AwaitingLinkWarpState)
-            _bracelet.AdvanceProjectile();
-    }
     public void InterruptBracelet(Player player, bool discard) =>
         _bracelet.Interrupt(player, discard);
     public int TryUseSeedSatchel(Player player) => _seedSatchel.TryUse(player);
