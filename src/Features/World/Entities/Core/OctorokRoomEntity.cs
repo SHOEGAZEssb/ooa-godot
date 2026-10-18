@@ -6,7 +6,8 @@ namespace oracleofages;
 
 internal sealed class OctorokRoomEntity
     : CombatEnemyRoomEntityAdapter<OctorokCharacter>, IFixedRoomEntity,
-      IBoomerangCollisionRoomEntity, ISomariaBlockCollisionRoomEntity
+      IBoomerangCollisionRoomEntity, ISomariaBlockCollisionRoomEntity,
+      IScreenTransitionPreloadRoomEntity
 {
     public OctorokRoomEntity(
         OctorokCharacter octorok,
@@ -27,6 +28,9 @@ internal sealed class OctorokRoomEntity
     { }
 
     protected override bool Stunned => Entity.StunCounter != 0;
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns) =>
+        Entity.PrepareForScreenTransition();
 
     public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
         ApplySomariaBlockCollision(block, Entity.Record.RawDamage, Entity.NativeHitPending, spawns);

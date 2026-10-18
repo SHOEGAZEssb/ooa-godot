@@ -351,7 +351,7 @@ public sealed partial class ValidationRoot
         using var harness = new MapleValidationHarness(
             this, group: 0, room: 0x01);
         var database = new MapleEventDatabase();
-        var encounter = new MapleEncounterState();
+        var encounter = new MapleEncounterState(harness.Manager.RuntimeState);
         var random = new OracleRandom();
         MapleDroppedItem first = CreateMapleTarget(
             database.Item(5), encounter, harness, random, 0,
@@ -386,7 +386,7 @@ public sealed partial class ValidationRoot
         var item = new MapleDroppedItem();
         item.Initialize(
             record, encounter, harness.Rooms.CurrentRoom, random,
-            slot, position, 0, static (_, _) => { });
+            slot, position, 0, static (_, _) => true);
         encounter.Register(item);
         item.UpdateFrame(harness.Player);
         return item;
@@ -534,7 +534,9 @@ public sealed partial class ValidationRoot
         MapleDroppedItem heart = SpawnGroundedMapleReward(
             harness, database.Item(0));
         harness.Player.WarpTo(heart.Position, recordSafe: false);
-        harness.Step(closeDialogue: false);
+        for (int wait = 0; !harness.Dialogue.IsOpen && wait < 6; wait++)
+            harness.Step(closeDialogue: false);
+        harness.Step(closeDialogue: false); // INTERAC$60 state3 queues Link's held-item state on its next visit.
         harness.PlayerWorld.NativeTextActive = harness.Dialogue.IsOpen;
         harness.Player.AdvanceApplicationUpdate();
         harness.Player.AdvanceApplicationUpdate();
@@ -546,8 +548,7 @@ public sealed partial class ValidationRoot
             !harness.Dialogue.IsOpen ||
             harness.Save.HasRoomFlag(
                 0, 0x01, OracleSaveData.RoomFlagItem),
-            "Maple's Heart Piece did not use the held treasure path, set bit 7, " +
-            "and avoid the room-item flag.");
+            $"Maple Heart Piece: finished={heart.Finished}, state=${harness.Save.MapleState:x2}, hearts={harness.Inventory.HeartPieces}, held={harness.Player.IsHoldingItemTwoHands}, dialogue={harness.Dialogue.IsOpen}, flags=${harness.Save.GetRoomFlags(0, 1):x2}.");
         harness.Dialogue.Close();
         harness.PlayerWorld.NativeTextActive = false;
         harness.Player.AdvanceApplicationUpdate();
@@ -564,6 +565,7 @@ public sealed partial class ValidationRoot
         MapleDroppedItem item = SpawnGroundedMapleReward(harness, record);
         harness.Player.WarpTo(item.Position, recordSafe: false);
         harness.Step();
+        harness.Step(); // Post-object health0 is consumed on the following PART visit.
         FailIf(
             !item.Finished,
             $"Maple reward item ${record.Index:x2} was not collected on grounded contact.");
@@ -580,7 +582,7 @@ public sealed partial class ValidationRoot
         ];
         foreach (Vector2 origin in origins)
         {
-            var encounter = new MapleEncounterState();
+            var encounter = new MapleEncounterState(harness.Manager.RuntimeState);
             MapleDroppedItem item =
                 harness.Manager.Spawn<MapleDroppedItem>(
                     new MapleDroppedItemSpawn(
@@ -809,7 +811,9 @@ public sealed partial class ValidationRoot
         {
             PlayerWorld.FrameCounter =
                 (PlayerWorld.FrameCounter + 1) & 0xff;
+            Manager.UpdateSpecialObjectsBeforePlayer(Player);
             Manager.Update(1.0 / 60.0, Player);
+            Manager.ResolvePostObjectCollisions(Player);
             if (closeDialogue && Dialogue.IsOpen)
                 Dialogue.Close();
             Interactions.Update(1.0 / 60.0, Player);

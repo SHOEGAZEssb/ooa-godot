@@ -994,12 +994,21 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (entity is not (RickyCompanionRoomEntity or DimitriCompanionRoomEntity or MooshCompanionRoomEntity) &&
-                entity is not MapleCreditsRoomEntity &&
+                entity is not (MapleCreditsRoomEntity or MapleEncounterRoomEntity) &&
                 entity is not RaftRoomEntity { UsesSpecialObjectSlot: true } &&
                 entity is not MinecartRoomEntity { UsesSpecialObjectSlot: true })
                 continue;
             // updateSpecialObjects dispatches w1Companion before w1Link.
             _specialObjectsUpdatedBeforePlayer.Add(entity);
+            if (entity is MapleEncounterRoomEntity)
+            {
+                // Maple's native common guard admits text; individual states
+                // own their text waits. Dispatch before Link, including births
+                // which the later live PART/INTERACTION walks initialize.
+                if (!_screenTransitionActive)
+                    ((IFixedRoomEntity)entity).UpdateFrame(frame, _pendingSpawns);
+                continue;
+            }
             if (!frozen || entity is MapleCreditsRoomEntity || entity is IRoomInitializedCompanion { RoomInitialization.Pending: true } ||
                 entity is MinecartRoomEntity { AllocationPending: true })
                 ((IFixedRoomEntity)entity).UpdateFrame(frame, _pendingSpawns);
@@ -1105,7 +1114,6 @@ public sealed class RoomEntityManager : IDisposable
                 ResolvePlayerProjectileCollisions();
                 ResolveBossBombCatches();
                 ResolveBombExplosionCollisions();
-                ResolveMapleBombPulling();
             }
 
             // updateInteractions/updateParts still run newly allocated state
@@ -1193,8 +1201,10 @@ public sealed class RoomEntityManager : IDisposable
             frame = frame with
             {
                 ScentSeedTarget = scentTarget,
-                // hEnemyTarget is published once after items. A part pushing
-                // Link later in the walk does not change this shared target.
+                // bank0.setEnemyTargetToLinkPosition always publishes Link to
+                // hEnemyTargetY/X; hFFB2/3 instead retain the ITEM scent target.
+                // Snapshot both before a later PART can move Link.
+                LinkTarget = player.EnemyContactPosition,
                 EnemyTarget = scentTarget ?? player.EnemyContactPosition,
                 SwitchHookState = SwitchHook?.ExchangeState ?? 0
             };
@@ -1850,22 +1860,9 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
 
-    private void ResolveMapleBombPulling()
+    private void ResolveMapleBombPulling(MapleEncounter maple)
     {
-        MapleEncounter? maple = null;
-        foreach (IRoomEntity entity in _activeEntities)
-        {
-            if (entity is MapleEncounterRoomEntity mapleEntity &&
-                mapleEntity.Maple.CanPullBomb)
-            {
-                maple = mapleEntity.Maple;
-                break;
-            }
-        }
-        if (maple is null)
-            return;
-
-        foreach (IRoomEntity entity in _activeEntities)
+        foreach (IRoomEntity entity in _activeEntities.OrderBy(DynamicItemSlotOf))
         {
             if (entity is not BombRoomEntity
                 {
@@ -2538,7 +2535,14 @@ public sealed class RoomEntityManager : IDisposable
             enemy.BindNativeEnemyAllocation(TryCreateEnemy);
         }
         if (entity.Node is ItemDropProducer producer) producer.BindPartCreation(TryCreatePart);
-        if (entity.Node is MapleEncounter maple) maple.BindPartCreation(TryCreateQueuedPart);
+        if (entity.Node is MapleEncounter maple)
+        {
+            maple.BindNativeMemory(_runtimeState);
+            maple.BindBombPull(() => ResolveMapleBombPulling(maple));
+            maple.BindPartCreation(spawn => _specialObjectsUpdatedBeforePlayer.Contains(entity)
+                ? TryCreatePart(spawn) : TryCreateQueuedPart(spawn));
+            maple.BindBookCreation(spawn => TryCreateInteraction(spawn) as MapleTouchingBookRoomEntity);
+        }
         if (entity.Node is PumpkinHeadBoss pumpkin) pumpkin.BindNativePartAllocation(TryCreateQueuedPart);
         if (entity.Node is SmogProjectilePart smogProjectile)
             smogProjectile.BindMovementMemory(_runtimeState);
@@ -3042,7 +3046,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or
+        PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or MapleTouchingBookRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
         TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or
         TokayAttachedVisualRoomEntity { IsNativeExclamation: true } or
@@ -3887,10 +3891,25 @@ public sealed class RoomEntityManager : IDisposable
         Player player) =>
         MapleDialogueRequested?.Invoke(textId, message, player);
 
-    internal void OnMapleItemCollected(
+    internal bool OnMapleItemCollected(
         MapleItemRecord item,
-        Player player) =>
+        Player player)
+    {
+        if (item.Index == 0)
+        {
+            // itemFromMaple.s @func_4e6e: checked creation precedes bit7 and
+            // PART deletion. Only INTERAC$60 owns inventory/presentation.
+            if (!TryCreateGroundTreasure(new(_roomForActiveEntities.Group, _roomForActiveEntities.Id,
+                item.Index, (int)player.Position.Y & 0xff, (int)player.Position.X & 0xff,
+                "TREASURE_OBJECT_HEART_PIECE_02", "itemFromMaple.s:@func_4e6e createTreasure TREASURE_HEART_PIECE,$02")
+                { ExpectedTreasureId = TreasureId.HeartPiece, ExpectedSubId = 2, ExpectedObjectParameter = 1,
+                    RoomFlagTiming = GroundTreasureRoomFlagTiming.Never })) return false;
+            _saveData!.SetMapleState(_saveData.MapleState | 0x80);
+            return true;
+        }
         MapleItemCollected?.Invoke(item, player);
+        return true;
+    }
 
     internal void OnSeedTreeMessageRequested(
         int textId,
@@ -3949,7 +3968,8 @@ internal readonly record struct RoomEntityFrame(
     bool AnyButtonJustPressed,
     Vector2? ScentSeedTarget = null,
     int SwitchHookState = 0,
-    Vector2? EnemyTarget = null);
+    Vector2? EnemyTarget = null,
+    Vector2? LinkTarget = null);
 
 internal sealed record SwordBeamSpawn(Vector2 LinkPosition, int Direction)
     : RoomEntitySpawn;

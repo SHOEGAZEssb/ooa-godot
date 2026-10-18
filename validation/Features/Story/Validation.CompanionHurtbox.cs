@@ -42,6 +42,7 @@ public sealed partial class ValidationRoot
             AddChild(enemy);
             enemy.Initialize(ResolveOctorok(database, source), _rooms.CurrentRoom,
                 point + Vector2.Down * 8, new OracleRandom());
+            enemy.UpdateFrame(_player.Position); // Admit the source state0 before contact.
             var adapter = new OctorokRoomEntity(enemy,
                 database.EnemyHandlers.ResolveHandler(source).CombatSource(source, killableEnemyIndex: 1), _ => { });
             int health = _player.HealthQuarters;

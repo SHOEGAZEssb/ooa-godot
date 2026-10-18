@@ -74,7 +74,8 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 owner.OnSoundRequested,
                 owner.OnRoomTileChanged,
                 _animationTick,
-                _random);
+                _random,
+                owner.RuntimeState);
         }
         if (handler.Handler == EnemyHandlerKind.BabyCucco)
         {

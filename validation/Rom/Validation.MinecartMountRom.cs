@@ -50,6 +50,18 @@ public sealed partial class ValidationRoot
             rom[slot + 0x16] = 0x90; rom[slot + 0x17] = 0xcd;
             rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
             var sounds = _sound.AttachPlayRequestAudit();
+            byte[] linkScratch = new byte[4], sourceLinkScratch = new byte[4];
+            int jumpScratchVisits = 0;
+            if (!bombchu)
+            {
+                // No physical ITEMs are equipped in this route. Observe Link
+                // before the later interaction cart can overwrite movement.
+                var probe = new PartMovementScratchProbe(() =>
+                {
+                    for (int i = 0; i < 4; i++) linkScratch[i] = _runtimeState.ReadWramByte(0xcec0 + i);
+                });
+                _entities.RegisterEnemySlot(probe, 15); _entities.AddEntity(probe);
+            }
             int update = 0, previousDirections = 0;
             int Field(string name) => (int)typeof(Player).GetField(name,
                 BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
@@ -60,8 +72,16 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previousDirections; previousDirections = held;
                 StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1); edge = 0; update++;
+                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1, afterLink: () =>
+                    {
+                        for (int i = 0; i < 4; i++) sourceLinkScratch[i] = rom[0xcec0 + i];
+                    }); edge = 0; update++;
                     string context = $"Minecart 4:78 update={update} batch={batched} Bombchu={bombchu}";
+                    if (!bombchu && _player.MinecartJumpActive && (rom[0xcc5c] & 0x80) != 0)
+                    {
+                        jumpScratchVisits++;
+                        FailIf(!linkScratch.SequenceEqual(sourceLinkScratch), context + ": airborne Link movement must publish source scratch before ITEM/ENEMY/PART/INTERACTION consumers.");
+                    }
                     if (heartRing != 0xff) CompareHeartRingVehicle(rom, context);
                     Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     int z = unchecked((short)rom.Word(0xd00e));
@@ -133,6 +153,7 @@ public sealed partial class ValidationRoot
                 }
                 if (bombchu) { _entities.ClearPhysicalPlayerItems(); rom.ClearPhysicalItems(); }
             }
+            FailIf(!bombchu && jumpScratchVisits < 10, "The reachable cart route must observe active boarding/dismount Link scratch beyond their creation visits.");
         }
         GD.Print($"Validated clean-US collision-reachable Skull 4:78 minecart push, jump, full fixed XY/Z, companion handoff, bounded native rail route, pause, static-cart bytes, dismount/landing, sounds/RNG and repeated split/batched gameplay; Bombchu={bombchu}.");
     }

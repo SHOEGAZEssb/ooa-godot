@@ -15,11 +15,16 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private MapleEncounterState _encounter = null!;
     private Func<MapleDroppedItemSpawn, bool>? _createPart;
     internal void BindPartCreation(Func<MapleDroppedItemSpawn, bool> create) => _createPart = create;
+    private Func<MapleTouchingBookSpawn, MapleTouchingBookRoomEntity?>? _createBook;
+    internal void BindBookCreation(Func<MapleTouchingBookSpawn, MapleTouchingBookRoomEntity?> create) => _createBook = create;
+    private MapleTouchingBookRoomEntity? _book;
+    internal MapleTouchingBookRoomEntity? TouchingBook => _book;
+    private OracleRuntimeState? _nativeMemory;
+    internal void BindNativeMemory(OracleRuntimeState memory) => _nativeMemory = memory;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private OracleSaveData _save = null!;
     private InventoryState _inventory = null!;
-    private TreasureDatabase _treasures = null!;
     private Action<int, string, Player> _dialogueRequested = null!;
     private Func<bool> _dialogueOpen = null!;
     private Action<int> _soundRequested = null!;
@@ -28,7 +33,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private EnemyAnimationPlayer _animation = null!;
     private Texture2D _shadowTexture = null!;
     private Vector2 _shadowOffset;
-    private Texture2D _bookTexture = null!;
     private Vector2 _precisePosition;
     private MaplePathRecord _path = null!;
     private int _pathStep;
@@ -50,22 +54,14 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private bool _heartPieceSpawned;
     private bool _mainFlight;
     private bool _raceMusicStarted;
-    private bool _screenTransitionsDisabled;
-    private bool _menusDisabled;
-    private bool _bookExchange;
+    private int _bookDirection;
     private MapleDroppedItem? _targetItem;
     private int _targetItemIndex;
     private int _recoilBounce;
     private bool _risingInitialized;
-    private bool _bookFlightStarted;
-    private bool _bookVisible;
-    private Vector2 _bookPrecisePosition;
-    private int _bookZFixed;
-    private int _bookSpeedZ;
-    private int _bookAngle;
-    private bool _bookLanded;
-    private bool _holdingOarPose;
     private bool _bombPullActive;
+    private Action? _updateBombPull;
+    internal void BindBombPull(Action update) => _updateBombPull = update;
     private int _globalFrameCounter;
 
     internal MapleEncounterStage Stage { get; private set; }
@@ -84,8 +80,15 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     internal int MapleScore => _encounter.MapleScore;
     internal int LinkScore => _encounter.LinkScore;
     internal bool MainFlight => _mainFlight;
-    internal bool ScreenTransitionsDisabled => _screenTransitionsDisabled;
-    internal bool MenusDisabled => _menusDisabled;
+    internal Vector2 BookTargetPosition => _precisePosition;
+    internal bool BookTradeAccepted => (_save.MapleState & 0x20) != 0;
+    internal bool BookTextActive => _dialogueOpen();
+    internal int BookDirection { get => _bookDirection; set => _bookDirection = value & 0xff; }
+    internal void SetBookMovementAngle(int angle) => _angle = angle & 0xff;
+    internal void ShowBookText(int textId, Player player) => RequestDialogue(textId, player);
+    internal void SignalBookDeparture() => _substate = 2;
+    internal bool ScreenTransitionsDisabled => (_nativeMemory?.ReadWramByte(WramAddress.wDisableScreenTransitions) ?? 0) != 0;
+    internal bool MenusDisabled => (_nativeMemory?.ReadWramByte(WramAddress.wMenuDisabled) ?? 0) != 0;
     internal bool ObjectsDisabled => _encounter.ObjectsDisabled;
     internal bool Finished { get; private set; }
     internal bool CanPullBomb =>
@@ -101,7 +104,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         OracleRandom random,
         OracleSaveData save,
         InventoryState inventory,
-        TreasureDatabase treasures,
         Action<int, string, Player> dialogueRequested,
         Func<bool> dialogueOpen,
         Action<int> soundRequested,
@@ -115,7 +117,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _random = random;
         _save = save;
         _inventory = inventory;
-        _treasures = treasures;
         _dialogueRequested = dialogueRequested;
         _dialogueOpen = dialogueOpen;
         _soundRequested = soundRequested;
@@ -123,7 +124,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _roomMusicRequested = roomMusicRequested;
 
         InitializeVisuals();
-        _bookTexture = LoadBookTexture(database.BookVisual);
         Stage = MapleEncounterStage.Initializing;
         // checkAndSpawnMaple does not set visible. Unlike ordinary companion
         // initialization, Maple's state0 is gated by scrolling too.
@@ -202,7 +202,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
                 break;
         }
 
-        UpdateBookFlight(player);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         QueueRedraw();
     }
@@ -223,14 +222,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             _animation.CurrentOffset +
             new Vector2(0, _zFixed >> 8) +
             TransitionDrawOffset);
-        if (_bookVisible)
-        {
-            DrawTexture(
-                _bookTexture,
-                _bookPrecisePosition - _precisePosition +
-                new Vector2(-16, -16 + (_bookZFixed >> 8)) +
-                TransitionDrawOffset);
-        }
     }
 
     private void InitializeState()
@@ -300,17 +291,19 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         if (!_mainFlight)
             return;
 
-        UpdateOscillation();
         if (PlayerVulnerable(player) && OverlapsPlayer(player))
+        {
             CollideWithPlayer(player, spawns);
-        else
-            _animation.Advance();
+            return; // mapleCollideWithLink skips oscillation on this visit.
+        }
+        UpdateOscillation();
+        _animation.Advance();
     }
 
     private void BeginMainFlight()
     {
         _mainFlight = true;
-        _zFixed = -8 << 8;
+        _zFixed = (-8 << 8) | (_zFixed & 0xff);
         _speedZ = 0x40;
         _oscillationCounter = 0x16;
         _speedRaw = _database.Constant("race-speed-raw");
@@ -329,8 +322,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         ICollection<RoomEntitySpawn> spawns)
     {
         GenerateDropsOrBook(player, spawns);
-        _screenTransitionsDisabled = true;
-        _menusDisabled = true;
+        _nativeMemory?.SetWramByte(WramAddress.wDisableScreenTransitions, 1);
+        _nativeMemory?.SetWramByte(WramAddress.wMenuDisabled, 1);
         int towardLink =
             OracleObjectMovement.Shared.RelativeAngle(
                 _precisePosition, player.Position) & ObjectAngle.CardinalMask;
@@ -355,7 +348,9 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             if (_zFixed == 0)
             {
                 _recoilBounce++;
-                _speedZ = _recoilBounce << 8;
+                // mapleState3 replaces speedZ's high byte only; the impact
+                // fraction survives into the next bounce.
+                _speedZ = unchecked((short)((_recoilBounce << 8) | (_speedZ & 0xff)));
             }
             OracleObjectMath.UpdateSpeedZ(
                 ref _zFixed, ref _speedZ, 0x40);
@@ -365,7 +360,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             {
                 _precisePosition +=
                     OracleObjectMath.StrictCardinalVector(_angle ^ ObjectAngle.HalfTurn) * 4;
-                KeepInBounds();
             }
             return;
         }
@@ -393,7 +387,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         if (!_risingInitialized)
         {
             _risingInitialized = true;
-            _zFixed = -0x100;
+            _zFixed = -0x100 | (_zFixed & 0xff);
             _speedZ = 0x40;
             _oscillationCounter = 0x16;
             _turnDelay = 1;
@@ -402,23 +396,26 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             DecideFlightAnimation();
         }
 
-        _zFixed -= 0x100;
-        int targetHeight = _vehicle == 0 ? -8 : -24;
-        if ((_zFixed >> 8) >= targetHeight)
+        _zFixed = unchecked((short)(_zFixed - 0x100));
+        // mapleState5 yields for zh >= $f9/$e9, then completes on
+        // $f8/$e8. Comparing against -8/-24 delayed the handoff one visit.
+        int waitHeight = _vehicle == 0 ? 0xf9 : 0xe9;
+        if (((_zFixed >> 8) & 0xff) >= waitHeight)
             return;
 
-        if (_bookExchange)
+        if ((_save.MapleState & 0x10) != 0)
         {
             Stage = MapleEncounterStage.BookExchange;
             _substate = 0;
             _speedRaw = ObjectSpeed.Speed100;
             _angle = 0xff;
+            _bookDirection = 0x0b;
             RequestDialogue(0x070d, player);
             return;
         }
 
         Stage = MapleEncounterStage.Racing;
-        _menusDisabled = false;
+        _nativeMemory?.SetWramByte(WramAddress.wMenuDisabled, 0);
         RequestGreeting(player);
         _encounter.ObjectsDisabled = false;
         ChooseNextTarget();
@@ -437,18 +434,19 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         }
         if (_targetAngle != _angle)
             NudgeAngleTowardTarget();
-        if (!ChooseNextTarget())
-            return;
-
+        // mapleState6 continues after the selector changes state to $09.
+        ChooseNextTarget();
         ApplySpeed();
-        KeepInBounds();
-        if (_targetItem is null || !_targetItem.CanMapleTarget)
-            return;
-        int radius = _vehicle == 2 ? 4 : 2;
-        Vector2 delta = _targetItem.Position - Position;
-        if (Mathf.Abs(delta.X) >= radius + 6 ||
-            Mathf.Abs(delta.Y) >= radius + 6)
+        if (_targetItem is null || _targetItem.Finished)
         {
+            KeepInBounds();
+            return;
+        }
+        int radius = _vehicle == 2 ? 4 : 2;
+        if (!RoomEntityManager.ObjectCollisionXYOverlaps(
+            new Rect2(Position - Vector2.One * radius, Vector2.One * (radius * 2)), _targetItem.CollisionBounds))
+        {
+            KeepInBounds();
             return;
         }
 
@@ -474,14 +472,18 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     private void UpdateCollecting()
     {
         _animation.Advance();
-        if (_bombPullActive)
-            return;
+        // mapleState7 runs vacuum/bomb work in the companion pass, before
+        // Link and ITEM/PART. Its ordinary item handoff still runs while a
+        // bomb approaches; only the bomb's actual stun releases the target.
+        _bombPullActive = false;
+        if (_vehicle == 1) _updateBombPull?.Invoke();
+        if (Stage == MapleEncounterStage.BombStun) return;
         if (_targetItem is null ||
-            _targetItem.Finished && !_targetItem.MapleCollectionReady)
+            _targetItem.Finished && !_targetItem.MapleCollectionReady || _targetItem.AttachedToItem)
         {
+            if (_bombPullActive) return;
             Stage = MapleEncounterStage.Racing;
             _angle = _targetAngle;
-            _targetItem = null;
             return;
         }
         if (!_targetItem.MapleCollectionReady)
@@ -491,7 +493,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             (_encounter.MapleScore +
              _database.Item(_targetItemIndex).Value) & 0xff;
         _targetItem.CompleteMapleCollection();
-        _targetItem = null;
+        if (_bombPullActive) return;
         _angle = _targetAngle;
         Stage = _vehicle == 0
             ? MapleEncounterStage.BroomSweep
@@ -508,8 +510,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         if (_bombPullActive)
             return;
         _bombPullActive = true;
-        _targetItem?.ReleaseFromMaple();
-        _targetItem = null;
     }
 
     internal void BeginBombStun()
@@ -517,6 +517,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         if (!_bombPullActive)
             return;
         _bombPullActive = false;
+        _targetItem?.ReleaseFromMaple();
+        _targetItem = null;
         Stage = MapleEncounterStage.BombStun;
         _substate = 0;
         _counter = 0x20;
@@ -598,7 +600,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
                 UpdateOscillation();
                 if (_dialogueOpen())
                     return;
-                _encounter.ObjectsDisabled = true;
+                _nativeMemory?.SetWramByte(WramAddress.wTextIsActive, 0x80);
+                _nativeMemory?.SetWramByte(WramAddress.wDisabledObjects, 0x1f);
                 _angle = ObjectAngle.Left;
                 _speedRaw = _database.Constant("departure-speed-raw");
                 _substate = 2;
@@ -608,7 +611,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             case 2:
                 UpdateOscillation();
                 ApplySpeed();
-                if (!OracleObjectMath.IsInsideOriginalScreenBoundary(Position))
+                if (!OracleObjectMath.IsInsideOriginalScreenBoundary(
+                        OracleObjectMath.NormalizeSourceScreenPosition(Position)))
                     EndEncounter(player);
                 break;
         }
@@ -616,103 +620,29 @@ public partial class MapleEncounter : TransitionOffsetNode2D
 
     private void UpdateBookExchange(Player player)
     {
-        UpdateOscillation();
-        _animation.Advance();
-        switch (_substate)
+        // The INTERAC$a5 owner drives approach angles and trade states.
+        // mapleStateB owns facing/oscillation and its two-visit departure wait.
+        if (_substate != 0)
         {
-            case 0:
-                FaceToward(player.Position);
-                if (_dialogueOpen())
-                    return;
-                _save.SetMapleState(_save.MapleState | 0x20);
-                if (!_bookLanded)
-                    return;
-                _substate = 1;
-                _targetAngle = OracleObjectMovement.Shared.RelativeAngle(
-                    _precisePosition, _bookPrecisePosition);
-                break;
-
-            case 1:
-                if (!MoveDirectlyToBook())
-                    return;
-                _angle = 0xff;
-                _bookVisible = false;
-                _soundRequested(SoundId.SndGetSeed);
-                RequestDialogue(0x070e, player);
-                _substate = 2;
-                break;
-
-            case 2:
-                if (_dialogueOpen())
-                    return;
-                _bookPrecisePosition = player.Position +
-                    new Vector2(player.Position.X < 0x58 ? 0x10 : -0x10, 0);
-                _bookZFixed = 0;
-                _bookVisible = true;
-                _angle = ObjectAngle.Up;
-                _substate = 3;
-                break;
-
-            case 3:
-                if (MoveDirectlyToBook())
-                {
-                    _bookVisible = false;
-                    Vector2 facing =
-                        OracleObjectMath.CardinalVector(_angle ^ ObjectAngle.HalfTurn);
-                    player.Face(new Vector2I(
-                        Mathf.RoundToInt(facing.X),
-                        Mathf.RoundToInt(facing.Y)));
-                    RequestDialogue(0x070f, player);
-                    _substate = 4;
-                }
-                break;
-
-            case 4:
-                if (_dialogueOpen())
-                    return;
-                RequestDialogue(0x0710, player);
-                _substate = 5;
-                break;
-
-            case 5:
-                if (_dialogueOpen())
-                    return;
-                TreasureObjectRecord oar =
-                    _treasures.GetObject("TREASURE_OBJECT_TRADEITEM_09");
-                _inventory.GiveTreasure(oar);
-                int sound = _treasures.GetBehaviour(oar.TreasureId).Sound;
-                if (sound != SoundId.MusNone)
-                    _soundRequested(sound);
-                player.BeginGetItemTwoHandPose();
-                _holdingOarPose = true;
-                _soundRequested(SoundId.SndGetItem);
-                _dialogueRequested(oar.TextId, oar.Message, player);
-                _substate = 6;
-                break;
-
-            case 6:
-                if (_dialogueOpen())
-                    return;
-                if (_holdingOarPose)
-                {
-                    player.EndGetItemTwoHandPose();
-                    _holdingOarPose = false;
-                }
-                _counter = 2;
-                _substate = 7;
-                break;
-
-            case 7:
-                _counter--;
-                if (_counter != 0)
-                    return;
-                RequestDialogue(0x0711, player);
-                _angle = ObjectAngle.Left;
-                _speedRaw = _database.Constant("departure-speed-raw");
-                Stage = MapleEncounterStage.BookDeparture;
-                _substate = 0;
-                break;
+            if (--_substate != 0) return;
+            RequestDialogue(0x0711, player);
+            _angle = ObjectAngle.Left;
+            _speedRaw = _database.Constant("departure-speed-raw");
+            Stage = MapleEncounterStage.BookDeparture;
+            UpdateBookDeparture(player); // Native stateB falls into stateC.
+            return;
         }
+        UpdateOscillation();
+        int direction = (_bookDirection & 0x80) != 0 ? _bookDirection & 3 :
+            DirectionFromAngle(OracleObjectMovement.Shared.RelativeAngle(_precisePosition, player.Position));
+        if ((_bookDirection & 0x80) != 0 || direction != _bookDirection)
+        {
+            if ((_bookDirection & 0x80) == 0) _bookDirection = direction;
+            SetAnimation(_vehicle * 4 + 4 + direction);
+        }
+        if (_dialogueOpen()) return;
+        _save.SetMapleState(_save.MapleState | 0x20);
+        if ((_angle & 0x80) == 0) ApplySpeed();
     }
 
     private void UpdateBookDeparture(Player player)
@@ -726,36 +656,9 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             _save.SetMapleState(_save.MapleState & ~0x10);
             SetAnimation(_vehicle * 4 + 7);
         }
-        if (!OracleObjectMath.IsInsideOriginalScreenBoundary(Position))
+        if (!OracleObjectMath.IsInsideOriginalScreenBoundary(
+                OracleObjectMath.NormalizeSourceScreenPosition(Position)))
             EndEncounter(player);
-    }
-
-    private void UpdateBookFlight(Player player)
-    {
-        if (!_bookExchange || _bookLanded)
-            return;
-        if (!_bookFlightStarted)
-        {
-            if (player.KnockbackFrames > 0)
-                return;
-            _bookFlightStarted = true;
-            _bookPrecisePosition = _precisePosition;
-            _bookZFixed = _zFixed;
-            _bookSpeedZ = -0x100;
-            _bookAngle = OracleObjectMovement.Shared.RelativeAngle(
-                _bookPrecisePosition, new Vector2(0x50, 0x38)) & 0x1c;
-            _bookVisible = player.Visible;
-            _soundRequested(SoundId.SndGainHeart);
-        }
-        if (OracleObjectMath.UpdateSpeedZ(
-                ref _bookZFixed, ref _bookSpeedZ, 0x20))
-        {
-            _bookLanded = true;
-            _bookZFixed = 0;
-            return;
-        }
-        OracleObjectMovement.Shared.ApplySpeed(
-            ref _bookPrecisePosition, 0x28, _bookAngle);
     }
 
     private void GenerateDropsOrBook(
@@ -765,11 +668,15 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         if (_inventory.HasTreasure(TreasureId.TradeItem) &&
             _inventory.TradeItem == 0x08)
         {
-            _bookExchange = true;
-            _bookVisible = true;
-            _bookPrecisePosition = _precisePosition;
-            _bookZFixed = _zFixed;
-            _save.SetMapleState(_save.MapleState | 0x10);
+            // mapleSpawnItemDrops returns on failed checked INTERAC$a5
+            // creation; bit4 and the book continuation require success.
+            var create = _createBook ?? throw new InvalidOperationException(
+                "mapleSpawnItemDrops INTERAC $a5 requires the shared interaction allocator.");
+            _book = create(new(this, _precisePosition, _zFixed, _database.BookVisual));
+            if (_book is not null)
+            {
+                _save.SetMapleState(_save.MapleState | 0x10);
+            }
             return;
         }
 
@@ -910,7 +817,9 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             _precisePosition.Y, _precisePosition.X);
         if (target is null)
         {
-            _targetItem = null;
+            // The selector changes state but preserves relatedObj2. State6
+            // still moves and checks that retained object's collision, even
+            // when its subid bit7 excluded it from target selection.
             Stage = MapleEncounterStage.Outcome;
             _substate = 0;
             return false;
@@ -950,7 +859,9 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _path = path;
         if (setPosition)
         {
-            _precisePosition = new Vector2(path.StartX, path.StartY);
+            // Source path changes copy only the coordinate high bytes.
+            _precisePosition = new Vector2(path.StartX, path.StartY) +
+                (_precisePosition - _precisePosition.Floor());
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         }
         _turnDelay = path.TurnDelay;
@@ -974,34 +885,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
             ? (_angle - 1) & ObjectAngle.Mask
             : (_angle + 1) & ObjectAngle.Mask;
         DecideFlightAnimation();
-    }
-
-    private void FaceToward(Vector2 target)
-    {
-        int next = DirectionFromAngle(
-            OracleObjectMovement.Shared.RelativeAngle(_precisePosition, target));
-        SetAnimation(_vehicle * 4 + 4 + next);
-    }
-
-    private bool MoveDirectlyToBook()
-    {
-        Vector2 target = OracleObjectMath.ToPixelPosition(
-            _bookPrecisePosition);
-        if (Position == target)
-            return true;
-        _targetAngle = OracleObjectMovement.Shared.RelativeAngle(
-            _precisePosition, _bookPrecisePosition);
-        _angle = _targetAngle;
-        DecideFlightAnimation();
-        ApplySpeed();
-        Vector2 remaining = target - Position;
-        if (Mathf.Abs(remaining.X) <= 1 &&
-            Mathf.Abs(remaining.Y) <= 1)
-        {
-            _precisePosition = target;
-            Position = target;
-        }
-        return false;
     }
 
     private int FacingAnimation(Vector2 target) =>
@@ -1038,15 +921,13 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     {
         // objectApplySpeed performs wrapping 16-bit adds. Several imported
         // flight paths intentionally begin at $f0 and cross $ff->$00.
-        Position = OracleObjectMovement.Shared.ApplySpeed(
+        Position = NativeObjectMovement.ApplySpeed(_nativeMemory,
             ref _precisePosition, _speedRaw, _angle);
     }
 
     private void KeepInBounds()
     {
-        _precisePosition = new Vector2(
-            Mathf.Clamp(_precisePosition.X, 8, 152.999f),
-            Mathf.Clamp(_precisePosition.Y, 32, 120.999f));
+        _precisePosition = MapleScreenBounds.Clamp(_precisePosition);
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
     }
 
@@ -1063,22 +944,23 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     }
 
     private bool OverlapsPlayer(Player player) =>
-        Mathf.Abs(player.Position.X - Position.X) < 14 &&
-        Mathf.Abs(player.Position.Y - Position.Y) < 14;
+        // objectCheckCollidedWithLink_ignoreZ includes the negative summed-
+        // radius edge and excludes the positive edge, with byte arithmetic.
+        Player.EnemyCollisionOverlaps(player.Position,
+            new Rect2(Position - Vector2.One * 8, Vector2.One * 16));
 
-    private static bool PlayerVulnerable(Player player) =>
-        !player.IsDying &&
+    private bool PlayerVulnerable(Player player) =>
+        // Ages calls checkLinkVulnerableAndIDZero before the ignore-Z scan.
+        // In particular, negative shield-recoil invincibility is nonzero too.
+        player.NativePuzzleResetVulnerable && player.ActiveTransformation == 0 && !player.BabyRequested &&
+        !player.CompanionRideActive && !player.MinecartRideActive && !player.RaftRideActive &&
         !player.IsDrowning &&
         !player.IsFallingInHole &&
-        player.InvincibilityFrames <= 0;
+        (_nativeMemory?.ReadWramByte(WramAddress.wMenuDisabled) ?? 0) == 0 &&
+        (_nativeMemory?.ReadWramByte(WramAddress.wDisableLinkCollisionsAndMenu) ?? 0) == 0;
 
     private void EndEncounter(Player player)
     {
-        if (_holdingOarPose)
-        {
-            player.EndGetItemTwoHandPose();
-            _holdingOarPose = false;
-        }
         int state = _save.MapleState;
         int meetings = state & 0x0f;
         if (meetings < 0x0f)
@@ -1086,6 +968,12 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         state = (state & 0xf0) | meetings;
         state &= ~0x10;
         _save.SetMapleState(state);
+        // mapleEndEncounter clears the menu byte also written by INTERAC$a5.
+        // The entrance abort jumps straight to mapleDeleteSelf and preserves it.
+        _nativeMemory?.SetWramByte(WramAddress.wMenuDisabled, 0);
+        _nativeMemory?.SetWramByte(WramAddress.wTextIsActive, 0);
+        _nativeMemory?.SetWramByte(WramAddress.wDisabledObjects, 0);
+        _nativeMemory?.SetWramByte(WramAddress.wDisableScreenTransitions, 0);
         FinishCommon();
     }
 
@@ -1093,27 +981,12 @@ public partial class MapleEncounter : TransitionOffsetNode2D
 
     private void FinishCommon()
     {
-        _encounter.ObjectsDisabled = false;
-        _menusDisabled = false;
-        _screenTransitionsDisabled = false;
         _roomMusicRequested(Group, _room.Id);
         Finished = true;
         Visible = false;
         QueueRedraw();
     }
 
-    private static Texture2D LoadBookTexture(MapleBookVisualRecord visual)
-    {
-        AnimationFrameDefinition frame =
-            OracleGraphicsCache.GetAnimationDefinition(
-                visual.Animation).Frames[0];
-        return NpcCharacter.BuildOamTexture(
-            OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{visual.Sprite}.png"),
-            frame.EncodedOam,
-            visual.TileBase,
-            visual.Palette);
-    }
 }
 
 internal enum MapleEncounterStage

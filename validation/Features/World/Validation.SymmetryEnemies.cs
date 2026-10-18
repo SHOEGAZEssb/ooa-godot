@@ -186,6 +186,8 @@ public partial class ValidationRoot
                 "Podoboo global fourth-frame counter or 150-update probabilistic fire diverged.");
         }
         FailIf(tower.State != 11 || tower.AnimationIndex != 1, "Podoboo failed to begin sinking after 180 global fourth-frame ticks.");
+        FailIf(expectedShots == 0 || spawns.OfType<ZoraFireSpawn>().Any(shot => shot.PartId != 0x31 || shot.SubId != 0),
+            "podobooTower.s: ENEMY $2d must create PART $31:$00, not Blue Holy Ring-sensitive PART $19.");
         for (int i = 0; i < 20; i++) Step();
         FailIf(tower.State != 12 || tower.CollisionEnabled || tower.Counter != 60 || tower.Position != position,
             "Podoboo sinking did not restore base Y and disable collision at parameter $ff.");

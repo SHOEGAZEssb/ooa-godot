@@ -87,7 +87,9 @@ internal sealed partial class RiverZoraCharacter : EnemyCharacter
                     // including a failed PART allocation. Do not retry later.
                     Animation.ConsumeParameter();
                     // objectCopyPosition copies high bytes only.
-                    spawns.Add(new ZoraFireSpawn(Position.Floor()));
+                    // riverZora.s increments Part.subid after successful
+                    // ecom_spawnProjectile, selecting the Scent-or-Link aim.
+                    spawns.Add(new ZoraFireSpawn(Position.Floor(), SubId: 1));
                 }
                 AdvanceAnimation();
                 return;

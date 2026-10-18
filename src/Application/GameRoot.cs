@@ -1258,7 +1258,8 @@ public partial class GameRoot : Node2D
             _interactions?.FreezesNonInteractionObjects == true;
         _entities.CameraUpdatesDisabledSource = () => _roomEvents.CameraUpdatesDisabled;
         _entities.InitializedObjectsDisabledSource = () => _transitions.AwaitingLinkWarpState;
-        _entities.TextAllowsScriptSource = () => _dialogue.AllowsNativeScriptCommands;
+        _entities.TextAllowsScriptSource = () => _dialogue.AllowsNativeScriptCommands ||
+            (_runtimeState.ReadWramByte(WramAddress.wTextIsActive) & 0x80) != 0;
         _entities.FloorToggle = new DungeonToggleController(_rooms, _runtimeState, _entities,
             _sound.PlaySound, () => (long)_animationTicks);
         _combat = new CombatController(

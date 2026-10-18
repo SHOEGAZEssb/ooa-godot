@@ -4,8 +4,7 @@ namespace oracleofages;
 
 public partial class OctorokCharacter : EnemyCharacter
 {
-    internal override bool InitializationPending => false;
-
+    internal override bool InitializationPending => _state == OctorokState.Uninitialized;
 
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
     private OracleRandom _random = null!;
@@ -59,16 +58,31 @@ public partial class OctorokCharacter : EnemyCharacter
             EnemyKnockbackMotion.Terrain,
             checksHazards: true);
 
+        _state = OctorokState.Uninitialized;
+        _counter1 = _walkCounter = _angle = 0;
+        _stunCounter = _stunZFixed = _stunSpeedZ = 0;
+        _scentAttraction.Initialize(0);
+        Visible = false;
+    }
+
+    private void InitializeWalking()
+    {
         OracleRandomResult initial = _random.Next();
         _counter1 = _behavior.OctorokCounterValues[
-            initial.Value & record.CounterMask].Value;
+            initial.Value & Record.CounterMask].Value;
         _angle = initial.High & 0x18;
         _walkCounter =
             _behavior.OctorokWalkCounterValues[initial.Low & 0x03].Value;
         _state = OctorokState.Walking;
-        _stunCounter = _stunZFixed = _stunSpeedZ = 0;
+        Visible = true;
         SetAnimationFromAngle();
         QueueRedraw();
+    }
+
+    internal ScreenTransitionPresentation PrepareForScreenTransition()
+    {
+        if (InitializationPending) UpdateFrame(Vector2.Zero);
+        return Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
     }
 
     internal override void ApplyBoomerangStun(int updates) => _stunCounter = updates;
@@ -77,6 +91,17 @@ public partial class OctorokCharacter : EnemyCharacter
     {
         if (IsDead)
             return false;
+
+        if (InitializationPending)
+        {
+            // enemyStandardUpdate seeds var3d before enemyCode09 checks
+            // hazards. Only an admitted species initializer takes the second
+            // draw; state0 yields before walking or responding to scent.
+            _scentAttraction.Initialize(_random.Next().Value);
+            if (ContinueHazard() || CheckHazards()) return false;
+            InitializeWalking();
+            return false;
+        }
 
         // enemyStandardUpdate gives pending hits and recoil priority over stun.
         // Its final stun decrement still suppresses species AI for this update.
@@ -160,6 +185,8 @@ public partial class OctorokCharacter : EnemyCharacter
         int angle = ObjectAngle.Up)
     {
         _state = state;
+        // This fixture entry declares an already initialized source pose.
+        Visible = state != OctorokState.Uninitialized;
         _counter1 = counter1;
         _walkCounter = walkCounter;
         _angle = angle & ObjectAngle.CardinalMask;
@@ -249,6 +276,7 @@ public partial class OctorokCharacter : EnemyCharacter
 
 internal enum OctorokState
 {
+    Uninitialized = 0,
     FollowingScentSeed = 4,
     Deciding = 8,
     Standing = 9,

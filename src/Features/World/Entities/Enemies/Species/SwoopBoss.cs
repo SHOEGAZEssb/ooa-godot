@@ -14,6 +14,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
 
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
+    private EnemyTerrainMovement _movement = null!;
     private Action<int> _playSound = null!;
     private Func<bool> _shuttersClosed = null!;
     private Action<int> _screenShake = null!;
@@ -81,6 +82,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         Record = record;
         _room = room;
         _random = random;
+        _movement = new EnemyTerrainMovement(this, room);
         _playSound = playSound;
         _shuttersClosed = shuttersClosed;
         _screenShake = screenShake;
@@ -274,22 +276,16 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         AdvanceAnimation();
         if (AnimationParameter != 0)
         {
-            _speedZ = -0x100;
             _playSound(SoundId.SndJump);
         }
-        _zFixed += _speedZ;
-        _speedZ += 0x08;
-        _zFixed = Mathf.Clamp(_zFixed, -(0x30 << 8), -(8 << 8));
 
-        int anger = AngerLevel();
-        Position += OracleObjectMovement.Shared.Delta(
-            Speeds[anger], _angle);
-        ConstrainToRoom();
-
+        // swoop_stateA animates without integrating Z. Its attack gate
+        // precedes planar movement and uses objectCheckLinkWithinDistance.
         if (_attackCounter > 0)
             _attackCounter--;
         if (_attackCounter == 0 &&
-            Position.DistanceTo(player.Position) < 0x30)
+            Math.Abs(OracleObjectPosition.HighByte(Position.X) - OracleObjectPosition.HighByte(player.Position.X)) +
+            Math.Abs(OracleObjectPosition.HighByte(Position.Y) - OracleObjectPosition.HighByte(player.Position.Y)) < 0x30)
         {
             _state = SwoopState.Telegraph;
             _counter = 30;
@@ -301,6 +297,8 @@ internal sealed partial class SwoopBoss : EnemyCharacter
             _angle = OracleObjectMovement.Shared.RelativeAngle(
                 Position, player.Position);
         }
+        // The expired turn counter changes this update's movement angle.
+        _movement.MoveAtAngle(_angle, Speeds[AngerLevel()], allowHoles: true);
     }
 
     private void UpdateTelegraph(Player player)
@@ -310,11 +308,15 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         if (--_counter == 10)
         {
             int packed = _room.GetPackedPosition(player.Position);
-            _stompTarget = new Vector2(
+            Vector2 tileCenter = new(
                 (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
                 (packed >> 4) * OracleRoomData.MetatileSize + 8);
+            // swoop_stateB stores masked Y in var32, but the initial angle
+            // still uses B/C's unmasked tile centre. Stomping retargets from
+            // the stored tile-top Y on its first movement update.
+            _stompTarget = tileCenter - Vector2.Down * 8;
             _angle = OracleObjectMovement.Shared.RelativeAngle(
-                Position, _stompTarget);
+                Position, tileCenter);
         }
         if (_counter != 0)
             return;
@@ -327,12 +329,12 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         Player player,
         ICollection<RoomEntitySpawn> spawns)
     {
-        if (Mathf.Abs(Position.X - _stompTarget.X) >= 2 ||
-            Mathf.Abs(Position.Y - _stompTarget.Y) >= 2)
+        if ((OracleObjectPosition.HighByte(Position.X) & 0xfe) != (int)_stompTarget.X ||
+            (OracleObjectPosition.HighByte(Position.Y) & 0xfe) != (int)_stompTarget.Y)
         {
             _angle = OracleObjectMovement.Shared.RelativeAngle(
                 Position, _stompTarget);
-            Position += OracleObjectMovement.Shared.Delta(0x50, _angle);
+            _movement.MoveAtAngle(_angle, 0x50, allowHoles: true);
         }
         if (!UpdateHeight(0x10))
             return;
@@ -371,16 +373,15 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         Player player,
         ICollection<RoomEntitySpawn> spawns)
     {
-        Position += OracleObjectMovement.Shared.Delta(0x28, _angle);
-        ConstrainToRoom();
+        _movement.MoveAtAngle(_angle, 0x28, allowHoles: true);
         if (!UpdateHeight(0x10))
             return;
         HitGround(spawns);
         _bounces--;
         if (_bounces > 0)
         {
-            _angle = OracleObjectMovement.Shared.RelativeAngle(
-                Position, player.Position);
+            // swoop_stomp_substate3 only resets speedZ between bounces;
+            // it retains the angle chosen at the initial stomp impact.
             _speedZ = -0x100;
             return;
         }
@@ -393,11 +394,14 @@ internal sealed partial class SwoopBoss : EnemyCharacter
     private bool UpdateHeight(int gravity)
     {
         _zFixed += _speedZ;
-        _speedZ += gravity;
         if (_zFixed < 0)
+        {
+            _speedZ += gravity;
             return false;
+        }
+        // objectUpdateSpeedZ_paramC clamps Z on landing and returns before
+        // changing speedZ. The caller owns any subsequent bounce reset.
         _zFixed = 0;
-        _speedZ = 0;
         return true;
     }
 
@@ -420,13 +424,6 @@ internal sealed partial class SwoopBoss : EnemyCharacter
 
     private int AngerLevel() =>
         Health >= 0x0a ? 0 : Health >= 0x06 ? 1 : 2;
-
-    private void ConstrainToRoom()
-    {
-        Position = new Vector2(
-            Mathf.Clamp(Position.X, 8.0f, _room.Width - 8.0f),
-            Mathf.Clamp(Position.Y, 8.0f, _room.Height - 8.0f));
-    }
 
     private void BeginDeath()
     {

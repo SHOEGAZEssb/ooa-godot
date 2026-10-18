@@ -94,7 +94,7 @@ public sealed partial class ValidationRoot
                     FailIf(fire != (rom[0xd0c0] == 0 ? 0 : 1) || splash != (rom[0xd240] == 0 ? 0 : 1),
                         $"Enemy ${id:x2} update {update}: projectile/splash allocation diverged.");
                     if (fire != 0)
-                        FailIf(rom[0xd0c1] != 0x19 || rom[0xd0c2] != 1 ||
+                        FailIf(rom[0xd0c1] != 0x19 || rom[0xd0c2] != 1 || spawns.OfType<ZoraFireSpawn>().Single().SubId != 1 ||
                             spawns.OfType<ZoraFireSpawn>().Single().Position != new Vector2(rom.Word(0xd0cc) / 256.0f, rom.Word(0xd0ca) / 256.0f),
                             "Zora projectile must be PART $19:$01 at the source position.");
                     shots += fire;

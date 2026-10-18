@@ -156,7 +156,8 @@ public sealed class InteractionController
         // wTextIsActive is narrower than this controller's aggregate
         // DialogueOpen gameplay lease: held rewards and naming/menu states do
         // not select the original reduced object dispatcher by themselves.
-        _entities.TextActiveSource = () => _dialogue.IsOpen;
+        _entities.TextActiveSource = () => _dialogue.IsOpen ||
+            _entities.RuntimeState.ReadWramByte(WramAddress.wTextIsActive) != 0;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
 
@@ -676,12 +677,6 @@ public sealed class InteractionController
         MapleItemRecord item,
         Player player)
     {
-        if (item.Index == 0)
-        {
-            BeginMapleHeartPiece(item, player);
-            return;
-        }
-
         int parameter =
             _inventory.IsRingActive(RingId.GoldJoy) ||
             item.BoostRing >= 0 &&
@@ -704,57 +699,6 @@ public sealed class InteractionController
             : _treasures.GetBehaviour(item.Treasure).Sound;
         if (collectionSound != SoundId.MusNone)
             _playSound(collectionSound);
-    }
-
-    private void BeginMapleHeartPiece(
-        MapleItemRecord item,
-        Player player)
-    {
-        if (_groundTreasure is not null || _chestTreasure is not null)
-        {
-            throw new InvalidOperationException(
-                "Maple's heart piece was collected while another reward was active.");
-        }
-
-        TreasureObjectRecord treasureObject =
-            _treasures.GetObject("TREASURE_OBJECT_HEART_PIECE_02");
-        TreasureObjectVisualRecord visual =
-            _treasures.GetObjectVisual(treasureObject.Graphic);
-        var record = new GroundTreasureDatabaseRecord(
-            _rooms.ActiveGroup,
-            _rooms.CurrentRoom.Id,
-            item.Index,
-            Mathf.FloorToInt(player.Position.Y),
-            Mathf.FloorToInt(player.Position.X),
-            treasureObject.Name,
-            visual.Sprite,
-            visual.TileBase,
-            visual.Palette,
-            visual.Animation,
-            treasureObject.TextId,
-            treasureObject.Message,
-            "itemFromMaple.s:@func_4e6e",
-            SourceGrayscaleInverted: visual.SourceGrayscaleInverted);
-        GroundTreasurePickup pickup =
-            _entities.Spawn<GroundTreasurePickup>(
-                new GroundTreasureSpawn(record));
-
-        _inventory.GiveTreasure(treasureObject);
-        _rooms.SaveData.SetMapleState(
-            _rooms.SaveData.MapleState | 0x80);
-        _groundTreasureCompletesHeartContainer =
-            _inventory.HeartPieces == 4;
-        _groundTreasureShowingHeartContainer = false;
-        _groundTreasure = pickup;
-        _groundTreasurePlayer = player;
-        pickup.BeginGranted(player);
-        int collectionSound =
-            _treasures.GetBehaviour(treasureObject.TreasureId).Sound;
-        if (collectionSound != SoundId.MusNone)
-            _playSound(collectionSound);
-        _dialogue.ShowGameplayMessage(
-            treasureObject.Message,
-            _worldToScreen(player.Position).Y);
     }
 
     private void OnGashaInteractionRequested(

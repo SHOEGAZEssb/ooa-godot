@@ -52,6 +52,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     private int _breakProbe;
     private int _damage;
     private bool _setupPending;
+    private bool _mapleDeleteRequested;
     private bool _linkHit;
     private bool _explosionCollisionEnabled;
     private int _explosionRadius;
@@ -303,7 +304,9 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
             _zFixed -= 0x40;
             if ((_zFixed >> 8) == -8)
             {
-                Finish();
+                // mapleState7 sets Item.var2f bit5; itemCode03 performs
+                // itemDelete on its later visit. Link still sees occupancy.
+                _mapleDeleteRequested = true;
                 return true;
             }
         }
@@ -317,6 +320,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
     {
         if (Finished)
             return;
+        if (_mapleDeleteRequested) { Finish(); return; }
         ElapsedFrames++;
         if (_setupPending)
         {

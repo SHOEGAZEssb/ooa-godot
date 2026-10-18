@@ -105,13 +105,7 @@ public sealed partial class ValidationRoot
                 LoadValidationRoom(0, 0x61);
                 _player.WarpTo(Point(0x32));
                 CheckLayout(_currentRoom, 0x22);
-                Input.ActionPress("move_up");
-                try
-                {
-                    if (batched) base._Process(160 / 60.0);
-                    else for (int update = 0; update < 160; update++) base._Process(1.0 / 60.0);
-                }
-                finally { Input.ActionRelease("move_up"); }
+                StepGameplayUpdates(160, Vector2.Up, ["move_up"], batched: batched);
                 FailIf(IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x51 || _player.Position.Y >= 120,
                     $"Present-first vine climb failed on visit {visit + 1}, reloaded={reloaded}, batched={batched} " +
                     $"(room {_activeGroup:x1}:{_currentRoom.Id:x2}, Link {_player.Position}).");
@@ -135,14 +129,11 @@ public sealed partial class ValidationRoot
         {
             void Step(int updates)
             {
-                if (batched) base._Process(updates / 60.0);
-                else for (int update = 0; update < updates; update++) base._Process(1.0 / 60.0);
+                StepGameplayUpdates(updates, Vector2.Zero, batched: batched);
             }
             void WalkUp(int updates)
             {
-                Input.ActionPress("move_up");
-                try { Step(updates); }
-                finally { Input.ActionRelease("move_up"); }
+                StepGameplayUpdates(updates, Vector2.Up, ["move_up"], batched: batched);
             }
 
             byte start = (byte)(target + 0x10);

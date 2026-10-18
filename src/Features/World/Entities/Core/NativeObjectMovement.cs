@@ -9,10 +9,15 @@ internal static class NativeObjectMovement
 {
     internal static Vector2 ApplySpeed(OracleRuntimeState? memory, ref Vector2 precisePosition, int speed, int angle)
     {
-        var velocity = Velocity(memory, speed, angle);
-        var position = OracleObjectPosition.FromPixels(precisePosition).Add(velocity.YFixed, velocity.XFixed);
+        var position = ApplySpeed(memory, OracleObjectPosition.FromPixels(precisePosition), speed, angle);
         precisePosition = position.PrecisePosition;
         return position.PixelPosition;
+    }
+
+    internal static OracleObjectPosition ApplySpeed(OracleRuntimeState? memory, OracleObjectPosition position, int speed, int angle)
+    {
+        var velocity = Velocity(memory, speed, angle);
+        return position.Add(velocity.YFixed, velocity.XFixed);
     }
 
     internal static OracleObjectVelocity Velocity(OracleRuntimeState? memory, int speed, int angle)

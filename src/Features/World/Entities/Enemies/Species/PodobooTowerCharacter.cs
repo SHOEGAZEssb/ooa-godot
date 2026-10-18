@@ -80,7 +80,9 @@ internal sealed partial class PodobooTowerCharacter : EnemyCharacter
                 {
                     Counter = _profile[1].Value;
                     if (_random.Next().Value < _profile[3].Value)
-                        spawns.Add(new ZoraFireSpawn(Position));
+                        // podobooTower.s uses PART_GOPONGA_PROJECTILE $31,
+                        // whose collision mode $86 ignores Blue Holy Ring.
+                        spawns.Add(new ZoraFireSpawn(Position, PartId.GopongaProjectile));
                 }
                 AdvanceAnimation();
                 return;

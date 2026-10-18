@@ -167,26 +167,28 @@ public sealed partial class ValidationRoot
             "ENEMY_VINE_SPROUT entity collision stopped Link before its `$0f " +
             "resting-tile collision could select the pushing animation.");
 
-        Vector2 linkPosition = sourcePosition - (Vector2)pushDirection * 12.0f;
-        for (int update = 0; update < 19; update++)
-            vine.UpdatePushAttempt(linkPosition, pushDirection, pushDirection);
+        string pushAction = pushDirection == Vector2I.Up ? "move_up" :
+            pushDirection == Vector2I.Right ? "move_right" :
+            pushDirection == Vector2I.Down ? "move_down" : "move_left";
+        // The callback publishes input; only the actual enemy pass advances
+        // the source countdown and accepts the push after Link's update.
+        StepGameplayUpdates(19, pushDirection, held: [pushAction]);
         FailIf(
             vine.Moving || vine.PushCounter != 1,
             "ENEMY_VINE_SPROUT moved before 20 continuous valid push updates.");
         _sound.ClearPlayRequestAudit();
-        vine.UpdatePushAttempt(linkPosition, pushDirection, pushDirection);
+        StepGameplayUpdates(1, pushDirection, held: [pushAction]);
         FailIf(
             !vine.Moving || vine.MoveCounter != 22 ||
             _sound.PlayRequestsFor(SoundId.SndMoveBlock) != 1 ||
             _rooms.CurrentRoom.GetTerrainInfo(sourcePosition).Collision != 0,
             "ENEMY_VINE_SPROUT did not begin its `$16-update SPEED_c0 move " +
             "and restore the source collision on push update 20.");
-        for (int update = 0; update < 21; update++)
-            _entities.Update(1.0 / 60.0, _player);
+        StepGameplayUpdates(21, Vector2.Zero);
         FailIf(
             !vine.Moving || vine.MoveCounter != 1,
             "ENEMY_VINE_SPROUT completed before its `$16 movement updates.");
-        _entities.Update(1.0 / 60.0, _player);
+        StepGameplayUpdates(1, Vector2.Zero);
         int expectedPacked = _rooms.CurrentRoom.GetPackedPosition(destination);
         FailIf(
             vine.Moving || vine.Position != destination ||

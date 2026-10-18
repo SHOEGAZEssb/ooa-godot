@@ -195,7 +195,7 @@ public partial class ValidationRoot
             // The body's negative summed-radius boundary is inclusive; one
             // pixel farther right still touches the shield's inclusive edge.
             Vector2 shieldEdge = new(player.ShieldCollisionBounds.End.X + 2, player.ShieldCollisionBounds.GetCenter().Y);
-            var fire = new ZoraFireProjectile(new(shieldEdge,partId),data,p => p + Vector2.Down*16);
+            var fire = new ZoraFireProjectile(new(shieldEdge,partId),data,p => p + Vector2.Down*16, _runtimeState);
             var frame = new RoomEntityFrame(player,0,false);
             fire.UpdateFrame(frame);
             FailIf(player.OverlapsEnemyCollision(fire.CollisionBounds), "Fireball shield fixture must exclude Link's body.");
@@ -214,7 +214,7 @@ public partial class ValidationRoot
             FailIf(!inventory.EquipRingAt(0), "Could not equip fireball ring fixture.");
             var player = new Player(); AddChild(player);
             player.Initialize(new ValidationRingPlayerWorld(),inventory,new Vector2(72,72),new OracleRandom());
-            var fire = new ZoraFireProjectile(new(player.Position,partId),data,p => p+Vector2.Down*16);
+            var fire = new ZoraFireProjectile(new(player.Position,partId),data,p => p+Vector2.Down*16, _runtimeState);
             var frame = new RoomEntityFrame(player,0,false);
             int health = player.HealthQuarters;
             fire.UpdateFrame(frame); fire.HandleLinkContact(player);

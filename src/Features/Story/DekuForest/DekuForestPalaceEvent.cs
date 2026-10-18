@@ -174,6 +174,17 @@ internal sealed class DekuForestPalaceEvent :
             StartCorridor(room.Id, hasMysterySeeds);
     }
 
+    public void UpdateSpecialObjectFrame()
+    {
+        // Simulated keys belong to Link's SPECIALOBJECT phase, before ITEM,
+        // ENEMY and PART consumers. Text/Link masks suppress movement inside
+        // the player owner, while input counters still advance; palettes and
+        // incoming scrolls retain their input lane until normal play resumes.
+        if (_stage is DekuForestPalaceStage.Entrance or DekuForestPalaceStage.Corridor or DekuForestPalaceStage.Throne &&
+            !_context.Transitions.IsTransitioning && !_context.Entities.PaletteFadeActiveSource())
+            AdvancePlayerInput();
+    }
+
     public void UpdateFrame()
     {
         _ralph.UpdateFrame();
@@ -185,21 +196,20 @@ internal sealed class DekuForestPalaceEvent :
                 break;
 
             case DekuForestPalaceStage.Entrance:
-                AdvancePlayerInput();
+                if (_playerInput == PalacePlayerInput.Enter) _context.Transitions.CheckRoomExit(_context.Player);
                 AnimateAllActors();
                 _singleRunner.AdvanceFrame();
                 break;
 
             case DekuForestPalaceStage.Corridor:
                 UpdateCorridorGuardScreenBoundary();
-                AdvancePlayerInput();
+                if (_playerInput == PalacePlayerInput.Enter) _context.Transitions.CheckRoomExit(_context.Player);
                 UpdateSideGuards();
                 AnimateAllActors(corridor: true);
                 _singleRunner.AdvanceFrame();
                 break;
 
             case DekuForestPalaceStage.Throne:
-                AdvancePlayerInput();
                 // soldierSubid06's state-1 gate also runs for an ordinary
                 // room entry: it disables Link on the exact high byte $68.
                 if (!_throneLinkGateReached && OracleObjectPosition.HighByte(_context.Player.Position.Y) == 0x68)
@@ -721,7 +731,6 @@ internal sealed class DekuForestPalaceEvent :
                         _record.NormalSpeed,
                         _record.SlowSpeed);
                 }
-                _context.Transitions.CheckRoomExit(_context.Player);
                 break;
 
             case PalacePlayerInput.Exit:

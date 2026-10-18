@@ -9,12 +9,14 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
     private readonly ZoraFireDatabase _data;
     private readonly EnemyAnimationPlayer _animation;
     private readonly Func<Vector2, Vector2> _worldToScreen;
+    private readonly OracleRuntimeState _memory;
     private int _palette;
     private bool _healthCleared;
     private bool _pendingCollision;
     private OracleObjectPosition _position;
     private readonly RingDamageSource _damageSource;
     internal int PartId { get; }
+    internal int SubId { get; }
     internal void ClearHealthAndCollision() => _healthCleared = true;
     internal int State { get; private set; }
     internal int Counter { get; private set; }
@@ -25,10 +27,12 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
         new(Position - new Vector2(_data.RadiusX, _data.RadiusY), new Vector2(_data.RadiusX * 2, _data.RadiusY * 2));
 
     internal ZoraFireProjectile(ZoraFireSpawn spawn, ZoraFireDatabase data,
-        Func<Vector2, Vector2> worldToScreen)
+        Func<Vector2, Vector2> worldToScreen, OracleRuntimeState memory)
     {
+        _memory = memory;
         if (spawn.PartId is not (oracleofages.PartId.ZoraFire or oracleofages.PartId.GopongaProjectile)) throw new ArgumentOutOfRangeException(nameof(spawn), "Expected PART $19 or $31.");
         PartId = spawn.PartId;
+        SubId = spawn.SubId;
         _damageSource = PartId == oracleofages.PartId.ZoraFire ? RingDamageSource.ZoraFire : RingDamageSource.Generic;
         _position = OracleObjectMovement.Shared.PositionFromPixels(spawn.Position);
         Position = _position.PixelPosition;
@@ -64,12 +68,16 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
         {
             if (--Counter != 0) return;
             State = 2;
+            // common/parts/fireProjectiles.s: subid bit0 selects hFFB2/3
+            // (Scent-or-Link); even subids use hEnemyTargetY/X (always Link).
+            Vector2 target = frame.LinkTarget ?? frame.Player.EnemyContactPosition;
+            if ((SubId & 1) != 0) target = frame.ScentSeedTarget ?? target;
             Angle = OracleObjectMovement.Shared.RelativeAngle(Position,
-                frame.ScentSeedTarget ?? frame.Player.Position);
+                target);
             return;
         }
         if ((frame.Counter & 3) == 0) _palette ^= 7;
-        _position = OracleObjectMovement.Shared.ApplySpeed(_position, _data.Speed, Angle);
+        _position = NativeObjectMovement.ApplySpeed(_memory, _position, _data.Speed, Angle);
         Position = _position.PixelPosition;
         Vector2 screen = _worldToScreen(Position) - Vector2.Down * OracleRoomData.StatusBarHeight;
         if (!OracleObjectMath.IsInsideOriginalScreenBoundary(screen))
@@ -106,4 +114,4 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
     }
 }
 
-internal sealed record ZoraFireSpawn(Vector2 Position, int PartId = oracleofages.PartId.ZoraFire) : RoomEntitySpawn;
+internal sealed record ZoraFireSpawn(Vector2 Position, int PartId = oracleofages.PartId.ZoraFire, int SubId = 0) : RoomEntitySpawn;

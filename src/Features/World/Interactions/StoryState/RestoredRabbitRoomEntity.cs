@@ -114,12 +114,7 @@ internal sealed class RestoredRabbitRoomEntity : RoomCutsceneCommandHost,IRoomEn
     private void Bounce()
     {
         Move();if(!OracleObjectMath.UpdateSpeedZ(ref _z,ref _speedZ,0x20))return;
-        int bounce=unchecked((short)-_speedZ)>>1;
-        // objectNegateAndHalveSpeedZ returns carry without storing the new
-        // speed when its unsigned comparison exceeds $ff80. Equality bounces.
-        bool done=(ushort)bounce>0xff80;
-        if(!done){_speedZ=bounce;done=bounce==0;}
-        if(done){Substate++;Counter=60;}
+        if(OracleObjectMath.NegateAndHalveSpeedZ(ref _speedZ)){Substate++;Counter=60;}
     }
     public override bool HasActorBinding(CutsceneActorId actor)=>actor.Value=="Actor";
     public override void InitializeActorCollisionRadii(string actor)=>_actor.SetCollisionRadii(6,6);

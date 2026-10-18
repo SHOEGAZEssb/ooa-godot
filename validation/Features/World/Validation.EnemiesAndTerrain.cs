@@ -3397,6 +3397,9 @@ public sealed partial class ValidationRoot
             "SPEED_80/SPEED_c0, two health, and quarter-heart contact damage.");
 
         int redCount = _entities.Entities<OctorokCharacter>().Count;
+        // Room construction retains state0; admit its first dispatch before
+        // this direct collision fixture applies a sword to the visible pose.
+        red.UpdateFrame(_player.Position);
         FailIf(
             !_entities.ApplySwordHit(red.CollisionBounds.Grow(1.0f), red.Position + Vector2.Down * 16.0f) ||
             !red.PendingKnockbackDeath ||
@@ -4441,6 +4444,7 @@ public sealed partial class ValidationRoot
             octorokRoom,
             shieldPlayer.ShieldCollisionBounds.GetCenter(),
             new OracleRandom());
+        octorok.UpdateFrame(shieldPlayer.Position); // Admit state0 before direct shield contact.
         var sounds = new List<int>();
         var adapter = new OctorokRoomEntity(
             octorok,

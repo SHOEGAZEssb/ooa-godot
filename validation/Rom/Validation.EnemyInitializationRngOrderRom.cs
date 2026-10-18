@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             _random.RestoreState(_random.CaptureState() with { Rng1 = rng1, Rng2 = 0x37 });
             var seed = _random.CaptureState();
             var native = new SomariaRom(_saveData, seed, _currentRoom, 0, 120, 40);
-            int[] ids = [0x62, 0x52, 0x38, 0x63, 0x33];
+            int[] ids = [0x09, 0x62, 0x52, 0x38, 0x63, 0x33];
             var actors = new IRoomEntity[ids.Length];
             // Insert in reverse scene order: the actual ENEMY pass must still
             // initialize by physical slot, then leave the next draw to $33.
@@ -44,11 +44,11 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(2, Vector2.Zero, batched: batched, afterUpdate: () =>
             {
                 native.AdvanceEnemies(_entities.FrameCounter);
-                Check(++update == 1 ? 5 : 6);
+                Check(++update == 1 ? 7 : 8);
             });
-            var baby = (BabyCuccoCharacter)actors[4].Node;
-            FailIf((int)baby.State != native[0xd484],
-                "The next Baby Cucco hop draw must follow all five common initializers in physical slot order.");
+            var baby = (BabyCuccoCharacter)actors[5].Node;
+            FailIf((int)baby.State != native[0xd584],
+                "The next Baby Cucco hop draw must follow six common initializers and Octorok's species draw in physical slot order.");
 
             void Check(int expected)
             {
@@ -91,6 +91,6 @@ public sealed partial class ValidationRoot
             finally { _entities.TextActiveSource = text; }
         }
         ReinitializeGameplayForValidation();
-        GD.Print("Compared ordered factory initialization and the following Baby Cucco draw for two seeds/both schedules, plus eight guarded fairy/crystal preload controls.");
+        GD.Print("Compared six ordered factory initializers including Octorok's two draws and the following Baby Cucco draw for two seeds/both schedules, plus eight guarded fairy/crystal preload controls.");
     }
 }

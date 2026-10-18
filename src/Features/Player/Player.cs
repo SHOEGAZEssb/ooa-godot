@@ -2878,7 +2878,7 @@ public partial class Player : Node2D
         int normalSpeed,
         int slowSpeed)
     {
-        if (!_cutsceneControlled)
+        if (!_cutsceneControlled || _world.NativeTextActive || _world.PlayerUpdatesFrozen || _world.NativePaletteChanging)
             return;
 
         _walking = direction != Vector2I.Zero;
@@ -2894,9 +2894,7 @@ public partial class Player : Node2D
             int speed = GetCutsceneSimulatedInputSpeed(normalSpeed, slowSpeed);
             _lastMovementInput = OracleObjectMovement.Shared.Direction(angle);
             Face(direction);
-            TryMove(
-                OracleObjectMovement.Shared.Delta(speed, angle),
-                allowWallSlide: true);
+            ApplyTopDownObjectSpeed(speed, angle, allowWallSlide: true);
             AdvanceLinkWalkAnimation();
         }
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
@@ -5064,7 +5062,10 @@ public partial class Player : Node2D
         {
             // linkUpdateInAir resolves gravity/landing before the locked
             // planar step. The landing update does not take another hop step.
-            _precisePosition += OracleObjectMovement.Shared.Delta(0x14, _minecartJumpAngle);
+            // wLinkInAir bit7 clears adjacent walls, so this locked valid
+            // angle moves unblocked, but still publishes the native velocity
+            // before later ITEM/ENEMY/PART consumers and wraps both words.
+            _precisePosition = _world.ApplyNativeUnblockedMovement(_precisePosition, 0x14, _minecartJumpAngle);
             if (_topDownAirSpeedZ > parameters.MaximumFallSpeed)
                 _topDownAirSpeedZ = parameters.MaximumFallSpeed;
             AdvanceTopDownAirAnimation(parameters);

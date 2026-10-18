@@ -147,6 +147,16 @@ public sealed partial class ValidationRoot
             FailIf(!landed, $"ROM vertical trajectory launch={launch}, gravity=${gravity:x2} never landed.");
             Compare(z, speed, gravity);
         }
-        GD.Print($"Validated {cases} clean-ROM vertical motion cases: every Z/speed word, gravity byte, landing flag and signed wrap boundaries.");
+        for (int word = 0; word < 0x10000; word++)
+        {
+            int slot = (word & 3) * 0x40;
+            rom.Word(ObjectMotionRom.Object + slot + 0x14, word);
+            rom.Call(ObjectMotionRom.NegateAndHalveSpeedZ, slot: slot);
+            int speed = unchecked((short)word);
+            bool done = OracleObjectMath.NegateAndHalveSpeedZ(ref speed);
+            FailIf((speed & 0xffff) != rom.Word(ObjectMotionRom.Object + slot + 0x14) || done != rom.Carry,
+                $"objectNegateAndHalveSpeedZ $00:$2374 speed=${word:x4}: port=${speed & 0xffff:x4}/{done}, source=${rom.Word(ObjectMotionRom.Object + slot + 0x14):x4}/{rom.Carry}.");
+        }
+        GD.Print($"Validated {cases} clean-ROM vertical motion cases and all 65536 bounce-speed words, including retained impact speed, threshold equality and odd/signed shifts.");
     }
 }

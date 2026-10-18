@@ -10,6 +10,7 @@ internal sealed class ObjectMotionRom
     internal const int ApplySpeed = 0x201d;
     internal const int RelativeAngle = 0x1ea4;
     internal const int UpdateSpeedZ = 0x1f45;
+    internal const int NegateAndHalveSpeedZ = 0x2374;
     internal const int Object = 0xd100;
     private const int Caller = 0xc100;
     private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
@@ -61,6 +62,7 @@ internal sealed class ObjectMotionRom
 
     internal int Result => _memory[0xc200];
     internal bool Zero => (_memory[0xc201] & 0x80) != 0;
+    internal bool Carry => (_memory[0xc201] & 0x10) != 0;
 
     private int Read(int address)
     {
@@ -71,6 +73,7 @@ internal sealed class ObjectMotionRom
             ApplySpeed => address is >= 0x201d and < 0x208c or >= 0x10 and < 0x15,
             RelativeAngle => address is >= 0x1ea4 and < 0x1f45,
             UpdateSpeedZ => address is >= 0x1f45 and < 0x1f67 or >= 0x23a7 and < 0x23b0,
+            NegateAndHalveSpeedZ => address is >= 0x2374 and < 0x239d or >= 0x01d6 and < 0x01ea,
             _ => false
         };
         if (code) return _rom.Span[address];
@@ -94,7 +97,7 @@ internal sealed class ObjectMotionRom
         else if (_entry == ApplySpeed && (address is 0xff97 or >= 0xcec0 and <= 0xcec3 ||
                  address >= Object && address < Object + 0x100 && (address & 0x3f) is >= 0x0a and <= 0x0d)) { }
         else if (_entry == RelativeAngle && address is 0xff8e or 0xff8f) { }
-        else if (_entry == UpdateSpeedZ && address >= Object && address < Object + 0x100 &&
+        else if (_entry is UpdateSpeedZ or NegateAndHalveSpeedZ && address >= Object && address < Object + 0x100 &&
                  (address & 0x3f) is 0x0e or 0x0f or 0x14 or 0x15) { }
         else throw new InvalidDataException($"Motion ROM ${_entry:x4}: undeclared write ${address:x4}.");
         _memory[address] = (byte)value;

@@ -35,6 +35,16 @@ internal static class OracleObjectMath
         return true;
     }
 
+    // bank0.objectNegateAndHalveSpeedZ: signed word negation followed by
+    // arithmetic shift; a small bounce returns carry without replacing speedZ.
+    public static bool NegateAndHalveSpeedZ(ref int speedZ)
+    {
+        int bounce = unchecked((short)-speedZ) >> 1;
+        if ((ushort)bounce > 0xff80) return true;
+        speedZ = bounce;
+        return bounce == 0;
+    }
+
     /// <summary>
     /// Selects the cardinal octant used by objects that intentionally ignore
     /// the low three angle bits.

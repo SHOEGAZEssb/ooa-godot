@@ -1207,7 +1207,7 @@ internal sealed class RoomEntityFactory
 
         if (spawnMaple)
         {
-            var encounterState = new MapleEncounterState();
+            var encounterState = new MapleEncounterState(owner.RuntimeState);
             var maple = new MapleEncounter
             {
                 Name = "Maple",
@@ -1221,7 +1221,6 @@ internal sealed class RoomEntityFactory
                 _random,
                 _saveData!,
                 _inventory!,
-                _treasures,
                 owner.OnMapleDialogueRequested,
                 owner.IsTextActive,
                 owner.OnSoundRequested,
@@ -2916,7 +2915,8 @@ internal sealed class RoomEntityFactory
         VolcanoRockSpawn rock => new VolcanoRockRoomEntity(new VolcanoRock(
             rock.Position, Resources.Volcano, room, _random, owner.OnSoundRequested, owner.ToScreen)),
         ZoraFireSpawn fire => new ZoraFireRoomEntity(new ZoraFireProjectile(
-            fire, Resources.ZoraFire, owner.ToScreen) { Name = "ZoraFire", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex }),
+            fire, Resources.ZoraFire, owner.ToScreen, owner.RuntimeState) { Name = "ZoraFire", ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex }),
+        MapleTouchingBookSpawn book => CreateMapleTouchingBook(book, room),
         MaskedMoblinSpawn moblin => CreateMaskedMoblin(moblin, room),
         GhiniSpawn ghini => CreateGhini(ghini, room),
         ArmosSpawn armos => CreateArmos(armos, room),
@@ -5003,6 +5003,9 @@ internal sealed class RoomEntityFactory
             ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
         treasure.Initialize(record, owner.OnSoundRequested, owner.ToScreen, tryCreatePuff: owner.TryCreatePuzzlePuff);
+        // Dynamic INTERAC$60 remains hidden until its own state0 visit. A
+        // newborn allocated below the live interaction cursor waits one pass.
+        treasure.Visible = false;
         return new GroundTreasureRoomEntity(
             treasure, owner.CanCollectGroundTreasure,
             owner.OnGroundTreasureCollected);
@@ -5213,10 +5216,21 @@ internal sealed class RoomEntityFactory
             spawn.Slot,
             spawn.SourcePosition,
             spawn.SourceZFixed,
-            owner.OnMapleItemCollected);
+            owner.OnMapleItemCollected,
+            owner.RuntimeState);
         spawn.Encounter.Register(item);
-        return new MapleDroppedItemRoomEntity(item);
+        return new MapleDroppedItemRoomEntity(item, owner);
     }
+
+    private IRoomEntity CreateMapleTouchingBook(MapleTouchingBookSpawn spawn, OracleRoomData room) =>
+        new MapleTouchingBookRoomEntity(spawn, owner.RuntimeState, owner.OnSoundRequested,
+            position => owner.TryCreateGroundTreasure(new(room.Group, room.Id, 0,
+                (int)position.Y, (int)position.X, "TREASURE_OBJECT_TRADEITEM_09",
+                "touchingBook.s:@state7 createTreasure TREASURE_TRADEITEM,$09")
+            {
+                ExpectedTreasureId = TreasureId.TradeItem, ExpectedSubId = 0x09,
+                ExpectedObjectParameter = 0x09
+            }));
 
     private IRoomEntity CreateLightableTorch(
         LightableTorchSpawn spawn,

@@ -233,7 +233,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
                 _counter2 = DecrementCounter2(_counter2);
                 if (_counter2 != 0)
                     return;
-                Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
+                MovePlanar();
                 if (OracleObjectPosition.HighByte(Position.Y) < 0x58)
                     return;
 
@@ -285,7 +285,8 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
     private void BeginDigging()
     {
         _state = SubterrorState.Digging;
-        _substate = 0;
+        // subterror_digIntoGround retains substate; state9 ignores it until
+        // subterror_beginUndergroundMovement explicitly clears the byte.
         SetAnimation(4);
     }
 
@@ -326,7 +327,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
             return;
         }
 
-        Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
+        MovePlanar();
         if (TouchesWallOrHole())
         {
             _substate = 2;
@@ -340,17 +341,21 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         if (_counter1 == 0)
             ResetUndergroundMovement(player.Position, spawns);
         _counter2 = DecrementCounter2(_counter2);
+        // bank0.objectCheckLinkWithinDistance subtracts |dy| from C=$18,
+        // then requires |dx| < the remainder. It compares high bytes only.
         if (_counter2 != 0 ||
-            OracleObjectMath.ToPixelPosition(Position).DistanceTo(
-                OracleObjectMath.ToPixelPosition(player.Position)) >= 0x18)
+            Math.Abs(OracleObjectPosition.HighByte(Position.X) - OracleObjectPosition.HighByte(player.Position.X)) +
+            Math.Abs(OracleObjectPosition.HighByte(Position.Y) - OracleObjectPosition.HighByte(player.Position.Y)) >= 0x18)
         {
             return;
         }
 
         int packed = _room.GetPackedPosition(player.Position);
+        // subterror_stateA writes yh/xh from Link's packed tile centre;
+        // it leaves the pre-drill coordinate low bytes intact.
         Position = new Vector2(
             (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
-            (packed >> 4) * OracleRoomData.MetatileSize + 8);
+            (packed >> 4) * OracleRoomData.MetatileSize + 8) + (Position - Position.Floor());
         _state = SubterrorState.Drilling;
         _substate = 0;
         _dirtEnabled = false;
@@ -482,7 +487,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
 
     private void MoveAndBounce()
     {
-        Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
+        MovePlanar();
         EnemyAdjacentWallProbe walls =
             EnemyAdjacentWallResolver.Shared.Probe(
                 Position,
@@ -492,6 +497,13 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
             return;
         _angle = EnemyAdjacentWallResolver.Shared.BounceAngle(_angle, walls);
         SetAnimationFromAngle();
+    }
+
+    private void MovePlanar()
+    {
+        Vector2 precise = Position;
+        ApplyMovementSpeed(ref precise, _speed, _angle);
+        Position = precise;
     }
 
     private void SetAnimationFromAngle()

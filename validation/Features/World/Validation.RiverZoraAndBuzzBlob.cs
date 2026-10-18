@@ -132,8 +132,8 @@ public partial class ValidationRoot
         FailIf(blobRandom.Calls != beforeTalk + 2,
             "Cukeman's enemy pass did not consume text RNG before its next movement RNG.");
 
-        var fire = new ZoraFireProjectile(new ZoraFireSpawn(new Vector2(80, 48)), new ZoraFireDatabase(),
-            point => point + Vector2.Down * 16);
+        var fire = new ZoraFireProjectile(new ZoraFireSpawn(new Vector2(80, 48), SubId: 1), new ZoraFireDatabase(),
+            point => point + Vector2.Down * 16, _runtimeState);
         var frame = new RoomEntityFrame(_player, 0, false, new Vector2(112, 48));
         fire.UpdateFrame(frame);
         for (int i = 0; i < 7; i++) fire.UpdateFrame(frame);

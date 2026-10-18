@@ -14,6 +14,8 @@ public static class WramAddress
     public const int wDisableLinkCollisionsAndMenu = 0xcbca;
     // include/wram.s: wMenuDisabled
     public const int wMenuDisabled = 0xcc02;
+    // include/wram.s: wTextIsActive; native owners may hold $80 without a textbox.
+    public const int wTextIsActive = 0xcba0;
     // include/wram.s: wLoadedTreeGfxIndex; native cutscene graphics residency.
     public const int wLoadedTreeGfxIndex = 0xcc18;
     // include/wram.s: wInteractionIDToLoadExtraGfx; native interactionLoadExtraGraphics request.

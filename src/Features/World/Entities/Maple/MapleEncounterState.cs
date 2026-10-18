@@ -8,13 +8,17 @@ namespace oracleofages;
 /// Shared PART_ITEM_FROM_MAPLE slot stream and race scores for one encounter.
 /// Target selection walks the authoritative shared PART slots.
 /// </summary>
-internal sealed class MapleEncounterState
+internal sealed class MapleEncounterState(OracleRuntimeState memory)
 {
     private readonly List<MapleDroppedItem> _items = [];
 
     internal int MapleScore { get; set; }
     internal int LinkScore { get; set; }
-    internal bool ObjectsDisabled { get; set; }
+    internal bool ObjectsDisabled
+    {
+        get => (memory.ReadWramByte(WramAddress.wDisabledObjects) & 1) != 0;
+        set => memory.SetWramByte(WramAddress.wDisabledObjects, value ? (byte)1 : (byte)0);
+    }
     internal void Register(MapleDroppedItem item)
     {
         if (_items.Count >= 16)

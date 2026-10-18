@@ -299,7 +299,7 @@ internal sealed class SomariaRom
     internal void PublishLinkGraphics() => _rom.Call(0x2b25,0);
 
     internal void UpdateGameplay(int pressed, int held, int angle, int frameCounter,
-        Action? beforeInteractions = null, Action? afterInteractions = null)
+        Action? beforeInteractions = null, Action? afterInteractions = null, Action? beforeParts = null, Action? afterLink = null)
     {
         this[0xcc00] = (byte)frameCounter;
         if(NativeGameKeysEnabled){this[0xc481]=(byte)held;this[0xc482]=(byte)pressed;}
@@ -325,9 +325,11 @@ internal sealed class SomariaRom
         // Clear only after Link has read the preceding publication. ITEM$18
         // state3 republishes later in this update, including after a push.
         for (int address = 0xcc74; address < 0xcc84; address++) this[address] = 0;
+        afterLink?.Invoke();
         _rom.Call(0x4872, 7);
         _rom.Call(0x3616, 0); // updateAllObjects publishes the post-Link target before interactions.
         if (HostileEnemiesEnabled) _rom.Call(0x2ea5, 0x0d); // updateEnemies, before parts.
+        beforeParts?.Invoke();
         if (HostilePartsEnabled) _rom.Call(0x5e58, 0x11); // updateParts, before interactions.
         beforeInteractions?.Invoke();
         _rom.Call(0x3b36, 0);

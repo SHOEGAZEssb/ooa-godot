@@ -7,7 +7,8 @@ namespace oracleofages;
 /// <summary>
 /// ENEMY_VINE_SPROUT $62. The resting sprout temporarily owns its metatile's
 /// layout/collision entry; a valid 20-update push restores that tile, moves at
-/// SPEED_c0 for $16 updates, centers, and stores the new global position.
+/// SPEED_c0 on the 21 nonzero countdown visits, centers on visit $16, and
+/// stores the new global position.
 /// </summary>
 internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
     IRoomEntity,
@@ -29,9 +30,11 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
     private readonly Func<long> _animationTick;
     private readonly EnemyAnimationPlayer _animation;
     private readonly OracleRandom _random;
+    private readonly OracleRuntimeState? _memory;
     private int _pushCounter;
     private int _moveCounter;
-    private Vector2 _moveDelta;
+    private int _moveAngle;
+    private Vector2? _pendingPushInput;
     private byte _underlyingTile;
     private int _occupiedPackedPosition = -1;
     private bool _initialized;
@@ -54,7 +57,8 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         Action<int> playSound,
         Action roomTileChanged,
         Func<long> animationTick,
-        OracleRandom random)
+        OracleRandom random,
+        OracleRuntimeState? memory = null)
     {
         _database = database;
         _record = record;
@@ -64,6 +68,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
         _random = random;
+        _memory = memory;
         _pushCounter = record.PushDelay;
         Position = position;
         Name = $"VineSprout_{record.SubId:x2}";
@@ -90,8 +95,9 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
-        _ = frame;
         _ = spawns;
+        Vector2 pushInput = _pendingPushInput ?? Vector2.Zero;
+        _pendingPushInput = null;
         if (!_initialized)
         {
             _random.Next(); // bank0.s: enemyStandardUpdate initializes var3d before enemyCode62.
@@ -101,15 +107,25 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         }
         if (!_moving)
         {
-            UpdateResting(frame.Player, spawns);
+            if (UpdateResting(frame.Player, spawns))
+                UpdatePush(frame.Player, pushInput);
             return;
         }
 
-        Position += _moveDelta;
-        _moveCounter--;
-        QueueRedraw();
-        if (_moveCounter != 0)
+        // vineSprout_state4 decrements first; its zero visit centres without
+        // applying velocity. Acceptance in state1 never moves this update.
+        if (--_moveCounter != 0)
+        {
+            var walls = EnemyAdjacentWallResolver.Shared.ProbeTopDown(Position, _moveAngle,
+                point => point.X < 0 || point.X >= _room.Width || point.Y < 0 || point.Y >= _room.Height ||
+                    _room.IsSolidForEnemyMovement(point, holesAreWalls: true));
+            Vector2 precise = Position;
+            EnemyTerrainMovement.ApplyGivenAdjacentWalls(ref precise, _moveAngle,
+                NativeObjectMovement.Velocity(_memory, _record.SpeedRaw, _moveAngle), walls, _record.SpeedRaw);
+            Position = precise;
+            QueueRedraw();
             return;
+        }
 
         Position = CenterOnTile(Position);
         _moving = false;
@@ -117,7 +133,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         OccupyTile();
     }
 
-    private void UpdateResting(
+    private bool UpdateResting(
         Player player,
         ICollection<RoomEntitySpawn> spawns)
     {
@@ -135,7 +151,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
                 player.LedgeZ < -_record.CliffGroundProximity ||
                 player.LedgeZ >= 0)
             {
-                return;
+                return false;
             }
 
             spawns.Add(new RockDebrisSpawn(
@@ -143,7 +159,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
                 _record.CliffDebrisInteraction));
             _database.ResetPosition(_record.SubId, _save);
             Finished = true;
-            return;
+            return false;
         }
 
         // State 1 also leaves the underlying tile restored while Link is
@@ -151,11 +167,12 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         if (OverlapsLink(player.Position))
         {
             RestoreTile();
-            return;
+            return false;
         }
 
         if (_occupiedPackedPosition < 0)
             OccupyTile();
+        return true;
     }
 
     public void UpdatePushAttempt(
@@ -163,20 +180,28 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         Vector2I facing,
         Vector2 movementInput)
     {
-        if (!_initialized || _moving ||
-            !InteractableTilePushGeometry.TryGetCardinalInput(
-                movementInput, out Vector2I direction) ||
-            direction != facing)
+        // Link's front-tile pass supplies input only. The ENEMY pass owns
+        // eligibility, the countdown, allocation-free acceptance and sound.
+        _pendingPushInput = movementInput;
+    }
+
+    private void UpdatePush(Player player, Vector2 movementInput)
+    {
+        Vector2I direction = player.FacingVector;
+        if (movementInput.IsZeroApprox() || player.ActiveTransformation != 0 ||
+            !player.NativeNormalStateForInteraction || player.ItemCreationZFixed < 0 ||
+            player.TopDownSwimming || player.GrabStateActive ||
+            Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("item"))
         {
             ResetPush();
             return;
         }
 
-        Vector2 delta = Position - linkPosition;
+        Vector2 delta = Position.Floor() - player.EnemyContactPosition;
         bool centered = direction.X == 0
-            ? Mathf.Abs(delta.X) < 4.0f
-            : Mathf.Abs(delta.Y) < 4.0f;
-        if (!centered || delta.LengthSquared() >= 0x12 * 0x12 ||
+            ? Mathf.Abs(delta.X) <= 4.0f
+            : Mathf.Abs(delta.Y) <= 4.0f;
+        if (!centered || Mathf.Abs(delta.X) + Mathf.Abs(delta.Y) >= 0x12 ||
             delta.Dot(direction) <= 0.0f)
         {
             ResetPush();
@@ -196,9 +221,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         }
 
         RestoreTile();
-        _moveDelta = OracleObjectMovement.Shared.Delta(
-            _record.SpeedRaw,
-            InteractableTilePushGeometry.DirectionIndex(direction) * 8);
+        _moveAngle = InteractableTilePushGeometry.DirectionIndex(direction) * 8;
         _moveCounter = _record.MoveFrames;
         _moving = true;
         _playSound(SoundId.SndMoveBlock);

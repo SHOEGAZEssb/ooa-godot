@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
                 // Occupy native part slot 0: encounter item indices 0/1 must
                 // use actual pages $d1/$d2, not their encounter-local indices.
                 _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(0x02, new(24, 40)));
-                var encounter = new MapleEncounterState { ObjectsDisabled = true };
+                var encounter = new MapleEncounterState(_runtimeState) { ObjectsDisabled = true };
                 var drops = new[]
                 {
                     _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(
@@ -66,11 +66,29 @@ public sealed partial class ValidationRoot
                     "Maple state4 must retain terrain effects while raising items for collection.");
                 foreach (MapleDroppedItem drop in drops)
                 {
+                    int z = drop.ZFixed;
                     drop.ReleaseFromMaple();
-                    FailIf(drop.TerrainShadowDrawn, "Cancelled Maple collection must return its shadow to ground height.");
-                    drop.CompleteMapleCollection();
-                    FailIf(drop.TerrainShadowDrawn, "Deleted Maple items must stop casting shadows immediately.");
+                    FailIf(drop.ZFixed != z || drop.State != MapleDroppedItemState.Bouncing,
+                        "Bomb interruption retains item height and resumes source state1 bouncing.");
                 }
+                CheckShadows();
+                for (int update = 0; update < 120; update += batched ? 2 : 1)
+                {
+                    StepGameplayUpdates(batched ? 2 : 1, Vector2.Zero, batched: batched);
+                    CheckShadows();
+                }
+                FailIf(drops.Any(drop => drop.State != MapleDroppedItemState.Grounded || drop.TerrainShadowDrawn),
+                    "Released items stop casting shadows only after the retained vertical motion lands.");
+                foreach (MapleDroppedItem drop in drops)
+                    drop.BeginMapleCollection(1, () => drop.Position);
+                StepGameplayUpdates(44, Vector2.Zero, batched: batched);
+                FailIf(drops.Any(drop => !drop.MapleCollectionReady), "Released drops must remain collectible on a later Maple approach.");
+                foreach (MapleDroppedItem drop in drops)
+                {
+                    drop.CompleteMapleCollection();
+                    FailIf(drop.Finished, "A companion's retirement request must retain the drop until its later PART visit.");
+                }
+                CheckShadows();
                 StepGameplayUpdates(2, Vector2.Zero, batched: batched);
                 FailIf(_entities.Entities<MapleDroppedItem>().Count != 0,
                     "Maple collection must release shadow nodes and native slots before another scatter.");
