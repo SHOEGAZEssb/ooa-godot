@@ -109,12 +109,8 @@ internal sealed class AmbiGuardRoomEntity : CombatEnemyRoomEntityAdapter<AmbiGua
         return accepted ? new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate,
             response.Effect is 0 or 0x1b or 0x20 or 0x2d) : default;
     }
-    public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (!block.CollisionEnabled || !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, block.ZHigh, 7)) return false;
-        if (Entity.CollisionMode == 0x5a) return Hit(0x15, block.CollisionBounds, block.Position, 0, spawns);
-        return ApplySomariaBlockCollision(block, 0xfc, Entity.NativeHitPending, spawns);
-    }
+    public bool ApplySomariaBlockCollision(SomariaBlock block, ICollection<RoomEntitySpawn> spawns) =>
+        ApplySomariaBlockCollision(block, 0xfc, Entity.NativeHitPending, spawns);
     protected override void ApplySomariaEnemyDamage(SomariaBlock block, ICollection<RoomEntitySpawn> spawns)
     { base.ApplySomariaEnemyDamage(block, spawns); Entity.RecordCollision(0x15, block.Position); }
 }
