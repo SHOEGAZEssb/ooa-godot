@@ -12,6 +12,8 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
     IScreenTransitionPreloadRoomEntity
 {
     private readonly CircularSideScrollPlatformRecord _record;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     private Vector2 _precisePosition;
     private int _angle;
@@ -72,7 +74,7 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
             // installs its circular position and yields without moving.
             _initialized = true;
             _precisePosition = _record.Center +
-                (Vector2)OracleObjectMovement.Shared.CircleArcOffset(_record.Radius, _record.InitialAngle);
+                (Vector2)NativeObjectMovement.CircleArcOffset(_movementMemory, _record.Radius, _record.InitialAngle);
             Position = OracleObjectMath.ToPixelPosition(_precisePosition);
             _angle = (_record.InitialAngle + _record.TangentOffset) & ObjectAngle.Mask;
             _counter = _record.InitialCounter;
@@ -88,8 +90,8 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
         Vector2I previousHigh = new(
             Mathf.FloorToInt(_precisePosition.X),
             Mathf.FloorToInt(_precisePosition.Y));
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _record.Speed, _angle);
+        Position = NativeObjectMovement.ApplySpeed(
+            _movementMemory, ref _precisePosition, _record.Speed, _angle);
         if (_linkRiding)
         {
             Vector2I currentHigh = new(

@@ -2565,8 +2565,13 @@ public sealed class RoomEntityManager : IDisposable
             sidePlatform.BindMovementMemory(_runtimeState);
             sidePlatform.BindRidingState(_platformRiding);
         }
+        if (entity.Node is MovingPlatformRoomEntity movingPlatform)
+            movingPlatform.BindMovementMemory(_runtimeState);
         if (entity.Node is CircularSideScrollPlatformRoomEntity circularPlatform)
+        {
+            circularPlatform.BindMovementMemory(_runtimeState);
             circularPlatform.BindRidingState(_platformRiding);
+        }
         int dynamicId=DynamicItemId(entity);
         // setObjectsEnabledTo2 retains outgoing ITEM allocations until
         // clearItemsWithEnabled2. Held enabled=$03 children keep that slot

@@ -14,6 +14,8 @@ internal sealed partial class MovingPlatformRoomEntity : DungeonInteractionVisua
     private readonly MovingPlatformRidingState _riding;
     private readonly Func<int> _playingInstrument;
     private readonly int _speed;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private Vector2 _precisePosition;
     private bool _initialized;
     private bool _moving;
@@ -77,7 +79,7 @@ internal sealed partial class MovingPlatformRoomEntity : DungeonInteractionVisua
             // Instrument freezes moving substate 1, including its counter.
             // Substate 0 still decrements its wait and may select a move.
             if (_playingInstrument() != 0) return;
-            Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, _speed, _angle);
+            Position = NativeObjectMovement.ApplySpeed(_movementMemory, ref _precisePosition, _speed, _angle);
             // interactionCode79 checks w1Link.state==$01, including a
             // pending forced drowning request before Link consumes it.
             if (LinkRiding && frame.Player.NativeNormalStateForInteraction)

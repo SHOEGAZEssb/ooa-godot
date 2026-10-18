@@ -139,7 +139,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
                     _state = StalfosState.Deciding;
                 BounceOffWallsAndHoles();
                 Position +=
-                    OracleObjectMovement.Shared.Delta(Record.SpeedRaw, _angle);
+                    MovementDelta(Record.SpeedRaw, _angle);
                 QueueRedraw();
                 AdvanceAnimation();
                 return false;

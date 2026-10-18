@@ -995,6 +995,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGraveyardCrowsAndDropProducers);
         RunIsolatedValidation(ValidateOctoroks);
         RunIsolatedValidation(ValidateOctorokMovementMemoryRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePeahatMovementMemoryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateStalfosMovementMemoryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMovingOrbMovementMemoryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMovingPlatformMovementMemoryRom, requiresRom: true);
+        RunIsolatedValidation(ValidateCircularPlatformMovementMemoryRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom043Enemies);
         RunIsolatedValidation(ValidateScentSeedAttraction);
         RunIsolatedValidation(ValidateTokayIslandEnemies);

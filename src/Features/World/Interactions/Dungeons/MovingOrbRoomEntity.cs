@@ -66,7 +66,7 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
         int high = OracleObjectPosition.HighByte(Position.X);
         if (State == 9 ? high < target : high > target)
         {
-            var velocity = OracleObjectMovement.Shared.Velocity(_data.Speed, State == 9 ? ObjectAngle.Right : ObjectAngle.Left);
+            var velocity = NativeObjectMovement.Velocity(_runtime, _data.Speed, State == 9 ? ObjectAngle.Right : ObjectAngle.Left);
             Position = OracleObjectPosition.FromPixels(Position).Add(velocity.YFixed, velocity.XFixed).PrecisePosition;
         }
         else

@@ -170,7 +170,7 @@ internal partial class PeahatCharacter : EnemyCharacter, ITerrainShadowSource
         // The source uses objectApplySpeed followed by
         // ecom_bounceOffScreenBoundary. Peahats ignore metatile collision even
         // while their takeoff/landing sprite is at ground height.
-        OracleObjectVelocity velocity = OracleObjectMovement.Shared.Velocity(_speedRaw, _angle);
+        OracleObjectVelocity velocity = MovementVelocity(_speedRaw, _angle);
         Position = OracleObjectPosition.FromPixels(Position).Add(velocity.YFixed, velocity.XFixed).PrecisePosition;
         _angle = EnemyAdjacentWallResolver.Shared.BounceAngle(
             Position,
