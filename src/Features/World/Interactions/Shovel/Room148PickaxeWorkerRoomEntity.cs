@@ -49,11 +49,8 @@ internal sealed class Room148PickaxeWorkerRoomEntity(
         {
             spawns.Add(new Room148DebrisSpawn(
                 position,
-                parameter,
                 angles[index],
-                // The child copies the worker's visible priority and
-                // decrements its low priority code during $92:$06 state 0.
-                Math.Max(0, Entity.ZIndex - 1)));
+                ObjectDrawPriority.ToVisibleBucket(Entity.ZIndex)));
         }
     }
 
@@ -85,7 +82,6 @@ internal sealed class Room148PickaxeWorkerRoomEntity(
 
 internal sealed record Room148DebrisSpawn(
     Vector2 Position,
-    int Palette,
     int Angle,
-    int DrawPriority)
+    int ParentVisibleBucket)
     : RoomEntitySpawn;

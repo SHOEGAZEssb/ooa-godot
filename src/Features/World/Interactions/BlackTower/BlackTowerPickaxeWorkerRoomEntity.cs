@@ -55,8 +55,8 @@ internal sealed class BlackTowerPickaxeWorkerRoomEntity : BlackTowerNpcRoomEntit
         for (int index = _strike.DebrisCount - 1; index >= 0; index--)
         {
             spawns.Add(new Room148DebrisSpawn(
-                position, parameter, angles[index],
-                Math.Max(0, Entity.ZIndex - 1)));
+                position, angles[index],
+                ObjectDrawPriority.ToVisibleBucket(Entity.ZIndex)));
         }
     }
 

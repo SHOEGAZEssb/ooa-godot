@@ -25,9 +25,15 @@ internal sealed class MooshHoverExclamationRoomEntity(
         if (Finished)
             return;
         // INTERAC $9f state 0 sets enabled bit 7 and returns at counter $3c.
-        if (!_initialized) { _initialized = true; return; }
-        Entity.AnimateAndUpdateDrawPriorityOneUpdate(frame.Player);
+        if (!_initialized)
+        {
+            _initialized = true;
+            Entity.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex);
+            return;
+        }
         if (--Counter == 0)
             Finished = true;
+        else
+            Entity.AdvanceAnimationUpdates(1);
     }
 }

@@ -51,6 +51,8 @@ do not introduce an additional sorting rule.
 `ObjectDrawPriority` owns the shared world-object Z-index constants and native
 priority mapping. Actors use those constants for assignments and state changes;
 screen-space layers are named separately by `ScreenDrawPriority` or their owner.
+Apply source priority arithmetic to the native visible bucket before mapping it
+to Godot Z. Adjacent native buckets do not have equal numeric Z spacing.
 
 Automatic airborne terrain shadows use the imported common OAM cell at ground
 XY. Their sources expose native Z and the handler's terrain-effect enable gate;

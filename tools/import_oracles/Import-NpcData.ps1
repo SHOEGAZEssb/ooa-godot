@@ -4335,6 +4335,24 @@ $room148SpeedMatch = [regex]::Match(
 $room148SoundMatch = [regex]::Match(
     $musicConstantSource,
     '(?m)^\s*SND_CLINK\s+db\s*;\s*\$(?<value>[0-9a-f]{2})')
+$room148WorkerInstructions = @(Read-AssemblyNodes (
+    Join-Path $Disassembly 'object_code\ages\interactions\pickaxeWorker.s') |
+    Where-Object { $_.Kind -eq 'Instruction' -and $_.EnclosingGlobalLabel -eq 'interactionCode57' })
+$room148PaletteLoads = @(
+    for ($index = 1; $index -lt $room148WorkerInstructions.Count; $index++) {
+        $instruction = $room148WorkerInstructions[$index]
+        if ($instruction.Name -eq 'jp' -and $instruction.OperandText -eq '@createDirtChips') {
+            $load = $room148WorkerInstructions[$index - 1]
+            if ($load.Name -ne 'ld' -or $load.Operands.Count -ne 2 -or $load.Operands[0] -ne 'a') {
+                throw 'pickaxeWorker.s:$57:$00/$03 must load the chip construction palette before @createDirtChips.'
+            }
+            Convert-AssemblyInteger $load.Operands[1]
+        }
+    }
+)
+if ($room148PaletteLoads.Count -ne 1 -or $room148PaletteLoads[0] -ne 3) {
+    throw 'pickaxeWorker.s:$57:$00/$03 requires the shared chip construction palette $03.'
+}
 $room148WorkerGraphic = $interactionGraphics['87:0']
 $room148DebrisGraphic = $interactionGraphics['146:6']
 $room148WorkAnimation = Resolve-NpcAnimation 0x57 0x02
@@ -4365,8 +4383,8 @@ $room148DebrisSpriteName = 'spr_common_sprites'
 $room148Text = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($allTexts[0x1b00]))
 $room148PickaxeRows = @(
-    "# worker-sprite`tworker-tile-base`tworker-palette`twork-animation`ttalk-animation`tdebris-sprite`tdebris-tile-base`tdebris-animation`ttext-id`tutf8-base64`tsound`tdebris-count`toffset-y`toffset-x`tspeed`tspeed-z`tgravity`tangle-0`tangle-1",
-    "$room148SpriteName`t$($room148WorkerGraphic.TileBase)`t$($room148WorkerGraphic.Palette)`t$room148WorkAnimation`t$room148TalkAnimation`t$room148DebrisSpriteName`t$($room148DebrisGraphic.TileBase)`t$room148DebrisAnimation`t1b00`t$room148Text`t$([Convert]::ToInt32($room148SoundMatch.Groups['value'].Value, 16))`t2`t4`t14`t$([Convert]::ToInt32($room148SpeedMatch.Groups['value'].Value, 16))`t-192`t24`t8`t24"
+    "# worker-sprite`tworker-tile-base`tworker-palette`twork-animation`ttalk-animation`tdebris-sprite`tdebris-tile-base`tdebris-animation`ttext-id`tutf8-base64`tsound`tdebris-count`toffset-y`toffset-x`tspeed`tspeed-z`tgravity`tangle-0`tangle-1`tdebris-palette",
+    "$room148SpriteName`t$($room148WorkerGraphic.TileBase)`t$($room148WorkerGraphic.Palette)`t$room148WorkAnimation`t$room148TalkAnimation`t$room148DebrisSpriteName`t$($room148DebrisGraphic.TileBase)`t$room148DebrisAnimation`t1b00`t$room148Text`t$([Convert]::ToInt32($room148SoundMatch.Groups['value'].Value, 16))`t2`t4`t14`t$([Convert]::ToInt32($room148SpeedMatch.Groups['value'].Value, 16))`t-192`t24`t8`t24`t$($room148PaletteLoads[0])"
 )
 
 # Dungeon entry handlers, statue-eye spawners, and miniboss portals are shared

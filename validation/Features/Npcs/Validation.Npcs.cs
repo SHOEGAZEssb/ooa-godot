@@ -1445,7 +1445,7 @@ public sealed partial class ValidationRoot
             debris[0].Position != new Vector2(0x2a, 0x5c) ||
             debris[1].Position != new Vector2(0x2a, 0x5c) ||
             debris[0].Angle != 0x18 || debris[1].Angle != 0x08 ||
-            debris.Any(chip => chip.Palette != 1 || chip.ZFixed != 0 ||
+            debris.Any(chip => chip.Palette != 3 || chip.ZFixed != 0 ||
                 chip.SpeedZ != -0xc0 || !chip.StateInitialized),
             "Animation $02's first parameter-$01 strike did not play " +
             "SND_CLINK and create two same-update $92:$06 chips at " +
@@ -1460,7 +1460,7 @@ public sealed partial class ValidationRoot
             debrisSource,
             debrisFrame.EncodedOam,
             pickaxe.Record.DebrisTileBase,
-            1);
+            3);
         Image debrisImage = debrisTexture.GetImage();
         int debrisOpaquePixels = 0;
         for (int y = 0; y < debrisImage.GetHeight(); y++)
@@ -1507,7 +1507,7 @@ public sealed partial class ValidationRoot
             sounds.Count != 3 || sounds.Any(sound =>
                 sound != SoundId.SndClink) ||
             worker.CurrentAnimationParameter != 2 || debris.Count != 2 ||
-            debris.Any(chip => chip.Palette != 2 ||
+            debris.Any(chip => chip.Palette != 3 ||
                 chip.Position != new Vector2(0x46, 0x5c)),
             "Pickaxe animation $02 did not strike on updates 26/78/130 " +
             "or move its parameter-$02 dirt-chip origin to $5c/$46.");
@@ -3488,9 +3488,9 @@ public sealed partial class ValidationRoot
         FailIf(
             sounds.Count != 2 || sounds.Any(sound => sound != strike.Record.Sound) ||
             chips.Count != 4 ||
-            chips.Count(chip => chip.Palette == 1 &&
+            chips.Count(chip => chip.Palette == 3 &&
                 chip.Position == new Vector2(0x3a, 0x3c)) != 2 ||
-            chips.Count(chip => chip.Palette == 2 &&
+            chips.Count(chip => chip.Palette == 3 &&
                 chip.Position == new Vector2(0x96, 0x5c)) != 2,
             "Black Tower pickaxe animations $00/$01 did not strike left/right with exact dirt-chip origins.");
         predicateManager.Clear();

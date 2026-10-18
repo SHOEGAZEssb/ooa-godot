@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace oracleofages;
 
@@ -18,6 +19,16 @@ internal static class ObjectDrawPriority
         1 => InFrontOfLinkZIndex,
         2 => BehindLinkZIndex,
         _ => FixedLowPriorityZIndex
+    };
+
+    internal static int ToVisibleBucket(int zIndex) => zIndex switch
+    {
+        FixedHighPriorityZIndex => 0,
+        InFrontOfLinkZIndex => 1,
+        BehindLinkZIndex => 2,
+        FixedLowPriorityZIndex => 3,
+        _ => throw new ArgumentOutOfRangeException(nameof(zIndex), zIndex,
+            "A native object priority must map to visible bucket $00-$03.")
     };
     // bank0.s: objectSetPriorityRelativeToLink/@getPriority. These are byte
     // comparisons of yh/zh, not comparisons of subpixel or screen positions.

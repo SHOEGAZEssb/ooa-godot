@@ -124,6 +124,8 @@ public sealed partial class ValidationRoot
             {
                 var child = _entities.EntityAdapters<MooshHoverExclamationRoomEntity>().Single();
                 int at = NativeAdmissionChildren(native, 0x9f, 0).Single();
+                FailIf(native[at + 0x1a] != 0x80 || child.Node.ZIndex != 12,
+                    "Moosh's original $9f state zero sets fixed visible $80 / Z12, without Link-relative priority.");
                 FailIf(child.Counter != 60 || native[at + 6] != 60,
                     "INTERAC $9f initialization must return without decrementing Moosh's $3c counter.");
                 _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 2); native[0xcc8a] = 2;
@@ -131,6 +133,8 @@ public sealed partial class ValidationRoot
                 StepGameplayUpdates(59, Vector2.Zero, batched: batched, afterUpdate: () =>
                 {
                     age++; native.AdvanceInteractions(_entities.FrameCounter);
+                    FailIf(native[at + 0x1a] != 0x80 || child.Node.ZIndex != 12,
+                        "Moosh's exclamation animation must retain fixed source priority through its lifetime.");
                     FailIf(child.Counter != 60 - age || native[at + 6] != 60 - age || child.Finished || native[at] == 0,
                         "Moosh's enabled-bit-7 exclamation must retain every countdown update under INTERACTION $02.");
                 });

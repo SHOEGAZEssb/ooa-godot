@@ -41,10 +41,12 @@ internal partial class Room148PickaxeDebris : FixedEffectNode2D
             source,
             frames[0].EncodedOam,
             record.DebrisTileBase,
-            spawn.Palette);
-        Palette = spawn.Palette;
+            record.DebrisPalette);
+        Palette = record.DebrisPalette;
         Angle = spawn.Angle;
-        ZIndex = spawn.DrawPriority;
+        // fallingRock_subid06 decrements the copied native bucket before
+        // mapping it to presentation Z; mapped Godot Z values are not linear.
+        ZIndex = ObjectDrawPriority.FromVisible(Math.Max(0, spawn.ParentVisibleBucket - 1));
         _speed = record.Speed;
         _gravity = record.Gravity;
         SpeedZ = record.InitialSpeedZ;

@@ -22,7 +22,7 @@ internal sealed class Room148PickaxeDatabase
                     "worker-sprite", "worker-tile-base", "worker-palette", "work-animation",
                     "talk-animation", "debris-sprite", "debris-tile-base", "debris-animation",
                     "text-id", "utf8-base64", "sound", "debris-count", "offset-y",
-                    "offset-x", "speed", "speed-z", "gravity", "angle-0", "angle-1"
+                    "offset-x", "speed", "speed-z", "gravity", "angle-0", "angle-1", "debris-palette"
                 ],
                 headerRequired: true));
         GeneratedTableRow row = table.SingleRow();
@@ -46,7 +46,8 @@ internal sealed class Room148PickaxeDatabase
             row.Decimal(15),
             row.UnsignedDecimal(16),
             row.UnsignedDecimal(17),
-            row.UnsignedDecimal(18));
+            row.UnsignedDecimal(18),
+            row.Decimal(19, 0, 7));
 
         AnimationDefinition work =
             OracleGraphicsCache.GetAnimationDefinition(Record.WorkAnimation);
@@ -59,7 +60,7 @@ internal sealed class Room148PickaxeDatabase
         bool hasRightStrike = Array.Exists(
             work.Frames, frame => frame.Parameter == 2);
         if (Record.DebrisSpriteName != "spr_common_sprites" ||
-            Record.DebrisTileBase != 0x02 ||
+            Record.DebrisTileBase != 0x02 || Record.DebrisPalette != 3 ||
             Record.TextId != 0x1b00 || string.IsNullOrEmpty(Record.Message) ||
             Record.DebrisCount != 2 || Record.OffsetY != 4 ||
             Record.OffsetX != 14 || Record.Speed <= 0 ||
@@ -74,4 +75,4 @@ internal sealed class Room148PickaxeDatabase
     }
 }
 
-internal readonly record struct PickaxeRecord(string SpriteName, int WorkerTileBase, int WorkerPalette, string WorkAnimation, string TalkAnimation, string DebrisSpriteName, int DebrisTileBase, string DebrisAnimation, int TextId, string Message, int Sound, int DebrisCount, int OffsetY, int OffsetX, int Speed, int InitialSpeedZ, int Gravity, int Angle0, int Angle1);
+internal readonly record struct PickaxeRecord(string SpriteName, int WorkerTileBase, int WorkerPalette, string WorkAnimation, string TalkAnimation, string DebrisSpriteName, int DebrisTileBase, string DebrisAnimation, int TextId, string Message, int Sound, int DebrisCount, int OffsetY, int OffsetX, int Speed, int InitialSpeedZ, int Gravity, int Angle0, int Angle1, int DebrisPalette);
