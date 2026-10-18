@@ -10,6 +10,9 @@ internal sealed partial class TokayAttachedVisualRoomEntity : TransitionOffsetNo
     private readonly NpcCharacter _parent;
     private readonly Texture2D _texture;
     private readonly Vector2 _frameOffset;
+    // INTERAC_EXCLAMATION_MARK $9f allocates an independent checked slot;
+    // carried $63/$6b sprites have separate producer ownership paths.
+    internal bool IsNativeExclamation { get; }
     internal Vector2 ParentOffset { get; set; }
     internal bool FollowParent { get; set; } = true;
     internal bool Retired { get; set; }
@@ -20,6 +23,7 @@ internal sealed partial class TokayAttachedVisualRoomEntity : TransitionOffsetNo
     internal TokayAttachedVisualRoomEntity(NpcCharacter parent, NpcRecord record, Vector2 offset)
     {
         _parent = parent;
+        IsNativeExclamation = record.Id == InteractionId.ExclamationMark;
         ParentOffset = offset;
         Name = $"TokayChild_{record.Id:x2}_{record.SubId:x2}";
         var frame = OracleGraphicsCache.GetAnimationDefinition(record.DownAnimation).Frames[0];

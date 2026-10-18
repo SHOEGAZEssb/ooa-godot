@@ -124,7 +124,7 @@ internal sealed class TingleEvent : IRoomEvent
             case TingleEventStage.UpgradeAnimation:
                 if (_actor is { KoolooComplete: true })
                 {
-                    _upgradeGlow = _context.Entities.Spawn<TimedSparkleRoomEntity>(
+                    _upgradeGlow = (TimedSparkleRoomEntity?)_context.Entities.TryCreateInteraction(
                         new TimedSparkleSpawn(_context.Player.Position.Floor(),
                             _record.UpgradeGlowWait, _database.UpgradeGlowVisual));
                     _counter = _record.UpgradeGlowWait;

@@ -1988,6 +1988,16 @@ public sealed class RoomEntityManager : IDisposable
         return (T)Spawn(spawn);
     }
 
+    internal Node2D? TryCreateInteraction(RoomEntitySpawn spawn) => TryCreateInteractionEntity(spawn)?.Node;
+
+    private IRoomEntity? TryCreateInteractionEntity(RoomEntitySpawn spawn)
+    {
+        // Checked objectCreateInteraction: reject before constructing a node.
+        // The live $d2-$df walk owns initialization in physical slot order.
+        if (!InteractionSlotAvailable) return null;
+        return AddEntity(_factory.Create(spawn, _roomForActiveEntities));
+    }
+
     internal void ReplaceEventOwnedNpc(NpcCharacter actor, IRoomEntity replacement)
     {
         IRoomEntity original = _activeEntities.Single(entity => ReferenceEquals(entity.Node, actor));
@@ -2807,6 +2817,8 @@ public sealed class RoomEntityManager : IDisposable
         // the preload walk owns its presentation rather than a fixed dispatch.
         if (spawn is AllocatedPartUpdateSpawn birth) return birth.Entity;
         if (spawn is PuzzlePuffSpawn puff) return TryCreatePuzzlePuffSpawn(puff);
+        if (spawn is Room148DebrisSpawn or TokayEntranceEyeSpawn or VolcanoHandlerSpawn)
+            return TryCreateInteractionEntity(spawn);
         // ecom_spawnEnemyWithSubid01 and object opcode7 retain the parent
         // allocation during the attempt. A failed checked request creates no
         // node and never becomes a logical interaction-phase enemy.
@@ -2992,6 +3004,10 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
+        SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or
+        MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
+        TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or
+        TokayAttachedVisualRoomEntity { IsNativeExclamation: true } or
         BusinessScrubRoomEntity or BusinessScrubBushRoomEntity or
         GameCompleteDialogRoomEntity or
         BlackTowerSeedRoomEntity or BlackTowerConfrontationActor or BlackTowerPossessionActor or BlackTowerEndingActor or ImpaCreditsRoomEntity or CreditsLinkLoaderRoomEntity or CreditsCompanionLoaderRoomEntity or CreditsHorizontalRoomEntity or CreditsVerticalRoomEntity or ForestAudienceRoomEntity or RestoredRabbitRoomEntity or LinkedSwordRoomEntity or FallingRockRoomEntity or VeranCutsceneWallmasterRoomEntity or VeranFaceRoomEntity or VeranDeathFadeRoomEntity or ExplosionWithDebrisRoomEntity or PickaxeWorkerCreditsRoomEntity or MakuStatueConstructionRoomEntity or
@@ -3003,7 +3019,7 @@ public sealed class RoomEntityManager : IDisposable
         TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         AncientTombEntranceRoomEntity or RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
         entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect or InteractionSparkleEffect or InteractionExplosionEffect or DungeonKeyUseEffect
-            or GrassDebrisEffect or RockDebrisEffect or ShovelDebrisEffect or SplashEffect or OverworldKeyUseEffect || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
+            or GrassDebrisEffect or RockDebrisEffect or ShovelDebrisEffect or SplashEffect or OverworldKeyUseEffect or Room148PickaxeDebris || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or NuunBridgeRoomEntity or OrbBridgeControllerRoomEntity or DungeonOrbChestRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
             or DungeonStateController or ColoredCubeFloorSensorRoomEntity or MermaidChangingFloorRoomEntity or MermaidChangingFloorWorkerRoomEntity or MermaidBossKeyRoomEntity or MermaidTorchOrderRoomEntity or DungeonRoomFlagMirrorRoomEntity or MinecartGateRoomEntity or SwitchTileTogglerRoomEntity or MinecartShutterRoomEntity or DungeonSignalScriptRoomEntity
             or GreenPoofRoomEntity or StonePanelRoomEntity or SarcophagusRoomEntity or EnemyAttachedKeyRoomEntity or SlateSlotRoomEntity or PanelStairsRoomEntity or DungeonTileScriptRoomEntity or JabuWaterControllerRoomEntity or JabuLadderRoomEntity or OctogonInteractionRoomEntity or OctogonEncounterInitializerRoomEntity or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity or DungeonTilePatternFallingKeyRoomEntity or MoonlitGrottoFallingKeyRoomEntity

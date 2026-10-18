@@ -59,7 +59,7 @@ internal sealed class TokayVineExplanationEvent : IRoomEntryEvent
                 _context.Rooms.CurrentRoom.Id,
                 OracleSaveData.RoomFlag40);
             _context.Player.Face(Vector2I.Left);
-            _effect = _context.Entities.Spawn<TokayAttachedVisualRoomEntity>(new TokayAttachedVisualSpawn(
+            _effect = (TokayAttachedVisualRoomEntity?)_context.Entities.TryCreateInteraction(new TokayAttachedVisualSpawn(
                 _actor, _native.Visual("exclamation", 0, 0xbb), new Vector2(-13, -13)));
             // Both script writes target speedZ low: the resulting $00ff is
             // positive, and the next gravity update clamps Z to the ground.

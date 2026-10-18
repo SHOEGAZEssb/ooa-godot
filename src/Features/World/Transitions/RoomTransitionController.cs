@@ -1854,9 +1854,8 @@ public sealed class RoomTransitionController
             return false;
         }
 
-        _entities.Spawn<EraInfoDisplay>(
-            new EraInfoSpawn(_eraInfo.ForTilesetFlags(tilesetFlags)));
-        return true;
+        return _entities.TryCreateInteraction(
+            new EraInfoSpawn(_eraInfo.ForTilesetFlags(tilesetFlags))) is not null;
     }
 
     private bool AdvanceDestinationFall()

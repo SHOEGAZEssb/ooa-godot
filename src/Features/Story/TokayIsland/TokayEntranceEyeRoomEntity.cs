@@ -61,4 +61,4 @@ internal sealed partial class TokayEntranceEyeRoomEntity : TransitionOffsetNode2
 }
 
 internal sealed record TokayEntranceEyeSpawn(TokayEntranceEyeRecord Record)
-    : RoomEntitySpawn(UpdateThisFrame: true);
+    : RoomEntitySpawn;

@@ -17,6 +17,7 @@ internal sealed class VolcanoRoomEntity : RoomEntityAdapter<Node2D>, IFixedRoomE
     private readonly Func<bool> _shaking;
     private readonly Action<int> _magnitude;
     private readonly Func<bool> _freePartSlot;
+    private readonly Func<RoomEntitySpawn, Node2D?>? _createInteraction;
     private int _mask;
     private int _base;
     internal int State { get; private set; }
@@ -26,13 +27,15 @@ internal sealed class VolcanoRoomEntity : RoomEntityAdapter<Node2D>, IFixedRoomE
 
     internal VolcanoRoomEntity(VolcanoPlacement record, VolcanoDatabase data, OracleRoomData room,
         OracleSaveData? save, OracleRandom random, Action<int> sound,
-        Action<int, int, int> shake, Func<bool> shaking, Action<int> magnitude, Func<bool> freePartSlot)
+        Action<int, int, int> shake, Func<bool> shaking, Action<int> magnitude, Func<bool> freePartSlot,
+        Func<RoomEntitySpawn, Node2D?>? createInteraction = null)
         : base(new Node2D { Name = $"Volcano_{record.SubId:x2}_{record.Order}", Visible = false }, static _ => { })
     {
         _record = record; _data = data; _room = room; _save = save;
         _random = random; _sound = sound; _shake = shake; _shaking = shaking;
         _magnitude = magnitude;
         _freePartSlot = freePartSlot;
+        _createInteraction = createInteraction;
         Entity.Position = new(record.X, record.Y);
     }
 
@@ -98,7 +101,11 @@ internal sealed class VolcanoRoomEntity : RoomEntityAdapter<Node2D>, IFixedRoomE
         State = 1;
         if (_record.SubId == 0x06)
         {
-            spawns.Add(new VolcanoHandlerSpawn(_record with { SubId = 0xb2 }));
+            var child = new VolcanoHandlerSpawn(_record with { SubId = 0xb2 });
+            // The checked attempt precedes interactionDelete. Retain this
+            // parent's physical slot until the real allocation has completed.
+            if (_createInteraction is not null) _createInteraction(child);
+            else spawns.Add(child);
             Finished = true;
         }
         else if (_record.SubId == 0x05)
@@ -116,5 +123,5 @@ internal sealed class VolcanoRoomEntity : RoomEntityAdapter<Node2D>, IFixedRoomE
     private void SetRockCounter() => Counter = ((_random.Next().Value & _mask) + _base) & 0xff;
 }
 
-internal sealed record VolcanoHandlerSpawn(VolcanoPlacement Placement) : RoomEntitySpawn(UpdateThisFrame: true);
+internal sealed record VolcanoHandlerSpawn(VolcanoPlacement Placement) : RoomEntitySpawn;
 internal sealed record VolcanoRockSpawn(Vector2 Position) : RoomEntitySpawn;

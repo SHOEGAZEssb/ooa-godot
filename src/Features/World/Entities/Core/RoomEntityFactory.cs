@@ -2556,7 +2556,8 @@ internal sealed class RoomEntityFactory
                         Resources.DungeonMechanics.MoonlitButtonKeyY,
                         Resources.DungeonMechanics.MoonlitButtonKeyX,
                         "objects/ages/extraData3.s:moonlitGrotto_onArmosSwitchPressed")
-                    : null);
+                    : null,
+                owner.TryCreateInteraction);
         }
         if (record.Id == InteractionId.DungeonEvents && record.SubId == 0x0d)
         {
@@ -3352,7 +3353,8 @@ internal sealed class RoomEntityFactory
 
     private VolcanoRoomEntity CreateVolcanoController(VolcanoPlacement record, OracleRoomData room) =>
         new(record, Resources.Volcano, room, _saveData, _random, owner.OnSoundRequested, owner.SetScreenShake,
-            () => owner.ScreenIsShaking, owner.SetScreenShakeMagnitude, () => owner.PartSlotAvailable);
+            () => owner.ScreenIsShaking, owner.SetScreenShakeMagnitude, () => owner.PartSlotAvailable,
+            owner.TryCreateInteraction);
 
     private IRoomEntity CreateHeadThwompBoulder(OracleRoomData room) =>
         new HostileProjectileRoomEntity<HeadThwompBoulder>(

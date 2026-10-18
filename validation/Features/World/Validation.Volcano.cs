@@ -106,17 +106,20 @@ public sealed partial class ValidationRoot
         FailIf(_entities.ScreenShakeCounter != 0 || _entities.HorizontalScreenShakeCounter != 0,
             "$b2 state 0 advanced the shake script on its initialization update.");
         Tick();
+        FailIf(_entities.ScreenShakeCounter != 0 || _entities.HorizontalScreenShakeCounter != 0,
+            "Room $1:$03 reuses earlier INTERACTION slot $d2: $b2 state 0 must run on update 2 without advancing its script.");
+        Tick();
         FailIf(_entities.ScreenShakeCounter != 0 || _entities.HorizontalScreenShakeCounter != 29 ||
             offsets.Last().Y != 0 || Math.Abs(offsets.Last().X) != 1,
             "$b2 first script step must shake X only with magnitude 1 for 30 updates.");
-        for (int tick = 3; tick <= 31; tick++) Tick();
+        for (int tick = 4; tick <= 32; tick++) Tick();
         Tick();
         FailIf(_entities.ScreenShakeCounter != 29 || _entities.HorizontalScreenShakeCounter != 0,
-            "$b2 second script step did not begin exactly on update 32.");
-        for (int tick = 33; tick <= 61; tick++) Tick();
+            "$b2 second script step did not begin exactly on update 33 after earlier-slot state-0 dispatch.");
+        for (int tick = 34; tick <= 62; tick++) Tick();
         Tick();
         FailIf(_entities.ScreenShakeCounter != 179 || _entities.HorizontalScreenShakeCounter != 179,
-            "$b2 eruption must begin on update 62, after the two 30-update tremors.");
+            "$b2 eruption must begin on update 63, after the two 30-update tremors.");
         for (int tick = 0; tick < 25; tick++) Tick();
         FailIf(_entities.Entities<VolcanoRock>().Count == 0,
             "Symmetry $1:$03 eruption did not spawn PART_VOLCANO_ROCK $11:$01.");

@@ -88,4 +88,4 @@ internal sealed record Room148DebrisSpawn(
     int Palette,
     int Angle,
     int DrawPriority)
-    : RoomEntitySpawn(UpdateThisFrame: true);
+    : RoomEntitySpawn;

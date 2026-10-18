@@ -20,6 +20,7 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
     private readonly OracleRuntimeState _runtime;
     private readonly Func<int> _triggerState;
     private readonly GroundTreasureGrantRequest? _buttonKey;
+    private readonly Func<RoomEntitySpawn, Node2D?> _createInteraction;
     private bool _initialized;
 
     public Node2D Node => this;
@@ -32,7 +33,8 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         OracleSaveData? save,
         OracleRuntimeState runtime,
         Func<int> triggerState,
-        GroundTreasureGrantRequest? buttonKey)
+        GroundTreasureGrantRequest? buttonKey,
+        Func<RoomEntitySpawn, Node2D?> createInteraction)
     {
         if (record.Id != InteractionId.DungeonEvents || record.SubId is not (0x0a or 0x0c) ||
             record.SubId == 0x0a && buttonKey is not null ||
@@ -46,6 +48,7 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         _runtime = runtime;
         _triggerState = triggerState;
         _buttonKey = buttonKey;
+        _createInteraction = createInteraction;
         Name = $"MoonlitArmosEvent_{record.Room:x2}";
         Visible = false;
     }
@@ -95,14 +98,14 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         // materialized, so wNumEnemies already includes the Armos.
         if (_record.SubId == 0x0a)
         {
-            spawns.Add(new EnemyClearChestSpawn(
+            _createInteraction(new EnemyClearChestSpawn(
                 _record.Group,
                 _record.Room,
                 _data.MoonlitArmosChestPosition));
         }
         else
         {
-            spawns.Add(new EnemySmallKeyRewardSpawn(_buttonKey!.Value));
+            _createInteraction(new EnemySmallKeyRewardSpawn(_buttonKey!.Value));
         }
         spawns.Add(new ArmosSpawnerSpawn(
             _data.MoonlitArmosSourceTile,
