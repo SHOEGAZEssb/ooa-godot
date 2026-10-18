@@ -78,6 +78,11 @@ boundaries. Preserve separately:
 The runner advances at original 60 Hz updates. Tweening and rendered delta are
 never authoritative for command movement or timing.
 
+The zero-enemy check yields on its successful update. A following checked
+treasure allocation also yields on success or failure; the watcher retains its
+slot until the later script-end dispatch. Preserve these separate boundaries
+even when the room already has no enemies.
+
 The host supplies the execution gate from authoritative dialogue and Link-death
 state. A blocked script does not decrement either counter. This does not freeze
 the actor's native tail: always-update objects may still animate or move during

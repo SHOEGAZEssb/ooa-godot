@@ -21,6 +21,10 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     private int _bossScriptStep;
     private int _counter = -1;
     private bool _initialized;
+    private readonly CutsceneCommandRunner? _smallKeyScript;
+    private readonly Func<bool>? _scriptTextActive;
+    private Player? _scriptPlayer;
+    private ICollection<RoomEntitySpawn> _scriptSpawns = [];
     internal byte Counter2Alias { get; private set; }
     internal void WriteCounter2Alias(int value)
     {
@@ -32,6 +36,7 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     public Node2D Node => this;
     public bool Finished { get; private set; }
     public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => _smallKeyScript is null || !_initialized;
 
     internal DungeonRewardRoomEntity(
         DungeonObjectRecord record,
@@ -40,7 +45,8 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
         Func<int> enemyCount,
         GroundTreasureGrantRequest? treasure,
         Action enableLinkCollisionsAndMenu, Action? spawnMinibossPortal = null,
-        Func<GroundTreasureGrantRequest, bool>? trySpawnTreasure = null)
+        Func<GroundTreasureGrantRequest, bool>? trySpawnTreasure = null,
+        Func<bool>? scriptTextActive = null)
     {
         _record = record;
         _data = data;
@@ -50,6 +56,13 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
         _enableLinkCollisionsAndMenu = enableLinkCollisionsAndMenu;
         _spawnMinibossPortal = spawnMinibossPortal;
         _trySpawnTreasure = trySpawnTreasure;
+        _scriptTextActive = scriptTextActive;
+        if (record.Kind == DungeonObjectKind.EnemySmallKey)
+        {
+            _smallKeyScript = new(new EnemySmallKeyScriptHost(this));
+            _smallKeyScript.Start(data.SmallKeyCommands);
+            TreeExiting += _smallKeyScript.Clear;
+        }
         if (record.Kind == DungeonObjectKind.MinibossReward && spawnMinibossPortal is null)
             throw new InvalidOperationException("dungeonScript_minibossDeath requires the native interaction allocation owner.");
         if (record.Kind == DungeonObjectKind.BossReward && (trySpawnTreasure is null || treasure is null))
@@ -59,11 +72,15 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
-        => Advance(spawns);
+    {
+        _scriptPlayer = frame.Player;
+        Advance(spawns);
+    }
 
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
-        if (!_initialized) Advance(spawns);
+        // dungeonStuff.s:$12:$01 returns before state0 while scrolling.
+        if (!_initialized && _smallKeyScript is null) Advance(spawns);
         return ScreenTransitionPresentation.Hidden;
     }
 
@@ -71,6 +88,13 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
     {
         if (Finished)
             return;
+        if (_smallKeyScript is not null)
+        {
+            _initialized = true;
+            _scriptSpawns = spawns;
+            _smallKeyScript.AdvanceFrame();
+            return;
+        }
         if (!_initialized)
         {
             // interactionSetScript clears counter1/counter2, including bytes
@@ -83,23 +107,6 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
             // interactionRunScript returns even on the 1->0 update. The
             // stationary boss-reward script has speed=0, so no motion occurs.
             Counter2Alias--;
-            return;
-        }
-        // Static $12:$01 placements are omitted by the room factory when the
-        // item flag is already set. Dynamically parsed placements still
-        // create the interaction, whose first script command is
-        // stopifitemflagset, so retain that guard in the shared runtime owner.
-        if (_record is
-                {
-                    Kind: DungeonObjectKind.EnemySmallKey,
-                    Predicate: DungeonObjectCondition.ItemClear
-                } &&
-            _save?.HasRoomFlag(
-                _record.Group,
-                _record.Room,
-                OracleSaveData.RoomFlagItem) == true)
-        {
-            Finished = true;
             return;
         }
         if (_record.Kind == DungeonObjectKind.BraceletReward)
@@ -163,16 +170,20 @@ internal sealed partial class DungeonRewardRoomEntity : Node2D,
         if (_enemyCount() != 0)
             return;
 
-        if (_record.Kind == DungeonObjectKind.EnemySmallKey)
-        {
-            SpawnTreasure(spawns);
-            return;
-        }
-
         throw new NotSupportedException($"INTERAC${_record.Id:x2}:${_record.SubId:x2}: reward kind {_record.Kind} has no source script owner.");
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
+
+    internal bool SmallKeyScriptBlocked => _scriptTextActive?.Invoke() == true || _scriptPlayer?.IsDying == true;
+    internal bool SmallKeyNoEnemies => _enemyCount() == 0;
+    internal bool SmallKeyRoomFlagSet(int flag) => _save?.HasRoomFlag(_record.Group, _record.Room, checked((byte)flag)) == true;
+    internal void SpawnSmallKeyFromScript()
+    {
+        if (_treasure.HasValue) _scriptSpawns.Add(new GroundTreasureGrantSpawn(_treasure.Value));
+        else throw new InvalidOperationException($"INTERAC $12:$01 at {_record.Source} has no small-key treasure request.");
+    }
+    internal void CompleteSmallKeyScript() { Finished = true; _smallKeyScript!.Clear(); }
 
     private void SpawnTreasure(ICollection<RoomEntitySpawn> spawns)
     {

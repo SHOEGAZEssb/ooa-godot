@@ -13,6 +13,8 @@ internal sealed class TokayEntranceEyeDatabase
 
     internal IReadOnlyList<TokayEntranceEyeRecord> Eyes => _eyes;
     internal TokayEyeballSlotRecord Slot { get; }
+    internal IReadOnlyList<CutsceneCommand> SocketCommands { get; } =
+        CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/tokay_socket_commands.tsv");
 
     internal TokayEntranceEyeDatabase()
     {

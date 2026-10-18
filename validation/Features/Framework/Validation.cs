@@ -736,6 +736,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePartInitializationGatesRom, requiresRom: true);
         RunIsolatedValidation(ValidateAlwaysUpdatePartsScrollRom, requiresRom: true);
         RunIsolatedValidation(ValidatePatchCreationPhaseRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokaySocketScriptRom, requiresRom: true);
         RunIsolatedValidation(ValidatePolsVoiceInstrumentGatesRom, requiresRom: true);
         RunIsolatedValidation(ValidateMoonlitInitializationGatesRom, requiresRom: true);
         RunIsolatedValidation(ValidateVolcanoInitializationGatesRom, requiresRom: true);

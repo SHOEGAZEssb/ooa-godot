@@ -128,16 +128,16 @@ public sealed partial class ValidationRoot
             native.Word(parentAt + 0x18, 0x7ddd); native[parentAt + 11] = (byte)parent.Position.Y; native[parentAt + 13] = (byte)parent.Position.X;
             FillInteractionAdmissionPool(native, free); _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 4); native[0xcc8a] = 0x81;
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-            // Source flag and spawn are distinct script dispatches (F17).
-            // Compare the checked allocation result at its own command boundary.
-            native.AdvanceInteractions(_entities.FrameCounter); native.AdvanceInteractions(_entities.FrameCounter);
+            native.AdvanceInteractions(_entities.FrameCounter); // orroomflag yields.
+            StepGameplayUpdates(1, Vector2.Zero, batched: batched);
+            native.AdvanceInteractions(_entities.FrameCounter); // Checked spawn also yields.
             var inserted = _entities.Entities<TokayEntranceEyeRoomEntity>().Where(actor => actor.Record.SubId == 6).ToArray();
             var source = NativeAdmissionChildren(native, 0x80, 6);
             FailIf(inserted.Length != free || source.Length != free || parent.State != TokayEyeballSlotState.EyeWait,
                 "Tokay socket must consume capacity for both placed owners and skip rejected dynamic $80:$06 without aborting insertion.");
             if (free == 1) FailIf(_entities.InteractionSlot(inserted.Single()) != (source.Single() >> 8) - 0xd0,
                 "Tokay dynamic eye must reserve the source physical interaction slot.");
-            StepGameplayUpdates(240, Vector2.Zero, batched: batched);
+            StepGameplayUpdates(247, Vector2.Zero, batched: batched);
             FailIf(!parent.Finished || _inventory.HasTreasure(TreasureId.TokayEyeball) || _entities.PlayerMovementDisabled,
                 "Rejected eye allocation must not prevent socket completion, treasure consumption or control release.");
             LoadValidationRoom(1, 0xba); StepGameplayUpdates(1, Vector2.Zero, batched: batched);

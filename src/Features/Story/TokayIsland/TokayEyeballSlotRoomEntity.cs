@@ -32,7 +32,11 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
     private readonly Action _roomTileChanged;
     private readonly Func<long> _animationTick;
     private TokayEyeballSlotState _state;
-    private int _counter;
+    private readonly RoomEntityManager _entities;
+    private readonly CutsceneCommandRunner _runner;
+    private Player? _player;
+    private ICollection<RoomEntitySpawn> _spawns = [];
+    private bool _inputHeld;
     private int _pushCounter;
     private Vector2 _pushInput;
     private readonly bool _scriptHasEyeball;
@@ -46,7 +50,7 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
     public bool DisablesRingTransformations => SequenceActive;
     public bool DisablesScreenTransitions => SequenceActive;
     internal TokayEyeballSlotState State => _state;
-    internal int Counter => _counter;
+    internal int Counter => _runner.Counter;
     internal int PushCounter => _pushCounter;
     private bool SequenceActive => _state is not (
         TokayEyeballSlotState.Waiting or TokayEyeballSlotState.Finished);
@@ -62,7 +66,8 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
         Action<int> beginScreenShake,
         Action<int, int> resetRoomMusic,
         Action roomTileChanged,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        RoomEntityManager entities)
     {
         _placement = placement;
         _database = database;
@@ -77,6 +82,9 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
         _resetRoomMusic = resetRoomMusic;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
+        _entities = entities;
+        _runner = new(new TokayEyeballSlotScriptHost(this));
+        TreeExiting += () => { _runner.Clear(); ReleaseInput(); };
         if (placement is not { Group: 1, Room: 0xba, Id: InteractionId.Pirate, SubId: 0x04 })
             throw new ArgumentOutOfRangeException(nameof(placement));
         Name = "TokayEyeballSocket";
@@ -152,44 +160,25 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
+        _player = frame.Player; _spawns = spawns;
         switch (_state)
         {
             case TokayEyeballSlotState.Waiting:
                 UpdateWaiting(frame.Player);
                 if (_state == TokayEyeballSlotState.BeginInsert)
-                    BeginInsert(spawns);
+                    BeginInsert();
                 return;
             case TokayEyeballSlotState.Finished:
                 return;
 
             case TokayEyeballSlotState.BeginInsert:
-                BeginInsert(spawns);
+                BeginInsert();
                 return;
 
             case TokayEyeballSlotState.EyeWait:
-                if (--_counter != 0)
-                    return;
-                _playSound(SoundId.SndOpening);
-                _beginScreenShake(_record.ShakeFrames);
-                _counter = _record.ShakeWait;
-                _state = TokayEyeballSlotState.ShakeWait;
-                return;
-
             case TokayEyeballSlotState.ShakeWait:
-                if (--_counter != 0)
-                    return;
-                OpenEntrance(spawns);
-                _counter = _record.OpenWait;
-                _state = TokayEyeballSlotState.OpenWait;
-                return;
-
             case TokayEyeballSlotState.OpenWait:
-                if (--_counter != 0)
-                    return;
-                _playSound(SoundId.SndSolvePuzzle);
-                _resetRoomMusic(_record.Group, _record.Room);
-                _inventory.LoseTreasure(_record.Treasure);
-                _state = TokayEyeballSlotState.Finished;
+                _runner.AdvanceFrame();
                 return;
 
             default:
@@ -217,15 +206,50 @@ internal sealed partial class TokayEyeballSlotRoomEntity : Node2D,
 
     public void SetTransitionDrawOffset(Vector2 offset) { }
 
-    private void BeginInsert(ICollection<RoomEntitySpawn> spawns)
+    private void BeginInsert()
     {
+        _inputHeld = true;
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0x81);
+        _entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0x80);
+        _player!.ClearNativeItemParents();
         _playSound(SoundId.SndCtrlStopMusic);
-        _save.SetRoomFlag(
-            _record.Group, _record.Room, checked((byte)_record.RoomFlag));
-        spawns.Add(new TokayEntranceEyeSpawn(_database.InsertedEye));
-        _playSound(SoundId.SndOpenChest);
-        _counter = _record.EyeWait;
         _state = TokayEyeballSlotState.EyeWait;
+        _runner.Start(_database.SocketCommands);
+        _runner.AdvanceFrame();
+    }
+
+    internal bool ScriptBlocked => _entities.IsScriptTextActive() || _player?.IsDying == true;
+    internal void WriteScriptRoomFlag(int flag) => _save.SetRoomFlag(_record.Group, _record.Room, checked((byte)flag));
+    internal void PlayScriptSound(int sound) => _playSound(sound);
+    internal void ResetScriptMusic() => _resetRoomMusic(_record.Group, _record.Room);
+    internal bool RunScriptNative(string handler)
+    {
+        switch (handler)
+        {
+            case "SpawnInsertedEye": _spawns.Add(new TokayEntranceEyeSpawn(_database.InsertedEye)); break;
+            case "ShakeScreen": _beginScreenShake(_record.ShakeFrames); _state = TokayEyeballSlotState.ShakeWait; break;
+            case "OpenEntrance": OpenEntrance(_spawns); _state = TokayEyeballSlotState.OpenWait; break;
+            case "ConsumeEyeball": _inventory.LoseTreasure(_record.Treasure); break;
+            default: return false;
+        }
+        return true;
+    }
+    internal void CompleteScript() { _state = TokayEyeballSlotState.Finished; _runner.Clear(); ReleaseInput(); }
+    internal void EnableScriptInput()
+    {
+        // scriptCmd_enableInput unconditionally clears both live bytes.
+        _inputHeld = false;
+        _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
+        _entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0);
+    }
+    internal void ReleaseInput()
+    {
+        if (!_inputHeld) return;
+        _inputHeld = false;
+        if (_entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects) == 0x81)
+            _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
+        if (_entities.RuntimeState.ReadWramByte(WramAddress.wMenuDisabled) == 0x80)
+            _entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0);
     }
 
     private void OpenEntrance(ICollection<RoomEntitySpawn> spawns)

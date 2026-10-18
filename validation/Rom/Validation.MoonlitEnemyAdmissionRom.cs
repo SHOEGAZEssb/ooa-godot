@@ -73,6 +73,24 @@ public sealed partial class ValidationRoot
                 FailIf(observedSlot != (sourceWatchers.Single() >> 8) - 0xd0,
                     "Moonlit watcher must claim the same lowest available physical interaction slot as the original parser.");
             }
+            DungeonRewardRoomEntity? keyWatcher = !orbCase && interactionFree == 1 && free == 0
+                ? _entities.Entities<DungeonRewardRoomEntity>().Single() : null;
+            if (keyWatcher is not null)
+            {
+                FailIf(keyWatcher.Finished || _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+                    NativeAdmissionChildren(native, 0x60, 0x30).Length != 0,
+                    "The Moonlit $12:$01 watcher must yield at checknoenemies on birth, even when ENEMY allocation failed.");
+                int watcherAt = sourceWatchers.Single(), pointer = native.Word(watcherAt + 0x18);
+                _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 6); native[0xcc8a] = 6;
+                StepGameplayUpdates(2, Vector2.Zero, batched: batched, afterUpdate: () =>
+                {
+                    native.AdvanceEnemies(_entities.FrameCounter); native.AdvanceInteractions(_entities.FrameCounter);
+                    FailIf(keyWatcher.Finished || _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+                        NativeAdmissionChildren(native, 0x60, 0x30).Length != 0 || native.Word(watcherAt + 0x18) != pointer,
+                        "An initialized small-key watcher must retain its yielded command under INTERACTION mask $02.");
+                });
+                _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 4); native[0xcc8a] = 4;
+            }
             int SourceCount() => Enumerable.Range(0, 16).Count(slot => native[0xd080 + slot * 256] != 0 && native[0xd081 + slot * 256] == 0x1d);
             FailIf(!parent.Finished || _entities.Entities<ArmosSpawnerRoomEntity>().Count != free || SourceCount() != free ||
                 _entities.Entities<ArmosSpawnerRoomEntity>().Any(scanner => scanner.State != 0) ||
@@ -81,6 +99,21 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(1, Vector2.Zero, batched: batched); native.AdvanceEnemies(_entities.FrameCounter); native.AdvanceInteractions(_entities.FrameCounter);
             FailIf(_entities.Entities<ArmosSpawnerRoomEntity>().Any(scanner => scanner.State != 1) || _random.Calls - seed.Calls != native.RandomCalls,
                 "An admitted Moonlit ENEMY$1d must wait for the next ENEMY phase before state0 RNG.");
+            if (keyWatcher is not null)
+            {
+                int watcherAt = sourceWatchers.Single();
+                var key = _entities.Entities<GroundTreasurePickup>().Single();
+                int keyAt = NativeAdmissionChildren(native, 0x60, 0x30).Single();
+                FailIf(keyWatcher.Finished || native[watcherAt] == 0 || native[keyAt + 3] != 1 ||
+                    key.State != PickupState.Initializing || native[keyAt + 4] != 0 ||
+                    _entities.InteractionSlot(key) != (keyAt >> 8) - 0xd0 || keyAt >= watcherAt,
+                    "spawnitem must allocate the falling key in the released earlier slot, then yield while retaining its watcher.");
+                StepGameplayUpdates(1, Vector2.Zero, batched: batched);
+                native.AdvanceEnemies(_entities.FrameCounter); native.AdvanceInteractions(_entities.FrameCounter);
+                FailIf(!keyWatcher.Finished || native[watcherAt] != 0 || native[keyAt + 4] != 1 || key.State != PickupState.Spawning ||
+                    _entities.Entities<GroundTreasurePickup>().Count != 1,
+                    "The earlier key initializes on the next pass before the later watcher executes scriptend.");
+            }
             if (free == 0)
             {
                 _entities.RetireEntity(F8Enemies.First(pair => pair.Key is EnemyAiSlotReservation).Key);

@@ -226,19 +226,22 @@ public sealed partial class ValidationRoot
         slot.UpdatePushAttempt(socketLinkPosition, Vector2I.Up, Vector2I.Up);
         _entities.Update(1.0 / 60.0, _player);
         FailIf(
-            slot.State != TokayEyeballSlotState.EyeWait || slot.Counter != 60 ||
+            slot.State != TokayEyeballSlotState.EyeWait || slot.Counter != 0 ||
             !_saveData.HasRoomFlag(1, 0xba, OracleSaveData.RoomFlag80) ||
-            _entities.Entities<TokayEntranceEyeRoomEntity>().Count != 2 ||
+            _entities.Entities<TokayEntranceEyeRoomEntity>().Count != 1 ||
             !_entities.PlayerMovementDisabled || !_entities.PlayerMenusDisabled,
-            "Tokay Eyeball insertion did not set room flag `$80, spawn `$80:$06, " +
-            "and lock Link on its first script update.");
-        for (int update = 0; update < 60; update++)
+            "Tokay Eyeball insertion must publish `$80 and lock input before the yielding spawn/cue/wait commands.");
+        for (int update = 0; update < 3; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        FailIf(slot.Counter != 60 || _entities.Entities<TokayEntranceEyeRoomEntity>().Count != 2,
+            "Socket spawn, cue and wait60 must occupy three subsequent source updates.");
+        for (int update = 0; update < 61; update++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(
             slot.State != TokayEyeballSlotState.ShakeWait ||
-            slot.Counter != 120 || _entities.ScreenShakeCounter != 159,
-            "Tokay Eyeball insertion did not start its 160-update shake after wait 60.");
-        for (int update = 0; update < 120; update++)
+            slot.Counter != 0 || _entities.ScreenShakeCounter != 0 || _entities.HorizontalScreenShakeCounter != 159,
+            "Tokay Eyeball insertion must yield between opening cue, horizontal shake160 and wait120.");
+        for (int update = 0; update < 122; update++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(
             slot.State != TokayEyeballSlotState.OpenWait || slot.Counter != 60 ||
@@ -247,6 +250,10 @@ public sealed partial class ValidationRoot
             _rooms.CurrentRoom.GetMetatile(new Vector2(0x68, 0x58)) != 0xa4,
             "pirate_openEyeballCave did not write `$a2/`$ef/`$a4 after wait 120.");
         for (int update = 0; update < 60; update++)
+            _entities.Update(1.0 / 60.0, _player);
+        FailIf(!_inventory.HasTreasure(TreasureId.TokayEyeball) || !_entities.PlayerMovementDisabled,
+            "The final wait must yield through solve cue and resetmusic before treasure consumption/control release.");
+        for (int update = 0; update < 2; update++)
             _entities.Update(1.0 / 60.0, _player);
         FailIf(
             _inventory.HasTreasure(TreasureId.TokayEyeball) ||

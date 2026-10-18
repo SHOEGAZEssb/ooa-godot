@@ -205,6 +205,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-tokay-cook' 'Import-TokayCookData.ps1' `
         -inputs @('allTexts', 'allTextPositions') `
         -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'interaction-script-yields' 'Import-InteractionScriptYieldsData.ps1' `
+        -inputs @('soundIds') `
+        -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-shooting-gallery' 'Import-ShootingGalleryData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'treasureIds') `
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')

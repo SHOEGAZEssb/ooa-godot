@@ -11,6 +11,8 @@ namespace oracleofages;
 /// </summary>
 internal sealed class DungeonInteractionDatabase
 {
+    internal IReadOnlyList<CutsceneCommand> SmallKeyCommands { get; } =
+        CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/enemy_small_key_commands.tsv");
     private readonly Dictionary<string, int> _constants =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, MovingSideScrollPlatformRecord> _platforms =

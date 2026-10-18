@@ -1713,7 +1713,7 @@ internal sealed class RoomEntityFactory
                 return new DungeonRewardRoomEntity(
                     record, Resources.DungeonInteractions, _saveData, () => owner.RoomEnemyCount,
                     CreateFallingSmallKeyRequest(record),
-                    owner.EnableLinkCollisionsAndMenu);
+                    owner.EnableLinkCollisionsAndMenu, scriptTextActive: owner.IsScriptTextActive);
             case DungeonObjectKind.MinibossReward:
                 return new DungeonRewardRoomEntity(
                     record, Resources.DungeonInteractions, _saveData,
@@ -2315,7 +2315,8 @@ internal sealed class RoomEntityFactory
         };
         return new DungeonRewardRoomEntity(
             record, Resources.DungeonInteractions, _saveData, () => owner.RoomEnemyCount, request,
-            owner.EnableLinkCollisionsAndMenu, trySpawnTreasure: owner.TryCreateGroundTreasure);
+            owner.EnableLinkCollisionsAndMenu, trySpawnTreasure: owner.TryCreateGroundTreasure,
+            scriptTextActive: owner.IsScriptTextActive);
     }
 
     private DungeonEssence CreateLaterDungeonEssence(DungeonObjectRecord record, OracleRoomData room)
@@ -2373,7 +2374,7 @@ internal sealed class RoomEntityFactory
             _saveData,
             () => owner.RoomEnemyCount,
             request,
-            owner.EnableLinkCollisionsAndMenu);
+            owner.EnableLinkCollisionsAndMenu, scriptTextActive: owner.IsScriptTextActive);
     }
 
     private GroundTreasureGrantRequest CreatePlacedFallingSmallKeyRequest(
@@ -3492,10 +3493,10 @@ internal sealed class RoomEntityFactory
                 _inventory,
                 owner.OnRoomEntityDialogueRequested,
                 owner.OnSoundRequested,
-                owner.BeginScreenShake,
+                owner.BeginHorizontalScreenShake,
                 owner.OnRoomMusicRequested,
                 owner.OnRoomTileChanged,
-                _animationTick);
+                _animationTick, owner);
         }
 
         if (Resources.Tingle.Matches(record))

@@ -1001,11 +1001,15 @@ public sealed partial class ValidationRoot
             "Room 4:4b released the push trigger or falling key before the " +
             "source $1e counter's 30th decrement.");
         Step();
+        FailIf(_entities.RoomEnemyCount != 0 || _entities.Entities<GroundTreasurePickup>().Count != 0 ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 1,
+            "The source zero-enemy command must yield after the synthetic count clears.");
+        Step();
         GroundTreasurePickup fallingKey =
             _entities.Entities<GroundTreasurePickup>().Single();
         FailIf(
             _entities.Entities<PushBlockTriggerRoomEntity>().Count != 0 ||
-            _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 1 ||
             _entities.RoomEnemyCount != 0 ||
             fallingKey.Position != new Vector2(0x88, 0x58) ||
             fallingKey.Record.TreasureObject != "TREASURE_OBJECT_SMALL_KEY_01" ||
@@ -1016,6 +1020,9 @@ public sealed partial class ValidationRoot
             !fallingKey.Record.InitialZAboveScreen,
             "$13:$01 did not clear the synthetic count on update 30 so the " +
             "following $12:$01 slot could create its exact falling small key.");
+        Step();
+        FailIf(_entities.Entities<DungeonRewardRoomEntity>().Count != 0,
+            "The small-key watcher must retire only on its following scriptend dispatch.");
 
         for (int frame = 0;
              frame < 300 && fallingKey.State != PickupState.Waiting;
@@ -1867,10 +1874,13 @@ public sealed partial class ValidationRoot
             "Room 4:5e retained an enemy count after all four Armos died.");
 
         Step();
+        FailIf(_entities.Entities<GroundTreasurePickup>().Count != 0 || _entities.Entities<DungeonRewardRoomEntity>().Count != 1,
+            "Room 4:5e's checknoenemies must yield before the treasure command.");
+        Step();
         GroundTreasurePickup fallingKey =
             _entities.Entities<GroundTreasurePickup>().Single();
         FailIf(
-            _entities.Entities<DungeonRewardRoomEntity>().Count != 0 ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 1 ||
             fallingKey.Position != new Vector2(0x58, 0x58) ||
             fallingKey.Record.TreasureObject != "TREASURE_OBJECT_SMALL_KEY_01" ||
             fallingKey.Record.SpawnMode != 2 || fallingKey.Record.GrabMode != TreasureGrabMode.NoChange ||
@@ -1885,7 +1895,7 @@ public sealed partial class ValidationRoot
         _sound.ClearPlayRequestAudit();
         Step(2);
         FailIf(
-            fallingKey.State != PickupState.Spawning ||
+            _entities.Entities<DungeonRewardRoomEntity>().Count != 0 || fallingKey.State != PickupState.Spawning ||
             fallingKey.SpawnSubstate != 1 || fallingKey.SpawnCounter != 40 ||
             fallingKey.Visible ||
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1,
