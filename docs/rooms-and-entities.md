@@ -161,6 +161,10 @@ without replaying room placement or consuming its RNG.
 
 Never use a private enemy RNG, `Random.Shared`, or sorted collections in these
 paths. Re-entry and preload consume RNG only at their traced boundaries.
+Trace common state-zero RNG independently of species setup. Constructing or
+preloading an actor must not move that draw ahead of its eligible dispatch;
+failed child admission must not consume an initialization draw that the source
+never reaches. Preserve source retry paths that execute initialization again.
 
 ## Native slots and update phases
 
@@ -256,6 +260,14 @@ An event-backed actor invokes its script or handler from that physical slot;
 running the actor's work after the object pass loses newborn dispatch timing.
 Composite enemy representations still run in the enemy category before parts,
 even while their separate native actor allocations remain unrepresented.
+
+Allocation success is an input to the producer's continuation. A failed optional
+effect can leave a flag, tile write or count intact; another producer may retain
+its terminal counter and retry. Preserve ordered partial batches and atomic
+multi-slot preflights as separate source policies. A managed wrapper does not
+replace the physical occupancy of multiple native objects. Never keep a rejected
+node as an unpooled actor. Unchecked failure writes require an explicit alias
+path or a source-aware unsupported diagnostic, not a silent checked skip.
 
 Levers allocate their graphical connection during state-zero dispatch and retry
 if the pool is full. An earlier free slot becomes the parent; initialization
@@ -487,6 +499,24 @@ masks and signed height overlap decide contact, including near-ground jump
 updates; interaction callers keep their separate ground-contact requirements.
 Use the live contact object's height for flying enemies and parts instead of
 substituting ground height after an earlier height check.
+
+## Enemy and item collision handoffs
+
+Shared collision interfaces only expose a route. Eligibility still depends on
+the live native collision identity, mode, mask, enable bits, pending status,
+invincibility and XY/Z tests used by that scan. Forward imported metadata even
+when a species uses a custom response. Trace active children and identity
+changes through their writers; the placed parent's metadata alone is insufficient.
+Adding metadata can also move an item from a legacy fallback into the native
+scan, so verify every affected route rather than only the newly supported item.
+
+Use one pending-hit publication for one source collision. Shared status handling
+owns its priority against recoil, stun, death and ordinary AI; a species-specific
+classification must not add a second pending update. Non-damaging effects may
+notify the enemy, mark the item for removal, or accept contact without either.
+Preserve the selected effect and scan termination, including any suppression of
+later Link contact. Completion belongs to the next eligible consumer update;
+freezing that consumer must preserve its pending signal.
 
 ## Entity ownership
 

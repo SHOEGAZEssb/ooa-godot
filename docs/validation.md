@@ -51,6 +51,29 @@ through the explicit fixture. The runner awaits each scenario before resetting
 the next fixture; the launcher enforces its wall-clock timeout without a host-frame
 quit limit.
 
+## Shared-system regressions
+
+Derive the expected contract from source callers and consumers, including raw
+IDs, construction operands, collision effects and memory ownership. Do not use
+the generated record being tested as the sole oracle, or update an expected
+palette, counter or effect merely to match runtime output. For a bugfix, make
+the focused comparison expose the original mismatch before changing production
+behavior when practical; retain evidence boundaries in the handoff.
+
+Observe both sides of a shared handoff. Allocation checks include actual slot
+occupancy and failed-result continuation; combat checks include item-side flags
+and the next status update as well as HP. Compare scratch writes and sound
+requests at their publication phase, before later handlers can overwrite or
+consume them. Native reference outputs must retain their own evolution; copying
+runtime outputs back into the reference can conceal the defect being tested.
+
+Choose cases from the source branches: available/full capacity, ordered partial
+admission, earlier/later reused slots, accepted/rejected contact and the relevant
+freeze gates. Include completion, cancellation and repeat use through the real
+gameplay loop. Declare any staged geometry, masks or native entry boundary;
+distinguish an executed mismatch from a source-only suspicion and a coverage
+limit. Passing the registered suite does not close untested callers or states.
+
 ## Run validations
 
 Build with optimization, then run the complete suite with the standard 8

@@ -13,9 +13,9 @@ this ledger, including its tables.
 
 The inventory covers:
 
-- all 385 positioned or state-derived rows in
-  `assets/oracle/objects/npcs.tsv`, spanning 214 rooms;
-- all 72 conditional Bipin/Blossom family rows in
+- all positioned or state-derived rows in
+  `assets/oracle/objects/npcs.tsv`;
+- all conditional Bipin/Blossom family rows in
   `assets/oracle/objects/bipin_blossom_family.tsv`; and
 - the explicit implementation classification selected for every record:
   ordinary NPC adapter, specialized native interaction, event-owned actor, or
@@ -23,9 +23,8 @@ The inventory covers:
 
 It does not enumerate enemies, tile interactions, invisible dungeon
 mechanisms, treasures, dynamically spawned cutscene actors, or interaction
-records that are not represented as `NpcRecord`. Those systems remain covered
-by [Implementation status](implementation-status.md), the subsystem guides,
-and their headless scenarios.
+records that are not represented as `NpcRecord`. Those systems are documented
+in the subsystem guides and checked by their headless scenarios.
 
 ## Status definitions
 
@@ -100,12 +99,12 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:58` | [I] `$41:$04/v$00` miscMan |
 | `0:5a` | [I] `$39:$02/v$00` monkey<br>[I] `$39:$03/v$00` monkey |
 | `0:5d` | [I] `$cb:$00/v$00` linkedGameGhini |
-| `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh |
 | `0:65` | [D] `$31:$07/v$00` impaInCutscene<br>[D] `$4c:$04/v$00` bird |
 | `0:66` | [I] `$3b:$01/v$00` femaleVillager |
 | `0:67` | [I] `$41:$03/v$00` miscMan |
 | `0:68` | [I] `$44:$02/v$00` miscMan2<br>[I] `$3a:$05/v$00` villager<br>[I] `$3b:$02/v$00` femaleVillager<br>[I] `$3c:$02/v$00` boy |
 | `0:6a` | [I] `$31:$00/v$00` impaInCutscene |
+| `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh |
 | `0:70` | [D] `$49:$0b/v$00` forestFairy |
 | `0:71` | [I] `$49:$07/v$00` forestFairy |
 | `0:72` | [I] `$49:$0c/v$00` forestFairy |
@@ -189,35 +188,31 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `2:3f` | [P] `$48:$05/v$00` tokay |
 | `2:4e` | [I] `$2e:$01/v$00` oldManWithRupees |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
-| `2:6e` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:7e` | [I] `$46:$01/v$00` shopkeeper |
 | `2:a0` | [I] `$ab:$10/v$00` zora<br>[I] `$ab:$14/v$00` zora |
 | `2:b1` | [I] `$ab:$13/v$00` zora |
 | `2:d1` | [I] `$ab:$1b/v$00` zora |
 | `2:d7` | [I] `$ab:$12/v$00` zora |
 | `2:de` | [P] `$48:$0d/v$00` tokay |
-| `2:df` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:e4` | [P] `$48:$0e/v$00` tokay |
 | `2:e5` | [P] `$48:$19/v$00` tokay<br>[P] `$48:$1a/v$00` tokay<br>[P] `$48:$1b/v$00` tokay<br>[P] `$48:$1c/v$00` tokay |
 | `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
 | `2:e7` | [I] `$53:$00/v$00` mamamuYan<br>[I] `$54:$00/v$00` mamamuDog |
 | `2:e8` | [I] `$51:$00/v$00` dumbellMan |
 | `2:e9` | [I] `$30:$00/v$00` shootingGallery |
-| `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[P] `$e5:$00/v$00` ringHelpBook<br>[P] `$e5:$01/v$00` ringHelpBook |
 | `2:ed` | [I] `$66:$00/v$00` goron |
+| `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[P] `$e5:$00/v$00` ringHelpBook<br>[P] `$e5:$01/v$00` ringHelpBook |
 | `2:ef` | [I] `$66:$00/v$00` goron |
 | `2:f3` | [I] `$3c:$07/v$00` boy |
 | `2:f5` | [I] `$5a:$00/v$00` oldZora |
 | `2:f6` | [I] `$66:$0f/v$00` goron |
 | `2:f7` | [I] `$66:$07/v$00` goron |
-| `2:f8` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `2:fb` | [I] `$66:$0e/v$03` goron |
 | `2:fd` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$03` goron<br>[P] `$68:$01/v$00` rosa |
 | `2:ff` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$04` goron<br>[I] `$66:$0c/v$05` goron<br>[D] `$4e:$02/v$00` subrosian<br>[D] `$4e:$02/v$01` subrosian |
 | `3:1f` | [I] `$66:$0a/v$00` goron |
 | `3:2e` | [I] `$66:$0e/v$04` goron |
 | `3:3e` | [I] `$66:$0b/v$00` goron |
-| `3:3f` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:4e` | [I] `$6b:$13/v$00` miscellaneous1<br>[I] `$6b:$14/v$00` miscellaneous1 |
 | `3:5e` | [I] `$4e:$03/v$00` subrosian |
 | `3:5f` | [I] `$66:$0e/v$06` goron |
@@ -247,7 +242,6 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `3:ec` | [I] `$bf:$02/v$00` symmetryNpc |
 | `3:ed` | [I] `$5f:$80/v$00` syrup; [I] `$c9:$80/v$00` syrupCucco |
 | `3:ef` | [I] `$32:$02/v$00` fakeOctorok |
-| `3:f6` | [I] enemy-stream `$38:$00` fountain Great Fairy (outside NPC row totals) |
 | `3:f7` | [I] `$e3:$08/v$00` knowItAllBird<br>[I] `$e3:$09/v$00` knowItAllBird<br>[I] `$e3:$06/v$00` knowItAllBird<br>[I] `$e3:$07/v$00` knowItAllBird<br>[I] `$e3:$04/v$00` knowItAllBird<br>[I] `$e3:$05/v$00` knowItAllBird<br>[I] `$e3:$02/v$00` knowItAllBird<br>[I] `$e3:$03/v$00` knowItAllBird<br>[I] `$e3:$00/v$00` knowItAllBird<br>[I] `$e3:$01/v$00` knowItAllBird |
 | `3:f8` | [I] `$cc:$00/v$00` plen<br>[I] `$3d:$05/v$00` oldLady |
 | `3:fa` | [I] `$29:$00/v$00` adlar |

@@ -206,11 +206,9 @@ to script commands.
 5. Route player interaction through the central registry.
 6. Validate actor state, exact counters, source-ordered updates, dialogue and
    input boundaries, scroll/warp entry, cancellation, re-entry, and persistence.
-7. Update the affected row, summary counts, boundaries, and snapshot date in
+7. Update the affected table entries and summary counts in
    [NPC interaction coverage](npc-interaction-coverage.md). This is required for
    implemented, partial, suppressed, or reclassified NPC records.
-8. Update [implementation status](implementation-status.md) only if a broad
-   player-visible boundary changed.
 
 Useful starting points are `data/ages/interactions.s`,
 `object_code/ages/interactions/`, `tools/import_oracles/Import-NpcData.ps1`,

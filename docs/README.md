@@ -13,6 +13,11 @@ everything already implemented.
 3. Select one subsystem guide from the task map below.
 4. Use [Validation](validation.md) when designing the regression.
 
+For gameplay implementations, also apply the
+[shared-system integration checklist](shared-system-integration.md) to the
+changed source paths. It connects the subsystem contracts without requiring
+every guide to be read.
+
 Do not read every guide before a small change. The task map is the intended
 entry point.
 
@@ -21,6 +26,7 @@ entry point.
 | If you are changing... | Read |
 | --- | --- |
 | Project fidelity, evidence, or definition of done | [Project principles](project-principles.md) |
+| Integrating a gameplay object with shared owners | [Shared-system integration](shared-system-integration.md) |
 | Setup, commands, controls, or contributor workflow | [Development](development.md) |
 | Generated data, assembly parsing, schemas, or import stages | [Data import](data-import.md) |
 | Composition, scene ownership, fixed updates, or input ordering | [Runtime architecture](runtime-architecture.md) |
@@ -32,7 +38,6 @@ entry point.
 | WRAM fields, flags, inventory, checkpoints, or disk persistence | [Saves and state](saves-and-state.md) |
 | Imported graphics, OAM, palettes, caching, sound, or audio RNG | [Graphics and audio](graphics-and-audio.md) |
 | A regression, fixture, trace, or validation boundary | [Validation](validation.md) |
-| Broad playable coverage or major missing systems | [Implementation status](implementation-status.md) |
 
 ## Documentation boundary
 
@@ -45,10 +50,8 @@ Fidelity audits and working findings belong in untracked `local-audits/`,
 excluded through `.git/info/exclude`. Do not link tracked guides to them.
 
 The [NPC coverage ledger](npc-interaction-coverage.md) is the deliberate
-room-by-room inventory exception: update affected entries, summary counts, and
-the dated snapshot when coverage changes. Keep
-[implementation status](implementation-status.md) at broad playable boundaries
-and major limitations.
+room-by-room inventory exception: update affected entries and summary counts
+in the same change, within its existing tables.
 
 When removing or moving documentation, update repository-relative links and
 run `git diff --check`. Generated `assets/oracle/` files are never hand-edited.

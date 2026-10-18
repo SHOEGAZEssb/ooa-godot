@@ -53,6 +53,12 @@ priority mapping. Actors use those constants for assignments and state changes;
 screen-space layers are named separately by `ScreenDrawPriority` or their owner.
 Apply source priority arithmetic to the native visible bucket before mapping it
 to Godot Z. Adjacent native buckets do not have equal numeric Z spacing.
+Keep fixed-priority effects fixed throughout their animation; using an ordinary
+NPC animation helper must not introduce Link-relative sorting or terrain effects.
+Construction palette and bank bytes are separate from animation parameters:
+a strike parameter can choose an origin without selecting the chip's palette.
+Trace the constructor write and the live OAM field rather than inferring either
+from the object's label, direction or backup flags.
 
 Automatic airborne terrain shadows use the imported common OAM cell at ground
 XY. Their sources expose native Z and the handler's terrain-effect enable gate;
@@ -226,6 +232,13 @@ Gameplay requests the original sound ID at the original update. Preserve the
 ordering of simultaneous requests and sound-control operations. If the source
 selects a variation with the global game RNG, consume `OracleRandom`; a private
 audio RNG changes later gameplay.
+
+Sound timing follows the source call site. A cue after checked allocation runs
+only on success; one before allocation can still run on failure. Creation-time
+requests must not move to child initialization, where an earlier reused slot
+can delay them, or replay on deletion, retry or re-entry unless the source does.
+Keep native requests that preserve the music-selection gate distinct from room
+music assignments, and verify ordered requests through the sound owner.
 
 The production engine retains real sequencer and channel state, not last-call
 or request-count audit fields. Validation attaches an observer for ordered

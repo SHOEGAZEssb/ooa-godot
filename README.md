@@ -6,8 +6,7 @@ of Ages* in Godot 4.7.1/.NET.
 The project aims to reproduce the supported clean US game exactly. ROM behavior
 and `oracles-disasm` are the authority for data, timing, coordinates, object
 order, RNG, collision, animation, audio, transitions, and state. The game is not
-complete; see [implementation status](docs/implementation-status.md) for the
-current high-level boundary.
+complete.
 
 ## Requirements
 

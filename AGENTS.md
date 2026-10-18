@@ -17,6 +17,11 @@ When behavior is uncertain, use evidence in this order:
 Read [Project principles](docs/project-principles.md) before changing gameplay.
 Use the [documentation index](docs/README.md) to select the one subsystem guide
 needed for the task. Do not read every guide by default.
+For gameplay implementations, apply the
+[shared-system integration checklist](docs/shared-system-integration.md) to
+the changed objects and their producers/consumers before designing the change.
+Trace each applicable contract through the runtime owner and regression; a
+matching helper name or implemented interface does not establish correct use.
 
 Local paths:
 
@@ -205,7 +210,5 @@ record only the resulting coverage status.
 - Change `README.md` only for project scope, setup, quick start, or navigation.
 - Change a subsystem guide when its ownership or durable contract changes.
 - Change `docs/npc-interaction-coverage.md` whenever NPC coverage changes.
-- Change `docs/implementation-status.md` only for high-level player-visible
-  coverage or a major limitation.
 - Put source-specific detail in importer diagnostics, code comments beside the
   implementation, and focused validations.

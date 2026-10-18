@@ -181,9 +181,8 @@ ground. Quest progress is retained.
 6. Regenerate affected assets and review their diff.
 7. Run the appropriate import checks, `dotnet build -t:Rebuild -p:Optimize=true`,
    the full headless suite, `git diff --check`, and `git status --short`.
-8. Update a guide only if a durable rule changed; update
-   [implementation status](implementation-status.md) only for a broad coverage
-   change.
+8. Update a guide only if a durable rule changed; update the
+   [NPC coverage ledger](npc-interaction-coverage.md) when NPC coverage changes.
 
 Use `rg` for repository and disassembly searches. Inspect pixel-sensitive work
 at an integer scale; the internal viewport is 160 by 144.
