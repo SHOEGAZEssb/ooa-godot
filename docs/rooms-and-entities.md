@@ -394,8 +394,10 @@ the player to keep holding the original direction. Room loading clears it.
 During scrolling, ordinary destination and retained outgoing objects remain
 frozen. Only source-eligible initialization and transition-safe handlers run.
 Initialization follows category/slot order and receives the live player when
-the source reads or moves Link. Initialized objects stay frozen through the
-finishing update; ordinary destination gameplay resumes afterward.
+the source reads or moves Link. Ordinary initialized objects stay frozen through
+the finishing update; ordinary destination gameplay resumes afterward. PARTs
+whose source enabled bit 7 survives scroll marking keep their normal handler,
+including movement, counters and deletion, in physical PART-slot order.
 
 Scroll setup, motion, row loading, and cleanup are separate updates. Scrolling
 retains source-defined fractional positions, item state, and outgoing slots;

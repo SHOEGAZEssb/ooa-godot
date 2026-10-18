@@ -6,7 +6,7 @@ namespace oracleofages;
 // PART_JABU_JABUS_BUBBLES $16: native animation is selected once.
 internal sealed partial class JabuBubbleRoomEntity : DungeonInteractionVisualEntity,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity,
-    IUpdatesDuringRoomEntityFreeze
+    IUpdatesDuringRoomEntityFreeze, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly OracleRandom _random;
     private Vector2 _position;
@@ -15,6 +15,8 @@ internal sealed partial class JabuBubbleRoomEntity : DungeonInteractionVisualEnt
     public bool Finished {get;private set;}
     public bool UpdatesDuringDialogue => true;
     public bool UpdatesDuringRoomEntityFreeze => true;
+    // jabuJabusBubbles.s sets enabled bit7; setPartsEnabledTo2 preserves it.
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame) => UpdateFrame(frame, []);
     internal JabuBubbleRoomEntity(Vector2 position,int subid,JabuExteriorDatabase data,OracleRandom random)
     {
         _random=random; _position=position;

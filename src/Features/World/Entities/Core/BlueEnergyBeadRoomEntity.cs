@@ -6,7 +6,8 @@ namespace oracleofages;
 /// <summary>PART_BLUE_ENERGY_BEAD $53, inward/outward swirl (var32).</summary>
 internal sealed partial class BlueEnergyBeadRoomEntity : DungeonInteractionVisualEntity,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity,
-    IUpdatesDuringRoomEntityFreeze, INativePartHealthRoomEntity
+    IUpdatesDuringRoomEntityFreeze, INativePartHealthRoomEntity,
+    IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly OracleRandom _random;
     private readonly OracleRuntimeState _runtime;
@@ -25,6 +26,9 @@ internal sealed partial class BlueEnergyBeadRoomEntity : DungeonInteractionVisua
     public bool UpdatesDuringDialogue => true;
     public bool UpdatesDuringRoomEntityFreeze => true;
     public void ClearHealthAndCollision() { } // partCode53 never checks status.
+
+    // blueEnergyBead.s sets enabled bit7; setPartsEnabledTo2 preserves it.
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame) => UpdateFrame(frame, []);
 
     internal BlueEnergyBeadRoomEntity(int index, Vector2 center, byte duration,
         DungeonInteractionVisual visual, OracleRandom random, OracleRuntimeState runtime,bool outgoing=false)
