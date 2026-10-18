@@ -4479,7 +4479,13 @@ internal sealed class RoomEntityFactory
             spawn.Position,
             owner.OnRoomTileChanged,
             _animationTick);
-        return new FlyingTileRoomEntity(tile, spawn.CountsAsEnemy);
+        const string source = "object_code/common/enemies/flyingTile.s:flyingTile_state8";
+        EnemyHandlerDescriptor handler = enemies.EnemyHandlers.ResolveHandler(
+            spawn.Definition.Id, spawn.Definition.SubId, source);
+        // Both Ages layouts create active children with subid $80.
+        EnemyCombatSourceDescriptor combatSource = handler.CombatSource(
+            spawn.CountsAsEnemy ? 0 : 2, 0, source) with { SubId = 0x80 };
+        return new FlyingTileRoomEntity(tile, combatSource);
     }
 
     private IRoomEntity CreateCuccoAttacker(CuccoAttackerSpawn spawn)

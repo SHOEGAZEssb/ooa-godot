@@ -12,7 +12,7 @@ internal sealed class FlyingTileRoomEntity
         EnemyBehaviorTables.Shared.FlyingTileCollisionEffects;
     internal FlyingTileRoomEntity(
         FlyingTileCharacter tile,
-        bool countsAsEnemy)
+        EnemyCombatSourceDescriptor source)
         : base(
             tile,
             tile.SetTransitionDrawOffset,
@@ -26,10 +26,11 @@ internal sealed class FlyingTileRoomEntity
                     () => tile.Position,
                     tile.Record.DamageQuarters,
                     () => null),
-                countsAsEnemy,
+                source.CountsAsEnemy,
                 killableEnemyIndex: 0,
                 completedOutcome: () =>
-                    RoomEnemyOutcome.SilentDeletion(countsAsEnemy)),
+                    RoomEnemyOutcome.SilentDeletion(source.CountsAsEnemy),
+                source: source),
             collisionZ: () => tile.ZHigh)
     { }
 
@@ -79,6 +80,13 @@ internal sealed class FlyingTileRoomEntity
         };
         return ApplyBreakingCollision(collisionType, hitbox);
     }
+
+    public override bool ApplyBiggoronSwordCollision(
+        Rect2 hitbox,
+        Vector2 sourcePosition,
+        int damage,
+        ICollection<RoomEntitySpawn> spawns) =>
+        ApplyBreakingCollision(ItemCollisionType.BiggoronSword, hitbox);
 
     public bool ApplyExpertPunch(
         Rect2 hitbox,

@@ -1249,6 +1249,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom458MoonlitGrotto);
         RunIsolatedValidation(ValidateRoom45eMoonlitGrotto);
         RunIsolatedValidation(ValidateRoom45bMoonlitGrotto);
+        RunIsolatedValidation(ValidateFlyingTileBiggoronRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFlyingTileBombIdentityRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoom461MoonlitGrotto);
         RunIsolatedValidation(ValidateMoonlitGrottoCrystalCutsceneFreeze);
         RunIsolatedValidation(ValidateRoom464MoonlitGrotto, requiresRom:true);

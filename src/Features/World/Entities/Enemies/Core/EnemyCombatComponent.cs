@@ -191,13 +191,14 @@ internal sealed class EnemyCombatDescriptor
         bool countsAsEnemy,
         int killableEnemyIndex,
         Func<RoomEnemyOutcome>? completedOutcome = null,
-        Action<int>? soundRequested = null) =>
+        Action<int>? soundRequested = null,
+        EnemyCombatSourceDescriptor? source = null) =>
         new(
             combat,
             countsAsEnemy,
             killableEnemyIndex,
             completedOutcome,
-            source: null,
+            source,
             soundRequested);
 
     internal void RequestSound(int sound) =>

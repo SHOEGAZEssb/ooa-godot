@@ -2272,6 +2272,11 @@ public sealed partial class ValidationRoot
         }
 
         var enemyData = new EnemyDatabase();
+        EnemyCombatSourceDescriptor TileSource(bool counted) =>
+            enemyData.EnemyHandlers.ResolveHandler(
+                EnemyId.FlyingTile, 0, "validation Flying Tile child")
+                .CombatSource(counted ? 0 : 2, 0, "validation Flying Tile child")
+                with { SubId = 0x80 };
         FailIf(
             enemyData.GetRoomObjects(4, 0x5b) is not
                 [{ Order: 0, Kind: RoomObjectKind.RandomEnemy,
@@ -2361,7 +2366,7 @@ public sealed partial class ValidationRoot
             "Flying Tile did not enter its 15-update aim wait immediately " +
             "after Z's high byte passed -3.");
 
-        var tileAdapter = new FlyingTileRoomEntity(tile, countsAsEnemy: true);
+        var tileAdapter = new FlyingTileRoomEntity(tile, TileSource(true));
         int healthBeforeBeam = tile.Health;
         bool beamAccepted = tileAdapter.ApplyItemCollision(
             RoomEntityItemCollision.SwordBeam,
@@ -2398,7 +2403,7 @@ public sealed partial class ValidationRoot
                 $"tile=${room.GetMetatile(Point(layout[layoutIndex])):x2}, " +
                 $"controller={spawner.State}/{spawner.Counter}/" +
                 $"{spawner.LayoutIndex}).");
-            var adapter = new FlyingTileRoomEntity(tile, countsAsEnemy: true);
+            var adapter = new FlyingTileRoomEntity(tile, TileSource(true));
             var collisionSpawns = new List<RoomEntitySpawn>();
             bool broke = layoutIndex switch
             {
@@ -2551,7 +2556,7 @@ public sealed partial class ValidationRoot
             roomTileChanged: static () => { },
             animationTick: static () => 0);
         shieldTile.UpdateFrame(shieldPlayer.Position);
-        new FlyingTileRoomEntity(shieldTile, countsAsEnemy: false)
+        new FlyingTileRoomEntity(shieldTile, TileSource(false))
             .HandleLinkContact(shieldPlayer);
         FailIf(
             shieldTile.IsDead || shieldTile.CollisionEnabled ||
