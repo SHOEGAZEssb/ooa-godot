@@ -34,6 +34,11 @@ public sealed partial class ValidationRoot
             native[at + 4] = 0x0b; native[at + 0x31] = 0x33;
             native[at + 0x16] = 0x40; native[at + 0x17] = 0xd2;
             native[0xd240] = 1; native[0xd241] = 5; native[0xd242] = 2;
+            // The fixture declares an already-transforming parent rather than
+            // replaying its initialization/Mystery Seed history. Start both
+            // RNG streams from the same seed at that declared boundary.
+            var handoffSeed = _random.CaptureState();
+            native[0xff94] = handoffSeed.Rng1; native[0xff95] = handoffSeed.Rng2;
             int originalNativeCalls = native.RandomCalls; long originalCalls = _random.Calls;
             void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched,
                 afterUpdate: () => F8Parent(native, parentSlot));
@@ -59,14 +64,15 @@ public sealed partial class ValidationRoot
             FailIf(_entities.Entities<CuccoCharacter>().Count != 0 || !cucco.IsQueuedForDeletion(),
                 "Cucco replacement must retire the prior node through the owning manager without a death outcome.");
             Step(1);
-            // enemyStandardUpdate also draws var3d when the new state 0
-            // dispatches. The existing common-initialization RNG omission is
-            // tracked under F10; this scenario certifies the handoff/state
-            // boundary, not post-initialization RNG parity.
+            // enemyStandardUpdate draws var3d on the next dispatch, after the
+            // same-slot replacement, before babyCucco_state_uninitialized.
+            var initializedRandom = _random.CaptureState();
             FailIf(baby.State != BabyCuccoState.Following || !baby.Visible || native[at + 4] != 8 ||
                 !ReferenceEquals(_entities.ResolveEnemySlot(parentSlot)?.Node, baby) || baby.ZFixed != z ||
-                _entities.RoomEnemyCount != 1 || native.RandomCalls != originalNativeCalls + 1,
-                $"Baby slot=${parentSlot:x2}, free={free}, elevated={elevated}: state={baby.State}/{native[at + 4]}, visible={baby.Visible}, Z={baby.ZFixed}/{z}; next dispatch must initialize once with the source var3d draw.");
+                _entities.RoomEnemyCount != 1 || native.RandomCalls != originalNativeCalls + 1 ||
+                initializedRandom.Calls != originalCalls + 1 ||
+                initializedRandom.Rng1 != native[0xff94] || initializedRandom.Rng2 != native[0xff95],
+                $"Baby slot=${parentSlot:x2}, free={free}, elevated={elevated}: state={baby.State}/{native[at + 4]}, visible={baby.Visible}, Z={baby.ZFixed}/{z}, RNG draws={initializedRandom.Calls - originalCalls}/{native.RandomCalls - originalNativeCalls}; next dispatch must initialize once with the source var3d draw.");
             Step(2);
             FailIf(_entities.Entities<BabyCuccoCharacter>().Count != 1 ||
                 !ReferenceEquals(_entities.ResolveEnemySlot(parentSlot)?.Node, baby) || native[at + 1] != 0x33 ||

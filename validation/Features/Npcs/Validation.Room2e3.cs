@@ -146,21 +146,20 @@ public sealed partial class ValidationRoot
             "30-update post-grant boundary.");
 
         // Keep the pickup suppressed while exercising the ordered enemy
-        // stream. The first update is state 0 and deliberately consumes no
-        // RNG; each near state-8 Cucco then consumes one shared value in
-        // source order.
+        // stream. bank0.s:enemyStandardUpdate draws var3d once for each state-0
+        // Cucco; each near state-8 Cucco later consumes one shared hop value.
         LoadValidationRoom(record.Group, record.Room);
         cuccos = _entities.Entities<BabyCuccoCharacter>().ToArray();
         _player.WarpTo(new Vector2(0x90, 0x20), recordSafe: false);
         int callsBeforeInitialization = _random.Calls;
         _entities.Update(frame, _player);
         FailIf(
-            _random.Calls != callsBeforeInitialization ||
+            _random.Calls != callsBeforeInitialization + 3 ||
             cuccos.Any(cucco =>
                 cucco.State != BabyCuccoState.Following ||
                 !cucco.Visible ||
                 cucco.CurrentAnimationPixelHash == 0),
-            "Baby Cucco state 0 changed RNG or failed to enter visible state 8.");
+            "Baby Cucco state 0 must draw common var3d once per slot and enter visible state 8.");
 
         _player.WarpTo(new Vector2(0x50, 0x48), recordSafe: false);
         foreach (BabyCuccoCharacter cucco in cuccos)

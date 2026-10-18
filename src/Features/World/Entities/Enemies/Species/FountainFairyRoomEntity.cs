@@ -18,6 +18,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
     private readonly Action _music;
     private readonly Func<int> _displayedHealth;
     private readonly Func<RoomEntitySpawn, bool> _createPart;
+    private readonly OracleRandom _random;
     private PuzzlePuffEffect? _puff;
     private Player? _controlledPlayer;
     private int _counter;
@@ -39,7 +40,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
     internal FountainFairyRoomEntity(ImportedEnemyDefinition visual,
         FountainFairyDatabase database, Vector2 position, Action<int> sound,
         Action<int, string, Vector2> dialogue, Action music, Func<int> displayedHealth,
-        Func<RoomEntitySpawn, bool> createPart)
+        Func<RoomEntitySpawn, bool> createPart, OracleRandom random)
     {
         _database = database;
         _sound = sound;
@@ -47,6 +48,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
         _music = music;
         _displayedHealth = displayedHealth;
         _createPart = createPart;
+        _random = random;
         Position = position;
         Name = "FountainFairy_38_00";
         Visible = false;
@@ -62,8 +64,15 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
         // Only source state 0 runs during incoming-room initialization.
-        if (State == 0) State = 1;
+        InitializeState();
         return ScreenTransitionPresentation.Hidden;
+    }
+
+    private void InitializeState()
+    {
+        if (State != 0) return;
+        _random.Next(); // bank0.s: enemyStandardUpdate initializes var3d before enemyCode38.
+        State = 1;
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -72,7 +81,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
         switch (State)
         {
             case 0:
-                State = 1;
+                InitializeState();
                 return;
             case 1:
                 _puff = new PuzzlePuffEffect { Name = "FountainFairyPuff_05_02" };

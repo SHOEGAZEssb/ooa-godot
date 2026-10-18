@@ -88,6 +88,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter, ITerrainShadowSource
         switch (_state)
         {
             case BabyCuccoState.Uninitialized:
+                _random.Next(); // bank0.s: enemyStandardUpdate initializes var3d before enemyCode33.
                 _state = BabyCuccoState.Following;
                 Visible = true;
                 QueueRedraw();

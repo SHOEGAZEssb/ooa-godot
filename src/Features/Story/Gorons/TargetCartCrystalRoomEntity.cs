@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class TargetCartCrystalRoomEntity(NpcCharacter actor,int subid,
-    OracleRuntimeState state,GoronCaveDatabase data,Action<int> sound)
+    OracleRuntimeState state,GoronCaveDatabase data,Action<int> sound,OracleRandom random)
     : RoomEntityAdapter<NpcCharacter>(actor,actor.SetTransitionDrawOffset),
       IFixedRoomEntity,IRoomEntityLifetime,IRoomEnemyCounterEntity,ISeedCollisionTarget,
       IPostObjectItemCollisionRoomEntity,IObjectCollisionHeightRoomEntity,IScreenTransitionPreloadRoomEntity,
@@ -30,6 +30,7 @@ internal sealed class TargetCartCrystalRoomEntity(NpcCharacter actor,int subid,
     private void Initialize()
     {
         if(_state!=0||Finished) return;
+        random.Next(); // bank0.s: enemyStandardUpdate initializes var3d before enemyCode63.
         int configuration=state.ReadWramByte(0xcfd4);
         if(configuration>2) throw new InvalidOperationException($"ENEMY $63 configuration ${configuration:x2} is outside its source tables.");
         int[] positions=data.Bytes("crystal-configuration"+configuration);

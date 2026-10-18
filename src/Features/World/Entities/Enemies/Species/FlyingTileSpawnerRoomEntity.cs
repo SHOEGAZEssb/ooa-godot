@@ -20,6 +20,7 @@ internal sealed partial class FlyingTileSpawnerRoomEntity : Node2D,
         EnemyBehaviorTables.Shared.FlyingTile;
     private readonly IReadOnlyList<EnemyBehaviorValue> _layout;
     private readonly bool _countsAsEnemy;
+    private readonly OracleRandom _random;
     private FlyingTileSpawnerState _state;
     private int _counter;
     private int _layoutIndex;
@@ -35,7 +36,8 @@ internal sealed partial class FlyingTileSpawnerRoomEntity : Node2D,
     internal FlyingTileSpawnerRoomEntity(
         int subId,
         ImportedEnemyDefinition definition,
-        bool countsAsEnemy)
+        bool countsAsEnemy,
+        OracleRandom random)
     {
         if (subId < 0 || subId >= _behavior.Layouts.Length)
         {
@@ -46,6 +48,7 @@ internal sealed partial class FlyingTileSpawnerRoomEntity : Node2D,
         _definition = definition;
         _layout = _behavior.Layouts[subId];
         _countsAsEnemy = countsAsEnemy;
+        _random = random;
         _state = FlyingTileSpawnerState.Uninitialized;
         Name = $"FlyingTileSpawner_{subId:x2}";
     }
@@ -60,6 +63,7 @@ internal sealed partial class FlyingTileSpawnerRoomEntity : Node2D,
         switch (_state)
         {
             case FlyingTileSpawnerState.Uninitialized:
+                _random.Next(); // bank0.s: enemyStandardUpdate initializes var3d before enemyCode52.
                 _state = FlyingTileSpawnerState.Initializing;
                 return;
 

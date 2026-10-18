@@ -35,14 +35,14 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 visual.Sprites[0],visual.TileBase,visual.Palette,0,false,animation,animation,animation,animation,"",
                 NpcImplementationClassification.EventOwned));
             actor.SetSourceGrayscaleInverted(visual.SourceGrayscaleInverted);
-            return new TargetCartCrystalRoomEntity(actor,source.SubId,_runtimeState,new GoronCaveDatabase(),owner.OnSoundRequested);
+            return new TargetCartCrystalRoomEntity(actor,source.SubId,_runtimeState,new GoronCaveDatabase(),owner.OnSoundRequested,_random);
         }
 
         if (handler.Handler == EnemyHandlerKind.GreatFairy)
         {
             return new FountainFairyRoomEntity(enemies.ImportedEnemy(EnemyId.GreatFairy),
                 resources.FountainFairies, position, owner.OnSoundRequested, owner.OnRoomEntityDialogueRequested,
-                () => owner.OnSoundRequested(SoundId.MusFairyFountain), owner.ReadDisplayedHealth, owner.TryCreatePart);
+                () => owner.OnSoundRequested(SoundId.MusFairyFountain), owner.ReadDisplayedHealth, owner.TryCreatePart, _random);
         }
 
         if (handler.Handler == EnemyHandlerKind.FireballShooter)
@@ -73,7 +73,8 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 position,
                 owner.OnSoundRequested,
                 owner.OnRoomTileChanged,
-                _animationTick);
+                _animationTick,
+                _random);
         }
         if (handler.Handler == EnemyHandlerKind.BabyCucco)
         {
@@ -734,7 +735,8 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 return new FlyingTileSpawnerRoomEntity(
                     source.SubId,
                     flyingTileRecord,
-                    combatSource.CountsAsEnemy);
+                    combatSource.CountsAsEnemy,
+                    _random);
 
             case EnemyHandlerKind.Gel:
                 return CreateGel(

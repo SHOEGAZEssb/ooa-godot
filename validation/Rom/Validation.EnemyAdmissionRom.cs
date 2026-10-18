@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
             }
             else
             {
-                var scanner = new FlyingTileSpawnerRoomEntity(0, enemies.ImportedEnemy(id), true);
+                var scanner = new FlyingTileSpawnerRoomEntity(0, enemies.ImportedEnemy(id), true, _random);
                 F1Set(scanner, "_state", FlyingTileSpawnerState.Waiting); F1Set(scanner, "_counter", 1);
                 parent = scanner;
             }

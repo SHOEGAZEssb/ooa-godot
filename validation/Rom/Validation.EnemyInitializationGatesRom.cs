@@ -8,12 +8,21 @@ public sealed partial class ValidationRoot
     private void ValidateEnemyInitializationGatesRom()
     {
         foreach (bool batched in new[] { false, true })
-        foreach (int id in new[] { 0x1d, 0x38, 0x50, 0x52, 0x62, 0x63 })
+        foreach (int id in new[] { 0x1d, 0x33, 0x38, 0x50, 0x52, 0x62, 0x63 })
         foreach (string gate in new[] { "text", "mask04", "mask80", "palette", "none" })
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, 0xa1); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0); _player.WarpTo(new(120, 40)); _player.BeginCutsceneControl();
             var database = new EnemyDatabase(); var vines = new VineSproutDatabase();
+            int callsBeforeConstruction = _random.Calls;
+            IRoomEntity Baby()
+            {
+                var resources = new RoomEntityResources(_rooms);
+                var actor = new BabyCuccoCharacter();
+                actor.Initialize(database.ImportedEnemy(0x33), _currentRoom, new(80, 72), _random,
+                    resources.Bracelet.Data, resources.Bomb.Data, _sound.PlaySound, (_, _, _, _) => { });
+                return new BabyCuccoRoomEntity(actor);
+            }
             IRoomEntity Crystal()
             {
                 var visual = database.ImportedEnemy(0x63); string animation = visual.Animations[0];
@@ -21,27 +30,31 @@ public sealed partial class ValidationRoot
                     visual.Sprites[0], visual.TileBase, visual.Palette, 0, false, animation, animation, animation, animation, "",
                     NpcImplementationClassification.EventOwned));
                 actor.SetSourceGrayscaleInverted(visual.SourceGrayscaleInverted);
-                return new TargetCartCrystalRoomEntity(actor, 0, _runtimeState, new GoronCaveDatabase(), _sound.PlaySound);
+                return new TargetCartCrystalRoomEntity(actor, 0, _runtimeState, new GoronCaveDatabase(), _sound.PlaySound, _random);
             }
             IRoomEntity adapter = id switch
             {
                 0x1d => new ArmosSpawnerRoomEntity(_currentRoom, 2, 0x0c, _random, _entities.CanAllocateEnemies),
+                0x33 => Baby(),
                 0x38 => new FountainFairyRoomEntity(database.ImportedEnemy(0x38), new FountainFairyDatabase(), new(80, 72),
-                    _sound.PlaySound, (_, _, _) => { }, () => { }, () => _player.HealthQuarters, _entities.TryCreatePart),
+                    _sound.PlaySound, (_, _, _) => { }, () => { }, () => _player.HealthQuarters, _entities.TryCreatePart, _random),
                 0x50 => new FireballShooterRoomEntity(_currentRoom, new(80, 72), 0x80, 0, _random,
                     _entities.CanAllocateEnemies, () => _entities.PartSlotAvailable, () => _entities.RoomEnemyCount),
-                0x52 => new FlyingTileSpawnerRoomEntity(0, database.ImportedEnemy(0x52), false),
+                0x52 => new FlyingTileSpawnerRoomEntity(0, database.ImportedEnemy(0x52), false, _random),
                 0x62 => new VineSproutRoomEntity(vines, vines.Record(0), _currentRoom, _saveData,
-                    vines.ResolvePosition(0, _currentRoom, _saveData), _sound.PlaySound, () => { }, () => _entities.FrameCounter),
+                    vines.ResolvePosition(0, _currentRoom, _saveData), _sound.PlaySound, () => { }, () => _entities.FrameCounter, _random),
                 _ => Crystal()
             };
             _entities.RegisterEnemySlot(adapter, 0); _entities.AddEntity(adapter);
+            FailIf(_random.Calls != callsBeforeConstruction,
+                $"ENEMY ${id:x2} construction/allocation must defer common RNG until its state-zero dispatch.");
             int State() => adapter switch
             {
                 FountainFairyRoomEntity fairy => fairy.State, FireballShooterRoomEntity fire => fire.State,
                 FlyingTileSpawnerRoomEntity tile => (int)tile.State, ArmosSpawnerRoomEntity armos => armos.State,
                 VineSproutRoomEntity vine => CompanionField<bool>(vine, "_initialized") ? 1 : 0,
                 TargetCartCrystalRoomEntity crystal => CompanionField<int>(crystal, "_state"),
+                BabyCuccoRoomEntity baby => (int)((BabyCuccoCharacter)baby.Node).State,
                 _ => throw new InvalidOperationException()
             };
             var text = _entities.TextActiveSource; var palette = _entities.PaletteFadeActiveSource;
@@ -61,15 +74,23 @@ public sealed partial class ValidationRoot
             try
             {
                 Gates(); StepGameplayUpdates(1, Vector2.Zero, batched: batched); rom.AdvanceEnemies(_entities.FrameCounter);
-                int expected = id == 0x50 ? 8 : 1;
+                int expected = id is 0x33 or 0x50 ? 8 : 1;
                 FailIf(State() != expected || rom[0xd084] != expected || rom.RandomCalls != 1,
                     $"ENEMY ${id:x2} must initialize once under {gate}; port={State()}, source={rom[0xd084]}.");
-                // F10's separate missing common var3d draws are not claimed fixed here.
+                void CheckRandom()
+                {
+                    var random = _random.CaptureState();
+                    FailIf(random.Calls - callsBeforeConstruction != rom.RandomCalls ||
+                        random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95],
+                        $"ENEMY ${id:x2} under {gate} lost common var3d RNG: port={random.Calls - callsBeforeConstruction}, source={rom.RandomCalls}.");
+                }
+                CheckRandom();
                 if (held)
                 {
                     StepGameplayUpdates(2, Vector2.Zero, batched: batched, afterUpdate: () => rom.AdvanceEnemies(_entities.FrameCounter));
                     FailIf(State() != expected || rom[0xd084] != expected || rom.RandomCalls != 1,
                         "Initialized enemies must freeze on subsequent restricted passes.");
+                    CheckRandom();
                     held = false; Gates();
                     StepGameplayUpdates(1, Vector2.Zero, batched: batched); rom.AdvanceEnemies(_entities.FrameCounter);
                     int portResumed = State(), sourceResumed = rom[0xd084];
@@ -82,6 +103,6 @@ public sealed partial class ValidationRoot
             finally { _entities.TextActiveSource = text; _entities.PaletteFadeActiveSource = palette; _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); }
         }
         ReinitializeGameplayForValidation();
-        GD.Print("Compared state-zero enemy dispatch for five controller families plus Armos control, across 60 text/mask/palette cases. Common RNG omissions remain F10.");
+        GD.Print("Compared state-zero admission and common RNG for five controller families, Baby Cucco and Armos control across 70 text/mask/palette cases.");
     }
 }

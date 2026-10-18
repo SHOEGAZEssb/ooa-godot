@@ -28,6 +28,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
     private readonly Action _roomTileChanged;
     private readonly Func<long> _animationTick;
     private readonly EnemyAnimationPlayer _animation;
+    private readonly OracleRandom _random;
     private int _pushCounter;
     private int _moveCounter;
     private Vector2 _moveDelta;
@@ -52,7 +53,8 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         Vector2 position,
         Action<int> playSound,
         Action roomTileChanged,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        OracleRandom random)
     {
         _database = database;
         _record = record;
@@ -61,6 +63,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         _playSound = playSound;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
+        _random = random;
         _pushCounter = record.PushDelay;
         Position = position;
         Name = $"VineSprout_{record.SubId:x2}";
@@ -91,6 +94,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         _ = spawns;
         if (!_initialized)
         {
+            _random.Next(); // bank0.s: enemyStandardUpdate initializes var3d before enemyCode62.
             _initialized = true;
             OccupyTile();
             return;
