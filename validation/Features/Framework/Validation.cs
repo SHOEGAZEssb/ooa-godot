@@ -996,6 +996,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateOctoroks);
         RunIsolatedValidation(ValidateOctorokItemDispatchRom, requiresRom: true);
         RunIsolatedValidation(ValidateRiverZoraItemDispatchRom, requiresRom: true);
+        RunIsolatedValidation(ValidateWallmasterCollisionIdentityRom, requiresRom: true);
+        RunIsolatedValidation(ValidateWallmasterBiggoronMaskRom, requiresRom: true);
         RunIsolatedValidation(ValidateOctorokMovementMemoryRom, requiresRom: true);
         RunIsolatedValidation(ValidatePeahatMovementMemoryRom, requiresRom: true);
         RunIsolatedValidation(ValidateStalfosMovementMemoryRom, requiresRom: true);

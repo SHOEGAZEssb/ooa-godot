@@ -29,6 +29,7 @@ internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSourc
     internal int Counter => _counter;
     internal int Remaining => _remaining;
     internal int ZFixed => _zFixed;
+    internal int CollisionIdentity { get; private set; }
     internal bool WarpRequested => _warpRequested;
     internal override bool CollisionEnabled =>
         base.CollisionEnabled && _active && _grabbedPlayer is null &&
@@ -47,6 +48,7 @@ internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSourc
                 "A Wallmaster spawner requires a positive source count.");
         }
         Record = record;
+        CollisionIdentity = record.Id;
         InitializeEnemy(
             position,
             EnemyCharacterConfiguration.FromImported(record));
@@ -90,6 +92,9 @@ internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSourc
                 _active = true;
                 Visible = true;
                 _state = WallmasterState.Falling;
+                // wallmaster_state8 borrows ENEMY_FLOORMASTER ($35),
+                // whose mask admits Link as well as weapons.
+                CollisionIdentity = EnemyId.Floormaster;
                 soundRequested(SoundId.SndFallInHole);
                 break;
 
@@ -107,6 +112,10 @@ internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSourc
 
             case WallmasterState.Grounded:
                 _counter--;
+                // wallmaster_stateA restores ENEMY_WALLMASTER ($28) on
+                // counter $01, before the post-object collision scan.
+                if (_counter == 1)
+                    CollisionIdentity = EnemyId.Wallmaster;
                 if (_counter == _behavior.CloseHandCounter)
                     SetAnimation(1);
                 if (_grabbedPlayer is not null &&
@@ -160,6 +169,7 @@ internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSourc
     internal bool HandleLinkContact(Player player)
     {
         if (_grabbedPlayer is not null || !CollisionEnabled ||
+            CollisionIdentity != EnemyId.Floormaster ||
             !OverlapsLink(player.EnemyContactPosition))
         {
             return false;
@@ -209,6 +219,7 @@ internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSourc
     private void HideAndReset(int delay)
     {
         _active = false;
+        CollisionIdentity = Record.Id;
         Visible = false;
         _counter = delay;
         _state = WallmasterState.Waiting;

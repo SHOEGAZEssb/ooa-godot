@@ -14,6 +14,8 @@ internal sealed class WallmasterRoomEntity
     private readonly int _destinationGroup;
     private readonly int _destinationRoom;
 
+    public override int DimitriCollisionType => Entity.CollisionIdentity;
+
     public WallmasterRoomEntity(
         WallmasterCharacter wallmaster,
         Action<int> soundRequested,
