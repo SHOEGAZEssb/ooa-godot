@@ -88,6 +88,24 @@ or one exact registered method:
 
 See [Validation](validation.md) for scenario isolation and handoff checks.
 
+## Desktop export
+
+The `Windows` and `Linux` presets target x86-64 and write to
+`builds/windows/` and `builds/linux/`. Install the matching Godot .NET export
+templates for each platform. Both presets package the generated `.bin`, `.tsv`,
+and `.2bpp` runtime inputs explicitly, alongside imported graphics.
+
+After building with optimization and running validation, export with:
+
+```powershell
+New-Item -ItemType Directory -Force builds/windows, builds/linux | Out-Null
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe' --headless --path . --export-release Windows builds/windows/oracle-of-ages.exe
+& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe' --headless --path . --export-release Linux builds/linux/oracle-of-ages.x86_64
+```
+
+Distribute each complete output directory, including its `.pck` and .NET
+dependencies. On Linux, ensure the executable has execute permission.
+
 ## Android export
 
 The `Android` export preset produces an ARM64 APK for sideloading. Install the
@@ -115,6 +133,26 @@ only when their source inputs or importer have changed.
 
 Android currently uses the existing gamepad/keyboard controls below. Touch
 controls have not been implemented.
+
+## Release automation
+
+Publishing a GitHub release (including a prerelease) runs
+[Release builds](../.github/workflows/release.yml) against its tag. The workflow
+imports the verified source assets, rebuilds optimized assemblies, and runs the
+full eight-worker validation suite before exporting the three configured targets.
+The Windows runner cross-exports Linux using the matching .NET templates.
+
+The release receives a Windows x64 ZIP, a Linux x64 tarball, an Android ARM64
+APK, and `SHA256SUMS.txt`. Desktop archives include the complete export directory;
+the Linux archive preserves executable permissions. Filenames include the release
+tag; the embedded game version comes from the tagged project configuration.
+The ROM and private signing keys are not uploaded.
+
+Android uses the existing debug-signed sideloading export, without additional
+repository secrets. This is not a store release; a fresh runner's debug key also
+means an APK from another run may require uninstalling the previous APK first.
+The workflow uses `GITHUB_TOKEN` to attach assets only after every export succeeds.
+Rerunning the workflow replaces assets with matching filenames.
 
 ## Controls
 

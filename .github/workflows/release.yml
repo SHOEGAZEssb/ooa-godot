@@ -1,0 +1,235 @@
+name: Release builds
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.release.id }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  GODOT_VERSION: 4.7.1-stable
+  GODOT_ARCHIVE_SHA256: 764a089809fb1a6f745686ce9f6d3ca83adce8fb60fb9a4e2324b63baaebaa45
+  GODOT_TEMPLATES_SHA256: ef9a708be51ecd974cd7dccdcafd7a1870da3d3e1c24c072bdbb9818c7a7db63
+
+jobs:
+  release:
+    name: Validate, export Windows/Linux/Android, and attach builds
+    runs-on: windows-2025
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+
+    steps:
+      - name: Check out the released tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Select the Android SDK toolchain
+        run: |
+          $sdkVersion = dotnet --list-sdks | Where-Object { $_ -match '^9\.' } |
+              ForEach-Object { ($_ -split ' ')[0] } | Select-Object -Last 1
+          if (-not $sdkVersion) { throw '.NET 9 SDK was not installed.' }
+          @{ sdk = @{ version = $sdkVersion; rollForward = 'latestPatch' } } |
+              ConvertTo-Json | Set-Content -LiteralPath global.json -Encoding utf8
+          dotnet workload install android --skip-manifest-update
+          if ($LASTEXITCODE -ne 0) { throw 'Android .NET workload installation failed.' }
+
+          $env:JAVA_HOME = $env:JAVA_HOME_17_X64
+          if (-not (Test-Path -LiteralPath "$env:JAVA_HOME/bin/keytool.exe")) {
+              throw 'The runner must provide Java 17.'
+          }
+          "JAVA_HOME=$env:JAVA_HOME" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $sdkManager = Join-Path $env:ANDROID_HOME 'cmdline-tools/latest/bin/sdkmanager.bat'
+          & $sdkManager 'platform-tools' 'platforms;android-35' 'platforms;android-36' `
+              'build-tools;35.0.0' 'build-tools;35.0.1' 'build-tools;36.0.0'
+          if ($LASTEXITCODE -ne 0) { throw 'Android SDK installation failed.' }
+
+      - name: Set up ROM build environment
+        id: msys2
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+        with:
+          update: true
+          install: >-
+            git
+            make
+            python
+            python-yaml
+            curl
+            unzip
+
+      - name: Import verified game assets
+        env:
+          OOA_ROM_BUILD_BASH: ${{ steps.msys2.outputs.msys2-location }}/usr/bin/bash.exe
+        run: |
+          . ./tools/Resolve-OracleRom.ps1
+          $rom = Resolve-OracleRom
+          "ORACLES_ROM=$rom" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & ./tools/import_oracles.ps1 -Rom $rom
+
+      - name: Install verified Godot and .NET export templates
+        run: |
+          $baseUrl = "https://github.com/godotengine/godot-builds/releases/download/$env:GODOT_VERSION"
+          function Get-VerifiedArchive($Name, $Destination, $ExpectedHash) {
+              Invoke-WebRequest -Uri "$baseUrl/$Name" -OutFile $Destination
+              $actualHash = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actualHash -ne $ExpectedHash) {
+                  throw "$Name SHA256 mismatch: expected $ExpectedHash, got $actualHash."
+              }
+          }
+          $editorArchive = Join-Path $env:RUNNER_TEMP 'godot.zip'
+          Get-VerifiedArchive "Godot_v$env:GODOT_VERSION`_mono_win64.zip" $editorArchive $env:GODOT_ARCHIVE_SHA256
+          $installRoot = Join-Path $env:RUNNER_TEMP 'godot'
+          Expand-Archive -LiteralPath $editorArchive -DestinationPath $installRoot
+          $console = Get-ChildItem -LiteralPath $installRoot -Recurse -File -Filter '*_console.exe' |
+              Select-Object -First 1
+          if ($null -eq $console) { throw 'Godot console executable is missing.' }
+          "GODOT_CONSOLE=$($console.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          $templateArchive = Join-Path $env:RUNNER_TEMP 'godot-templates.zip'
+          Get-VerifiedArchive "Godot_v$env:GODOT_VERSION`_mono_export_templates.tpz" $templateArchive $env:GODOT_TEMPLATES_SHA256
+          $templateVersion = $env:GODOT_VERSION.Replace('-', '.') + '.mono'
+          $templateRoot = Join-Path $env:APPDATA "Godot/export_templates/$templateVersion"
+          [void][IO.Directory]::CreateDirectory($templateRoot)
+          $zip = [IO.Compression.ZipFile]::OpenRead($templateArchive)
+          try {
+              # Extract only the targets used here, avoiding the large Apple templates.
+              foreach ($name in @('windows_release_x86_64.exe', 'windows_release_x86_64_console.exe',
+                      'linux_release.x86_64', 'android_debug.apk', 'android_release.apk')) {
+                  $entry = $zip.GetEntry("templates/$name")
+                  if ($null -eq $entry) { throw "Missing .NET export template: $name" }
+                  [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $templateRoot $name))
+              }
+          }
+          finally { $zip.Dispose() }
+
+          # Godot reads these editor settings during headless Android export.
+          $settingsRoot = Join-Path $env:APPDATA 'Godot'
+          $javaPath = $env:JAVA_HOME.Replace('\', '/')
+          $androidPath = $env:ANDROID_HOME.Replace('\', '/')
+          @"
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "$javaPath"
+          export/android/android_sdk_path = "$androidPath"
+          "@ | Set-Content -LiteralPath (Join-Path $settingsRoot 'editor_settings-4.7.tres') -Encoding utf8
+
+      - name: Build optimized production and validation assemblies
+        run: dotnet build --configuration Debug -t:Rebuild -p:Optimize=true --warnaserror
+
+      - name: Import Godot resources
+        run: |
+          & $env:GODOT_CONSOLE --headless --editor --path . --import
+          if ($LASTEXITCODE -ne 0) { throw 'Godot resource import failed.' }
+
+      - name: Run complete headless validation
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+        run: |
+          & ./tools/validate_parallel.ps1 `
+              -Godot $env:GODOT_CONSOLE `
+              -Rom $env:ORACLES_ROM `
+              -Workers 8 `
+              -TimeoutSeconds 1800 `
+              -FailOnEngineDiagnostics
+
+      - name: Export all three platforms
+        run: |
+          New-Item -ItemType Directory -Force builds/windows, builds/linux, builds/android | Out-Null
+          & $env:GODOT_CONSOLE --headless --path . --export-release Windows builds/windows/oracle-of-ages.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Windows export failed.' }
+          & $env:GODOT_CONSOLE --headless --path . --export-release Linux builds/linux/oracle-of-ages.x86_64
+          if ($LASTEXITCODE -ne 0) { throw 'Linux export failed.' }
+          # Match the existing sideloadable APK flow; store signing is not configured.
+          & $env:GODOT_CONSOLE --headless --path . --export-debug Android builds/android/oracle-of-ages.apk
+          if ($LASTEXITCODE -ne 0) { throw 'Android export failed.' }
+          $signer = Join-Path $env:ANDROID_HOME 'build-tools/36.0.0/apksigner.bat'
+          & $signer verify builds/android/oracle-of-ages.apk
+          if ($LASTEXITCODE -ne 0) { throw 'Android APK signature verification failed.' }
+
+      - name: Package complete builds and checksums
+        shell: python
+        run: |
+          import hashlib
+          import os
+          from pathlib import Path
+          import re
+          import shutil
+          import tarfile
+          import zipfile
+
+          version = re.sub(r"[^A-Za-z0-9._-]", "-", os.environ["RELEASE_TAG"]).strip(".")
+          if not version:
+              raise SystemExit("Release tag cannot produce an asset filename.")
+          output = Path("builds/release")
+          output.mkdir(parents=True, exist_ok=True)
+          for required in ("windows/oracle-of-ages.exe", "windows/oracle-of-ages.pck",
+                           "linux/oracle-of-ages.x86_64", "linux/oracle-of-ages.pck",
+                           "android/oracle-of-ages.apk"):
+              path = Path("builds") / required
+              if not path.is_file() or path.stat().st_size == 0:
+                  raise SystemExit(f"Missing or empty export output: {path}")
+
+          windows = Path("builds/windows")
+          with zipfile.ZipFile(output / f"oracle-of-ages-{version}-windows-x64.zip", "w",
+                               compression=zipfile.ZIP_DEFLATED) as archive:
+              for path in sorted(windows.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, Path("oracle-of-ages") / path.relative_to(windows))
+
+          def linux_permissions(info):
+              info.mode = 0o755 if info.isdir() or info.name.endswith((".x86_64", ".sh")) else 0o644
+              return info
+
+          with tarfile.open(output / f"oracle-of-ages-{version}-linux-x64.tar.gz", "w:gz") as archive:
+              archive.add("builds/linux", arcname="oracle-of-ages", filter=linux_permissions)
+          shutil.copyfile("builds/android/oracle-of-ages.apk",
+                          output / f"oracle-of-ages-{version}-android-arm64.apk")
+          assets = sorted(output.iterdir())
+          checksums = []
+          for asset in assets:
+              with asset.open("rb") as stream:
+                  digest = hashlib.file_digest(stream, "sha256").hexdigest()
+              checksums.append(f"{digest}  {asset.name}\n")
+          (output / "SHA256SUMS.txt").write_text("".join(checksums), encoding="utf-8", newline="\n")
+
+      - name: Upload builds to this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(Get-ChildItem -LiteralPath builds/release -File | ForEach-Object { $_.FullName })
+          if ($assets.Count -ne 4) { throw "Expected three builds and checksums, got $($assets.Count) assets." }
+          gh release upload --repo $env:GITHUB_REPOSITORY --clobber -- $env:RELEASE_TAG @assets
+          if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed.' }
+
+      - name: Upload validation worker logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-validation-logs
+          path: ${{ runner.temp }}/ooa-validation-*/*.log
+          if-no-files-found: ignore
+          retention-days: 7
