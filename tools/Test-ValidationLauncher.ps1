@@ -148,7 +148,7 @@ public static class ValidationLauncherFixture {
             }
         }
     }
-    finally { [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID', $previousPidPath) }
+    finally { $env:OOA_TEST_VALIDATION_CHILD_PID = $previousPidPath }
     & $launcher -Godot $fixture -ValidateOnly ValidateRomArgument `
         -Rom (Join-Path $temporary 'reference ROM [US].gbc') -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateSkipRomArgument `
@@ -166,7 +166,13 @@ public static class ValidationLauncherFixture {
             throw 'Explicit timing profile was changed by the launcher.'
         }
     }
-    finally { [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_TIMING_PROFILE', $previousProfileExpectation) }
+    # The Environment provider removes null values on Core as well. Direct
+    # SetEnvironmentVariable(name, $null) stores an empty string on modern .NET.
+    finally { $env:OOA_TEST_VALIDATION_TIMING_PROFILE = $previousProfileExpectation }
+    if ($null -eq $previousProfileExpectation -and
+        $null -ne [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_TIMING_PROFILE')) {
+        throw 'Timing-profile expectation leaked into later fixtures.'
+    }
     & $launcher @fixtureParameters -ValidateOnly ValidateContinueArgument `
         -ContinueOnFailure -TimeoutSeconds 15
     $failure = $null
@@ -252,7 +258,7 @@ public static class ValidationLauncherFixture {
         }
     }
     finally {
-        [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_EMIT_TIMINGS', $previousEmitTimings)
+        $env:OOA_TEST_VALIDATION_EMIT_TIMINGS = $previousEmitTimings
         foreach ($partition in 1..2) { [IO.File]::Delete((Join-Path $reports "partition-$partition.json")) }
         [IO.File]::Delete($mergedProfile)
         [IO.Directory]::Delete($reports, $false)
@@ -261,7 +267,7 @@ public static class ValidationLauncherFixture {
     Write-Host 'Validation launcher tests passed (no CPU/memory limits or forced priority, child cleanup on timeout and normal exit, 8 workers, focused selection, ROM path forwarding, timing snapshot forwarding, explicit skips, continued failure counts, incomplete/unexpected skip rejection, stdout/stderr/engine-log diagnostic rejection, unique logs, crash exit, missing marker, inherited/restored error mode).'
 }
 finally {
-    # Only this test's generated executable lives here; no recursive deletion.
+    # Only this test's generated fixture files live here; no recursive deletion.
     if ([IO.File]::Exists($fixture)) { [IO.File]::Delete($fixture) }
     if ([IO.File]::Exists($fixtureSource)) { [IO.File]::Delete($fixtureSource) }
     if ([IO.File]::Exists($timingProfile)) { [IO.File]::Delete($timingProfile) }
