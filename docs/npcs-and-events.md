@@ -36,6 +36,14 @@ The application supplies that live state to the entity manager, so enemies and
 items pause while ordinary interactions, including key sprites and opening
 effects, continue updating.
 
+The original script input commands use the shared raw control operation:
+`wDisabledObjects=$81`, `wMenuDisabled=$80`, parent-item clearing, carried-item
+release, and Link invincibility/knockback writes. Link keeps its normal handler;
+the mask gates its update. Preserve repeated command side effects and the
+enable command's zero writes. Acquiring private cutscene control is a different
+operation and cannot substitute for these source writes. Cancellation releases
+only control still owned by the cancelled sequence.
+
 Native cutscene controllers advance before the object pass. When the original
 cutscene selects a successor and returns without updating objects, the event
 exposes `SkipsObjectUpdate`; the application still advances the global frame
@@ -64,6 +72,10 @@ Before implementing an interaction, record:
 7. Completion writes, room exit, cancellation, scrolling, re-entry, and
    save/reload behavior.
 
+Trace retained registers through dispatch and helpers even when the target
+state has no explicit assignment. A native table lookup can continue into
+adjacent data; import its executed stream and graphics domain explicitly.
+
 Keep original identifiers in generated rows, diagnostics, source comments, and
 validation failures. “Room `1:49` missing interaction `$3c:$0e`” is actionable;
 “missing NPC” is not.
@@ -79,14 +91,30 @@ not snapshot story state at database construction; visibility and dialogue
 must observe live state at the same boundary as the original. Preserve branch
 order where several flags overlap.
 
-Initialization may select visibility once while dialogue continues to observe
-live flags. `IOrdinaryNpcEntity` exposes separate refresh gates and publishes
+Initialization may select visibility or position once while dialogue continues
+to observe live flags. `IOrdinaryNpcEntity` exposes separate refresh gates and publishes
 completion after its imported initialization rules run; the adapter retains
 the source's selection lifetime without copying save state.
+An event must retain an initialized actor's visibility when the source checks
+its room/save predicate only in state zero. A sibling writing the completion
+flag must not delete that actor before its own native handler does.
 
 A room event may own a script's input and cancellation lifecycle while its
 native entity dispatches the runner in the original interaction slot. Keep that
 slot as the sole dispatch owner when later actors consume its shared signals.
+Special-object cutscene movement belongs in the owner's special-object update,
+before item, enemy, part and interaction consumers. Preserve incoming motion
+registers when the source's ID change does not overwrite them; apply text
+gates to the original dispatch category rather than the surrounding scene.
+Native coordinate-high writes retain fractional bytes and motion registers;
+apply them without the state resets used for a room warp.
+An always-updating interaction can run native movement before its text-gated
+script. Keep that movement outside script waits, and retain the original
+wait and jump yields when the script polls the native mover's completion.
+Actors sharing a script block still retain independent interpreter state.
+Preserve each entry point's commands and their yields; do not replace their
+timelines with a common countdown. A queued Link ID change includes the next
+handler's initialization update before normal movement or air physics resumes.
 
 An ordinary NPC entity owns only its actor behavior and presentation. It
 registers dialogue or script interaction through the central interaction
@@ -141,6 +169,12 @@ several systems. A single ordered registration defines entry precedence and
 typed event lookup. A-button routes retain their separate source order.
 Events receive one fixed tick from the application scheduler; bulk stepping
 belongs to validation.
+
+An event that coordinates native PART and INTERACTION work opts into the
+shared object-phase callbacks. PART work runs in its category pass; interaction
+work runs before rider copying and camera/shake updates. Each category uses its
+own sampled admission, and independent always-update children retain that
+eligibility. The later room-event dispatch must not tick a phased owner again.
 
 Retained state does not implicitly grant exclusive update priority. A composite
 event explicitly owns its children's dispatch, including dialogue updates;

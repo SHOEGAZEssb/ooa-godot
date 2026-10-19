@@ -30,6 +30,9 @@ internal partial class ShovelDebrisEffect : FixedEffectNode2D
     private int _speedZ;
     private int _elapsedFrames;
     private bool _initialized;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     internal override bool Finished { get; private protected set; }
     internal int ElapsedFrames => _elapsedFrames;
@@ -71,8 +74,8 @@ internal partial class ShovelDebrisEffect : FixedEffectNode2D
         }
 
         OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, Gravity);
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, Speed, DirectionIndex(_direction) * 8);
+        Position = NativeObjectMovement.ApplySpeed(
+            _movementMemory, ref _precisePosition, Speed, DirectionIndex(_direction) * 8);
         QueueRedraw();
     }
 

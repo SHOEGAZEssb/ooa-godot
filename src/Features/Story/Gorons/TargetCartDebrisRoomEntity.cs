@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 namespace oracleofages;
-internal sealed class TargetCartDebrisRoomEntity(NpcCharacter actor,Vector2 position,int direction)
+internal sealed class TargetCartDebrisRoomEntity(NpcCharacter actor,Vector2 position,int direction,OracleRuntimeState memory)
     :RoomEntityAdapter<NpcCharacter>(actor,actor.SetTransitionDrawOffset),IFixedRoomEntity,IRoomEntityLifetime,IUpdatesDuringDialogueRoomEntity
 {
     private bool _initialized;
@@ -13,6 +13,6 @@ internal sealed class TargetCartDebrisRoomEntity(NpcCharacter actor,Vector2 posi
             return; }
         if(Entity.CurrentAnimationParameter==0xff) { Entity.SetActive(false); return; }
         Entity.AdvanceAnimationUpdates(1);
-        Entity.Position=OracleObjectMovement.Shared.ApplySpeed(ref position,0x28,4+direction*8);
+        Entity.Position=NativeObjectMovement.ApplySpeed(memory,ref position,0x28,4+direction*8);
     }
 }

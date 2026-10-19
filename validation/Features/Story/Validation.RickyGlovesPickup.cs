@@ -112,6 +112,7 @@ public sealed partial class ValidationRoot
 
         _entities.Update(1.0 / 60.0, _player);
         _entities.Update(1.0 / 60.0, _player);
+        AssertMovementPublication(_runtimeState, 0, 128, "INTERAC $60:$05 buried flight");
         FailIf(
             gloves.Position.X != 0x49 || gloves.ZFixed >= 0 ||
             gloves.State != PickupState.Spawning ||

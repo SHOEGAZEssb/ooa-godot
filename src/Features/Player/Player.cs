@@ -2133,12 +2133,11 @@ public partial class Player : Node2D
         double delta, bool recoilItemImmobilized, Vector2 recoilMovementStart)
     {
         float frameDelta = (float)delta * 60.0f;
-        if (_raftRideControlled)
-        {
-            // The raft owns both the counter and movement; ordinary Link
-            // recoil must not add a second SPEED_140 displacement.
-        }
-        else if (_world.SideScrolling)
+        // The raft already decremented Link's counter and moved itself at
+        // SPEED_100. Link still runs his own SPEED_140 recoil here; func_410d
+        // replaces his position only after items/interactions have read it.
+        // Preserve that second decrement and the phase-local scratch writes.
+        if (_world.SideScrolling)
         {
             int decrement = _sideScrollAirborne ? 2 : 1;
             float nextCounter = _enemyKnockbackFrames - decrement;
@@ -2901,6 +2900,44 @@ public partial class Player : Node2D
         QueueRedraw();
     }
 
+    internal int NativePlanarSpeed => _topDownMovementSpeedRaw;
+    internal int NativePlanarAngle => _topDownMovementAngle;
+
+    internal void SetNativeCutsceneAngle(int angle)
+    {
+        _topDownMovementAngle = angle;
+        Vector2 direction = OracleObjectMath.StrictCardinalVector(angle);
+        Face(new Vector2I((int)direction.X, (int)direction.Y));
+    }
+
+    internal void SetNativeCutsceneSpeed(int speed) => _topDownMovementSpeedRaw = speed;
+
+    internal void SetNativeCutsceneCoordinates(byte y, byte x)
+    {
+        // Native yh/xh assignments retain the object's fractional bytes and
+        // incoming motion registers; they are not room-warp initialization.
+        OracleObjectPosition current = OracleObjectPosition.FromPixels(_precisePosition);
+        _precisePosition = new OracleObjectPosition(
+            (ushort)((y << 8) | (current.YFixed & 0xff)),
+            (ushort)((x << 8) | (current.XFixed & 0xff))).PrecisePosition;
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
+    internal void AdvanceNativeCutsceneMovement(int speed, int angle)
+    {
+        if (!_cutsceneControlled) return;
+        _topDownMovementSpeedRaw = speed;
+        _topDownMovementAngle = angle;
+        _walking = speed != 0 && (angle & 0x80) == 0;
+        // SPECIALOBJECT_LINK_CUTSCENE calls objectApplySpeed without terrain
+        // collision. The player world owns WRAM publication and word wrapping.
+        AdvanceLinkWalkAnimation();
+        _precisePosition = _world.ApplyNativeUnblockedMovement(_precisePosition, speed, angle);
+        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        QueueRedraw();
+    }
+
     internal void AdvanceCutsceneMovement(Vector2 movement, Vector2I direction)
     {
         if (!_cutsceneControlled)
@@ -3547,10 +3584,12 @@ public partial class Player : Node2D
             return;
         }
 
-        if (_world.SwordDisabled && !_treasureSwordSpin)
+        bool itemParentsFrozen = _world.DialogueOpen || _world.NativePaletteChanging || _world.RoomExitPending;
+        if (!itemParentsFrozen && _world.SwordDisabled && !_treasureSwordSpin)
         {
+            // clearParentItemIfCantUseSword belongs to sword parents.
+            // wccd8 blocks new item allocation; an existing shovel continues.
             CancelSwordAttack();
-            CancelShovelAction();
         }
 
         if (_drowning || _fallingInHole || _instantRespawnRecoveryCounter != 0 ||
@@ -3564,7 +3603,6 @@ public partial class Player : Node2D
         // linkState01 returns before checkUseItems during text. Initialized
         // sword parents retain their state; the unconditional child post pass
         // still publishes the existing geometry for collision resolution.
-        bool itemParentsFrozen = _world.DialogueOpen || _world.NativePaletteChanging || _world.RoomExitPending;
         if (IsAttacking && (swordInitialized || itemParentsFrozen || _swordUpdatedInPhysics)) ApplySwordCollision();
         if (IsAttacking && !_swordUpdatedInPhysics && !swordInitialized && !itemParentsFrozen)
         {
@@ -4481,6 +4519,39 @@ public partial class Player : Node2D
         return true;
     }
 
+    // scriptHelp.tokayMakeLinkJump writes wLinkInAir=$81 and speedZ only.
+    // Retain Z and let the existing Link air owner perform the next update,
+    // including @startedJump's additional SND_JUMP and the landing sound.
+    internal void BeginControlledTopDownJump(object owner,int speedZ)
+    {
+        if (!IsCutsceneControlOwner(owner))
+            throw new InvalidOperationException("A scripted Link jump requires its existing control owner.");
+        _topDownAirSpeedZ=speedZ;
+        _topDownAirborne=true;
+        _topDownJumpSoundPending=true;
+    }
+
+    internal void AdvanceControlledTopDownAir(object owner)
+    {
+        if (!IsCutsceneControlOwner(owner) || !_topDownAirborne ||
+            _world.NativeTextActive || _world.NativePaletteChanging ||
+            _world.RoomExitPending || _world.PlayerUpdatesFrozen || _world.LinkDisabled)
+            return;
+        if (_topDownJumpSoundPending)
+        {
+            _topDownAirAnimationPhase=0;
+            _topDownAirAnimationCounter=TopDownAirDatabase.Shared.Parameters.AnimationPhaseDurations[0];
+            _airborneLinkAnimationMode=AirborneLinkAnimationMode.Jump;
+        }
+        AdvanceTopDownAirUpdate();
+        QueueRedraw();
+    }
+
+    internal void CancelControlledTopDownAir(object owner)
+    {
+        if (IsCutsceneControlOwner(owner)) ClearTopDownAirState();
+    }
+
     private void UpdateTopDownAirMovement(
         double delta,
         Vector2 input,
@@ -5014,7 +5085,9 @@ public partial class Player : Node2D
 
     internal void SetRaftwreckCutscenePosition(Vector2 position, int direction)
     {
-        _precisePosition = position;
+        // objectCopyPosition writes only coordinate high bytes, including
+        // the controller's direct-Link path when wLinkObjectIndex=$d0.
+        _precisePosition = position.Floor() + _precisePosition - _precisePosition.Floor();
         _facing = (Facing)direction;
         _walking = false;
         _pushing = false;
@@ -7667,7 +7740,9 @@ public partial class Player : Node2D
         _world.CancelSomaria();
         // shovelParent state0 uses checkLinkOnGround, including swimming,
         // underwater var2f bit 7 and wLinkObjectIndex's mounted bit.
-        if (IsUsingItem || !IsOnGroundForBracelet)
+        // chooseParentItemSlot's selector3 replaces an equal-priority shovel
+        // parent on a fresh press. Its physical child has a separate lifetime.
+        if (IsUsingItem && !IsUsingShovel || !IsOnGroundForBracelet)
             return;
         // shovelParent initializes its animation before Link's turning pass;
         // the parent disables turning and retains the preceding facing.

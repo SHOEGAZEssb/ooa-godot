@@ -85,7 +85,34 @@ public sealed partial class ValidationRoot
             }
             var rng = _random.CaptureState(); rom[0xff94] = rng.Rng1; rom[0xff95] = rng.Rng2;
             FailIf(!actor.TryUseBracelet(_player, drop ? Vector2I.Zero : direction), "Dimitri throw was rejected.");
-            StepCompanionRom(actor, rom, 90, Vector2.Zero, batched);
+            byte[] observed = new byte[4];
+            var probe = new PartMovementScratchProbe(() =>
+            {
+                for (int index = 0; index < 4; index++)
+                    observed[index] = _runtimeState.ReadWramByte(0xcec0 + index);
+            });
+            _entities.RegisterEnemySlot(probe, 15); _entities.AddEntity(probe);
+            bool lateralVisit = false;
+            int update = 0;
+            StepCompanionRom(actor, rom, 90, Vector2.Zero, batched, compare: () =>
+            {
+                update++;
+                if (rom[0xdc00] != 0 && rom[0xdc04] == 3)
+                    FailIf(CompanionField<CarriedObjectMotion>(actor, "_braceletChildMotion").SpeedRaw != rom[0xdc10],
+                        "Dimitri ITEM$16 must retain its native speed byte on a blocked throw.");
+                // The native companion fixture omits idle Link warp queries.
+                // Observe live child motion, including its first blocked
+                // angle-$ff publication, before those later aliases matter.
+                if (lateralVisit && rom[0xdc00] != 0)
+                    for (int index = 0; index < 4; index++)
+                        FailIf(observed[index] != rom[0xcec0 + index],
+                            $"Dimitri ITEM$16 update={update}, drop={drop}, direction={direction}, terrain={terrain}, angle=${CompanionField<CarriedObjectMotion>(actor, "_braceletChildMotion").Angle:x2}/${rom[0xdc09]:x2}, speed=${rom[0xdc10]:x2}: shared velocity ${0xcec0 + index:x4} differs: runtime=${observed[index]:x2}, ROM=${rom[0xcec0 + index]:x2}.");
+            }, beforeNativeItems: () =>
+            {
+                // The companion can change the child's angle/speed before
+                // ITEM C. Use that actual input, not the prior frame's angle.
+                lateralVisit = rom[0xdc00] != 0 && rom[0xdc09] != 0xff;
+            });
         }
     }
 }

@@ -197,8 +197,11 @@ internal sealed partial class FloormasterCharacter : EnemyCharacter, ITerrainSha
         int angle = (link.LinkMovementAngle + (nearby ? _random.Next().Value : 0)) & ObjectAngle.Mask;
         for (int distance = _behavior.InitialDistance - _behavior.DistanceStep; distance > 0; distance -= _behavior.DistanceStep)
         {
-            var offset = OracleObjectMovement.Shared.CircleArcOffset(distance, angle);
-            Position = new(((int)position.X + offset.X) & 0xff, ((int)position.Y + offset.Y) & 0xff);
+            var offset = MovementCircleArcOffset(distance, angle);
+            // objectSetPositionInCircleArc replaces high bytes only, including
+            // rejected candidates; retained low bytes are not reinitialized.
+            Position = new Vector2(((int)position.X + offset.X) & 0xff,
+                ((int)position.Y + offset.Y) & 0xff) + Position - Position.Floor();
             int dx = Math.Abs((int)position.X - (int)Position.X);
             if (dx >= _behavior.MaximumXDifference || Position.Y >= _behavior.MaximumY ||
                 Position.X >= _room.Width || Position.Y >= _room.Height || _room.GetTerrainInfo(Position).Collision != 0) continue;

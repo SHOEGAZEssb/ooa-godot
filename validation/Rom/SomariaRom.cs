@@ -40,6 +40,7 @@ internal sealed class SomariaRom
     }
     internal void AdvanceEnemyAndPartCollisions() => _rom.Call(0x41d1,7);
     internal void AdvanceInteractions() => _rom.Call(0x3b36,0); // bank0.updateInteractions, including the scroll/always-update gates.
+    internal void AdvanceScreenBoundary() => _rom.Call(0x4000, 1); // bank1.func_4000, including the wScrollMode=$00 gate.
     internal void HitEnemyWithItem(int slot,int collision,int damage,int itemId=0,Godot.Vector2? origin=null)
     {
         int enemy=0xd080+slot*256;
@@ -201,6 +202,13 @@ internal sealed class SomariaRom
         _rom.Call(0x2ea5, 0x0d); // Original updateEnemies, including scroll state-zero admission.
     }
 
+    internal void SetEnemyAnimation(int slot, int animation)
+    {
+        byte[] caller=[0x16,(byte)(0xd0+slot),0x3e,(byte)animation,0xcd,0x2b,0x28,0xc9];
+        for(int i=0;i<caller.Length;i++)this[0xc200+i]=caller[i];
+        _rom.Call(0xc200,0);
+    }
+
     internal void InteractWithFrontTile() => CallLink(0x4000,6);
 
     // Clean-US bank1 func_49c9 / clearMemoryOnScreenReload. The former
@@ -299,7 +307,8 @@ internal sealed class SomariaRom
     internal void PublishLinkGraphics() => _rom.Call(0x2b25,0);
 
     internal void UpdateGameplay(int pressed, int held, int angle, int frameCounter,
-        Action? beforeInteractions = null, Action? afterInteractions = null, Action? beforeParts = null, Action? afterLink = null)
+        Action? beforeInteractions = null, Action? afterInteractions = null, Action? beforeParts = null, Action? afterLink = null,
+        Action? beforeEnemies = null)
     {
         this[0xcc00] = (byte)frameCounter;
         if(NativeGameKeysEnabled){this[0xc481]=(byte)held;this[0xc482]=(byte)pressed;}
@@ -328,6 +337,7 @@ internal sealed class SomariaRom
         afterLink?.Invoke();
         _rom.Call(0x4872, 7);
         _rom.Call(0x3616, 0); // updateAllObjects publishes the post-Link target before interactions.
+        beforeEnemies?.Invoke();
         if (HostileEnemiesEnabled) _rom.Call(0x2ea5, 0x0d); // updateEnemies, before parts.
         beforeParts?.Invoke();
         if (HostilePartsEnabled) _rom.Call(0x5e58, 0x11); // updateParts, before interactions.

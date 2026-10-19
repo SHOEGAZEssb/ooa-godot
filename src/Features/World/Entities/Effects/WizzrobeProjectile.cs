@@ -43,7 +43,10 @@ internal sealed partial class WizzrobeProjectile : TransitionOffsetNode2D
             _animation.SetAnimation(Angle >> 3);
             QueueRedraw(); return;
         }
-        if (!OracleObjectMath.IsInsideOriginalScreenBoundary(Position - camera) || _room.IsSolid(Position))
+        // partCommon_checkTileCollisionOrOutOfBounds also deletes on the
+        // collision buffer's$ff sentinel inside the screen-boundary leeway.
+        if (!OracleObjectMath.IsInsideOriginalScreenBoundary(Position - camera) ||
+            _room.GetTerrainInfo(Position).Collision == 0xff || _room.IsSolid(Position))
         { Delete(); return; }
         var velocity = NativeObjectMovement.Velocity(_memory, _data.PartState[0].Value, Angle);
         Position = OracleObjectPosition.FromPixels(Position).Add(velocity.YFixed, velocity.XFixed).PrecisePosition;

@@ -44,6 +44,9 @@ public sealed partial class ValidationRoot
                     while (_entities.Entities<FlyingTileCharacter>().Count == 0 && wait++ < 256)
                         StepGameplayUpdates(1, Vector2.Zero, batched: batched);
                     var tile = _entities.Entities<FlyingTileCharacter>().Single();
+                    FailIf(tile.State != FlyingTileState.Preparing || tile.Visible,
+                        "Original active Flying Tile birth must stop at hidden state $08 after common initialization.");
+                    StepGameplayUpdates(1, Vector2.Zero, batched: batched);
                     int expectedPacked = layout == 0 ? new[] { 0x57, 0x56, 0x46 }[repeat] : new[] { 0x67, 0x54, 0x5a }[repeat];
                     FailIf(tile.State != FlyingTileState.Rising || tile.ZFixed != 0 ||
                         tile.Position != new Vector2((expectedPacked & 15) * 16 + 8, (expectedPacked >> 4) * 16 + 8),
@@ -58,8 +61,8 @@ public sealed partial class ValidationRoot
                     FailIf(native[0xd084] != 9 || native[0xd0a4] != 0xd2 || native[0xd0a5] != 0x3c ||
                         native[0xd0a6] != 6 || native[0xd0a7] != 6 || native[0xd0a9] != 2,
                         "Original child state $08 must enable identity $52, mode $3c, radii $06/$06 and HP $02.");
-                    // The port merges the child's source state0/state8 work.
-                    // Align the visible rising boundary, then retain native AI.
+                    // Align the visible rising boundary after both distinct
+                    // state0/state8 visits, then retain native AI.
                     int countBefore = _entities.RoomEnemyCount;
                     int defeatsBefore = _entities.ActiveRoomDefeatBitset;
                     native[0xcdd1] = (byte)countBefore;
@@ -97,7 +100,7 @@ public sealed partial class ValidationRoot
                             _entities.ActiveRoomDefeatBitset != defeatsBefore, context + ": deletion/count or recent-defeat side effect differs.");
                         if (tile.IsDead) return;
                         FailIf(Pending() != ((native[0xd0aa] & 0x80) != 0) || tile.Health != native[0xd0a9] ||
-                            tile.InvincibilityCounter != unchecked((sbyte)native[0xd0ab]) || (int)tile.State + 8 != native[0xd084] ||
+                            tile.InvincibilityCounter != unchecked((sbyte)native[0xd0ab]) || (int)tile.State != native[0xd084] ||
                             tile.Counter != native[0xd086] || tile.ZFixed != unchecked((short)native.Word(0xd08e)) ||
                             tile.Position != new Vector2(native.Word(0xd08c)/256f, native.Word(0xd08a)/256f),
                             context + $": source status differs: pending={Pending()}/${native[0xd0aa]:x2}, HP={tile.Health}/{native[0xd0a9]}, identity=${_entities.EntityAdapters<FlyingTileRoomEntity>().Single().DimitriCollisionType:x}, state={tile.State}/${native[0xd084]:x2}.");

@@ -26,7 +26,7 @@ internal sealed class AdvanceShopTheftScriptHost : RoomCutsceneCommandHost
     public override void SetActorMovementAnimation(string actor,int angle,string encodedAnimation)
     { RequireActor(actor);_keeper.SetScriptAnimation(encodedAnimation); }
     public override void MoveActorAtSpeed(string actor,int speed,int angle)
-    { RequireActor(actor);_keeper.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _precise,speed,angle)); }
+    { RequireActor(actor);_keeper.SetStatePosition(NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState,ref _precise,speed,angle)); }
     public override void ShowText(int textId,string message)
     { if(textId!=0x0e07)throw UnsupportedCommand($"Advance theft TX_{textId:x4}");Context.ShowDialogue(message); }
     public override void SetDisabledObjects(int value)

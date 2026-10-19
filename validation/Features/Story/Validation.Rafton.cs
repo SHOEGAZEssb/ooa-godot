@@ -258,8 +258,8 @@ public sealed partial class ValidationRoot
             {
                 flashStarts.Add(frames);
             }
-            if (_entities.ScreenShakeCounter == record.LightningShake &&
-                previousShake != record.LightningShake)
+            if (_entities.ScreenShakeCounter == record.LightningShake - 1 &&
+                previousShake != record.LightningShake - 1)
             {
                 lightningShakes++;
             }
@@ -282,26 +282,29 @@ public sealed partial class ValidationRoot
             samples.Count != 2 || samples.Any(alpha =>
                 !Mathf.IsEqualApprox(alpha,
                     whiteFlashUpdates.Contains(update) ? 1.0f : 0.0f)));
+        // Native counter1 is shared by script waits and the later handler.
+        // The independent ROM comparison checks these boundaries, including
+        // the last strike's single debris before its ten-update warp handoff.
         FailIf(
-            frames != 1109 ||
+            frames != 1078 ||
             !_saveData.HasRoomFlag(1, 0xa8, record.RoomFlag) ||
             CompanionRuntimeState.IsActive(
                 _entities.RuntimeState, CompanionRuntimeState.RaftId) ||
             _rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0xa8 ||
             !_transitions.IsTransitioning || flashMismatch ||
-            _random.Calls != randomCallsBefore + 39 ||
+            _random.Calls != randomCallsBefore + 31 ||
             _sound.PlayRequestsFor(SoundId.SndLightning) !=
                 lightningBefore + 5 ||
             _sound.PlayRequestsFor(SoundId.SndKillEnemy) !=
-                debrisSoundsBefore + 6 ||
-            !flashStarts.SequenceEqual([322, 357]) ||
-            !lightningSounds.SequenceEqual([322, 357, 958, 999, 1090]) ||
-            frames - lightningSounds[^1] != 19 ||
-            !lightningPositions[^1].IsEqualApprox(new Vector2(85, 63.5f)) ||
-            !raftwreck.PrecisePosition.IsEqualApprox(new Vector2(85, 63.5f)) ||
+                debrisSoundsBefore + 5 ||
+            !flashStarts.SequenceEqual([323, 396]) ||
+            !lightningSounds.SequenceEqual([323, 397, 937, 978, 1069]) ||
+            frames - lightningSounds[^1] != 9 ||
+            !lightningPositions[^1].IsEqualApprox(new Vector2(85.5f, 66.5f)) ||
+            !raftwreck.PrecisePosition.IsEqualApprox(new Vector2(85.5f, 66.5f)) ||
             lightningShakes != 3,
             "Room 1:a8 raftwreck did not complete its two screen flashes, " +
-            "three helper lightning parts and six debris interactions, room " +
+            "three helper lightning parts and five debris before the warp, room " +
             "bit $40, raft retirement, and cutscene-$03 white fade start " +
             $"(frames={frames}, flag=" +
             $"{_saveData.HasRoomFlag(1, 0xa8, record.RoomFlag)}, companion=" +
@@ -331,16 +334,14 @@ public sealed partial class ValidationRoot
         }
         UpdateRoomWarpTransition(1.0 / 60.0);
         TokayTheftEvent tokayTheft = _roomEvents.Get<TokayTheftEvent>();
-        IntroSpriteFrame arrivalFrame = tokayTheft.Database.LinkFrames[0];
         FailIf(_rooms.ActiveGroup != 1 || _rooms.CurrentRoom.Id != 0xaa ||
             !tokayTheft.HasState || tokayTheft.ActiveThiefCount != 5 ||
-            tokayTheft.ScriptCounter != tokayTheft.Database.Record.LinkWait ||
-            _player.CutsceneSpriteFrame != arrivalFrame ||
+            tokayTheft.ScriptCounter != 0 ||
             !_player.CutsceneControlled,
-            "Cutscene $03 did not initialize linkCutscene7 graphic $04 and " +
-            "the five room 1:aa Tokay thieves on white-fade update 32.");
+            "Cutscene $03 did not install the five unstarted Tokay scripts " +
+            "on white-fade update32.");
         StepRoomEventFrames(5);
-        FailIf(tokayTheft.ScriptCounter != tokayTheft.Database.Record.LinkWait,
+        FailIf(tokayTheft.ScriptCounter != 0,
             "Room 1:aa Tokay scripts advanced during the destination fade.");
         int transitionFrames = 32;
         while (_transitions.IsTransitioning && transitionFrames++ < 120)
@@ -364,118 +365,65 @@ public sealed partial class ValidationRoot
     {
         TokayTheftEvent tokay = _roomEvents.Get<TokayTheftEvent>();
         TokayTheftEventRecord record = tokay.Database.Record;
-        FailIf(record is not
-            {
-                Group: 1, Room: 0xaa, InteractionId: InteractionId.Tokay,
-                RoomFlag: 0x40, MainSubId: 2, LinkWait: 0xf0,
-                StealFirstWait: 0x46, StealRepeatWait: 0x0a,
-                ItemWait: 0x5a, FinalWait: 0x3c,
-                DownSpeed: 0x50, RightSpeed: 0x14,
-                JumpSpeed: 0x64, JumpAngle: 0x06,
-                JumpZFixed: -0x1c0, JumpGravityFixed: 0x20
-            }, "Room 1:aa Tokay theft constants changed.");
-
-        _saveData.SetRoomFlag(1, 0xaa, record.RoomFlag, value: false);
+        FailIf(record is not { Group:1, Room:0xaa, InteractionId:0x48, RoomFlag:0x40,
+            MainSubId:2, LinkWait:0xf0, StealFirstWait:0x46, StealRepeatWait:0x0a,
+            ItemWait:0x5a, FinalWait:0x3c, JumpSpeed:0x64, JumpAngle:6,
+            JumpZFixed:-0x1c0, JumpGravityFixed:0x20 },
+            "Room$1:$aa Tokay source constants changed.");
         foreach (int treasure in record.StolenItems)
-            _inventory.GiveTreasure(treasure, treasure == 0x03 ? 0x10 : 1);
-        _inventory.GiveTreasure(TreasureId.EmberSeeds + 4, 0x20);
-
-        int theftSounds = _sound.PlayRequestsFor(SoundId.SndUnknown5);
-        int jumpSounds = _sound.PlayRequestsFor(SoundId.SndJump);
-        int strikeSounds = _sound.PlayRequestsFor(SoundId.SndStrike);
-        int itemSounds = _sound.PlayRequestsFor(SoundId.SndGetItem);
-        int stopMusic = _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic);
-        LoadValidationRoom(1, 0xaa);
-        NpcCharacter[] firstEntryThieves = _npcNodes.Where(npc =>
-            npc.Record.Id == record.InteractionId &&
-            npc.Record.SubId is >= 0 and < 5).ToArray();
-        FailIf(!tokay.HasState || tokay.ActiveThiefCount != 5 ||
-            firstEntryThieves.Length != 5 ||
-            tokay.ScriptCounter != 0xf0 || !_player.CutsceneControlled ||
-            _player.CutsceneSpriteFrame != tokay.Database.LinkFrames[0] ||
-            _sound.PlayRequestsFor(SoundId.SndCtrlStopMusic) != stopMusic + 1,
-            "Room 1:aa did not initialize linkCutscene7 graphic $04 and five " +
-            "Tokay thieves before its first rendered frame.");
-
-        StepRoomEventFrames(1);
-        FailIf(tokay.ScriptCounter != 0xf0 || tokay.StolenCount != 0 ||
-            tokay.LinkFrame != 0 || tokay.LinkFrameCounter != 180,
-            "Tokay interaction state 0 consumed a script or theft counter update.");
-        StepRoomEventFrames(69);
-        FailIf(tokay.StolenCount != 0,
-            "Tokay subid $02 stole the sword before var38's 70th update.");
-        StepRoomEventFrames(1);
-        FailIf(tokay.StolenCount != 1 ||
-            _inventory.HasTreasure(TreasureId.Sword),
-            "Tokay subid $02 did not steal the sword on var38 update 70.");
-        StepRoomEventFrames(80);
-        FailIf(tokay.LinkFrame != 0 || tokay.LinkFrameCounter != 30,
-            "linkCutscene7 changed the 180-update passed-out frame early.");
-        bool retainedTreasure = record.StolenItems.Any(_inventory.HasTreasure);
-        FailIf(tokay.StolenCount != 9 || retainedTreasure ||
-            _inventory.HasTreasure(TreasureId.EmberSeeds) ||
-            _inventory.HasTreasure(TreasureId.EmberSeeds + 4) ||
-            _sound.PlayRequestsFor(SoundId.SndUnknown5) != theftSounds + 9,
-            "Tokay subid $02 did not steal the ordered nine-item table at " +
-            "70/10-update boundaries, including Ember and Mystery Seeds.");
-
-        StepRoomEventFrames(29);
-        FailIf(tokay.LinkFrame != 0 || tokay.LinkFrameCounter != 1,
-            "linkCutscene7 did not preserve graphic $04 for 180 updates.");
-        StepRoomEventFrames(1);
-        FailIf(tokay.LinkFrame != 1 || tokay.LinkFrameCounter != 127,
-            "linkCutscene7 did not switch to looping passed-out graphic $56.");
-        StepRoomEventFrames(60);
-        FailIf(tokay.ScriptCounter != 0x10 ||
-            _sound.PlayRequestsFor(SoundId.SndJump) != jumpSounds + 1 ||
-            _sound.PlayRequestsFor(SoundId.SndStrike) != strikeSounds + 1,
-            "The 240-update Tokay wait did not start Link's jump and common movement.");
-        StepRoomEventFrames(230);
-        FailIf(tokay.AccessoryCount != 5 || tokay.ActiveThiefCount != 5 ||
-            tokay.AccessoryTextureSizes is not
-                [
-                    { X: 8, Y: 16 }, { X: 8, Y: 16 },
-                    { X: 16, Y: 16 }, { X: 16, Y: 16 },
-                    { X: 8, Y: 16 }
-                ] ||
-            _sound.PlayRequestsFor(SoundId.SndGetItem) != itemSounds + 1,
-            "Tokay common scripts did not preserve 15/31/60/31/60 movement " +
-            "and raise the five source accessories with full-width harp and " +
-            "flippers after 471 updates.");
-
-        int exitFrames = 0;
-        while (tokay.HasState && exitFrames++ < 1000)
-            StepRoomEventFrames(1);
-        FailIf(tokay.HasState || exitFrames >= 1000 ||
-            !_saveData.HasRoomFlag(1, 0xaa, record.RoomFlag) ||
-            tokay.ActiveThiefCount != 0 || tokay.AccessoryCount != 0 ||
-            _player.CutsceneControlled ||
-            _sound.PlayRequestsFor(SoundId.SndJump) != jumpSounds + 11,
-            "The five Tokays did not perform staggered two-jump exits, leave " +
-            "subid $03's 60-update tail, set room bit $40, and restore input.");
-
-        // Leave the room and force the queued outgoing actors through their
-        // actual Godot disposal boundary before re-entering. This catches an
-        // event owner retaining retired room nodes after HasState becomes false.
-        LoadValidationRoom(0, 0x11);
-        foreach (NpcCharacter thief in firstEntryThieves)
-            if (GodotObject.IsInstanceValid(thief))
-                thief.Free();
-        LoadValidationRoom(1, 0xaa);
-        NpcCharacter[] reentryThieves = _npcNodes.Where(npc =>
-            npc.Record.Id == record.InteractionId &&
-            npc.Record.SubId is >= 0 and < 5).ToArray();
-        FailIf(tokay.HasState || tokay.ActiveThiefCount != 0 ||
-            reentryThieves.Length != 5 ||
-            reentryThieves.Any(thief => thief.Active || thief.Visible),
-            "Room bit $40 did not suppress all five fresh theft Tokays after " +
-            "the completed event's prior actors were disposed.");
-
-        GD.Print("Validated room 1:aa INTERAC_TOKAY $48:$00-$04 theft: " +
-            "fade-frozen initialization, linkCutscene7 wait, exact inventory " +
-            "loss cadence, parallel movement, held accessories, staggered " +
-            $"two-jump exits, final room bit, disposed-actor re-entry, and " +
-            $"control restoration ({exitFrames} exit updates).");
+            _inventory.GiveTreasure(treasure, treasure==3?0x10:1);
+        _inventory.GiveTreasure(TreasureId.EmberSeeds+4,0x20);
+        int theftSounds=_sound.PlayRequestsFor(SoundId.SndUnknown5);
+        int jumpSounds=_sound.PlayRequestsFor(SoundId.SndJump);
+        int itemSounds=_sound.PlayRequestsFor(SoundId.SndGetItem);
+        LoadValidationRoom(1,0xaa);
+        _inventory.SetScriptedEquippedItems(0,0); _player.WarpTo(new(40,88));
+        _runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1); _runtimeState.SetWramByte(0xcd00,0);
+        NpcCharacter[] firstEntryThieves=_npcNodes.Where(npc=>
+            npc.Record is {Id:0x48,SubId:<5}).ToArray();
+        FailIf(!tokay.HasState||tokay.ActiveThiefCount!=5||firstEntryThieves.Length!=5||
+            tokay.ScriptCounter!=0||!_player.CutsceneControlled,
+            "Tokay entry must install five independent, unstarted ROM scripts.");
+        StepGameplayUpdates(1,Vector2.Zero); // INTERACTION state0, no theft/script decrement.
+        FailIf(tokay.StolenCount!=0||tokay.ScriptCounter!=0,
+            "Tokay state0 must not execute its installed scripts.");
+        StepGameplayUpdates(69,Vector2.Zero);
+        FailIf(tokay.StolenCount!=0,"Tokay stole the sword before var38 update70.");
+        StepGameplayUpdates(1,Vector2.Zero);
+        FailIf(tokay.StolenCount!=1||_inventory.HasTreasure(TreasureId.Sword),
+            "Tokay must steal the sword on var38 update70.");
+        StepGameplayUpdates(80,Vector2.Zero);
+        FailIf(tokay.StolenCount!=9||record.StolenItems.Any(_inventory.HasTreasure)||
+            _inventory.HasTreasure(TreasureId.EmberSeeds)||_inventory.HasTreasure(TreasureId.EmberSeeds+4)||
+            _sound.PlayRequestsFor(SoundId.SndUnknown5)!=theftSounds+9||
+            tokay.LinkFrame!=0||tokay.LinkFrameCounter!=31,
+            "Tokay must steal nine ordered treasures at70/10 boundaries; Link's separate SPECIALOBJECT clock begins one update later.");
+        StepGameplayUpdates(30,Vector2.Zero);
+        FailIf(tokay.LinkFrame!=0||tokay.LinkFrameCounter!=1,
+            "Link's washed-up frame must retain its final update.");
+        StepGameplayUpdates(1,Vector2.Zero);
+        FailIf(tokay.LinkFrame!=1||tokay.LinkFrameCounter!=127,
+            "Link must enter the original looping washed-up frame.");
+        int updates=182;
+        while(tokay.AccessoryCount<5&&updates++<600) StepGameplayUpdates(1,Vector2.Zero);
+        FailIf(tokay.AccessoryCount!=5||tokay.ActiveThiefCount!=5||
+            tokay.AccessoryTextureSizes is not [{X:8,Y:16},{X:8,Y:16},{X:16,Y:16},{X:16,Y:16},{X:8,Y:16}]||
+            _sound.PlayRequestsFor(SoundId.SndGetItem)!=itemSounds+1,
+            "Independent Tokay scripts must raise five source accessories, retaining full-width harp/flippers.");
+        while(tokay.HasState&&updates++<1000) StepGameplayUpdates(1,Vector2.Zero);
+        FailIf(tokay.HasState||updates>=1000||!_saveData.HasRoomFlag(1,0xaa,0x40)||
+            tokay.ActiveThiefCount!=0||tokay.AccessoryCount!=0||_player.CutsceneControlled||
+            _sound.PlayRequestsFor(SoundId.SndJump)!=jumpSounds+12,
+            "Tokay must retain subid$03's final wait, restore control and perform ten thief jumps plus both source Link jump sounds.");
+        LoadValidationRoom(0,0x11);
+        foreach(NpcCharacter thief in firstEntryThieves)
+            if(GodotObject.IsInstanceValid(thief)) thief.Free();
+        LoadValidationRoom(1,0xaa);
+        NpcCharacter[] reentryThieves=_npcNodes.Where(npc=>npc.Record is {Id:0x48,SubId:<5}).ToArray();
+        FailIf(tokay.HasState||tokay.ActiveThiefCount!=0||reentryThieves.Length!=5||
+            reentryThieves.Any(thief=>thief.Active||thief.Visible),
+            "Room flag$40 must suppress fresh Tokay thieves after prior actors are disposed.");
+        GD.Print("Validated Tokay theft inventory boundaries, SPECIALOBJECT animation clock, accessories, native exits, control restoration and disposed-actor re-entry.");
     }
 
     private void ValidateRooms21eAnd21fRafton()

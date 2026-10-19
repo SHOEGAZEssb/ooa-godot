@@ -149,7 +149,7 @@ $stageContracts = @(
         -outputs @('cutsceneCommandSchemas') `
         -functionInputs @('Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-nayru' 'Import-NayruCutsceneData.ps1' `
-        -inputs @('nayruCutsceneSource', 'nayruScriptSource', 'speedSource') `
+        -inputs @('nayruCutsceneSource', 'nayruScriptSource', 'speedSource', 'allTexts') `
         -functionInputs @('ConvertTo-CutsceneCommandRows', 'Get-AssemblySourceLine', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-black-tower' 'Import-BlackTowerData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'interactionGraphics') `
@@ -200,8 +200,8 @@ $stageContracts = @(
         -outputs @('raftObjectSource') `
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-tokay-theft' 'Import-TokayTheftData.ps1' `
-        -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'raftObjectSource') `
-        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+        -inputs @('allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'raftObjectSource') `
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'Read-AssemblyCutsceneCommands', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-tokay-cook' 'Import-TokayCookData.ps1' `
         -inputs @('allTexts', 'allTextPositions') `
         -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Write-CutsceneGeneratedTable')

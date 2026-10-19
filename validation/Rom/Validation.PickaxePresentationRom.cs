@@ -38,6 +38,7 @@ public sealed partial class ValidationRoot
             var data = new Room148PickaxeDatabase().Record;
             const int atParent = 0xd240;
             int updates = 0, strikes = 0;
+            var publication = new InteractionMovementPublication(_entities, _runtimeState);
             StepGameplayUpdates(131, Vector2.Zero, batched: batched, afterUpdate: () =>
             {
                 updates++;
@@ -57,7 +58,9 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<FrontendRom>(native, "_rom").Call(0xc100, 9);
                     native[atParent] = 0; // Parent animation is a declared input, not replayed here.
                 }
+                InteractionMovementPublication.Seed(native);
                 native.AdvanceInteractions(_entities.FrameCounter);
+                publication.Compare(native, "Pickaxe debris $92:$06");
                 var chips = _entities.Entities<Room148PickaxeDebris>().OrderBy(_entities.InteractionSlot).ToArray();
                 int[] source = NativeAdmissionChildren(native, 0x92, 6);
                 string context = $"Pickaxe $57:${subid:x2} above={above}, batch={batched}, update={updates}";

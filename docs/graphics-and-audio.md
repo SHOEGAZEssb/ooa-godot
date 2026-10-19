@@ -11,8 +11,10 @@ composites, OAM frames, and OAM cells. Monochrome fonts are shared by dialogue
 and menus; conversion must preserve the cached source image. Every
 pixel-affecting input belongs in the cache key: source bytes,
 tile base, OAM, palette, overrides, grayscale interpretation, and composition
-mode. Treat cached images as read-only. Clear retained Godot resources during
-root shutdown.
+mode. Treat cached images as read-only. Each application root retains the shared
+cache while it is in the scene tree. Clear retained Godot resources when the
+last root exits; a temporary frontend or validation root must not invalidate
+another live root's images, fonts or cache observer.
 
 A newly generated PNG may not yet have a Godot `.import` sidecar in a clean
 checkout. The shared loader may decode that source once and cache it; feature

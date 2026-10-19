@@ -24,6 +24,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
     private Vector2 _firstPosition;
     private Vector2 _secondPosition;
     private bool _departureMenusEnabled;
+    private bool _secondDepartureEnding;
 
     internal TokayDimitriEvent(
         RoomEventContext context,
@@ -232,23 +233,37 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
 
     private void UpdateDeparture()
     {
-        if (_departingFirst is { } first &&
+        // $48:$0f has an additional handler-local scroll gate; $10 does not.
+        if ((Context.Entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode) & 0x0e) == 0 &&
+            _departingFirst is { } first &&
             AdvanceDeparture(first, ref _firstPosition, ref _firstMoveCounter))
         {
             first.SetActive(false);
             _departingFirst = null;
             _departureMenusEnabled = true; // enablemenu precedes scriptend.
         }
-        if (_departingSecond is not { } second ||
-            !AdvanceDeparture(second, ref _secondPosition, ref _secondMoveCounter))
-            return;
-
-        second.SetActive(false);
-        OracleSaveData save = Context.Rooms.SaveData;
-        byte state = save.ReadWramByte(Interactions.DimitriStateAddress);
-        if (save.WriteWramByte(Interactions.DimitriStateAddress, (byte)(state | 0x02)))
-            save.CommitInventoryChange();
-        FinishInteraction();
+        if (_departingSecond is { } second)
+        {
+            if (_secondDepartureEnding)
+            {
+                second.SetActive(false);
+                _departingSecond = null;
+                _secondDepartureEnding = false;
+            }
+            else if (AdvanceDeparture(second, ref _secondPosition, ref _secondMoveCounter))
+            {
+                OracleSaveData save = Context.Rooms.SaveData;
+                byte state = save.ReadWramByte(Interactions.DimitriStateAddress);
+                if (save.WriteWramByte(Interactions.DimitriStateAddress, (byte)(state | 0x02)))
+                    save.CommitInventoryChange();
+                // ormemory continues into enableallobjects, which yields.
+                // The next admitted script update executes scriptend.
+                EventResources.UnlockInput();
+                _secondDepartureEnding = true;
+            }
+        }
+        if (_departingFirst is null && _departingSecond is null)
+            FinishInteraction();
     }
 
     private bool AdvanceDeparture(NpcCharacter actor, ref Vector2 position, ref int counter)
@@ -256,7 +271,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
         if (counter == 0) return true;
         if (--counter != 0)
         {
-            actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
+            actor.SetStatePosition(NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState,
                 ref position, Interactions.DimitriDepartureSpeed, ObjectAngle.Left));
             // Preserve unsigned 8.8 room coordinates; OAM's left-edge wrap is
             // presentation. At x=$fa the actor is still partly visible at -6.
@@ -276,6 +291,7 @@ internal sealed class TokayDimitriEvent : TokayScriptEvent, IRoomEntryEvent, IUp
         _firstMoveCounter = 0;
         _secondMoveCounter = 0;
         _departureMenusEnabled = false;
+        _secondDepartureEnding = false;
     }
 
     private void BeginWait(int frames, TokayDimitriStage next)

@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 namespace oracleofages;
@@ -8,16 +9,18 @@ internal sealed class SeaFairySparkleRoomEntity : NpcCharacterRoomEntityAdapter,
     IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly string _role;
+    private readonly OracleRuntimeState _runtime;
+    private readonly Func<Vector2, Vector2> _toScreen;
     private int _value;
     private bool _initialized;
     private Vector2 _position;
     public bool Finished { get; private set; }
-    internal SeaFairySparkleRoomEntity(SeaFairySparkleSpawn spawn)
-        : this(spawn, NpcCharacter.CreateFromRecord(spawn.Data.Visual(spawn.Role, spawn.Position))) { }
-    private SeaFairySparkleRoomEntity(SeaFairySparkleSpawn spawn, NpcCharacter actor)
+    internal SeaFairySparkleRoomEntity(SeaFairySparkleSpawn spawn, OracleRuntimeState runtime, Func<Vector2, Vector2> toScreen)
+        : this(spawn, runtime, toScreen, NpcCharacter.CreateFromRecord(spawn.Data.Visual(spawn.Role, spawn.Position))) { }
+    private SeaFairySparkleRoomEntity(SeaFairySparkleSpawn spawn, OracleRuntimeState runtime, Func<Vector2, Vector2> toScreen, NpcCharacter actor)
         : base(actor, actor.SetTransitionDrawOffset)
     {
-        _position = spawn.Position; _role = spawn.Role; _value = spawn.Value;
+        _position = spawn.Position; _role = spawn.Role; _value = spawn.Value; _runtime = runtime; _toScreen = toScreen;
         Entity.SetGraphicsSourceOffset(spawn.Data.SourceOffset(_role));
         // sparkle.s initializes one native animation. Its $84:$04 circle
         // spans 48x48 OAM; the ordinary facing canvas clips its outer cells.
@@ -42,10 +45,10 @@ internal sealed class SeaFairySparkleRoomEntity : NpcCharacterRoomEntityAdapter,
         }
         if (_role == "ray")
         {
-            Entity.Position = OracleObjectMovement.Shared.ApplySpeed(ref _position, 0x78, _value);
+            Entity.Position = NativeObjectMovement.ApplySpeed(_runtime, ref _position, 0x78, _value);
+            Vector2 screen = _toScreen(Entity.Position);
             // bank0.s:objectCheckWithinScreenBoundary uses unsigned high bytes and $07 leeway.
-            if ((((int)System.MathF.Floor(_position.X) + 7) & 255) >= 0xaf ||
-                (((int)System.MathF.Floor(_position.Y) + 7) & 255) >= 0x8f) { Finish(); return; }
+            if (!OracleObjectMath.IsInsideOriginalScreenBoundary(screen)) { Finish(); return; }
         }
         else if (Entity.CurrentAnimationParameter == 0xff) { Finish(); return; }
         Entity.AdvanceAnimationUpdates(1);

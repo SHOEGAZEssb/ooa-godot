@@ -1151,14 +1151,41 @@ function Write-MooshRescueCommands {
         $mooshScriptsSource "(?m)^$([regex]::Escape($script))\s*:" $script
     $rows = [Collections.Generic.List[string]]::new()
     $rows.Add($cutsceneCommandHeader)
-    for ($index = 0; $index -lt $specs.Count; $index++) {
-        $spec = $specs[$index]
+    $expanded = [Collections.Generic.List[object]]::new()
+    foreach ($spec in $specs) {
+        if ($spec[0] -eq 'ghinicircle') {
+            # The native mover runs before interactionRunScript, including
+            # during text. Keep the script's actual wait/jump yield loop.
+            $actor = $spec[1]
+            $start = $expanded.Count
+            $expanded.Add(@('native','','','',"Begin${actor}Circle"))
+            $expanded.Add(@('jumpifmemoryeq','','00',($start + 4).ToString(),"${actor}Speed"))
+            $expanded.Add(@('wait','','1','',''))
+            $expanded.Add(@('scriptjump','',($start + 1).ToString(),'',''))
+        } else {
+            $expanded.Add($spec)
+        }
+    }
+    for ($index = 0; $index -lt $expanded.Count; $index++) {
+        $spec = $expanded[$index]
         $rows.Add((New-CutsceneCommandRow `
             $script $index $script $line `
             $spec[0] $spec[1] $spec[2] $spec[3] $spec[4]))
     }
     Write-CutsceneGeneratedTable(
         (Join-Path $destination "cutscenes\$file"), $rows)
+}
+
+$ghiniCircleLoop = 'asm15 scriptHelp\.ghiniHarassingMoosh_beginCircularMovement\s*' +
+    '@(?<loop>waitUntilStopped2?):\s*jumpifobjectbyteeq Interaction\.speed, \$00, \+\+\s*' +
+    'wait 1\s*scriptjump @\k<loop>\s*\+\+\s*showtext'
+foreach ($subId in @(0, 1, 2)) {
+    $script = 'ghiniHarassingMoosh_subid{0:d2}Script' -f $subId
+    $body = [regex]::Match($mooshScriptsSource, "(?ms)^${script}:.*?(?=^\w+Script:|\z)").Value
+    $expected = if ($subId -eq 1) { 2 } else { 1 }
+    if ([regex]::Matches($body, $ghiniCircleLoop).Count -ne $expected) {
+        throw "scripts.s:${script}: native Ghini speed gate/wait1/scriptjump loop changed."
+    }
 }
 function Moosh-Text([int]$id) {
     $text = $allTexts[$id]
@@ -1174,7 +1201,7 @@ function Moosh-Text([int]$id) {
 Write-MooshRescueCommands 'moosh_rescue_ghini0.tsv' `
     'ghiniHarassingMoosh_subid00Script' @(
         @('setdisabledobjects','','11','',''),
-        @('nativeblock','Ghini0','32','','CircleGhini'),
+        @('ghinicircle','Ghini0','','',''),
         @('showtext','','1204','',(Moosh-Text 0x1204)),
         @('writememory','','01','','SignalOr'),
         @('checkmemoryeq','','01','','SignalBit10'),
@@ -1184,11 +1211,11 @@ Write-MooshRescueCommands 'moosh_rescue_ghini0.tsv' `
 Write-MooshRescueCommands 'moosh_rescue_ghini1.tsv' `
     'ghiniHarassingMoosh_subid01Script' @(
         @('checkmemoryeq','','01','','SignalBit01'),
-        @('nativeblock','Ghini1','32','','CircleGhini'),
+        @('ghinicircle','Ghini1','','',''),
         @('showtext','','1205','',(Moosh-Text 0x1205)),
         @('writememory','','02','','SignalOr'),
         @('checkmemoryeq','','01','','SignalBit08'),
-        @('nativeblock','Ghini1','32','','CircleGhini'),
+        @('ghinicircle','Ghini1','','',''),
         @('showtext','','1207','',(Moosh-Text 0x1207)),
         @('playsound','','c8','',''),
         @('setmusic','','2d','',''),
@@ -1198,7 +1225,7 @@ Write-MooshRescueCommands 'moosh_rescue_ghini1.tsv' `
 Write-MooshRescueCommands 'moosh_rescue_ghini2.tsv' `
     'ghiniHarassingMoosh_subid02Script' @(
         @('checkmemoryeq','','01','','SignalBit04'),
-        @('nativeblock','Ghini2','32','','CircleGhini'),
+        @('ghinicircle','Ghini2','','',''),
         @('showtext','','1206','',(Moosh-Text 0x1206)),
         @('writememory','','08','','SignalOr'),
         @('checkmemoryeq','','01','','SignalBit10'),

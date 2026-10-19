@@ -75,7 +75,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
     }
 
     internal bool UpdateFrame(Vector2 linkPosition, bool itemStarted = false,
-        Func<bool>? canSpawnPart = null)
+        Func<bool>? canSpawnPart = null, Vector2? cachedLinkTarget = null)
     {
         if (IsDead)
             return false;
@@ -87,8 +87,8 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
         if (_state == StalfosState.Uninitialized)
             _random.Next(); // enemyStandardUpdate's var3d initialization precedes the dodge gate.
         if (Record.SubId != 0 && itemStarted && _state < StalfosState.Jumping &&
-            Math.Abs(Mathf.FloorToInt(linkPosition.X) - Mathf.FloorToInt(Position.X)) +
-            Math.Abs(Mathf.FloorToInt(linkPosition.Y) - Mathf.FloorToInt(Position.Y)) < _behavior.DodgeDistance)
+            Math.Abs(OracleObjectPosition.HighByte(linkPosition.X) - OracleObjectPosition.HighByte(Position.X)) +
+            Math.Abs(OracleObjectPosition.HighByte(linkPosition.Y) - OracleObjectPosition.HighByte(Position.Y)) < _behavior.DodgeDistance)
         {
             _state = StalfosState.Jumping;
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
@@ -96,7 +96,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
             _jumpCollision = false;
             // Despite its name, ecom_updateCardinalAngleAwayFromTarget does
             // not round: it XORs the full objectGetAngleTowardEnemyTarget.
-            _angle = OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition) ^ ObjectAngle.HalfTurn;
+            _angle = OracleObjectMovement.Shared.RelativeAngle(Position, cachedLinkTarget ?? linkPosition) ^ ObjectAngle.HalfTurn;
             SetAnimation(1);
             Visible = true;
             _sound(SoundId.SndEnemyJump);
@@ -130,16 +130,15 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
                     _state = StalfosState.Firing;
                     return false;
                 }
-                BeginRandomWalk(linkPosition);
+                BeginRandomWalk(cachedLinkTarget ?? linkPosition);
                 return false;
 
             case StalfosState.Walking:
-                _counter1--;
+                _counter1 = (_counter1 - 1) & 0xff;
                 if (_counter1 == 0)
                     _state = StalfosState.Deciding;
                 BounceOffWallsAndHoles();
-                Position +=
-                    MovementDelta(Record.SpeedRaw, _angle);
+                Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position), Record.SpeedRaw, _angle).PrecisePosition;
                 QueueRedraw();
                 AdvanceAnimation();
                 return false;
@@ -159,7 +158,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
                 return false;
             case StalfosState.Firing:
                 bool spawned = canSpawnPart?.Invoke() ?? true;
-                BeginRandomWalk(linkPosition);
+                BeginRandomWalk(cachedLinkTarget ?? linkPosition);
                 return spawned;
         }
         return false;

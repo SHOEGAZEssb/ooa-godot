@@ -27,8 +27,10 @@ internal sealed class CarpenterScriptHost(CarpenterEvent owner, CarpenterRoomEnt
     internal void UpdateDeparture()
     {
         Npc.AdvanceAnimationUpdates(1);
-        Npc.SetStatePosition(Npc.Position + OracleObjectMovement.Shared.Delta(owner.Database.Constant("departure-speed"), ObjectAngle.Left));
-        if (!OracleObjectMath.IsInsideOriginalScreenBoundary(Npc.Position))
+        Move(owner.Database.Constant("departure-speed"), ObjectAngle.Left);
+        Vector2 screenPosition = OracleObjectMath.NormalizeSourceScreenPosition(
+            Context.Transitions.WorldToGameplayScreen(Npc.Position));
+        if (!OracleObjectMath.IsInsideOriginalScreenBoundary(screenPosition))
         {
             Npc.SetActive(false);
             owner.ReturnWorker(Npc.Record.SubId);
@@ -66,10 +68,12 @@ internal sealed class CarpenterScriptHost(CarpenterEvent owner, CarpenterRoomEnt
         Npc.SetScriptAnimation(encodedAnimation);
     public override void SetActorMovementAnimation(string actor, int angle, string encodedAnimation) =>
         Npc.SetScriptAnimation(encodedAnimation);
-    public override void MoveActorAtSpeed(string actor, int speed, int angle)
+    public override void MoveActorAtSpeed(string actor, int speed, int angle) => Move(speed, angle);
+
+    private void Move(int speed, int angle)
     {
         Vector2 position = Npc.Position;
-        Npc.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref position, speed, angle));
+        Npc.SetStatePosition(NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState, ref position, speed, angle));
     }
     public override void SetInputEnabled(bool enabled) => owner.SetInputEnabled(enabled);
     public override void SetMenuEnabled(bool enabled) => owner.SetMenuEnabled(enabled);

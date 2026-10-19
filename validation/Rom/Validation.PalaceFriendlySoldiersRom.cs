@@ -30,10 +30,13 @@ public sealed partial class ValidationRoot
             rom[slot] = 1; rom[slot+1] = 0x40; rom[slot+2] = 0x0d; rom[slot+3] = (byte)placement.Var03;
             rom[slot+0x0b] = (byte)placement.Y; rom[slot+0x0d] = (byte)placement.X;
             int updates = 0;
+            var publication = new InteractionMovementPublication(_entities, _runtimeState);
             int frames = placement.Var03 is 0 or 1 or 7 ? 220 : 2;
             StepGameplayUpdates(frames, Vector2.Zero, batched: batched, afterUpdate: () =>
             {
-                rom.Update(0, 0, ++updates);
+                InteractionMovementPublication.Seed(rom);
+                rom.AdvanceInteractions(++updates);
+                publication.Compare(rom, $"Palace soldier $40:$0d v${placement.Var03:x2}");
                 FailIf(actor.Active != (rom[slot] != 0) || actor.Position != new Vector2(rom[slot+0x0d], rom[slot+0x0b]),
                     $"Palace friendly soldier v${placement.Var03:x2} differs at update {updates}: " +
                     $"port={actor.Position}, ROM=({rom[slot+0x0d]},{rom[slot+0x0b]}), ptr=${rom.Word(slot+0x18):x4}.");

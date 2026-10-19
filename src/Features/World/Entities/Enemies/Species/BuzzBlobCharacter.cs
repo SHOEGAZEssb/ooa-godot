@@ -95,7 +95,7 @@ internal sealed partial class BuzzBlobCharacter : EnemyCharacter
                     point => point.X < 0 || point.Y < 0 || point.X >= _room.Width ||
                         point.Y >= _room.Height || _room.IsSolid(point) ||
                         _room.GetTerrainInfo(point).Hazard == HazardType.Hole);
-                Position += OracleObjectMovement.Shared.Delta(_behavior.Speed, Angle);
+                Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position), _behavior.Speed, Angle).PrecisePosition;
                 break;
             case 0x0a:
                 if (--Counter == 0)

@@ -34,6 +34,7 @@ internal partial class GhiniCharacter : EnemyCharacter
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.ScreenBoundary);
+        Visible=false;
     }
 
     internal void UpdateFrame()
@@ -44,7 +45,9 @@ internal partial class GhiniCharacter : EnemyCharacter
             return;
         if (_state == GhiniState.Uninitialized)
         {
+            _random.Next(); // enemyStandardUpdate initializes var3d before species dispatch.
             _state = GhiniState.Choosing;
+            Visible=true;
             return;
         }
         if (_state == GhiniState.Choosing)
@@ -53,22 +56,14 @@ internal partial class GhiniCharacter : EnemyCharacter
             _state = GhiniState.Moving;
             return;
         }
-        Position += OracleObjectMovement.Shared.Delta(
-            _behavior.SpeedRaw, _angle);
-        bool horizontal = Position.X < Record.RadiusX ||
-            Position.X >= _room.Width - Record.RadiusX;
-        bool vertical = Position.Y < Record.RadiusY ||
-            Position.Y >= _room.Height - Record.RadiusY;
-        Position = new Vector2(
-            Mathf.Clamp(
-                Position.X, Record.RadiusX, _room.Width - Record.RadiusX - 1),
-            Mathf.Clamp(
-                Position.Y, Record.RadiusY, _room.Height - Record.RadiusY - 1));
-        if (horizontal)
-            _angle = (0x20 - _angle) & ObjectAngle.Mask;
-        if (vertical)
-            _angle = (0x10 - _angle) & ObjectAngle.Mask;
-        if (horizontal || vertical)
+        Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position),
+            _behavior.SpeedRaw, _angle).PrecisePosition;
+        int previousAngle=_angle;
+        // ghini_updateMovement changes only angle through the shared
+        // side-view probes. Collision radii do not clamp its coordinates.
+        _angle=EnemyAdjacentWallResolver.Shared.BounceAngle(Position,_angle,
+            point=>_room.GetTerrainInfo(point).Collision==0xff);
+        if (_angle!=previousAngle)
             SetAnimation(_angle < 0x10 ? 1 : 0);
         _counter--;
         if (_counter == 0)

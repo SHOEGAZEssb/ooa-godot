@@ -256,7 +256,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         int knockbackAngle = player.AdvanceRaftKnockback();
         if (knockbackAngle != 0xff)
         {
-            SpecialObjectMovement.ApplySpeed(ref _precisePosition,
+            SpecialObjectMovement.ApplySpeed(_runtime, ref _precisePosition,
                 _behavior.KnockbackSpeed, knockbackAngle,
                 CalculateRaftWalls());
             ResetDismount();
@@ -274,7 +274,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
 
         int walls = CalculateRaftWalls();
         Vector2 before = _precisePosition;
-        SpecialObjectMovement.ApplySpeed(ref _precisePosition, _behavior.Speed, angle, walls);
+        SpecialObjectMovement.ApplySpeed(_runtime, ref _precisePosition, _behavior.Speed, angle, walls);
         if (_precisePosition != before)
         {
             ResetDismount();
@@ -382,7 +382,11 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
     {
         _cutsceneControlled = false;
         CompanionRuntimeState.Clear(_runtime, CompanionRuntimeState.RaftId);
-        player.EndRaftRide(_precisePosition, _direction);
+        // $9b substate8 redirects objectCopyPosition to Link after retiring
+        // the raft. It copies highs, retaining Link's own coordinate lows.
+        Vector2 linkPosition = _precisePosition.Floor() +
+            player.PrecisePosition - player.PrecisePosition.Floor();
+        player.EndRaftRide(linkPosition, _direction);
         _phase = RaftPhase.Wrecked;
         _supportsLink = false;
     }

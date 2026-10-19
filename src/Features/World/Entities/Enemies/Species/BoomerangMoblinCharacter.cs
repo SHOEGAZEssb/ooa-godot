@@ -55,6 +55,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
             // State 0 initializes SPEED_80 and chooses the first route on the
             // enemy's first object update, not while the room is parsed.
             _initialized = true;
+            _random.Next(); // enemyStandardUpdate's state-zero var3d draw precedes route selection.
             ChooseDirection();
             return -1;
         }

@@ -5,19 +5,40 @@ $temporary = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-launcher-' + 
 [void][IO.Directory]::CreateDirectory($temporary)
 $fixture = Join-Path $temporary 'fixture.exe'
 $timingProfile = Join-Path $temporary 'timing profile [fixture].tsv'
+$childPidFile = Join-Path $temporary 'child.pid'
 # Explicit fixture input keeps this launcher test independent of ROM builds.
 $fixtureParameters = @{ Godot = $fixture; Rom = (Join-Path $temporary 'reference ROM [US].gbc') }
 try {
     Add-Type -OutputAssembly $fixture -OutputType ConsoleApplication -TypeDefinition @'
 using System;
 using System.IO;
+using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 public static class ValidationLauncherFixture {
     [DllImport("kernel32.dll")] public static extern uint GetErrorMode();
+    [DllImport("kernel32.dll")] static extern bool IsProcessInJob(IntPtr process, IntPtr job, out bool result);
+    [DllImport("kernel32.dll")] static extern bool QueryInformationJobObject(IntPtr job, int kind, byte[] data, int size, IntPtr returned);
+    [DllImport("kernel32.dll")] static extern IntPtr VirtualAlloc(IntPtr address, UIntPtr size, uint type, uint protect);
+    [DllImport("kernel32.dll")] static extern bool VirtualFree(IntPtr address, UIntPtr size, uint type);
+    static IntPtr Allocate160MB() { return VirtualAlloc(IntPtr.Zero, new UIntPtr(160u * 1024 * 1024), 0x3000, 4); }
     public static int Main(string[] args) {
         // Check inheritance before deliberately crashing; a broken launcher
         // must fail this test without displaying a real crash dialog.
         if ((GetErrorMode() & 3) != 3) return 91;
+        bool inJob;
+        if (!IsProcessInJob(Process.GetCurrentProcess().Handle, IntPtr.Zero, out inJob) || !inJob) return 97;
+        if (Array.IndexOf(args, "--wait-child") >= 0) {
+            File.WriteAllText(Environment.GetEnvironmentVariable("OOA_TEST_VALIDATION_CHILD_PID"), Process.GetCurrentProcess().Id.ToString());
+            Thread.Sleep(Timeout.Infinite);
+        }
+        if (Array.IndexOf(args, "--memory-child") >= 0) {
+            IntPtr allocation = Allocate160MB();
+            if (allocation == IntPtr.Zero) return 0;
+            VirtualFree(allocation, UIntPtr.Zero, 0x8000);
+            return 98;
+        }
         int log = Array.IndexOf(args, "--log-file");
         if (log < 0 || log + 1 == args.Length) return 92;
         using (File.Open(args[log + 1], FileMode.CreateNew)) { }
@@ -26,6 +47,7 @@ public static class ValidationLauncherFixture {
         string rom = null;
         bool skipRom = false;
         bool continueOnFailure = false;
+        bool profileMemory = false;
         string timingProfile = null;
         foreach (string arg in args) {
             if (arg.StartsWith("--validate-shard=")) shard = arg.Substring(17);
@@ -33,6 +55,7 @@ public static class ValidationLauncherFixture {
             if (arg.StartsWith("--validation-rom=")) rom = arg.Substring(17);
             if (arg == "--skip-rom-validation") skipRom = true;
             if (arg == "--validate-continue-on-failure") continueOnFailure = true;
+            if (arg == "--validate-memory-profile") profileMemory = true;
             const string timingPrefix = "--validate-timing-profile=";
             if (arg.StartsWith(timingPrefix)) timingProfile = arg.Substring(timingPrefix.Length);
         }
@@ -48,6 +71,42 @@ public static class ValidationLauncherFixture {
             Environment.FailFast("fixture deliberate crash");
         }
         if (selected == "ValidateMissingMarker") return 0;
+        if (selected == "ValidateMemoryProfileArgument" && !profileMemory) return 104;
+        if (selected == "ValidateResourceLimits" || selected == "ValidateCustomResourceLimits") {
+            bool custom = selected == "ValidateCustomResourceLimits";
+            // JOB_OBJECT_EXTENDED_LIMIT_INFORMATION, native SIZE_T layout.
+            byte[] limits = new byte[IntPtr.Size == 8 ? 144 : 112];
+            byte[] cpu = new byte[8];
+            if (!QueryInformationJobObject(IntPtr.Zero, 9, limits, limits.Length, IntPtr.Zero) ||
+                !QueryInformationJobObject(IntPtr.Zero, 15, cpu, cpu.Length, IntPtr.Zero)) return 99;
+            ulong memory = IntPtr.Size == 8 ? BitConverter.ToUInt64(limits, 120) : BitConverter.ToUInt32(limits, 100);
+            if (memory != (custom ? 256UL : 8192UL) * 1024 * 1024 ||
+                BitConverter.ToUInt32(cpu, 0) != 5 || BitConverter.ToUInt32(cpu, 4) != (custom ? 2500u : 5000u) ||
+                Process.GetCurrentProcess().PriorityClass != ProcessPriorityClass.BelowNormal) return 100;
+        }
+        if (selected == "ValidateAggregateMemoryLimit") {
+            IntPtr allocation = Allocate160MB();
+            if (allocation == IntPtr.Zero) return 101;
+            try {
+                var info = new ProcessStartInfo(Assembly.GetExecutingAssembly().Location, "--memory-child");
+                info.UseShellExecute = false;
+                info.CreateNoWindow = true;
+                using (var child = Process.Start(info)) {
+                    if (!child.WaitForExit(5000) || child.ExitCode != 0) return 102;
+                }
+            } finally { VirtualFree(allocation, UIntPtr.Zero, 0x8000); }
+        }
+        if (selected == "ValidateTimeoutChild" || selected == "ValidateAbandonedChild") {
+            var info = new ProcessStartInfo(Assembly.GetExecutingAssembly().Location, "--wait-child");
+            info.UseShellExecute = false;
+            info.CreateNoWindow = true;
+            using (var child = Process.Start(info)) {
+                string pid = Environment.GetEnvironmentVariable("OOA_TEST_VALIDATION_CHILD_PID");
+                for (int i = 0; i < 100 && !File.Exists(pid); i++) Thread.Sleep(10);
+                if (!File.Exists(pid)) return 103;
+                if (selected == "ValidateTimeoutChild") Thread.Sleep(Timeout.Infinite);
+            }
+        }
         if (selected == "ValidateStdoutWarning") Console.WriteLine("  WARNING: fixture stdout warning");
         if (selected == "ValidateStderrError") Console.Error.WriteLine("ERROR: fixture stderr error");
         if (selected == "ValidateEngineLogWarning") File.WriteAllText(args[log + 1], "WARNING: fixture engine-log warning\n");
@@ -77,6 +136,31 @@ public static class ValidationLauncherFixture {
 '@
     # Load the launcher's interop type and exercise a successful focused run.
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateResourceLimits -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateMemoryProfileArgument -ProfileMemory -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateCustomResourceLimits -MemoryLimitMB 256 -CpuLimitPercent 25 -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateAggregateMemoryLimit -MemoryLimitMB 256 -TimeoutSeconds 15
+    $previousPidPath = [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID')
+    try {
+        [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID', $childPidFile)
+        foreach ($scenario in @('ValidateTimeoutChild', 'ValidateAbandonedChild')) {
+            if ([IO.File]::Exists($childPidFile)) { [IO.File]::Delete($childPidFile) }
+            $failure = $null
+            try { & $launcher @fixtureParameters -ValidateOnly $scenario -TimeoutSeconds 2 }
+            catch { $failure = $_.ToString() }
+            if (($scenario -eq 'ValidateTimeoutChild' -and ($null -eq $failure -or -not $failure.Contains('exceeded 2 seconds'))) -or
+                ($scenario -eq 'ValidateAbandonedChild' -and $null -ne $failure)) {
+                throw "Unexpected descendant cleanup result for ${scenario}: $failure"
+            }
+            if (-not [IO.File]::Exists($childPidFile)) { throw "$scenario did not start its child." }
+            $child = Get-Process -Id ([int][IO.File]::ReadAllText($childPidFile)) -ErrorAction SilentlyContinue
+            if ($null -ne $child) {
+                try { if (-not $child.WaitForExit(5000)) { throw "$scenario left its child running." } }
+                finally { $child.Dispose() }
+            }
+        }
+    }
+    finally { [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID', $previousPidPath) }
     & $launcher -Godot $fixture -ValidateOnly ValidateRomArgument `
         -Rom (Join-Path $temporary 'reference ROM [US].gbc') -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateSkipRomArgument `
@@ -133,11 +217,12 @@ public static class ValidationLauncherFixture {
         }
     }
     finally { [void][OracleValidation.ErrorMode]::SetErrorMode($original) }
-    Write-Host 'Validation launcher tests passed (8 workers, focused selection, ROM path forwarding, timing snapshot forwarding, explicit skips, continued failure counts, incomplete/unexpected skip rejection, stdout/stderr/engine-log diagnostic rejection, unique logs, crash exit, missing marker, inherited/restored error mode).'
+    Write-Host 'Validation launcher tests passed (aggregate memory rejection, CPU/memory limits, priority, child cleanup on timeout and normal exit, 8 workers, focused selection, ROM path forwarding, timing snapshot forwarding, explicit skips, continued failure counts, incomplete/unexpected skip rejection, stdout/stderr/engine-log diagnostic rejection, unique logs, crash exit, missing marker, inherited/restored error mode).'
 }
 finally {
     # Only this test's generated executable lives here; no recursive deletion.
     if ([IO.File]::Exists($fixture)) { [IO.File]::Delete($fixture) }
     if ([IO.File]::Exists($timingProfile)) { [IO.File]::Delete($timingProfile) }
+    if ([IO.File]::Exists($childPidFile)) { [IO.File]::Delete($childPidFile) }
     [IO.Directory]::Delete($temporary, $false)
 }

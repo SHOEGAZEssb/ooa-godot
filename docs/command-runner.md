@@ -48,9 +48,10 @@ Preserve the script's execution location when normalizing jumps. In Ages,
 `scriptCmd_jump` yields after relocating a target within the copied
 `wBigBuffer` script, while its ordinary ROM jump continues dispatch. These
 use distinct typed branch commands even when their destination is identical.
-Memory-address jump tables call `scriptFunc_jump` directly and yield after
-selecting their target; conditional text-option branches call its carry-setting
-wrapper and continue. Keep these dispatch boundaries explicit in imported commands.
+Object-byte and memory-address jump tables call `scriptFunc_jump` directly.
+Selecting a target within the copied buffer yields; the ROM path continues.
+Conditional text-option branches call its carry-setting wrapper and continue.
+Keep these dispatch boundaries explicit in imported commands.
 
 ## Fixed-update semantics
 
@@ -78,6 +79,11 @@ boundaries. Preserve separately:
 The runner advances at original 60 Hz updates. Tweening and rendered delta are
 never authoritative for command movement or timing.
 
+Setting an actor's text ID only replaces its retained ID and text; it continues
+dispatch without opening a textbox. `showloadedtext` later presents that retained
+text and yields. Preserve this distinction when initialization and a queued
+A-button selection meet in the same eligible update.
+
 The zero-enemy check yields on its successful update. A following checked
 treasure allocation also yields on success or failure; the watcher retains its
 slot until the later script-end dispatch. Preserve these separate boundaries
@@ -89,11 +95,24 @@ the actor's native tail: always-update objects may still animate or move during
 dialogue or harp. Object eligibility and native ordering remain with the owning
 gameplay scheduler and source-specific controller.
 
+Native script gates accept the high bit of `wTextIsActive`: a retained ready
+textbox (`$80`) or owner-requested closing (`$ff`) allows script commands even
+while the panel remains open. Apply this gate in both the host and runner;
+a second generic "dialogue is open" check must not override it. Object-category
+eligibility remains separate, so this does not unfreeze initialized ordinary
+NPCs that the native object dispatcher still skips.
+
 When a native script operation writes counter1, the host can preload the
 runner's native counter. It decrements only on eligible script updates and
 resumes dispatch on its zero update. Script-created treasures use the ground
 treasure owner for initialization, pickup, inventory and dialogue; the issuing
 script waits on its source counter rather than granting the item immediately.
+
+Native handlers that also decrement or replace counter1 use the runner's shared
+counter1 view. It aliases a started source wait and otherwise gates script
+dispatch independently of movement counter2. Preserve both the script's earlier
+decrement and the native tail's later decrement, including byte wrap from zero.
+Do not substitute a sound request or a second timer for that shared counter.
 
 ## Hosts and actor bindings
 
@@ -111,6 +130,18 @@ immediate talk boundary. A script's movement-counter view reports counter2 only
 for started motion, independently of ordinary counter1 waits. Native tails use
 that view after script execution instead of mirroring movement activity or
 inspecting command positions.
+
+Selecting an A-sensitive object and consuming its pressed-A byte are separate
+source operations. Selection extends Link's existing invincibility to at least
+four updates. A successful `checkabutton` later writes invincibility `$80` and
+clears knockback through the Player owner; a blocked command does neither.
+Apply those writes at consumption, including when a press waited through a
+script counter, rather than repeating the selection grace.
+
+Cardinal move commands write the actor's native angle and select its animation.
+Facing helpers read that same angle; a separate facing cache can select the
+wrong animation after movement completes. Animation-only native helpers must
+retain the angle when the source does not write it.
 
 Validate all required actors before execution. The host owns actor-specific
 position, animation, visibility, collision, deletion, dialogue, inventory,

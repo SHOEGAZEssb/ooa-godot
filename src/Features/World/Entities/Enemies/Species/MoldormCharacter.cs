@@ -150,7 +150,7 @@ internal partial class MoldormCharacter : EnemyCharacter
             UpdateHeadAnimation();
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
+        Position = ApplyMovementSpeed(
             ref _preciseHeadPosition,
             _behavior.SpeedRaw,
             _angle);

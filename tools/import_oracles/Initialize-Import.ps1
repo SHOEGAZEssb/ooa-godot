@@ -407,8 +407,12 @@ function Read-AssemblyAnimationDefinitions(
             $usesLoop = $null -ne $loop -and $loop.Offset -lt $nextLabelOffset
             $end = if ($usesLoop) { $loop.Offset } else { $nextLabelOffset }
         } else {
+            # Parameter $ff is a caller signal, not an animation jump. A
+            # following loop in this same animation still controls playback
+            # when the caller keeps animating (sparkle $84:$0a does).
             $usesLoop = $null -ne $loop -and
-                ($null -eq $terminal -or $loop.Offset -lt $terminal.Offset)
+                ($loop.Offset -lt $nextLabelOffset -or
+                 $null -eq $terminal -or $loop.Offset -lt $terminal.Offset)
             $end = if ($usesLoop) {
                 $loop.Offset
             } elseif ($null -ne $terminal) {

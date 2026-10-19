@@ -57,7 +57,7 @@ function ConvertTo-CutsceneCommandRows {
             $arg0 = $binding.Arg0; $arg1 = $binding.Arg1; $payload = $binding.Payload
         } else {
             switch ($opcode) {
-                { $_ -in @('disableinput','enableinput','scriptend') } { & $arity 0 }
+                { $_ -in @('disableinput','enableinput','scriptend','showloadedtext') } { & $arity 0 }
                 { $_ -in @('initcollisions','makeabuttonsensitive','checkabutton') } {
                     & $arity 0; $commandActor = $actor
                 }
@@ -72,13 +72,17 @@ function ConvertTo-CutsceneCommandRows {
                     if (-not $animations.ContainsKey($value)) { throw "$where unbound animation $value." }
                     $arg0 = $value.ToString('x2'); $payload = $animations[$value]
                 }
-                { $_ -in @('showtext','showtextlowindex') } {
+                { $_ -in @('showtext','showtextlowindex','settextid') } {
                     & $arity 1
                     if ($operands[0] -notmatch '^<?TX_([0-9a-fA-F]{4})$') { throw "$where malformed text operand." }
                     $id = [Convert]::ToInt32($Matches[1],16)
                     if (-not $texts.ContainsKey($id)) { throw "$where unbound text TX_$($id.ToString('x4'))." }
-                    $opcode = 'showtext'; $arg0 = $id.ToString('x4'); $payload = $texts[$id]
-                    if ($positions.ContainsKey($id)) { $arg1 = $positions[$id].ToString() }
+                    $arg0 = $id.ToString('x4'); $payload = $texts[$id]
+                    if ($opcode -eq 'settextid') { $commandActor = $actor }
+                    else {
+                        $opcode = 'showtext'
+                        if ($positions.ContainsKey($id)) { $arg1 = $positions[$id].ToString() }
+                    }
                 }
                 'wait' { & $arity 1; $arg0 = (& $number $operands[0]).ToString() }
                 { $_ -in @('setspeed','setangle','applyspeed') } {
@@ -101,6 +105,8 @@ function ConvertTo-CutsceneCommandRows {
                     # Conditional branches use scriptFunc_jump_scf instead.
                     if ($yieldOnJump -and -not $externalTargets.ContainsKey($operands[0])) { $opcode = 'scriptjumpyield' }
                 }
+                'callscript' { & $arity 1; $arg0 = & $target $operands[0] }
+                'retscript' { & $arity 0; $opcode = 'return' }
                 { $_ -in @('moveup','moveright','movedown','moveleft') } {
                     & $arity 1; $commandActor = $actor
                     $direction = @('moveup','moveright','movedown','moveleft').IndexOf($opcode)

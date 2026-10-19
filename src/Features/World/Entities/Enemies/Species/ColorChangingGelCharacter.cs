@@ -161,10 +161,8 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter, ITerrainShado
                             Position, _target);
                     // ecom_moveTowardPosition calls objectApplySpeed after
                     // state 8 already rejected a solid target tile.
-                    Position += OracleObjectMovement.Shared.Delta(
-                        _behavior.SpeedRaw,
-                        angleToTarget);
-                    Position = new Vector2((Position.X + 256) % 256, (Position.Y + 256) % 256);
+                    Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position),
+                        _behavior.SpeedRaw, angleToTarget).PrecisePosition;
                     QueueRedraw();
                     return;
                 }

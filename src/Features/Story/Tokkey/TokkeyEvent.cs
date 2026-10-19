@@ -65,7 +65,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
         if (_actor is null) return;
         // ITEM_HARP freezes ordinary interactions and clears Link's collision
         // bit until its final animation update. Only $9f/$a0 keep updating.
-        if (Context.Player.IsUsingHarp)
+        if (!Context.Entities.InitializedInteractionUpdatesAllowed || Context.Player.IsUsingHarp)
         {
             UpdateDuringDialogueFrame();
             return;
@@ -191,7 +191,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
     public override void SetActorAnimation(string actor, int animation, string encodedAnimation) => _actor!.SetScriptAnimation(encodedAnimation);
     public override void SetActorMovementAnimation(string actor, int angle, string encodedAnimation) => _actor!.SetScriptAnimation(encodedAnimation);
     public override void MoveActorAtSpeed(string actor, int speed, int angle) =>
-        _actor!.Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, speed, angle);
+        _actor!.Position = NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState, ref _precisePosition, speed, angle);
     public override void SetMusic(int music)
     {
         if (music == 0xff) Context.Sound.PlayRoomMusic(Database.Group, Database.Room);

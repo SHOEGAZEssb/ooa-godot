@@ -10,6 +10,7 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
 {
     private readonly OracleRoomData _room;
     private readonly OracleRandom _random;
+    private readonly OracleRuntimeState _runtime;
     private readonly BubbleDefinition _definition;
     private Vector2 _precisePosition;
     private bool _initialized;
@@ -25,11 +26,12 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
     internal int TurnsRemaining => _turns;
     internal Vector2 PrecisePosition => _precisePosition;
 
-    internal SideScrollBubbleRoomEntity(Vector2 position, OracleRoomData room, OracleRandom random)
+    internal SideScrollBubbleRoomEntity(Vector2 position, OracleRoomData room, OracleRandom random, OracleRuntimeState runtime)
     {
         Name = "SideScrollBubble";
         _room = room;
         _random = random;
+        _runtime = runtime;
         _definition = _sharedDefinition ??= LoadDefinition();
         // objectCopyPosition copies yh/xh only; new fractional bytes are zero.
         _precisePosition = OracleObjectMath.ToPixelPosition(position);
@@ -61,8 +63,8 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
             return;
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _definition.Speed, Angle);
+        Position = NativeObjectMovement.ApplySpeed(
+            _runtime, ref _precisePosition, _definition.Speed, Angle);
         if ((Mathf.FloorToInt(Position.Y) & 0xff) >= 0xf0)
         {
             Finished = true;

@@ -17,6 +17,7 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSo
     private readonly CuccoAttackerBehaviorProfile _behavior =
         EnemyBehaviorTables.Shared.CuccoAttacker;
     private OracleRandom _random = null!;
+    private Func<Vector2, Vector2> _worldToScreen = null!;
     private CuccoAttackerState _state;
     private int _hitCount;
     private int _counter;
@@ -35,7 +36,8 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSo
     internal void Initialize(
         ImportedEnemyDefinition cuccoRecord,
         OracleRandom random,
-        int hitCount)
+        int hitCount,
+        Func<Vector2, Vector2> worldToScreen)
     {
         if (cuccoRecord.Id != EnemyId.Cucco || cuccoRecord.Animations.Length != 2)
         {
@@ -46,6 +48,7 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSo
             throw new ArgumentOutOfRangeException(nameof(hitCount));
 
         _random = random;
+        _worldToScreen = worldToScreen;
         _hitCount = hitCount;
         _state = CuccoAttackerState.Uninitialized;
         _counter = 0;
@@ -139,19 +142,13 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSo
 
     private void ApplySpeedAndAnimate()
     {
-        OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _speed, _angle);
-        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+        Position = ApplyMovementSpeed(ref _precisePosition, _speed, _angle);
         AdvanceAnimation();
         QueueRedraw();
     }
 
     private bool WithinScreenBoundary()
-    {
-        int x = Mathf.FloorToInt(_precisePosition.X);
-        int y = Mathf.FloorToInt(_precisePosition.Y);
-        return x >= 0 && x < 0xa0 && y >= 0 && y < 0x80;
-    }
+        => OracleObjectMath.IsInsideOriginalScreenBoundary(_worldToScreen(Position));
 }
 
 internal enum CuccoAttackerState

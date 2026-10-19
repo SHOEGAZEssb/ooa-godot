@@ -23,9 +23,12 @@ public sealed partial class ValidationRoot
             rom[trigger] = 1; rom[trigger + 1] = 0x6b; rom[trigger + 2] = 2;
             rom[trigger + 11] = 0x38; rom[trigger + 13] = 0x50;
             int update = 0, texts = 0, textHold = 0, generation = 0;
+            var publication = new InteractionMovementPublication(_entities, _runtimeState);
             void Compare(int held, int angle)
             {
-                rom.UpdateGameplay(0, held, angle, ++update);
+                rom.UpdateGameplay(0, held, angle, ++update,
+                    beforeParts: () => InteractionMovementPublication.Seed(rom),
+                    afterInteractions: () => publication.Compare(rom, "Palace approach $37:$01"));
                 // Ralph queues state08 again on every eligible interaction
                 // visit. Link consumes it before state01's text/$81 gate;
                 // another request must not turn active state08 back into a
@@ -76,6 +79,7 @@ public sealed partial class ValidationRoot
                 _player.LinkAnimationCounter != rom[0xd020],
                 $"Ralph $37:$01 must restore ordinary walking animation after completion, batch={batch}.");
             ValidatePalacePostRalphSword(rom, batch, "Ralph $37:$01");
+            FailIf(publication.Publications < 30, "Palace approach movement publication was not exercised.");
             LoadValidationRoom(1, 0x46);
             StepGameplayUpdates(2, Vector2.Zero, batched: batch);
             FailIf(_entities.EntityAdapters<PalaceApproachRoomEntity>().Any(), "Completed palace approach repeats on re-entry.");

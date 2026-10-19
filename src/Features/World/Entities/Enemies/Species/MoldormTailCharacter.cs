@@ -94,7 +94,8 @@ internal partial class MoldormTailCharacter : EnemyCharacter
         byte delayed = _offsets[_index];
         Position = new Vector2(
             (OracleObjectPosition.HighByte(Position.X) + (delayed & 15) - 8) & 255,
-            (OracleObjectPosition.HighByte(Position.Y) + (delayed >> 4) - 8) & 255);
+            (OracleObjectPosition.HighByte(Position.Y) + (delayed >> 4) - 8) & 255)
+            + Position - Position.Floor(); // Native buffer playback writes only high Y/X.
         QueueRedraw();
     }
 

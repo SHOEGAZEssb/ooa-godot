@@ -30,11 +30,29 @@ foreach ($padding in 0, 3) {
         Assert-Normalization ($external[4] -eq 'scriptjump' -and [int]$external[6] -eq ($padding+4)) 'External ROM jump was treated as buffer-local.'
     }
 }
+$text = "Source text`nwith preserved formatting."
+$callRows = @(ConvertTo-CutsceneCommandRows @(
+    (Command 0 'driver' 'callscript' 'mainScripts.fixture'),
+    (Command 1 'driver' 'scriptjump' 'driver'),
+    (Command 2 'mainScripts.fixture' 'retscript' '')) 'Actor' -yieldOnJump $true `
+    -externalTargets @{ 'mainScripts.fixture'=2 })
+Assert-Normalization ($callRows[1].Split([char]9)[4] -eq 'callscript' -and
+    $callRows[1].Split([char]9)[6] -eq '2' -and $callRows[3].Split([char]9)[4] -eq 'return') `
+    'Copied-driver callscript/retscript lost their target or source return operation.'
+$textRows = @(ConvertTo-CutsceneCommandRows @(
+    (Command 0 'root' 'settextid' 'TX_1441'),
+    (Command 1 'root' 'showloadedtext' '')) 'Blocker' -texts @{ 0x1441=$text })
+$setText = $textRows[1].Split([char]9)
+$showText = $textRows[2].Split([char]9)
+Assert-Normalization ($setText[4] -eq 'settextid' -and $setText[5] -eq 'Blocker' -and $setText[6] -eq '1441' -and
+    [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($setText[8])) -eq $text) 'settextid lost its actor, full text ID or formatting.'
+Assert-Normalization ($showText[4] -eq 'showloadedtext' -and $showText[5] -eq '') 'showloadedtext changed its source operand shape.'
 foreach ($case in @(
     @{ Op='moveright'; Args='$1d, $02'; Error='expects 1 operands' },
     @{ Op='moveright'; Args='UNKNOWN'; Error='unresolved scalar' },
     @{ Op='moveup'; Args='$01'; Error='unbound movement animation' },
     @{ Op='scriptjump'; Args='missingStub'; Error='unresolved branch' },
+    @{ Op='settextid'; Args='TX_1441'; Error='unbound text' },
     @{ Op='unknown'; Args=''; Error='unsupported command' }
 )) {
     $caught=$false

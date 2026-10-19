@@ -24,21 +24,29 @@ internal static class NativeObjectMovement
     {
         OracleObjectVelocity velocity = speed == 0 || (angle & 0x80) != 0
             ? new(speed, 0, angle, 0, 0)
-            : OracleObjectMovement.Shared.Velocity(speed, angle);
+            : angle >= 32 || speed % 5 != 0
+                ? OracleObjectMovement.Shared.RawVelocity(speed, angle)
+                : OracleObjectMovement.Shared.Velocity(speed, angle);
         Write(memory, velocity.YFixed, velocity.XFixed);
         return velocity;
     }
 
     internal static Vector2I CircleArcOffset(OracleRuntimeState? memory, int distance, int angle)
     {
-        if (distance is < 0 or > 255) throw new ArgumentOutOfRangeException(nameof(distance));
-        var velocity = Velocity(memory, 0x28, angle);
+        var velocity = ScaledVelocity(memory, 0x28, angle, distance);
+        return new(unchecked((sbyte)(velocity.XFixed >> 8)), unchecked((sbyte)(velocity.YFixed >> 8)));
+    }
+
+    internal static OracleObjectVelocity ScaledVelocity(OracleRuntimeState? memory, int speed, int angle, int scale)
+    {
+        if (scale is < 0 or > 255) throw new ArgumentOutOfRangeException(nameof(scale));
+        var velocity = Velocity(memory, speed, angle);
         // getScaledPositionOffsetForVelocity multiplies each word modulo
         // $10000; objectSetPositionInCircleArc adds only the high bytes.
-        short y = unchecked((short)(velocity.YFixed * distance));
-        short x = unchecked((short)(velocity.XFixed * distance));
+        short y = unchecked((short)(velocity.YFixed * scale));
+        short x = unchecked((short)(velocity.XFixed * scale));
         Write(memory, y, x);
-        return new(unchecked((sbyte)(x >> 8)), unchecked((sbyte)(y >> 8)));
+        return velocity with { YFixed = y, XFixed = x };
     }
 
     private static void Write(OracleRuntimeState? memory, int y, int x)

@@ -721,8 +721,8 @@ public sealed partial class ValidationRoot
             .Entities<TokaySeedlingDecorationRoomEntity>()
             .Single();
         FailIf(
-            seedlingPlot.Stage != TokaySeedlingPlotStage.DoneTextWait ||
-            seedlingPlot.Counter != seedlingRecord.DoneWait ||
+            seedlingPlot.Stage != TokaySeedlingPlotStage.PlantSound ||
+            seedlingPlot.Counter != 0 ||
             seedlingTokay.Position != expectedMovedPosition ||
             seedlingTokay.FacingVector != Vector2I.Right ||
             _inventory.HasTreasure(database.TreasureScentSeedling) ||
@@ -739,10 +739,17 @@ public sealed partial class ValidationRoot
             plantedSeedling.Record.DecorationId != 0x80 ||
             plantedSeedling.Record.DecorationSubId != 0x04 ||
             plantedSeedling.OpaquePixels == 0 ||
-            _sound.PlayRequestsFor(database.SoundGetSeed) != 1,
+            _sound.PlayRequestsFor(database.SoundGetSeed) != 0,
             "Room 1:ac did not flip back, plant both-era bit `$80, create " +
-            "visible INTERAC_DECORATION `$80:$04 at `$38,$48, and play " +
-            "SND_GETSEED on the post-applyspeed update.");
+            "visible INTERAC_DECORATION `$80:$04 at `$38,$48, and " +
+            "retain the spawninteraction yield before SND_GETSEED.");
+        StepRoomEventFrames(1);
+        FailIf(seedlingPlot.Stage != TokaySeedlingPlotStage.PlantWait ||
+            _sound.PlayRequestsFor(database.SoundGetSeed) != 1 || seedlingPlot.Counter != 0,
+            "Seedling playsound must execute after creation and yield before wait120.");
+        StepRoomEventFrames(1);
+        FailIf(seedlingPlot.Stage != TokaySeedlingPlotStage.DoneTextWait || seedlingPlot.Counter != seedlingRecord.DoneWait,
+            "Seedling wait120 must install on its own source script update.");
         StepRoomEventFrames(seedlingRecord.DoneWait - 1);
         FailIf(
             seedlingPlot.Counter != 1 || _dialogue.IsOpen,

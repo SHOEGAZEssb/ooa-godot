@@ -373,11 +373,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         }
 
         if (_coverMotion.AdvanceHorizontal(
-                _throwing,
-                front =>
-                    front.X < 0 || front.X >= _room.Width ||
-                    front.Y < 0 || front.Y >= _room.Height ||
-                    _room.IsSolid(front)))
+                _throwing, _room, ApplyMovementSpeed, breakOnCollision: true))
         {
             BreakThrownCover(ground, spawns);
             return;

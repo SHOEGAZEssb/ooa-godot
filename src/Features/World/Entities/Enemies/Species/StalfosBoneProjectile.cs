@@ -15,6 +15,8 @@ internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
     private bool _collisionPending;
     private bool _deletePending;
     private bool _healthCleared;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     internal void ClearHealthAndCollision() => _healthCleared = true;
     internal bool Finished { get; private set; }
     internal HostileProjectileState State { get; private set; }
@@ -42,7 +44,10 @@ internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
         Visible = false;
     }
 
-    internal void UpdateFrame(Player player, int frameCounter)
+    internal void UpdateFrame(Player player, int frameCounter) =>
+        UpdateFrame(player.EnemyContactPosition, frameCounter);
+
+    internal void UpdateFrame(Vector2 linkTarget, int frameCounter)
     {
         if (Finished) return;
         if (State == HostileProjectileState.Initializing)
@@ -65,27 +70,28 @@ internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
         }
         if (State == HostileProjectileState.Initializing)
         {
-            Angle = OracleObjectMovement.Shared.RelativeAngle(Position, player.Position);
+            Angle = OracleObjectMovement.Shared.RelativeAngle(Position, linkTarget);
             State = HostileProjectileState.Flying;
             Visible = true;
             return;
         }
         if (State == HostileProjectileState.Bouncing)
         {
-            if (--Counter == 0) { Finish(); return; }
+            Counter = Math.Max(0, Counter - 1);
+            if (Counter == 0) { Finish(); return; }
             OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, _bounce.Gravity);
-            Position += OracleObjectMovement.Shared.Delta(_bounce.SpeedRaw, Angle);
+            Move(_bounce.SpeedRaw);
             if ((frameCounter & 1) == 0) _animation.Advance();
             QueueRedraw();
             return;
         }
         // partCommon_checkTileCollisionOrOutOfBounds precedes movement;
         // objectCheckWithinScreenBoundary follows it.
-        if (Position.X < 0 || Position.X >= _room.Width || Position.Y < 0 || Position.Y >= _room.Height ||
-            _room.GetTerrainInfo(Position).Collision == 0xff)
+        Vector2 point = new(OracleObjectPosition.HighByte(Position.X), OracleObjectPosition.HighByte(Position.Y));
+        if (_room.GetTerrainInfo(point).Collision == 0xff)
         { Finish(); return; }
-        if (_room.IsSolid(Position)) { BeginBounce(); return; }
-        Position += OracleObjectMovement.Shared.Delta(_record.SpeedRaw, Angle);
+        if (_room.IsSolid(point)) { BeginBounce(); return; }
+        Move(_record.SpeedRaw);
         if (!OracleObjectMath.IsInsideOriginalScreenBoundary(_worldToScreen(Position)))
         { Finish(); return; }
         _animation.Advance();
@@ -121,6 +127,9 @@ internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
         _animation.SetAnimation(0);
         QueueRedraw();
     }
+
+    private void Move(int speed) => Position = NativeObjectMovement.ApplySpeed(
+        _movementMemory, OracleObjectPosition.FromPixels(Position), speed, Angle).PrecisePosition;
 
     private void Finish() { Finished = true; Visible = false; }
     public override void _Draw()

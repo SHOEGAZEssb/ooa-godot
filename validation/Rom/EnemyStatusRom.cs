@@ -15,6 +15,9 @@ internal sealed class EnemyStatusRom
     private readonly OracleCpu _cpu;
     private int _bank = 0x0d;
     internal int RandomCalls { get; private set; }
+    internal int MovementCalls { get; private set; }
+    internal Action? ScratchChanged { get; set; }
+    internal int CircleCalls { get; private set; }
     internal int InitialRuntimeRandomCalls { get; }
     internal List<int> Sounds { get; } = [];
     internal byte this[int address] { get => _memory[address]; set => _memory[address] = value; }
@@ -71,7 +74,7 @@ internal sealed class EnemyStatusRom
 
     internal void GeneratePlacementBuffer() => Call(0x3215,0); // bank0.generateRandomBuffer, before object parsing.
 
-    internal void Update(int frame, Vector2 link)
+    internal void Update(int frame, Vector2 link, Action? afterEnemies = null)
     {
         this[0xcc00] = (byte)frame;
         this[0xffb2] = this[0xd00b] = (byte)link.Y;
@@ -81,6 +84,7 @@ internal sealed class EnemyStatusRom
         this[0xffb0] = (byte)link.Y;
         this[0xffb1] = (byte)link.X;
         Call(0x2ea5, 0x0d); // bank0.updateEnemies
+        afterEnemies?.Invoke();
         Call(0x5e58, 0x11); // partCode.updateParts
         Call(0x3b36, 0x08); // bank0.updateInteractions
     }
@@ -120,6 +124,13 @@ internal sealed class EnemyStatusRom
         this[0xd724] = 0;
     }
 
+    internal void SetEnemyAnimation(int slot, int animation)
+    {
+        // Declared state boundaries still execute the original animation setter.
+        byte[] caller=[0x16,(byte)(0xd0+slot),0x3e,(byte)animation,0xcd,0x2b,0x28,0xc9];
+        caller.CopyTo(_memory,0xc200);Call(0xc200,0);
+    }
+
     private void Call(int entry, int bank)
     {
         _bank = bank;
@@ -130,6 +141,9 @@ internal sealed class EnemyStatusRom
     }
     private int Read(int address)
     {
+        if (address == ObjectMotionRom.ApplySpeed && _cpu.InstructionAddress == address)
+            MovementCalls++;
+        if (address == 0x210e && _cpu.InstructionAddress == address) CircleCalls++;
         if (address < 0x4000) return _rom.Span[address];
         if (address < 0x8000 && _bank is >= 0 and < 0x40)
             return _rom.Span[_bank * 0x4000 + address - 0x4000];
@@ -140,6 +154,11 @@ internal sealed class EnemyStatusRom
     }
     private void Write(int address, int value)
     {
+        if (address is >= 0xcec0 and <= 0xcec3 && ScratchChanged is { } observe)
+        {
+            bool changed=this[address]!=(byte)value;this[address]=(byte)value;
+            if(changed)observe();return;
+        }
         if (address == 0x2222) { _bank = value; return; }
         // ramrockGloveFormArm.s: the terminal $82/$92 chain segment returns
         // from state0func_6956 without getFreePartSlot. HL still points into

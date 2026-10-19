@@ -830,24 +830,32 @@ public sealed partial class ValidationRoot
             blueFleeStart.X is < 0x57 or > 0x58,
             "The final shake sample did not start three SND_THROW/SPEED_200 rightward escapes.");
 
-        StepRoomEventFrames(record.FleeCounter - 1);
-        FailIf(
-            ghostKids.RedCounter != 1 || ghostKids.GreenCounter != 1 ||
-            ghostKids.BlueCounter != 1 ||
-            red.Position != redFleeStart + Vector2.Right * 110 ||
-            green.Position != greenFleeStart + Vector2.Right * 110 ||
-            blue.Position != blueFleeStart + Vector2.Right * 110,
-            "moveright $38 did not apply SPEED_200 on exactly 55 nonzero counter updates.");
-        StepRoomEventFrames(1);
-        FailIf(
-            ghostKids.RedStage != ChildStage.FleeEndPending ||
-            ghostKids.GreenStage != ChildStage.FleeEndPending ||
-            ghostKids.BlueStage != ChildStage.FleeEndPending ||
-            red.Position != redFleeStart + Vector2.Right * 110 ||
-            green.Position != greenFleeStart + Vector2.Right * 110 ||
-            blue.Position != blueFleeStart + Vector2.Right * 110,
-            "counter2's zero update moved a child or dispatched scriptend too soon.");
-        StepRoomEventFrames(1);
+        // boyRunSubid03 checks the screen boundary after every movement,
+        // before counter2 can finish. The green child exits first and returns
+        // control while the other two still flee in their original slots.
+        var fleeing = new[] { red, green, blue };
+        var starts = new[] { redFleeStart, greenFleeStart, blueFleeStart };
+        var exitUpdates = starts.Select(position => (int)Math.Ceiling((168 - position.X) / 2)).ToArray();
+        for (int update = 1; update <= exitUpdates.Max() + 2; update++)
+        {
+            StepRoomEventFrames(1);
+            var counters = new[] { ghostKids.RedCounter, ghostKids.GreenCounter, ghostKids.BlueCounter };
+            var stages = new[] { ghostKids.RedStage, ghostKids.GreenStage, ghostKids.BlueStage };
+            for (int child = 0; child < 3; child++)
+            {
+                int steps = Math.Min(update, exitUpdates[child]);
+                FailIf(fleeing[child].Active != (update < exitUpdates[child]) ||
+                    fleeing[child].Position != starts[child] + Vector2.Right * (2 * steps) ||
+                    counters[child] != 0x38 - steps ||
+                    stages[child] != (update < exitUpdates[child] ? ChildStage.Fleeing : ChildStage.Finished),
+                    $"Ghost child{child} did not retire at its source screen boundary on escape update{update}.");
+            }
+            bool released = update >= exitUpdates.Min();
+            FailIf(ghostKids.Completed != released || _player.CutsceneControlled == released ||
+                _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != (released ? 0 : 1) ||
+                _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != (released ? 0 : 1),
+                "The first offscreen child must set room flag$40 and release shared Link/menu control immediately.");
+        }
         FailIf(
             ghostKids.HasState || !ghostKids.Completed || _player.CutsceneControlled ||
             ! _saveData.HasRoomFlag(
@@ -876,13 +884,31 @@ public sealed partial class ValidationRoot
             "input restore, deletion, and persistent re-entry suppression.");
     }
 
-    private void ValidateEnterPastEvent()
+    private void ValidateEnterPastEvent() => ValidateEnterPastEventCore(false);
+    private void ValidateEnterPastMovementPublicationRom()
     {
+        foreach(bool batched in new[]{false,true})
+        { ReinitializeGameplayForValidation();ValidateEnterPastEventCore(true,batched); }
+    }
+    private void ValidateEnterPastEventCore(bool nativeMovement, bool batched=false)
+    {
+        void StepRoomEventFrames(int frames)
+        {
+            if(nativeMovement) StepGameplayUpdates(frames,Vector2.Zero,batched:batched);
+            else this.StepRoomEventFrames(frames);
+        }
         ValidateTimeTravelCommandImports();
         _saveData.SetGlobalFlag(
             GlobalFlag.EnterPastCutsceneDone,
             value: false);
-        _enterPastCommandTrace = new ValidationCutsceneTrace();
+        ScriptMovementPublicationTrace? motion=nativeMovement?new(_runtimeState,source=>
+        {
+            if(source.SourceLine is not (2755 or 2756 or 2757 or 2759 or 2761))return null;
+            var owner=_roomEvents.Get<EnterPastEvent>();
+            return (source.SourceLine==2759?0x14:0x28,source.SourceLine==2756?8:0x10,
+                SomariaPrivate<Vector2>(owner,"_precisePosition"));
+        }):null;
+        _enterPastCommandTrace = new ValidationCutsceneTrace{Forward=motion};
         _roomEvents.CommandTraceSink = _enterPastCommandTrace;
         LoadValidationRoom(0, 0x39);
         TimePortal portal = _entities.Entities<TimePortal>().Single();
@@ -1142,6 +1168,8 @@ public sealed partial class ValidationRoot
             "counter2 zero-update yields, or the final same-update completion chain.");
         _roomEvents.CommandTraceSink = null;
         _enterPastCommandTrace = null;
+        FailIf(motion is not null&&(motion.MotionVisits!=128||motion.Visited.Count!=5),
+            "First-past villager must publish all16+16+8+32+56 source moves across five commands.");
 
         GD.Print("Validated room 1:39's first time-portal arrival: transition-overlapped " +
             "100/40 waits, -$0200/$30 jump and SND_JUMP, TX_1622 controls, 30/30 waits, " +
@@ -1689,8 +1717,11 @@ public sealed partial class ValidationRoot
             "the original only writes layout $00 and collision $0f.");
 
         int approachX = stone.ApproachX - 8;
+        // This event-only fixture positions Link directly instead of running
+        // his walking handler. Declare the source entry's retained SPEED_100.
         _player.WarpTo(
             new Vector2(approachX, stone.ApproachY + 0x20), recordSafe: false);
+        F1Set(_player, "_topDownMovementSpeedRaw", 0x28);
         for (int y = stone.ApproachY + 0x1f; y >= stone.ApproachY - 1; y--)
         {
             _player.SetScriptedPosition(new Vector2(approachX, y));
@@ -1773,7 +1804,7 @@ public sealed partial class ValidationRoot
             _player.Position != new Vector2(stone.LinkTargetX, stone.LinkTargetY) ||
             follower.ZIndex != retainedStoneCutscenePriority,
             "linkCutscene2 did not route Link through $38/$48 while Impa retained " +
-            "priority 2 through its 8/60/16 waits before TX_0106.");
+            "priority 2 through its8/60 waits and immediate03 signal before TX_0106.");
         _dialogue.Close();
         int firstRetreatUpdates = 0;
         while (!_dialogue.IsOpen && firstRetreatUpdates++ < 120)
@@ -3727,23 +3758,27 @@ public sealed partial class ValidationRoot
             nayruTrace.LastValue("AudienceMask") != 0x0f ||
             !nayruIntro.TryInteractNpc(actors["Bear"]) ||
             nayruTrace.LastValue("AudienceMask") != 0x1f ||
-            nayruIntro.CurrentStage != 2 || !_roomEvents.Active ||
-            !_player.CutsceneControlled,
+            nayruIntro.CurrentStage != 2 || _roomEvents.Active ||
+            _player.CutsceneControlled,
             "The $01/$02/$04/$08 audience bits did not unlock the bear's $10 lead-in.");
 
-        StepRoomEventFrames(20 + 16);
+        StepRoomEventFrames(1); // setdisabledobjectsto11 yields in the bear's slot.
+        FailIf(!_player.CutsceneControlled, "The bear's first script command must acquire Link control.");
+        // setanimation, setangle and setspeed each yield. wait20's zero
+        // update dispatches setangle; applyspeed starts its counter later.
+        StepRoomEventFrames(1 + 1 + 20 + 1 + 1 + 16);
         FailIf(
             actors["Bear"].Position != new Vector2(0x58, 0x30) ||
             actors["Bear"].CurrentScriptAnimationSource !=
                 nayruDatabase.Actor("Bear").Animation(1),
             "The bear's raw angle-$00 movement did not preserve its explicit right-facing animation $01.");
-        StepRoomEventFrames(16 + 50);
+        StepRoomEventFrames(15 + 1 + 1 + 20 + 1 + 30 + 1 + 1);
         FailIf(
             !_dialogue.IsOpen || _dialogue.CurrentMessage !=
             "Sit here and\nlisten. How\ncharming..." ||
             actors["Bear"].Position != new Vector2(0x58, 0x28) ||
             !_saveData.HasRoomFlag(group, roomId, OracleSaveData.RoomFlag80),
-            "The bear did not wait 20, move upward for 32, settle for 50, and set room flag $80.");
+            "The bear did not preserve its wait20, counter$20/31 movements, wait20/wait30, room flag$80 and control-release yield before text.");
         _dialogue.Close();
         StepRoomEventFrames(1);
         FailIf(
@@ -4065,7 +4100,7 @@ public sealed partial class ValidationRoot
         }
         CutsceneCommandTraceEntry[] nayruStarts = nayruTrace.Entries
             .Where(entry => entry.Phase == CutsceneCommandTracePhase.Started &&
-                entry.Source.Script is not ("ghostVeranSubid1Script_part2" or
+                entry.Source.Script is not ("bearSubid00Script_part1" or "ghostVeranSubid1Script_part2" or
                     "boySubid01Script" or "oldLadySubid1Script"))
             .ToArray();
         int importedTranslateCount = nayruDatabase.Commands
@@ -4248,10 +4283,27 @@ public sealed partial class ValidationRoot
             "$22=$d7/flag $40, aftermath, and persistent completion.");
     }
 
-    private void ValidateRalphPortalDepartureEvent()
+    private void ValidateRalphPortalDepartureEvent() => ValidateRalphPortalDepartureCore(false);
+    private void ValidateRalphPortalMovementPublicationRom()
     {
+        foreach(bool batched in new[]{false,true})
+        { ReinitializeGameplayForValidation();ValidateRalphPortalDepartureCore(true,batched); }
+    }
+    private void ValidateRalphPortalDepartureCore(bool nativeMovement, bool batched=false)
+    {
+        void StepRoomEventFrames(int frames)
+        {
+            if(nativeMovement)StepGameplayUpdates(frames,Vector2.Zero,batched:batched);
+            else this.StepRoomEventFrames(frames);
+        }
         RalphPortalEvent ralphEvent = _roomEvents.Get<RalphPortalEvent>();
-        ValidationCutsceneTrace commandTrace = new ValidationCutsceneTrace();
+        ScriptMovementPublicationTrace? motion=nativeMovement?new(_runtimeState,source=>
+        {
+            if(source.SourceLine!=2388)return null;
+            var actor=SomariaPrivate<NpcCharacter>(ralphEvent,"_ralph");
+            return (0x28,8,actor.Position);
+        }):null;
+        ValidationCutsceneTrace commandTrace = new ValidationCutsceneTrace{Forward=motion};
         _roomEvents.CommandTraceSink = commandTrace;
         _sound.ClearPlayRequestAudit();
         // Ralph's departure is the immediate post-possession room-entry
@@ -4283,7 +4335,8 @@ public sealed partial class ValidationRoot
             "Room 0:39 did not retain Ralph at $28/$18 while entering from the left.");
 
         UpdateRoomWarpTransition(32.0 / 60.0);
-        StepRoomEventFrames(1);
+        // Probe only object dispatch while holding the transition clock.
+        this.StepRoomEventFrames(1);
         FailIf(
             !ralphEvent.WaitingForScroll || ralphEvent.Counter != 0,
             "Ralph advanced his script before the room-pack fade completed.");
@@ -4414,6 +4467,8 @@ public sealed partial class ValidationRoot
             starts[15].ScriptUpdate != flickerCompletionUpdate,
             "Ralph's completion flag, native music restore, enableinput, and " +
             "scriptend did not continue on the final flicker update.");
+        FailIf(motion is not null&&(motion.MotionVisits!=16||motion.Visited.Count!=1),
+            "Portal Ralph must publish every one of the source's16 applyspeed steps.");
         _roomEvents.CommandTraceSink = null;
 
         GD.Print("Validated room 0:39 Ralph $37:$0d DIR_RIGHT guard, TX_2a1e, " +

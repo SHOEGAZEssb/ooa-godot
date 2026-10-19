@@ -46,11 +46,11 @@ public partial class ValidationRoot
                 $"Cheep Cheep $2c:${subid:x2} lost source graphics/combat attributes.");
             // Exercise coordinate wrap as well as zero/overflow in var03*2.
             Vector2 origin = new(4, 250);
-            fish.Initialize(record, room, origin, distance);
+            fish.Initialize(record, room, origin, distance, _random);
             int calls = _random.Calls;
             FailIf(fish.Visible || fish.State != 0, "Cheep Cheep ran state 0 at construction.");
             fish.UpdateFrame();
-            FailIf(!fish.Visible || fish.State != 8 || fish.Position != origin,
+            FailIf(!fish.Visible || fish.State != 8 || fish.Position != origin || _random.Calls != calls + 1,
                 "Cheep Cheep state 0 did not stop at visible state $08.");
             fish.UpdateFrame();
             int angle = subid == 0 ? ObjectAngle.Left : ObjectAngle.Down;
@@ -86,8 +86,8 @@ public partial class ValidationRoot
                     fish.Angle != angle || fish.AnimationIndex != ((cycle + 1) & 1) || fish.AnimationFrame != 0,
                     "Cheep Cheep rest update 60 failed to reverse angle/animation without moving.");
             }
-            FailIf(fish.Position != origin || _random.Calls != calls,
-                "Cheep Cheep patrol drifted or consumed shared RNG.");
+            FailIf(fish.Position != origin || _random.Calls != calls + 1,
+                "Cheep Cheep patrol must retain its one common initialization draw without drift or further RNG.");
             fish.Free();
         }
 

@@ -6,10 +6,12 @@ namespace oracleofages;
 
 // PART$40 owns a distinct physical slot after its ordinary PART$01 pickup.
 internal sealed class HeadThwompBombDropRoomEntity : RoomEntityAdapter<Node2D>,
-    IFixedRoomEntity, IRoomEntityLifetime
+    IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity,
+    IUpdatesDuringRoomEntityFreeze
 {
     private readonly OracleRoomData _room;
     private readonly OracleRandom _random;
+    private readonly OracleRuntimeState _memory;
     private readonly Func<ItemDropEffect?> _drop;
     private OracleObjectPosition _position;
     private int _speed;
@@ -17,12 +19,14 @@ internal sealed class HeadThwompBombDropRoomEntity : RoomEntityAdapter<Node2D>,
     private int _speedY;
     private bool _initialized;
     public bool Finished { get; private set; }
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     internal HeadThwompBombDropRoomEntity(OracleRoomData room, OracleRandom random,
-        Func<ItemDropEffect?> drop, Vector2 position)
+        Func<ItemDropEffect?> drop, Vector2 position, OracleRuntimeState memory)
         : base(new Node2D { Name = "HeadThwompBombDropper_40", Visible = false }, static _ => { })
     {
-        _room = room; _random = random; _drop = drop;
+        _room = room; _random = random; _drop = drop; _memory = memory;
         _position = OracleObjectMovement.Shared.PositionFromPixels(position.Floor());
         Entity.Position = _position.PixelPosition;
     }
@@ -46,7 +50,7 @@ internal sealed class HeadThwompBombDropRoomEntity : RoomEntityAdapter<Node2D>,
         if (OracleObjectMovement.Shared.UpdateSpeedZSidescroll(ref _position, ref _speedY, 0x20,
             point => _room.IsSolid(point) && _room.GetTerrainInfo(point).Hazard != HazardType.Hole))
         { Finished = true; return; }
-        _position = OracleObjectMovement.Shared.ApplySpeed(_position, _speed, _angle);
+        _position = NativeObjectMovement.ApplySpeed(_memory, _position, _speed, _angle);
         Entity.Position = _position.PixelPosition;
         drop.CopyHeadThwompBombDropperPosition(_position);
     }

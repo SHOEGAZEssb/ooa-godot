@@ -386,6 +386,112 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\hardhat_shovel_commands.tsv'),
     $hardhatCommandRows)
 
+# INTERAC_MALE_VILLAGER $3a:$02: ROM-resident conversation and intervention.
+# Retain both streams: interactionSetScript replaces part1 only after its
+# current visit, and ROM scriptjump continues rather than yielding.
+$blockerScriptPath = Join-Path $Disassembly 'scripts\ages\scripts.s'
+$blockerOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @('setcollisionradii','settextid','checkabutton','asm15',
+    'showloadedtext','wait','setanimation','scriptjump','disableinput','setspeed',
+    'jumpifobjectbyteeq','moveleft','moveright','enableinput','scriptend')) {
+    [void]$blockerOpcodes.Add($opcode)
+}
+$blockerAnimations = @{}
+foreach ($direction in 0..3) { $blockerAnimations[$direction] = Resolve-NpcAnimation 0x3a $direction }
+$blockerPart1 = @(Read-AssemblyCutsceneCommands $blockerScriptPath `
+    'villagerSubid02Script_part1' $blockerOpcodes 'villagerSubid02Script_part2')
+$blockerPart2 = @(Read-AssemblyCutsceneCommands $blockerScriptPath `
+    'villagerSubid02Script_part2' $blockerOpcodes 'villagerSubid03Script_befored3')
+if ($blockerPart1.Count -ne 8 -or $blockerPart2.Count -ne 10 -or
+    $blockerPart1[1].Operands.Trim() -ne 'TX_1441' -or
+    $blockerPart1[7].Operands.Trim() -ne 'villagerFaceDownAfterTalkedTo' -or
+    $blockerPart2[2].Operands.Trim() -ne 'Interaction.direction, $00, @moveRight' -or
+    $blockerPart2[3].Operands.Trim() -ne '$10' -or $blockerPart2[5].Operands.Trim() -ne '$10' -or
+    $blockerPart2[6].Operands.Trim() -ne 'scriptHelp.villager_setLinkYToVar39' -or
+    $blockerPart2[7].Operands.Trim() -ne '10') {
+    throw 'Villager $3a:$02 source streams or movement/control operands changed.'
+}
+$blockerBindings = @{
+    'asm15|scriptHelp.turnToFaceLink' = @{ Opcode='native'; Actor=''; Arg0=''; Arg1=''; Payload='turnToFaceLink' }
+    'asm15|scriptHelp.villager_setLinkYToVar39' = @{ Opcode='native'; Actor=''; Arg0=''; Arg1=''; Payload='villager_setLinkYToVar39' }
+    'jumpifobjectbyteeq|Interaction.direction, $00, @moveRight' = @{ Opcode='jumpifmemoryeq'; Actor=''; Arg0='00'; Arg1='5'; Payload='BlockerDirection' }
+}
+$blockerRows1 = ConvertTo-CutsceneCommandRows $blockerPart1 'Blocker' `
+    -texts $allTexts -animations $blockerAnimations -bindings $blockerBindings
+$blockerRows2 = ConvertTo-CutsceneCommandRows $blockerPart2 'Blocker' `
+    -symbols @{ 'SPEED_100' = Resolve-ObjectSpeed '100' } `
+    -texts $allTexts -animations $blockerAnimations -bindings $blockerBindings
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\black_tower_blocker_talk_commands.tsv'), $blockerRows1)
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\black_tower_blocker_move_commands.tsv'), $blockerRows2)
+
+# INTERAC_HARDHAT_WORKER $58:$03 runs a copied driver and a ROM patrol
+# subroutine. Keep their distinct local-jump/table and call/return boundaries.
+$patrolPath = Join-Path $Disassembly 'scripts\ages\scriptHelper.s'
+$patrolHelperSource = Read-ImportText $patrolPath
+$patrolNativeSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\hardhatWorker.s')
+if ($patrolNativeSource -notmatch '(?ms)^@subid03:\s+call checkInteractionState\s+jr nz,@@state1\s+@@state0:\s+call @loadScriptAndInitGraphics\s+call interactionRunScript\s+@@state1:\s+call interactionRunScript\s+jp c,interactionDelete\s+ld e,Interaction\.var3f\s+ld a,\(de\)\s+or a\s+jp z,npcFaceLinkAndAnimate\s+call interactionAnimateBasedOnSpeed\s+jp interactionPushLinkAwayAndUpdateDrawPriority' -or
+    $patrolHelperSource -notmatch '(?ms)^soldierSetSpeed80AndVar3fTo01:\s+ld h,d\s+ld l,Interaction\.speed\s+ld \(hl\),SPEED_80\s+ld l,Interaction\.var3f\s+ld \(hl\),\$01\s+ret' -or
+    $patrolHelperSource -notmatch '(?ms)^hardhatWorker_setPatrolDirection:\s+ld h,d\s+ld l,Interaction\.var3e\s+ld \(hl\),a\s+ld b,a\s+swap a\s+rrca\s+ld l,Interaction\.angle\s+ld \(hl\),a\s+ld a,b\s+jp interactionSetAnimation' -or
+    $patrolHelperSource -notmatch '(?ms)^hardhatWorker_setPatrolCounter:\s+ld e,Interaction\.var3c\s+ld \(de\),a\s+ret' -or
+    $patrolHelperSource -notmatch '(?ms)^hardhatWorker_decPatrolCounter:\s+ld h,d\s+ld l,Interaction\.var3c\s+dec \(hl\)\s+jp writeFlagsTocddb' -or
+    $patrolHelperSource -notmatch '(?ms)^writeFlagsTocddb:\s+push af\s+pop bc\s+ld a,c\s+ld \(wcddb\),a\s+ret') {
+    throw 'Worker $58:$03 native initialization, movement registers or full CPU-flag publication changed.'
+}
+$patrolOps = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($op in @('asm15','initcollisions','jumptable_objectbyte','callscript','scriptjump',
+    'jumpifobjectbyteeq','jumpifmemoryset','wait','retscript','disableinput','writeobjectbyte',
+    'showloadedtext','enableinput')) { [void]$patrolOps.Add($op) }
+$patrolDriver = @(Read-AssemblyCutsceneCommands $patrolPath 'hardhatWorkerSubid03Script' $patrolOps)
+$patrolBody = @(Read-AssemblyCutsceneCommands $blockerScriptPath 'hardhatWorkerFunc_patrol' $patrolOps)
+$patrolTables = @(Read-AssemblyLabelNodes $patrolPath 'hardhatWorkerSubid03Script' |
+    Where-Object { $_.Kind -eq 'Data' -and $_.Name -eq '.dw' } | ForEach-Object OperandText)
+if ($patrolDriver.Count -ne 63 -or $patrolBody.Count -ne 15 -or
+    ($patrolTables -join ',') -ne '@val00,@val01,@val02,@val03,@val04' -or
+    $patrolDriver[0].Operands -ne 'soldierSetSpeed80AndVar3fTo01' -or
+    $patrolDriver[1].Operands -ne 'hardhatWorker_chooseTextForPatroller') {
+    throw 'Hardhat worker $58:$03 driver, patrol subroutine or pattern table changed.'
+}
+$patrolTargets = @{}
+foreach ($command in $patrolDriver) {
+    if (-not $patrolTargets.ContainsKey($command.Label)) { $patrolTargets[$command.Label] = $command.Index }
+}
+$patrolBindings = @{
+    'asm15|soldierSetSpeed80AndVar3fTo01' = @{Opcode='native';Payload='soldierSetSpeed80AndVar3fTo01'}
+    'asm15|hardhatWorker_chooseTextForPatroller' = @{Opcode='native';Payload='hardhatWorker_chooseTextForPatroller'}
+    'jumptable_objectbyte|Interaction.var03' = @{Opcode='jumptablememoryyield';Payload=(
+        'PatrolPattern|' + ((0..4 | ForEach-Object { $patrolTargets[('@val{0:d2}' -f $_)] }) -join ','))}
+}
+foreach ($command in $patrolDriver) {
+    if ($command.Opcode -eq 'asm15' -and $command.Operands -match
+        '^scriptHelp\.(hardhatWorker_setPatrol(?:Direction|Counter)),\s+\$([0-9a-f]{2})$') {
+        $patrolBindings["asm15|$($command.Operands)"] = @{Opcode='native';Payload=($Matches[1]+':'+$Matches[2])}
+    }
+}
+[Collections.Generic.List[string]]$patrolRows = ConvertTo-CutsceneCommandRows $patrolDriver 'Patrol' -bindings $patrolBindings `
+    -yieldOnJump $true -externalTargets @{ 'mainScripts.hardhatWorkerFunc_patrol' = $patrolDriver.Count }
+foreach ($command in $patrolBody) { $command.Index += $patrolDriver.Count }
+$patrolBodyTargets = @{}
+foreach ($command in $patrolBody) {
+    if (-not $patrolBodyTargets.ContainsKey($command.Label)) { $patrolBodyTargets[$command.Label] = $command.Index }
+}
+$patrolBodyBindings = @{
+    'jumpifobjectbyteeq|Interaction.pressedAButton, $01, @pressedA' = @{
+        Opcode='jumpifmemoryeq';Arg0='01';Arg1=[string]$patrolBodyTargets['@pressedA'];Payload='PatrolPressedA'}
+    'asm15|scriptHelp.hardhatWorker_decPatrolCounter' = @{Opcode='native';Payload='hardhatWorker_decPatrolCounter'}
+    'jumpifmemoryset|wcddb, $80, @doneMoving' = @{
+        Opcode='jumpifmemoryeqyieldonmiss';Arg0='80';Arg1=[string]$patrolBodyTargets['@doneMoving'];Payload='PatrolZeroFlag'}
+    'asm15|objectApplySpeed' = @{Opcode='native';Payload='objectApplySpeed'}
+    'asm15|scriptHelp.turnToFaceLink' = @{Opcode='native';Payload='turnToFaceLink'}
+    'asm15|scriptHelp.hardhatWorker_updatePatrolAnimation' = @{Opcode='native';Payload='hardhatWorker_updatePatrolAnimation'}
+}
+$patrolBodyRows = ConvertTo-CutsceneCommandRows $patrolBody 'Patrol' -bindings $patrolBodyBindings `
+    -symbols @{ 'Interaction.pressedAButton'=0x31 }
+foreach ($row in $patrolBodyRows | Select-Object -Skip 1) { $patrolRows.Add($row) }
+Write-CutsceneGeneratedTable(
+    (Join-Path $destination 'cutscenes\black_tower_patrol_commands.tsv'), $patrolRows)
+
 # Room 2:2f's INTERAC_POSTMAN $55:$00 runs postmanScript. Preserve its
 # no-clock, declined-trade, and accepted-trade branches, including the
 # Interaction.var3f animation-mode write and cardinal SPEED_200 exit.

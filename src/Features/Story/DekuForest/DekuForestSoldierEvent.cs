@@ -194,8 +194,8 @@ internal sealed class DekuForestSoldierEvent :
                 $"Unsupported soldier movement ${speed:x2}/${angle:x2}.");
         }
         RequireSoldier(actor).SetStatePosition(
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition, speed, angle));
+            NativeObjectMovement.ApplySpeed(
+                _context.Entities.RuntimeState, ref _precisePosition, speed, angle));
     }
 
     public override void WriteMemory(string binding, int value)

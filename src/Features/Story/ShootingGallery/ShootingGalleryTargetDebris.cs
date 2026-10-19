@@ -17,6 +17,7 @@ internal sealed partial class ShootingGalleryTargetDebris
     private int _speed;
     private int _counter;
     private bool _initialized;
+    private OracleRuntimeState? _runtime;
 
     internal bool Finished { get; private set; }
     internal int Counter => _counter;
@@ -24,7 +25,8 @@ internal sealed partial class ShootingGalleryTargetDebris
 
     internal void Initialize(
         ShootingGalleryDebrisRecord record,
-        ShootingGalleryTargetDebrisSpawn spawn)
+        ShootingGalleryTargetDebrisSpawn spawn,
+        OracleRuntimeState? runtime = null)
     {
         if (spawn.AngleIndex is < 0 or >= 4 ||
             spawn.TargetType is < 0 or >= 4)
@@ -49,6 +51,7 @@ internal sealed partial class ShootingGalleryTargetDebris
             frames[0].EncodedOam,
             record.TileBase,
             Palette);
+        _runtime = runtime;
         _precisePosition = spawn.Position;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _angle = record.Angle(spawn.AngleIndex);
@@ -77,7 +80,7 @@ internal sealed partial class ShootingGalleryTargetDebris
             return;
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
+        Position = NativeObjectMovement.ApplySpeed(_runtime,
             ref _precisePosition, _speed, _angle);
         QueueRedraw();
     }
@@ -98,7 +101,7 @@ internal sealed class ShootingGalleryTargetDebrisRoomEntity(
     : RoomEntityAdapter<ShootingGalleryTargetDebris>(
         debris, debris.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime,
-        IUpdatesDuringDialogueRoomEntity
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     public bool Finished => Entity.Finished;
 

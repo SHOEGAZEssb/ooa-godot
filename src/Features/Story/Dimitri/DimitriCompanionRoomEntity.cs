@@ -508,8 +508,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     {
         _speed = speed;
         Vector2 before = _precisePosition;
-        if (collide) SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, _adjacentWalls = AdjacentWalls());
-        else OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, speed, _angle);
+        if (collide) SpecialObjectMovement.ApplySpeed(_runtime, ref _precisePosition, speed, _angle, _adjacentWalls = AdjacentWalls());
+        else NativeObjectMovement.ApplySpeed(_runtime, ref _precisePosition, speed, _angle);
         // Source coordinates wrap as bytes. Keep the offscreen top/left flute
         // entrance on the negative side of world space until it crosses zero.
         if (_phase == DimitriPhase.FluteEntering)
@@ -681,7 +681,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         {
             _braceletChildStarting = false;
             _angle = _braceletChildMotion.Angle;
-            _braceletChildMotion.AdvanceHorizontal(_throwing, CollisionAt);
+            _braceletChildMotion.AdvanceHorizontal(_throwing, _room,
+                (position, speed, angle) => NativeObjectMovement.ApplySpeed(_runtime, position, speed, angle));
             if (_braceletChildMotion.AdvanceVertical(_bracelet))
             {
                 _sound(SoundId.SndBombLand);

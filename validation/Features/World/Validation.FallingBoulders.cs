@@ -193,18 +193,41 @@ public sealed partial class ValidationRoot
         foreach (bool batched in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
-            _player.ApplicationUpdateOwned = false;
-            _dialogue.ApplicationUpdateOwned = false;
             _entities.GameButtonJustPressedSource = static () => false;
             ResetValidationInput();
             LoadValidationRoom(1, 0x33);
             _player.WarpTo(new Vector2(80, 112));
+            FallingBoulder? lastMover = null;
+            int publications = 0;
+            var stage = new PartMovementScratchProbe(() =>
+            {
+                lastMover = _entities.Entities<FallingBoulder>().OrderBy(r => r.PartSlot)
+                    .LastOrDefault(r => r.State == 2);
+                for (int i = 0; i < 4; i++) _runtimeState.SetWramByte(0xcec0 + i, (byte)(0xa5 + i));
+            });
+            _entities.AddEntity(stage);
+            _entities.RegisterEnemySlot(stage, 15);
+            _entities.AddEntity(new PartMovementScratchProbe(() =>
+            {
+                // Literal bank3 SPEED_140 words, after gravity can choose a new angle.
+                (int Y, int X)[] vectors = [(266,177), (295,122), (313,62), (320,0),
+                    (313,-62), (295,-122), (266,-177)];
+                var velocity = lastMover is null ? (Y: 0, X: 0) : vectors[lastMover.Angle - 0x0d];
+                if (lastMover is not null) publications++;
+                for (int i = 0; i < 4; i++)
+                {
+                    byte expected = lastMover is null ? (byte)(0xa5 + i) :
+                        unchecked((byte)((i < 2 ? velocity.Y : velocity.X) >> ((i & 1) * 8)));
+                    FailIf(_runtimeState.ReadWramByte(0xcec0 + i) != expected,
+                        $"PART $45 lost source-ordered movement publication at ${0xcec0 + i:x4}.");
+                }
+            }));
             var sounds = new List<int>();
             _entities.SoundRequested += sounds.Add;
             try
             {
-                if (batched) base._Process(600.0 / 60);
-                else for (int update = 0; update < 600; update++) base._Process(1.0 / 60);
+                StepGameplayUpdates(600, Vector2.Zero, batched: batched);
+                FailIf(publications < 400, "PART $45 room movement publication check was vacuous.");
                 string trace = string.Join(';', _entities.Entities<FallingBoulder>().Select(r =>
                     $"{r.State},{r.Counter},{r.Angle},{r.FixedPosition},{r.ZFixed},{r.SpeedZ}")) +
                     $"/{_entities.RandomCalls}/{_player.HealthQuarters}/{_player.Position}/" + string.Join(',', sounds);

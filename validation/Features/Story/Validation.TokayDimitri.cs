@@ -60,6 +60,10 @@ public sealed partial class ValidationRoot
         FailIf(!second.Active || (_saveData.ReadWramByte(WramAddress.wDimitriState) & 2) != 0,
             "Tokay $48:$10 completed the rescue on counter2's zero update.");
         StepRoomEventFrames(1);
+        FailIf(!second.Active || _player.CutsceneControlled ||
+            (_saveData.ReadWramByte(WramAddress.wDimitriState) & 2) == 0,
+            "Second Tokay ormemory/enableallobjects must publish the rescue and release input while yielding before scriptend.");
+        StepRoomEventFrames(1);
         FailIf(second.Active || _roomEvents.Get<TokayDimitriEvent>().Stage != TokayDimitriStage.Inactive || _player.CutsceneControlled ||
             (_saveData.ReadWramByte(WramAddress.wDimitriState) & 2) == 0,
             "Second Tokay scriptend did not set wDimitriState bit 1, delete $48:$10, and release Link.");

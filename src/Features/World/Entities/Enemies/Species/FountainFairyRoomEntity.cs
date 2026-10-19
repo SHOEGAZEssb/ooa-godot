@@ -196,7 +196,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
         if ((counter & 7) == 0) _sound(SoundId.SndFairyHeal); // SND_FAIRY_HEAL
     }
 
-    internal FountainFairyHeartRoomEntity CreateHeart() => new(this, _database, _displayedHealth);
+    internal FountainFairyHeartRoomEntity CreateHeart(OracleRuntimeState memory) => new(this, _database, _displayedHealth, memory);
     internal void HeartFinished() => HeartCount--;
 
     private void ReleasePlayer()

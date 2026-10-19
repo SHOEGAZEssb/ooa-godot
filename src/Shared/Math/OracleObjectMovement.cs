@@ -63,6 +63,9 @@ internal sealed class OracleObjectMovement
     internal OracleObjectVelocity Velocity(int speed, int angle) =>
         _speeds.Get(speed, angle);
 
+    internal OracleObjectVelocity RawVelocity(int speed, int angle) =>
+        _speeds.GetRaw(speed, angle);
+
     internal Vector2 Delta(int speed, int angle)
     {
         OracleObjectVelocity velocity = Velocity(speed, angle);

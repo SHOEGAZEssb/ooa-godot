@@ -11,9 +11,25 @@ namespace oracleofages;
 /// </summary>
 internal static class OracleObjectMath
 {
+    // bank0.objectNudgeAngleTowards chooses +1 on an exact half-turn.
+    internal static int NudgeAngleTowards(int current, int target)
+    {
+        int delta = (current - target) & 0x1f;
+        return (delta == 0 ? current : current + (delta < 0x10 ? -1 : 1)) & 0x1f;
+    }
+
     public static Vector2 ToPixelPosition(Vector2 position) => new(
         Mathf.Floor(position.X),
         Mathf.Floor(position.Y));
+
+    // bank0.checkObjectsCollidedFromVariables: ADD radii, SUB coordinates,
+    // ADD radius and SLA the comparison width all wrap as unsigned bytes.
+    // The negative boundary is included; the positive boundary is excluded.
+    internal static bool ObjectAxisOverlaps(int coordinateDifference, int firstRadius, int secondRadius)
+    {
+        int radius = (firstRadius + secondRadius) & 0xff;
+        return ((coordinateDifference + radius) & 0xff) < ((radius * 2) & 0xff);
+    }
 
     /// <summary>
     /// Mirrors objectUpdateSpeedZ_paramC: integrates an object's 8.8 Z
@@ -71,8 +87,10 @@ internal static class OracleObjectMath
     };
 
     public static bool IsInsideOriginalScreenBoundary(Vector2 position) =>
-        position.Y >= -7 && position.Y < 136 &&
-        position.X >= -7 && position.X < 168;
+        // bank0.objectCheckWithinScreenBoundary subtracts camera bytes,
+        // adds$07 modulo256 and compares unsigned high coordinates.
+        ((Mathf.FloorToInt(position.Y)+7)&255)<0x8f &&
+        ((Mathf.FloorToInt(position.X)+7)&255)<0xaf;
 
     /// <summary>
     /// Converts the source renderer's byte-relative screen position to the

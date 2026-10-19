@@ -8,7 +8,7 @@ namespace oracleofages;
 /// INTERAC_POE $59:$00 and poeScript in present rooms $0:$7c and $2:$2e.
 /// </summary>
 internal sealed class PoeEvent :
-    InteractiveCutsceneCommandHost, IRoomEntryEvent, ICutsceneCommandHost
+    InteractiveCutsceneCommandHost, IRoomEntryEvent, IUpdatesDuringDialogueRoomEvent, ICutsceneCommandHost
 {
     private const string ActorName = "Poe";
     private const string VariantBinding = "PoeVariant";
@@ -106,11 +106,14 @@ internal sealed class PoeEvent :
 
     public void UpdateFrame()
     {
-        if (_poe is null || !_runner.Active)
+        if (_poe is null || !_runner.Active ||
+            !_context.Entities.InitializedInteractionUpdatesAllowed)
             return;
         _runner.AdvanceFrame();
         _poe.UpdatePoe(_context.Player);
     }
+
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
@@ -210,8 +213,8 @@ internal sealed class PoeEvent :
                 $"poeScript requested unexpected movement speed ${speed:x2}.");
         }
         RequirePoe(actor).Position =
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition, speed, angle);
+            NativeObjectMovement.ApplySpeed(
+                _context.Entities.RuntimeState, ref _precisePosition, speed, angle);
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>

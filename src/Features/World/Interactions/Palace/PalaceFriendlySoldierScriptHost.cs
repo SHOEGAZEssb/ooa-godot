@@ -61,7 +61,7 @@ internal sealed class PalaceFriendlySoldierScriptHost(NpcCharacter actor, Palace
             case "DecrementCounter":
                 _patrolCounter = (_patrolCounter - 1) & 0xff;
                 runtime.SetWramByte(0xcddb, (byte)(_patrolCounter == 0 ? 0xc0 : 0x40)); return;
-            case "ApplySpeed": actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _precise, 0x14, _direction << 3)); return;
+            case "ApplySpeed": actor.SetStatePosition(NativeObjectMovement.ApplySpeed(runtime, ref _precise, 0x14, _direction << 3)); return;
             case "FaceLink": SetAnimation(((OracleObjectMovement.Shared.RelativeAngle(actor.Position, Player.Position) + 4) & 0x18) >> 3); return;
             case "RestorePatrolAnimation": SetAnimation(_direction); return;
             default: throw UnsupportedCommand($"run soldier native '{handler}'");

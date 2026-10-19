@@ -11,6 +11,7 @@ internal sealed class ObjectMotionRom
     internal const int RelativeAngle = 0x1ea4;
     internal const int UpdateSpeedZ = 0x1f45;
     internal const int NegateAndHalveSpeedZ = 0x2374;
+    internal const int CheckScreenBoundary = 0x2184;
     internal const int Object = 0xd100;
     private const int Caller = 0xc100;
     private readonly ReadOnlyMemory<byte> _rom = ValidationRom.LoadCleanUs();
@@ -74,6 +75,7 @@ internal sealed class ObjectMotionRom
             RelativeAngle => address is >= 0x1ea4 and < 0x1f45,
             UpdateSpeedZ => address is >= 0x1f45 and < 0x1f67 or >= 0x23a7 and < 0x23b0,
             NegateAndHalveSpeedZ => address is >= 0x2374 and < 0x239d or >= 0x01d6 and < 0x01ea,
+            CheckScreenBoundary => address is >= 0x2184 and < 0x219f,
             _ => false
         };
         if (code) return _rom.Span[address];
@@ -85,6 +87,8 @@ internal sealed class ObjectMotionRom
         if (_entry == ApplySpeed && address is 0xff97 or >= 0xcec0 and <= 0xcec3)
             return _memory[address];
         if (_entry == RelativeAngle && address is 0xff8e or 0xff8f)
+            return _memory[address];
+        if (_entry == CheckScreenBoundary && address is 0xffaa or 0xffac)
             return _memory[address];
         throw new InvalidDataException($"Motion ROM ${_entry:x4}: undeclared read ${address:x4}.");
     }

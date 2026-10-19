@@ -73,7 +73,8 @@ internal partial class PeahatCharacter : EnemyCharacter, ITerrainShadowSource
                 return;
 
             case PeahatState.Stationary:
-                if (--_counter != 0)
+                _counter = (_counter - 1) & 0xff;
+                if (_counter != 0)
                     return;
                 _state = PeahatState.Accelerating;
                 ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // peahat_state8: visiblec1.
@@ -112,13 +113,14 @@ internal partial class PeahatCharacter : EnemyCharacter, ITerrainShadowSource
                 return;
 
             case PeahatState.Slowing:
-                _counter++;
+                _counter = (_counter + 1) & 0xff;
                 if (_counter == _behavior.SlowdownFrames)
                 {
                     _state = PeahatState.Stationary;
                     ZIndex = ObjectDrawPriority.BehindLinkZIndex; // peahat_stateB: visiblec2.
-                    _counter = _room.IsSolid(Position) ? 1 : 0x80;
-                    _zHigh = 0;
+                    // peahat_stateB tests the whole raw collision byte,
+                    // including hazards and clear quarters of partial tiles.
+                    _counter = _room.GetTerrainInfo(Position).Collision != 0 ? 1 : 0x80;
                     AdvanceAnimation();
                     return;
                 }
@@ -175,9 +177,7 @@ internal partial class PeahatCharacter : EnemyCharacter, ITerrainShadowSource
         _angle = EnemyAdjacentWallResolver.Shared.BounceAngle(
             Position,
             _angle,
-            point =>
-                point.X < 0 || point.X >= _room.Width ||
-                point.Y < 0 || point.Y >= _room.Height);
+            point => _room.GetTerrainInfo(new(point.X & 255, point.Y & 255)).Collision == 0xff);
         QueueRedraw();
     }
 }

@@ -2342,8 +2342,12 @@ public sealed partial class ValidationRoot
 
         FlyingTileCharacter tile =
             _entities.Entities<FlyingTileCharacter>().Single();
+        FailIf(tile.State != FlyingTileState.Preparing || tile.Visible || tile.CollisionEnabled ||
+            room.GetMetatile(Point(layout[0])) != 0x9c,
+            "Flying Tile birth must execute common initialization and enter hidden state $08 before tile replacement on its next eligible update.");
+        Step();
         FailIf(
-            spawner.Counter != 60 || spawner.LayoutIndex != 1 ||
+            spawner.Counter != 59 || spawner.LayoutIndex != 1 ||
             tile.Position != Point(layout[0]) ||
             tile.State != FlyingTileState.Rising || tile.ZFixed != 0 ||
             !tile.Visible || !tile.CollisionEnabled ||
@@ -2352,7 +2356,7 @@ public sealed partial class ValidationRoot
             _entities.RoomEnemyCount != 5 ||
             OracleGraphicsCache.PixelHash(
                 tile.CurrentAnimationTexture.GetImage()) == 0,
-            "The first Flying Tile did not replace $57:$9c on its spawn " +
+            "The first Flying Tile did not replace $57:$9c after its common initialization " +
             "update, become visible/collidable, and preserve the parent plus " +
             "child enemy counts.");
         Step(6);
@@ -2392,6 +2396,9 @@ public sealed partial class ValidationRoot
         {
             Step(spawner.Counter);
             tile = _entities.Entities<FlyingTileCharacter>().Single();
+            FailIf(tile.State != FlyingTileState.Preparing || tile.Visible,
+                "A newly allocated Flying Tile must retain the source hidden state $08 boundary.");
+            Step();
             FailIf(
                 tile.Position != Point(layout[layoutIndex]) ||
                 tile.State != FlyingTileState.Rising ||
@@ -2508,8 +2515,10 @@ public sealed partial class ValidationRoot
             room,
             Point(0x23),
             roomTileChanged: static () => { },
-            animationTick: static () => 0);
+            animationTick: static () => 0,
+            random: new OracleRandom());
         Vector2 wallTarget = new(0, Point(0x23).Y);
+        wallTile.UpdateFrame(wallTarget);
         wallTile.UpdateFrame(wallTarget);
         for (int update = 0; update < 7; update++)
             wallTile.UpdateFrame(wallTarget);
@@ -2554,7 +2563,9 @@ public sealed partial class ValidationRoot
             room,
             shieldPlayer.ShieldCollisionBounds.GetCenter(),
             roomTileChanged: static () => { },
-            animationTick: static () => 0);
+            animationTick: static () => 0,
+            random: new OracleRandom());
+        shieldTile.UpdateFrame(shieldPlayer.Position);
         shieldTile.UpdateFrame(shieldPlayer.Position);
         new FlyingTileRoomEntity(shieldTile, TileSource(false))
             .HandleLinkContact(shieldPlayer);

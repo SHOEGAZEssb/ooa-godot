@@ -45,11 +45,26 @@ production host owns session teardown and initialization from a supplied save.
 Call available owner operations directly. Reserve reflection for source-state
 probes that have no meaningful runtime operation or observable result.
 
+Keep every phase of a scripted update sequence on explicit input samples,
+including cancellation and restart. Calling `GameRoot._Process` captures live
+Godot input again; a released key can remain just-pressed until the next Godot
+frame and unexpectedly open a menu. Scenarios that deliberately inject such
+host edges must release them and await a real frame before returning.
+
 Scenarios may return `Task` to observe deferred Godot draw notifications. Suspend
 automatic gameplay processing while awaiting host frames and advance gameplay
 through the explicit fixture. The runner awaits each scenario before resetting
 the next fixture; the launcher enforces its wall-clock timeout without a host-frame
 quit limit.
+
+Synchronous session resets explicitly free parentless nodes already queued for
+deletion after replacing the old gameplay graph. Retired room actors are
+detached before `QueueFree`; without this drain they can retain entire discarded
+sessions until a real engine frame. Keep this cleanup at reset boundaries in
+validation, preserve live orphan fixtures, and use a debug Godot build that
+supports `Node.GetOrphanNodeIds`. Production retirement still follows the normal
+engine frame. `-ProfileMemory` on the launcher logs managed heap, process memory,
+and collection counts every sixteen resets without forcing collection.
 
 ## Shared-system regressions
 
@@ -187,9 +202,19 @@ in one worker. Each run uses a writable, unique engine log instead of Godot's
 shared user-log rotation. On Windows, workers inherit an error mode that
 suppresses native crash dialogs; crashes still fail the run and retain logs.
 The calling PowerShell process's original error mode is restored on exit.
+On Windows, the launcher creates every worker inside one job before its first
+instruction. The job includes console-wrapper children and enforces a combined
+committed-memory budget (`-MemoryLimitMB`, default 8192 MiB), a CPU hard cap
+(`-CpuLimitPercent`, default 50), and below normal process priority. These limits
+do not change scenario coverage or the default eight workers. Exceeding the
+memory budget can fail allocations and the run; do not raise it automatically
+to bypass a failure. The launcher reports the job's peak committed-memory
+counter, and closing the job terminates all remaining descendants, including
+on timeout or interruption. Keep these limits identical when comparing times.
 Run `tools/Test-ValidationLauncher.ps1` after changing the launcher; its fixture
-checks process flags, crash failure, log isolation, and completion handling
-without requiring a game build.
+checks resource limits, aggregate allocation rejection, descendant cleanup,
+process flags, crash failure, log isolation, and completion handling without
+requiring a game build.
 
 `-Godot` overrides the executable and `-TimeoutSeconds` sets the overall deadline
 (default 600 seconds). The launcher fails on a worker error, timeout, missing

@@ -8,6 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateAlwaysUpdatePartsScrollRom()
     {
+        int publicationChecks=0;
         foreach (bool batched in new[] { false, true })
         foreach (bool outward in new[] { false, true })
         foreach (string ending in new[] { "expiry", "complete", "delete", "cancel" })
@@ -32,7 +33,7 @@ public sealed partial class ValidationRoot
             for (int index = 0; index < 2; index++)
             {
                 Vector2 point = new(index == 0 ? 64 : 96, index == 0 ? 1 : 136);
-                _entities.AddEntity(new JabuBubbleRoomEntity(point, index, new JabuExteriorDatabase(), _random));
+                _entities.AddEntity(new JabuBubbleRoomEntity(point, index, new JabuExteriorDatabase(), _random, _runtimeState));
                 int at = 0xd8c0 + index * 256;
                 native[at] = 1; native[at + 1] = 0x16; native[at + 2] = (byte)index;
                 native[at + 11] = (byte)point.Y; native[at + 13] = (byte)point.X;
@@ -82,8 +83,17 @@ public sealed partial class ValidationRoot
             int update = 0;
             void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched, afterUpdate: () =>
             {
+                bool movingBubble=native[0xd9c0]!=0&&native[0xd9c4]>=2;
                 update++; native.AdvanceParts(_entities.FrameCounter);
                 if (!_transitions.ScrollActive) { native.ClearOutgoingParts(); native[0xcd00] = 4; }
+                // Observe the last moving bubble, before its retirement leaves
+                // a different source movement owner as the final scratch writer.
+                if (_transitions.ScrollActive&&movingBubble)
+                {
+                    publicationChecks++;
+                    FailIf(Enumerable.Range(0,4).Any(i=>_runtimeState.ReadWramByte(0xcec0+i)!=native[0xcec0+i]),
+                        "Scrolling PART movement must publish native scratch in original slot order.");
+                }
                 Compare();
                 var random = _random.CaptureState();
                 FailIf(random.Rng1 != native[0xff94] || random.Rng2 != native[0xff95] || random.Calls - seed.Calls != native.RandomCalls - sourceCalls,
@@ -122,6 +132,7 @@ public sealed partial class ValidationRoot
                 FailIf(originals.Any(slots.ContainsKey), "Destination updates must not revive retired PARTs.");
             }
         }
+        FailIf(publicationChecks==0,"Real scroll comparison must observe positive Jabu bubble publication.");
         ReinitializeGameplayForValidation();
         GD.Print("Compared $53/$16 always-update PARTs through 32 real scroll lifecycles: both swirls/schedules, expiry, shared delete, completion, cancellation and repeat; ordinary $29 freeze control retained.");
     }

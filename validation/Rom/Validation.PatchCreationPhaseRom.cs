@@ -80,9 +80,9 @@ public sealed partial class ValidationRoot
             rom[atBroken+11]=24;rom[atBroken+13]=120;rom[atBroken+0x26]=rom[atBroken+0x27]=6;
             rom.Word(atBroken+0x16,atCart);
             rom[atCart]=1;rom[atCart+1]=0x94;rom[atCart+2]=2;rom[atCart+0x26]=rom[atCart+0x27]=6;
-            var cue=_sound.AttachPlayRequestAudit();var before=Node.GetOrphanNodeIds().ToHashSet();int rejected=0;
+            var cue=_sound.AttachPlayRequestAudit();var before=ValidationNodeLifetime.OrphanIds().ToHashSet();int rejected=0;
             try{Step();}catch(InvalidOperationException e)when(e.Message.Contains("native dynamic INTERACTION pool is full")){rejected++;}
-            int orphaned=Node.GetOrphanNodeIds().Count(id=>!before.Contains(id));
+            int orphaned=ValidationNodeLifetime.OrphanIds().Count(id=>!before.Contains(id));
             rom[atCart+11]=(byte)cart.Position.Y;rom[atCart+13]=(byte)cart.Position.X;
             rom[0xffae]=0x40;rom[0xffaf]=(byte)(atBroken>>8);
             byte[] caller=[0x16,(byte)(atBroken>>8),0xcd,0xf0,0x7b,0xc9];

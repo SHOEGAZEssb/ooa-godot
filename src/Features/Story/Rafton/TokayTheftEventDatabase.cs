@@ -10,6 +10,9 @@ internal sealed class TokayTheftEventDatabase
     internal TokayTheftEventRecord Record { get; }
     internal IntroSpriteFrame[] LinkFrames { get; }
     internal int LinkLoopStart { get; }
+    internal IReadOnlyList<CutsceneCommand> Commands { get; }
+    internal int MainScriptEntry { get; }
+    internal TokayJumpAnimationAbi JumpAnimation { get; }
 
     internal TokayTheftEventDatabase()
     {
@@ -102,6 +105,16 @@ internal sealed class TokayTheftEventDatabase
                 "Tokay linkCutscene7 animation $14 diverges from the source contract.");
         }
         Validate();
+        Commands = CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/tokay_theft_commands.tsv");
+        MainScriptEntry = Commands.First(command => command.Source.Label == "tokayMainThiefScript").Source.CommandIndex;
+        if (Commands.Count != 23 || MainScriptEntry != 16 ||
+            Commands[22] is not CutsceneBranchCommand { TargetCommand: 2 })
+            throw new InvalidOperationException("scripts.s: Tokay theft ROM script entry/branch contract changed.");
+        var jump = GeneratedTable.Load("res://assets/oracle/cutscenes/tokay_thief_jump_abi.tsv",
+            new GeneratedTableSchema("tokayThief_jump foreign animation ABI", GeneratedTableKeySemantics.Ordered,
+                ["id","mode","duration","graphic","parameter","pointer","source"],headerRequired:true)).SingleRow();
+        JumpAnimation=new(jump.HexByte(0),jump.HexByte(1),jump.Decimal(2,2,254),jump.HexByte(3),
+            jump.HexByte(4),jump.HexWord(5),jump.RequiredString(6));
     }
 
     internal TokayAccessoryRecord Accessory(int itemIndex) =>
@@ -158,3 +171,6 @@ internal readonly record struct TokayTheftEventRecord(
 internal readonly record struct TokayAccessoryRecord(
     int ItemIndex, int SubId, string Sprite, int TileBase, int Palette,
     string Animation);
+
+internal readonly record struct TokayJumpAnimationAbi(
+    int Id,int Mode,int Duration,int Graphic,int Parameter,int Pointer,string Source);

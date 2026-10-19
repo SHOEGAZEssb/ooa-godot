@@ -91,7 +91,9 @@ public sealed partial class ValidationRoot
             }
             try
             {
-                Gates(false); Step(1); // State zero does not apply speed.
+                Gates(true); Step(1); // State zero still initializes under the native gate.
+                Step(2); // Its now-initialized state waits without movement.
+                Gates(false);
                 expected = flight; Step(3);
                 Gates(true); expected = sentinel; Step(2);
                 Gates(false); expected = flight; Step(2);

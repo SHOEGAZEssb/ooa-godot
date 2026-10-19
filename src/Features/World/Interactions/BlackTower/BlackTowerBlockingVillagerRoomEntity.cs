@@ -5,131 +5,86 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>INTERAC_MALE_VILLAGER $3a:$02 path blocker.</summary>
-internal sealed class BlackTowerBlockingVillagerRoomEntity : BlackTowerNpcRoomEntity,
-    IFixedRoomEntity, INpcTalkLifecycle, IPlayerRestriction
+internal sealed class BlackTowerBlockingVillagerRoomEntity : BlackTowerNpcRoomEntity, IFixedRoomEntity,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
-
     private readonly BlackTowerWorkerDatabase _data;
-    private BlockState _state;
-    private float _savedX;
-    private int _savedLinkY;
-    private int _movementUpdates;
-    private int _wait;
-    private int _talkWait;
-    private bool _movingRight = true;
-    private bool _talking;
+    private OracleObjectPosition _position;
+    private int _savedX, _savedLinkY, _direction;
+    private bool _initialized, _moving;
+    internal BlackTowerBlockerScriptHost? Script { get; set; }
+    internal int Direction => _direction;
+    internal int SavedLinkY => _savedLinkY;
+    internal OracleObjectPosition PrecisePosition => _position;
+    internal bool Initialized => _initialized;
+    internal bool Moving => _moving;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
-    internal BlackTowerBlockingVillagerRoomEntity(
-        NpcCharacter npc,
-        BlackTowerWorkerDatabase data)
+    internal BlackTowerBlockingVillagerRoomEntity(NpcCharacter npc, BlackTowerWorkerDatabase data)
         : base(npc, npc.SetTransitionDrawOffset)
     {
         _data = data;
-        _savedX = npc.Position.X;
-        npc.SetCollisionRadii(6, 6);
-        npc.SetDialogue(0x1441, npc.Message, canFace: true);
+        npc.ResetNativeNpcFacingState();
+        npc.SetScriptButtonSensitive(false);
     }
 
-    public NpcCharacter TalkNpc => Entity;
-    public bool DisablesSword => _state != BlockState.Watching;
-    public bool DisablesMovement => DisablesSword;
-
     public override NpcCharacter? FindTalkTarget(Player player) =>
-        _state == BlockState.Watching && !_talking && _talkWait == 0
-            ? base.FindTalkTarget(player)
-            : null;
+        _initialized && Entity.ScriptButtonSensitive && Entity.CanTalkTo(player) ? Entity : null;
+
+    internal void Move(OracleRuntimeState memory, int speed, int angle)
+    {
+        if (speed != _data.Speed100 || angle is not (ObjectAngle.Left or ObjectAngle.Right))
+            throw new InvalidOperationException($"Villager $3a:$02 has unsupported motion ${speed:x2}/${angle:x2}.");
+        _position = NativeObjectMovement.ApplySpeed(memory, _position, speed, angle);
+        Entity.Position = _position.PixelPosition;
+    }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (!Entity.Active)
+        if (!Entity.Active) return;
+        var script = Script ?? throw new InvalidOperationException("Villager $3a:$02 has no script owner.");
+        if (!_initialized)
+        {
+            _initialized = true;
+            _position = OracleObjectPosition.FromPixels(Entity.Position);
+            Entity.Position = _position.PixelPosition;
+            _savedX = OracleObjectPosition.HighByte(Entity.Position.X);
+            Entity.SetScriptAnimation(Entity.Record.UpAnimation); // interactionInitGraphics animation $00.
+            Entity.SetCollisionRadii(0, 0);
+            Entity.SetDialogue(0, string.Empty, Entity.Record.CanFace);
+            Entity.SetScriptButtonSensitive(true);
+            return; // villager.s state0 does not fall through into state1.
+        }
+        if (!_moving)
+        {
+            Entity.FaceLinkAndAnimateOneUpdate(frame.Player);
+            script.Advance(frame.Player);
+            Vector2 open = new((_savedX + (_direction == 0 ? 0x11 : -0x11)) & 0xff,
+                OracleObjectPosition.HighByte(Entity.Position.Y));
+            Vector2 delta = OracleObjectMath.ToPixelPosition(frame.Player.Position) - open;
+            if (OracleObjectMath.ObjectAxisOverlaps((int)delta.X, 3, (int)NpcCharacter.LinkCollisionRadius) &&
+                OracleObjectMath.ObjectAxisOverlaps((int)delta.Y, 5, (int)NpcCharacter.LinkCollisionRadius))
+            {
+                _moving = true;
+                script.StartMoving(); // interactionSetScript follows this visit's runScript.
+            }
+            _savedLinkY = OracleObjectPosition.HighByte(frame.Player.Position.Y);
+            _position = _position with { XFixed = (ushort)((_savedX << 8) | (_position.XFixed & 0xff)) };
+            Entity.Position = _position.PixelPosition;
             return;
-
-        bool armedThisUpdate = false;
-        if (_state == BlockState.Watching)
-        {
-            Entity.FaceToward(frame.Player.Position);
-            Entity.AdvanceAnimationUpdates(1);
-            // npcFaceLinkAndAnimate falls through interactionAnimateAsNpc,
-            // which separates Link before this state's open-side collision
-            // check runs.
-            Entity.PreventPlayerPassing(frame.Player);
-            if (_talkWait > 0)
-            {
-                _talkWait--;
-                if (_talkWait == 0)
-                    Entity.SetScriptAnimation(Entity.Record.DownAnimation);
-            }
-
-            Vector2 openPosition = new(
-                _savedX + (_movingRight ? 0x11 : -0x11), Entity.Position.Y);
-            Vector2 delta = OracleObjectMath.ToPixelPosition(frame.Player.Position) -
-                OracleObjectMath.ToPixelPosition(openPosition);
-            if (Mathf.Abs(delta.X) < 3 + NpcCharacter.LinkCollisionRadius &&
-                Mathf.Abs(delta.Y) < 5 + NpcCharacter.LinkCollisionRadius)
-            {
-                _savedLinkY = Mathf.FloorToInt(frame.Player.Position.Y);
-                _state = BlockState.Moving;
-                _movementUpdates = 0;
-                // interactionSetScript runs after this update's
-                // interactionRunScript call; part 2 starts next update.
-                armedThisUpdate = true;
-            }
         }
-
-        if (_state == BlockState.Moving && !armedThisUpdate)
+        Entity.AnimateAsNpcOneUpdate(frame.Player);
+        script.Advance(frame.Player);
+        if (script.HasState)
         {
-            Entity.AdvanceAnimationUpdates(2);
-            // The native substate calls interactionAnimateAsNpc before the
-            // movement script. This keeps Link outside the worker's current
-            // collision box as the worker closes the passage.
-            Entity.PreventPlayerPassing(frame.Player);
-            var precise = new Vector2(_savedX, Entity.Position.Y);
-            Vector2 pixels = OracleObjectMovement.Shared.ApplySpeed(
-                ref precise,
-                _data.Speed100,
-                _movingRight ? ObjectAngle.Right : ObjectAngle.Left);
-            _savedX = precise.X;
-            _movementUpdates++;
-            Entity.SetStatePosition(pixels);
-            frame.Player.SetScriptedCoordinateHigh(horizontal: false, _savedLinkY);
-            if (_movementUpdates >= _data.BlockerDistance)
-            {
-                _state = BlockState.Waiting;
-                _wait = _data.BlockerWait;
-            }
+            // One animate call, plus one at SPEED_100 while counter2 != 0.
+            Entity.AdvanceAnimationUpdates(script.MovementCounter != 0 ? 2 : 1);
+            return;
         }
-        else if (_state == BlockState.Waiting)
-        {
-            Entity.AdvanceAnimationUpdates(_wait == 1 ? 1 : 2);
-            // The final wait update performs this separation before
-            // enableinput, so Link cannot regain control inside the blocker.
-            Entity.PreventPlayerPassing(frame.Player);
-            _wait--;
-            if (_wait == 0)
-            {
-                _movingRight = !_movingRight;
-                _state = BlockState.Watching;
-            }
-        }
-
-        Entity.UpdateDrawPriority(frame.Player.Position);
+        _savedX = OracleObjectPosition.HighByte(Entity.Position.X);
+        _direction ^= 1;
+        _moving = false;
+        script.StartWatching();
     }
-
-    public void OnNpcTalkStarted() => _talking = true;
-
-    public void OnNpcTalkEnded()
-    {
-        _talking = false;
-        // A collision can replace part 1 with part 2 while its textbox is
-        // open. In that case the old post-text wait/setanimation commands no
-        // longer exist.
-        _talkWait = _state == BlockState.Watching ? _data.BlockerWait : 0;
-    }
-}
-
-internal enum BlockState
-{
-    Watching,
-    Moving,
-    Waiting
 }

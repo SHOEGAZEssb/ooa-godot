@@ -198,6 +198,13 @@ public sealed partial class ValidationRoot
             (_, _) => nutCaught = true,
             sounds.Add, () => roomRedraws++, () => tick);
         harvest.UpdateFrame(_player);
+        // A declared no-catch flight isolates state4's movement publication;
+        // this does not certify the original PART $17 sword-to-parent handoff.
+        using var harvestFixture = RoomEntityValidationFixture.Attach(this, "GashaFlightValidation", new()
+        {
+            SaveData = save, Inventory = inventory, AnimationTick = () => tick
+        });
+        harvestFixture.Manager.AddEntity(new GashaSpotRoomEntity(harvest));
         _player.WarpTo(harvest.Position + new Vector2(0, 11), recordSafe: false);
         Rect2 slash = new(harvest.Position - new Vector2(5, 5), new Vector2(10, 10));
         var harvestAdapter = new GashaSpotRoomEntity(harvest);
@@ -206,7 +213,13 @@ public sealed partial class ValidationRoot
             harvest.State != InteractionState.NutAirborne ||
             !harvest.RestrictsPlayer || !harvestAdapter.DisablesMenus,
             "The 40-kill Gasha nut was not slashable or did not disable Link/menus.");
-        harvest.UpdateFrame(_player);
+        _player.WarpTo(harvest.Position + new Vector2(0, 30), recordSafe: false);
+        harvestFixture.Manager.Update(1.0 / 60, _player);
+        AssertMovementPublication(harvestFixture.Manager.RuntimeState, 256, 0, "INTERAC $b6 nut flight");
+        FailIf(nutCaught || harvest.State != InteractionState.NutAirborne,
+            "Declared no-catch Gasha flight did not remain airborne.");
+        _player.WarpTo(harvest.Position + new Vector2(0, 11), recordSafe: false);
+        harvestFixture.Manager.Update(1.0 / 60, _player);
         FailIf(
             !nutCaught || harvest.State !=
             InteractionState.AwaitingNutText,

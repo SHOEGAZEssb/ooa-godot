@@ -6,7 +6,9 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidateAnglerFishRom()
+    private void ValidateAnglerFishRom() => ValidateAnglerFishCore(false);
+    private void ValidateAnglerFishPublicationRom() => ValidateAnglerFishCore(true);
+    private void ValidateAnglerFishCore(bool publication)
     {
         foreach(bool batch in new[]{false,true})
         {
@@ -28,9 +30,29 @@ public sealed partial class ValidationRoot
             rom[0xca4a]=_saveData.GetRoomFlags(5,0x4a);rom[0xca4d]=_saveData.GetRoomFlags(5,0x4d);
             int update=0;var states=new HashSet<int>();
             var checkedAntennaTextures=new HashSet<ulong>();
+            byte[] observed=new byte[4],expectedScratch=new byte[4];int probes=0,publications=0;
+            if(publication)
+            {
+                var probe=new PartMovementScratchProbe(()=>
+                {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+                _entities.RegisterEnemySlot(probe,15);_entities.AddEntity(probe);
+            }
             void Compare()
             {
-                rom.Update(_entities.FrameCounter,_player.Position);update++;
+                int calls=rom.MovementCalls;bool moved=false;
+                rom.Update(_entities.FrameCounter,_player.Position,afterEnemies:()=>
+                {moved=rom.MovementCalls!=calls;for(int i=0;i<4;i++)expectedScratch[i]=rom[0xcec0+i];});update++;
+                if(publication)
+                {
+                    FailIf(rom[0xdf80]!=0,"Angler publication observer's reserved ENEMY$0f must remain unused in the original trace.");
+                    if(moved)
+                    {
+                        FailIf(probes!=1||!observed.SequenceEqual(expectedScratch),
+                            $"Angler update{update}, batch={batch}: original body/bubble movement scratch before PARTs differs: [{string.Join(',',observed)}]/[{string.Join(',',expectedScratch)}].");
+                        publications++;
+                    }
+                    probes=0;
+                }
                 foreach(var (entity,slot) in slots.Where(pair=>pair.Key.Node is AnglerFishCharacter))
                 {
                     var actor=(AnglerFishCharacter)entity.Node;int s=0xd080+slot*256;
@@ -86,6 +108,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(300,Vector2.Zero,batched:batch,afterUpdate:Compare);
             FailIf(!body.IsDead || _entities.RoomEnemyCount!=0 || !_saveData.HasRoomFlag(5,0x4a,0x80) || !_saveData.HasRoomFlag(5,0x4d,0x80),
                 $"Angler death must finish its counted explosion and persist both ladder/portal room flags: dead={body.IsDead}, count={_entities.RoomEnemyCount}, flags=${_saveData.GetRoomFlags(5,0x4a):x2}/${_saveData.GetRoomFlags(5,0x4d):x2}.");
+            FailIf(publication&&publications<200,"Angler source comparison must observe live body/bubble movement before later phases reuse scratch.");
             LoadValidationRoom(7,0x4a);
             StepGameplayUpdates(1,Vector2.Zero,batched:batch);
             FailIf(_entities.Entities<AnglerFishCharacter>().Count!=0 || _entities.RoomEnemyCount!=0 ||

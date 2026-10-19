@@ -29,7 +29,8 @@ internal sealed class StalfosRoomEntity
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (Entity.UpdateFrame(frame.Player.Position, frame.Player.StartedItemAnimationThisUpdate, _canSpawnPart))
+        if (Entity.UpdateFrame(frame.Player.Position, frame.Player.StartedItemAnimationThisUpdate, _canSpawnPart,
+            frame.LinkTarget ?? frame.Player.EnemyContactPosition))
             spawns.Add(new StalfosBoneSpawn(OracleObjectMath.ToPixelPosition(Entity.Position), Entity.ZFixed >> 8));
     }
 

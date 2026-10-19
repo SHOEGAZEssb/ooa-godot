@@ -123,6 +123,8 @@ Animation labels are entry points, not implicit terminators. Trace whether the
 handler keeps advancing a stream across the next label or stops on a frame
 parameter/held pose. Executed fallthrough must retain its following frames and
 interior loop target; a one-time intro must not repeat on subsequent loops.
+An animation parameter such as `$ff` signals its caller; preserve a following
+loop when the handler continues animating instead of deleting the object.
 The enemy-definition importer accepts the traced animation indices that require
 this complete stream, separately from its existing declaration-bounded records.
 

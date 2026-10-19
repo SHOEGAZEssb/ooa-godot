@@ -42,6 +42,7 @@ internal sealed partial class HeadThwompBoulder
     }
 
     public bool Finished { get; private set; }
+    bool IHostileProjectile.InitializationPending => !_initialized;
     public Rect2 CollisionBounds
     {
         get

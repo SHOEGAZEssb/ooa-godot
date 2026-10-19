@@ -40,6 +40,9 @@ internal sealed class NayruStoneChildVignette : RoomCutsceneCommandHost
 
     public void AdvanceFrame()
     {
+        // bank0.updateInteractions admits initialized ordinary actors once
+        // for the complete slot walk, before any later textbox/mask writer.
+        if (!Context.Entities.InitializedInteractionUpdatesAllowed) return;
         NpcCharacter boy = _actors["VignetteBoy"];
         _activeActor = "VignetteBoy";
         _boy.AdvanceFrame();
@@ -63,7 +66,9 @@ internal sealed class NayruStoneChildVignette : RoomCutsceneCommandHost
                     ? _database.StoneSpritePalette : _database.BoySpritePalette);
                 break;
             case 2:
-                if (!_boyEnded) boy.AdvanceAnimationUpdates(1);
+                // A live script gate returns carry clear even after scriptend;
+                // boyRunSubid01 still animates on an already admitted pass.
+                if (!_boyEnded || ScriptExecutionBlocked) boy.AdvanceAnimationUpdates(1);
                 break;
         }
 
@@ -86,7 +91,11 @@ internal sealed class NayruStoneChildVignette : RoomCutsceneCommandHost
             if (--_ladyCounter == 0)
             {
                 _ladyState++;
-                if (_ladyState == 4) Complete = true;
+                if (_ladyState == 4)
+                {
+                    Context.Entities.RuntimeState.SetWramByte(0xcfdf, 0xff);
+                    Complete = true;
+                }
                 else _ladyCounter = _ladyState == 2 ? 20 : 60;
             }
             else if (_ladyState == 2)
@@ -103,7 +112,7 @@ internal sealed class NayruStoneChildVignette : RoomCutsceneCommandHost
     public override void MoveActorAtSpeed(string actor, int speed, int angle)
     {
         NpcCharacter npc = _actors[actor];
-        npc.Position = OracleObjectMovement.Shared.ApplySpeed(
+        npc.Position = NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState,
             OracleObjectPosition.FromPixels(npc.Position), speed, angle).PrecisePosition;
     }
 

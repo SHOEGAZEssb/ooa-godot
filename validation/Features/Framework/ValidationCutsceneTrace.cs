@@ -9,8 +9,13 @@ internal sealed class ValidationCutsceneTrace : ICutsceneCommandTraceSink
 {
     public List<CutsceneCommandTraceEntry> Entries { get; } = new();
     public List<CutsceneObservationTraceEntry> Observations { get; } = new();
+    internal ICutsceneCommandTraceSink? Forward { get; init; }
 
-    public void Record(CutsceneCommandTraceEntry entry) => Entries.Add(entry);
+    public void Record(CutsceneCommandTraceEntry entry)
+    {
+        Entries.Add(entry);
+        Forward?.Record(entry);
+    }
     public void RecordObservation(CutsceneObservationTraceEntry entry) => Observations.Add(entry);
     public bool Saw(string observation, string? actor = null, int? value = null) => Observations.Any(entry => entry.Observation == observation && (actor is null || entry.Actor?.Value == actor) && (!value.HasValue || entry.Value == value.Value));
     public int LastValue(string observation) => Observations.Last(entry => entry.Observation == observation).Value;

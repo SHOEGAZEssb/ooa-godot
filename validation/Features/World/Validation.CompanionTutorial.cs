@@ -71,13 +71,13 @@ public sealed partial class ValidationRoot
                 if ((blocked & 15) == 0) x = (x + sine[direction]) & 0xffff;
                 if ((blocked & 0xf0) == 0) y = (y - sine[(direction + 8) & 31]) & 0xffff;
                 Vector2 actual = origin;
-                SpecialObjectMovement.ApplySpeed(ref actual, 0x28, angle, walls);
+                SpecialObjectMovement.ApplySpeed(null, ref actual, 0x28, angle, walls);
                 FailIf(actual != new Vector2(x / 256.0f, y / 256.0f),
                     $"specialObjectUpdatePosition angle ${angle:x2}, walls ${walls:x2}, origin {origin}: {actual}.");
             }
         }
         Vector2 idle = new(10.5f,20.25f);
-        SpecialObjectMovement.ApplySpeed(ref idle, 0x28, 0xff, 0xff);
+        SpecialObjectMovement.ApplySpeed(null, ref idle, 0x28, 0xff, 0xff);
         FailIf(idle != new Vector2(10.5f,20.25f), "Special-object angle $ff must not move.");
     }
 

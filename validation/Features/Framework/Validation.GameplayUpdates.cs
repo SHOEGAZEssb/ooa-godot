@@ -27,7 +27,35 @@ public sealed partial class ValidationRoot
     private float _scrollTransitionDistance => _transitions.ScrollDistance;
     private int _scrollTransitionFrames => _transitions.ScrollFrames;
 
-    private void ReinitializeGameplayForValidation() => Application.ResetGameplay();
+    private void ReinitializeGameplayForValidation()
+    {
+        if (_profileValidationMemory && (_validationMemoryResetCount++ & 15) == 0)
+            TraceValidationMemory();
+        Application.ResetGameplay();
+        DrainRetiredValidationNodes();
+    }
+
+    private void DrainRetiredValidationNodes()
+    {
+        // RoomEntityManager removes retired actors from their parent before
+        // QueueFree. A synchronous matrix can replace hundreds of sessions
+        // without returning to the engine's deletion queue; those orphaned
+        // script instances then root the discarded worlds/controllers.
+        // At this reset boundary their updates and the old scene are finished.
+        // Free only parentless nodes ALREADY queued for deletion. Never touch
+        // live orphan fixtures or change retirement during a gameplay update.
+        ulong[] orphans = ValidationNodeLifetime.OrphanIds();
+        int drained = 0;
+        foreach (ulong id in orphans)
+            if (GodotObject.InstanceFromId(id) is Node node &&
+                node.GetParent() is null && node.IsQueuedForDeletion())
+            {
+                node.Free();
+                drained++;
+            }
+        if (_profileValidationMemory && (_validationMemoryResetCount & 15) == 1)
+            GD.Print($"VALIDATION_DRAIN reset={_validationMemoryResetCount} orphans={orphans.Length} freed={drained}");
+    }
 
     // Feed explicit host samples to the actual application scheduler and
     // complete gameplay loop. Godot's native just-pressed flags otherwise
@@ -36,4 +64,14 @@ public sealed partial class ValidationRoot
         string[]? held = null, string[]? pressed = null, bool batched = false,
         Action? afterUpdate = null) =>
         Application.Step(updates, movement, held, pressed, batched, afterUpdate);
+
+    private static void AssertMovementPublication(OracleRuntimeState memory, int y, int x, string source)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            byte expected = unchecked((byte)((i < 2 ? y : x) >> ((i & 1) * 8)));
+            FailIf(memory.ReadWramByte(0xcec0 + i) != expected,
+                $"{source}: expected movement byte ${expected:x2} at ${0xcec0 + i:x4}.");
+        }
+    }
 }

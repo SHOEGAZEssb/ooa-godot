@@ -8,6 +8,8 @@ internal sealed class SymmetryRoomEntity : NpcCharacterRoomEntityAdapter, IRoomB
     private SymmetryEvent? _owner;
     public NpcCharacter Npc => Entity;
     public bool FreezesRoomEntities => _owner?.BlocksGameplay == true;
+    // Scripts use$91 and the nut uses$01; neither disables INTERACTIONs.
+    public bool FreezesInteractions => false;
     internal void Bind(SymmetryEvent owner) => _owner = owner;
 
     public SymmetryRoomEntity(NpcCharacter npc, SymmetryDatabase database, OracleSaveData? save)

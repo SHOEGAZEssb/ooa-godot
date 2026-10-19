@@ -4,23 +4,23 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class PoeRoomEntity(PoeCharacter poe, PoeEventRecord record, OracleSaveData? saveData)
-    : RoomEntityAdapter<PoeCharacter>(poe, poe.SetTransitionDrawOffset),
+    : NpcCharacterRoomEntityAdapter(poe, poe.SetTransitionDrawOffset),
         IRoomBlocker, ITalkTarget, IScreenTransitionPreloadRoomEntity
 {
-    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns) =>
+    public new ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns) =>
         PrepareForScreenTransition(null, spawns);
 
     public ScreenTransitionPresentation PrepareForScreenTransition(Player? player, ICollection<RoomEntitySpawn> spawns)
     {
-        Entity.PrepareTransition(record, saveData, player);
-        return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+        poe.PrepareTransition(record, saveData, player);
+        return poe.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
     }
 
     public bool BlocksLink(Vector2 linkCenter) =>
-        !Entity.Disappearing && !Entity.NoFace && Entity.BlocksLinkCenter(linkCenter);
+        !poe.Disappearing && !poe.NoFace && poe.BlocksLinkCenter(linkCenter);
 
     public NpcCharacter? FindTalkTarget(Player player) =>
-        !Entity.Disappearing && !Entity.NoFace &&
-        Entity.CanScriptTalkTo(player, NpcCharacter.CollisionRadius,
-            NpcCharacter.CollisionRadius, NpcCharacter.AButtonPointOffset) ? Entity : null;
+        !poe.Disappearing && !poe.NoFace &&
+        poe.CanScriptTalkTo(player, NpcCharacter.CollisionRadius,
+            NpcCharacter.CollisionRadius, NpcCharacter.AButtonPointOffset) ? poe : null;
 }

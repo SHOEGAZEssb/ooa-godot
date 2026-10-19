@@ -35,6 +35,8 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
     private Func<Vector2, IReadOnlyList<BlueEnergyBeadRoomEntity>> _createEnergySwirl = null!;
     private Action _stopEnergySwirl = null!;
     private Vector2 _precisePosition;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private Player? _heldBy;
     private MotionState _state;
     private int _floatCounter;
@@ -143,8 +145,8 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
             {
                 int angle = OracleObjectMovement.Shared.RelativeAngle(
                     _precisePosition, frame.Player.Position);
-                Position = OracleObjectMovement.Shared.ApplySpeed(
-                    ref _precisePosition, 0x14, angle);
+                Position = NativeObjectMovement.ApplySpeed(
+                    _movementMemory, ref _precisePosition, 0x14, angle);
                 if (Player.EnemyCollisionOverlaps(frame.Player.Position,
                     new Rect2(Position - new Vector2(4, 4), new Vector2(8, 8))))
                 {

@@ -19,6 +19,9 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
     private readonly Func<long> _tick;
     private Vector2 _precisePosition;
     private bool _objectsDisabled;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     public Node2D Node => this;
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => SetTransitionDrawOffset(offset);
@@ -120,7 +123,7 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
                 State = 2;
                 return;
             case 2:
-                Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition,
+                Position = NativeObjectMovement.ApplySpeed(_movementMemory, ref _precisePosition,
                     0x14, _placement.SubId == 0 ? ObjectAngle.Left : ObjectAngle.Right); // SPEED_80
                 PreventPlayerPassing(player);
                 if (--Counter != 0) return;

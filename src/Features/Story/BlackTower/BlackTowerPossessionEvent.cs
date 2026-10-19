@@ -39,9 +39,7 @@ internal sealed class BlackTowerPossessionEvent(RoomEventContext context) : IRoo
     }
     internal void Input(bool enabled)
     {
-        context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,enabled?(byte)0:(byte)0x81);
-        context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled,enabled?(byte)0:(byte)0x80);
-        if(!enabled) {context.Player.ClearNativeItemParents();context.Player.DropHeldItemsForScript();context.Player.ApplyInteractionInvincibility(0x80);}
+        NativeScriptInputControl.SetEnabled(context.Entities.RuntimeState, context.Player, enabled);
     }
     internal void Aftermath() {HasState=true;_owned.Clear();context.Transitions.ResetCamera();}
     internal void RequestLinkState()=>context.Player.RequestAmbiUnpossessedCutscene(()=>context.Entities.CreatePalaceExclamation(context.Player.Position+new Vector2(-8,-12),30));

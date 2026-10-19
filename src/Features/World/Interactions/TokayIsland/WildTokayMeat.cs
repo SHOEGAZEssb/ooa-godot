@@ -13,6 +13,8 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
     private OracleRoomData _room = null!;
     private Action<int> _soundRequested = null!;
     private CarriedObjectMotion _carried;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private int _fallDelay;
     private int _fallGravity;
     private int _fallSound;
@@ -202,10 +204,8 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
         }
 
         _carried.AdvanceHorizontal(
-            _throwing,
-            front => !WithinRoom(front) ||
-                (_room.IsSolid(front) &&
-                 !_throwing.CanPassSolidTile(_room, front)));
+            _throwing, _room,
+            (position, speed, angle) => NativeObjectMovement.ApplySpeed(_movementMemory, position, speed, angle));
         bool landed = _carried.AdvanceVertical(_bracelet);
         Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
         if (!landed)

@@ -8,6 +8,7 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
     private readonly BeamosBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Beamos;
     private readonly BeamosBeamDatabase _data;
     private readonly OracleRoomData _room;
+    private readonly OracleRuntimeState? _runtime;
     private readonly EnemyAnimationPlayer _animation;
     private OracleObjectPosition _position;
     private OracleObjectVelocity _velocity;
@@ -22,10 +23,11 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
     internal Rect2 CollisionBounds => new(Position - new Vector2(_data.RadiusX, _data.RadiusY),
         new Vector2(_data.RadiusX * 2, _data.RadiusY * 2));
 
-    internal BeamosBeamPart(BeamosBeamSpawn spawn, BeamosBeamDatabase data, OracleRoomData room)
+    internal BeamosBeamPart(BeamosBeamSpawn spawn, BeamosBeamDatabase data, OracleRoomData room, OracleRuntimeState? runtime = null)
     {
         _data = data;
         _room = room;
+        _runtime = runtime;
         _position = OracleObjectMovement.Shared.PositionFromPixels(spawn.Position);
         Position = _position.PixelPosition;
         Angle = spawn.Angle;
@@ -49,13 +51,12 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
             _collisionCleared = false; // partLoadGraphicsAndProperties.
             State = 1;
             Counter = _behavior.BeamCollisionDelay;
-            _velocity = OracleObjectMovement.Shared.Velocity(_behavior.BeamSpeed, Angle);
+            _velocity = NativeObjectMovement.ScaledVelocity(_runtime, _behavior.BeamSpeed, Angle, _behavior.BeamVelocityScale);
             _animation.SetAnimation(_behavior.BeamAngleAnimations[Angle & 0x0f].Value);
             return;
         }
         if (State == 1 && --Counter == 0) State = 2;
-        _position = _position.Add(_velocity.YFixed * _behavior.BeamVelocityScale,
-            _velocity.XFixed * _behavior.BeamVelocityScale);
+        _position = _position.Add(_velocity.YFixed, _velocity.XFixed);
         Position = _position.PixelPosition;
         Visible = (frame & SubId) == 0;
         ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // objectSetVisible81.

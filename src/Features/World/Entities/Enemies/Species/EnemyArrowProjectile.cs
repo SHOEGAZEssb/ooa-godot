@@ -12,6 +12,7 @@ public partial class EnemyArrowProjectile
     private HostileProjectileLifecycle _lifecycle = null!;
 
     public bool Finished => _lifecycle.Finished;
+    bool IHostileProjectile.InitializationPending => State == HostileProjectileState.Initializing;
     public Rect2 CollisionBounds => _lifecycle.CollisionBounds;
     internal HostileProjectileState State => _lifecycle.State;
     internal int Angle => _lifecycle.Angle;

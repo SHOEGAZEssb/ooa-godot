@@ -18,6 +18,9 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
     private Vector2 _origin;
     private int _zFixed;
     private int _speedZ;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     internal int SubId { get; }
     internal int State { get; private set; }
@@ -76,7 +79,7 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
                 break;
             case 2:
                 if (OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x20)) Bounce();
-                _position = OracleObjectMovement.Shared.ApplySpeed(_position, 0x32, Angle);
+                _position = NativeObjectMovement.ApplySpeed(_movementMemory, _position, 0x32, Angle);
                 Position = _position.PixelPosition;
                 if (Position.Y < 0x88) _animation.Advance();
                 else

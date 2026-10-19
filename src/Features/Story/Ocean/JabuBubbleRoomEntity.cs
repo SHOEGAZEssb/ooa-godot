@@ -9,6 +9,7 @@ internal sealed partial class JabuBubbleRoomEntity : DungeonInteractionVisualEnt
     IUpdatesDuringRoomEntityFreeze, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly OracleRandom _random;
+    private readonly OracleRuntimeState _runtime;
     private Vector2 _position;
     private int _state, _counter, _counter2, _speed, _drift;
     public Node2D Node => this;
@@ -17,9 +18,9 @@ internal sealed partial class JabuBubbleRoomEntity : DungeonInteractionVisualEnt
     public bool UpdatesDuringRoomEntityFreeze => true;
     // jabuJabusBubbles.s sets enabled bit7; setPartsEnabledTo2 preserves it.
     public void UpdateDuringScreenTransition(RoomEntityFrame frame) => UpdateFrame(frame, []);
-    internal JabuBubbleRoomEntity(Vector2 position,int subid,JabuExteriorDatabase data,OracleRandom random)
+    internal JabuBubbleRoomEntity(Vector2 position,int subid,JabuExteriorDatabase data,OracleRandom random,OracleRuntimeState runtime)
     {
-        _random=random; _position=position;
+        _random=random; _position=position; _runtime=runtime;
         InitializeVisual(data.Bubble,position,subid,positionedOam:true);
         ZIndex=ObjectDrawPriority.BehindLinkZIndex; Visible=false;
     }
@@ -46,7 +47,7 @@ internal sealed partial class JabuBubbleRoomEntity : DungeonInteractionVisualEnt
             if(_counter==0)_state=3;
             _position.X=(_position.X+_drift/256f+256)%256;
         }
-        Position=OracleObjectMovement.Shared.ApplySpeed(ref _position,_speed,ObjectAngle.Up);
+        Position=NativeObjectMovement.ApplySpeed(_runtime,ref _position,_speed,ObjectAngle.Up);
         if(((int)Position.Y&255)>=0xf0){Finished=true;Visible=false;return;}
         Visible=!Visible;
         _counter2=(_counter2-1)&255;

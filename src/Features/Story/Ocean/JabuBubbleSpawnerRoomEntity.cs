@@ -29,7 +29,7 @@ internal sealed partial class JabuBubbleSpawnerRoomEntity(RoomEntityManager enti
     private void Spawn(int index)
     {
         var bytes=data.Bytes("bubble-positions");
-        if(entities.PartSlotAvailable)entities.AddEntity(new JabuBubbleRoomEntity(new(bytes[index*3+1],bytes[index*3]),bytes[index*3+2],data,entities.Random));
+        if(entities.PartSlotAvailable)entities.AddEntity(new JabuBubbleRoomEntity(new(bytes[index*3+1],bytes[index*3]),bytes[index*3+2],data,entities.Random,entities.RuntimeState));
     }
     public void SetTransitionDrawOffset(Vector2 offset){ }
 }

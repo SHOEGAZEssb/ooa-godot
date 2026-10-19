@@ -52,6 +52,53 @@ Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\tokay_theft_event.tsv'),
     $tokayEventRows)
 
+# These are ROM scripts: the main thief's jump into the common block keeps
+# dispatching in the same update. Its three extra yielding commands must not
+# be collapsed into the other four actors' timeline.
+$tokayThiefOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @('wait','setanimation','setangle','setspeed','applyspeed',
+    'writeobjectbyte','scriptend','disablemenu','asm15','playsound','writememory','scriptjump')) {
+    [void]$tokayThiefOpcodes.Add($opcode)
+}
+$tokayThiefCommands = @(Read-AssemblyCutsceneCommands `
+    (Join-Path $Disassembly 'scripts\ages\scripts.s') 'tokayThiefScript' `
+    $tokayThiefOpcodes 'tokayCookScript')
+$tokayThiefRows = ConvertTo-CutsceneCommandRows $tokayThiefCommands 'Thief' `
+    -symbols @{
+        SPEED_200 = (Resolve-ObjectSpeed '200'); SPEED_080 = (Resolve-ObjectSpeed '80')
+        'Interaction.var39' = 0x39; 'wTmpcfc0.genericCutscene.cfd1' = 'TokayJumpSignal'
+    } -animations @{ 0 = $tokayAnimations[0] } -bindings @{
+        'disablemenu|' = @{ Opcode = 'disablemenu' }
+        'asm15|scriptHelp.tokayMakeLinkJump' = @{ Opcode = 'native'; Payload = 'TokayMakeLinkJump' }
+        'playsound|SND_STRIKE' = @{ Opcode = 'playsound'; Arg0 = (Resolve-SoundConstant 'SND_STRIKE').ToString('x2') }
+    }
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\tokay_theft_commands.tsv'), $tokayThiefRows)
+
+# tokayThief_jump calls the SPECIALOBJECT animation ABI on its INTERACTION
+# page. The clean scene's pages $d2-$d6 have an unused prefix with id$00.
+# Import the actual first frame/pointer, including the subsequent decrement.
+$tokaySpecialPath = Join-Path $Disassembly 'data/ages/specialObjectAnimationData.s'
+$tokaySpecialPointers = Read-AssemblyDwTables $tokaySpecialPath 'specialObject(?:00|09)AnimationDataPointers' 'animationData[0-9a-f]+'
+$tokayJumpLabel = $tokaySpecialPointers['specialObject00AnimationDataPointers'][5]
+if ($tokayJumpLabel -notmatch '^animationData(?<offset>[0-9a-f]+)$') {
+    throw 'tokayThief_jump special-object animation$05 has no source ROM offset.'
+}
+$tokayJumpOffset = [Convert]::ToInt32($Matches['offset'],16)
+$tokayJumpFrame = @(Read-AssemblyLabelNodes $tokaySpecialPath $tokayJumpLabel |
+    Where-Object { $_.Kind -eq 'Data' -and $_.Name -eq '.db' } | Select-Object -First 1)
+if ($tokayJumpFrame.Count -ne 1 -or $tokayJumpFrame[0].Operands.Count -ne 3) {
+    throw "Unsupported tokayThief_jump first frame $tokayJumpLabel."
+}
+$tokayJumpBytes = @($tokayJumpFrame[0].Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+if ($tokayJumpBytes[0] -le 1 -or $tokayJumpOffset -lt 0x18000 -or $tokayJumpOffset -ge 0x1c000 -or
+    ($tokayJumpBytes -join ',') -ne ($romBytes[$tokayJumpOffset..($tokayJumpOffset+2)] -join ',')) {
+    throw 'tokayThief_jump source animation/ROM bytes changed; trace specialObjectAnimate fallthrough.'
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\tokay_thief_jump_abi.tsv'), @(
+    "# id`tmode`tduration`tgraphic`tparameter`tpointer`tsource",
+    "00`t05`t$($tokayJumpBytes[0])`t$($tokayJumpBytes[1].ToString('x2'))`t$($tokayJumpBytes[2].ToString('x2'))`t$(('{0:x4}' -f (0x4000+($tokayJumpOffset-band 0x3fff)+3)))`ttokay.s:tokayThief_jump;specialObjectAnimationData.s:$tokayJumpLabel"
+))
+
 $tokayAccessoryRows = [Collections.Generic.List[string]]::new()
 $tokayAccessoryRows.Add('# item-index`tsubid`tsprite`ttile-base`tpalette`tanimation')
 $tokayAccessorySubids = @(0x10, 0x1b, 0x68, 0x31, 0x20)

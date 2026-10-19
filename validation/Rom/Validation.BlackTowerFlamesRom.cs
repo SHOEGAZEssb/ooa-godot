@@ -9,6 +9,7 @@ public sealed partial class ValidationRoot
     private void ValidateBlackTowerFlamesRom()
     {
         foreach (bool batched in new[] { false, true })
+        foreach (bool fractional in new[] { false, true })
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, 0xd2);
             _inventory.EquipA(0); _inventory.EquipB(0); _player.WarpTo(new(0x68, 0x68));
@@ -16,7 +17,9 @@ public sealed partial class ValidationRoot
             var flames = _entities.EntityAdapters<BlackTowerFlameRoomEntity>().OrderBy(flame => flame.SubId).ToArray();
             FailIf(flames.Length != 4 || !flames.Select(flame => _currentRoom.GetPackedPosition(flame.Position)).SequenceEqual(new[] { 0x56, 0x47, 0x58, 0x67 }),
                 "Room $4:d2 must allocate PART $59:$00-$03 at source tiles $56/$47/$58/$67 in order.");
-            var rom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, 0x68, 0x68)
+            if(fractional)foreach(var flame in flames)flame.Position+=new Vector2(.25f,.5f);
+            var seed = _random.CaptureState();
+            var rom = new SomariaRom(_saveData, seed, _currentRoom, 0, 0x68, 0x68)
                 { HostilePartsEnabled = true };
             rom.InitializeLinkGameplay();
             // Isolate the PART dispatcher from this room's wrong-route tile
@@ -26,8 +29,14 @@ public sealed partial class ValidationRoot
             {
                 int address = 0xd0c0 + index * 256;
                 rom[address] = 1; rom[address + 1] = 0x59; rom[address + 2] = (byte)index;
-                rom[address + 11] = (byte)flames[index].Position.Y; rom[address + 13] = (byte)flames[index].Position.X;
+                rom.Word(address + 10, (int)(flames[index].Position.Y*256)); rom.Word(address + 12, (int)(flames[index].Position.X*256));
             }
+            byte[] observed=new byte[4];int probes=0,movementVisits=0;
+            var before=new PartMovementScratchProbe(()=>
+            {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
+            _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
+            _entities.AddEntity(new PartMovementScratchProbe(()=>
+            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
             var sounds = _sound.AttachPlayRequestAudit();
             int update = 0;
             bool frozen = true;
@@ -35,7 +44,13 @@ public sealed partial class ValidationRoot
             void Compare()
             {
                 rom[0xcba0] = (byte)(frozen ? 1 : 0);
-                rom.UpdateGameplay(0, 0, 0xff, ++update);
+                byte[] expected=new byte[4];
+                rom.UpdateGameplay(0, 0, 0xff, ++update,
+                    beforeParts:()=>{for(int i=0;i<4;i++)rom[0xcec0+i]=(byte)(0xa5+i);},
+                    beforeInteractions:()=>{for(int i=0;i<4;i++)expected[i]=rom[0xcec0+i];});
+                if(expected[3]!=0xa8)movementVisits++;
+                FailIf(probes!=1||!observed.SequenceEqual(expected),
+                    $"PART$59 phase-local motion/publication differs update{update}/fraction{fractional}: [{string.Join(',',observed)}]/[{string.Join(',',expected)}].");probes=0;
                 for (int index = 0; index < 4; index++)
                 {
                     int address = 0xd0c0 + index * 256; var flame = flames[index];
@@ -49,6 +64,8 @@ public sealed partial class ValidationRoot
                         $"ROM={rom[address + 4]}/{rom[address + 6]}/{rom[address + 7]}/{rom.Word(address + 12) / 256f},{rom.Word(address + 10) / 256f}/{rom[address + 9]}/{rom[address + 0x31]},{rom[address + 0x30]}.");
                 }
                 FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), $"PART $59 ignition/puff sound order differs update {update}: port={string.Join(',', sounds.Requests)}, ROM={string.Join(',', rom.Sounds)}.");
+                var rng=_random.CaptureState();FailIf(rng.Rng1!=rom[0xff94]||rng.Rng2!=rom[0xff95]||rng.Calls-seed.Calls!=rom.RandomCalls,
+                    "Black Tower flame routes must retain native RNG consumption.");
             }
             void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched, afterUpdate: Compare);
             Step(3);
@@ -58,9 +75,11 @@ public sealed partial class ValidationRoot
             frozen = true; Step(5); frozen = false;
             _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 8); rom[WramAddress.wDisabledObjects] = 8;
             Step(5); _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); rom[WramAddress.wDisabledObjects] = 0;
+            _runtimeState.SetWramByte(WramAddress.wScrollMode,8);rom[WramAddress.wScrollMode]=8;
+            Step(3);_runtimeState.SetWramByte(WramAddress.wScrollMode,0);rom[WramAddress.wScrollMode]=0;
             for (int bound = 0; bound < 3600 && flames.Any(flame => !flame.Finished); bound += 8) Step(8);
             Step(32);
-            FailIf(flames.Any(flame => !flame.Finished) || !flames.Select(flame => flame.RouteIndex).SequenceEqual(new[] { 12, 10, 11, 17 }) ||
+            FailIf(movementVisits==0||flames.Any(flame => !flame.Finished) || !flames.Select(flame => flame.RouteIndex).SequenceEqual(new[] { 12, 10, 11, 17 }) ||
                 !flames.Select(flame => _currentRoom.GetPackedPosition(flame.Position)).SequenceEqual(new[] { 0x8a, 0x62, 0x26, 0x88 }) ||
                 sounds.Requests.Count(cue => cue == SoundId.SndLightTorch) != 4 || sounds.Requests.Count(cue => cue == SoundId.SndPoof) != 4,
                 "PART $59 must traverse all four independently source-derived routes and puff once at each terminator.");

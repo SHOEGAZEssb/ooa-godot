@@ -44,10 +44,22 @@ public sealed partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(Point(center + row.Offset), (byte)next, 0, 0);
             MinecartRuntimeState.Reset(_runtimeState, []);
             MinecartRuntimeState.BeginRide(_runtimeState, 0, 0x00, Point(center), row.Direction);
-            var cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, row.Direction, true),
+            Vector2? soundPosition = null;
+            MinecartRoomEntity cart = null!;
+            cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, row.Direction, true),
                 _currentRoom, new DungeonInteractionDatabase(), _runtimeState,
-                new DungeonInteractionVisualDatabase().Visual("minecart"), _sound.PlaySound);
+                new DungeonInteractionVisualDatabase().Visual("minecart"), sound =>
+                {
+                    if (sound == 0x80) soundPosition = cart.Position; // SND_MINECART.
+                    _sound.PlaySound(sound);
+                });
             _entities.AddEntity(cart);
+            byte[] observedVelocity = new byte[4], expectedVelocity = new byte[4];
+            var observer = new PartMovementScratchProbe(() =>
+            {
+                for (int i = 0; i < 4; i++) observedVelocity[i] = _runtimeState.ReadWramByte(0xcec0 + i);
+            });
+            _entities.RegisterEnemySlot(observer, 15); _entities.AddEntity(observer);
             _player.WarpTo(new(88.25f, 72.5f));
             _player.Face(directions[row.Direction]);
             _player.FinishMinecartMount(Point(center), row.Direction, 0);
@@ -66,8 +78,16 @@ public sealed partial class ValidationRoot
             {
                 StepGameplayUpdates(count, Vector2.Zero, [], [], batched, () =>
                 {
-                    rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter - 1); update++;
+                    Vector2 before = new(rom.Word(0xd10c) / 256f, rom.Word(0xd10a) / 256f);
+                    rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter - 1,
+                        afterLink: () => { for (int i = 0; i < 4; i++) expectedVelocity[i] = rom[0xcec0 + i]; });
+                    update++;
                     string context = $"Minecart track dir={row.Direction}, tile=${row.Tile:x2}, next=${next:x2}, update={update}, batch={batched}";
+                    FailIf(soundPosition is { } soundAt && soundAt != before,
+                        context + $": SND_MINECART must precede motion, at {before}, got {soundPosition}.");
+                    soundPosition = null;
+                    if (rom[0xcba0] == 0)
+                        FailIf(!observedVelocity.SequenceEqual(expectedVelocity), context + ": shared cart velocity differs.");
                     Vector2 nativeCart = new(rom.Word(0xd10c) / 256.0f, rom.Word(0xd10a) / 256.0f);
                     Vector2 nativeLink = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(cart.Position != nativeCart || cart.Direction != rom[0xd108] || cart.Angle != rom[0xd109] ||

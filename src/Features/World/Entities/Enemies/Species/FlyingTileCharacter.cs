@@ -15,6 +15,7 @@ internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSourc
     private OracleRoomData _room = null!;
     private Action _roomTileChanged = null!;
     private Func<long> _animationTick = null!;
+    private OracleRandom _random = null!;
     private Vector2 _precisePosition;
     private FlyingTileState _state;
     private int _counter;
@@ -42,12 +43,14 @@ internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSourc
         OracleRoomData room,
         Vector2 position,
         Action roomTileChanged,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        OracleRandom random)
     {
         Record = record;
         _room = room;
         _roomTileChanged = roomTileChanged;
         _animationTick = animationTick;
+        _random = random;
         _precisePosition = position;
         _state = FlyingTileState.Initializing;
         _counter = 0;
@@ -80,6 +83,11 @@ internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSourc
         switch (_state)
         {
             case FlyingTileState.Initializing:
+                _random.Next(); // enemyStandardUpdate var3d before flyingTile_state_uninitialized.
+                _state = FlyingTileState.Preparing;
+                return;
+
+            case FlyingTileState.Preparing:
                 _room.SetPositionTileAndCollision(
                     Position,
                     (byte)_behavior.ReplacementTile,
@@ -114,7 +122,7 @@ internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSourc
                 return;
 
             case FlyingTileState.Charging:
-                Position = OracleObjectMovement.Shared.ApplySpeed(
+                Position = ApplyMovementSpeed(
                     ref _precisePosition,
                     _behavior.SpeedRaw,
                     _angle);
@@ -152,8 +160,9 @@ internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSourc
 
 internal enum FlyingTileState
 {
-    Initializing,
-    Rising,
-    Waiting,
-    Charging
+    Initializing = 0,
+    Preparing = 0x08,
+    Rising = 0x09,
+    Waiting = 0x0a,
+    Charging = 0x0b
 }

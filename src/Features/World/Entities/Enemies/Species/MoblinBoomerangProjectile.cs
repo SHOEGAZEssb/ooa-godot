@@ -1,5 +1,4 @@
 using Godot;
-using System;
 
 namespace oracleofages;
 
@@ -10,6 +9,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
     private readonly BoomerangMoblinCharacter _owner;
     private readonly OracleRoomData _room;
     private readonly EnemyAnimationPlayer _animation;
+    private readonly OracleRuntimeState? _movementMemory;
     private int _angle;
     private int _counter;
     private int _speedCounter;
@@ -22,11 +22,13 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
         OracleRoomData room,
         Vector2 position,
         int angle,
-        EnemyProjectileVisualRecord visual)
+        EnemyProjectileVisualRecord visual,
+        OracleRuntimeState? movementMemory = null)
     {
         _owner = owner;
         _room = room;
-        Position = position;
+        _movementMemory = movementMemory;
+        Position = position.Floor(); // ecom_spawnProjectile copies high Y/X into a fresh PART.
         _angle = angle;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
@@ -39,6 +41,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
     }
 
     internal bool Finished { get; private set; }
+    internal bool InitializationPending => !_initialized;
     internal int Counter => _counter;
     internal int SpeedRaw => _speed;
     internal bool Returning => _returning;
@@ -62,7 +65,6 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
             _counter = _behavior.OutboundFrames;
             _speedCounter = _behavior.DecelerationInterval;
             _speed = _behavior.InitialSpeedRaw;
-            _animation.Advance();
             QueueRedraw();
             return;
         }
@@ -70,39 +72,43 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
         {
             // State 1 checks the current quarter-tile collision and decrements
             // counter1 before changing speed or applying movement.
-            if (_room.IsSolid(Position) || --_counter == 0)
+            bool blocked = _room.HasSimpleCollision(Position);
+            if (!blocked && _counter != 0) _counter--;
+            if (blocked || _counter == 0)
             {
                 BeginReturn();
             }
             else
             {
-                if (--_speedCounter == 0)
+                _speedCounter = (_speedCounter - 1) & 255;
+                if (_speedCounter == 0)
                 {
                     _speedCounter = _behavior.DecelerationInterval;
-                    _speed = Math.Max(
-                        0, _speed - _behavior.SpeedStepRaw);
+                    if (_speed >= _behavior.SpeedStepRaw) _speed -= _behavior.SpeedStepRaw;
                 }
-                Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
+                Move();
             }
         }
         else
         {
             if ((frameCounter & _behavior.ReturnAccelerationMask) == 0)
             {
-                _speed = Math.Min(
-                    _behavior.ReturnMaximumSpeedRaw,
-                    _speed + _behavior.SpeedStepRaw);
+                int candidate = (_speed + _behavior.SpeedStepRaw) & 255;
+                // func_541a rejects the addition at $50; an early return
+                // can already have speed $50 and must retain it.
+                if (candidate < _behavior.ReturnMaximumSpeedRaw + _behavior.SpeedStepRaw)
+                    _speed = candidate;
             }
-            Vector2 delta = _owner.Position - Position;
             _angle = OracleObjectMovement.Shared.RelativeAngle(
                 Position, _owner.Position);
-            if (Mathf.Abs(delta.X) <= _behavior.CatchRadius &&
-                Mathf.Abs(delta.Y) <= _behavior.CatchRadius)
+            int radius = _behavior.CatchRadius;
+            if ((byte)(OracleObjectPosition.HighByte(Position.X)-OracleObjectPosition.HighByte(_owner.Position.X)+radius) < radius*2+1 &&
+                (byte)(OracleObjectPosition.HighByte(Position.Y)-OracleObjectPosition.HighByte(_owner.Position.Y)+radius) < radius*2+1)
             {
                 Finish(returned: true);
                 return;
             }
-            Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
+            Move();
         }
         if (player.OverlapsEnemyCollision(CollisionBounds))
         {
@@ -132,6 +138,8 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
     }
 
     private void BeginReturn() => _returning = true;
+    private void Move() => Position = NativeObjectMovement.ApplySpeed(
+        _movementMemory, OracleObjectPosition.FromPixels(Position), _speed, _angle).PrecisePosition;
 
     private void Finish(bool returned)
     {

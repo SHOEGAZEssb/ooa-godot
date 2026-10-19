@@ -71,7 +71,9 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
             else _palette += _paletteDirection;
             context.Rooms.CurrentRoom.SetTemporaryBackgroundPaletteOffset(_palette);
         }
-        switch (State)
+        // $b1 is an ordinary initialized interaction. Its palette thread and
+        // the later always-update sparkle have independent eligibility.
+        if (context.Entities.InitializedInteractionUpdatesAllowed) switch (State)
         {
             case 1:
                 if (context.DialogueOpen || owner.BlocksGameplay || !context.Player.AcceptsGroundInteractionContact ||
@@ -103,8 +105,8 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
                         if (--_counter == 0) { CenterOnTile(); _substate++; }
                         break;
                     case 2:
-                        _precisePosition += OracleObjectMovement.Shared.Delta(_data.Constant("speed"), ObjectAngle.Up);
-                        Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                        Position = NativeObjectMovement.ApplySpeed(context.Entities.RuntimeState,
+                            ref _precisePosition, _data.Constant("speed"), ObjectAngle.Up);
                         if (Mathf.FloorToInt(Position.Y) < _data.Constant("placed-y")) { CenterOnTile(); _substate++; }
                         break;
                     case 3:

@@ -30,8 +30,23 @@ public sealed partial class ValidationRoot
                 rom.AddPlatform(page, rows[Array.IndexOf(platforms, platform)].SubId, Vector2.Zero);
                 rom[(page << 8) + 0x41] = 0xa4;
             }
+            byte[] observedVelocity = new byte[4];
+            _entities.AddEntity(new PartMovementScratchProbe(() =>
+            {
+                for (int index = 0; index < 4; index++)
+                    observedVelocity[index] = _runtimeState.ReadWramByte(0xcec0 + index);
+            }));
+            bool firstComparison = true;
             void Compare()
             {
+                // The bounded native loop omits Link's warp query, which can
+                // reuse $cec0 on a frozen update. Compare actual platform
+                // publications; existing state/position checks cover holds.
+                if (firstComparison || _entities.InitializedInteractionUpdatesAllowed)
+                    for (int index = 0; index < 4; index++)
+                        FailIf(observedVelocity[index] != rom[0xcec0 + index],
+                            $"INTERAC$a4 shared velocity ${0xcec0 + index:x4}: runtime=${observedVelocity[index]:x2}, ROM=${rom[0xcec0 + index]:x2}.");
+                firstComparison = false;
                 foreach (var platform in platforms)
                 {
                     int page = 0xd0 + _entities.InteractionSlot(platform), slot = page << 8;

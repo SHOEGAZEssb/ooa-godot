@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
             {
                 var boss = new GiantGhiniBoss();
                 boss.Initialize(new DungeonBossDatabase().Enemy(id), _currentRoom, new(80, 72), _random,
-                    _entities.OnSoundRequested, () => false, () => { }, () => { });
+                    _entities.OnSoundRequested, () => false, () => { }, () => { },_entities.ToScreen);
                 parent = new GiantGhiniBossRoomEntity(boss, Vector2I.Up);
             }
             else if (id == 0x7a)
@@ -99,6 +99,7 @@ public sealed partial class ValidationRoot
             }
             F8Fill(native, free);
             int[] freeSlots = Enumerable.Range(0, 16).Where(slot => !F8Enemies.ContainsValue(slot)).ToArray();
+            var seed=_random.CaptureState();
             StepGameplayUpdates(1, Vector2.Zero, batched: batched); F8Parent(native, parentSlot);
             int childId = id switch { 0x34 => 0x43, 0x70 => 0x3f, 0x7a => 0x42, _ => 0x52 };
             Type childType = id switch { 0x34 => typeof(GelCharacter), 0x70 => typeof(GiantGhiniChild), 0x7a => typeof(ShadowHagBug), _ => typeof(FlyingTileCharacter) };
@@ -111,6 +112,12 @@ public sealed partial class ValidationRoot
                 $"ENEMY${id:x2} must preserve checked ordered allocation before parent deletion: free={free}, parentSlot=${parentSlot:x2}, runtime={children.Length}, native={nativeChildren.Length}.");
             if (id == 0x70)
             {
+                // The real enemy walk also visits newly allocated higher slots.
+                // Lower slots retain state0 until the next walk.
+                foreach(int childSlot in nativeChildren.Where(slot=>slot>parentSlot))F8Parent(native,childSlot);
+                var rng=_random.CaptureState();
+                FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
+                    $"Giant Ghini's state0 and admitted higher-slot children must consume common RNG in original order: parent${parentSlot:x2}, free{free}, calls{rng.Calls-seed.Calls}/{native.RandomCalls}.");
                 FailIf(((GiantGhiniBoss)parent.Node).ChildrenAlive != native[at + 0x30], "Giant Ghini must count only successfully admitted children.");
                 for (int i = 0; i < expected; i++)
                     FailIf(children[i].Node.Name != $"GiantGhiniChild_{i}" || (native[0xd082 + nativeChildren[i] * 256] & 3) != 3 - i,

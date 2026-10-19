@@ -6,7 +6,7 @@ namespace oracleofages;
 
 internal sealed class GiantGhiniChildRoomEntity
     : CombatEnemyRoomEntityAdapter<GiantGhiniChild>, IFixedRoomEntity,
-        IPlayerRestriction
+        IPlayerRestriction, IAfterPlayerUpdateRoomEntity
 {
     protected override int GaleCollisionMode => GaleSeedCollisionDatabase.Shared.EnemyMode(Entity.Record.Id);
     public GiantGhiniChildRoomEntity(
@@ -38,12 +38,14 @@ internal sealed class GiantGhiniChildRoomEntity
                         ? RoomEnemyOutcome.SilentDeletion(
                             decrementsRoomCount: true)
                         : RoomEnemyOutcome.EnemyDie(
-                            killableEnemyIndex: 0)))
+                            killableEnemyIndex: 0)), collisionZ: () => child.ZHigh)
     { }
 
-    public bool DisablesSword => false;
+    public bool DisablesSword => Entity.DisablesItems;
+    public bool AlternatesMovementWithSwordRestriction => false;
     public bool DisablesItems => Entity.DisablesItems;
     public bool DisablesMovement => Entity.SlowsLink;
+    public void AfterPlayerUpdate() => Entity.ClearRestrictions();
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(

@@ -124,10 +124,10 @@ internal sealed partial class PlasmarineCharacter : EnemyCharacter,ISwitchHookEn
     private void CopyHigh(Vector2 point)=>Position=point.Floor()+Position-Position.Floor();
     private void NudgeAngle(Vector2 target)
     {
-        int toward=OracleObjectMovement.Shared.RelativeAngle(Position,target),delta=(Angle-toward)&31;
-        if(delta!=0)Angle=(Angle+(delta<16?-1:1))&31;
+        int toward=OracleObjectMovement.Shared.RelativeAngle(Position,target);
+        Angle=OracleObjectMath.NudgeAngleTowards(Angle,toward);
     }
-    private void ApplySpeed()=>Position=OracleObjectMovement.Shared.ApplySpeed(
+    private void ApplySpeed()=>Position=ApplyMovementSpeed(
         OracleObjectMovement.Shared.PositionFromPixels(Position),Speed,Angle).PrecisePosition;
     internal void PublishCollision(int item,int invincibility=0)
     {_lastCollision=item|0x80;if(invincibility!=0)InvincibilityCounter=invincibility;DeferNativeHitStatus();}

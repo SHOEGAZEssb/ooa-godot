@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             var source = new CutsceneCommandSource(
                 "validation/real-host", "Nayru", 0, 37, "setdisabledobjects");
             nayru.SetActiveCommandSource(source);
-            Reject(() => nayru.SetDisabledObjects(0x11), "set disabled objects");
+            Reject(() => nayru.SetDisabledObjects(0x91), "set disabled objects");
             source = source with { Opcode = "disablemenu" };
             nayru.SetActiveCommandSource(source);
             Reject(() => nayru.SetMenuEnabled(false), "set menu");

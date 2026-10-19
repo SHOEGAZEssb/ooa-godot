@@ -35,6 +35,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         : _stompActive && _stompFollowersFalling && !_stompHeadLanded
             ? ObjectDrawPriority.FixedHighPriorityZIndex : ObjectDrawPriority.BehindLinkZIndex;
     private readonly OracleRoomData _room;
+    private readonly OracleRuntimeState _memory;
     private readonly OracleRandom _random;
     private readonly Action<int> _playSound;
     private readonly Func<bool> _shuttersClosed;
@@ -97,6 +98,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private bool _stompFollowersFalling;
     private bool _stompGhostVisible;
     private bool _stompGhostLanded;
+    private bool _stompGhostFollowing;
     private bool _stompHeadLanded;
     private int _stompHeadZFixed;
     private int _stompHeadSpeedZ;
@@ -152,9 +154,11 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         Action disableLinkCollisionsAndMenu,
         Action restoreRoomMusic,
         int bodyPalette,
-        int ghostPalette)
+        int ghostPalette,
+        OracleRuntimeState memory)
     {
         _room = room;
+        _memory = memory;
         _random = random;
         _playSound = playSound;
         _shuttersClosed = shuttersClosed;
@@ -190,11 +194,13 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
     internal void UpdateFrame(
         Player player,
-        ICollection<RoomEntitySpawn> spawns)
+        ICollection<RoomEntitySpawn> spawns,
+        int frameCounter,
+        Vector2 linkTarget)
     {
         if (IsDead)
             return;
-        _frameCounter = (_frameCounter + 1) & 0xff;
+        _frameCounter = frameCounter & 0xff;
         if (_invincibility > 0)
             _invincibility--;
         if (_ghostInvincibility > 0)
@@ -253,56 +259,56 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                 ChooseWalk();
                 break;
             case BossState.Active:
-                if ((_frameCounter & 1) == 0 && --_stompTimer == 0)
+                if ((_frameCounter & 1) == 0)
                 {
-                    _state = BossState.PreparingStomp;
-                    _counter = 60;
-                    break;
+                    _stompTimer = Math.Max(0, _stompTimer - 1);
+                    if (_stompTimer == 0)
+                    {
+                        _state = BossState.PreparingStomp;
+                        _counter = 60;
+                        // countdownUntilStomp falls through the following
+                        // schedule routine before returning to state0b.
+                        ChooseStompSchedule();
+                        FollowBodyHead();
+                        break;
+                    }
                 }
-                _precisePosition +=
-                    OracleObjectMovement.Shared.Delta(0x14, _angle);
-                _precisePosition = new Vector2(
-                    Mathf.Clamp(_precisePosition.X, 20, _room.Width - 20),
-                    Mathf.Clamp(_precisePosition.Y, 24, _room.Height - 20));
-                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-                _ghostPosition = Position;
-                if (--_walkCounter == 0)
-                {
-                    ChooseWalkOrFire(player.Position);
-                    FollowBodyHead();
-                    break;
-                }
-                _body.Advance();
+                // pumpkinHead_body_state0b chooses its next action before
+                // motion on counter expiry, or after a blocked terrain step.
+                _walkCounter = (_walkCounter - 1) & 0xff;
+                if (_walkCounter == 0 || !MoveAlongTerrain(ref _precisePosition, 0x14, _angle))
+                    ChooseWalkOrFire(linkTarget);
+                else
+                    _body.Advance();
+                Position = _precisePosition.Floor();
+                _ghostPosition = CopyPositionHigh(Position, _ghostPosition);
                 _head.Advance();
                 FollowBodyHead();
                 break;
             case BossState.PreparingStomp:
-                if ((_counter & 1) != 0)
-                    FaceCardinalToward(player.Position);
-                if (--_counter == 0)
-                    BeginStomp(player.Position);
+                _counter = (_counter - 1) & 0xff;
+                if (_counter == 0)
+                    BeginStomp(linkTarget);
                 else
                 {
+                    if ((_counter & 1) != 0)
+                        FaceCardinalToward(linkTarget);
                     _head.Advance();
                     FollowBodyHead();
                 }
                 break;
             case BossState.Stomping:
-                _precisePosition +=
-                    OracleObjectMovement.Shared.Delta(0x28, _angle);
-                _precisePosition = new Vector2(
-                    Mathf.Clamp(_precisePosition.X, 20, _room.Width - 20),
-                    Mathf.Clamp(_precisePosition.Y, 24, _room.Height - 20));
-                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
-                _headPosition = Position;
-                _ghostPosition = Position;
                 bool bodyLanded = OracleObjectMath.UpdateSpeedZ(
                     ref _bodyZFixed, ref _bodySpeedZ, 0x30);
+                // state0e applies terrain velocity only while airborne;
+                // its landing visit leaves planar words and scratch alone.
+                if (!bodyLanded)
+                    MoveAlongTerrain(ref _precisePosition, 0x28, _angle);
+                Position = _precisePosition.Floor();
                 UpdateStompFollowers();
                 if (bodyLanded)
                 {
-                    _stompsRemaining--;
-                    _counter = _stompsRemaining == 0 ? 30 : 15;
+                    _counter = _stompsRemaining == 1 ? 30 : 15;
                     _state = BossState.StompLanded;
                     _startScreenShake(20);
                     _playSound(SoundId.SndDoorClose);
@@ -312,22 +318,23 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                 UpdateStompFollowers();
                 if (--_counter != 0)
                     break;
+                _stompsRemaining--;
                 if (_stompsRemaining > 0)
-                    BeginStomp(player.Position);
+                    BeginStomp(linkTarget);
                 else
                 {
-                    ChooseStompSchedule();
                     _state = BossState.Active;
                     ChooseWalk();
                 }
                 break;
             case BossState.Firing:
-                if (!_projectileFired && _counter == 36)
+                // Source body wait56 and head wait20 expire together at
+                // remaining36; this visit decrements the shared proxy after fire.
+                if (!_projectileFired && _counter == 37)
                 {
                     _projectileFired = true;
-                    Vector2 origin = _headPosition + new Vector2(0, _headZ) +
-                        ProjectileOriginOffset(_angle);
-                    bool admitted = TrySpawnNativePart(new PumpkinHeadProjectileSpawn(origin, _angle), spawns);
+                    bool admitted = TrySpawnNativePart(new PumpkinHeadProjectileSpawn(
+                        _headPosition.Floor(), _angle, ZHigh: _headZ), spawns);
                     _head.SetAnimation((_angle >> 2) & 6);
                     if (admitted) _playSound(SoundId.SndVeranFairyAttack);
                 }
@@ -338,8 +345,8 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                 }
                 break;
             case BossState.HeadExposed:
-                UpdateExposedHead(player, spawns);
-                _ghost.Advance();
+                if (UpdateExposedHead(player, spawns, linkTarget))
+                    _ghost.Advance();
                 _head.Advance();
                 break;
             case BossState.Regenerating:
@@ -514,9 +521,10 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         }
     }
 
-    private void UpdateExposedHead(
+    private bool UpdateExposedHead(
         Player player,
-        ICollection<RoomEntitySpawn> spawns)
+        ICollection<RoomEntitySpawn> spawns,
+        Vector2 linkTarget)
     {
         if (_exposedPhase == ExposedPhase.LaunchInit)
         {
@@ -525,7 +533,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             _headAirborne = true;
             _ghostAirborne = true;
             _exposedPhase = ExposedPhase.Airborne;
-            return;
+            return true;
         }
         if (_exposedPhase == ExposedPhase.Airborne)
         {
@@ -548,7 +556,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
                     ref _exposedGhostZFixed, ref _ghostSpeedZ, 0x28);
                 _ghostZ = _exposedGhostZFixed >> 8;
             }
-            return;
+            return true;
         }
 
         if (_headHeld)
@@ -585,7 +593,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             {
                 ApplyGhostHit(thrownBounds, _bracelet.Damage);
                 if (_state == BossState.Dying)
-                    return;
+                    return true;
             }
             if (landed)
             {
@@ -598,10 +606,10 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         else if (_exposedPhase == ExposedPhase.Grabbable && --_counter == 0)
         {
             BeginRegeneration();
-            return;
+            return true;
         }
 
-        UpdateExposedGhost(player);
+        return UpdateExposedGhost(linkTarget);
     }
 
     private void ExposeHead()
@@ -622,83 +630,85 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         _exposedPhase = ExposedPhase.LaunchInit;
     }
 
-    private void UpdateExposedGhost(Player player)
+    private bool UpdateExposedGhost(Vector2 linkTarget)
     {
         switch (_exposedPhase)
         {
             case ExposedPhase.GhostFleeInit:
                 _counter = 60;
-                _ghostAngle = (CardinalAngleToward(player.Position) + 0x10) & ObjectAngle.CardinalMask;
+                _ghostSpeedZ = 0;
+                // The source away helper XORs the full angle despite its
+                // "Cardinal" name, and aims from the ghost's own position.
+                _ghostAngle = OracleObjectMovement.Shared.RelativeAngle(_ghostPosition, linkTarget) ^ ObjectAngle.HalfTurn;
                 _exposedPhase = ExposedPhase.GhostFlee;
-                return;
+                _ghost.SetAnimation(0x0a);
+                return false;
 
             case ExposedPhase.GhostFlee:
-                if (_ghostZ < 0)
+            case ExposedPhase.GhostRoam:
+                if (!OracleObjectMath.UpdateSpeedZ(
+                    ref _exposedGhostZFixed, ref _ghostSpeedZ, 0x20))
                 {
-                    if (!OracleObjectMath.UpdateSpeedZ(
-                        ref _exposedGhostZFixed, ref _ghostSpeedZ, 0x20))
-                    {
-                        _ghostZ = _exposedGhostZFixed >> 8;
-                        return;
-                    }
-                    _ghostZ = 0;
+                    _ghostZ = _exposedGhostZFixed >> 8;
+                    return false;
                 }
-                MoveGhost(_ghostAngle);
-                if (--_counter == 0)
+                _ghostZ = 0;
+                _counter = (_counter - 1) & 0xff;
+                if (_counter == 0)
                     _exposedPhase = ExposedPhase.GhostWaitInit;
-                return;
+                // State14 still moves and animates on the expiry visit.
+                MoveGhost(_ghostAngle);
+                return true;
 
             case ExposedPhase.GhostWaitInit:
                 _counter = 120;
                 _exposedPhase = ExposedPhase.GhostWait;
-                return;
+                _ghost.SetAnimation(9);
+                return false;
 
             case ExposedPhase.GhostWait:
-                if (!_headHeld)
-                {
-                    _ghostTarget = _headPosition;
-                    _exposedPhase = ExposedPhase.GhostSeek;
-                    return;
-                }
-                if (--_counter == 0)
+                // Counter expiry takes precedence over checking head state02.
+                _counter = (_counter - 1) & 0xff;
+                if (_counter == 0)
                 {
                     _counter = 60;
                     _ghostAngle = _random.Next().Value & 0x1c;
                     _exposedPhase = ExposedPhase.GhostRoam;
+                    _ghost.SetAnimation(0x0a);
+                    return false;
                 }
-                return;
-
-            case ExposedPhase.GhostRoam:
-                MoveGhost(_ghostAngle);
-                if (--_counter == 0)
-                    _exposedPhase = ExposedPhase.GhostWaitInit;
-                return;
+                if (_headHeld || _headThrown)
+                    return true;
+                _ghostTarget = _headPosition.Floor();
+                _exposedPhase = ExposedPhase.GhostSeek;
+                _ghost.SetAnimation(0x0a);
+                return false;
 
             case ExposedPhase.GhostSeek:
-                Vector2 delta = _ghostTarget - _ghostPosition;
-                if (Mathf.Abs(delta.X) < 9 && Mathf.Abs(delta.Y) < 9)
+                // state17 compares modular HIGH bytes, before objectApplySpeed.
+                if ((((int)_ghostPosition.X - (int)_ghostTarget.X + 8) & 255) < 17 &&
+                    (((int)_ghostPosition.Y - (int)_ghostTarget.Y + 8) & 255) < 17)
                 {
-                    if (!_headHeld)
+                    // State02 includes both held and released/thrown head.
+                    if (!_headHeld && !_headThrown)
                         BeginRegeneration();
-                    return;
+                    return false; // Arrival never calls enemyAnimate.
                 }
-                int angle = OracleObjectMovement.Shared.RelativeAngle(
+                _ghostAngle = OracleObjectMovement.Shared.RelativeAngle(
                     _ghostPosition, _ghostTarget);
                 // pumpkinHead_ghost_state17 uses ecom_moveTowardPosition,
                 // which calls objectApplySpeed directly. Its return to the
                 // head is not constrained by the fleeing phase's terrain.
-                _ghostPosition += OracleObjectMovement.Shared.Delta(0x32, angle);
-                return;
+                _ghostPosition = NativeObjectMovement.ApplySpeed(_memory,
+                    OracleObjectPosition.FromPixels(_ghostPosition), 0x32, _ghostAngle).PrecisePosition;
+                return true;
         }
+        return true;
     }
 
     private void MoveGhost(int angle)
     {
-        Vector2 next = _ghostPosition +
-            OracleObjectMovement.Shared.Delta(0x32, angle);
-        if (!_room.IsSolid(next))
-            _ghostPosition = next;
-        ClampGhost();
+        MoveAlongTerrain(ref _ghostPosition, 0x32, angle);
     }
 
     private void BeginRegeneration()
@@ -716,6 +726,10 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
     private void UpdateRegeneration(ICollection<RoomEntitySpawn> spawns)
     {
+        // The ghost remains in state0b while hidden, and copies the body
+        // before the later head slot advances the regeneration sequence.
+        _ghostPosition = CopyPositionHigh(Position, _ghostPosition);
+        _ghostZ = BodyZ;
         switch (_regenerationPhase)
         {
             case RegenerationPhase.Delay:
@@ -787,6 +801,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             _state = BossState.Firing;
             _counter = 56;
             _projectileFired = false;
+            _body.SetAnimation(0x0b + (_angle >> 3));
             _head.SetAnimation(((_angle >> 2) & 6) + 1);
             return;
         }
@@ -801,6 +816,15 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         _stompsRemaining = 2 + (result.Low & 0x01);
     }
 
+    private bool MoveAlongTerrain(ref Vector2 position, int speed, int angle)
+    {
+        var walls = EnemyAdjacentWallResolver.Shared.Probe(position, angle,
+            point => point.X < 0 || point.Y < 0 || point.X >= _room.Width || point.Y >= _room.Height ||
+                _room.IsSolidForEnemyMovement(point, holesAreWalls: true));
+        return EnemyTerrainMovement.ApplyGivenAdjacentWalls(ref position, angle,
+            NativeObjectMovement.Velocity(_memory, speed, angle), walls, speed);
+    }
+
     private void BeginStomp(Vector2 target)
     {
         _state = BossState.Stomping;
@@ -810,38 +834,52 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         _stompFollowersFalling = false;
         _stompGhostVisible = false;
         _stompGhostLanded = false;
+        _stompGhostFollowing = false;
         _stompHeadLanded = false;
-        _headPosition = Position;
-        _ghostPosition = Position;
+        _headPosition = CopyPositionHigh(Position, _headPosition);
+        _ghostPosition = CopyPositionHigh(Position, _ghostPosition);
         _headZ = -16;
         _ghostZ = -16;
-        _stompHeadZFixed = _headZ << 8;
-        _stompGhostZFixed = _ghostZ << 8;
+        _stompHeadZFixed = (_headZ << 8) | (_stompHeadZFixed & 0xff);
+        _stompGhostZFixed = (_ghostZ << 8) | (_stompGhostZFixed & 0xff);
         _stompHeadSpeedZ = 0;
         _stompGhostSpeedZ = 0;
-        FaceCardinalToward(target);
+        // beginStomp retains the full aim angle; only animation/radius round
+        // it to a cardinal direction.
+        _angle = OracleObjectMovement.Shared.RelativeAngle(Position, target);
+        UpdateFacingAnimations();
     }
 
     private void UpdateStompFollowers()
     {
         if (!_stompActive)
+        {
+            _ghostPosition = CopyPositionHigh(Position, _ghostPosition);
+            _ghostZ = BodyZ;
+            _stompGhostZFixed = (_ghostZ << 8) | (_stompGhostZFixed & 0xff);
+            FollowBodyHead();
+            _head.Advance();
             return;
+        }
         if (!_stompFollowersFalling)
         {
             if (_bodySpeedZ < 0)
             {
                 int bodyZ = _bodyZFixed >> 8;
-                _headPosition = Position;
-                _ghostPosition = Position;
+                _headPosition = CopyPositionHigh(Position, _headPosition);
+                _ghostPosition = CopyPositionHigh(Position, _ghostPosition);
                 _headZ = bodyZ - 16;
                 _ghostZ = bodyZ - 16;
-                _stompHeadZFixed = _headZ << 8;
-                _stompGhostZFixed = _ghostZ << 8;
+                _stompHeadZFixed = (_headZ << 8) | (_stompHeadZFixed & 0xff);
+                _stompGhostZFixed = (_ghostZ << 8) | (_stompGhostZFixed & 0xff);
                 return;
             }
             _stompFollowersFalling = true;
             _stompGhostVisible = true;
-            return;
+            _stompGhostSpeedZ = 0;
+            _stompHeadSpeedZ = 0;
+            // Both native follower handlers fall through into their downward
+            // state on the apex visit, including its first gravity update.
         }
 
         if (!_stompGhostLanded)
@@ -849,22 +887,37 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             _stompGhostLanded = UpdateStompFollower(
                 ref _stompGhostZFixed, ref _stompGhostSpeedZ, 0x28);
             _ghostZ = _stompGhostZFixed >> 8;
-            _ghostPosition = Position;
+            if (!_stompGhostLanded)
+                _ghostPosition = CopyPositionHigh(Position, _ghostPosition);
+        }
+        else if (_stompGhostFollowing)
+        {
+            _ghostPosition = CopyPositionHigh(Position, _ghostPosition);
+            _ghostZ = BodyZ;
+            _stompGhostZFixed = (_ghostZ << 8) | (_stompGhostZFixed & 0xff);
+        }
+        else if (_headZ >= -18)
+        {
+            // The earlier ghost slot observes the preceding head height and
+            // changes state now; its first body copy is the following visit.
+            _stompGhostFollowing = true;
+            _stompGhostVisible = false;
         }
         if (!_stompHeadLanded)
         {
             _stompHeadLanded = UpdateStompFollower(
                 ref _stompHeadZFixed, ref _stompHeadSpeedZ, 0x20);
             _headZ = _stompHeadZFixed >> 8;
-            _headPosition = Position;
+            if (!_stompHeadLanded)
+                _headPosition = CopyPositionHigh(Position, _headPosition);
         }
-        if (_stompGhostLanded && _headZ >= -18)
-            _stompGhostVisible = false;
-        if (!_stompHeadLanded)
+        else
+        {
+            FollowBodyHead();
+            _head.Advance();
+        }
+        if (!_stompHeadLanded || !_stompGhostFollowing)
             return;
-        _headZ = -16;
-        _headPosition = Position;
-        _stompGhostVisible = false;
         _stompActive = false;
     }
 
@@ -878,8 +931,9 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         int target = -16 << 8;
         if (zFixed < target)
             return false;
-        zFixed = target;
-        speedZ = 0;
+        // The follower handler writes zh=$f0 only. Its own low byte and
+        // vertical speed survive until their next explicit source writers.
+        zFixed = target | (zFixed & 0xff);
         return true;
     }
 
@@ -891,9 +945,10 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
 
     private void UpdateFacingAnimations()
     {
-        _bodyRadiusX = _angle is ObjectAngle.Right or ObjectAngle.Left ? 8 : 12;
-        _body.SetAnimation(0x0b + (_angle >> 3));
-        _head.SetAnimation((_angle >> 2) & 6);
+        int cardinal = (_angle + 4) & ObjectAngle.CardinalMask;
+        _bodyRadiusX = cardinal is ObjectAngle.Right or ObjectAngle.Left ? 8 : 12;
+        _body.SetAnimation(0x0b + (cardinal >> 3));
+        _head.SetAnimation((cardinal >> 2) & 6);
     }
 
     private void FollowBodyHead()
@@ -901,16 +956,16 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         int parameter = Mathf.Clamp(_body.CurrentParameter, 0, 2);
         EnemyBehaviorPair offset =
             _behavior.PumpkinHeadFollowOffsets[parameter];
-        _headPosition = Position + Vector2.Down * offset.First;
+        _headPosition = CopyPositionHigh(Position + Vector2.Down * offset.First, _headPosition);
         _headZ = offset.Second;
+        _stompHeadZFixed = (_headZ << 8) | (_stompHeadZFixed & 0xff);
     }
+
+    private static Vector2 CopyPositionHigh(Vector2 source, Vector2 recipient) =>
+        source.Floor() + recipient - recipient.Floor();
 
     private int CardinalAngleToward(Vector2 target) =>
         (OracleObjectMovement.Shared.RelativeAngle(Position, target) + 4) & ObjectAngle.CardinalMask;
-
-    private Vector2 ProjectileOriginOffset(int angle) =>
-        _behavior.PumpkinHeadProjectileOriginOffsets[
-            (angle & ObjectAngle.CardinalMask) >> 3].Vector;
 
     private static bool UpdateIntroHeight(
         ref int zFixed,
@@ -961,10 +1016,6 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
             _thrownHeadYFixed >> 8);
         _headZ = _thrownHeadZFixed >> 8;
     }
-
-    private void ClampGhost() => _ghostPosition = new Vector2(
-        Mathf.Clamp(_ghostPosition.X, 16, _room.Width - 16),
-        Mathf.Clamp(_ghostPosition.Y, 16, _room.Height - 16));
 
     private EnemyAnimationPlayer BuildAnimation(
         Image source,

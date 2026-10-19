@@ -47,7 +47,10 @@ internal sealed partial class KingMoblinMinion : EnemyCharacter, ITerrainShadowS
                 AdvanceAnimation(); break;
             case 5:
                 if(OracleObjectMath.UpdateSpeedZ(ref _z,ref _speedZ,0x20)) {State=6; _counter=16; AdvanceAnimation();}
-                else if(_speedZ==0) Bomb!.Throw(OracleObjectMovement.Shared.RelativeAngle(Position,frame.Player.Position),null);
+                // objectGetAngleTowardEnemyTarget reads the independent
+                // hEnemyTarget snapshot, not live Link or the Scent target.
+                else if(_speedZ==0) Bomb!.Throw(OracleObjectMovement.Shared.RelativeAngle(
+                    Position,frame.LinkTarget??frame.Player.EnemyContactPosition),null);
                 break;
             case 6:
                 if(--_counter==0) {_counter=200; State=2;}

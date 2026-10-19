@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     {
         foreach (bool batched in new[] { false, true })
         foreach (int id in new[] { 0x1d, 0x33, 0x38, 0x50, 0x52, 0x62, 0x63 })
-        foreach (string gate in new[] { "text", "mask04", "mask80", "palette", "none" })
+        foreach (string gate in new[] { "text", "mask04", "mask80", "palette", "scroll02", "scroll04", "scroll08", "scroll0e", "none" })
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, 0xa1); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0); _player.WarpTo(new(120, 40)); _player.BeginCutsceneControl();
@@ -69,7 +69,10 @@ public sealed partial class ValidationRoot
                 rom[0xcc8a] = held && gate == "mask04" ? (byte)4 : held && gate == "mask80" ? (byte)0x80 : (byte)0;
                 rom[0xcba0] = held && gate == "text" ? (byte)1 : (byte)0;
                 rom[0xc4ab] = held && gate == "palette" ? (byte)1 : (byte)0;
+                rom[0xcd00] = (byte)(held ? gate switch
+                { "scroll02" => 2, "scroll04" => 4, "scroll08" => 8, "scroll0e" => 0x0e, _ => 1 } : 1);
                 _runtimeState.SetWramByte(WramAddress.wDisabledObjects, rom[0xcc8a]);
+                _runtimeState.SetWramByte(WramAddress.wScrollMode, rom[0xcd00]);
             }
             try
             {
@@ -100,9 +103,9 @@ public sealed partial class ValidationRoot
                         "Reapplying the gate must freeze each initialized controller after release.");
                 }
             }
-            finally { _entities.TextActiveSource = text; _entities.PaletteFadeActiveSource = palette; _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); }
+            finally { _entities.TextActiveSource = text; _entities.PaletteFadeActiveSource = palette; _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); _runtimeState.SetWramByte(WramAddress.wScrollMode, 1); }
         }
         ReinitializeGameplayForValidation();
-        GD.Print("Compared state-zero admission and common RNG for five controller families, Baby Cucco and Armos control across 70 text/mask/palette cases.");
+        GD.Print("Compared state-zero admission and common RNG for five controller families, Baby Cucco and Armos control across126 text/mask/palette/raw-scroll cases.");
     }
 }

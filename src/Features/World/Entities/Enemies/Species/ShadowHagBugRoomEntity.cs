@@ -45,7 +45,7 @@ internal sealed class ShadowHagBugRoomEntity
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame(frame.Player, spawns);
+        Entity.UpdateFrame(frame.LinkTarget ?? frame.Player.EnemyContactPosition, spawns);
 }
 
 internal sealed record ShadowHagBugSpawn(

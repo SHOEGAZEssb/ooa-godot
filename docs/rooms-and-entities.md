@@ -23,6 +23,30 @@ fractions where the source does; camera, height drawing, and transition offsets
 must not rewrite logical positions. Geometry-only queries are read-only;
 executed native movement publishes scratch values through the runtime state
 owner. Preserve movement-result flags separately from displacement.
+Native object position-copy helpers copy the high XYZ bytes. Keep the
+recipient's fractions, including when an offset is applied; newly allocated
+recipients begin with cleared low bytes. A single-coordinate high-byte write
+also preserves that coordinate's low byte.
+Handlers that read native camera bytes use the transition owner's current
+projection. The camera samples Link after object updates and catches up at its
+source-defined rate. Reconstructing an origin from Link inside a feature loses
+that timing, camera holds and intermediate catch-up positions.
+Original object visibility checks use projected screen coordinates with
+unsigned byte wrapping and the source's edge leeway. Use the shared native
+screen-boundary predicate so those lifetime checks retain that arithmetic.
+
+Enemy targeting keeps the sampled active Link object position separate from
+the Scent Seed target. The shared frame publishes both before the enemy pass;
+select the sample read by the original helper. Preserve that sample through
+later object writes and mounted sprite offsets. Handlers whose source reads
+Link directly continue sampling those coordinates at their own visit.
+
+Native `wScrollMode` remains shared live state. A script's `$00` write stops
+the room-boundary pass and background animation without replacing the object
+update loop. Preserve off-screen scripted movement until the source restores
+the mode; ordinary room initialization and `disableLcdAndLoadRoom` restore
+`$01`. Dormant resource preparation leaves the byte untouched until room
+initialization runs. Input locks and a stopped boundary pass have separate lifetimes.
 
 Grounded top-down movement and jumping share one planar velocity state. Ice
 changes its convergence cadence, and a jump inherits the existing momentum;
@@ -106,10 +130,21 @@ their output bit and retain the shared button release timers.
 The interaction dispatcher samples its freeze gate at pass entry. A worker
 clearing the shared mask later in that pass does not resume initialized
 interactions until the following eligible pass.
+Event-owned interaction lanes consume that same sampled result. Text opened
+later in the pass does not freeze an already admitted native handler; its
+script interpreter can still have a separate live text gate.
 Native object masks apply separately to Link, items, enemies, parts,
 interactions and companions. A cutscene can freeze initialized actors while
 items and state-zero handlers continue; a single global freeze cannot represent
 that dispatch.
+Apply each category's gate at its actual dispatch site, including an earlier
+special-object or item pass. A check in a later entity pass cannot undo an
+update that already ran. Preserve that category's own raw scroll predicate
+and state-zero exception rather than substituting the transition UI state.
+Preserve raw speed and angle bytes until the source masks them. An unmasked
+angle can read components across speed-table rows; angle bit7 produces zero
+offsets. Use shared movement's byte addressing and scratch publication instead
+of normalizing every input to $00-$1f in the caller.
 
 Harp and Flute parents publish their native category mask through the shared
 runtime state. Playback uses the ordinary object dispatcher, including its
@@ -168,6 +203,11 @@ never reaches. Preserve source retry paths that execute initialization again.
 
 ## Native slots and update phases
 
+The shared frame snapshots Link's current target position before ENEMY and PART
+dispatch. Keep this independent from the scent target and from a parent's cached
+position: a child can remain eligible while its parent is frozen. Consumers of
+the original global target read the frame's Link target in their own update.
+
 Animal companions and the raft run in the shared special-object phase before
 Link. Mounting can therefore start Link's jump in that same update; dismounting
 resets Link and preserves his initialization update before airborne movement.
@@ -195,6 +235,11 @@ interactions. Item parents and door checks therefore see Link's preceding
 sprite position, including the raft's preceding animation offset. Link retains
 his normal-state dispatch while riding and can
 consume a forced respawn without stopping the cart.
+During raft knockback, the raft and Link each consume the shared knockback
+counter in their own dispatch. Link's temporary recoil position and movement
+scratch remain visible to intervening phases until the post-interaction rider
+copy replaces his coordinates; synchronizing the rider does not undo either
+counter update or scratch publication.
 Minecart-created door openers initialize in their first interaction update and
 start the interleaved door frame on the next. Layout changes before collision;
 the final tile publication releases collision after the source countdown.
@@ -258,6 +303,9 @@ scene insertion order, a collection snapshot, or separate incoming/outgoing
 walks. Preserve checked and unchecked allocation-failure behavior explicitly.
 An event-backed actor invokes its script or handler from that physical slot;
 running the actor's work after the object pass loses newborn dispatch timing.
+Allocation during an earlier category makes the child eligible for its later
+category's walk. Keep it uninitialized until that visit; an immediate creation
+callback can expose state changes to intervening objects too early.
 Composite enemy representations still run in the enemy category before parts,
 even while their separate native actor allocations remain unrepresented.
 
@@ -364,6 +412,9 @@ Bombchu retains an enemy slot reference, so homing reads its current occupant
 after retirement or replacement rather than retaining an entity instance.
 Physical items share imported hazard data and side-view vertical arithmetic;
 each original caller owns its response to water, holes and lava.
+Native simple-collision queries read the raw quarter bit. The allow/disallow-holes
+queries apply special collision masks, including water and lava. Select the
+helper called by the source handler.
 Bomb and Bombchu explosions share the imported collision column. Targets with
 a native collision identity resolve in the ordered post-object item scan;
 species handlers own specialized effects, and accepted common damage publishes
@@ -493,6 +544,17 @@ signal clears after every Link dispatch independently of pending damage. Item
 parents that read that signal must run before it clears; health loss alone does
 not cancel every parent. Full Link replacement and explicit collision resets
 clear both publications, while coordinate-only scrolling preserves them.
+
+Attachment restrictions are publications for the next Link update. Clear their
+high immobilization bits and item-use signal after Link, even when text prevents
+the attaching object from updating. Republish only from the eligible attached
+handler. The item-use signal suppresses new item parents; existing parents still
+follow their own source handlers. Sword parents explicitly cancel on this
+signal, while a shovel parent continues. Frozen parent dispatch defers those
+checks and retains the existing action. Once allocation resumes, a fresh press
+can replace an equal-priority parent; retaining an active action is not itself
+a reason to reject that source allocation. Its physical children keep their
+separate lifetime and admission checks.
 
 Ordinary Feather jumps retain native enemy/part contact eligibility. Collision
 masks and signed height overlap decide contact, including near-ground jump

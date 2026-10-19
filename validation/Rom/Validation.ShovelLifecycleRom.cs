@@ -76,6 +76,7 @@ public sealed partial class ValidationRoot
             rom.InitializeLinkGameplay();
             var sounds = _sound.AttachPlayRequestAudit();
             int button = primary ? 1 : 2, update = 0, dropsObserved = 0;
+            var publication = new InteractionMovementPublication(_entities, _runtimeState);
             void Step(int count = 1, bool press = false, int angle = 0xff, bool feather = false, bool held = false)
             {
                 Vector2 movement = angle == 0xff ? Vector2.Zero : OracleObjectMovement.Shared.Direction(angle);
@@ -85,7 +86,9 @@ public sealed partial class ValidationRoot
                 int edge = (press ? button : 0) | (feather ? primary ? 2 : 1 : 0);
                 StepGameplayUpdates(count, movement, MenuRomActions(itemsHeld | directions), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, itemsHeld | directions, angle, _entities.FrameCounter); edge = 0;
+                    rom.UpdateGameplay(edge, itemsHeld | directions, angle, _entities.FrameCounter,
+                        beforeParts: () => InteractionMovementPublication.Seed(rom),
+                        afterInteractions: () => publication.Compare(rom, "Shovel debris $0a")); edge = 0;
                     string context = $"Shovel A={primary} dir={direction} tile=${tile:x2} clear={clearPhase}/{physical} jumpUpdates={jumpUpdates} update={++update}";
                     bool parent = Enumerable.Range(0xd2, 4).Any(page => rom[page << 8] != 0 && rom[(page << 8) + 1] == 0x15);
                     FailIf(_player.IsUsingShovel != parent, context + ": parent lifecycle differs.");

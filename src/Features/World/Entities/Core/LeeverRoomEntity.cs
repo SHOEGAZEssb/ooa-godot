@@ -32,7 +32,8 @@ internal sealed class LeeverRoomEntity
         Entity.UpdateFrame(
             frame.Player.Position,
             frame.Player.FacingVector,
-            frame.Counter);
+            frame.Counter,
+            frame.LinkTarget ?? frame.Player.EnemyContactPosition);
 
     public ScreenTransitionPresentation PrepareForScreenTransition(
         ICollection<RoomEntitySpawn> spawns)

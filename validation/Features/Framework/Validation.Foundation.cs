@@ -386,7 +386,7 @@ public sealed partial class ValidationRoot
         IReadOnlyList<CutsceneCommandSchemaEntry> entries =
             CutsceneCommandSchema.Entries;
         FailIf(
-            entries.Count != 57 ||
+            entries.Count != 58 ||
             entries.Select(entry => entry.CommandType)
                 .Distinct()
                 .Count() != entries.Count ||
@@ -395,7 +395,7 @@ public sealed partial class ValidationRoot
             entries.Count(entry =>
                 entry.CommandType == typeof(CutsceneCheckTextCommand)) != 1,
             "The cutscene command schema no longer declares exactly one entry " +
-            "for each of the 57 typed command records.");
+            "for each of the 58 typed command records.");
 
         var source = new CutsceneCommandSource(
             "validation/command-schema.tsv",

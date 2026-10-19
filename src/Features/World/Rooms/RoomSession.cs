@@ -79,6 +79,9 @@ public sealed class RoomSession
         OracleRuntimeState? runtimeState = null)
     {
         _runtimeState = runtimeState ?? new OracleRuntimeState();
+        // The session starts at the ordinary initialized-room boundary.
+        // bank1.setScreenTransitionState02 selects wScrollMode=$01.
+        if (countAsRoomEntry) _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
         _animationTick = animationTick;
         _resetAnimationTick = resetAnimationTick;
         _saveData = saveData;
@@ -113,6 +116,7 @@ public sealed class RoomSession
         BlockPushAngle = 0; // clearMemoryOnScreenReload: $cc5c..$cce8 includes $cca6.
         _changedTiles.Clear(); // clearMemoryOnScreenReload includes $ccdf/$cce0.
         ClearActiveTileState();
+        _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
@@ -127,6 +131,7 @@ public sealed class RoomSession
 
     internal void EnterPreparedRoom()
     {
+        _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         CurrentRoom = GetRoom(ActiveGroup, CurrentRoom.Id);
         InitializeShopState();
@@ -153,6 +158,9 @@ public sealed class RoomSession
         World.SetCurrentPaletteRoom(CurrentRoom);
         if(restartAnimations)_resetAnimationTick();
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
+        // disableLcdAndLoadRoom_body restores $01 after func_131f; scripts
+        // may subsequently stop the boundary owner by writing $00 again.
+        _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
         return CurrentRoom;
     }
     // bank0.func_131f replaces room layout/graphics without clearing WRAM1,

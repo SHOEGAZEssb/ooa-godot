@@ -207,7 +207,7 @@ public sealed partial class ValidationRoot
         // Constructor and water deletion consume no RNG. The source only
         // copies coordinate high bytes and checks hazardCollisionTable first.
         OracleRandom random = new();
-        var invalid = new SideScrollBubbleRoomEntity(new Vector2(88.75f, 56.5f), _rooms.CurrentRoom, random);
+        var invalid = new SideScrollBubbleRoomEntity(new Vector2(88.75f, 56.5f), _rooms.CurrentRoom, random, _runtimeState);
         AddChild(invalid);
         invalid.UpdateFrame(new RoomEntityFrame(_player, 0, false), new List<RoomEntitySpawn>());
         FailIf(!invalid.Finished || random.Calls != 0 || invalid.PrecisePosition != new Vector2(88, 56),

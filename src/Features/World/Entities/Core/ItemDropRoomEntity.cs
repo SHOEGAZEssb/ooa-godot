@@ -10,8 +10,11 @@ internal sealed class ItemDropRoomEntity(
     : RoomEntityAdapter<ItemDropEffect>(drop, drop.SetTransitionDrawOffset),
         IFixedRoomEntity, IRoomEntityLifetime,
         ILinkSwordCollectibleRoomEntity, INativePartHealthRoomEntity, IBoomerangCollisionRoomEntity,
-        IAttachableCollectibleRoomEntity
+        IAttachableCollectibleRoomEntity, IUpdatesDuringDialogueRoomEntity,
+        IUpdatesDuringRoomEntityFreeze
 {
+    public bool UpdatesDuringDialogue => Entity.State == DropState.Initializing;
+    public bool UpdatesDuringRoomEntityFreeze => Entity.State == DropState.Initializing;
     public void AttachToItem(Func<ItemDropCarrier?> carrier) => Entity.AttachToItem(carrier);
     public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {

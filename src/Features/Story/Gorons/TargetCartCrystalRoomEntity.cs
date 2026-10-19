@@ -58,7 +58,7 @@ internal sealed class TargetCartCrystalRoomEntity(NpcCharacter actor,int subid,
         if(_behaviour!=0)
         {
             if(--_counter==0) { _counter=0x40; _angle^=0x10; }
-            OracleObjectMovement.Shared.ApplySpeed(ref _position,0x14,_angle);
+            NativeObjectMovement.ApplySpeed(state,ref _position,0x14,_angle);
         }
         if(subid<5&&state.ReadWramByte(0xcfdf)!=0) { Finish(); return; }
         Entity.Position=_position; Entity.AdvanceAnimationUpdates(1);

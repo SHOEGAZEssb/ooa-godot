@@ -46,7 +46,8 @@ internal partial class LeeverCharacter : EnemyCharacter
     internal void UpdateFrame(
         Vector2 linkPosition,
         Vector2I linkFacing,
-        int frameCounter)
+        int frameCounter,
+        Vector2? enemyTarget = null)
     {
         if (IsDead || BeginFrame())
             return;
@@ -73,7 +74,8 @@ internal partial class LeeverCharacter : EnemyCharacter
                     return;
                 }
 
-                Position = spawn;
+                // objectSetShortPosition writes high Y/X only.
+                Position = spawn + Position - Position.Floor();
                 _state = LeeverState.Emerging;
                 _emergenceComplete = false;
                 RestartAnimation(0);
@@ -86,7 +88,7 @@ internal partial class LeeverCharacter : EnemyCharacter
                 {
                     _state = LeeverState.Chasing;
                     _collisionEnabled = true;
-                    _angle = CardinalAngleToward(linkPosition);
+                    _angle = CardinalAngleToward(enemyTarget ?? linkPosition);
                     _counter =
                         (_random.Next().Value & _behavior.ChaseCounterMask) +
                         _behavior.ChaseCounterBase;
@@ -116,15 +118,15 @@ internal partial class LeeverCharacter : EnemyCharacter
                 // leever.s:@subid01_stateA consumes RNG even when a wall
                 // immediately forces this update to sink.
                 if (Record.SubId == 1 && _random.Next().Value < 0x14)
-                    _angle = CardinalAngleToward(linkPosition);
+                    _angle = CardinalAngleToward(enemyTarget ?? linkPosition);
                 if (HasWallOrHoleAhead())
                 {
                     BeginSinking();
                     return;
                 }
 
-                Position += OracleObjectMovement.Shared.Delta(
-                    _behavior.ChaseSpeedRaw, _angle);
+                Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position),
+                    _behavior.ChaseSpeedRaw, _angle).PrecisePosition;
                 AdvanceAnimation();
                 QueueRedraw();
                 return;
@@ -144,8 +146,8 @@ internal partial class LeeverCharacter : EnemyCharacter
     }
 
     /// <summary>
-    /// ENEMY_LEEVER state 0 consumes one global RNG value, installs state $08
-    /// and its underground counter, and intentionally remains hidden while
+    /// ENEMY_LEEVER state 0 consumes the common draw, then its counter draw.
+    /// It installs state $08 and intentionally remains hidden while
     /// the destination room is preloaded. State-$08 timing stays frozen until
     /// scrolling completes.
     /// </summary>
@@ -153,6 +155,7 @@ internal partial class LeeverCharacter : EnemyCharacter
     {
         if (_state != LeeverState.Uninitialized)
             return;
+        _random.Next(); // enemyStandardUpdate's state-zero var3d draw.
         _state = LeeverState.Underground;
         SetRandomUndergroundCounter();
     }
@@ -201,8 +204,7 @@ internal partial class LeeverCharacter : EnemyCharacter
             point =>
                 point.X < 0 || point.X >= _room.Width ||
                 point.Y < 0 || point.Y >= _room.Height ||
-                _room.IsSolid(point) ||
-                _room.GetTerrainInfo(point).Hazard == HazardType.Hole)
+                _room.IsSolidForEnemyMovement(point, holesAreWalls: true))
         .Bitset != 0;
 
     private void BeginSinking()

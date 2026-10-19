@@ -45,8 +45,16 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(2, 0x2f);
             PostmanCharacter postman = _entities.Entities<PostmanCharacter>().Single();
             PostmanScriptHost host = _interactions.NpcScriptsForValidation.Postman;
-            var trace = new ValidationCutsceneTrace();
+            var motion = new ScriptMovementPublicationTrace(_runtimeState, source => source.Opcode != "move" ? null : source.CommandIndex switch
+            {
+                18 => (0x50, 0x08, SomariaPrivate<Vector2>(postman, "_precisePosition")),
+                19 => (0x50, 0x10, SomariaPrivate<Vector2>(postman, "_precisePosition")),
+                _ => throw new InvalidOperationException("postmanScript has an unexpected movement entry.")
+            });
+            var trace = new ValidationCutsceneTrace { Forward = motion };
             _interactions.NpcScriptsForValidation.TraceSink = trace;
+            _entities.AddEntity(new PartMovementScratchProbe(() =>
+            { for (int i=0;i<4;i++) _runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i)); }));
             var observations = new List<string>();
             string State() => $"{postman.Position}:{postman.Active}:{postman.Leaving}:" +
                 $"{postman.CurrentAnimationFrame}:{NpcAnimationTicks(postman)}:{postman.ZIndex}:" +
@@ -154,6 +162,8 @@ public sealed partial class ValidationRoot
                 Step();
                 FailIf(host.MovementCounter != counter || postman.Position != start,
                     "Postman movement setup moved before decrementing counter2.");
+                FailIf(Enumerable.Range(0,4).Any(i=>_runtimeState.ReadWramByte(0xcec0+i)!=(byte)(0xa5+i)),
+                    "Postman movement setup must preserve the phase-local scratch bytes.");
                 string expectedOam = delta.X != 0
                     ? "16@8,0,10,32;8,8,8,32|16@8,0,14,32;8,8,12,32"
                     : "16@8,0,0,0;8,8,2,0|16@8,0,2,32;8,8,0,32";
@@ -170,6 +180,8 @@ public sealed partial class ValidationRoot
                     Vector2 expected = start + delta * Math.Min(counter - remaining, counter - 1);
                     FailIf(host.MovementCounter != remaining || postman.Position != expected || !host.InputDisabled,
                         $"Postman counter2=${remaining:x2} expected {expected}, got {postman.Position}.");
+                    FailIf(remaining==0&&Enumerable.Range(0,4).Any(i=>_runtimeState.ReadWramByte(0xcec0+i)!=(byte)(0xa5+i)),
+                        "Postman zero-counter visit must preserve scratch without another movement call.");
                     observations.Add(State());
                 });
             }
@@ -203,6 +215,8 @@ public sealed partial class ValidationRoot
                 _interactions.PostmanTreasureForValidation is not null || _entities.Entities<GroundTreasurePickup>().Count != 0,
                 "Postman completion retained a runner, input lease, held pose, or treasure node.");
             Animation(finalCalls); // flag suppression and scriptend do not run a tail
+            FailIf(motion.Visited.Count!=2||motion.MotionVisits!=84,
+                "Postman must publish exactly28 rightward and56 downward native movements.");
             var localJumps = trace.Entries.Where(e => e.Phase == CutsceneCommandTracePhase.Completed &&
                 e.Source.Opcode == "scriptjumpyield").ToArray();
             FailIf(localJumps.Length != 5 || localJumps.Any(e => e.NextCommandIndex is not (2 or 12)),

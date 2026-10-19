@@ -152,7 +152,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(16, 112)); _player.BeginCutsceneControl();
             var parent = _entities.EntityAdapters<PumpkinHeadBossRoomEntity>().Single(); var boss = (PumpkinHeadBoss)parent.Node;
             F1Retain(parent); F1Set(boss, "_initialized", true); F1Set(parent, "_initialized", true);
-            F1Set(boss, "_state", BossState.Firing); F1Set(boss, "_counter", 36); F1Set(boss, "_angle", 8);
+            F1Set(boss, "_state", BossState.Firing); F1Set(boss, "_counter", 37); F1Set(boss, "_angle", 8);
             F1Set(boss, "_headPosition", new Vector2(80, 72)); F1Set(boss, "_headZ", 0); F1Set(boss, "_bodyZFixed", 0);
             var native = F1Native(0x78, 3, 0x0c, new(80, 72)); native[0xd086] = 1;
             int observed = 0;
@@ -202,7 +202,7 @@ public sealed partial class ValidationRoot
             // leave a stale state1 and suppress the next primary's setup.
             for (int slot = 0; slot < free; slot++)
                 for (int offset = 0; offset < 0x40; offset++) native[0xd0c0 + slot * 256 + offset] = 0;
-            F1Set(boss, "_projectileFired", false); F1Set(boss, "_counter", 36);
+            F1Set(boss, "_projectileFired", false); F1Set(boss, "_counter", 37);
             native[0xd084] = 0x0c; native[0xd086] = 1; observed = 0;
             _sound.ClearPlayRequestAudit();
             StepGameplayUpdates(1, Vector2.Zero, batched: batched); F1Enemy(native); F1Birth(native);

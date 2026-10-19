@@ -256,7 +256,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
             if (!context.Entities.InteractionSlotAvailable) break;
             var actor=SpawnEffect(Database.Effect(0x92,2),position);
             _rocks.Add(new(actor,position,angles[(pattern+(punching?4:0))*4+i],
-                punching?0x28:0x3c,punching?-228:-232,0,false,context.Entities.InteractionSlot(actor)));
+                punching?0x28:0x3c,punching?-228:-232,0,false,context.Entities.InteractionSlot(actor),context.Entities.RuntimeState));
         }
         if (punching) context.Sound.PlaySound(SoundId.SndBreakRock);
     }
@@ -281,7 +281,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
                 Vector2 pos=Vector2.Zero;
                 var actor=SpawnEffect(Database.Effect(0x92,1),pos);
                 _rocks.Add(new(actor,pos,ObjectAngle.Up,0,0,
-                    0,true,context.Entities.InteractionSlot(actor)));
+                    0,true,context.Entities.InteractionSlot(actor),context.Entities.RuntimeState));
             }
         }
     }

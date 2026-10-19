@@ -6,7 +6,7 @@ using System.Linq;
 namespace oracleofages;
 
 /// <summary>Runs INTERAC_RAFTWRECK_CUTSCENE $9b:$00 in room $1:$a8.</summary>
-internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
+internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent, IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
 {
     private const string Actor = "Raftwreck";
@@ -22,19 +22,21 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     private Vector2 _position;
     private int _direction;
     private int _centerCounter;
-    private int _state;
+    private int State
+    {
+        get => _context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0);
+        set => _context.Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, checked((byte)value));
+    }
     private int _flashPhase;
     private int _flashFrame;
-    private int _stateCounter;
     private int _paletteOffset;
-    private int _finishCounter;
+    private bool _finishing;
     private bool _paletteFadeActive;
     private bool _oscillating;
     private bool _initializing;
     private bool _scriptEnded;
     private bool _active;
     private bool _ownsFlashFade;
-    private bool _secondFlashQueued;
     private int _effectSerial;
 
     internal RaftwreckEvent(RoomEventContext context)
@@ -46,6 +48,9 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     public bool HasState => _active;
     public bool BlocksGameplay => HasState;
     public bool MenusDisabled => HasState;
+    public bool UpdatesInObjectPhases => true;
+    public void UpdatePartFrame() => AdvanceLightningParts();
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
     internal int FlashFrame => _flashFrame;
     internal int FlashPhase => _flashPhase;
     internal int CenterCounter => _centerCounter;
@@ -70,25 +75,36 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             .SingleOrDefault(entity => entity.LinkRiding);
         float ownerX = _raft?.PrecisePosition.X ?? _context.Player.PrecisePosition.X;
         _position = new Vector2(Mathf.Floor(ownerX), _database.Record.InitialY);
+        _direction = _raft?.Direction ?? CarriedObjectMotion.DirectionIndex(_context.Player.FacingVector);
         _context.Player.BeginCutsceneControl(owner: this);
+        _context.Entities.RuntimeState.SetWramByte(0xcfd0, 0);
         _active = true;
         _initializing = true;
     }
 
     public void UpdateFrame()
     {
-        AdvanceLightningParts();
+        if (!_context.Entities.InitializedInteractionUpdatesAllowed)
+        {
+            // Debris$08:$00 has its own always-update bit; ordinary wind
+            // and helpers share the frozen INTERACTION category admission.
+            AdvanceInteractionEffects();
+            return;
+        }
         if (_initializing)
         {
-            Initialize();
+            if ((_context.Entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode) & 1) != 0)
+                Initialize();
+            _raft?.BeginRaftwreckControl(_context.Player, _position);
+            SynchronizeOwner();
             return;
         }
         if (_centerCounter > 0)
         {
             _centerCounter--;
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref _position, _database.Record.InitialSpeed,
-                _position.X < _database.Record.CenterX ? ObjectAngle.Right : ObjectAngle.Left);
+            NativeObjectMovement.ApplySpeed(
+                _context.Entities.RuntimeState, ref _position,
+                _database.Record.InitialSpeed, _direction * 8);
             SynchronizeOwner();
             return;
         }
@@ -97,6 +113,10 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             _runner.Start(_database.Commands);
             _runner.SetInitialMotionRegisters(
                 new CutsceneActorId(Actor), _database.Record.InitialSpeed, ObjectAngle.Up);
+            // Substate1 installs the script after its move-on-zero update.
+            // The first interactionRunScript belongs to the next update.
+            SynchronizeOwner();
+            return;
         }
 
         if (_runner.Active)
@@ -104,13 +124,11 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         AdvancePaletteFade();
         AdvanceScreenFlashes();
         AdvanceFinish();
-        if (!HasState)
-            return;
-        if (_flashPhase >= 5 && _finishCounter == 0 && _state != 3)
+        if (HasState && _flashPhase >= 5 && !_finishing && State != 3)
             AdvanceOscillation();
         AdvanceHelpers();
         AdvanceInteractionEffects();
-        SynchronizeOwner();
+        if (HasState) SynchronizeOwner();
     }
 
     public void Cancel()
@@ -134,16 +152,13 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         _raft = null;
         _initializing = false;
         _centerCounter = 0;
-        _state = 0;
         _flashPhase = 0;
         _flashFrame = 0;
-        _stateCounter = 0;
-        _finishCounter = 0;
+        _finishing = false;
         _paletteFadeActive = false;
         _oscillating = false;
         _scriptEnded = false;
         _active = false;
-        _secondFlashQueued = false;
         if (_ownsFlashFade)
             _context.Fade.Color = new Color(1, 1, 1, 0);
         _ownsFlashFade = false;
@@ -155,9 +170,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         _initializing = false;
         float delta = _position.X - _database.Record.CenterX;
         _direction = delta < 0 ? 1 : 3;
-        _centerCounter = Mathf.Abs(Mathf.FloorToInt(delta)) * 2;
-        _raft?.BeginRaftwreckControl(_context.Player, _position);
-        SynchronizeOwner();
+        _centerCounter = (Mathf.Abs(Mathf.FloorToInt(delta)) * 2) & 0xff;
     }
 
     private void SynchronizeOwner()
@@ -191,16 +204,9 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
 
     private void AdvanceScreenFlashes()
     {
-        if (_state == 1 && _flashPhase == 0)
+        if (State == 1 && _flashPhase == 0)
         {
             _flashPhase = 1;
-            _flashFrame = 0;
-            return;
-        }
-        if (_flashPhase == 2 && _secondFlashQueued)
-        {
-            _secondFlashQueued = false;
-            _flashPhase = 3;
             _flashFrame = 0;
             return;
         }
@@ -216,35 +222,26 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             _context.Fade.Color = new Color(1, 1, 1, 0);
             _ownsFlashFade = false;
             RestartDarkenRoom();
-            _stateCounter = _flashPhase == 1
+            _runner.NativeCounter1 = _flashPhase == 1
                 ? _database.Record.FirstFlashWait
                 : _database.Record.SecondFlashWait;
             _flashPhase++;
             return;
         }
-        if (_flashPhase == 2 && _stateCounter > 0 && --_stateCounter == 0)
+        if (_flashPhase == 2 && DecrementCounter1() == 0)
         {
             _flashPhase = 3;
             _flashFrame = 0;
         }
-        else if (_flashPhase == 4 && _stateCounter > 0 && --_stateCounter == 0)
+        else if (_flashPhase == 4 && DecrementCounter1() == 0)
         {
             _flashPhase = 5;
-            _state = 2;
+            State = 2;
         }
     }
 
-    public override void PlaySound(int sound)
-    {
-        // raftwreckCutsceneScript_body issues its second SND_LIGHTNING before
-        // waiting for genericCutscene.state $02. That command is the visual
-        // synchronization point for the second flash; do not leave the flash
-        // parked on the controller's defensive counter after the sound has
-        // already been requested.
-        if (sound == SoundId.SndLightning && _flashPhase == 2)
-            _secondFlashQueued = true;
-        base.PlaySound(sound);
-    }
+    private int DecrementCounter1() =>
+        _runner.NativeCounter1 = (_runner.NativeCounter1 - 1) & 0xff;
 
     private void AdvanceOscillation()
     {
@@ -256,14 +253,15 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
 
     private void AdvanceFinish()
     {
-        if (_finishCounter == 0)
+        if (!_finishing)
         {
-            if (_state != 3)
+            if (State != 3 || _flashPhase != 5)
                 return;
-            _finishCounter = _database.Record.FinishWait;
+            _finishing = true;
+            _runner.NativeCounter1 = _database.Record.FinishWait;
             return;
         }
-        if (--_finishCounter != 0)
+        if (DecrementCounter1() != 0)
             return;
 
         RaftwreckEventRecord record = _database.Record;
@@ -318,12 +316,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
             {
                 if (helper.SubId == 5)
                 {
-                    _state = 3;
-                    // The zero-counter $64:$05 row is the terminal strike.
-                    // Retire the still-blocked $ff applyspeed command before
-                    // the 20-update fade handoff can carry Link past the bolt.
-                    _runner.Clear();
-                    _scriptEnded = true;
+                    State = 3;
                 }
                 _helpers.RemoveAt(i);
                 i--;
@@ -335,7 +328,8 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     {
         RaftwreckEffectRecord record = _database.Effect(row.EffectSubId);
         NpcCharacter actor = SpawnEffect(
-            record, row.Y, row.X, "Wind", objectId: 0x64, fixedPriority: null);
+            record, row.Y, row.X, "Wind", objectId: 0x64,
+            fixedPriority: ObjectDrawPriority.BehindLinkZIndex);
         (int angle, int counter) = _database.Record.AnglePreset[0];
         _interactionEffects.Add(new InteractionEffectState(
             actor, new Vector2(row.X, row.Y), speed, angle, counter,
@@ -383,6 +377,8 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         for (int i = 0; i < _lightningParts.Count; i++)
         {
             LightningState part = _lightningParts[i];
+            if (part.State != 0 && !_context.Entities.InitializedPartUpdatesAllowed)
+                continue;
             if (part.State == 0)
             {
                 part.RandomOffset = _context.Entities.NextRandomValue() & 6;
@@ -447,7 +443,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         NpcCharacter actor = SpawnEffect(
             record, Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X),
             "Debris", objectId: 0x08,
-            fixedPriority: ObjectDrawPriority.BehindLinkZIndex);
+            fixedPriority: ObjectDrawPriority.FixedHighPriorityZIndex);
         _interactionEffects.Add(new InteractionEffectState(
             actor, position, 0, ObjectAngle.Up, 0, record.Duration, debris: true));
     }
@@ -477,9 +473,12 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
                 continue;
             }
 
+            if (!_context.Entities.InitializedInteractionUpdatesAllowed)
+                continue;
+
             effect.Actor.AdvanceAnimationUpdates(1);
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref effect.Position, effect.Speed, effect.Angle);
+            NativeObjectMovement.ApplySpeed(
+                _context.Entities.RuntimeState, ref effect.Position, effect.Speed, effect.Angle);
             effect.Actor.SetStatePosition(
                 OracleObjectMath.ToPixelPosition(effect.Position));
             if (effect.Position.X is < 0 or >= 240)
@@ -515,12 +514,12 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
         : throw new InvalidOperationException($"Unknown raftwreck gate '{gate}'.");
     bool ICutsceneCommandHost.MemoryEquals(string binding, int value) =>
         binding == StateBinding
-            ? _state == value
+            ? State == value
             : throw new InvalidOperationException($"Unknown raftwreck memory '{binding}'.");
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
         if (actor != Actor) throw new InvalidOperationException($"Unknown raftwreck actor '{actor}'.");
-        OracleObjectMovement.Shared.ApplySpeed(ref _position, speed, angle);
+        NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState, ref _position, speed, angle);
     }
     void ICutsceneCommandHost.WriteObjectByte(string actor, int address, int value)
     {
@@ -530,7 +529,7 @@ internal sealed class RaftwreckEvent : RoomCutsceneCommandHost, IRoomEntryEvent,
     }
     void ICutsceneCommandHost.WriteMemory(string binding, int value)
     {
-        if (binding == StateBinding && value == 1) _state = value;
+        if (binding == StateBinding && value == 1) State = value;
         else if (binding is "hSprPaletteSources" or "hDirtySprPalettes" && value == 0) { }
         else throw new InvalidOperationException($"Unsupported raftwreck memory write '{binding}'=${value:x2}.");
     }

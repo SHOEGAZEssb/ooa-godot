@@ -340,7 +340,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
         _world.ShowDialogue(id, text, Position);
     }
     private void Slash(int frame) { if ((frame & 15) == 0) _world.Sound(SoundId.SndSwordSlash); }
-    private void Move() => Position += OracleObjectMovement.Shared.Delta(Speed, Angle);
+    private void Move() => Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position), Speed, Angle).PrecisePosition;
     private static int High(float value) => Mathf.FloorToInt(value) & 255;
     private Vector2I HighPosition() => new(High(Position.X), High(Position.Y));
     private void SetHighPosition(Vector2I high) => Position = new Vector2(high.X & 255, high.Y & 255) + Position - Position.Floor();

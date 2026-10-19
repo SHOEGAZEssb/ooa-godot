@@ -26,6 +26,7 @@ internal interface ICutsceneCommandHost
     void ShowText(int textId, string message);
     void ShowText(int textId, string message, int? textboxPosition);
     void ShowLoadedText();
+    void SetActorTextId(string actor, int textId, string message);
     void SetActorAnimation(string actor, int animation, string encodedAnimation);
     void SetActorMovementAnimation(string actor, int angle, string encodedAnimation);
     void SetActorCollisionRadii(string actor, int radiusY, int radiusX);

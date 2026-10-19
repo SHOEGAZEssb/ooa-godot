@@ -76,7 +76,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
         if (IsChild)
         {
             Angle = Data.ChildAngle(Record.SubId);
-            SetHighPosition(Parent!.HighPosition() + OracleObjectMovement.Shared.CircleArcOffset(0x18, Angle));
+            SetHighPosition(Parent!.HighPosition() + MovementCircleArcOffset(0x18, Angle));
             Counter = 90; Speed = 0x28; State = 8;
             return;
         }
@@ -228,15 +228,15 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
                 { Angle = OrbitAngle(); State = 16; Distance = 0x18; AdvanceAnimation(); return; }
                 if ((frame & 15) == 0)
                 {
-                    int difference = (Angle - OracleObjectMovement.Shared.RelativeAngle(Position, player.EnemyContactPosition)) & ObjectAngle.Mask;
-                    if (difference != 0) Angle = (Angle + (difference < 16 ? -1 : 1)) & ObjectAngle.Mask;
+                    Angle = OracleObjectMath.NudgeAngleTowards(Angle,
+                        OracleObjectMovement.Shared.RelativeAngle(Position, player.EnemyContactPosition));
                 }
                 Move();
                 Angle = EnemyAdjacentWallResolver.Shared.BounceAngle(Position, Angle,
                     point => point.X < 0 || point.X >= _world.Room.Width || point.Y < 0 || point.Y >= _world.Room.Height);
                 AdvanceAnimation(); return;
             case 16:
-                var destination = parent.HighPosition() + OracleObjectMovement.Shared.CircleArcOffset(0x18, OrbitAngle());
+                var destination = parent.HighPosition() + MovementCircleArcOffset(0x18, OrbitAngle());
                 destination = new(destination.X & 255, destination.Y & 255);
                 if (HighPosition() == destination)
                 {
@@ -251,7 +251,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
     private void Orbit()
     {
         Angle = OrbitAngle();
-        SetHighPosition(Parent!.HighPosition() + OracleObjectMovement.Shared.CircleArcOffset(Distance, Angle));
+        SetHighPosition(Parent!.HighPosition() + MovementCircleArcOffset(Distance, Angle));
         AdvanceAnimation();
     }
     private int OrbitAngle() => (Data.ChildAngle(Record.SubId) + Parent!.OrbitRotation) & ObjectAngle.Mask;
@@ -298,7 +298,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
     }
     private int DecCounter() => Counter = (Counter - 1) & 255;
     private void MoveToward(Vector2I target) { Angle = OracleObjectMovement.Shared.RelativeAngle(Position, target); Move(); }
-    private void Move() => Position += OracleObjectMovement.Shared.Delta(Speed, Angle);
+    private void Move() => Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position), Speed, Angle).PrecisePosition;
     private static int ClampTarget(int value, int length)
     { int delta = (value - 0x40) & 255; return delta < length ? value : delta < 0xc0 ? 0x40 + length : 0x40; }
     private static int High(float value) => Mathf.FloorToInt(value) & 255;

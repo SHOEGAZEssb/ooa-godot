@@ -294,7 +294,10 @@ public sealed partial class ValidationRoot
                 });
             int negativePacked = database.Target(negativeTarget).PackedPosition;
             Vector2 negativePoint = PointFor(negativePacked);
+            // Declared target-probe boundary; real sword approach/contact is
+            // covered separately by the original-ROM gameplay comparison.
             ball.Position = negativePoint;
+            F1Set(ball,"_precisePosition",negativePoint);
             Vector2 deflectionSource =
                 negativePoint + new Vector2(-8.0f, 8.0f);
             FailIf(
@@ -360,7 +363,7 @@ public sealed partial class ValidationRoot
                     ball = _entities.Entities<ShootingGalleryBall>().Single();
                 }
 
-                ball.Position = new Vector2(-1, ball.Position.Y);
+                ball.Position = new Vector2(-8, ball.Position.Y);
                 StepRoomEventFrames(1);
                 for (int frame = 0; frame < 180; frame++)
                 {

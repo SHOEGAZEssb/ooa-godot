@@ -19,6 +19,7 @@ internal sealed class PalaceSideGuardScriptHost : CutsceneCommandHost
     }
 
     public override bool DialogueOpen => _context.DialogueOpen;
+    public override ICutsceneCommandTraceSink? TraceSink => _context.CommandTraceSink;
     public override bool ScriptExecutionBlocked => DialogueOpen ||
         _context.Player.IsDying;
     public override bool HasActorBinding(CutsceneActorId actor) => actor.Value == "Guard";
@@ -30,7 +31,7 @@ internal sealed class PalaceSideGuardScriptHost : CutsceneCommandHost
         _ => throw UnsupportedCommand($"read palace guard byte '{binding}'")
     };
     public override void MoveActorAtSpeed(string actor, int speed, int angle) =>
-        _guard.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _precise, speed, angle));
+        _guard.SetStatePosition(NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState, ref _precise, speed, angle));
     public override void ScriptEnded() { }
     internal void Update() => _runner.AdvanceFrame();
 }

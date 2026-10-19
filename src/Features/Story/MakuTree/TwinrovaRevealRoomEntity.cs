@@ -113,7 +113,7 @@ internal sealed class TwinrovaRevealRoomEntity : CutsceneCommandHost, IRoomEntit
         {
             Publish(); _context.Entities.RuntimeState.SetWramByte(0xcfd6, (byte)_actor.Position.X);
             _actor.AdvanceAnimationUpdates(1);
-            _actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _precise, 0x50, _angle));
+            _actor.SetStatePosition(NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState, ref _precise, 0x50, _angle));
             if (--_counter != 0 || LoadPreset()) Animation(((_angle + 4) & 0x18) >> 3);
             else if (_substate == 1) { _substate = 2; _runner.Start(_data.Commands("twinrova")); }
             else { _context.Entities.RuntimeState.SetWramByte(0xcfd0, 9); Finish(); }

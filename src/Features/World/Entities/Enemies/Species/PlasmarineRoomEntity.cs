@@ -26,7 +26,12 @@ internal sealed class PlasmarineRoomEntity : CombatEnemyRoomEntityAdapter<Plasma
             completedOutcome:()=>RoomEnemyOutcome.BossTeardown(0),soundRequested:world.Sound),collisionZ:()=>actor.ZFixed>>8)=>_world=world;
     public void BindEnemySlot(int slot,Func<int,IRoomEntity?> resolve)=>Entity.Slot=slot;
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
-    {_player=frame.Player;Entity.UpdateFrame(frame.ScentSeedTarget??frame.Player.Position,frame.Counter);}
+    {
+        _player=frame.Player;
+        // plasmarine_stateA captures hEnemyTargetY/X, sampled before ENEMY;
+        // the independent Scent target and later Link writes do not replace it.
+        Entity.UpdateFrame(frame.LinkTarget??frame.Player.EnemyContactPosition,frame.Counter);
+    }
     public void UpdatePlayerForcedMovement(Player player)=>_world.Entry.Update(player);
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {Entity.InitializeNative();return ScreenTransitionPresentation.Visible;}

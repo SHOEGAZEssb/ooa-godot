@@ -46,7 +46,8 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     public bool HasState => _runner.Active;
     public bool BlocksGameplay => InputControlHeld;
     public override bool DialogueOpen => Dialogue.IsOpen;
-    public override bool ScriptExecutionBlocked => DialogueOpen || _player?.IsDying == true;
+    public override bool ScriptExecutionBlocked =>
+        Dialogue.IsOpen && !Dialogue.AllowsNativeScriptCommands || _player?.IsDying == true;
     public override bool IsLinkedGame => Rooms.SaveData.IsLinkedGame;
     public override int FrameCounter => Entities.FrameCounter;
     public override ICutsceneCommandTraceSink? TraceSink => _traceSink;
@@ -55,6 +56,9 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     internal int Counter => _runner.Counter;
     internal bool InputDisabled => InputControlHeld;
     protected int ActorMovementCounter(CutsceneActorId actor) => _runner.MovementCounter(actor);
+    protected bool ObjectButtonPending => _binding.ButtonPending;
+    protected void ClearObjectButton() => _binding.ClearPendingButton();
+    protected void ReplaceObjectScript(IReadOnlyList<CutsceneCommand> commands) => _runner.Start(commands);
     internal void SetTraceSink(ICutsceneCommandTraceSink? traceSink) =>
         _traceSink = traceSink;
 
@@ -84,7 +88,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
 
     public void AdvanceFrame()
     {
-        if (!_runner.Active || Dialogue.IsOpen)
+        if (!_runner.Active || ScriptExecutionBlocked)
             return;
 
         BeforeAdvanceFrame();
@@ -109,7 +113,11 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     public override bool TryConsumeActorButton(CutsceneActorId actor)
     {
         RequireActor(actor.Value);
-        return _binding.ConsumeButton();
+        bool pressed = _binding.ConsumeButton();
+        // scripting.s:scriptCmd_checkAButton calls func_0c_4177 when the
+        // retained byte is consumed, after Link's earlier selection grace.
+        if (pressed) ScriptPlayer.ApplyInteractionInvincibility(0x80);
+        return pressed;
     }
 
     public override void InitializeActorCollisionRadii(string actor) =>
@@ -157,6 +165,11 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     }
 
     protected abstract bool MatchesAndPrepare(NpcCharacter npc);
+    public override void SetActorTextId(string actor, int textId, string message)
+    {
+        NpcCharacter npc = RequireActor(actor);
+        npc.SetDialogue(textId, message, npc.Record.CanFace);
+    }
 
     protected virtual void BeforeAdvanceFrame()
     {

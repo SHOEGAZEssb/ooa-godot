@@ -32,6 +32,9 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
     private Vector2 _precisePosition;
     private int _buriedAngle;
     private bool _buriedTileDug;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     private Func<Vector2, Vector2> _worldToScreen = static position => position;
 
     internal GroundTreasureDatabaseRecord Record { get; private set; }
@@ -404,8 +407,8 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
             current.Y < 0 || current.Y >= room.Height;
         if (!outside && (!room.IsSolid(current) || holeOrLava))
         {
-            Position = OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition, Record.BuriedMoveSpeed, _buriedAngle);
+            Position = NativeObjectMovement.ApplySpeed(
+                _movementMemory, ref _precisePosition, Record.BuriedMoveSpeed, _buriedAngle);
         }
 
         bool landed = OracleObjectMath.UpdateSpeedZ(

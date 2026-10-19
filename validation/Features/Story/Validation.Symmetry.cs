@@ -215,20 +215,26 @@ public sealed partial class ValidationRoot
 
     private void ValidateTuniNutPlacement()
     {
+        // Include Link/warp eligibility before sampling interaction admission.
+        void StepRoomEventFrames(int frames) => StepGameplayUpdates(frames, Vector2.Zero);
         var quest = _roomEvents.Get<SymmetryEvent>();
         int placedFlag = quest.Database.Constant("placed-flag");
         _saveData.SetGlobalFlag(placedFlag, false);
         _saveData.SetGlobalFlag(quest.Database.Constant("finished-flag"), false);
         _inventory.GiveTreasure(TreasureId.TuniNut, 2);
         LoadValidationRoom(5, 0xf6);
-        _player.WarpTo(new Vector2(0x7b, 0x30), recordSafe: false);
+        _player.WarpTo(new Vector2(0x7b, 0x48), recordSafe: false);
         var nut = _entities.EntityAdapters<TuniNutRoomEntity>().Single();
         FailIf(nut.State != 1 || nut.Visible, "Room $5:$f6 did not initialize the repaired Tuni Nut $b1:$00 as an invisible trigger.");
-        StepRoomEventFrames(1);
+        FailIf(_collision.Collides(_player.Position), "Tuni Nut approach must start on actual room floor.");
+        for(int update=0;nut.State==1&&update<40;update++)
+            StepGameplayUpdates(1,Vector2.Up,["move_up"],["move_up"]);
+        FailIf(_collision.Collides(_player.Position), "Tuni Nut approach crossed solid room geometry.");
         FailIf(nut.State != 2 || nut.Counter != 3 || !_player.CutsceneControlled,
             "Tuni Nut did not latch Link's three-pixel centering distance.");
         StepRoomEventFrames(2);
-        FailIf(nut.State != 2 || _player.Position.X != 0x79, "Tuni Nut centering did not move Link one pixel per update.");
+        FailIf(nut.State != 2 || _player.Position.X != 0x79,
+            $"Tuni Nut centering did not move Link one pixel per update (allowed={_entities.InitializedInteractionUpdatesAllowed}, text={_dialogue.IsOpen}, mask={_runtimeState.ReadWramByte(0xcc8a):x2}, scroll={_runtimeState.ReadWramByte(0xcd00):x2}, state={nut.State}, counter={nut.Counter}, XY={_player.Position}, transition={IsTransitioning}/{_entities.ScreenTransitionActive}/{_transitions.AwaitingLinkWarpState}, initializedFreeze={_entities.InitializedObjectsDisabledSource()}, accumulator={SomariaPrivate<double>(_entities,"_enemyFrameAccumulator")}).");
         StepRoomEventFrames(1);
         FailIf(nut.State != 3 || nut.Counter != 60 || _player.Position.X != 0x78 || !nut.Visible,
             "Tuni Nut centering did not begin the 60-update rise wait on its zero update.");

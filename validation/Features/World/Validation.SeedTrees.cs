@@ -148,6 +148,11 @@ public sealed partial class ValidationRoot
                 falling.Position, _player.Position),
             "A satchel-owned seed did not begin its traced knock-off motion.");
 
+        collectionManager.Update(1.0 / 60.0, _player);
+        // Declared grounded Link lies directly below the centre nut. The
+        // missed catch executes SPEED_100 at angle $10 through the PART owner.
+        AssertMovementPublication(collectionRuntime, 256, 0, "PART $10 seed flight");
+
         for (int update = 0;
              update < 90 &&
              database.IsRefilled(collectionRuntime, canonical.RefillIndex);

@@ -43,6 +43,8 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
     private int _angle;
     private int _speed;
     private Vector2 _precisePosition;
+    private OracleRuntimeState? _movementMemory;
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
     internal byte Counter2Alias { get; private set; }
     internal void WriteCounter2Alias(int value) => Counter2Alias = unchecked((byte)value);
 
@@ -354,7 +356,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         // The source returns even on 1->0, moving only when still nonzero.
         Counter2Alias--;
         if (Counter2Alias != 0)
-            Position = OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition,_speed,_angle);
+            Position = NativeObjectMovement.ApplySpeed(_movementMemory, ref _precisePosition, _speed, _angle);
         return true;
     }
 

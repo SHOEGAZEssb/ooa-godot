@@ -16,6 +16,9 @@ internal partial class Room148PickaxeDebris : FixedEffectNode2D
     private int _speed;
     private int _gravity;
     private bool _stateInitialized;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     internal override bool Finished { get; private protected set; }
     internal int Palette { get; private set; }
@@ -80,8 +83,8 @@ internal partial class Room148PickaxeDebris : FixedEffectNode2D
 
         ZFixed = z;
         SpeedZ = speedZ;
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _speed, Angle);
+        Position = NativeObjectMovement.ApplySpeed(
+            _movementMemory, ref _precisePosition, _speed, Angle);
         QueueRedraw();
     }
 

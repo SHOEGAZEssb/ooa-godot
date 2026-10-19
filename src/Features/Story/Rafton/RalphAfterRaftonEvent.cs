@@ -9,6 +9,7 @@ namespace oracleofages;
 internal sealed class RalphAfterRaftonEvent :
     InteractiveCutsceneCommandHost,
     IRoomEntryEvent,
+    IUpdatesDuringDialogueRoomEvent,
     ICutsceneCommandHost
 {
     private const string ActorName = "Ralph";
@@ -105,7 +106,8 @@ internal sealed class RalphAfterRaftonEvent :
 
     public void UpdateFrame()
     {
-        if (!_active || _ralph is null)
+        if (!_active || _ralph is null ||
+            !_context.Entities.InitializedInteractionUpdatesAllowed)
             return;
 
         switch (_substate)
@@ -142,6 +144,8 @@ internal sealed class RalphAfterRaftonEvent :
                     $"INTERAC_RALPH $37:$03 entered invalid substate ${_substate:x2}.");
         }
     }
+
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
 
     public void Cancel()
     {
@@ -228,8 +232,8 @@ internal sealed class RalphAfterRaftonEvent :
                 $"${speed:x2}/${angle:x2}.");
         }
         RalphAfterRaftonCharacter ralph = RequireRalph(actor);
-        ralph.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, speed, angle));
+        ralph.SetStatePosition(NativeObjectMovement.ApplySpeed(
+            _context.Entities.RuntimeState, ref _precisePosition, speed, angle));
     }
 
     public override void PlaySound(int sound)
@@ -323,6 +327,9 @@ internal sealed class RalphAfterRaftonEvent :
 
     private void UpdatePostTextWait()
     {
+        // This native substate checks live text after ordinary category
+        // admission; the later approach/alignment substates do not.
+        if (_context.Entities.IsTextActive()) return;
         if (--_counter != 0)
             return;
         _counter = _record.ApproachCounter;
@@ -338,8 +345,8 @@ internal sealed class RalphAfterRaftonEvent :
         ralph.AdvanceRalphAnimation(2);
         if (--_counter != 0)
         {
-            ralph.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition, _speed, _angle));
+            ralph.SetStatePosition(NativeObjectMovement.ApplySpeed(
+                _context.Entities.RuntimeState, ref _precisePosition, _speed, _angle));
             return;
         }
         _counter = _record.AlignWait;
@@ -383,8 +390,8 @@ internal sealed class RalphAfterRaftonEvent :
         ralph.AdvanceRalphAnimation(2);
         if (--_counter != 0)
         {
-            ralph.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition, _speed, _angle));
+            ralph.SetStatePosition(NativeObjectMovement.ApplySpeed(
+                _context.Entities.RuntimeState, ref _precisePosition, _speed, _angle));
             return;
         }
         StartScript();

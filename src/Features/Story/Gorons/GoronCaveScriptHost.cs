@@ -208,7 +208,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         _fixedAnimation = false;
         Actor.FaceDownAndResetNativeNpcCooldown();
     }
-    private void Move() => Actor.Position = OracleObjectMovement.Shared.ApplySpeed(ref _position, _speed, _angle);
+    private void Move() => Actor.Position = NativeObjectMovement.ApplySpeed(Wram, ref _position, _speed, _angle);
     private bool HasEssence => (Context.Inventory.Essences & 0x10) != 0;
     private bool SavedElder => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.SavedGoronElder);
     public override bool MemoryEquals(string binding, int value) => ReadMemory(binding) == value;

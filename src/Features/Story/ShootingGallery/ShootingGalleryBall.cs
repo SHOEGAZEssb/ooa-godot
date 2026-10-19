@@ -17,6 +17,8 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
     private OracleRandom _random = null!;
     private Action<int> _playSound = null!;
     private Func<long> _animationTick = null!;
+    private OracleRuntimeState? _runtime;
+    private Func<Vector2,Vector2> _toScreen = static position => position;
     private Texture2D _texture = null!;
     private Vector2 _precisePosition;
     private ShootingGalleryBallState _state;
@@ -41,7 +43,9 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
         OracleRandom random,
         Vector2 position,
         Action<int> playSound,
-        Func<long> animationTick)
+        Func<long> animationTick,
+        OracleRuntimeState? runtime = null,
+        Func<Vector2,Vector2>? toScreen = null)
     {
         _database = database;
         _record = database.Record;
@@ -50,6 +54,8 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
         _random = random;
         _playSound = playSound;
         _animationTick = animationTick;
+        _runtime = runtime;
+        _toScreen = toScreen ?? (static position => position);
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         _angle = _record.BallAngle;
@@ -120,15 +126,13 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
         if (Finished ||
             _state is ShootingGalleryBallState.DeflectionPending or
                 ShootingGalleryBallState.Reflected ||
-            !hitbox.Intersects(CollisionBounds))
+            !RoomEntityManager.ObjectCollisionXYOverlaps(CollisionBounds,hitbox))
         {
             return false;
         }
 
-        // The collision pass reads the object's current high bytes before
-        // writing Object.knockbackAngle. Preserve those bytes as the new
-        // objectApplySpeed origin if another system repositioned the part.
-        _precisePosition = Position;
+        // Collision writes knockbackAngle; it retains the coordinate low
+        // bytes for the next original objectApplySpeed call.
         _state = ShootingGalleryBallState.DeflectionPending;
         _angle = OracleObjectMovement.Shared.RelativeAngle(
             sourcePosition, Position);
@@ -165,7 +169,7 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
             return;
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
+        Position = NativeObjectMovement.ApplySpeed(_runtime,
             ref _precisePosition, _speed, _angle);
         QueueRedraw();
     }
@@ -183,22 +187,7 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
         if (hit)
             _collisionCounter = 3;
 
-        OracleObjectPosition next = OracleObjectMovement.Shared.ApplySpeed(
-            OracleObjectMovement.Shared.PositionFromPixels(_precisePosition),
-            _speed,
-            _angle);
-        Vector2 destination = next.PixelPosition;
-        if (!WithinScreen(destination) ||
-            (WithinRoom(destination) && _room.IsSolid(destination)))
-        {
-            _precisePosition = next.PrecisePosition;
-            Position = destination;
-            QueueRedraw();
-            return;
-        }
-
-        _precisePosition = next.PrecisePosition;
-        Position = destination;
+        Position = NativeObjectMovement.ApplySpeed(_runtime,ref _precisePosition,_speed,_angle);
         QueueRedraw();
     }
 
@@ -222,7 +211,8 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
             _animationTick());
         if (previousHits == 0)
             _playSound(_record.SwitchSound);
-        for (int angle = ObjectAngle.Up; angle < _database.Debris.Count; angle++)
+        // func_6bca creates angles$03,$02,$01,$00 in physical slot order.
+        for (int angle = _database.Debris.Count - 1; angle >= 0; angle--)
         {
             spawns.Add(new ShootingGalleryTargetDebrisSpawn(
                 PackedPositionCenter(_room.GetPackedPosition(point)),
@@ -245,10 +235,7 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
     }
 
     private bool WithinScreen(Vector2 position) =>
-        position.X >= 0 &&
-        position.X < OracleRoomData.ViewportWidth &&
-        position.Y >= 0 &&
-        position.Y < OracleRoomData.ViewportHeight;
+        OracleObjectMath.IsInsideOriginalScreenBoundary(_toScreen(position));
 
     private bool WithinRoom(Vector2 position) =>
         position.X >= 0 &&
@@ -265,9 +252,14 @@ internal sealed class ShootingGalleryBallRoomEntity(
     ShootingGalleryBall ball)
     : RoomEntityAdapter<ShootingGalleryBall>(
         ball, ball.SetTransitionDrawOffset),
-        IFixedRoomEntity, ISwordHittableRoomEntity, IRoomEntityLifetime
+        IFixedRoomEntity, ISwordHittableRoomEntity, IRoomEntityLifetime,
+        IPostObjectMeleeCollisionRoomEntity,
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     public bool Finished => Entity.Finished;
+    public bool MeleeReportsContact => true;
+    public bool UpdatesDuringDialogue => Entity.State == ShootingGalleryBallState.Initializing;
+    public bool UpdatesDuringRoomEntityFreeze => UpdatesDuringDialogue;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

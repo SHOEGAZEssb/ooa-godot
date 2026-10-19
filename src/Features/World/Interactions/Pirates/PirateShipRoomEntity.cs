@@ -88,7 +88,7 @@ internal sealed class PirateShipRoomEntity : NpcCharacterRoomEntityAdapter,
             _state = 2;
             return;
         }
-        Vector2 position = OracleObjectMovement.Shared.ApplySpeed(ref _position, DepartureSpeed,
+        Vector2 position = NativeObjectMovement.ApplySpeed(_owner.RuntimeState, ref _position, DepartureSpeed,
             _subid == 1 ? ObjectAngle.Left : ObjectAngle.Up);
         // Source high bytes wrap through $ff while OAM remains partly visible
         // above/left of the viewport. Retain native motion in _position.

@@ -76,6 +76,20 @@ public sealed partial class ValidationRoot
             FailIf(_currentRoom.IsSolid(_player.Position), "1:36 approach starts in solid geometry.");
             bool sawTrigger = false;
             int updates = 0;
+            int publications = 0;
+            var moveSources = new DekuForestPalaceEventDatabase().SideGuardCommands
+                .OfType<CutsceneApplySpeedCommand>().Select(command => command.Source).ToHashSet();
+            _roomEvents.CommandTraceSink = new MovementCommandScratchTrace(entry =>
+            {
+                // counter2=$10 is the setup yield; zero is the terminal
+                // yield. Only $0f..$01 execute objectApplySpeed.
+                if (entry.Counter is <= 0 or >= 0x10 || !moveSources.Contains(entry.Source)) return;
+                // Source order: left then right, fifteen SPEED_100 calls
+                // each. Observe before another host or the warp query runs.
+                AssertMovementPublication(_runtimeState, 0, (publications & 1) == 0 ? -256 : 256,
+                    "Palace side guards $40:$03");
+                publications++;
+            });
             StepGameplayUpdates(36, Vector2.Up, ["move_up"], batched: batch, afterUpdate: () =>
             {
                 // Link updates before interactions; supply its actual current
@@ -92,7 +106,8 @@ public sealed partial class ValidationRoot
                         $"port={actor.Position}, ROM=({rom[0xd240 + index * 0x100 + 0x0d]}, {rom[0xd240 + index * 0x100 + 0x0b]}), Link={_player.PrecisePosition}.");
                 }
             });
-            FailIf(!sawTrigger || guards.Single(npc => npc.BaseRecord.X == 0x48).Position.X != 0x39 ||
+            _roomEvents.CommandTraceSink = null;
+            FailIf(publications != 30 || !sawTrigger || guards.Single(npc => npc.BaseRecord.X == 0x48).Position.X != 0x39 ||
                 guards.Single(npc => npc.BaseRecord.X == 0x58).Position.X != 0x67,
                 "1:36 must open the center aisle with exactly 15 outward soldier updates.");
             var palace = _roomEvents.Get<DekuForestPalaceEvent>();

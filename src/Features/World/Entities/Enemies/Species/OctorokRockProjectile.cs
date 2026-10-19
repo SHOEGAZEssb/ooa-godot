@@ -11,6 +11,7 @@ public partial class OctorokRockProjectile
     private HostileProjectileLifecycle _lifecycle = null!;
 
     public bool Finished => _lifecycle.Finished;
+    bool IHostileProjectile.InitializationPending => State == HostileProjectileState.Initializing;
     internal HostileProjectileState State => _lifecycle.State;
     internal int Angle => _lifecycle.Angle;
     internal int Counter => _lifecycle.Counter;

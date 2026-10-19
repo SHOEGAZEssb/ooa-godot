@@ -272,7 +272,7 @@ internal sealed partial class NayruRescueActorRoomEntity : CutsceneCommandHost, 
     {Write(0xcfd5,(int)_precise.Y);Write(0xcfd6,((int)_precise.X+offset)&255);}
     private void MoveRaw(int speed,int angle)
     {
-        var point=CreditsMakuActor||CreditsSwordActor?NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,ref _precise,speed,angle):OracleObjectMovement.Shared.ApplySpeed(ref _precise,speed,angle);
+        var point=NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,ref _precise,speed,angle);
         if(EndingCompanion||EndingPalaceCompanion||CreditsMakuActor||CreditsSwordActor)_actor.Position=point;else _actor.SetStatePosition(point);
     }
     private void Finish() {Finished=true;_actor.SetActive(false);}

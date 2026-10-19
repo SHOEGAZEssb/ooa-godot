@@ -45,7 +45,7 @@ internal sealed class ShadowHagBossRoomEntity
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns)
     {
-        Entity.UpdateFrame(frame.Player, frame.Counter, spawns);
+        Entity.UpdateFrame(frame.Player, frame.Counter, spawns, frame.LinkTarget ?? frame.Player.EnemyContactPosition);
         if (_initialized)
             return;
         _initialized = true;

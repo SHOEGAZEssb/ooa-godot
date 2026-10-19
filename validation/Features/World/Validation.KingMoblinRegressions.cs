@@ -143,9 +143,10 @@ public sealed partial class ValidationRoot
                 {
                     int age=flightUpdates.GetValueOrDefault(bomb);flightUpdates[bomb]=age+1;
                     if(age==0)launches[bomb.Minion.SubId]++;
-                    // Minion apex: its previous copied Z is -$9a0; the
-                    // part then adds -$280, -$260 in its first two updates.
-                    if(age<2)FailIf(bomb.ZFixed!=(age==0?-0xc20:-0xe80) || bomb.Held || bomb.Position.Y<=8,
+                    // The previous minion Z is -$9a0, but objectTakePosition
+                    // copies only zh: the fresh bomb keeps its zero low byte
+                    // (-$a00), then adds -$280 and -$260 in its first updates.
+                    if(age<2)FailIf(bomb.ZFixed!=(age==0?-0xc80:-0xee0) || bomb.Held || bomb.Position.Y<=8,
                         $"PART $47 minion {bomb.Minion.SubId} throw update {age}: Z=${bomb.ZFixed:x}, position={bomb.Position}; reserved bracelet motion must not touch this part.");
                 }
                 if(bomb.State!=(bomb.Minion is null?5:3))continue;

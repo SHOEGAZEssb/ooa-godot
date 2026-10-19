@@ -21,6 +21,7 @@ public sealed class NayruIntroEventDatabase
     public NayruIntroEventRecord Event { get; }
     internal IReadOnlyList<CutsceneCommand> Commands { get; }
     internal IReadOnlyList<CutsceneCommand> GhostCommands { get; }
+    internal IReadOnlyList<CutsceneCommand> BearCommands { get; }
     internal IReadOnlyList<CutsceneCommand> VignetteBoyCommands { get; }
     internal IReadOnlyList<CutsceneCommand> VignetteLadyCommands { get; }
     public IReadOnlyList<SingingOamRecord> SingingOam { get; }
@@ -83,6 +84,8 @@ public sealed class NayruIntroEventDatabase
             "res://assets/oracle/cutscenes/nayru_intro_commands.tsv");
         GhostCommands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/nayru_ghost_commands.tsv");
+        BearCommands = CutsceneCommandCatalog.Load(
+            "res://assets/oracle/cutscenes/nayru_bear_commands.tsv");
         VignetteBoyCommands = CutsceneCommandCatalog.Load(
             "res://assets/oracle/cutscenes/nayru_vignetteboy_commands.tsv");
         VignetteLadyCommands = CutsceneCommandCatalog.Load(
@@ -184,7 +187,8 @@ public sealed class NayruIntroEventDatabase
                     "actor", "delay", "angle", "speed-raw", "wait-jump-speed-z",
                     "wait-gravity", "repeat-wait-jump", "escape-jump-speed-z",
                     "escape-gravity", "repeat-escape-jump", "wait-for-landing",
-                    "wait-animation", "escape-animation"
+                    "wait-animation", "escape-animation", "clear-escape-z-high",
+                    "initial-escape-animation-base64"
                 ],
                 ["actor"],
                 headerRequired: true));
@@ -194,7 +198,8 @@ public sealed class NayruIntroEventDatabase
                 row.RequiredString(0), row.UnsignedDecimal(1), row.Decimal(2),
                 row.HexByte(3), row.Decimal(4), row.Decimal(5), row.Boolean01(6),
                 row.Decimal(7), row.Decimal(8), row.Boolean01(9),
-                row.Boolean01(10), row.UnsignedDecimal(11), row.UnsignedDecimal(12));
+                row.Boolean01(10), row.UnsignedDecimal(11), row.UnsignedDecimal(12),
+                row.Boolean01(13), row.Base64Utf8(14));
             _flee.Add(record.Actor, record);
         }
         if (_flee.Count != 5)
@@ -364,7 +369,9 @@ public readonly record struct FleeRecord(
     bool RepeatEscapeJump,
     bool WaitForLanding,
     int WaitAnimation,
-    int EscapeAnimation);
+    int EscapeAnimation,
+    bool ClearEscapeZHigh,
+    string InitialEscapeAnimation);
 
 public readonly record struct ActorRecord(
     int Index,

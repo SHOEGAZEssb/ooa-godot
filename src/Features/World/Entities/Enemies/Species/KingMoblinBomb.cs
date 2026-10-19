@@ -31,8 +31,11 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
     {
         Boss=boss; Minion=minion;
         if(minion is null) boss.Bomb=this; else minion.Bomb=this;
-        InitializeEnemy(minion?.Position ?? boss.Position,
+        // ecom_spawnProjectile copies high XYZ into a freshly cleared PART.
+        InitializeEnemy((minion?.Position ?? boss.Position).Floor(),
             EnemyCharacterConfiguration.FromImported(boss.Data.Actor(minion is null?0x3f:0x47)),positionedOam:true);
+        CopyPositionHigh(minion?.Position??boss.Position,minion?.ZFixed??boss.ZFixed);
+        _angle=minion is null?boss.Angle:0;
         Name=minion is null?"KingMoblinBomb":"KingMoblinMinionBomb";
     }
     internal void Throw(int angle,int? speedZ,int? speed=null,bool terrainEffects=true)
@@ -42,7 +45,15 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
         if(speedZ.HasValue) _motion.SpeedZ=speedZ.Value;
         if(speed.HasValue) _speed=speed.Value;
     }
-    internal void GrabByBoss(Vector2 position) {State=1; Position=position;}
+    internal void GrabByBoss(Vector2 position,int zFixed) {State=1; CopyPositionHigh(position,zFixed);}
+    internal void CopyPositionHigh(Vector2 position,int zFixed)
+    {
+        // objectCopyPosition[WithOffset]/objectTakePosition retain this
+        // PART's low bytes rather than transferring the parent's fractions.
+        Position=new Vector2(OracleObjectPosition.HighByte(position.X),
+            OracleObjectPosition.HighByte(position.Y))+Position-Position.Floor();
+        _motion.ZFixed=unchecked((short)((zFixed&0xff00)|(_motion.ZFixed&0xff)));
+    }
     internal void UpdateFrame(RoomEntityFrame frame)
     {
         if(IsDead) return;
@@ -112,8 +123,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
         }
         if(_released)
         {
-            _motion.AdvanceHorizontal(Boss.World.Throwing, point => Boss.World.Room.IsSolid(point) &&
-                !Boss.World.Throwing.CanPassSolidTile(Boss.World.Room,point));
+            _motion.AdvanceHorizontal(Boss.World.Throwing, Boss.World.Room, ApplyMovementSpeed);
             if(_motion.AdvanceVertical(Boss.World.Bracelet))
             {
                 Boss.World.Sound(SoundId.SndBombLand);
@@ -132,7 +142,9 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
         }
         switch(State)
         {
-            case 1: Position=Minion!.Position; _motion.ZFixed=Minion.ZFixed; break;
+            case 1:
+                CopyPositionHigh(Minion!.Position,Minion.ZFixed);
+                break;
             case 2:
                 Move();
                 if(OracleObjectMath.UpdateSpeedZ(ref _motion.ZFixed,ref _motion.SpeedZ,0x20)) Explode();
@@ -186,6 +198,7 @@ internal sealed partial class KingMoblinBomb : EnemyCharacter, ITerrainShadowSou
         ZIndex=ObjectDrawPriority.InFrontOfLinkZIndex;
         player.BeginCarriedObjectPose(); return true;
     }
-    private void Move() {var p=Position; OracleObjectMovement.Shared.ApplySpeed(ref p,_speed,_angle); Position=p;}
+    private void Move() => Position = ApplyMovementSpeed(
+        OracleObjectPosition.FromPixels(Position), _speed, _angle).PrecisePosition;
     public override void _ExitTree() {if(Held) _holder?.EndCarriedObjectPose(); base._ExitTree();}
 }

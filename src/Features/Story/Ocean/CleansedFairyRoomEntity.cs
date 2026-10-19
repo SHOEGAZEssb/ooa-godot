@@ -10,6 +10,7 @@ internal sealed class CleansedFairyRoomEntity : NpcCharacterRoomEntityAdapter,
     IUpdatesDuringRoomEntityFreeze
 {
     private readonly SeaFairyDatabase _data;
+    private readonly OracleRuntimeState _runtime;
     private readonly Action _fade, _clean;
     private readonly Action<int> _sound;
     private readonly Action<string> _showText;
@@ -26,17 +27,17 @@ internal sealed class CleansedFairyRoomEntity : NpcCharacterRoomEntityAdapter,
     public bool DisablesMovement => !Finished;
     public bool DisablesMenus => !Finished;
     public bool DisablesPlayerContact => !Finished;
-    internal CleansedFairyRoomEntity(SeaFairyDatabase data, Vector2 position,
+    internal CleansedFairyRoomEntity(SeaFairyDatabase data, Vector2 position, OracleRuntimeState runtime,
         Action<int> sound, Action<string> showText, Func<bool> textActive,
         Func<bool> paletteActive, Action fade, Action clean)
-        : this(data, position, sound, showText, textActive, paletteActive, fade, clean,
+        : this(data, position, runtime, sound, showText, textActive, paletteActive, fade, clean,
             NpcCharacter.CreateFromRecord(data.Visual("fairy", position))) { }
-    private CleansedFairyRoomEntity(SeaFairyDatabase data, Vector2 position,
+    private CleansedFairyRoomEntity(SeaFairyDatabase data, Vector2 position, OracleRuntimeState runtime,
         Action<int> sound, Action<string> showText, Func<bool> textActive,
         Func<bool> paletteActive, Action fade, Action clean, NpcCharacter actor)
         : base(actor, actor.SetTransitionDrawOffset)
     {
-        _data = data; _position = position; _sound = sound; _showText = showText;
+        _data = data; _position = position; _runtime = runtime; _sound = sound; _showText = showText;
         _textActive = textActive; _paletteActive = paletteActive; _fade = fade; _clean = clean;
         Entity.SetBlocksLink(false); Entity.TimeWarpSolidMarked = true;
     }
@@ -63,7 +64,7 @@ internal sealed class CleansedFairyRoomEntity : NpcCharacterRoomEntityAdapter,
                 _showText(_data.Thanks); return;
             case 1:
                 if (_textActive()) return;
-                Entity.Position = OracleObjectMovement.Shared.ApplySpeed(ref _position, 0x78, _angle);
+                Entity.Position = NativeObjectMovement.ApplySpeed(_runtime, ref _position, 0x78, _angle);
                 if (--_angleCounter == 0)
                 {
                     _angleCounter = _data.Timing[3]; _angle = (_angle + 1) & 31;

@@ -91,6 +91,8 @@ internal static class CutsceneCommandCatalog
                 payload,
                 OptionalTextboxPosition(path, physicalLine, "arg1", arg1)),
             "showloadedtext" => new CutsceneShowLoadedTextCommand(source),
+            "settextid" => new CutsceneSetTextIdCommand(source, actor,
+                Hex(path, physicalLine, "arg0", arg0), payload),
             "checktext" => new CutsceneCheckTextCommand(source),
             "dialogue" => new CutsceneDialogueCommand(
                 source, Hex(path, physicalLine, "arg0", arg0), payload),
@@ -836,6 +838,13 @@ internal sealed record CutsceneShowTextCommand(
 
 internal sealed record CutsceneShowLoadedTextCommand(CutsceneCommandSource Source)
     : CutsceneCommand(Source);
+
+internal sealed record CutsceneSetTextIdCommand(
+    CutsceneCommandSource Source, string Actor, int TextId, string Message)
+    : CutsceneCommand(Source)
+{
+    public CutsceneActorId ActorId { get; } = new(Actor);
+}
 
 internal sealed record CutsceneCheckTextCommand(CutsceneCommandSource Source)
     : CutsceneCommand(Source);

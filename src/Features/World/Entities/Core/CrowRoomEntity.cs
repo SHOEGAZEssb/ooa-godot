@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class CrowRoomEntity
-    : CombatEnemyRoomEntityAdapter<CrowCharacter>, IFixedRoomEntity
+    : CombatEnemyRoomEntityAdapter<CrowCharacter>, IFixedRoomEntity, IScreenTransitionPreloadRoomEntity
 {
     public CrowRoomEntity(
         CrowCharacter crow,
@@ -38,5 +38,11 @@ internal sealed class CrowRoomEntity
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) =>
         Entity.UpdateFrame(frame.Player.Position);
+
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        Entity.PrepareForScreenTransition();
+        return ScreenTransitionPresentation.Visible;
+    }
 
 }

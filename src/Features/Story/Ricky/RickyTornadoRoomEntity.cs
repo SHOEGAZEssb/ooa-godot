@@ -14,6 +14,7 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
     private readonly RickyCompanionBehaviorRecord _behavior;
     private readonly OracleRoomData _room;
     private readonly CompanionAttackTileBreaker _tileBreaker;
+    private readonly OracleRuntimeState _runtime;
     private readonly EnemyAnimationPlayer _animation;
     private Vector2 _precisePosition;
     private readonly int _angle;
@@ -38,15 +39,20 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
         RickyTornadoSpawn spawn,
         RickyCompanionBehaviorRecord behavior,
         OracleRoomData room,
-        CompanionAttackTileBreaker tileBreaker)
+        CompanionAttackTileBreaker tileBreaker,
+        OracleRuntimeState runtime)
     {
         _behavior = behavior;
         _room = room;
         _tileBreaker = tileBreaker;
+        _runtime = runtime;
         _angle = spawn.Direction * 8;
-        _zFixed = spawn.ZFixed - 0x0200;
-        _precisePosition = spawn.Position +
-            behavior.TornadoOffsets[spawn.Direction];
+        // objectTakePositionWithOffset copies yh/xh/zh into a clean ITEM,
+        // preserving its zero low bytes rather than companion fractions.
+        _zFixed = unchecked((short)((spawn.ZFixed & 0xff00) - 0x0200));
+        _precisePosition = OracleObjectPosition.FromPixels(
+            OracleObjectMath.ToPixelPosition(spawn.Position) +
+            behavior.TornadoOffsets[spawn.Direction]).PixelPosition;
         Position = OracleObjectMath.ToPixelPosition(_precisePosition);
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
@@ -76,7 +82,7 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
             return;
         }
 
-        OracleObjectMovement.Shared.ApplySpeed(
+        NativeObjectMovement.ApplySpeed(_runtime,
             ref _precisePosition,
             _behavior.TornadoSpeed,
             _angle);

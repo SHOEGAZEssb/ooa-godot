@@ -89,28 +89,21 @@ internal sealed class RaftonEvent :
 
         // $69:$01 calls interactionAnimateAsNpc before interactionRunScript;
         // $69:$00 runs its script first and selects animation by behaviour.
-        if (_rightRoom)
-            rafton.AdvanceAsNpc(Context.Player);
-
-        AdvanceInfiniteScript();
-
-        if (!_rightRoom && rafton.Active)
-            AdvanceLeftNativeAnimation(rafton);
-        RoomEventResources.UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
-    }
-
-    public void UpdateDuringDialogueFrame()
-    {
-        RaftonCharacter? rafton = ScriptActor;
-        if (rafton is not null && rafton.Active)
+        if (Context.Entities.InitializedInteractionUpdatesAllowed)
         {
             if (_rightRoom)
                 rafton.AdvanceAsNpc(Context.Player);
-            else
+
+            AdvanceInfiniteScript();
+
+            if (!_rightRoom && rafton.Active)
                 AdvanceLeftNativeAnimation(rafton);
         }
+        // The$9f child sets enabled bit7 independently of ordinary Rafton.
         RoomEventResources.UpdateExclamation(ref _exclamation, ref _exclamationFresh, ref _exclamationCounter);
     }
+
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
 
     public override int ReadMemory(string binding)
     {
@@ -252,8 +245,8 @@ internal sealed class RaftonEvent :
                 $"Unsupported Rafton movement ${speed:x2}/${angle:x2}.");
         }
         RequireScriptActor(actor).SetStatePosition(
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition, speed, angle));
+            NativeObjectMovement.ApplySpeed(
+                Context.Entities.RuntimeState, ref _precisePosition, speed, angle));
     }
 
     public override void WriteObjectByte(
@@ -377,7 +370,7 @@ internal sealed class RaftonEvent :
         int animationUpdates = 1;
         if (Counter != 0 && ScriptActorSpeed >= _record.Speed)
             animationUpdates++;
-        rafton.AdvanceDeparture(Context.Player, animationUpdates);
+        rafton.AdvanceDeparture(animationUpdates);
     }
 
     private void CreateExclamation()

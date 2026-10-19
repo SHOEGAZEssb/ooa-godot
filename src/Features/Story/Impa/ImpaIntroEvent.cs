@@ -438,6 +438,21 @@ internal sealed class ImpaIntroEvent :
         // LINK_STATE_08 dispatches before the normal-Link scroll gate.
         // Its counter continues while initialized room interactions freeze.
         if (ObjectUpdateSuspended) return;
+        if (_stage == ImpaIntroEventStage.Following)
+        {
+            AdvanceStoneLinkPositioning();
+            if (_stoneStage == StoneStage.PushStarted || _stonePostPushRunner.Active)
+            {
+                if (_stoneSignal == 0x07) _context.Player.SetCutsceneIdleAnimation(2);
+                else _context.Player.SetCutscenePushing(true);
+                // linkCutscene6 runs even while ordinary interactions pause.
+                // It sees the stone's completion flag on the next Link visit.
+                if (_stoneMoveCounter > 0 &&
+                    (_context.Rooms.SaveData.GetRoomFlags(_stoneRecord.Actor.Group, _stoneRecord.Actor.Room) & 0xc0) == 0)
+                    _context.Player.AdvanceNativeCutsceneMovement(
+                        _stoneRecord.Timing.LinkPushSpeed, _pushedRight ? ObjectAngle.Right : ObjectAngle.Left);
+            }
+        }
         switch (_stage)
         {
             case ImpaIntroEventStage.LinkInitialize:
@@ -499,22 +514,6 @@ internal sealed class ImpaIntroEvent :
         ImpaStoneActorRecord stone = _stoneRecord.Actor;
         ImpaStoneTimingRecord timing = _stoneRecord.Timing;
 
-        // linkCutscene6 retains its pushing animation while waiting for the
-        // response script, then cfd0=$07 advances it to substate 2 and selects
-        // normal animation $02. Do not restore the pushing pose after that
-        // signal while Impa's remaining dialogue and reunion script run.
-        if ((_stoneStage == StoneStage.PushStarted || _stonePostPushRunner.Active) &&
-            _stoneSignal != 0x07)
-        {
-            _context.Player.SetCutscenePushing(true);
-        }
-        else if (_stonePostPushRunner.Active && _stoneSignal == 0x07)
-        {
-            // Link's special-object pass precedes Impa. Observe the signal on
-            // the following update; animation $02 does not write direction.
-            _context.Player.SetCutsceneIdleAnimation(2);
-        }
-
         // INTERAC_TRIFORCE_STONE calls objectPreventLinkFromPassing at the
         // start of substates 0 and 1. Once movement finishes, collision $0f
         // in the destination tile replaces the interaction-side resolver.
@@ -543,9 +542,6 @@ internal sealed class ImpaIntroEvent :
                 return;
         }
 
-        if (_stoneMoveCounter > 0 && _stoneStage != StoneStage.PushStarted)
-            AdvanceStoneMovement();
-
         bool postPushScriptWasActive = _stonePostPushRunner.Active;
         if (postPushScriptWasActive)
         {
@@ -556,6 +552,11 @@ internal sealed class ImpaIntroEvent :
             if (!_stonePostPushRunner.Active)
                 return;
         }
+
+        // Impa's retained interaction precedes the stone. Their movements
+        // share scratch, so the later stone must be the last eligible writer.
+        if (_stoneMoveCounter > 0 && _stoneStage != StoneStage.PushStarted)
+            AdvanceStoneMovement();
 
         switch (_stoneStage)
         {
@@ -595,7 +596,6 @@ internal sealed class ImpaIntroEvent :
                 if (CountDown())
                 {
                     Actor!.SetAnimationRate(3.0f);
-                    _precisePosition = Actor.Position;
                     _stoneStage = StoneStage.ApproachStone;
                 }
                 break;
@@ -637,56 +637,11 @@ internal sealed class ImpaIntroEvent :
             case StoneStage.SignTextPost:
                 if (CountDown())
                 {
-                    // Native substate $09 writes cfd0=$02 and installs the
-                    // script. linkCutscene2 observes the signal later in this
-                    // same original-engine update; the script runs next time.
+                    // Native substate $09 publishes after Link's dispatch;
+                    // linkCutscene2 observes02 on the following update.
                     _stoneSignal = 0x02;
-                    _precisePosition = Actor!.Position;
                     _stonePrePushRunner.Start(_database.StonePrePushCommands);
                     _stoneStage = StoneStage.LinkSelect;
-                }
-                break;
-            case StoneStage.LinkSelect:
-                _linkMovesXFirst = _context.Player.Position.Y > stone.TargetY;
-                FaceLinkTowardStoneAxis(_linkMovesXFirst);
-                _stoneStage = StoneStage.LinkFirstAxis;
-                break;
-            case StoneStage.LinkFirstAxis:
-                if (AdvanceLinkTowardStoneAxis(_linkMovesXFirst))
-                {
-                    _counter = timing.LinkAxisWaitFrames;
-                    _stoneStage = StoneStage.LinkAxisWait;
-                }
-                break;
-            case StoneStage.LinkAxisWait:
-                if (CountDown())
-                {
-                    FaceLinkTowardStoneAxis(!_linkMovesXFirst);
-                    _stoneStage = StoneStage.LinkSecondAxis;
-                }
-                break;
-            case StoneStage.LinkSecondAxis:
-                if (AdvanceLinkTowardStoneAxis(!_linkMovesXFirst))
-                {
-                    _context.Player.Face(Vector2I.Up);
-                    _counter = timing.LinkTargetWaitFrames;
-                    _stoneStage = StoneStage.LinkTargetWait;
-                }
-                break;
-            case StoneStage.LinkTargetWait:
-                if (CountDown())
-                {
-                    _counter = timing.LinkFaceWaitFrames;
-                    _stoneStage = StoneStage.LinkFaceWait;
-                }
-                break;
-            case StoneStage.LinkFaceWait:
-                if (CountDown())
-                {
-                    // linkCutscene2 writes cfd0=$03 after Impa's interaction
-                    // has already run, so her memory gate opens next update.
-                    _stoneSignal = 0x03;
-                    _stoneStage = StoneStage.PrePushScript;
                 }
                 break;
             case StoneStage.PrePushScript:
@@ -700,9 +655,9 @@ internal sealed class ImpaIntroEvent :
                 // On this update the stone reaches substate 1, Link initializes
                 // linkCutscene6, and the earlier retained Impa slot observes
                 // cfd0=$06 before loading her response script.
-                AdvanceStoneMovement();
                 _stonePostPushRunner.Start(_database.StonePostPushCommands);
                 _stoneStage = StoneStage.PostPushScript;
+                AdvanceStoneMovement();
                 break;
             case StoneStage.PostPushScript:
                 break;
@@ -737,7 +692,6 @@ internal sealed class ImpaIntroEvent :
         Actor!.SetBlocksLink(false);
         Actor.SetFacingDirection(RoomEventResources.DirectionToward(
             Actor.Position, new Vector2(stone.TargetX, stone.TargetY)));
-        _precisePosition = Actor.Position;
         _jumpZFixed = 0;
         _jumpSpeedZ = timing.SpotJumpSpeedZ;
         _counter = timing.SpotHoldFrames;
@@ -763,7 +717,7 @@ internal sealed class ImpaIntroEvent :
         Vector2 target = new(stone.TargetX, stone.TargetY);
         int angle = OracleObjectMovement.Shared.RelativeAngle(
             _precisePosition, target);
-        Actor!.Position = OracleObjectMovement.Shared.ApplySpeed(
+        Actor!.Position = NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,
             ref _precisePosition, _stoneRecord.Timing.ApproachSpeed, angle);
 
         if (Mathf.Abs(Actor.Position.X - target.X) > stone.CloseRadius ||
@@ -772,12 +726,49 @@ internal sealed class ImpaIntroEvent :
             return;
         }
 
-        _precisePosition = target;
-        Actor.Position = target;
+        // impaSubid0 substate5 overwrites yh/xh only at arrival.
+        SetImpaCoordinateHigh(target);
         Actor.SetAnimationRate(1.0f);
         Actor.SetFacingDirection(Vector2I.Up);
         _counter = _stoneRecord.Timing.StoneWaitFrames;
         _stoneStage = StoneStage.AtStoneWait;
+    }
+
+    private void AdvanceStoneLinkPositioning()
+    {
+        // linkCutscene2 runs before ITEM/ENEMY/PART/INTERACTION and does not
+        // inherit interactionRunScript's ordinary text freeze.
+        ImpaStoneTimingRecord timing = _stoneRecord.Timing;
+        switch (_stoneStage)
+        {
+            case StoneStage.LinkSelect:
+                _linkMovesXFirst = _context.Player.Position.Y > _stoneRecord.Actor.LinkTargetY;
+                SelectStoneLinkAngle(firstAxis: true);
+                _stoneStage = StoneStage.LinkFirstAxis;
+                break;
+            case StoneStage.LinkFirstAxis:
+                if (AdvanceLinkTowardStoneAxis(_linkMovesXFirst))
+                { _counter = timing.LinkAxisWaitFrames; _stoneStage = StoneStage.LinkAxisWait; }
+                break;
+            case StoneStage.LinkAxisWait:
+                if (CountDown())
+                { SelectStoneLinkAngle(firstAxis: false); _stoneStage = StoneStage.LinkSecondAxis; }
+                break;
+            case StoneStage.LinkSecondAxis:
+                if (AdvanceLinkTowardStoneAxis(!_linkMovesXFirst))
+                { _context.Player.Face(Vector2I.Up); _counter = timing.LinkTargetWaitFrames; _stoneStage = StoneStage.LinkTargetWait; }
+                break;
+            case StoneStage.LinkTargetWait:
+                if (CountDown())
+                {
+                    // Substate7 writes counter1=$10 AND publishes03 on this
+                    // update; substate8 retains that counter without waiting.
+                    _counter = timing.LinkFaceWaitFrames;
+                    _stoneSignal = 0x03;
+                    _stoneStage = StoneStage.PrePushScript;
+                }
+                break;
+        }
     }
 
     private bool AdvanceLinkTowardStoneAxis(bool horizontal)
@@ -789,30 +780,21 @@ internal sealed class ImpaIntroEvent :
         if (Mathf.IsEqualApprox(coordinate, target))
             return true;
 
-        int direction = Math.Sign(target - coordinate);
-        int angle = horizontal
-            ? direction > 0 ? ObjectAngle.Right : ObjectAngle.Left
-            : direction > 0 ? ObjectAngle.Down : ObjectAngle.Up;
-        Vector2 objectDelta = OracleObjectMovement.Shared.Delta(
-            _stoneRecord.Timing.LinkSpeed, angle);
-        float movement = horizontal ? objectDelta.X : objectDelta.Y;
-        if (Mathf.Abs(target - coordinate) < Mathf.Abs(movement))
-            movement = target - coordinate;
-        Vector2 delta = horizontal ? new Vector2(movement, 0) : new Vector2(0, movement);
-        _context.Player.AdvanceCutsceneMovement(delta,
-            new Vector2I(
-                Mathf.RoundToInt(OracleObjectMath.StrictCardinalVector(angle).X),
-                Mathf.RoundToInt(OracleObjectMath.StrictCardinalVector(angle).Y)));
+        _context.Player.AdvanceNativeCutsceneMovement(
+            _context.Player.NativePlanarSpeed, _context.Player.NativePlanarAngle);
         return false;
     }
 
-    private void FaceLinkTowardStoneAxis(bool horizontal)
+    private void SelectStoneLinkAngle(bool firstAxis)
     {
         ImpaStoneActorRecord stone = _stoneRecord.Actor;
         Vector2 position = _context.Player.Position;
-        _context.Player.Face(horizontal
-            ? position.X < stone.LinkTargetX ? Vector2I.Right : Vector2I.Left
-            : position.Y < stone.LinkTargetY ? Vector2I.Down : Vector2I.Up);
+        int angle = firstAxis
+            ? _linkMovesXFirst
+                ? position.X == stone.LinkTargetX ? ObjectAngle.Up : position.X < stone.LinkTargetX ? ObjectAngle.Right : ObjectAngle.Left
+                : position.Y == stone.LinkTargetY ? ObjectAngle.Left : ObjectAngle.Down
+            : _linkMovesXFirst ? ObjectAngle.Up : ObjectAngle.Left;
+        _context.Player.SetNativeCutsceneAngle(angle);
     }
 
     private void BeginWaitingForStonePush()
@@ -936,15 +918,8 @@ internal sealed class ImpaIntroEvent :
             return;
         int angle = _pushedRight ? ObjectAngle.Right : ObjectAngle.Left;
 
-        // updateAllObjects runs Link's special object before interactions.
-        // linkCutscene6 falls through from initialization to substate 0, so it
-        // applies SPEED_80 on its first update. The stone then clamps Link by
-        // collision high bytes before decrementing and applying SPEED_40.
-        _context.Player.AdvanceCutsceneMovement(
-            OracleObjectMovement.Shared.Delta(
-                _stoneRecord.Timing.LinkPushSpeed, angle),
-            _pushedRight ? Vector2I.Right : Vector2I.Left);
-        _context.Player.SetCutscenePushing(true);
+        // Link has already moved in his special-object phase. The stone's
+        // later interaction clamps high bytes before decrementing/moving.
         PreventLinkFromPassing(
             StoneActor!,
             _stoneRecord.Actor.CollisionRadiusY,
@@ -953,7 +928,7 @@ internal sealed class ImpaIntroEvent :
         _stoneMoveCounter--;
         if (_stoneMoveCounter > 0)
         {
-            StoneActor!.Position = OracleObjectMovement.Shared.ApplySpeed(
+            StoneActor!.Position = NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,
                 ref _stonePrecisePosition,
                 _stoneRecord.Timing.StoneSpeed,
                 angle);
@@ -1081,14 +1056,16 @@ internal sealed class ImpaIntroEvent :
                     }
                     break;
                 case FakeOctorokStage.Moving:
-                    if (!OracleObjectMath.IsInsideOriginalScreenBoundary(state.Actor.Position))
+                    if (!OracleObjectMath.IsInsideOriginalScreenBoundary(
+                        OracleObjectMath.NormalizeSourceScreenPosition(
+                            _context.Transitions.WorldToGameplayScreen(state.Actor.Position))))
                     {
                         state.Actor.SetActive(false);
                         state.Stage = FakeOctorokStage.Finished;
                         break;
                     }
                     EnsureObjectSpeed(state.Record.Speed, 0x78, "fake Octorok escape");
-                    state.Position = OracleObjectMovement.Shared.ApplySpeed(
+                    state.Position = NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,
                         state.Position, state.Record.Speed, state.Record.Angle);
                     state.Actor.Position = state.Position.PixelPosition;
                     break;
@@ -1248,7 +1225,7 @@ internal sealed class ImpaIntroEvent :
             EnsureObjectSpeed(speed, expectedSpeed, context);
         }
         RequireImpaCommandActor(actor).Position =
-            OracleObjectMovement.Shared.ApplySpeed(
+            NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,
                 ref _precisePosition, speed, angle);
     }
 

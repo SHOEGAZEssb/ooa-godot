@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
                         "PART$23 must retain the source ENEMY.counter2 alias, not a private PART cycle.");
             }
             void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched, afterUpdate: Compare);
-            var orphans = Node.GetOrphanNodeIds().ToHashSet();
+            var orphans = ValidationNodeLifetime.OrphanIds().ToHashSet();
             _dialogue.ShowGameplayMessage("Placed PART initialization gate", 100); native[0xcba0] = 1;
             Step(1); // State zero is admitted even under text.
             Step(2); // Initialized handlers now freeze without flight/emission.
@@ -94,7 +94,7 @@ public sealed partial class ValidationRoot
             if (freeSlots >= 0)
             {
                 FailIf(_entities.Entities<FallingFireRoomEntity>().Count != 2 + freeSlots ||
-                    Node.GetOrphanNodeIds().Any(id => !orphans.Contains(id)),
+                    ValidationNodeLifetime.OrphanIds().Any(id => !orphans.Contains(id)),
                     "PART$23 full/one-free admission must drop failed children before constructing a node.");
                 _entities.RetireEntity(_entities.ResolvePartSlot(2)!); native[0xd2c0] = 0;
                 Step(1);

@@ -12,6 +12,8 @@ internal interface IRoomEvent
     bool ObjectUpdateSuspended => false;
     void ResumeObjectUpdate() { }
     void UpdateSpecialObjectFrame() { }
+    bool UpdatesInObjectPhases => false;
+    void UpdatePartFrame() { }
     bool FreezesNonInteractionObjects => false;
     bool MenusDisabled => false;
     // Some native cutscene callers omit updateStatusBar while still running

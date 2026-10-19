@@ -28,7 +28,8 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
     }
 
     public bool HasState => _active;
-    public bool BlocksGameplay => _active;
+    public bool BlocksGameplay => _active && _context.Player.IsCutsceneControlOwner(this);
+    public bool MenusDisabled => _active && _context.Entities.RuntimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0;
     internal bool Completed => _context.Rooms.SaveData.HasRoomFlag(
         _record.Group, _record.Room, (byte)_record.RoomFlag);
     internal int Signal => _signal;
@@ -64,6 +65,12 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
             _record.Group, _record.Room, _record.BlueId, _record.BlueSubId,
             "INTERAC_BOY_2 ghost-scene child");
 
+        // boy.s/boy2.s test room flag$40 only in state zero. One child's
+        // later exit must not reapply that predicate to the two survivors.
+        foreach (var entity in _context.Entities.EntityAdapters<EventOwnedNpcRoomEntity>())
+            if (ReferenceEquals(entity.Npc, redActor) || ReferenceEquals(entity.Npc, greenActor) || ReferenceEquals(entity.Npc, blueActor))
+                entity.RetainInitializedVisibility();
+
         redActor.SetBasePalette(_record.RedPalette);
         PrepareActor(redActor, _record.RedInitialAnimation);
         PrepareActor(greenActor, _record.GreenInitialAnimation);
@@ -85,6 +92,8 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
         _signal = 0;
         _active = true;
         _context.Player.BeginCutsceneControl(owner: this);
+        _context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 1);
+        _context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 1);
     }
 
     public void UpdateFrame()
@@ -104,14 +113,16 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
             return;
         }
 
-        _context.Rooms.SaveData.SetRoomFlag(
-            _record.Group, _record.Room, (byte)_record.RoomFlag);
-        _context.Player.EndCutsceneControl(this);
         _active = false;
     }
 
     public void Cancel()
     {
+        if (_context.Player.IsCutsceneControlOwner(this))
+        {
+            _context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
+            _context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0);
+        }
         if (_active)
             _context.Player.EndCutsceneControl(this);
         RestoreActor(_red);
@@ -401,12 +412,13 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
         {
             Vector2 precise = lane.PrecisePosition;
             lane.Actor.SetStatePosition(
-                OracleObjectMovement.Shared.ApplySpeed(
+                NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,
                     ref precise,
                     _record.FleeSpeed,
                     _record.FleeAngle));
             lane.PrecisePosition = precise;
             Animate(lane, 3);
+            CheckFleeBoundary(lane);
             return;
         }
 
@@ -414,18 +426,27 @@ internal sealed class GraveyardGhostKidsEvent : IRoomEntryEvent
         // the unconditional first animation call.
         Animate(lane, 1);
         lane.Stage = ChildStage.FleeEndPending;
+        CheckFleeBoundary(lane);
     }
 
-    private static void FinishFlee(ChildLane lane)
+    private void FinishFlee(ChildLane lane)
     {
-        // scriptend is processed on the following update, after which
-        // boyRunSubid03 animates once and performs the screen-boundary check.
         lane.Actor.AdvanceAnimationUpdates(1);
-        if (OracleObjectMath.IsInsideOriginalScreenBoundary(lane.Actor.Position))
-        {
-            throw new InvalidOperationException(
-                $"Spirit's Grave {lane.Role} child remained on-screen after moveright.");
-        }
+        CheckFleeBoundary(lane);
+    }
+
+    private void CheckFleeBoundary(ChildLane lane)
+    {
+        // boy.s:boyRunSubid03 checks after every script/animation visit,
+        // including positive counter2 updates. Each departing child clears
+        // the shared controls and sets room flag$40 independently.
+        Vector2 screen = OracleObjectMath.NormalizeSourceScreenPosition(
+            _context.Transitions.WorldToGameplayScreen(lane.Actor.Position));
+        if (OracleObjectMath.IsInsideOriginalScreenBoundary(screen)) return;
+        _context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
+        _context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0);
+        _context.Rooms.SaveData.SetRoomFlag(_record.Group, _record.Room, (byte)_record.RoomFlag);
+        _context.Player.EndCutsceneControl(this);
         lane.Actor.SetActive(false);
         lane.Stage = ChildStage.Finished;
     }

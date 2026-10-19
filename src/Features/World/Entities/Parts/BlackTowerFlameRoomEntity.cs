@@ -55,7 +55,7 @@ internal sealed partial class BlackTowerFlameRoomEntity : DungeonInteractionVisu
                 else
                 {
                     Angle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), Target);
-                    Position = OracleObjectMovement.Shared.ApplySpeed(OracleObjectPosition.FromPixels(Position), 0x14, Angle).PrecisePosition;
+                    Position = NativeObjectMovement.ApplySpeed(_owner.RuntimeState, OracleObjectPosition.FromPixels(Position), 0x14, Angle).PrecisePosition;
                 }
                 break;
             case 5:

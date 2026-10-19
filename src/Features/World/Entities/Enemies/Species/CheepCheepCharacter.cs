@@ -10,15 +10,17 @@ internal partial class CheepCheepCharacter : EnemyCharacter
     private readonly CheepCheepBehaviorProfile _behavior = EnemyBehaviorTables.Shared.CheepCheep;
     private Vector2 _precisePosition;
     private int _travelCounter;
+    private OracleRandom _random = null!;
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int State { get; private set; }
     internal int Counter { get; private set; }
     internal int Angle { get; private set; }
 
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
-        Vector2 position, int distance)
+        Vector2 position, int distance, OracleRandom random)
     {
         Record = record;
+        _random = random;
         _precisePosition = position;
         _travelCounter = distance;
         State = Counter = Angle = ObjectAngle.Up;
@@ -57,7 +59,7 @@ internal partial class CheepCheepCharacter : EnemyCharacter
                 }
                 // The zero-counter update still moves; ordinary swimming has
                 // no terrain, boundary, gravity, scent, or RNG calls.
-                Position = OracleObjectMovement.Shared.ApplySpeed(
+                Position = ApplyMovementSpeed(
                     ref _precisePosition, _behavior.SpeedRaw, Angle);
                 AdvanceAnimation();
                 return;
@@ -79,6 +81,7 @@ internal partial class CheepCheepCharacter : EnemyCharacter
     internal void PrepareForScreenTransition()
     {
         if (State != 0) return;
+        _random.Next(); // enemyStandardUpdate seeds var3d before enemyCode2c.
         State = 8;
         Visible = true;
         QueueRedraw();

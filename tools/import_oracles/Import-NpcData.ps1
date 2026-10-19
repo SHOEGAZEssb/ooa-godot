@@ -403,9 +403,10 @@ function Join-NpcAnimationFrames($frames, [int]$loopStart) {
     return $encoded
 }
 
-function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex) {
+function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex, [int]$animationTableId = -1) {
     $hex = $interactionId.ToString('x2')
-    $animationKey = "interaction${hex}Animations"
+    $tableHex = if ($animationTableId -lt 0) { $hex } else { $animationTableId.ToString('x2') }
+    $animationKey = "interaction${tableHex}Animations"
     $pointerKey = "interaction${hex}OamDataPointers"
     if (-not $npcAnimationTables.ContainsKey($animationKey) -or
         -not $npcOamPointerStarts.ContainsKey($pointerKey)) { return '' }
@@ -4786,22 +4787,10 @@ foreach ($spec in @(
         "$($spec.Key)`t$spriteName`t$($graphic.TileBase)`t$($graphic.Palette)`t$animation")
 }
 
-$blackTowerPatrolRows = @(
-    "# var03`tdirection:counter,...",
-    "0`t2:64,1:96,3:96,0:64",
-    "1`t2:64,1:128,0:32,2:32,3:128,0:64",
-    "2`t1:160,3:160",
-    "3`t2:64,1:160,3:160,0:64",
-    "4`t1:96,3:96"
-)
 $blackTowerConstantsRows = @(
     "# key`tvalue",
     "speed-80`t$([Convert]::ToInt32($room148SpeedMatch.Groups['value'].Value, 16))",
-    "speed-100`t40",
-    "patrol-wait`t20",
-    "talk-wait`t30",
-    "blocker-distance`t16",
-    "blocker-wait`t10"
+    "speed-100`t40"
 )
 
 # Present indoor room 2:0e contains the stone boy and his grandmother. Both
@@ -7129,13 +7118,32 @@ if ($nayruBearSource -notmatch '(?ms)cp \$10.*?ld \(hl\),40.*?ld \(hl\),\$02.*?S
     throw 'An initial Nayru audience escape counter, speed, jump, or animation changed.'
 }
 $nayruFleeRows = @(
-    '# actor`tdelay`tangle`tspeed-raw`twait-jump-speed-z`twait-gravity`trepeat-wait-jump`tescape-jump-speed-z`tescape-gravity`trepeat-escape-jump`twait-for-landing`twait-animation`tescape-animation',
-    "Bear`t40`t2`t28`t0`t0`t0`t0`t0`t0`t0`t2`t1",
-    "Monkey`t50`t2`t3c`t-288`t32`t1`t-256`t32`t1`t0`t3`t4",
-    "Rabbit`t40`t6`t3c`t0`t0`t0`t-512`t32`t1`t0`t2`t4",
-    "Boy`t0`t2`t3c`t-384`t32`t0`t0`t0`t0`t1`t2`t0",
-    "Bird`t30`t1`t28`t-192`t32`t1`t-256`t0`t0`t0`t2`t3"
+    '# actor`tdelay`tangle`tspeed-raw`twait-jump-speed-z`twait-gravity`trepeat-wait-jump`tescape-jump-speed-z`tescape-gravity`trepeat-escape-jump`twait-for-landing`twait-animation`tescape-animation`tclear-escape-z-high`tinitial-escape-animation-base64',
+    "Bear`t40`t2`t28`t0`t0`t0`t0`t0`t0`t0`t2`t1`t0`t",
+    "Monkey`t50`t2`t3c`t-288`t32`t1`t-256`t32`t1`t0`t3`t4`t1`t",
+    "Rabbit`t40`t6`t3c`t0`t0`t0`t-512`t32`t1`t0`t2`t4`t0`t",
+    "Boy`t0`t2`t3c`t-384`t32`t0`t0`t0`t0`t1`t2`t0`t0`t",
+    "Bird`t30`t1`t28`t-192`t32`t1`t-256`t0`t0`t0`t2`t3`t1`t"
 )
+# Clean-US monkeySubid0State1/@substate2 is $3f:$750b. rst_jumpTable
+# leaves A=$0b; decrement/inc-substate preserve it until set-animation.
+# Index$0b runs beyond the nine Monkey pointers into humanoid pointer2.
+# Keep Monkey's own OAM domain, exactly as interactionSetAnimation does.
+$monkeyInitialPattern = '(?ms)^@substate2:\s*call interactionDecCounter1\s*jr nz,monkeyUpdateGravityAndHop\s*' +
+    'call interactionIncSubstate\s*ld l,Interaction\.angle\s*ld \(hl\),\$02\s*' +
+    'ld l,Interaction\.zh\s*ld \(hl\),\$00\s*ld l,Interaction\.speed\s*ld \(hl\),SPEED_180\s*' +
+    'monkeySetAnimationAndJump:\s*call interactionSetAnimation'
+if ($nayruMonkeySource -notmatch $monkeyInitialPattern -or
+    $npcAnimationTables['interaction39Animations'].Count -ne 9 -or
+    $npcAnimationTables['interaction3cAnimations'][2] -ne 'interactionAnimation5a60c' -or
+    $nayruBirdSource -notmatch '(?ms)^@substate2:.*?Interaction\.zh\s*ld \(hl\),\$00') {
+    throw 'monkeyMain.s: initial escape register/animation-table fallthrough or audience high-Z clear changed.'
+}
+$monkeyInitialAnimation = Resolve-NpcAnimation 0x39 2 0x3c
+if ([string]::IsNullOrEmpty($monkeyInitialAnimation)) {
+    throw 'monkeyMain.s: initial animation$0b must resolve the next-table stream with Monkey OAM.'
+}
+$nayruFleeRows[2] += [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($monkeyInitialAnimation))
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\nayru_intro_flee.tsv'),
     $nayruFleeRows)
@@ -7468,10 +7476,6 @@ $blackTowerVisualPath = Join-Path $destination "objects\black_tower_visuals.tsv"
 Write-GeneratedTable(
     $blackTowerVisualPath,
     $blackTowerVisualRows)
-$blackTowerPatrolPath = Join-Path $destination "objects\black_tower_patrols.tsv"
-Write-GeneratedTable(
-    $blackTowerPatrolPath,
-    $blackTowerPatrolRows)
 $blackTowerConstantsPath = Join-Path $destination "objects\black_tower_constants.tsv"
 Write-GeneratedTable(
     $blackTowerConstantsPath,

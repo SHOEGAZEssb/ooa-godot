@@ -859,6 +859,8 @@ public sealed partial class ValidationRoot
             "sharedNpcScript",
             "knowItAllBirdScript",
             "oldManScript_takesRupees",
+            "villagerSubid02Script_part1",
+            "hardhatWorkerSubid03Script",
             "linkedGameNpcScript",
             "bipinScript3",
             "hardhatWorkerSubid00Script",
@@ -3145,11 +3147,14 @@ public sealed partial class ValidationRoot
             group, roomId, OracleSaveData.RoomFlag80);
         FailIf(
             isolatedGuard.TextId != 0x1004 ||
-            isolatedGuard.Position != new Vector2(0x58, 0x38),
-            "Room flag $80 did not select the moved guard and TX_1004 phase live.");
+            isolatedGuard.Position != new Vector2(0x48, 0x38),
+            "Room flag $80 must select TX_1004 live without replaying hardhatWorker.s state-zero positioning.");
         isolatedSave.SetRoomFlag(
             group, roomId, OracleSaveData.RoomFlagItem);
         isolatedManager.LoadRoom(group, _world.LoadRoom(group, roomId));
+        FailIf(isolatedManager.Entities<NpcCharacter>().Single(npc =>
+                npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x02 }).Position != new Vector2(0x58, 0x38),
+            "Re-entry must select the guard's state-zero room-flag $80 position.");
         FailIf(
             isolatedManager.Entities<GroundTreasurePickup>().Count != 0,
             "Room flag $20 did not suppress the $dc:$07 Heart Piece on re-entry.");
@@ -3386,7 +3391,7 @@ public sealed partial class ValidationRoot
                 (0x58, 0x03, 3, 0x68, 0x28),
                 (0x57, 0x03, 2, 0x48, 0x78),
                 (0x57, 0x03, 3, 0x58, 0x98)
-            }, 257),
+            }, 256),
             (0xe7, new[]
             {
                 (0x40, 0x0c, 0, 0x78, 0xa8),
@@ -3394,13 +3399,13 @@ public sealed partial class ValidationRoot
                 (0x58, 0x03, 1, 0x48, 0x38),
                 (0x57, 0x03, 4, 0x38, 0x28),
                 (0x57, 0x03, 5, 0x88, 0xc8)
-            }, 258),
+            }, 256),
             (0xe8, new[]
             {
                 (0x58, 0x03, 2, 0x48, 0x28),
                 (0x57, 0x03, 6, 0x68, 0x78),
                 (0x57, 0x03, 7, 0x58, 0x98)
-            }, 257)
+            }, 256)
         };
 
         foreach (var expectedRoom in rooms)
@@ -3497,84 +3502,11 @@ public sealed partial class ValidationRoot
         RemoveChild(predicateRoot);
         predicateRoot.QueueFree();
 
-        // var03=$03 begins down for $40, moves on the first 63 updates at
-        // SPEED_80, skips movement when the counter reaches zero, then waits 20.
-        var patrolRoot = new Node { Name = "BlackTowerPatrolValidation" };
-        AddChild(patrolRoot);
-        using var patrolManagerFixture = RoomEntityValidationFixture.ForRoot(
-            patrolRoot, new() { SaveData = OracleSaveData.CreateStandardGame() });
-        RoomEntityManager patrolManager = patrolManagerFixture.Manager;
-        patrolManager.LoadRoom(4, _world.LoadRoom(4, 0xe2));
-        NpcCharacter patroller = patrolManager.Entities<NpcCharacter>().Single(npc =>
-            npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x03 });
-        _player.WarpTo(new Vector2(0x100, 0x20));
-        for (int update = 0; update < 63; update++)
-            patrolManager.Update(frame, _player);
-        FailIf(
-            patroller.Position != new Vector2(0x28, 0x87),
-            "Hardhat var03=$03 did not apply 63 half-pixel down movements for counter $40.");
-        patrolManager.Update(frame, _player);
-        Vector2 stoppedPosition = patroller.Position;
-        _player.WarpTo(stoppedPosition + Vector2.Down * 12);
-        _player.Face(Vector2I.Up);
-        FailIf(
-            !ReferenceEquals(patrolManager.FindTalkTarget(_player), patroller),
-            "Hardhat patrol lost its A-button sensitivity during wait 20; the source retains the press until the next patrol branch.");
-        _player.WarpTo(new Vector2(0x100, 0x20));
-        for (int update = 0; update < data.PatrolWait; update++)
-            patrolManager.Update(frame, _player);
-        FailIf(
-            patroller.Position != stoppedPosition ||
-            patroller.CurrentScriptAnimationSource.Length != 0,
-            "Hardhat patrol moved on its counter-zero/20-wait boundary or retained a script animation.");
-        patrolManager.Update(frame, _player);
-        patrolManager.Update(frame, _player);
-        FailIf(
-            patroller.Position != stoppedPosition + Vector2.Right,
-            "Hardhat patrol did not resume its next rightward half-pixel leg after the exact wait.");
-        patrolManager.Clear();
-        RemoveChild(patrolRoot);
-        patrolRoot.QueueFree();
+        // Patrol initialization, all five source patterns, counters and motion
+        // are compared in the full native loop by ValidateBlackTowerPatrolPublicationRom.
 
-        var blockerRoot = new Node { Name = "BlackTowerBlockerValidation" };
-        AddChild(blockerRoot);
-        using var blockerManagerFixture = RoomEntityValidationFixture.ForRoot(
-            blockerRoot, new() { SaveData = OracleSaveData.CreateStandardGame() });
-        RoomEntityManager blockerManager = blockerManagerFixture.Manager;
-        blockerManager.LoadRoom(4, _world.LoadRoom(4, 0xe0));
-        NpcCharacter blocker = blockerManager.Entities<NpcCharacter>().Single();
-        _player.WarpTo(new Vector2(0x49, 0x98));
-        blockerManager.Update(frame, _player);
-        FailIf(
-            blocker.Position != new Vector2(0x38, 0x98) ||
-            !blockerManager.PlayerMovementDisabled,
-            "Villager $3a:$02 did not arm part 2 at saved-X+$11 without moving before its next script update.");
-        for (int update = 0; update < data.BlockerDistance; update++)
-            blockerManager.Update(frame, _player);
-        FailIf(
-            blocker.Position != new Vector2(0x48, 0x98) ||
-            _player.Position.Y != 0x98 || !blockerManager.PlayerMovementDisabled,
-            "Villager $3a:$02 did not move exactly 16 pixels while restoring Link's saved Y.");
-        for (int update = 0; update < data.BlockerWait; update++)
-            blockerManager.Update(frame, _player);
-        FailIf(
-            blockerManager.PlayerMovementDisabled ||
-            _player.Position != new Vector2(0x54, 0x98) ||
-            blockerManager.BlocksLink(_player.Position) ||
-            blockerManager.BlocksLink(_player.Position + Vector2.Right),
-            "Villager $3a:$02 did not separate Link before enabling input after its exact 10-update wait.");
-        _player.WarpTo(new Vector2(0x37, 0x98));
-        blockerManager.Update(frame, _player);
-        FailIf(
-            blocker.Position != new Vector2(0x48, 0x98),
-            "Villager $3a:$02 moved before reversed part 2's next script update.");
-        blockerManager.Update(frame, _player);
-        FailIf(
-            blocker.Position != new Vector2(0x47, 0x98),
-            "Villager $3a:$02 did not reverse and move left on the next open-side collision.");
-        blockerManager.Clear();
-        RemoveChild(blockerRoot);
-        blockerRoot.QueueFree();
+        // Blocker lifecycle, shared masks and reachable reversal are compared
+        // against the full native loop in ValidateBlackTowerBlockerPublicationRom.
 
         // Dungeon-stuff $12:$00 exists only for the $ff screen-entry warp. It
         // shows TX_020f once and records the live position as the checkpoint.
@@ -3587,6 +3519,11 @@ public sealed partial class ValidationRoot
         using var entranceManagerFixture = RoomEntityValidationFixture.ForRoot(
             entranceRoot, new() { SaveData = entranceSave });
         RoomEntityManager entranceManager = entranceManagerFixture.Manager;
+        // Keep the real placed population/slot counts while supplying the
+        // entity-owned script lanes now required by its patrolling workers.
+        _ = new NpcInteractionScriptController(entranceRooms, entranceManager,
+            _dialogue, _treasures, new BipinBlossomFamilyStateResolver(new NpcDatabase()),
+            new InventoryState(_treasures, entranceSave), static () => false);
         var respawn = new DeathRespawnPointController(entranceRooms, _player);
         int entranceText = 0;
         string entranceMessage = string.Empty;
@@ -3680,7 +3617,7 @@ public sealed partial class ValidationRoot
             "Hardhat var03=$00 did not begin the uncollected TX_1001 shovel branch.");
         shovelDialogue.Close();
         shovelInteractions.Update(frame, _player);
-        for (int update = 0; update < data.TalkWait - 1; update++)
+        for (int update = 0; update < 30 - 1; update++)
             shovelInteractions.Update(frame, _player);
         FailIf(
             shovelInventory.HasTreasure(TreasureId.Shovel) ||
@@ -3727,7 +3664,7 @@ public sealed partial class ValidationRoot
         FailIf(
             shovelManager.Entities<GroundTreasurePickup>().Count != 0,
             "Hardhat's caller-completed Shovel remained in the entity manager.");
-        for (int update = 0; update < data.TalkWait - 1; update++)
+        for (int update = 0; update < 30 - 1; update++)
             shovelInteractions.Update(frame, _player);
         FailIf(
             shovelDialogue.IsOpen || _player.IsHoldingItemTwoHands,
@@ -3815,7 +3752,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !shovelJumpTargets.SequenceEqual([5, 5, 12]) ||
             shovelGiveStarts != 1 ||
-            shovelWaitUpdates != data.TalkWait * 2 ||
+            shovelWaitUpdates != 30 * 2 ||
             shovelWaitCompletions != 2,
             "hardhatWorkerSubid00Script's typed trace lost its var03/room-" +
             "flag branches, one giveitem, or either exact 30-update wait: " +

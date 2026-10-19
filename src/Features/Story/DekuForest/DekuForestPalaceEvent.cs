@@ -318,6 +318,7 @@ internal sealed class DekuForestPalaceEvent :
                 $"The palace reward requested unsupported wDisabledObjects ${value:x2}.");
         }
         SetInputEnabled(enabled: false);
+        _context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, (byte)value);
     }
 
     public override bool MemoryEquals(string binding, int value)
@@ -378,8 +379,8 @@ internal sealed class DekuForestPalaceEvent :
                 : _record.NormalSpeed;
         }
         Vector2 precise = _precisePositions[actor];
-        npc.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
-            ref precise, speed, angle));
+        npc.SetStatePosition(NativeObjectMovement.ApplySpeed(
+            _context.Entities.RuntimeState, ref precise, speed, angle));
         _precisePositions[actor] = precise;
     }
 
@@ -409,6 +410,7 @@ internal sealed class DekuForestPalaceEvent :
                     throw new InvalidOperationException(
                         $"soldierSubid06Script wrote unexpected wScrollMode ${value:x2}.");
                 }
+                _context.Entities.RuntimeState.SetWramByte(WramAddress.wScrollMode, (byte)value);
                 return;
 
             case "SimulatedInput":
@@ -499,6 +501,7 @@ internal sealed class DekuForestPalaceEvent :
                 return;
 
             case "EnableAllObjects":
+                _context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
                 return;
 
             case "ShowNayru":
@@ -782,6 +785,12 @@ internal sealed class DekuForestPalaceEvent :
 
     private void UpdateRewardGuardFlight()
     {
+        // soldierSubid04 is an initialized ordinary interaction. The native
+        // dispatcher suppresses its entire delay/Z/flight handler for text
+        // or DISABLE_INTERACTIONS, before its private counters can advance.
+        if (_context.Entities.IsTextActive() ||
+            (_context.Entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects) & 2) != 0)
+            return;
         if (!_actors.TryGetValue(RewardGuard, out NpcCharacter? guard))
             return;
 
@@ -829,7 +838,9 @@ internal sealed class DekuForestPalaceEvent :
             case RewardGuardFlightStage.Flying:
                 MoveActorAtSpeed(
                     RewardGuard, _record.FlightSpeed, ObjectAngle.Down);
-                if (guard.Position.Y > _context.Rooms.CurrentRoom.Height + 8)
+                Vector2 screenPosition = OracleObjectMath.NormalizeSourceScreenPosition(
+                    _context.Transitions.WorldToGameplayScreen(guard.Position));
+                if (!OracleObjectMath.IsInsideOriginalScreenBoundary(screenPosition))
                 {
                     guard.SetActive(false);
                     _rewardFlightStage = RewardGuardFlightStage.Deleted;

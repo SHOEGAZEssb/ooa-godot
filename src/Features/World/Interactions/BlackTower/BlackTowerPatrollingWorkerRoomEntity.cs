@@ -6,120 +6,93 @@ namespace oracleofages;
 
 /// <summary>INTERAC_HARDHAT_WORKER $58:$03 patrol script.</summary>
 internal sealed class BlackTowerPatrollingWorkerRoomEntity : BlackTowerNpcRoomEntity,
-    IFixedRoomEntity, INpcTalkLifecycle, IPlayerRestriction
+    IFixedRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly BlackTowerWorkerDatabase _data;
-    private readonly PatrolLeg[] _patrol;
-    private Vector2 _precisePosition;
-    private int _leg;
-    private int _counter;
-    private int _wait;
-    private int _postTalkWait;
-    private int _direction;
-    private bool _talking;
-    private Func<bool>? _pendingDialogue;
-    public override bool TryQueueDialogue(Func<bool> tryShowDialogue)
-    { _pendingDialogue = tryShowDialogue; return true; }
+    private OracleObjectPosition _position;
+    private bool _initialized;
+    private int _patrolMode, _patrolCounter, _patrolDirection;
+    internal BlackTowerPatrolScriptHost? Script { get; set; }
+    internal OracleObjectPosition PrecisePosition => _position;
+    internal int PatrolCounter => _patrolCounter;
+    internal int PatrolDirection => _patrolDirection;
+    internal int PatrolMode => _patrolMode;
+    internal bool Initialized => _initialized;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
-    internal BlackTowerPatrollingWorkerRoomEntity(
-        NpcCharacter npc,
-        BlackTowerWorkerDatabase data,
-        OracleRandom random)
+    internal BlackTowerPatrollingWorkerRoomEntity(NpcCharacter npc, BlackTowerWorkerDatabase data)
         : base(npc, npc.SetTransitionDrawOffset)
     {
         _data = data;
-        _patrol = data.Patrol(npc.Record.Var03);
-        _precisePosition = npc.Position;
         npc.SetDirectionalAnimations(
-            data.Visual("hardhat-0").Animation,
-            data.Visual("hardhat-1").Animation,
-            data.Visual("hardhat-2").Animation,
-            data.Visual("hardhat-3").Animation);
-        int textIndex = npc.Record.Var03 == 4 ? 4 : random.Next().Value & 0x03;
-        int textId = data.HardhatText(textIndex);
-        npc.SetDialogue(textId, data.Text(textId), canFace: true);
-        StartLeg(0);
+            data.Visual("hardhat-0").Animation, data.Visual("hardhat-1").Animation,
+            data.Visual("hardhat-2").Animation, data.Visual("hardhat-3").Animation);
+        npc.ResetNativeNpcFacingState();
+        npc.SetScriptButtonSensitive(false);
     }
 
-    public NpcCharacter TalkNpc => Entity;
-    public bool DisablesSword => _talking || _postTalkWait > 0;
-    public bool DisablesMovement => DisablesSword;
-
     public override NpcCharacter? FindTalkTarget(Player player) =>
-        !_talking && _pendingDialogue is null && _postTalkWait == 0 &&
-        base.FindTalkTarget(player) is { } npc
-            ? npc
-            : null;
+        _initialized && Script is { ButtonPending: false } && Entity.ScriptButtonSensitive &&
+        Entity.CanTalkTo(player) ? Entity : null;
+
+    internal void StartPatrolling() => _patrolMode = 1;
+
+    internal void SetPatrolCounter(int value)
+    {
+        if (value is < 0 or > 0xff) throw new ArgumentOutOfRangeException(nameof(value));
+        _patrolCounter = value;
+    }
+
+    internal void SetPatrolDirection(int direction)
+    {
+        if (direction is < 0 or > 3) throw new ArgumentOutOfRangeException(nameof(direction));
+        _patrolDirection = direction;
+        Entity.SetNativeAngle(direction * 8);
+        RestorePatrolAnimation();
+    }
+
+    internal void RestorePatrolAnimation() =>
+        Entity.SetScriptAnimation(_data.Visual($"hardhat-{_patrolDirection}").Animation);
+
+    internal void DecrementPatrolCounter(OracleRuntimeState memory)
+    {
+        int old = _patrolCounter;
+        _patrolCounter = (old - 1) & 0xff;
+        // scriptHelp.hardhatWorker_decPatrolCounter -> writeFlagsTocddb.
+        // The clean-US asm15 dispatch's rst table add leaves carry clear.
+        int flags = 0x40 | (_patrolCounter == 0 ? 0x80 : 0) | ((old & 0x0f) == 0 ? 0x20 : 0);
+        memory.SetWramByte(0xcddb, (byte)flags);
+    }
+
+    internal void Move(OracleRuntimeState memory)
+    {
+        _position = NativeObjectMovement.ApplySpeed(memory, _position, _data.Speed80, Entity.NativeAngle);
+        Entity.Position = _position.PixelPosition;
+    }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (!Entity.Active)
-            return;
-        Entity.AdvanceAnimationUpdates(1);
-
-        // pressedAButton survives the patrol's wait-20. Consume it only
-        // when hardhatWorkerFunc_patrol next reaches its A-button branch.
-        if (_pendingDialogue is not null && _wait == 0 && _postTalkWait == 0 && _pendingDialogue.Invoke())
-        { _pendingDialogue = null; _talking = true; }
-
-        if (_talking)
+        if (!Entity.Active) return;
+        var script = Script ?? throw new InvalidOperationException("Worker $58:$03 has no script owner.");
+        if (!_initialized)
         {
-            FinishNpcUpdate(frame.Player);
-            return;
+            _initialized = true;
+            _position = OracleObjectPosition.FromPixels(Entity.Position);
+            Entity.Position = _position.PixelPosition;
+            Entity.SetScriptAnimation(_data.Visual("hardhat-0").Animation);
+            Entity.SetCollisionRadii(0, 0);
+            Entity.SetDialogue(0x1000, string.Empty, canFace: true);
+            script.Advance(frame.Player);
         }
-        if (_postTalkWait > 0)
+        // hardhatWorker.s state0 calls runScript, then falls into state1 for
+        // another eligible script visit before the single native tail.
+        script.Advance(frame.Player);
+        if (_patrolMode == 0) Entity.FaceLinkAndAnimateOneUpdate(frame.Player);
+        else
         {
-            _postTalkWait--;
-            if (_postTalkWait == 0)
-                Entity.SetFacingDirection(DirectionVector(_direction));
-            FinishNpcUpdate(frame.Player);
-            return;
+            Entity.AdvanceAnimationUpdates(1); // SPEED_80 is below the extra-animation threshold.
+            Entity.PushPlayerAwayAndUpdateDrawPriority(frame.Player);
         }
-        if (_wait > 0)
-        {
-            _wait--;
-            if (_wait == 0)
-                StartLeg((_leg + 1) % _patrol.Length);
-            FinishNpcUpdate(frame.Player);
-            return;
-        }
-
-        _counter--;
-        if (_counter == 0)
-        {
-            _wait = _data.PatrolWait;
-            FinishNpcUpdate(frame.Player);
-            return;
-        }
-        Entity.SetStatePosition(
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition,
-                _data.Speed80,
-                _direction * 8));
-        FinishNpcUpdate(frame.Player);
-    }
-
-    public void OnNpcTalkStarted() { }
-
-    public void OnNpcTalkEnded()
-    {
-        if (!_talking)
-            return;
-        _talking = false;
-        _postTalkWait = _data.TalkWait;
-    }
-
-    private void StartLeg(int index)
-    {
-        _leg = index;
-        _direction = _patrol[index].Direction;
-        _counter = _patrol[index].Counter;
-        Entity.SetFacingDirection(DirectionVector(_direction));
-    }
-
-    private void FinishNpcUpdate(Player player)
-    {
-        Entity.PreventPlayerPassing(player);
-        Entity.UpdateDrawPriority(player.Position);
     }
 }

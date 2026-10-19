@@ -338,7 +338,7 @@ public sealed partial class ValidationRoot
         GD.Print("Validated bear $5d:$02/v$00 and its ordered monkey/rabbit children across all 16 progression combinations, including child creation before parent deletion and reachable repeated dialogue.");
     }
 
-    private void ValidateCheapScrubAndPatrol()
+    private void ValidateCheapScrubPurchases()
     {
         foreach(bool batched in new[]{false,true})
         foreach(int level in new[]{1,2,3})
@@ -370,29 +370,12 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(1,0x71);
             FailIf(_roomEvents.Get<BusinessScrubEvent>().HasState,"Leaving cheap scrub's prompt leaked native purchase state.");
         }
-        foreach(bool batched in new[]{false,true})
-        {
-            ReinitializeGameplayForValidation();LoadValidationRoom(4,0xf3);
-            var npc=_entities.Entities<NpcCharacter>().Single(n=>n.Record.Id==0x58&&n.Record.Var03==4);
-            Vector2 start=npc.Position;
-            FailIf(npc.TextId!=0x100d||!PlainWords(npc.Message).Contains("dangerous past this point",StringComparison.Ordinal),"$58:$03/v$04 did not choose its fixed TX_100d.");
-            StepGameplayUpdates(96,Vector2.Zero,batched:batched);
-            FailIf(npc.Position!=start+new Vector2(47,0),"$58:$03/v$04 did not perform 95 SPEED_80 movements before its $60 counter reached zero.");
-            StepGameplayUpdates(20,Vector2.Zero,batched:batched);
-            ApproachLibraryActor(npc,batched);
-            StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"],batched);
-            for(int i=0;!_dialogue.IsOpen&&i<25;i++)StepGameplayUpdates(1,Vector2.Zero,batched:batched);
-            FailIf(!_dialogue.IsOpen||!PlainWords(_dialogue.CurrentMessage).Contains("dangerous past this point",StringComparison.Ordinal),"Patrolling worker's conversation is unreachable.");
-            Vector2 stopped=npc.Position;
-            _dialogue.Close();StepGameplayUpdates(29,Vector2.Zero,batched:batched);
-            FailIf(npc.Position!=stopped,"Worker resumed movement before its post-conversation wait 30.");
-            StepGameplayUpdates(5,Vector2.Zero,batched:batched);
-            FailIf(npc.Position==stopped,"Worker did not resume his source patrol after conversation.");
-        }
-        GD.Print("Validated cheap scrub shield levels and purchase outcomes/cancellation; worker fixed text, patrol counter, talk pause and resume in both stepping modes.");
+        GD.Print("Validated cheap scrub shield levels, purchase outcomes, repeated prompts and cancellation in both stepping modes.");
     }
 
-    private void ValidateAdvanceShopRecord()
+    private void ValidateAdvanceShopRecord() => ValidateAdvanceShopRecordCore(false);
+    private void ValidateAdvanceShopMovementPublicationRom() => ValidateAdvanceShopRecordCore(true);
+    private void ValidateAdvanceShopRecordCore(bool nativeMovement)
     {
         foreach(bool batched in new[]{false,true})
         foreach(bool linked in new[]{false,true})
@@ -404,6 +387,17 @@ public sealed partial class ValidationRoot
             var shop=_roomEvents.Get<LynnaShopEvent>();
             var data=new LynnaShopDatabase(advance:true);
             var keeper=_entities.Entities<NpcCharacter>().Single(n=>n.Record.Id==0x46);
+            ScriptMovementPublicationTrace? motion=null;
+            if(nativeMovement)
+            {
+                motion=new(_runtimeState,source=>
+                {
+                    int angle=source.SourceLine switch{667=>0x10,668=>8,670=>0x18,671=>0,_=>-1};
+                    if(angle<0||SomariaPrivate<AdvanceShopTheftScriptHost?>(shop,"_advanceTheft") is not {} host)return null;
+                    return (0x50,angle,SomariaPrivate<Vector2>(host,"_precise"));
+                });
+                _roomEvents.CommandTraceSink=motion;
+            }
             FailIf(keeper.Record.SubId!=2||keeper.Position!=new Vector2(0x28,0x48)||keeper.ObjectCollisionBounds.Size!=new Vector2(40,12),"Advance shopkeeper lost subid $02, source position or $06/$14 collision.");
             var stock=_entities.Entities<LynnaShopItem>();
             FailIf(!stock.Select(s=>s.Record.SubId).SequenceEqual(new[]{0x0e,0x0f,0x10})||
@@ -448,6 +442,8 @@ public sealed partial class ValidationRoot
                     FailIf(keeper.Position!=new Vector2(0x28,0x48)||!stock[0].Held||_player.CutsceneControlled||
                         keeper.CurrentScriptAnimationSource!=data.Animation(0x46,1),
                         "Advance theft failed its left/up return, angle $08, retained stock or enableallobjects handoff.");
+                    FailIf(motion is not null&&(motion.MotionVisits!=76||motion.Visited.Count!=4),
+                        "Advance theft must publish every one of the source's15+23+23+15 motion steps across four commands.");
                 }
                 Merchant();
                 FailIf(!_dialogue.IsOpen||shop.Stage!=LynnaShopEventStage.PurchasePrompt,"Advance keeper did not price the held item.");
@@ -475,6 +471,7 @@ public sealed partial class ValidationRoot
             FailIf(!_dialogue.IsOpen||!PlainWords(_dialogue.CurrentMessage).Contains("closing shop",StringComparison.Ordinal),"Advance shop did not select TX_0e26 after selling everything.");
         }
         GD.Print("Validated Advance shop welcome, three ordered items, reachable carrying/purchases, decline, sold flags, both ring rewards, linked differences and re-entry.");
+        _roomEvents.CommandTraceSink=null;
     }
 
     private void ValidateRalphBeforeCurrentsRecord()

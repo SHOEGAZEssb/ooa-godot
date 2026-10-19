@@ -143,7 +143,8 @@ internal sealed class TokayCookEvent :
                 }
             }
             else
-                OracleObjectMovement.Shared.ApplySpeed(ref _position, _native.Constant("speed-300"), jump.Angle);
+                NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState,
+                    ref _position, _native.Constant("speed-300"), jump.Angle);
         }
         actor.SetStatePosition(OracleObjectMath.ToPixelPosition(_position));
         actor.SetScriptDrawOffset(new Vector2(0, _z >> 8));

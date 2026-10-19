@@ -1431,7 +1431,7 @@ internal sealed class RoomEntityFactory
                     Resources.DungeonBosses.Enemy(EnemyId.GiantGhini), room, record.Position, _random,
                     owner.OnSoundRequested, owner.BossShuttersClosed,
                     owner.DisableLinkCollisionsAndMenu,
-                    () => owner.OnRoomMusicRequested(record.Group, record.Room));
+                    () => owner.OnRoomMusicRequested(record.Group, record.Room),owner.ToScreen);
                 return new GiantGhiniBossRoomEntity(
                     giantGhini, placementContext.BossEntryDirection);
             case DungeonObjectKind.PumpkinHead:
@@ -1443,7 +1443,7 @@ internal sealed class RoomEntityFactory
                         owner.DisableLinkCollisionsAndMenu,
                         () => owner.OnRoomMusicRequested(record.Group, record.Room),
                         Resources.DungeonBosses.Constant("pumpkin-body-palette"),
-                        Resources.DungeonBosses.Constant("pumpkin-ghost-palette")),
+                        Resources.DungeonBosses.Constant("pumpkin-ghost-palette"), _runtimeState),
                     pumpkin.DamageQuarters,
                     placementContext.BossEntryDirection);
             case DungeonObjectKind.Essence:
@@ -2951,7 +2951,7 @@ internal sealed class RoomEntityFactory
         KeeseFireSpawn fire => CreateKeeseFire(fire),
         EnemySwordSpawn sword => new EnemySwordRoomEntity(sword.Parent, sword.SoundRequested, sword.ParentCollisionAllowed),
         SpikedBallSpawn ball => new SpikedBallRoomEntity(ball.Part, ball.Sound),
-        FountainFairyHeartSpawn heart => heart.Owner.CreateHeart(),
+        FountainFairyHeartSpawn heart => heart.Owner.CreateHeart(_runtimeState),
         LibraryPodiumSpawn podium => podium.Owner.CreatePodium(podium.SubId),
         FountainFairyPuffSpawn puff => new FixedEffectRoomEntityAdapter<PuzzlePuffEffect>(puff.Effect),
         MoblinBoomerangSpawn boomerang => CreateMoblinBoomerang(boomerang, room),
@@ -2986,7 +2986,7 @@ internal sealed class RoomEntityFactory
             owner.OnSoundRequested, owner.TryCreateBoomerangClink) { Name = "Boomerang", ZIndex = ObjectDrawPriority.BehindLinkZIndex }),
         HeadThwompBombDropSpawn => throw new InvalidOperationException("headThwomp.s: bomb pair requires the manager's checked two-PART allocation."),
         HeadThwompBombDropperSpawn dropper => new HeadThwompBombDropRoomEntity(room, _random,
-            () => owner.ResolvePartSlot(dropper.DropSlot)?.Node as ItemDropEffect, dropper.Position),
+            () => owner.ResolvePartSlot(dropper.DropSlot)?.Node as ItemDropEffect, dropper.Position, _runtimeState),
         ShovelDebrisSpawn debris => CreateShovelDebris(debris),
         GrassDebrisSpawn debris => CreateGrassDebris(debris),
         RockDebrisSpawn debris => CreateRockDebris(debris),
@@ -3000,7 +3000,7 @@ internal sealed class RoomEntityFactory
             CreateInteractionSparkle(sparkle.Position, sparkle.SourceAngle, sparkle.Visual),
         GoronCaveNpcSpawn goron => new GoronCaveRoomEntity(NpcCharacter.CreateFromRecord(goron.Record), goron.Interactive),
         GoronBombSpawn bomb => new GoronBombRoomEntity(NpcCharacter.CreateFromRecord(bomb.Owner.Database.BombRecord),bomb.Owner,bomb.SubId),
-        TargetCartDebrisSpawn debris => new TargetCartDebrisRoomEntity(NpcCharacter.CreateFromRecord(debris.Record),debris.Position,debris.Direction),
+        TargetCartDebrisSpawn debris => new TargetCartDebrisRoomEntity(NpcCharacter.CreateFromRecord(debris.Record),debris.Position,debris.Direction,_runtimeState),
         GoronMinecartSpawn cart => CreateMinecart(cart.Cart,room),
         InteractionExplosionSpawn explosion =>
             CreateInteractionExplosion(explosion),
@@ -3012,7 +3012,7 @@ internal sealed class RoomEntityFactory
         TokaySeedlingDecorationSpawn seedling =>
             new TokaySeedlingDecorationRoomEntity(seedling.Record),
         EnemySplashSpawn splash => CreateEnemySplash(splash),
-        SideScrollBubbleSpawn bubble => new SideScrollBubbleRoomEntity(bubble.Position, room, _random),
+        SideScrollBubbleSpawn bubble => new SideScrollBubbleRoomEntity(bubble.Position, room, _random, _runtimeState),
         FallingDownHoleSpawn fall => CreateFallingDownHole(fall),
         DungeonKeyUseSpawn key => CreateDungeonKeyUse(key),
         OverworldKeyUseSpawn key => CreateOverworldKeyUse(key),
@@ -3040,7 +3040,7 @@ internal sealed class RoomEntityFactory
             CreateShootingGalleryTargetDebris(debris),
         SwordBeamSpawn beam => CreateSwordBeam(beam, room),
         FireballShooterChildSpawn shooter => shooter.Parent.CreateChild(shooter.Position, shooter.TimingIndex),
-        BeamosBeamSpawn beam => new BeamosBeamRoomEntity(new BeamosBeamPart(beam, Resources.BeamosBeam, room)),
+        BeamosBeamSpawn beam => new BeamosBeamRoomEntity(new BeamosBeamPart(beam, Resources.BeamosBeam, room, _runtimeState)),
         SmogProjectileSpawn smog => CreateSmogProjectile(smog, room),
         OctogonPartSpawn shot => new OctogonPartRoomEntity(new OctogonPart(shot,room,_runtimeState,_random,
             slot => owner.ResolveEnemySlot(slot)?.Node.Visible == true,owner.TryCreatePart,owner.OnSoundRequested),owner.OnSoundRequested),
@@ -3081,9 +3081,9 @@ internal sealed class RoomEntityFactory
             accessory.Parent, accessory.Record, accessory.Offset),
         KingZoraPotionSpawn potion => new KingZoraPotionRoomEntity(NpcCharacter.CreateFromRecord(potion.Record)),
         SeaPowderSpawn powder => new SeaPowderRoomEntity(powder, _random),
-        SeaFairySparkleSpawn sparkle => new SeaFairySparkleRoomEntity(sparkle),
-        CleanSeasZoraSpawn zora => new CleanSeasZoraRoomEntity(zora, _runtimeState),
-        CleansedFairySpawn fairy => new CleansedFairyRoomEntity(fairy.Data, fairy.Position, owner.OnSoundRequested,
+        SeaFairySparkleSpawn sparkle => new SeaFairySparkleRoomEntity(sparkle, _runtimeState, owner.ToScreen),
+        CleanSeasZoraSpawn zora => new CleanSeasZoraRoomEntity(zora, _runtimeState, owner.IsScriptTextActive),
+        CleansedFairySpawn fairy => new CleansedFairyRoomEntity(fairy.Data, fairy.Position, _runtimeState, owner.OnSoundRequested,
             message => owner.OnRoomEntityDialogueRequested(0x4109, message, fairy.Position),
             owner.TextActiveSource, owner.PaletteFadeActiveSource, fairy.Fade, fairy.Clean),
         DimitriMouthSpawn mouth => new DimitriMouthRoomEntity(mouth,
@@ -3121,7 +3121,7 @@ internal sealed class RoomEntityFactory
             spawn,
             Resources.Ricky.Behavior,
             room,
-            CreateCompanionTileBreaker(spawn.Group, spawn.Room, room));
+            CreateCompanionTileBreaker(spawn.Group, spawn.Room, room), owner.RuntimeState);
 
     private RickyTileBreakRoomEntity CreateRickyTileBreak(
         RickyTileBreakSpawn spawn,
@@ -3296,7 +3296,7 @@ internal sealed class RoomEntityFactory
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         child.Initialize(
-            Resources.DungeonBosses.Enemy(EnemyId.GiantGhiniChild), spawn.Owner, room, spawn.Index);
+            Resources.DungeonBosses.Enemy(EnemyId.GiantGhiniChild), spawn.Owner, room, spawn.Index, _random);
         return new GiantGhiniChildRoomEntity(
             child, owner.OnSoundRequested);
     }
@@ -3321,7 +3321,7 @@ internal sealed class RoomEntityFactory
         shadow.Initialize(
             spawn.Owner,
             spawn.AngleIndex,
-            Resources.DungeonVisuals.Visual("shadow-hag-shadow"));
+            Resources.DungeonVisuals.Visual("shadow-hag-shadow"), _runtimeState);
         return new ShadowHagShadowRoomEntity(shadow);
     }
 
@@ -3333,7 +3333,7 @@ internal sealed class RoomEntityFactory
                 Resources.DungeonVisuals.Visual("pumpkin-projectile"),
                 room,
                 spawn.Position,
-                spawn.Angle, spawn.SubId, owner.TryCreatePart));
+                spawn.Angle, spawn.SubId, owner.TryCreatePart, spawn.ZHigh, _runtimeState));
 
     private IRoomEntity CreateHeadThwompProjectile(
         HeadThwompProjectileSpawn spawn,
@@ -3349,7 +3349,7 @@ internal sealed class RoomEntityFactory
                 : null;
         return new HostileProjectileRoomEntity<HeadThwompProjectile>(
             new HeadThwompProjectile(
-                spawn, visual, impactVisual, room, _random, owner.OnSoundRequested));
+                spawn, visual, impactVisual, room, _random, owner.OnSoundRequested, _runtimeState));
     }
 
     private VolcanoRoomEntity CreateVolcanoController(VolcanoPlacement record, OracleRoomData room) =>
@@ -3398,7 +3398,8 @@ internal sealed class RoomEntityFactory
             room,
             spawn.Position,
             spawn.Angle,
-            enemies.MoblinBoomerang)
+            enemies.MoblinBoomerang,
+            _runtimeState)
         {
             Name = "MoblinBoomerang",
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
@@ -3476,7 +3477,7 @@ internal sealed class RoomEntityFactory
 
         if (record is { Id: InteractionId.HardhatWorker, SubId: 3 })
             return new BlackTowerPatrollingWorkerRoomEntity(
-                NpcCharacter.CreateFromRecord(record), Resources.BlackTower, _random);
+                NpcCharacter.CreateFromRecord(record), Resources.BlackTower);
 
         if (record is { Group: 1, Room: 0xba, Id: InteractionId.Pirate, SubId: 0x04 })
         {
@@ -3821,7 +3822,7 @@ internal sealed class RoomEntityFactory
         }
         if (record is { Id: InteractionId.Bipin, SubId: 0x00 })
             return new RunningBipinRoomEntity(
-                npc, _familyState.RunningBipin);
+                npc, _familyState.RunningBipin, _runtimeState);
         if (record is { Id: InteractionId.Bipin, SubId: 0x0a })
             return new PastBipinRoomEntity(npc);
         if (record is
@@ -3892,7 +3893,9 @@ internal sealed class RoomEntityFactory
             _random,
             spawn.Position,
             owner.OnSoundRequested,
-            _animationTick);
+            _animationTick,
+            _runtimeState,
+            owner.ToScreen);
         return new ShootingGalleryBallRoomEntity(ball);
     }
 
@@ -3904,7 +3907,7 @@ internal sealed class RoomEntityFactory
             Name = "ShootingGalleryTargetDebris",
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
-        debris.Initialize(Resources.ShootingGallery.Debris, spawn);
+        debris.Initialize(Resources.ShootingGallery.Debris, spawn, _runtimeState);
         return new ShootingGalleryTargetDebrisRoomEntity(debris);
     }
 
@@ -4288,7 +4291,7 @@ internal sealed class RoomEntityFactory
                     new BlackTowerShovelWorkerRoomEntity(npc, Resources.BlackTower),
                 { Id: InteractionId.HardhatWorker, SubId: 0x03 } =>
                     new BlackTowerPatrollingWorkerRoomEntity(
-                        npc, Resources.BlackTower, _random),
+                        npc, Resources.BlackTower),
                 _ => throw new InvalidOperationException(
                     $"Unsupported placed Black Tower interaction " +
                     $"${record.Id:x2}:${record.SubId:x2} in room 4:${room:x2}.")
@@ -4478,7 +4481,8 @@ internal sealed class RoomEntityFactory
             room,
             spawn.Position,
             owner.OnRoomTileChanged,
-            _animationTick);
+            _animationTick,
+            _random);
         const string source = "object_code/common/enemies/flyingTile.s:flyingTile_state8";
         EnemyHandlerDescriptor handler = enemies.EnemyHandlers.ResolveHandler(
             spawn.Definition.Id, spawn.Definition.SubId, source);
@@ -4495,7 +4499,7 @@ internal sealed class RoomEntityFactory
             Name = "CuccoAttacker",
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
-        attacker.Initialize(enemies.ImportedEnemy(EnemyId.Cucco), _random, spawn.HitCount);
+        attacker.Initialize(enemies.ImportedEnemy(EnemyId.Cucco), _random, spawn.HitCount, owner.ToScreen);
         return new CuccoAttackerRoomEntity(attacker);
     }
 
@@ -5670,7 +5674,7 @@ internal sealed record PuzzlePuffSpawn(
 
 internal sealed record BoomerangSpawn(Vector2 Position, int Angle, int ZHigh = 0) : RoomEntitySpawn;
 
-internal sealed record PumpkinHeadProjectileSpawn(Vector2 Position, int Angle, int SubId = 0)
+internal sealed record PumpkinHeadProjectileSpawn(Vector2 Position, int Angle, int SubId = 0, int ZHigh = 0)
     : RoomEntitySpawn;
 
 internal sealed record HeadThwompProjectileSpawn(

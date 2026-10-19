@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
                     int angle = ((x + y) & 7) * 4;
                     int speed = id == 0x0d ? 0x28 : 0x1e;
                     rom.Call(LinkCollisionRom.Move, speed, angle, objectPage: 0xd1);
-                    SpecialObjectMovement.ApplySpeed(ref position, speed, angle, actual);
+                    SpecialObjectMovement.ApplySpeed(_runtimeState, ref position, speed, angle, actual);
                     FailIf((int)(position.X * 256) != rom.Word(0xd10c) || (int)(position.Y * 256) != rom.Word(0xd10a),
                         $"ROM companion ${id:x2} fixed-point wall movement differs.");
                     cases++;

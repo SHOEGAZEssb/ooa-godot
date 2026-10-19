@@ -139,6 +139,8 @@ internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
         if (BeginFrame())
             return;
 
+        if (_state == CuccoState.Uninitialized)
+            _random.Next(); // enemyStandardUpdate initializes var3d before species dispatch.
         UpdateRevengeSpawner(spawns);
         switch (_state)
         {
@@ -176,11 +178,11 @@ internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
                 _angle = EnemyAdjacentWallResolver.Shared.BounceAngle(
                     Position, _angle, IsWallOrHole);
                 SetDirectionalAnimation();
-                Position += OracleObjectMovement.Shared.Delta(
+                Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position),
                     _giant
                         ? _giantBehavior.WanderSpeedRaw
                         : _behavior.WanderSpeedRaw,
-                    _angle);
+                    _angle).PrecisePosition;
                 AdvanceAnimation();
                 QueueRedraw();
                 return;
@@ -360,8 +362,7 @@ internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
     private void UpdateThrown()
     {
         _carried.AdvanceHorizontal(
-            _throwing,
-            edge => WithinRoom(edge) && _room.IsSolid(edge));
+            _throwing, _room, ApplyMovementSpeed);
         Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
         if (!WithinRoom(Position))
         {

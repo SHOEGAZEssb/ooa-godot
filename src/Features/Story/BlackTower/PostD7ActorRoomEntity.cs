@@ -237,8 +237,7 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
     }
     private void Move(int speed, int angle)
     {
-        OracleObjectMovement.Shared.ApplySpeed(ref _precise, speed, angle);
-        _precise = new((_precise.X + 256) % 256, (_precise.Y + 256) % 256);
+        NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState, ref _precise, speed, angle);
         _actor.SetStatePosition(_precise.Floor());
     }
     private void Finish() { Finished = true; _actor.SetActive(false); }

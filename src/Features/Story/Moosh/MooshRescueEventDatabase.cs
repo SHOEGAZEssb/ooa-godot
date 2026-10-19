@@ -172,7 +172,7 @@ internal sealed class MooshRescueEventDatabase
             } ||
             string.IsNullOrWhiteSpace(Record.MooshAnimation) ||
             string.IsNullOrWhiteSpace(Record.ExclamationAnimation) ||
-            Ghini0.Count != 8 || Ghini1.Count != 12 || Ghini2.Count != 7 ||
+            Ghini0.Count != 11 || Ghini1.Count != 18 || Ghini2.Count != 10 ||
             Visual is not
             {
                 Sprite: "spr_moosh", TileBase: 0, Palette: 1,
@@ -186,11 +186,12 @@ internal sealed class MooshRescueEventDatabase
             Visual.LinkSourceOffsets[0x1d] != 0x2100 ||
             Visual.LinkSourceOffsets[0x20] != 0x2180 ||
             Companion.Count != 32 ||
-            Ghini0[1] is not CutsceneNativeBlockingCommand
-                { Handler: "CircleGhini", Frames: 32 } ||
-            Ghini1[8] is not CutsceneSetMusicCommand
+            Ghini0[1] is not CutsceneNativeCommand
+                { Handler: "BeginGhini0Circle" } ||
+            Ghini0[3] is not CutsceneWaitCommand { Frames: 1 } ||
+            Ghini1[14] is not CutsceneSetMusicCommand
                 { Music: SoundId.MusMiniboss } ||
-            Ghini2[5] is not CutsceneNativeCommand
+            Ghini2[8] is not CutsceneNativeCommand
                 { Handler: "SpawnEnemyGhini2" } ||
             Companion[5] is not CutsceneMemoryGateCommand
                 { Binding: "RoomEnemyCount", Value: 0 } ||

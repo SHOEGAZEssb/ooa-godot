@@ -33,6 +33,7 @@ internal sealed class OceanZoraEvent(RoomEventContext context, OceanInteractionD
         actor.SetFacingDirection(_scale ? Vector2I.Left : Vector2I.Down);
         actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
         actor.ShowInitializedPresentation();
+        actor.SetAnimationRate(0);
         _position = actor.Position;
         _alignmentCounter = 0;
         _walkingAway = _scale;
@@ -41,6 +42,9 @@ internal sealed class OceanZoraEvent(RoomEventContext context, OceanInteractionD
 
     public override void UpdateFrame()
     {
+        // $ab:$10/$11/$12 use their own initializer without the common
+        // always-update bit. Admit native tails with the original slot walk.
+        if (!Context.Entities.InitializedInteractionUpdatesAllowed) return;
         // interactionRunScript's counter1=$01 expires before counter2. A
         // counter2 zero update yields, and dispatch resumes the next update.
         if (!ScriptExecutionBlocked && _alignmentCounter != 0)
@@ -57,7 +61,7 @@ internal sealed class OceanZoraEvent(RoomEventContext context, OceanInteractionD
         if (_walkingAway) actor.AdvanceAnimationUpdates(1);
         else actor.FaceLinkAndAnimateOneUpdate(Context.Player, preventPassing: false);
     }
-    public void UpdateDuringDialogueFrame() => AnimateActor();
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
     public override void InitializeActorCollisionRadii(string actor) => RequireScriptActor(actor).InitializeCollisionRadii();
     public override bool MemoryEquals(string binding, int value) => binding == "HasZoraScale" && value == 1
         ? Context.Inventory.HasTreasure(TreasureId.ZoraScale) : throw UnsupportedCommand($"compare {binding}");
@@ -66,7 +70,7 @@ internal sealed class OceanZoraEvent(RoomEventContext context, OceanInteractionD
     public override void ShowText(int id, string message, int? position) => Context.ShowDialogue(message, position, sourceTextId: id);
     public override void SetActorMovementAnimation(string actor, int angle, string animation) => RequireScriptActor(actor).SetScriptAnimation(animation);
     public override void MoveActorAtSpeed(string actor, int speed, int angle) =>
-        RequireScriptActor(actor).SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _position, speed, angle));
+        RequireScriptActor(actor).SetStatePosition(NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState, ref _position, speed, angle));
     public override void OrRoomFlag(int flag) => Context.Rooms.SaveData.SetRoomFlag(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, (byte)flag);
     public override void GiveItem(int treasure, int parameter)
     {

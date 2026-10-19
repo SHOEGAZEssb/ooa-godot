@@ -181,7 +181,7 @@ internal sealed partial class AnglerFishCharacter : EnemyCharacter
         if(probe.Bitset==0)AdvanceAnimation();else {Direction^=1;SetAnimation(Direction);}
     }
     private void ApplySpeed()
-    {var position=OracleObjectMovement.Shared.ApplySpeed(OracleObjectMovement.Shared.PositionFromPixels(Position),Speed,Angle);Position=position.PrecisePosition;}
+    {var position=ApplyMovementSpeed(OracleObjectMovement.Shared.PositionFromPixels(Position),Speed,Angle);Position=position.PrecisePosition;}
     private bool Fall(int gravity,int offset)
     {
         var position=OracleObjectMovement.Shared.PositionFromPixels(Position);

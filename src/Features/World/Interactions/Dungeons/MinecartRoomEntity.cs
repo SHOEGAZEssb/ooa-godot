@@ -197,15 +197,16 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         if (AtTileCenter() && UpdateTrackAtCenter(player, spawns))
             return;
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition,
-            _data.Constant("minecart-speed"),
-            _angle);
+        // specialObjects/minecart.s decrements var35 and requests its cue
+        // before objectApplySpeed publishes velocity and changes position.
         if (--_soundCounter < 0)
         {
             _soundCounter = 0x1a;
             _playSound(SndMinecart);
         }
+
+        Position = NativeObjectMovement.ApplySpeed(
+            _runtime, ref _precisePosition, _data.Constant("minecart-speed"), _angle);
 
         MinecartRuntimeState.UpdateRide(
             _runtime, _roomId, Position, _direction);

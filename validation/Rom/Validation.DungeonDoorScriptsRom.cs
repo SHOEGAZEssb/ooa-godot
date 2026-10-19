@@ -49,6 +49,16 @@ public partial class ValidationRoot
             rom[0xd240] = 1; rom[0xd241] = 0x1e; rom[0xd242] = (byte)c.Sub; rom[0xd24b] = (byte)c.Packed;
             rom[0xcc21] = (byte)center.Y; rom[0xcc22] = (byte)center.X;
             rom[0xcc23] = c.Sub == 0x11 ? (byte)1 : (byte)2; rom[0xcfc0] = 0xa4;
+            byte[] observedVelocity = new byte[4], expectedVelocity = new byte[4];
+            var stage = new PartMovementScratchProbe(() =>
+            {
+                for (int i = 0; i < 4; i++) _runtimeState.SetWramByte(0xcec0 + i, (byte)(0xa5 + i));
+            });
+            _entities.RegisterEnemySlot(stage, 15); _entities.AddEntity(stage);
+            _entities.AddEntity(new PartMovementScratchProbe(() =>
+            {
+                for (int i = 0; i < 4; i++) observedVelocity[i] = _runtimeState.ReadWramByte(0xcec0 + i);
+            }));
             var sounds = _sound.AttachPlayRequestAudit();
             void Step(int count = 1,int angle = 0xff)
             {
@@ -57,7 +67,11 @@ public partial class ValidationRoot
                     angle == 0xff ? [] : c.Sub == 0x11 ? ["move_right"] : ["move_down"],
                     angle == 0xff ? [] : c.Sub == 0x11 ? ["move_right"] : ["move_down"],batch,() => {
                 int keys = angle == 0xff ? 0 : c.Sub == 0x11 ? 0x10 : 0x80;
-                rom.UpdateGameplay(tick++ == 0 ? keys : 0,keys,angle,_entities.FrameCounter);
+                rom.UpdateGameplay(tick++ == 0 ? keys : 0,keys,angle,_entities.FrameCounter,
+                    beforeInteractions: () => { for (int i = 0; i < 4; i++) rom[0xcec0 + i] = (byte)(0xa5 + i); },
+                    afterInteractions: () => { for (int i = 0; i < 4; i++) expectedVelocity[i] = rom[0xcec0 + i]; });
+                FailIf(!observedVelocity.SequenceEqual(expectedVelocity),
+                    $"INTERAC$1e:${c.Sub:x2} counter2=${door.Counter2Alias:x2}: native script movement publication differs.");
                 CompareSomariaMotionRom(rom,"Entrance door walking/swimming handoff");
                 rom.AdvanceTileGraphics();
                 var random = _random.CaptureState();
@@ -72,8 +86,13 @@ public partial class ValidationRoot
                 });
             }
             Step(3);
+            // Declared same-page Smog $47 write, after native script setup.
+            // The actual cloud allocation/merge history is a separate fixture.
+            _entities.WriteSmogInteractionCounter(_entities.InteractionSlot(door.Node), 3);
+            rom[0xd247] = 3;
             _dialogue.ShowGameplayMessage("Entrance script pause",120); rom[0xcba0] = 1;
             Step(3); _dialogue.Close(); rom[0xcba0] = 0;
+            Step(3); // Two zero-speed publications, then the no-motion 1->0 yield.
             if (c.Group == 5)
                 for (int stroke = 0; !door.Finished && stroke < 16; stroke++)
                 {

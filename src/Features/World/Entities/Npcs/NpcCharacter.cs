@@ -15,7 +15,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     private IReadOnlyDictionary<int, Color[]>? _scriptPaletteOverrides;
     private Image _sourceImage = null!;
     private NpcCharacterFacing _facing = NpcCharacterFacing.Down;
-    private NpcCharacterFacing _nativeNpcFacingAngle = NpcCharacterFacing.Up;
+    private int _nativeNpcAngle;
     private int _animationFrame;
     private bool _animationParameterConsumed;
     private double _animationTicks;
@@ -219,15 +219,16 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     {
         if (player.PassesNpcs) return false;
         Vector2 link = OracleObjectMath.ToPixelPosition(player.Position);
+        Vector2 obstacle = OracleObjectMath.ToPixelPosition(Position);
         float radiusY = collisionRadiusY + LinkCollisionRadius;
         float radiusX = collisionRadiusX + LinkCollisionRadius;
-        float differenceY = Mathf.Abs(link.Y - Position.Y);
-        float differenceX = Mathf.Abs(link.X - Position.X);
+        float differenceY = Mathf.Abs(link.Y - obstacle.Y);
+        float differenceX = Mathf.Abs(link.X - obstacle.X);
         // checkObjectsCollidedFromVariables compares the unsigned byte
         // (Link-object+radius) against radius*2: -radius is included, while
         // +radius is excluded. This matters at slow, fractional approaches.
-        if (((int)(link.Y - Position.Y + radiusY) & 0xff) >= radiusY * 2 ||
-            ((int)(link.X - Position.X + radiusX) & 0xff) >= radiusX * 2)
+        if (!OracleObjectMath.ObjectAxisOverlaps((int)(link.Y - obstacle.Y), (int)collisionRadiusY, (int)LinkCollisionRadius) ||
+            !OracleObjectMath.ObjectAxisOverlaps((int)(link.X - obstacle.X), (int)collisionRadiusX, (int)LinkCollisionRadius))
             return false;
 
         // The assembly resolves the axis with less overlap. Its CP tie falls
@@ -236,7 +237,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         float overlapX = radiusX - differenceX;
         bool horizontal = overlapY >= overlapX;
         float linkCoordinate = horizontal ? link.X : link.Y;
-        float obstacleCoordinate = horizontal ? Position.X : Position.Y;
+        float obstacleCoordinate = horizontal ? obstacle.X : obstacle.Y;
         int side = linkCoordinate > obstacleCoordinate ? 1 : -1;
         int coordinate = Mathf.FloorToInt(obstacleCoordinate) +
             side * Mathf.RoundToInt(horizontal ? radiusX : radiusY);
@@ -267,6 +268,12 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     internal void SetScriptButtonSensitive(bool sensitive) =>
         _scriptButtonSensitive = sensitive;
     internal bool ScriptButtonSensitive => _scriptButtonSensitive;
+    internal int NativeAngle => _nativeNpcAngle;
+    internal void SetNativeAngle(int angle)
+    {
+        if (angle is < 0 or > 0xff) throw new ArgumentOutOfRangeException(nameof(angle));
+        _nativeNpcAngle = angle;
+    }
 
     internal void SetStatePosition(Vector2 position)
     {
@@ -440,9 +447,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
                             : difference.Y >= 0
                                 ? NpcCharacterFacing.Down
                                 : NpcCharacterFacing.Up;
-                if (desired != _nativeNpcFacingAngle)
+                if ((int)desired * 8 != _nativeNpcAngle)
                 {
-                    _nativeNpcFacingAngle = desired;
+                    _nativeNpcAngle = (int)desired * 8;
                     SetFacingAndRestartAnimation(desired);
                     // The source loads 30, then falls through to DEC before
                     // storing the counter.
@@ -483,9 +490,9 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
                     : difference.Y >= 0
                         ? NpcCharacterFacing.Down
                         : NpcCharacterFacing.Up;
-        if (desired != _nativeNpcFacingAngle)
+        if ((int)desired * 8 != _nativeNpcAngle)
         {
-            _nativeNpcFacingAngle = desired;
+            _nativeNpcAngle = (int)desired * 8;
             SetFacingAndRestartAnimation(desired);
         }
 
@@ -496,7 +503,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     {
         // Interaction.angle and Interaction.invincibilityCounter both begin
         // at zero independently of the animation selected during state 0.
-        _nativeNpcFacingAngle = NpcCharacterFacing.Up;
+        _nativeNpcAngle = ObjectAngle.Up;
         _faceCooldownFrames = 0.0;
     }
 
@@ -504,7 +511,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
     {
         // goron_faceDown writes angle=$10 and invincibilityCounter=$00
         // before installing animation $02, even if already facing down.
-        _nativeNpcFacingAngle = NpcCharacterFacing.Down;
+        _nativeNpcAngle = ObjectAngle.Down;
         _faceCooldownFrames = 0;
         SetFacingDirection(Vector2I.Down);
         _animationFrame = 0;

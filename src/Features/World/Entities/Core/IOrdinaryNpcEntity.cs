@@ -14,6 +14,7 @@ internal interface IOrdinaryNpcEntity
     NpcCharacter Npc { get; }
     bool RefreshStoryState => true;
     bool RefreshVisibility => true;
+    bool RefreshPosition => true;
     void CompleteStoryInitialization() { }
     bool TryQueueDialogue(Func<bool> tryShowDialogue) => false;
 }

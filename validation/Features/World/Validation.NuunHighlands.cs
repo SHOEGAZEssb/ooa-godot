@@ -151,7 +151,7 @@ public partial class ValidationRoot
         red.Initialize(database.ImportedEnemy(EnemyId.Leever, 1), room, new Vector2(40, 40), redRng);
         red.PrepareForScreenTransition();
         for (int i = 0; i < 120 && red.State == LeeverState.Underground; i++) red.UpdateFrame(new Vector2(88, 88), Vector2I.Down, 0);
-        FailIf(red.State != LeeverState.Emerging || redRng.Calls != 2 || red.Position.X > 120 || red.Position.Y > 120,
+        FailIf(red.State != LeeverState.Emerging || redRng.Calls != 3 || red.Position.X > 120 || red.Position.Y > 120,
             "Red Leever did not use its single random $77-masked spawn candidate.");
         for (int i = 0; i < 100 && red.State != LeeverState.Chasing; i++) red.UpdateFrame(new Vector2(88, 88), Vector2I.Down, 0);
         int calls = redRng.Calls;

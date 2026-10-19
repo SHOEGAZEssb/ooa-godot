@@ -55,7 +55,7 @@ internal sealed class NayruGhostScriptHost : RoomCutsceneCommandHost
     public override void MoveActorAtSpeed(string actor, int speed, int angle)
     {
         RequireActor(actor);
-        _position = OracleObjectMovement.Shared.ApplySpeed(_position, speed, angle);
+        _position = NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState, _position, speed, angle);
         _actor!.Position = _position.PixelPosition;
     }
 

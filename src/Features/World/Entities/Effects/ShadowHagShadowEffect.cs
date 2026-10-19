@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>PART_SHADOW_HAG_SHADOW $41.</summary>
-internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
+internal sealed partial class ShadowHagShadowEffect : TransitionOffsetNode2D
 {
     private static readonly int[] InitialAngles = [0x04, 0x0c, 0x14, 0x1c];
     private ShadowHagBoss _owner = null!;
@@ -14,15 +14,17 @@ internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
     private int _angleIndex;
     private int _angle;
     private bool _initialized;
+    private OracleRuntimeState _runtime = null!;
 
-    internal override bool Finished { get; private protected set; }
+    internal bool Finished { get; private set; }
     internal ShadowHagShadowState State => _state;
     internal int Angle => _angle;
 
     internal void Initialize(
         ShadowHagBoss owner,
         int angleIndex,
-        DungeonInteractionVisual visual)
+        DungeonInteractionVisual visual,
+        OracleRuntimeState runtime)
     {
         if (angleIndex is < 0 or > 3 ||
             visual.Key != "shadow-hag-shadow" ||
@@ -33,6 +35,7 @@ internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
                 "five imported animations.");
         }
         _owner = owner;
+        _runtime = runtime;
         _angleIndex = angleIndex;
         Position = owner.Position;
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
@@ -48,7 +51,7 @@ internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
         QueueRedraw();
     }
 
-    internal override void UpdateFrame()
+    internal void UpdateFrame(Vector2 linkTarget)
     {
         if (Finished)
             return;
@@ -79,8 +82,8 @@ internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
                 {
                     _counter1 = 8;
                     int target = OracleObjectMovement.Shared.RelativeAngle(
-                        Position, _owner.LinkPosition);
-                    _angle = NudgeAngle(_angle, target);
+                        Position, linkTarget);
+                    _angle = OracleObjectMath.NudgeAngleTowards(_angle, target);
                 }
                 Move();
                 break;
@@ -126,8 +129,8 @@ internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
         // equivalent to the boss while the convergence distance stays 256
         // pixels away forever.
         Vector2 precisePosition = Position;
-        OracleObjectMovement.Shared.ApplySpeed(
-            ref precisePosition, 0x28, _angle);
+        NativeObjectMovement.ApplySpeed(
+            _runtime, ref precisePosition, 0x28, _angle);
         Position = precisePosition;
     }
 
@@ -137,12 +140,6 @@ internal sealed partial class ShadowHagShadowEffect : FixedEffectNode2D
         Visible = false;
     }
 
-    private static int NudgeAngle(int current, int target)
-    {
-        int clockwise = (target - current) & 0x1f;
-        return clockwise == 0 ? current
-            : (current + (clockwise < 0x10 ? 1 : -1)) & 0x1f;
-    }
 }
 
 internal enum ShadowHagShadowState

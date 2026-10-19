@@ -3,7 +3,7 @@ using Godot;
 namespace oracleofages;
 
 internal sealed class GoronRock(NpcCharacter actor, Vector2 position, int angle,
-    int speed, int speedZ, int z, bool falling, int slot)
+    int speed, int speedZ, int z, bool falling, int slot, OracleRuntimeState memory)
 {
     internal int Slot => slot;
     internal NpcCharacter Actor => actor;
@@ -24,7 +24,7 @@ internal sealed class GoronRock(NpcCharacter actor, Vector2 position, int angle,
         }
         if (OracleObjectMath.UpdateSpeedZ(ref z,ref speedZ,falling?0x10:0x18))
         { return true; }
-        if (!falling) actor.Position=OracleObjectMovement.Shared.ApplySpeed(ref position,speed,angle);
+        if (!falling) actor.Position=NativeObjectMovement.ApplySpeed(memory,ref position,speed,angle);
         actor.SetScriptDrawOffset(new Vector2(0,z>>8));
         return false;
     }

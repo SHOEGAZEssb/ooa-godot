@@ -7,6 +7,7 @@ namespace oracleofages;
 public sealed partial class ValidationRoot
 {
     private void ValidateRaftMountRom() => ValidateRaftControlRom(false, false);
+    private void ValidateRaftMovementPublicationRom() => ValidateRaftControlRom(false, true, nativeMovement: true);
     private void ValidateRaftWaterTilesRom() => ValidateRaftControlRom(true, false);
     private void ValidateRaftDismountRom() => ValidateRaftControlRom(false, true);
     private void ValidateRaftSwordARom() => ValidateRaftControlRom(false, false, 1);
@@ -19,7 +20,8 @@ public sealed partial class ValidationRoot
     private void ValidateRaftPegasusBRom() => ValidateRaftControlRom(false, true, satchelButton: 2, pegasusBeforeMount: true);
 
     private void ValidateRaftControlRom(bool allWaterTiles, bool dismount, int swordButton = 0, int shieldButton = 0,
-        int satchelButton = 0, bool pegasusBeforeMount = false, int bombchuButton = 0, int heartRing = 0xff)
+        int satchelButton = 0, bool pegasusBeforeMount = false, int bombchuButton = 0, int heartRing = 0xff,
+        bool nativeMovement = false)
     {
         int hostCase1 = 0;
         foreach (int direction in bombchuButton != 0 || heartRing != 0xff ? new[] { 0 } : Enumerable.Range(0, dismount ? 4 : 8).Select(index => index * (dismount ? 8 : 4)))
@@ -27,7 +29,7 @@ public sealed partial class ValidationRoot
         foreach (int shieldLevel in shieldButton == 0 ? new[] { 0 } : new[] { 1, 2, 3 })
         foreach (int seedType in satchelButton == 0 ? new[] { 0 } : pegasusBeforeMount ? new[] { 2 } : Enumerable.Range(0, 5))
         foreach (int ring in pegasusBeforeMount ? new[] { 0xff, 0x11 } : new[] { 0xff })
-        foreach (bool batched in RomHostSchedules(hostCase1++))
+        foreach (bool batched in nativeMovement ? new[]{false,true} : RomHostSchedules(hostCase1++))
         {
             ReinitializeGameplayForValidation();
             _saveData.SetGlobalFlag(0x26);
@@ -97,6 +99,20 @@ public sealed partial class ValidationRoot
             FailIf(rom[slot + 4] != 1, "Native raft placement must survive flag $26 and initialize its waiting state.");
             var sounds = _sound.AttachPlayRequestAudit();
             int update = 0, previousDirections = 0;
+            byte[] observed=new byte[4],expectedScratch=new byte[4];int probes=0,publicationVisits=0;
+            Vector2 observedLink=Vector2.Zero,expectedLink=Vector2.Zero;
+            if(nativeMovement)
+            {
+                var probe=new PartMovementScratchProbe(()=>
+                {probes++;observedLink=_player.PrecisePosition;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+                _entities.RegisterEnemySlot(probe,15);_entities.AddEntity(probe);
+            }
+            void SeedScratch()
+            {
+                if(!nativeMovement)return;
+                for(int i=0;i<4;i++){rom[0xcec0+i]=(byte)(0xa5+i);_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));}
+            }
+            SeedScratch();
             int Field(string name) => (int)typeof(RaftRoomEntity).GetField(name,
                 BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(raft)!;
             T PlayerField<T>(string name) => (T)typeof(Player).GetField(name,
@@ -109,8 +125,17 @@ public sealed partial class ValidationRoot
                 int edge = held & ~previousDirections; previousDirections = held;
                 StepGameplayUpdates(count, movement, MenuRomActions(held), MenuRomActions(edge), batched, () =>
                 {
-                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1); edge = 0; update++;
+                    bool movingRaft=rom[0xd100]!=0&&rom[0xd104]==1&&rom[0xcc2c]==0xd1;
+                    rom.UpdateGameplay(edge, held, angle, _entities.FrameCounter - 1,afterLink:()=>
+                    {if(nativeMovement){expectedLink=new(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f);for(int i=0;i<4;i++)expectedScratch[i]=rom[0xcec0+i];}}); edge = 0; update++;
                     string context = $"Raft 1:a7 tile=${water:x2} direction=${direction:x2} dismount={dismount} Sword=${swordButton:x2} Shield={shieldButton}/L{shieldLevel} Satchel={satchelButton}/ITEM${0x20 + seedType:x2} existingPegasus={pegasusBeforeMount}/ring${ring:x2} update={update} batch={batched}";
+                    if(nativeMovement&&movingRaft)
+                    {
+                        FailIf(probes!=1||!observed.SequenceEqual(expectedScratch)||_player.KnockbackFrames!=rom[0xd02d]||observedLink!=expectedLink,
+                            context+$": pre-PART original masked raft movement/knockback scratch differs: probes{probes}, [{string.Join(',',observed)}]/[{string.Join(',',expectedScratch)}], knockback{_player.KnockbackFrames}/{rom[0xd02d]}.");
+                        publicationVisits++;
+                    }
+                    probes=0;SeedScratch();
                     if (heartRing != 0xff) CompareHeartRingVehicle(rom, context);
                     Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(_player.PrecisePosition != expected || _player.RaftRideActive != (rom[0xcc2c] == 0xd1) ||
@@ -200,6 +225,17 @@ public sealed partial class ValidationRoot
             for (int approach = 0; !raft.LinkRiding && approach < 32; approach++) Step(1, 0x10);
             FailIf(!raft.LinkRiding || rom[0xcc2c] != 0xd1, "Shoreline approach did not allocate and initialize the raft on its native update.");
             Step(24);
+            if(nativeMovement)
+            {
+                // Explicit post-contact boundary; normal raft dispatch owns
+                // both counter decrements through zero, including text holds.
+                F1Set(_player,"_enemyKnockbackFrames",8f);F1Set(_player,"_enemyKnockbackAngle",direction);
+                rom[0xd02d]=8;rom[0xd02c]=(byte)direction;
+                Step(2);FailIf(_player.KnockbackFrames!=4,"Raft and Link must each decrement the shared knockback counter.");
+                _dialogue.ShowMessage("Raft knockback hold.",104);rom[0xcba0]=1;
+                Step(3);FailIf(_player.KnockbackFrames!=4,"Text must freeze both raft and Link recoil.");
+                _dialogue.Close();rom[0xcba0]=0;Step(2);
+            }
             if (shieldButton != 0)
             {
                 Step(8, 0xff, shieldButton);
@@ -269,6 +305,7 @@ public sealed partial class ValidationRoot
                         "A completed native dismount must leave a raft that can be reached and remounted.");
                     Step(24, 0xff, remountItem);
                 }
+                FailIf(nativeMovement&&publicationVisits<50,"Raft publication must cover repeated blocked dismount/remount and knockback visits.");
                 continue;
             }
             for (int repeat = 0; repeat < 2; repeat++)

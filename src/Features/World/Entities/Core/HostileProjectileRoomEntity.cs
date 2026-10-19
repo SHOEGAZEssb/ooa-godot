@@ -10,10 +10,14 @@ internal class HostileProjectileRoomEntity<TProjectile>(
         projectile.SetTransitionDrawOffset),
         IFixedRoomEntity,
         ISwordHittableRoomEntity,
-        IRoomEntityLifetime
+        IRoomEntityLifetime,
+        IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
     where TProjectile : TransitionOffsetNode2D, IHostileProjectile
 {
     public bool Finished => Entity.Finished;
+    // updateParts admits original state0 independently of text/mask/scroll.
+    public bool UpdatesDuringDialogue => Entity.InitializationPending;
+    public bool UpdatesDuringRoomEntityFreeze => Entity.InitializationPending;
 
     public void UpdateFrame(
         RoomEntityFrame frame,

@@ -74,11 +74,12 @@ internal sealed partial class PostmanCharacter : NpcCharacter
                 "imported animation.");
         }
 
+        SetNativeAngle(angle);
         SetScriptAnimation(encodedAnimation);
         _precisePosition = Position;
     }
 
-    internal void MoveAtSpeed(int speed, int angle)
+    internal void MoveAtSpeed(OracleRuntimeState memory, int speed, int angle)
     {
         if (speed != Speed200 ||
             angle is not (RightAngle or DownAngle))
@@ -88,8 +89,8 @@ internal sealed partial class PostmanCharacter : NpcCharacter
                 $"${speed:x2}/${angle:x2}.");
         }
 
-        Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, speed, angle);
+        Position = NativeObjectMovement.ApplySpeed(
+            memory, ref _precisePosition, speed, angle);
     }
 
     internal void UpdatePostman(Player player)

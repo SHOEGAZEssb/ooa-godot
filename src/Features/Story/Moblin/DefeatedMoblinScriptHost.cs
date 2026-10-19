@@ -26,7 +26,7 @@ internal sealed class DefeatedMoblinScriptHost(DefeatedMoblinEvent owner,NpcChar
     public override void SetActorAnimation(string id,int animation,string encoded)=>Actor.SetScriptAnimation(encoded);
     public override void MoveActorAtSpeed(string id,int speed,int angle)
     {
-        var position=Actor.Position; OracleObjectMovement.Shared.ApplySpeed(ref position,speed,Angle); Actor.Position=position;
+        var position=Actor.Position; NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState,ref position,speed,Angle); Actor.Position=position;
     }
     public override void GiveItem(int treasure,int parameter)=>Context.GrantScriptTreasure(0,9,treasure,parameter,
         "TREASURE_OBJECT_BOMB_FLOWER_00","scripts/ages/scripts.s:kingMoblinDefeated_goron3");

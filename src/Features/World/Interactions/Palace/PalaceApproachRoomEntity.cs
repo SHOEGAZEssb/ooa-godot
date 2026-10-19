@@ -134,7 +134,7 @@ internal sealed class PalaceApproachRoomEntity : CutsceneCommandHost, IRoomEntit
     }
     public override void SetActorAnimation(string actor, int animation, string encodedAnimation) => _ralph!.SetScriptAnimation(encodedAnimation);
     public override void SetActorMovementAnimation(string actor, int angle, string encodedAnimation) => _ralph!.SetScriptAnimation(encodedAnimation);
-    public override void MoveActorAtSpeed(string actor, int speed, int angle) => _ralph!.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _precise, speed, angle));
+    public override void MoveActorAtSpeed(string actor, int speed, int angle) => _ralph!.SetStatePosition(NativeObjectMovement.ApplySpeed(_owner.RuntimeState, ref _precise, speed, angle));
     public override void WriteObjectByte(string actor, int address, int value)
     {
         if (address != 0x7f) throw UnsupportedCommand($"write Ralph object${address:x2}");

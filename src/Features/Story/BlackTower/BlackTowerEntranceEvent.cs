@@ -312,8 +312,8 @@ internal sealed class BlackTowerEntranceEvent :
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
         RequireGuard(actor).Position =
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref _guardPrecisePosition, speed, angle);
+            NativeObjectMovement.ApplySpeed(
+                _context.Entities.RuntimeState, ref _guardPrecisePosition, speed, angle);
     }
 
     void ICutsceneCommandHost.SetActorVisible(string actor, bool visible) =>

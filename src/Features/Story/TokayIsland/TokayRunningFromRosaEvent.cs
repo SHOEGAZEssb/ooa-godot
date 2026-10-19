@@ -26,7 +26,7 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
     {
     }
 
-    public bool MenusDisabled => HasState;
+    public bool MenusDisabled => BlocksGameplay;
     public bool HasState => _stage != TokayRunningFromRosaStage.Inactive;
     internal TokayRunningFromRosaStage Stage => _stage;
 
@@ -48,6 +48,7 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
 
     public void UpdateFrame()
     {
+        if (!Context.Entities.InitializedInteractionUpdatesAllowed) return;
         UpdateScript();
         if (_actor is { } actor)
         {
@@ -76,7 +77,7 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
             if (_counter == 0)
                 EnterStage(_nextStage);
             else if (--_counter != 0)
-                actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _position,
+                actor.SetStatePosition(NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState, ref _position,
                     _native.Constant("speed-180"), _moveDirection == Vector2.Up ? ObjectAngle.Up : ObjectAngle.Left));
             return;
         }
@@ -102,6 +103,10 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
                 break;
             case TokayRunningFromRosaStage.SecondText:
                 BeginWait(30, TokayRunningFromRosaStage.SecondMoveUp);
+                break;
+            case TokayRunningFromRosaStage.Done:
+                _actor?.SetActive(false);
+                FinishInteraction();
                 break;
             default:
                 throw new InvalidOperationException(
@@ -162,8 +167,9 @@ internal sealed class TokayRunningFromRosaEvent : TokayScriptEvent, IRoomEntryEv
                     Context.Rooms.ActiveGroup,
                     Context.Rooms.CurrentRoom.Id,
                     OracleSaveData.RoomFlag80);
-                _actor?.SetActive(false);
-                FinishInteraction();
+                // enableinput continues into orroomflag, which yields before
+                // the next admitted interactionRunScript executes scriptend.
+                EventResources.UnlockInput();
                 break;
             default:
                 throw new InvalidOperationException(

@@ -1230,7 +1230,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void ApplyRawMovement(int speed)
     {
-        OracleObjectMovement.Shared.ApplySpeed(
+        NativeObjectMovement.ApplySpeed(_runtime,
             ref _precisePosition, speed, _angle);
     }
 
@@ -1243,7 +1243,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
     }
 
     private void ApplyCompanionMovement(int speed, int walls) =>
-        SpecialObjectMovement.ApplySpeed(ref _precisePosition, speed, _angle, _adjacentWalls = walls);
+        SpecialObjectMovement.ApplySpeed(_runtime, ref _precisePosition, speed, _angle, _adjacentWalls = walls);
 
     private int CalculateAdjacentWallsBitset()
     {

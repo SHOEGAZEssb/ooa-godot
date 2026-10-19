@@ -6,7 +6,7 @@ namespace oracleofages;
 
 internal sealed partial class GiantGhiniChild : EnemyCharacter
 {
-    internal override bool InitializationPending => false;
+    internal override bool InitializationPending => !_initialized;
 
 
     private GiantGhiniBoss _owner = null!;
@@ -14,45 +14,50 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
     private int _counter;
     private int _angle;
     private bool _reportedFinished;
-    private bool _spawnPuffPending;
+    private bool _initialized;
+    private bool _intro;
+    private int _index;
+    private OracleRandom _random = null!;
+    private bool _linkContactPending;
+    private bool _restrictionActive;
     private bool _slowsLink;
-    private const float Z = -4.0f;
+    private int _zHigh;
     private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal ChildState State => _state;
     internal override bool CollisionEnabled =>
-        base.CollisionEnabled && _state is ChildState.SpawnDelay or
-            ChildState.Charging or ChildState.Attached;
+        base.CollisionEnabled && _initialized &&
+        _state is ChildState.SpawnDelay or ChildState.Charging;
     internal bool SlowsLink => _slowsLink;
-    internal bool DisablesItems => _state == ChildState.Attached;
+    internal bool DisablesItems => _restrictionActive;
+    internal int ZHigh => _zHigh;
+    internal void ClearRestrictions()
+    {
+        _restrictionActive = false;
+        _slowsLink = false;
+    }
 
     internal void Initialize(
         ImportedEnemyDefinition record,
         GiantGhiniBoss owner,
         OracleRoomData room,
-        int index)
+        int index,
+        OracleRandom random)
     {
         _owner = owner;
         Record = record;
         InitializeEnemy(
-            owner.Position + _behavior.GiantGhiniChildSpawnOffsets[index].Vector,
+            owner.Position.Floor(),
             EnemyCharacterConfiguration.FromImported(record));
         ConfigureSwordKnockback(
             room,
             EnemyKnockbackMotion.ScreenBoundary);
-        if (owner.State is GiantGhiniBossBossState.IntroWait or
-            GiantGhiniBossBossState.IntroFlicker)
-        {
-            _state = ChildState.Waiting;
-            Visible = false;
-        }
-        else
-        {
-            _state = ChildState.SpawnDelay;
-            _counter = 30;
-            _spawnPuffPending = true;
-        }
+        _random=random;
+        _index=index;
+        _intro=owner.State==GiantGhiniBossBossState.IntroWait;
+        _state=ChildState.Waiting;
+        Visible=false;
     }
 
     internal void UpdateFrame(
@@ -61,6 +66,29 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         int frameCounter,
         ICollection<RoomEntitySpawn> spawns)
     {
+        // enemyStandardUpdate initializes var3d before enemyCode3f checks
+        // relatedObj1.health, including a newly born child of a dying parent.
+        if (!_initialized)
+        {
+            _initialized=true;
+            _random.Next();
+            if (!_owner.Defeated)
+            {
+                Vector2 offset=_behavior.GiantGhiniChildSpawnOffsets[_index].Vector;
+                Position=new Vector2(
+                    (OracleObjectPosition.HighByte(Position.X)+(int)offset.X)&0xff,
+                    (OracleObjectPosition.HighByte(Position.Y)+(int)offset.Y)&0xff)+Position-Position.Floor();
+                _zHigh=-4;
+                if (!_intro)
+                {
+                    _state=ChildState.SpawnDelay;
+                    _counter=30;
+                    Visible=true;
+                    spawns.Add(new PuzzlePuffSpawn(Position.Floor(),SoundId.SndPoof,ZHigh:_zHigh));
+                }
+                return;
+            }
+        }
         if (_owner.Defeated && !IsDead)
         {
             Finish();
@@ -76,18 +104,21 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
             ReportFinished();
             return;
         }
-        if (BeginFrame())
+        bool linkContact=_linkContactPending;
+        if (BeginFrame(continueDuringHitAndKnockback:linkContact))
         {
             if (IsDead)
                 ReportFinished();
             return;
         }
-        _slowsLink = false;
-        if (_spawnPuffPending)
+        ClearRestrictions();
+        if (linkContact)
         {
-            _spawnPuffPending = false;
-            spawns.Add(new PuzzlePuffSpawn(
-                Position, SoundId.SndPoof));
+            _linkContactPending=false;
+            _state=ChildState.Attached;
+            _counter=120;
+            _zHigh=0;
+            _owner.ChildAttached(player);
         }
         switch (_state)
         {
@@ -103,7 +134,8 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
                 }
                 break;
             case ChildState.SpawnDelay:
-                if (--_counter == 0)
+                _counter=(_counter-1)&0xff;
+                if (_counter == 0)
                 {
                     _state = ChildState.Charging;
                     _counter = 5;
@@ -112,18 +144,23 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
                 }
                 break;
             case ChildState.Charging:
-                Position += OracleObjectMovement.Shared.Delta(0x1e, _angle);
-                if (--_counter == 0)
+                AdvanceAnimation();
+                Position=ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position),0x1e,_angle).PrecisePosition;
+                _counter=(_counter-1)&0xff;
+                if (_counter == 0)
                 {
                     _counter = 5;
-                    _angle = NudgeAngle(
+                    _angle = OracleObjectMath.NudgeAngleTowards(
                         _angle, OracleObjectMovement.Shared.RelativeAngle(
                             Position, player.Position));
                 }
                 break;
             case ChildState.Attached:
-                Position = player.Position;
-                _counter--;
+                AdvanceAnimation();
+                Position=new Vector2(
+                    OracleObjectPosition.HighByte(player.Position.X),
+                    OracleObjectPosition.HighByte(player.Position.Y))+Position-Position.Floor();
+                _counter=(_counter-1)&0xff;
                 if (_counter == 0)
                 {
                     _state = ChildState.Fading;
@@ -136,34 +173,35 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
                 if ((_counter & 3) == 0)
                     Visible = !Visible;
                 _slowsLink = (frameCounter & 1) != 0;
+                _restrictionActive=true;
                 break;
             case ChildState.Fading:
+                AdvanceAnimation();
                 Visible = !Visible;
-                if (--_counter == 0)
+                _counter=(_counter-1)&0xff;
+                if (_counter == 0)
                 {
                     Finish();
                     ReportFinished();
                 }
                 break;
         }
-        AdvanceAnimation();
         QueueRedraw();
     }
 
     public override void _Draw()
     {
-        DrawSetTransform(GaleCollisionDisabled ? Vector2.Zero : Vector2.Down * Z);
+        DrawSetTransform(GaleCollisionDisabled ? Vector2.Zero : Vector2.Down * _zHigh);
         base._Draw();
         DrawSetTransform(Vector2.Zero);
     }
 
     internal void HandleLinkContact(Player player)
     {
-        if (_state != ChildState.Charging || !OverlapsLink(player.EnemyContactPosition))
+        if (_linkContactPending || !OverlapsLink(player.EnemyContactPosition))
             return;
-        _state = ChildState.Attached;
-        _counter = 120;
-        _owner.ChildAttached(player);
+        _linkContactPending=true;
+        DeferNativeHitStatus();
     }
 
     internal override bool TakeSwordHit(Vector2 sourcePosition, int damage) =>
@@ -177,12 +215,6 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         _owner.ChildFinished();
     }
 
-    private static int NudgeAngle(int current, int target)
-    {
-        int clockwise = (target - current) & 0x1f;
-        return clockwise == 0 ? current
-            : (current + (clockwise < 0x10 ? 1 : -1)) & 0x1f;
-    }
 }
 
 internal enum ChildState

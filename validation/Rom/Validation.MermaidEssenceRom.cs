@@ -35,11 +35,26 @@ public sealed partial class ValidationRoot
             rom.InitializeLinkGameplay(); rom.InitializeLinkWalkingAnimation(); rom[0xcc39]=0x0c;
             int s=0xd040+_entities.InteractionSlot(essence)*256;
             rom[s]=1; rom[s+1]=0x7f; rom[s+11]=40; rom[s+13]=120;
+            byte[] observedVelocity = new byte[4], expectedVelocity = new byte[4];
+            _entities.AddEntity(new PartMovementScratchProbe(() =>
+            {
+                for (int i = 0; i < 4; i++) observedVelocity[i] = _runtimeState.ReadWramByte(0xcec0 + i);
+            }));
+            bool nativeApproaching = false;
+            int approachPublications = 0;
             var sounds=_sound.AttachPlayRequestAudit(); int update=0;
             var partSlots=SomariaPrivate<Dictionary<IRoomEntity,int>>(_entities,"_partSlots");
             void Step(int count=1,bool approach=false) => StepGameplayUpdates(count,approach ? Vector2.Up : Vector2.Zero,
                 batched:batch,afterUpdate:() => {
-                rom.UpdateGameplay(0,approach ? 0x40 : 0,approach ? 0 : 0xff,_entities.FrameCounter);
+                rom.UpdateGameplay(0,approach ? 0x40 : 0,approach ? 0 : 0xff,_entities.FrameCounter,
+                    beforeInteractions: () => nativeApproaching = rom[s + 4] == 2,
+                    afterInteractions: () => { for (int i = 0; i < 4; i++) expectedVelocity[i] = rom[0xcec0 + i]; });
+                if (nativeApproaching)
+                {
+                    FailIf(!observedVelocity.SequenceEqual(expectedVelocity),
+                        "INTERAC$7f state2 must publish its native approach velocity before later phases reuse $cec0.");
+                    approachPublications++;
+                }
                 rom.AdvanceTileGraphics();
                 string context=$"Mermaid Essence batch={batch}, update{++update}";
                 CompareSomariaMotionRom(rom,context);
@@ -68,6 +83,7 @@ public sealed partial class ValidationRoot
                     context+$": collection/script music or ordered cues differ: runtime=[{string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}], native=[{string.Join(',',rom.Sounds)}], state={rom[s+4]}.");
             });
             for (int walk=0;!_dialogue.IsOpen && walk<240;walk++) Step(approach:true);
+            FailIf(approachPublications == 0, "Essence approach must exercise the native state2 movement publication.");
             // Retail primary text bank uses the encoded high index $04.
             FailIf(!_dialogue.IsOpen || rom[s+4] != 5 || rom[0xcba2] != 0x13 || rom[0xcba3] != 4 ||
                 _inventory.Essences != 0x3f || !_saveData.HasRoomFlag(5,0x37,OracleSaveData.RoomFlagItem),

@@ -106,6 +106,14 @@ internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
             case TokaySeedlingPlotStage.Plant:
                 PlantSeedling();
                 break;
+            case TokaySeedlingPlotStage.PlantSound:
+                Context.Sound.PlaySound(Interactions.SoundGetSeed);
+                _stage = TokaySeedlingPlotStage.PlantWait;
+                break;
+            case TokaySeedlingPlotStage.PlantWait:
+                _counter = _record.DoneWait;
+                _stage = TokaySeedlingPlotStage.DoneTextWait;
+                break;
             default:
                 throw new InvalidOperationException(
                     $"Tokay seedling-plot stage {_stage} closed an unexpected dialogue.");
@@ -142,7 +150,7 @@ internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
         _counter--;
         if (_counter != 0)
         {
-            actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
+            actor.SetStatePosition(NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState,
                 ref _precisePosition, _record.Speed, _moveAngle));
             return;
         }
@@ -156,17 +164,17 @@ internal sealed class TokaySeedlingPlotEvent : TokayScriptEvent, IRoomEvent
     {
         NpcCharacter actor = RequireActor();
         actor.SetFacingDirection(_towardDirection);
-        Context.Inventory.LoseTreasure(Interactions.TreasureScentSeedling);
         OracleSaveData save = Context.Rooms.SaveData;
         int room = Context.Rooms.CurrentRoom.Id;
         save.SetRoomFlag(_record.Group, room, checked((byte)_record.RoomFlag));
         save.SetRoomFlag(
             _record.Group - 1, room, checked((byte)_record.RoomFlag));
-        Context.Entities.Spawn<TokaySeedlingDecorationRoomEntity>(
+        Context.Inventory.LoseTreasure(Interactions.TreasureScentSeedling);
+        Context.Entities.TryCreateInteraction(
             new TokaySeedlingDecorationSpawn(_record));
-        Context.Sound.PlaySound(Interactions.SoundGetSeed);
-        _counter = _record.DoneWait;
-        _stage = TokaySeedlingPlotStage.DoneTextWait;
+        // asm15 flip/plant continue; spawninteraction yields even on failure.
+        // playsound and the following wait each own a subsequent update.
+        _stage = TokaySeedlingPlotStage.PlantSound;
     }
 
     private NpcCharacter RequireActor() =>
@@ -206,6 +214,8 @@ internal enum TokaySeedlingPlotStage
     PlantText,
     Moving,
     Plant,
+    PlantSound,
+    PlantWait,
     DoneTextWait,
     DoneText
 }

@@ -12,6 +12,15 @@ internal sealed class EventOwnedNpcRoomEntity(NpcCharacter npc)
         RequireEventOwned(npc), npc.SetTransitionDrawOffset),
         IVariableRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
+    private bool _positionInitialized;
+    public bool RefreshVisibility { get; private set; } = true;
+    // A native state-zero predicate must not delete an initialized actor when
+    // a different live actor later changes the same room/save byte.
+    internal void RetainInitializedVisibility() => RefreshVisibility = false;
+    // Imported positions model native state zero, before the event starts
+    // moving its actor. Unrelated WRAM notifications must not restore them.
+    public bool RefreshPosition => !_positionInitialized;
+    public void CompleteStoryInitialization() => _positionInitialized = true;
     public NpcCharacter Npc => Entity;
     public void Update(double delta, Player player) =>
         // The event's native handler admits state zero to drawing. Generic

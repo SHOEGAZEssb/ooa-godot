@@ -96,7 +96,8 @@ public sealed partial class ValidationRoot
         _entities.AddEntity(interaction);
         var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new(200, 104), SoundId.MusNone));
         var drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(ItemDropDatabase.OneRupee, new(200, 104)));
-        int dropZ = drop.ZFixed, dropSpeed = drop.SpeedZ, dropCounter = drop.Counter;
+        // PART$01 also gets its state0 visit under $1e: top-down initialization
+        // sets speedZ=-$160 and state1, then later initialized visits freeze.
         // updateItems still initializes state0 under mask$1e, then freezes
         // state1. ITEM$06 has a nil post handler, so clearing Link's parent
         // does not delete or advance the independent child here.
@@ -110,9 +111,10 @@ public sealed partial class ValidationRoot
         {
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
             FailIf(ordinaryUpdates != 0 || puff.ElapsedUpdates != 3 || _dialogue.IsOpen ||
-                drop.ZFixed != dropZ || drop.SpeedZ != dropSpeed || drop.Counter != dropCounter ||
+                drop.State != DropState.Bouncing || drop.ZFixed != 0 || drop.SpeedZ != -0x160 || drop.Counter != 0 ||
+                drop.PrecisePosition != new Vector2(200,104) ||
                 boomerang.State != 1 || boomerang.Counter != 40 || boomerang.PrecisePosition != boomerangStart,
-                "Pending warp mask$1e must freeze initialized handlers while permitting puff initialization and enabled-bit7 updates without opening text.");
+                "Pending warp mask$1e must admit pickup/puff state0, then freeze initialized handlers while enabled-bit7 updates continue without opening text.");
             // Longer than an ordinary 32+32 stair fade, but shorter than the
             // four spin loops plus $4c collapsed updates of source state03.
             StepGameplayUpdates(61, Vector2.Zero, batched: batched);

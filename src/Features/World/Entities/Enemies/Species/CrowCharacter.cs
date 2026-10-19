@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
 {
-    internal override bool InitializationPending => false;
+    internal override bool InitializationPending => !_initialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => Z;
 
@@ -24,6 +24,7 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
     private int _angle;
     private int _z;
     private bool _collisionEnabled;
+    private bool _initialized;
 
     public CrowRecord Record { get; private set; }
     internal bool DeletedOutOfBounds { get; private set; }
@@ -78,12 +79,26 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
             precisePosition: () => _precisePosition,
             setPrecisePosition: SetKnockbackPosition);
         RestartAnimation(0);
+        Visible = false;
+    }
+
+    internal void PrepareForScreenTransition()
+    {
+        if (_initialized) return;
+        _random.Next(); // enemyStandardUpdate seeds var3d before crow state0.
+        _initialized = true;
+        Visible = true;
     }
 
     internal void UpdateFrame(Vector2 linkPosition)
     {
         if (IsDead)
             return;
+        if (!_initialized)
+        {
+            PrepareForScreenTransition();
+            return;
+        }
         if (BeginFrame())
             return;
 
@@ -126,13 +141,11 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
                     {
                         int target = OracleObjectMovement.Shared.RelativeAngle(
                             Position, linkPosition);
-                        NudgeAngleToward(target);
+                        _angle = OracleObjectMath.NudgeAngleTowards(_angle, target);
                         SetDirectionalAnimation(flight: true);
                     }
                 }
-                _precisePosition +=
-                    OracleObjectMovement.Shared.Delta(Record.SpeedRaw, _angle);
-                Position = OracleObjectMath.ToPixelPosition(_precisePosition);
+                Position = ApplyMovementSpeed(ref _precisePosition, Record.SpeedRaw, _angle);
                 AdvanceAnimation();
                 return;
         }
@@ -165,8 +178,9 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
         _angle = OracleObjectMovement.Shared.RelativeAngle(
             Position, linkPosition);
         int offset = (_random.Next().Value & 0x04) == 0 ? -4 : 4;
-        _angle = (_angle + offset) & ObjectAngle.Mask;
-        SetDirectionalAnimation(flight: true);
+        // crow_subid0_state9 adds in the raw byte without masking to $1f.
+        // It retains the pre-offset animation until the next steering visit.
+        _angle = (_angle + offset) & 0xff;
     }
 
     private void FaceTarget(Vector2 target, bool flight)
@@ -184,16 +198,6 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
         int animation = (flight ? 2 : 0) + ((_angle & 0x10) == 0 ? 1 : 0);
         if (AnimationIndex != animation)
             RestartAnimation(animation);
-    }
-
-    private void NudgeAngleToward(int target)
-    {
-        int difference = (_angle - target) & ObjectAngle.Mask;
-        if (difference == 0)
-            return;
-        _angle = difference < 0x10
-            ? (_angle - 1) & ObjectAngle.Mask
-            : (_angle + 1) & ObjectAngle.Mask;
     }
 
     private bool WithinChargeScreenBounds()

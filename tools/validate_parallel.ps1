@@ -8,7 +8,12 @@ param(
     [switch]$SkipRomValidation,
     [switch]$ContinueOnFailure,
     [switch]$FailOnEngineDiagnostics,
+    [switch]$ProfileMemory,
     [string]$TimingProfile,
+    [ValidateRange(256, 65536)]
+    [int]$MemoryLimitMB = 8192,
+    [ValidateRange(1, 100)]
+    [int]$CpuLimitPercent = 50,
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600
 )
@@ -34,6 +39,9 @@ namespace OracleValidation {
 }
 '@
 }
+if (-not ('OracleValidation.ValidationProcessJob' -as [type])) {
+    Add-Type -Path (Join-Path $PSScriptRoot 'ValidationProcessJob.cs')
+}
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $validationArguments = @()
 if (-not $Rom -and -not $SkipRomValidation) {
@@ -49,6 +57,9 @@ if ($SkipRomValidation) {
 }
 if ($ContinueOnFailure) {
     $validationArguments += '--validate-continue-on-failure'
+}
+if ($ProfileMemory) {
+    $validationArguments += '--validate-memory-profile'
 }
 $logRoot = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($logRoot)
@@ -72,9 +83,12 @@ if (-not $ValidateOnly) {
 $processes = [Collections.Generic.List[object]]::new()
 $timer = [Diagnostics.Stopwatch]::StartNew()
 Write-Host "Running $Workers validation workers. Logs: $logRoot"
+Write-Host "Combined resource limits: $MemoryLimitMB MiB committed memory, $CpuLimitPercent% CPU, below normal priority."
 
 $previousErrorMode = [OracleValidation.ErrorMode]::GetErrorMode()
+$job = $null
 try {
+    $job = [OracleValidation.ValidationProcessJob]::new([uint64]$MemoryLimitMB * 1MB, [uint32]$CpuLimitPercent)
     # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX. Preserve existing flags.
     [void][OracleValidation.ErrorMode]::SetErrorMode($previousErrorMode -bor 0x0003)
     for ($index = 1; $index -le $Workers; $index++) {
@@ -84,14 +98,10 @@ try {
         $selection = if ($ValidateOnly) { "--validate-only=$ValidateOnly" } else { "--validate-shard=$index/$Workers" }
         # Deferred draw scenarios await host frames. The runner quits when all
         # assigned scenarios finish; TimeoutSeconds bounds an incomplete run.
-        $process = Start-Process -FilePath $Godot -WorkingDirectory $projectRoot `
-            -ArgumentList (@('--headless', '--path', ('"' + $projectRoot + '"'),
+        $arguments = (@('--headless', '--path', ('"' + $projectRoot + '"'),
                 '--log-file', ('"' + $engineLog + '"'),
-                '--', '--validate', $selection) + $validationArguments) `
-            -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-        # Retain the native handle so Windows PowerShell can read ExitCode even
-        # when the worker exits before we reach WaitForExit.
-        $null = $process.Handle
+                '--', '--validate', $selection) + $validationArguments) -join ' '
+        $process = $job.Start($Godot, $arguments, $projectRoot, $stdout, $stderr)
         $processes.Add([pscustomobject]@{ Process = $process; Index = $index; Out = $stdout; Err = $stderr; EngineLog = $engineLog })
     }
 
@@ -190,9 +200,12 @@ try {
 }
 finally {
     [void][OracleValidation.ErrorMode]::SetErrorMode($previousErrorMode)
+    if ($null -ne $job) {
+        try { Write-Host ('Validation peak committed memory: {0:N1} MiB.' -f ($job.PeakMemoryBytes / 1MB)) }
+        finally { $job.Dispose() } # Terminates all remaining workers AND descendants.
+    }
     foreach ($worker in $processes) {
         if (-not $worker.Process.HasExited) {
-            $worker.Process.Kill()
             $worker.Process.WaitForExit()
         }
         $worker.Process.Dispose()

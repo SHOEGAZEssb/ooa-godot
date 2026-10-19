@@ -11,6 +11,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
 
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
+    private Func<Vector2,Vector2> _worldToScreen = null!;
     private GiantGhiniBossBossState _state;
     private int _counter = 120;
     private int _angle;
@@ -52,7 +53,8 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         Action<int> playSound,
         Func<bool> shuttersClosed,
         Action disableLinkCollisionsAndMenu,
-        Action restoreRoomMusic)
+        Action restoreRoomMusic,
+        Func<Vector2,Vector2> worldToScreen)
     {
         Record = record;
         InitializeEnemy(
@@ -64,6 +66,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         _shuttersClosed = shuttersClosed;
         _disableLinkCollisionsAndMenu = disableLinkCollisionsAndMenu;
         _restoreRoomMusic = restoreRoomMusic;
+        _worldToScreen = worldToScreen;
         Visible = true;
     }
 
@@ -76,6 +79,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         BeginFrame();
         if (!_initialized)
         {
+            _random.Next(); // enemyStandardUpdate's common var3d initialization.
             _initialized = true;
             _counter = 120;
             _playSound(SoundId.SndCtrlStopMusic);
@@ -127,34 +131,42 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
                 _state = GiantGhiniBossBossState.Moving;
                 _playSound(SoundId.MusMiniboss);
                 ChooseTargetAngle(player.Position);
+                _nudgeCounter=2;
+                _childRequestsCharge=false;
                 SetAnimation(0);
                 SetChildRespawnTimer();
                 return;
 
             case GiantGhiniBossBossState.Moving:
+                if (_childRequestsCharge)
+                {
+                    BeginCharge(player.Position);
+                    QueueRedraw();
+                    return;
+                }
+                AdvanceAnimation();
                 Move(_angle, _speed);
                 if (--_nudgeCounter == 0)
                 {
                     _nudgeCounter = 2;
-                    _angle = NudgeAngle(_angle, TargetAngle(player.Position));
-                }
-                if (_childRequestsCharge)
-                {
-                    BeginCharge(player.Position);
-                    break;
+                    // The target helper can reverse the live angle and replace
+                    // this counter. Read that updated angle for the nudge.
+                    int targetAngle=TargetAngle(player.Position);
+                    _angle=OracleObjectMath.NudgeAngleTowards(_angle,targetAngle);
                 }
                 if (_childRespawnCounter > 0)
                     _childRespawnCounter--;
-                if (_childRespawnCounter == 0 && _childrenAlive == 0)
+                if (_childRespawnCounter == 0)
                 {
                     SetChildRespawnTimer();
-                    if ((_random.Next().Value & 3) != 0)
+                    if (_childrenAlive == 0 && (_random.Next().Value & 3) != 0)
                         SpawnChildren(spawns);
                 }
                 break;
 
             case GiantGhiniBossBossState.Charging:
-                _counter = (_counter - 1) & 0xff;
+                AdvanceAnimation();
+                _counter = Math.Max(0,_counter-1); // ecom_decCounter2 saturates at zero.
                 if ((_counter & 3) == 0)
                     _speed = Math.Min(0x78, _speed + 0x05);
                 Move(_angle, _speed);
@@ -170,18 +182,17 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
                     _childRequestsCharge = false;
                     SetAnimation(0);
                     ChooseTargetAngle(player.Position);
+                    _nudgeCounter=2;
+                    SetChildRespawnTimer();
                 }
                 break;
         }
-        AdvanceAnimation();
         QueueRedraw();
     }
 
     internal void ChildAttached(Player player)
     {
         _childRequestsCharge = true;
-        if (_state == GiantGhiniBossBossState.Moving)
-            BeginCharge(player.Position);
     }
 
     internal void ChildDetached() => _childRequestsCharge = false;
@@ -256,8 +267,10 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
 
     private int TargetAngle(Vector2 linkPosition)
     {
-        Vector2 camera = CameraOrigin(linkPosition);
-        float relativeY = linkPosition.Y - camera.Y;
+        Vector2 camera=-_worldToScreen(Vector2.Zero);
+        int cameraX=OracleObjectPosition.HighByte(camera.X);
+        int cameraY=OracleObjectPosition.HighByte(camera.Y);
+        int relativeY=(OracleObjectPosition.HighByte(linkPosition.Y)-cameraY)&0xff;
         int targetScreenY = relativeY < 72.0f ? 104 : 40;
         if (_targetScreenY != targetScreenY)
         {
@@ -267,21 +280,11 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
             _nudgeCounter = 10;
         }
         return OracleObjectMovement.Shared.RelativeAngle(
-            Position, camera + new Vector2(80, targetScreenY));
+            Position, new Vector2((cameraX+80)&0xff,(cameraY+targetScreenY)&0xff));
     }
 
     private void Move(int angle, int speed) =>
-        Position += OracleObjectMovement.Shared.Delta(speed, angle);
-
-    private Vector2 CameraOrigin(Vector2 linkPosition) => new(
-        Mathf.Clamp(
-            linkPosition.X - OracleRoomData.ViewportWidth / 2.0f,
-            0.0f,
-            Math.Max(0.0f, _room.Width - OracleRoomData.ViewportWidth)),
-        Mathf.Clamp(
-            linkPosition.Y - OracleRoomData.ViewportHeight / 2.0f,
-            0.0f,
-            Math.Max(0.0f, _room.Height - OracleRoomData.ViewportHeight)));
+        Position=ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position),speed,angle).PrecisePosition;
 
     private void UpdateFloat()
     {
@@ -294,14 +297,6 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
 
     private void SetChildRespawnTimer() =>
         _childRespawnCounter = (_random.Next().Value & 3) * 60;
-
-    private static int NudgeAngle(int current, int target)
-    {
-        int clockwise = (target - current) & 0x1f;
-        if (clockwise == 0)
-            return current;
-        return (current + (clockwise < 0x10 ? 1 : -1)) & 0x1f;
-    }
 
     private static Vector2 PackedPositionCenter(int packed) => new(
         (packed & 0x0f) * 16 + 8,

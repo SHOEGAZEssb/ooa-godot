@@ -26,9 +26,24 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     private int _zFixed;
     private int _speedZ;
     private bool _nativeCounterPending;
+    private int _nativeCounter1;
 
     public bool Active { get; private set; }
     public int Counter { get; private set; }
+    // A native handler can overwrite/decrement the same counter1 used by
+    // a source wait. Keep that alias separate from active motion's counter2.
+    internal int NativeCounter1
+    {
+        get => UsesCommandCounter1 ? Counter : _nativeCounter1;
+        set
+        {
+            if (value is < 0 or > 0xff) throw new ArgumentOutOfRangeException(nameof(value));
+            if (UsesCommandCounter1) SetCounter(value);
+            else _nativeCounter1 = value;
+        }
+    }
+    private bool UsesCommandCounter1 => _nativeCounterPending ||
+        _commandUpdates > 0 && CurrentCommand is CutsceneWaitCommand;
     public int ZFixed => _zFixed;
     public int CurrentCommandUpdates => _commandUpdates;
     public int Instruction => _instruction;
@@ -154,6 +169,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         _startPosition2 = Vector2.Zero;
         Counter = 0;
         _nativeCounterPending = false;
+        _nativeCounter1 = 0;
         Active = true;
     }
 
@@ -162,9 +178,12 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         if (!Active || host.ScriptExecutionBlocked)
             return;
 
+        if (_nativeCounter1 != 0 && --_nativeCounter1 != 0)
+            return;
+
         if (_nativeCounterPending)
         {
-            SetCounter(Counter - 1);
+            if (Counter != 0) SetCounter(Counter - 1);
             if (Counter != 0) return;
             _nativeCounterPending = false;
         }
@@ -228,6 +247,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
         _startPosition2 = Vector2.Zero;
         Counter = 0;
         _nativeCounterPending = false;
+        _nativeCounter1 = 0;
         Active = false;
         host.SetActiveCommandSource(null);
     }
@@ -245,6 +265,10 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     {
         switch (command)
         {
+            case CutsceneSetTextIdCommand text:
+                host.SetActorTextId(text.Actor, text.TextId, text.Message);
+                return CommandResult.Continue; // scripting.s:scriptCmd_setTextID ends with SCF.
+
             case CutsceneDisableInputCommand:
                 host.SetInputEnabled(enabled: false);
                 return CommandResult.Continue;
@@ -280,7 +304,7 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
                     SetCounter(wait.Frames);
                     return CommandResult.Block;
                 }
-                SetCounter(Counter - 1);
+                if (Counter != 0) SetCounter(Counter - 1);
                 return Counter == 0 ? CommandResult.Continue : CommandResult.Block;
 
             case CutsceneWaitFramesCommand wait:

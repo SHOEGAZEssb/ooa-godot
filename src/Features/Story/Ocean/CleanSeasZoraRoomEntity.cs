@@ -1,25 +1,27 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 
 namespace oracleofages;
 
 // zora.s:$0a/$0b native counters and $0c/$0d script/vertical-physics gate.
 internal sealed class CleanSeasZoraRoomEntity : CutsceneCommandHost, IRoomEntity,
-    IFixedRoomEntity, IUpdatesDuringDialogueRoomEntity
+    IFixedRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private readonly NpcCharacter _actor;
     private readonly SeaFairyDatabase _data;
     private readonly OracleRuntimeState _runtime;
     private readonly CutsceneCommandRunner _runner;
+    private readonly Func<bool> _scriptTextActive;
     private readonly int _subid;
     private Vector2 _position;
     private int _state, _counter, _counter2, _phase, _z, _speedZ;
     private ICollection<RoomEntitySpawn>? _spawns;
     public Node2D Node => _actor;
-    public override bool DialogueOpen => false;
-    internal CleanSeasZoraRoomEntity(CleanSeasZoraSpawn spawn, OracleRuntimeState runtime)
+    public override bool DialogueOpen => _scriptTextActive();
+    internal CleanSeasZoraRoomEntity(CleanSeasZoraSpawn spawn, OracleRuntimeState runtime, Func<bool> scriptTextActive)
     {
-        _data = spawn.Data; _subid = spawn.SubId; _position = spawn.Position; _runtime = runtime;
+        _data = spawn.Data; _subid = spawn.SubId; _position = spawn.Position; _runtime = runtime; _scriptTextActive = scriptTextActive;
         var record = _data.Visual("zora", _position, 0) with { SubId = _subid };
         _actor = NpcCharacter.CreateFromRecord(record);
         _actor.SetBlocksLink(false); _actor.TimeWarpSolidMarked = false;
@@ -42,8 +44,13 @@ internal sealed class CleanSeasZoraRoomEntity : CutsceneCommandHost, IRoomEntity
         if (_subid >= 0x0c)
         {
             if (!UpdateZ()) return;
-            _runner.AdvanceFrame();
-            if (!_runner.Active) SetSignal();
+            // zora_commonInit sets enabled bit7: physics and animation keep
+            // running, while interactionRunScript reads live text/death gates.
+            if (!frame.Player.IsDying && !ScriptExecutionBlocked)
+            {
+                _runner.AdvanceFrame();
+                if (!_runner.Active) SetSignal();
+            }
             _actor.AdvanceAnimationUpdates(1); return;
         }
         switch (_state)
@@ -66,10 +73,7 @@ internal sealed class CleanSeasZoraRoomEntity : CutsceneCommandHost, IRoomEntity
     }
     private bool UpdateZ()
     {
-        _z += _speedZ;
-        bool grounded = _z >= 0;
-        if (grounded) _z = 0;
-        else _speedZ += 0x20;
+        bool grounded = OracleObjectMath.UpdateSpeedZ(ref _z, ref _speedZ, 0x20);
         _actor.SetScriptDrawOffset(new(0, _z >> 8));
         return grounded;
     }
@@ -80,7 +84,7 @@ internal sealed class CleanSeasZoraRoomEntity : CutsceneCommandHost, IRoomEntity
     public override void SetActorAnimation(string actor, int animation, string encodedAnimation) => _actor.SetScriptAnimation(encodedAnimation);
     public override void SetActorMovementAnimation(string actor, int angle, string animation) => _actor.SetScriptAnimation(animation);
     public override void MoveActorAtSpeed(string actor, int speed, int angle) =>
-        _actor.Position = OracleObjectMovement.Shared.ApplySpeed(ref _position, speed, angle);
+        _actor.Position = NativeObjectMovement.ApplySpeed(_runtime, ref _position, speed, angle);
     public override void RunNativeHandler(string handler)
     {
         switch (handler)

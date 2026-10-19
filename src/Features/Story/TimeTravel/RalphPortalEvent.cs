@@ -12,6 +12,7 @@ internal sealed class RalphPortalEvent :
     private readonly RalphPortalEventRecord _record;
     private readonly CutsceneCommandRunner _runner;
     private NpcCharacter? _ralph;
+    private Vector2 _precisePosition;
     private bool _waitingForScroll;
     private bool _flickering;
 
@@ -48,6 +49,7 @@ internal sealed class RalphPortalEvent :
             _record.InteractionId,
             _record.SubId,
             "INTERAC_RALPH");
+        _precisePosition = _ralph.Position;
 
         // @initSubid0d deletes Ralph unless wScreenTransitionDirection is
         // DIR_RIGHT ($01). It also deletes him after the one-shot flag is set.
@@ -83,6 +85,7 @@ internal sealed class RalphPortalEvent :
     public void Cancel()
     {
         _ralph = null;
+        _precisePosition = Vector2.Zero;
         _runner.Clear();
         _waitingForScroll = false;
         _flickering = false;
@@ -124,10 +127,8 @@ internal sealed class RalphPortalEvent :
                 $"Unsupported Ralph object speed ${speed:x2}; expected SPEED_100 ($28).");
         }
         NpcCharacter ralph = RequireRalph(actor);
-        ralph.Position = OracleObjectMovement.Shared.ApplySpeed(
-            OracleObjectMovement.Shared.PositionFromPixels(ralph.Position),
-            speed,
-            angle).PixelPosition;
+        ralph.Position = NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,
+            ref _precisePosition, speed, angle);
     }
 
     void ICutsceneCommandHost.SetActorZ(string actor, int zFixed) =>

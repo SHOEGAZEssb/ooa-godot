@@ -7,7 +7,7 @@ namespace oracleofages;
 // and commonCode.s:companionUpdateMovement. Callers own collision probes.
 internal static class SpecialObjectMovement
 {
-    internal static void ApplySpeed(ref Vector2 position, int speed, int angle, int walls)
+    internal static void ApplySpeed(OracleRuntimeState? memory, ref Vector2 position, int speed, int angle, int walls)
     {
         if ((angle & 0x80) != 0) return;
         if (angle is < 0 or > 31) throw new ArgumentOutOfRangeException(nameof(angle));
@@ -18,7 +18,7 @@ internal static class SpecialObjectMovement
         }
         int blocked = walls & BitsToCheck(angle);
         Vector2 next = position;
-        OracleObjectMovement.Shared.ApplySpeed(ref next, speed, angle);
+        NativeObjectMovement.ApplySpeed(memory, ref next, speed, angle);
         if ((blocked & 0xf0) == 0) position.Y = next.Y;
         if ((blocked & 0x0f) == 0) position.X = next.X;
     }

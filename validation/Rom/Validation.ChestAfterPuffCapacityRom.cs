@@ -74,9 +74,9 @@ public partial class ValidationRoot
             }
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero,
                 batched: batched, afterUpdate: Compare);
-            var orphans = Node.GetOrphanNodeIds().ToHashSet();
+            var orphans = ValidationNodeLifetime.OrphanIds().ToHashSet();
             Step(3);
-            FailIf(Node.GetOrphanNodeIds().Any(id => !orphans.Contains(id)),
+            FailIf(ValidationNodeLifetime.OrphanIds().Any(id => !orphans.Contains(id)),
                 "Failed queued createpuff must not construct an unowned native node.");
             FailIf(script.Counter != -1 || _entities.Entities<PuzzlePuffEffect>().Count != 13,
                 "Failed and successful createpuff both yield before installing wait15.");

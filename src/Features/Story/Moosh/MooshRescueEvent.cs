@@ -28,6 +28,8 @@ internal sealed class MooshRescueEvent :
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, OracleObjectPosition> _positions =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _ghiniAngles =
+        new(StringComparer.Ordinal);
     private NpcCharacter? _moosh;
     private MooshCompanionRoomEntity? _companion;
     private NpcCharacter? _exclamation;
@@ -107,9 +109,9 @@ internal sealed class MooshRescueEvent :
         // companionScript_subid00 leaves this room-local gate set until loading.
         _context.Entities.RuntimeState.SetWramByte(
             WramAddress.wDiggingUpEnemiesForbidden, 1);
-        _lanes.StartLane(Ghini0, _database.Ghini0);
-        _lanes.StartLane(Ghini1, _database.Ghini1);
-        _lanes.StartLane(Ghini2, _database.Ghini2);
+        _lanes.StartLane(Ghini0, _database.Ghini0, beforeAdvance: () => AdvanceGhiniCircle(Ghini0));
+        _lanes.StartLane(Ghini1, _database.Ghini1, beforeAdvance: () => AdvanceGhiniCircle(Ghini1));
+        _lanes.StartLane(Ghini2, _database.Ghini2, beforeAdvance: () => AdvanceGhiniCircle(Ghini2));
         _lanes.StartLane(Moosh, _database.Companion);
     }
 
@@ -126,10 +128,14 @@ internal sealed class MooshRescueEvent :
     public void UpdateDuringDialogueFrame()
     {
         // INTERAC_GHINI_HARASSING_MOOSH sets its always-update bit. Its script
-        // is held by showtext, but interactionAnimate still advances.
+        // is held by showtext, but animation and the native speed/angle loop
+        // run before interactionRunScript and keep advancing.
         AnimatePlacedGhini(Ghini0);
+        AdvanceGhiniCircle(Ghini0);
         AnimatePlacedGhini(Ghini1);
+        AdvanceGhiniCircle(Ghini1);
         AnimatePlacedGhini(Ghini2);
+        AdvanceGhiniCircle(Ghini2);
         if (_moosh is not null && GodotObject.IsInstanceValid(_moosh))
             _moosh.AnimateAndUpdateDrawPriorityOneUpdate(_context.Player);
     }
@@ -163,6 +169,7 @@ internal sealed class MooshRescueEvent :
             _exclamation.SetActive(false);
         _actors.Clear();
         _positions.Clear();
+        _ghiniAngles.Clear();
         _moosh = null;
         _companion = null;
         _exclamation = null;
@@ -284,6 +291,7 @@ internal sealed class MooshRescueEvent :
         actor.SetActive(false);
         _actors.Remove(actorName);
         _positions.Remove(actorName);
+        _ghiniAngles.Remove(actorName);
         _context.Entities.TryCreateEnemy(
             new GhiniSpawn(position, $"Rescue{actorName}"));
     }
@@ -339,6 +347,9 @@ internal sealed class MooshRescueEvent :
                 (_context.Rooms.SaveData.IsLinkedGame &&
                  _context.Inventory.AnimalCompanion == _record.MooshId ? 1 : 0) == value,
             "MooshMounted" => (CompanionMounted ? 1 : 0) == value,
+            "Ghini0Speed" => (_ghiniAngles.ContainsKey(Ghini0) ? _record.GhiniSpeed : 0) == value,
+            "Ghini1Speed" => (_ghiniAngles.ContainsKey(Ghini1) ? _record.GhiniSpeed : 0) == value,
+            "Ghini2Speed" => (_ghiniAngles.ContainsKey(Ghini2) ? _record.GhiniSpeed : 0) == value,
             _ => throw UnsupportedCommand($"read '{binding}'=${value:x2}")
         };
 
@@ -375,6 +386,15 @@ internal sealed class MooshRescueEvent :
     {
         switch (handler)
         {
+            case "BeginGhini0Circle":
+                BeginGhiniCircle(Ghini0);
+                break;
+            case "BeginGhini1Circle":
+                BeginGhiniCircle(Ghini1);
+                break;
+            case "BeginGhini2Circle":
+                BeginGhiniCircle(Ghini2);
+                break;
             case "SpawnEnemyGhini0":
                 SpawnEnemy(Ghini0);
                 break;
@@ -429,8 +449,6 @@ internal sealed class MooshRescueEvent :
             throw UnsupportedCommand($"run '{handler}' without an actor");
         switch (handler)
         {
-            case "CircleGhini":
-                return UpdateGhiniCircle(actor.Value.Value, commandUpdate, frames);
             case "ShakeMoosh":
                 return UpdateMooshShake(actor.Value.Value, commandUpdate, frames);
             default:
@@ -438,19 +456,25 @@ internal sealed class MooshRescueEvent :
         }
     }
 
-    private bool UpdateGhiniCircle(string actor, int update, int frames)
+    private void BeginGhiniCircle(string actor)
     {
-        if (frames != _record.GhiniFrames)
-            throw UnsupportedCommand($"circle {actor} for {frames} updates");
-        if (update == 0)
-            return false;
+        if (!_actors.ContainsKey(actor) || !_ghiniAngles.TryAdd(actor, _record.GhiniAngle))
+            throw UnsupportedCommand($"begin an unavailable Ghini circle for {actor}");
+    }
 
-        int angle = (_record.GhiniAngle + 1 - update) & ObjectAngle.Mask;
-        OracleObjectPosition position = OracleObjectMovement.Shared.ApplySpeed(
-            _positions[actor], _record.GhiniSpeed, angle);
+    private void AdvanceGhiniCircle(string actor)
+    {
+        if (!_ghiniAngles.TryGetValue(actor, out int angle))
+            return;
+        OracleObjectPosition position = NativeObjectMovement.ApplySpeed(
+            _context.Entities.RuntimeState, _positions[actor], _record.GhiniSpeed, angle);
         _positions[actor] = position;
         Actor(actor).SetStatePosition(position.PixelPosition);
-        return update >= frames;
+        angle = (angle - 1) & ObjectAngle.Mask;
+        if (angle == _record.GhiniAngle)
+            _ghiniAngles.Remove(actor);
+        else
+            _ghiniAngles[actor] = angle;
     }
 
     private bool UpdateMooshShake(string actor, int update, int frames)

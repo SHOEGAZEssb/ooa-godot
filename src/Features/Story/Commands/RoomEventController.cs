@@ -408,10 +408,22 @@ public sealed class RoomEventController
     }
 
     // GameRoot's ApplicationFixedUpdateScheduler owns elapsed time.
-    public void UpdateFrame()
+    public void UpdateFrame() => UpdateFrame(inObjectPass: false);
+
+    internal void UpdateInteractionPhase() => UpdateFrame(inObjectPass: true);
+
+    internal void UpdatePartPhase()
+    {
+        if (!_context.Transitions.IsTransitioning &&
+            UpdateOwner is { UpdatesInObjectPhases: true } owner)
+            owner.UpdatePartFrame();
+    }
+
+    private void UpdateFrame(bool inObjectPass)
     {
         if (_context.Transitions.IsTransitioning)
         {
+            if (inObjectPass) return;
             Get<ImpaIntroEvent>().InitializeEncounterInteraction();
             Get<GoronCaveEvent>().InitializeDuringTransition();
             Get<DefeatedMoblinEvent>().UpdateDuringWarpArrival();
@@ -421,6 +433,7 @@ public sealed class RoomEventController
         }
 
         IRoomEvent? owner = UpdateOwner;
+        if (owner is null || owner.UpdatesInObjectPhases != inObjectPass) return;
         if (_context.DialogueOpen)
             (owner as IUpdatesDuringDialogueRoomEvent)?.UpdateDuringDialogueFrame();
         else

@@ -273,12 +273,12 @@ public sealed partial class ValidationRoot
             "Ralph ended or set room flag $40 before the final wait zero update.");
         StepRoomEventFrames(1);
         FailIf(
-            !roomEvent.HasState || ralph.Active || !roomEvent.BlocksGameplay ||
+            !roomEvent.HasState || !ralph.Active || !roomEvent.BlocksGameplay ||
             !roomEvent.MenusDisabled || !_player.CutsceneControlled ||
             !_saveData.HasRoomFlag(group, roomId, (byte)record.RoomFlag) ||
             roomEvent.CurrentCommandIndex != 14,
             "Ralph did not set room flag $40 and yield before enableinput " +
-            "(the live imported predicate should hide the off-screen actor) " +
+            "(state0's predicate must not retire the initialized actor) " +
             $"(state={roomEvent.HasState}, actor={ralph.Active}, " +
             $"blocks={roomEvent.BlocksGameplay}, menus={roomEvent.MenusDisabled}, " +
             $"link={_player.CutsceneControlled}, flag=" +

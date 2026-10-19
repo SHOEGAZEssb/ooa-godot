@@ -11,6 +11,16 @@ namespace oracleofages;
 /// </summary>
 internal static class OracleGraphicsCache
 {
+    private static int _applicationOwners;
+
+    internal static void ApplicationEnteredTree() => _applicationOwners++;
+
+    internal static void ApplicationExitedTree()
+    {
+        if (_applicationOwners == 0)
+            throw new InvalidOperationException("A graphics cache owner exited without entering the tree.");
+        if (--_applicationOwners == 0) Shutdown();
+    }
 
     private static readonly Dictionary<string, Image> SourceImages =
         new(StringComparer.Ordinal);
@@ -388,7 +398,7 @@ internal static class OracleGraphicsCache
         return hash;
     }
 
-    internal static void Shutdown()
+    private static void Shutdown()
     {
         MonochromeFonts.Clear();
         OamCells.Clear();

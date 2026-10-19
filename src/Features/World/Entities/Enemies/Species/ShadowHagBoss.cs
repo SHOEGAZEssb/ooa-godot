@@ -35,7 +35,6 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     private int _counter2;
     private int _angle;
     private int _zFixed;
-    private int _handledAnimationFrame = -1;
     private int _bugsAlive;
     private bool _initialized;
     private bool _introActive = true;
@@ -60,7 +59,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     internal override bool CollisionEnabled =>
         base.CollisionEnabled && Vulnerable;
     protected override Vector2 AnimationDrawOffset =>
-        base.AnimationDrawOffset + Vector2.Down * (_zFixed / 256.0f);
+        base.AnimationDrawOffset + Vector2.Down * (_zFixed >> 8);
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -109,11 +108,12 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     internal void UpdateFrame(
         Player player,
         int frameCounter,
-        ICollection<RoomEntitySpawn> spawns)
+        ICollection<RoomEntitySpawn> spawns,
+        Vector2 linkTarget)
     {
         if (IsDead)
             return;
-        _linkPosition = player.Position;
+        _linkPosition = new(OracleObjectPosition.HighByte(linkTarget.X), OracleObjectPosition.HighByte(linkTarget.Y));
         BeginFrame();
         if (!_initialized)
         {
@@ -147,8 +147,8 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                         _state == ShadowHagState.IntroMovingToCenter,
                     Size: 1,
                     YOffset: 4), spawns)) break;
-                Position = new Vector2(player.Position.X, player.Position.Y + 4);
-                _zFixed = -0x100;
+                SetPositionHigh(new(_linkPosition.X, ((int)_linkPosition.Y + 4) & 255));
+                _zFixed = unchecked((short)(0xff00 | (_zFixed & 255)));
                 _angle = ObjectAngle.Left;
                 _state = ShadowHagState.IntroMovingToCenter;
                 break;
@@ -161,7 +161,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                     break;
                 }
                 BeginEmerging();
-                _zFixed = 0;
+                _zFixed &= 255; // Source writes zh only.
                 _counter1 = 0x10;
                 _state = ShadowHagState.IntroEmerging;
                 break;
@@ -215,7 +215,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                     return;
                 _counter1 = 0xff;
                 _state = ShadowHagState.ShadowsConverging;
-                Position = ConvergencePositions[(_random.Next().Value & 6) >> 1];
+                SetPositionHigh(ConvergencePositions[(_random.Next().Value & 6) >> 1]);
                 break;
 
             case ShadowHagState.ShadowsConverging:
@@ -280,7 +280,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                 }
                 if (TryChooseSpawnPosition(player, out Vector2 spawnPosition))
                 {
-                    Position = spawnPosition;
+                    SetPositionHigh(spawnPosition);
                     BeginEmerging();
                     _state = ShadowHagState.ChargeEmerging;
                 }
@@ -292,7 +292,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                 _state = ShadowHagState.ChargeTell;
                 _counter1 = 30;
                 SetCollisionRadii(8, 12);
-                _angle = CardinalAngleToward(player.Position);
+                _angle = CardinalAngleToward(_linkPosition);
                 SetAnimation(CardinalAnimation(_angle));
                 break;
 
@@ -307,8 +307,8 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
                 {
                     _counter1 = 60;
                     _state = ShadowHagState.Charging;
+                    AdvanceAnimation();
                 }
-                AdvanceAnimation();
                 break;
 
             case ShadowHagState.Charging:
@@ -348,8 +348,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
 
     internal void BugFinished()
     {
-        if (_bugsAlive > 0)
-            _bugsAlive--;
+        _bugsAlive = (_bugsAlive - 1) & 255;
     }
 
     internal bool TakeSeedHit(int damage)
@@ -414,9 +413,8 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     {
         ZIndex = ObjectDrawPriority.BehindLinkZIndex; // shadowHag_beginEmergingFromShadow: visible82.
         SetAnimation(5);
-        _handledAnimationFrame = -1;
         Visible = true;
-        Position += Vector2.Up * 4;
+        OffsetYHigh(-4);
     }
 
     private bool UpdateEmerging()
@@ -425,9 +423,11 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         int parameter = AnimationParameter;
         if (parameter == 0xff)
             return true;
-        if (parameter == 1 && _handledAnimationFrame != AnimationFrame)
-            Position += Vector2.Up * 8;
-        _handledAnimationFrame = AnimationFrame;
+        if (parameter == 1)
+        {
+            OffsetYHigh(-8);
+            Animation.SetParameter(0);
+        }
         return false;
     }
 
@@ -437,7 +437,6 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         _counter1 = 90;
         _counter2 = 30;
         SetCollisionRadii(5, 3);
-        _handledAnimationFrame = -1;
         SetAnimation(6);
     }
 
@@ -445,14 +444,16 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
     {
         AdvanceAnimation();
         int parameter = AnimationParameter;
-        if (parameter is 1 or 2 && _handledAnimationFrame != AnimationFrame)
-            Position += Vector2.Down * (parameter == 1 ? 8 : 4);
-        _handledAnimationFrame = AnimationFrame;
+        if (parameter is 1 or 2)
+        {
+            OffsetYHigh(parameter == 1 ? 8 : 4);
+            Animation.SetParameter(0);
+        }
     }
 
     private void FinishCharge()
     {
-        _counter2 = DecrementByte(_counter2);
+        _counter2 = Math.Max(0, _counter2 - 1); // ecom_decCounter2 saturates.
         if (_counter2 == 0)
         {
             BeginReturningToGround();
@@ -460,7 +461,6 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         }
         _state = ShadowHagState.ReturnDelay;
         _counter1 = 30;
-        _handledAnimationFrame = -1;
         SetAnimation(6);
     }
 
@@ -482,8 +482,9 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
 
     private bool LinkLookedAtHag(Player player)
     {
+        // The angle uses hEnemyTargetY/X; facing reads live w1Link.direction.
         int angleToLink = OracleObjectMovement.Shared.RelativeAngle(
-            Position, player.Position);
+            Position, _linkPosition);
         int expectedDirection = ((angleToLink + 0x14) & ObjectAngle.CardinalMask) >> 3;
         return DirectionIndex(player.FacingVector) == expectedDirection;
     }
@@ -507,7 +508,13 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         direction == Vector2I.Down ? 2 : 3;
 
     private void Move(int angle, int speed) =>
-        Position += OracleObjectMovement.Shared.Delta(speed, angle);
+        Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position), speed, angle).PrecisePosition;
+
+    private void SetPositionHigh(Vector2 position) =>
+        Position = new Vector2(OracleObjectPosition.HighByte(position.X), OracleObjectPosition.HighByte(position.Y)) + Position - Position.Floor();
+
+    private void OffsetYHigh(int delta) =>
+        SetPositionHigh(new(Position.X, (OracleObjectPosition.HighByte(Position.Y) + delta) & 255));
 
     private void BeginDeath()
     {

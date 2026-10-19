@@ -36,6 +36,9 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
     private int _disappearancePhase;
     private Player? _heldBy;
     private bool _initialUpdateComplete;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     internal SpotRecord Spot { get; private set; }
     internal GashaSpotDatabase Database => _database;
@@ -173,8 +176,8 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
                     _nutCaught(this, player);
                     return;
                 }
-                Position = OracleObjectMovement.Shared.ApplySpeed(
-                    ref _precisePosition, _database.NutSpeedRaw, _angle);
+                Position = NativeObjectMovement.ApplySpeed(
+                    _movementMemory, ref _precisePosition, _database.NutSpeedRaw, _angle);
                 OracleObjectMath.UpdateSpeedZ(
                     ref _zFixed, ref _speedZ, _database.NutGravity);
                 QueueRedraw();

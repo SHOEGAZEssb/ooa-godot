@@ -11,14 +11,16 @@ internal sealed class RunningBipinRoomEntity
         IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
     private readonly RunningBipinRecord _data;
+    private readonly OracleRuntimeState _runtime;
     private Vector2 _precisePosition;
     private int _angle;
     private int _animation;
 
-    public RunningBipinRoomEntity(NpcCharacter npc, RunningBipinRecord data)
+    public RunningBipinRoomEntity(NpcCharacter npc, RunningBipinRecord data, OracleRuntimeState runtime)
         : base(npc, npc.SetTransitionDrawOffset)
     {
         _data = data;
+        _runtime = runtime;
         _precisePosition = npc.Position;
         _angle = data.InitialAngle;
         _animation = data.InitialAnimation;
@@ -34,8 +36,8 @@ internal sealed class RunningBipinRoomEntity
         if (!Entity.Active)
             return;
 
-        Entity.Position = OracleObjectMovement.Shared.ApplySpeed(
-            ref _precisePosition, _data.SpeedRaw, _angle);
+        Entity.Position = NativeObjectMovement.ApplySpeed(
+            _runtime, ref _precisePosition, _data.SpeedRaw, _angle);
         float relativeX = Entity.Position.X - _data.MinimumX;
         if (relativeX < 0 || relativeX >= _data.SpanX)
         {

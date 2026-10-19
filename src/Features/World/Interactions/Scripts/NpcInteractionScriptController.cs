@@ -19,6 +19,8 @@ internal sealed class NpcInteractionScriptController
     private double _frameAccumulator;
     private KnowItAllBirdScriptHost? _birdTalk;
     private readonly List<SharedNpcScriptHost> _shared = new();
+    private readonly List<BlackTowerBlockerScriptHost> _blockers = new();
+    private readonly List<BlackTowerPatrolScriptHost> _patrollers = new();
     private readonly SharedNpcDatabase _sharedData = new();
 
     public NpcInteractionScriptController(
@@ -44,13 +46,14 @@ internal sealed class NpcInteractionScriptController
             scripts.PastBipin,
             treasures,
             family);
+        var blackTower = new BlackTowerWorkerDatabase();
         _hardhat = new HardhatShovelScriptHost(
             rooms,
             entities,
             dialogue,
             scripts.HardhatShovel,
             treasures,
-            new BlackTowerWorkerDatabase());
+            blackTower);
         _postman = new PostmanScriptHost(
             rooms,
             entities,
@@ -77,6 +80,18 @@ internal sealed class NpcInteractionScriptController
                 return true;
             }),
             NpcInteractionHandler.ForNpc("oldManScript_takesRupees", _oldMan.TryInteract),
+            NpcInteractionHandler.ForNpc("villagerSubid02Script_part1", (target, player) =>
+            {
+                foreach (var host in _blockers)
+                    if (host.TryInteract(target, player)) return true;
+                return false;
+            }),
+            NpcInteractionHandler.ForNpc("hardhatWorkerSubid03Script", (target, player) =>
+            {
+                foreach (var host in _patrollers)
+                    if (host.TryInteract(target, player)) return true;
+                return false;
+            }),
             NpcInteractionHandler.ForNpc(
                 "linkedGameNpcScript",
                 _linked.TryInteract),
@@ -95,6 +110,22 @@ internal sealed class NpcInteractionScriptController
         {
             foreach (var host in _shared) host.Cancel();
             _shared.Clear();
+            foreach (var host in _blockers) host.Cancel();
+            _blockers.Clear();
+            foreach (var host in _patrollers) host.Cancel();
+            _patrollers.Clear();
+            foreach (var slot in entities.EntityAdapters<BlackTowerBlockingVillagerRoomEntity>())
+            {
+                var host = new BlackTowerBlockerScriptHost(slot, blackTower, rooms, entities, dialogue);
+                slot.Script = host;
+                _blockers.Add(host);
+            }
+            foreach (var slot in entities.EntityAdapters<BlackTowerPatrollingWorkerRoomEntity>())
+            {
+                var host = new BlackTowerPatrolScriptHost(slot, blackTower, rooms, entities, dialogue);
+                slot.Script = host;
+                _patrollers.Add(host);
+            }
             foreach (var slot in entities.EntityAdapters<SharedScriptNpcRoomEntity>())
             {
                 var host = new SharedNpcScriptHost(slot, _sharedData,
@@ -137,6 +168,8 @@ internal sealed class NpcInteractionScriptController
         {
             foreach (NpcInteractionCommandHost host in _hosts)
                 host.SetTraceSink(value);
+            foreach (var host in _blockers) host.SetTraceSink(value);
+            foreach (var host in _patrollers) host.SetTraceSink(value);
         }
     }
 
@@ -161,6 +194,10 @@ internal sealed class NpcInteractionScriptController
             host.Cancel();
         foreach (var host in _shared) host.Cancel();
         _shared.Clear();
+        foreach (var host in _blockers) host.Cancel();
+        _blockers.Clear();
+        foreach (var host in _patrollers) host.Cancel();
+        _patrollers.Clear();
         _frameAccumulator = 0.0;
     }
 }

@@ -39,7 +39,7 @@ internal sealed class PumpkinHeadBossRoomEntity : IRoomEntity, IFixedRoomEntity,
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        _boss.UpdateFrame(frame.Player, spawns);
+        _boss.UpdateFrame(frame.Player, spawns, frame.Counter, frame.LinkTarget ?? frame.Player.EnemyContactPosition);
         if (_initialized)
             return;
         _initialized = true;

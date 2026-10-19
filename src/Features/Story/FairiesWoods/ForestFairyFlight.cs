@@ -236,7 +236,7 @@ internal sealed class ForestFairyFlight
 
     private void ApplySpeed()
     {
-        OracleObjectPosition position = OracleObjectMovement.Shared.ApplySpeed(
+        OracleObjectPosition position = NativeObjectMovement.ApplySpeed(_runtime,
             new OracleObjectPosition(
                 unchecked((ushort)_yFixed),
                 unchecked((ushort)_xFixed)),

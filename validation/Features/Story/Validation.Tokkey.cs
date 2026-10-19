@@ -7,10 +7,16 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidateRoom38fTokkey()
+    private void ValidateRoom38fTokkey() => ValidateRoom38fTokkeyCore(false);
+    private void ValidateRoom38fTokkeyCore(bool nativeMovement, bool batched=false)
     {
         var tokkey = _roomEvents.Get<TokkeyEvent>();
-        var trace = new ValidationCutsceneTrace();
+        ScriptMovementPublicationTrace? motion=nativeMovement?new(_runtimeState,source=>
+        {
+            var move=TokkeySourceMoves.SingleOrDefault(m=>m.Line==source.SourceLine);
+            return move.Line==0?null:(move.Speed,move.Angle,SomariaPrivate<Vector2>(tokkey,"_precisePosition"));
+        }):null;
+        var trace = new ValidationCutsceneTrace{Forward=motion};
         _roomEvents.CommandTraceSink = trace;
         _saveData.SetRoomFlag(3, 0x8f, 0x40, false);
         _inventory.GiveTreasure(TreasureId.Harp, 0);
@@ -21,6 +27,7 @@ public sealed partial class ValidationRoot
         byte Signal() => _entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0);
         void StepRoomEventFrames(int frames)
         {
+            if(nativeMovement){StepGameplayUpdates(frames,Vector2.Zero,batched:batched);return;}
             for (int frame = 0; frame < frames; frame++)
             {
                 _harp.BeginObjectUpdate();
@@ -74,8 +81,14 @@ public sealed partial class ValidationRoot
             int command = tokkey.CommandIndex;
             int animation = Actor().CurrentAnimationFrame;
             int notes = _harp.NoteSpawnCount;
+            long startedUpdates = Application.UpdateCount;
+            int itemUpdates=0;
             void ExpectStillPlaying()
             {
+                itemUpdates++;
+                var world=SomariaPrivate<IPlayerWorld>(_player,"_world");
+                FailIf(SomariaPrivate<int>(_player,"_harpActionUpdate")!=itemUpdates,
+                    $"Tokkey harp parent did not advance on update{itemUpdates}: action{SomariaPrivate<int>(_player,"_harpActionUpdate")}, process/physics{_player.IsProcessing()}/{_player.IsPhysicsProcessing()}, owned{_player.ApplicationUpdateOwned}, cutscene{_player.CutsceneControlled}, frozen/link/palette/exit/transition{world.PlayerUpdatesFrozen}/{world.LinkDisabled}/{world.NativePaletteChanging}/{world.RoomExitPending}/{world.IsTransitioning}, menu/map{_inventoryMenu.IsActive}/{_mapMenu.IsActive}, mask${_runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}, updates{Application.UpdateCount-startedUpdates}, notes{_harp.NoteSpawnCount}/{notes}, batch{batched}.");
                 FailIf(!_player.IsUsingHarp || !_player.HarpPoseActive || tokkey.State != 1 ||
                     tokkey.CommandIndex != command || Actor().CurrentAnimationFrame != animation ||
                     _dialogue.IsOpen || tokkey.BlocksGameplay ||
@@ -87,6 +100,7 @@ public sealed partial class ValidationRoot
             if (batched)
             {
                 StepGameplayUpdates(259, Vector2.Zero, batched: true);
+                itemUpdates=258;
                 ExpectStillPlaying();
             }
             else
@@ -100,7 +114,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(1, Vector2.Zero);
             FailIf(_player.IsUsingHarp || _player.HarpPoseActive || _harp.IsPlaying ||
                 _entities.PlayingInstrumentSource() != 1 || _harp.NoteSpawnCount != notes + 8,
-                "ITEM_HARP failed to finish naturally with eight notes and preserve $01 for Tokkey's completion-update collision check.");
+                $"ITEM_HARP failed to finish naturally with eight notes and preserve $01 for Tokkey's completion-update collision check: item={_player.IsUsingHarp},pose={_player.HarpPoseActive},parent={_harp.IsPlaying},instrument=${_entities.PlayingInstrumentSource():x2},notes={_harp.NoteSpawnCount}/{notes+8},action={SomariaPrivate<int>(_player,"_harpActionUpdate")}/{SomariaPrivate<int>(_player,"_harpActionFrames")},updates={Application.UpdateCount-startedUpdates},remainder={Application.Remainder},batch={batched}.");
         }
         void StopPlaying()
         {
@@ -217,6 +231,8 @@ public sealed partial class ValidationRoot
             !_saveData.HasRoomFlag(3, 0x8f, 0x40), "Tokkey failed to finish his persistent lesson and restore input.");
         Talk(0x2c04);
         _dialogue.Close();
+        FailIf(motion is not null&&(motion.MotionVisits!=475||motion.Visited.Count!=15),
+            "Tokkey's complete lesson must execute475 original motion steps across15 command sites, including repeated desk subroutines.");
         FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) || restored is null ||
             !restored.HasRoomFlag(3, 0x8f, 0x40) ||
             !new InventoryState(_treasures, restored).HasTreasure(TreasureId.TuneOfCurrents),
@@ -241,9 +257,11 @@ public sealed partial class ValidationRoot
         StepRoomEventFrames(3);
         _player.WarpTo(new Vector2(0x28, 0x38));
         _player.StartHarpActionForValidation();
-        base._Process(120.0 / 60.0);
+        // Keep this phase on explicit samples too: base._Process would capture
+        // a stale Godot menu edge from another synchronous validation.
+        StepGameplayUpdates(120,Vector2.Zero,batched:batched);
         StopPlaying(); // Cancelling an item must not publish natural completion.
-        base._Process(1.0 / 60.0);
+        StepGameplayUpdates(1,Vector2.Zero);
         FailIf(tokkey.State != 1 || _entities.PlayingInstrumentSource() != 0 || _dialogue.IsOpen,
             "Cancelling Echoes midway through playback falsely triggered Tokkey's lesson.");
         Play(new Vector2(0x28, 0x38));

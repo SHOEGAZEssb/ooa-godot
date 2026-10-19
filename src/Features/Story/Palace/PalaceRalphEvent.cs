@@ -51,7 +51,8 @@ internal sealed class PalaceRalphEvent(RoomEventContext context) :
 
     public void UpdateFrame()
     {
-        if (!HasState || _ralph is not { Active: true } ralph) return;
+        if (!HasState || _ralph is not { Active: true } ralph ||
+            !context.Entities.InitializedInteractionUpdatesAllowed) return;
         _runner!.AdvanceFrame();
         if (ralph.Active)
             ralph.AdvanceAnimationUpdates(_runner.MovementCounter("Ralph") == 0 ? 1 : 3);
@@ -73,7 +74,7 @@ internal sealed class PalaceRalphEvent(RoomEventContext context) :
     public override void SetActorMovementAnimation(string actor, int angle, string encodedAnimation) =>
         RequireRalph(actor).SetScriptAnimation(encodedAnimation);
     public override void MoveActorAtSpeed(string actor, int speed, int angle) =>
-        RequireRalph(actor).SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _precise, speed, angle));
+        RequireRalph(actor).SetStatePosition(NativeObjectMovement.ApplySpeed(context.Entities.RuntimeState, ref _precise, speed, angle));
     public override void RunNativeHandler(string handler)
     {
         switch (handler)

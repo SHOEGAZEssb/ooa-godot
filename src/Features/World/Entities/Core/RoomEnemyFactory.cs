@@ -191,7 +191,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                     ZIndex = ObjectDrawPriority.BehindLinkZIndex
                 };
                 cheepCheep.Initialize(enemies.ImportedEnemy(source.Id, source.SubId),
-                    room, position, source.Var03);
+                    room, position, source.Var03, _random);
                 return new CheepCheepRoomEntity(cheepCheep, combatSource, owner.OnSoundRequested);
 
             case EnemyHandlerKind.Keese:

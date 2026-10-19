@@ -279,8 +279,8 @@ public sealed partial class ValidationRoot
         int moblinRandomCalls = _entities.RandomCalls;
         StepEntities();
         FailIf(
-            _entities.RandomCalls != moblinRandomCalls + 4,
-            "Each Boomerang Moblin did not consume separate duration and " +
+            _entities.RandomCalls != moblinRandomCalls + 6,
+            "Each Boomerang Moblin did not consume its common, duration and " +
             "cardinal-angle RNG values on its first object update.");
         _player.WarpTo(new Vector2(0x78, 0x78));
         for (int frame = 0;
@@ -471,18 +471,18 @@ public sealed partial class ValidationRoot
         int ghiniRandomCalls = _entities.RandomCalls;
         StepEntities();
         FailIf(
-            _entities.RandomCalls != ghiniRandomCalls ||
+            _entities.RandomCalls != ghiniRandomCalls + 1 ||
             ghini.State != GhiniState.Choosing,
-            "The room 4:1e Ghini consumed its route RNG during source state 0.");
+            "The room 4:1e Ghini must consume exactly its common var3d RNG during source state 0.");
         StepEntities();
         FailIf(
-            _entities.RandomCalls != ghiniRandomCalls + 1 ||
+            _entities.RandomCalls != ghiniRandomCalls + 2 ||
             ghini.State != GhiniState.Moving,
             "The room 4:1e Ghini did not choose its route in state 8 on the next update.");
         int ghiniAngleBeforeBounce = ghini.Angle;
         ghini.Position = ghiniAngleBeforeBounce switch
         {
-            0x00 => new Vector2(0x50, 5.75f),
+            0x00 => new Vector2(0x50, 3.75f),
             0x08 => new Vector2(_currentRoom.Width - 6.25f, 0x40),
             0x10 => new Vector2(0x50, _currentRoom.Height - 6.25f),
             _ => new Vector2(5.75f, 0x40)
@@ -997,7 +997,7 @@ public sealed partial class ValidationRoot
             _entities.Entities<GiantGhiniChild>().First().Record,
             giant,
             _currentRoom,
-            0);
+            0, _random);
         respawnedChild.UpdateFrame(
             _player, anyButtonJustPressed: false, frameCounter: 0,
             respawnPuffSpawns);
@@ -1007,15 +1007,24 @@ public sealed partial class ValidationRoot
             "A respawned Giant Ghini child did not create the source " +
             "INTERAC_PUFF/SND_POOF appearance effect.");
         respawnedChild.Free();
+        Vector2 beforeCharge=giant.Position;
         giant.ChildAttached(_player);
-        StepEntities(7);
+        FailIf(giant.State!=GiantGhiniBossBossState.Moving,
+            "A Giant Ghini child request must wait for the parent's own next handler.");
+        StepEntities();
+        FailIf(giant.State!=GiantGhiniBossBossState.Charging||giant.Position!=beforeCharge||
+            giant.Animation.FrameIndex!=0||SomariaPrivate<int>(giant.Animation,"_frameCounter")!=7,
+            "Giant Ghini charge entry must set animation1 without planar motion or consuming its first seven-update animation hold.");
+        StepEntities(6);
+        FailIf(giant.Animation.FrameIndex!=0||SomariaPrivate<int>(giant.Animation,"_frameCounter")!=1,
+            "enemyAnimation377f0 must retain frame0 through six subsequent charging updates.");
+        StepEntities();
         ulong chargingVisualHash = OracleGraphicsCache.PixelHash(
             giant.CurrentAnimationTexture.GetImage());
         giant.ChildDetached();
         FailIf(
             chargingVisualHash != 0x170a29eaf8025ffcUL,
-            "Giant Ghini's charge animation did not reach the corrected " +
-            "second block of its imported black-on-white sprite chain.");
+            $"Giant Ghini's charge animation did not reach the corrected second block: hash${chargingVisualHash:x16}, state{giant.State}, animation{giant.AnimationIndex}/{giant.Animation.FrameIndex}, clock{SomariaPrivate<int>(giant.Animation,"_frameCounter")}, XY{giant.Position}, Link{_player.Position}.");
         int giantHealth = giant.Health;
         _sound.ClearPlayRequestAudit();
         _player.WarpTo(giant.Position + Vector2.Down * 12.0f);

@@ -393,6 +393,15 @@ public sealed class OracleRoomData
             activeHeaders, destinationTile, out _, out _);
     }
 
+    // bank0.objectCheckSimpleCollision treats the raw collision byte as four
+    // quarter bits, including values used by the special-collision helpers.
+    internal bool HasSimpleCollision(Vector2 localPoint)
+    {
+        int x=OracleObjectPosition.HighByte(localPoint.X),y=OracleObjectPosition.HighByte(localPoint.Y);
+        int bit=((y&8)==0?2:0)+((x&8)==0?1:0);
+        return (GetTerrainInfo(new(x,y)).Collision & (1<<bit)) != 0;
+    }
+
     public bool IsSolid(Vector2 localPoint) =>
         IsSolid(localPoint, SpecialCollisionMasks);
 

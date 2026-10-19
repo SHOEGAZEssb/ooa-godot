@@ -8,24 +8,23 @@ namespace oracleofages;
 /// Runs the five INTERAC_TOKAY $48:$00-$04 thieves reached directly from the
 /// room $1:$a8 raftwreck warp.
 /// </summary>
-internal sealed class TokayTheftEvent : IRoomEntryEvent
+internal sealed class TokayTheftEvent : IRoomEntryEvent, IUpdatesDuringDialogueRoomEvent
 {
     private const int ThiefCount = 5;
     private readonly RoomEventContext _context;
     private readonly TokayTheftEventDatabase _database = new();
     private readonly TokayNativeDatabase _native = new();
     private int _waveCounter;
-    private readonly List<ThiefState> _thieves = [];
+    private readonly List<TokayThiefScriptHost> _thieves = [];
     private bool _active;
     private bool _initializing;
-    private ScriptStage _scriptStage;
-    private int _scriptCounter;
     private int _stealCounter;
     private int _stolenCount;
-    private int _linkZFixed;
-    private int _linkSpeedZ;
     private int _linkFrame;
     private int _linkFrameCounter;
+    private int _linkWait;
+    private bool _linkInitialized;
+    private bool _linkNormalPending;
 
     internal TokayTheftEvent(RoomEventContext context) => _context = context;
 
@@ -33,7 +32,9 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
     public bool BlocksGameplay => _active;
     public bool MenusDisabled => _active;
     internal TokayTheftEventDatabase Database => _database;
-    internal int ScriptCounter => _scriptCounter;
+    internal IReadOnlyList<TokayThiefScriptHost> Thieves => _thieves;
+    internal TokayThiefScriptHost? UpdatingThief { get; private set; }
+    internal int ScriptCounter => _thieves.Find(thief => thief.SubId == _database.Record.MainSubId)?.Runner.Counter ?? 0;
     internal int LinkFrame => _linkFrame;
     internal int LinkFrameCounter => _linkFrameCounter;
     internal int StolenCount => _stolenCount;
@@ -44,7 +45,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         get
         {
             var sizes = new List<Vector2I>();
-            foreach (ThiefState thief in _thieves)
+            foreach (TokayThiefScriptHost thief in _thieves)
             {
                 if (thief.Accessory?.Active == true)
                     sizes.Add(thief.Accessory.CurrentAnimationTextureSize);
@@ -76,7 +77,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
             actor.SetAnimationRate(0.0f);
             actor.SetScriptAnimation(
                 _database.Animation(record.InitialAnimations[subId]));
-            _thieves.Add(new ThiefState(actor, subId, actor.Position));
+            _thieves.Add(new TokayThiefScriptHost(_context, _database, actor, subId, MakeLinkJump));
         }
         if (_thieves.Count == 0)
             return;
@@ -87,49 +88,29 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         _context.Player.BeginCutsceneControl(owner: this);
         _active = true;
         _initializing = true;
-        _scriptStage = ScriptStage.InitialWait;
-        _scriptCounter = record.LinkWait;
         _stealCounter = record.StealFirstWait;
         _linkFrame = 0;
-        _linkFrameCounter = _database.LinkFrames[0].Duration;
-        _context.Player.SetCutsceneSpriteFrame(_database.LinkFrames[0]);
         _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
     }
 
     public void UpdateFrame()
     {
+        if (!_active) return;
         if (_initializing)
         {
             _initializing = false;
-            foreach (ThiefState thief in _thieves)
+            foreach (TokayThiefScriptHost thief in _thieves)
                 thief.Actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // tokay.s state 0: objectSetVisiblec2
             return;
         }
+        if (!_context.Entities.InitializedInteractionUpdatesAllowed) return;
 
-        if (_scriptStage == ScriptStage.InitialWait)
-            AdvanceWashedUpLinkAnimation();
-        if (_scriptStage <= ScriptStage.FinalFreeze)
-        {
-            AdvanceTheft();
-            bool animationsFrozen = _scriptStage is
-                ScriptStage.FirstFreeze or ScriptStage.FinalFreeze;
-            if (!animationsFrozen)
-            {
-                foreach (ThiefState thief in _thieves)
-                    thief.Actor.AdvanceAnimationUpdates(1);
-            }
-            AdvanceScripts();
-        }
-        else
-        {
-            AdvanceNativeExits();
-        }
-        AdvanceLinkJump();
+        AdvanceThieves();
         SynchronizeAccessories();
         // $6b:$08 follows all five thieves and the cliff NPC in the object
         // stream. The main thief's cfd1 signal deletes it before this pass
         // once Link jumps. Each wave consumes exactly one shared RNG byte.
-        if (_scriptStage == ScriptStage.InitialWait)
+        if (_context.Entities.RuntimeState.ReadWramByte(0xcfd1) == 0)
         {
             if (_waveCounter != 0) _waveCounter--;
             else
@@ -140,10 +121,47 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         }
     }
 
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
+
+    public void UpdateSpecialObjectFrame()
+    {
+        if (!_active || _initializing) return;
+        if (!_linkInitialized)
+        {
+            _linkInitialized=true; _linkWait=_database.Record.LinkWait;
+            _linkFrame=0; _linkFrameCounter=_database.LinkFrames[0].Duration;
+            _context.Player.SetCutsceneSpriteFrame(_database.LinkFrames[0]);
+            return;
+        }
+        if (_linkNormalPending)
+        {
+            _linkNormalPending=false;
+            _context.Player.SetCutsceneSpriteFrame(null);
+            _context.Player.BeginSimulatedInputControl(this);
+            // The adopted normal ID runs linkState00's setup and returns.
+            // A jump requested by the main thief on the preceding update
+            // retains its speedZ/in-air request until state01 runs next.
+            return;
+        }
+        if (_linkWait != 0)
+        {
+            AdvanceWashedUpLinkAnimation();
+            if (--_linkWait == 0)
+            {
+                _linkNormalPending=true;
+                _context.Player.Face(Vector2I.Down);
+                _context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled,1);
+            }
+        }
+        // Normal linkState01 rejects scroll-mode bits$0e before its air path.
+        if ((_context.Entities.RuntimeState.ReadWramByte(0xcd00)&0x0e)==0)
+            _context.Player.AdvanceControlledTopDownAir(this);
+    }
+
     public void Cancel()
     {
         bool releaseControl = _active;
-        foreach (ThiefState thief in _thieves)
+        foreach (TokayThiefScriptHost thief in _thieves)
         {
             thief.Accessory?.SetActive(false);
             thief.Actor.SetScriptDrawOffset(Vector2.Zero);
@@ -151,20 +169,20 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         _thieves.Clear();
         _active = false;
         _initializing = false;
-        _scriptStage = ScriptStage.InitialWait;
-        _scriptCounter = 0;
         _stealCounter = 0;
         _stolenCount = 0;
         _waveCounter = 0;
-        _linkZFixed = 0;
-        _linkSpeedZ = 0;
         _linkFrame = 0;
         _linkFrameCounter = 0;
+        _linkWait=0; _linkInitialized=false; _linkNormalPending=false;
         _context.Player.SetCutsceneDrawZFixed(0);
         _context.Player.SetCutsceneSpriteFrame(null);
         if (releaseControl)
+        {
+            _context.Player.CancelControlledTopDownAir(this);
             _context.Player.EndCutsceneControl(this);
-        _context.Player.EndCutsceneControl(this);
+            _context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled,0);
+        }
     }
 
     private void AdvanceTheft()
@@ -185,89 +203,16 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         _context.Sound.PlaySound(SoundId.SndUnknown5);
     }
 
-    private void AdvanceScripts()
+    private void FinishScript(TokayThiefScriptHost thief)
     {
-        switch (_scriptStage)
-        {
-            case ScriptStage.InitialWait:
-                if (--_scriptCounter != 0)
-                    return;
-                foreach (ThiefState thief in _thieves)
-                    thief.Actor.SetScriptAnimation(_database.Animation(0));
-                _context.Player.SetCutsceneSpriteFrame(null);
-                _context.Player.Face(Vector2I.Down);
-                _linkZFixed = 0;
-                _linkSpeedZ = -0x200;
-                _context.Sound.PlaySound(SoundId.SndJump);
-                _context.Sound.PlaySound(SoundId.SndStrike);
-                SetStage(ScriptStage.Down, 0x10);
-                return;
-
-            case ScriptStage.Down:
-                ApplyCommonSpeed(_database.Record.DownSpeed, ObjectAngle.Down);
-                if (--_scriptCounter == 0)
-                    SetStage(ScriptStage.DownWait, 30);
-                return;
-
-            case ScriptStage.DownWait:
-                if (--_scriptCounter == 0)
-                    SetStage(ScriptStage.FirstRight, 0x20);
-                return;
-
-            case ScriptStage.FirstRight:
-                ApplyCommonSpeed(_database.Record.RightSpeed, ObjectAngle.Right);
-                if (--_scriptCounter == 0)
-                    SetStage(ScriptStage.FirstFreeze, 60);
-                return;
-
-            case ScriptStage.FirstFreeze:
-                if (--_scriptCounter == 0)
-                    SetStage(ScriptStage.SecondRight, 0x20);
-                return;
-
-            case ScriptStage.SecondRight:
-                ApplyCommonSpeed(_database.Record.RightSpeed, ObjectAngle.Right);
-                if (--_scriptCounter == 0)
-                    SetStage(ScriptStage.FinalFreeze, 60);
-                return;
-
-            case ScriptStage.FinalFreeze:
-                if (--_scriptCounter == 0)
-                    FinishScripts();
-                return;
-        }
+        thief.Stage = 1;
+        thief.Counter = _database.Record.ItemWait;
+        thief.Actor.SetScriptAnimation(_database.Animation(5));
+        if (thief.SubId == 0) _context.Sound.PlaySound(SoundId.SndGetItem);
+        if (_context.Entities.InteractionSlotAvailable) thief.Accessory = SpawnAccessory(thief);
     }
 
-    private void SetStage(ScriptStage stage, int counter)
-    {
-        _scriptStage = stage;
-        _scriptCounter = counter;
-    }
-
-    private void ApplyCommonSpeed(int speed, int angle)
-    {
-        // applyspeed decrements its byte before applying movement; $10/$20
-        // therefore produce 15/31 movement updates.
-        if (_scriptCounter == 1)
-            return;
-        foreach (ThiefState thief in _thieves)
-            Move(thief, speed, angle);
-    }
-
-    private void FinishScripts()
-    {
-        _scriptStage = ScriptStage.NativeExit;
-        foreach (ThiefState thief in _thieves)
-        {
-            thief.Stage = NativeStage.ItemWait;
-            thief.Counter = _database.Record.ItemWait;
-            thief.Actor.SetScriptAnimation(_database.Animation(5));
-            thief.Accessory = SpawnAccessory(thief);
-        }
-        _context.Sound.PlaySound(SoundId.SndGetItem);
-    }
-
-    private NpcCharacter SpawnAccessory(ThiefState thief)
+    private NpcCharacter SpawnAccessory(TokayThiefScriptHost thief)
     {
         TokayAccessoryRecord visual = _database.Accessory(thief.SubId);
         Vector2 position = thief.Actor.Position + new Vector2(0, -12);
@@ -287,37 +232,43 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         return accessory;
     }
 
-    private void AdvanceNativeExits()
+    private void AdvanceThieves()
     {
         bool completed = false;
-        foreach (ThiefState thief in _thieves)
+        foreach (TokayThiefScriptHost thief in _thieves)
         {
+            UpdatingThief=thief;
             switch (thief.Stage)
             {
-                case NativeStage.ItemWait:
+                case 0:
+                    if (thief.SubId == _database.Record.MainSubId) AdvanceTheft();
+                    thief.AdvanceScript();
+                    if (!thief.Runner.Active) FinishScript(thief);
+                    break;
+                case 1:
                     if (--thief.Counter == 0)
                     {
                         thief.Counter = (thief.SubId << 4) + 0x14;
-                        thief.Stage = NativeStage.Stagger;
+                        thief.Stage = 2;
                     }
                     break;
-                case NativeStage.Stagger:
+                case 2:
                     thief.Actor.AdvanceAnimationUpdates(3);
                     if (--thief.Counter == 0)
-                        BeginThiefJump(thief, NativeStage.FirstJump);
+                        BeginThiefJump(thief, 3);
                     break;
-                case NativeStage.FirstJump:
+                case 3:
                     if (!AdvanceThiefJump(thief, moveWhileAirborne: true))
                         break;
                     thief.Actor.SetScriptAnimation(_database.Animation(5));
                     thief.Counter = 6;
-                    thief.Stage = NativeStage.LandWait;
+                    thief.Stage = 4;
                     break;
-                case NativeStage.LandWait:
+                case 4:
                     if (--thief.Counter == 0)
-                        BeginThiefJump(thief, NativeStage.ExitJump);
+                        BeginThiefJump(thief, 5);
                     break;
-                case NativeStage.ExitJump:
+                case 5:
                     Move(thief, _database.Record.JumpSpeed, _database.Record.JumpAngle);
                     if (!OracleObjectMath.IsInsideOriginalScreenBoundary(thief.Position))
                     {
@@ -326,15 +277,18 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
                     }
                     AdvanceThiefZ(thief);
                     break;
-                case NativeStage.FinalWait:
+                case 6:
                     if (--thief.Counter == 0)
                     {
                         Complete();
+                        thief.Actor.SetActive(false);
+                        thief.Accessory?.SetActive(false);
                         completed = true;
                     }
                     break;
             }
         }
+        UpdatingThief=null;
         if (completed)
         {
             // Every placed thief and related accessory has been retired by
@@ -345,18 +299,18 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         }
     }
 
-    private void BeginThiefJump(ThiefState thief, NativeStage stage)
+    private void BeginThiefJump(TokayThiefScriptHost thief, int stage)
     {
         thief.Stage = stage;
-        thief.ZFixed = 0;
         thief.SpeedZ = _database.Record.JumpZFixed;
-        // tokayThief_jump uses specialObjectAnimate once after forcing its
-        // animCounter to one.
-        thief.Actor.AdvanceAnimationUpdates(1);
+        // The source calls the SPECIALOBJECT animation ABI with an
+        // INTERACTION page. Its actual Interaction.animCounter is forced to
+        // one; specialObjectAnimate then touches the page prefix instead.
+        thief.ApplyJumpAnimationAbi(_database.JumpAnimation);
         _context.Sound.PlaySound(SoundId.SndJump);
     }
 
-    private bool AdvanceThiefJump(ThiefState thief, bool moveWhileAirborne)
+    private bool AdvanceThiefJump(TokayThiefScriptHost thief, bool moveWhileAirborne)
     {
         bool landed = AdvanceThiefZ(thief);
         if (!landed && moveWhileAirborne)
@@ -364,7 +318,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         return landed;
     }
 
-    private bool AdvanceThiefZ(ThiefState thief)
+    private bool AdvanceThiefZ(TokayThiefScriptHost thief)
     {
         bool landed = OracleObjectMath.UpdateSpeedZ(
             ref thief.ZFixed, ref thief.SpeedZ,
@@ -374,18 +328,18 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         return landed;
     }
 
-    private void RetireThief(ThiefState thief)
+    private void RetireThief(TokayThiefScriptHost thief)
     {
-        thief.Actor.SetActive(false);
-        thief.Accessory?.SetActive(false);
         if (thief.SubId == 3)
         {
-            thief.Stage = NativeStage.FinalWait;
+            thief.Stage = 6;
             thief.Counter = _database.Record.FinalWait;
         }
         else
         {
-            thief.Stage = NativeStage.Deleted;
+            thief.Actor.SetActive(false);
+            thief.Accessory?.SetActive(false);
+            thief.Stage = 7;
         }
     }
 
@@ -402,20 +356,15 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
             Mathf.Clamp(Mathf.FloorToInt(_context.Player.Position.X), 0, 0xff));
         _context.Player.SetCutsceneDrawZFixed(0);
         _context.Player.EndCutsceneControl(this);
+        _context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,0);
+        _context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled,0);
         _active = false;
     }
 
-    private void AdvanceLinkJump()
+    private void MakeLinkJump()
     {
-        if (_linkZFixed == 0 && _linkSpeedZ == 0)
-            return;
-        if (OracleObjectMath.UpdateSpeedZ(
-                ref _linkZFixed, ref _linkSpeedZ, 0x20))
-        {
-            _linkZFixed = 0;
-            _linkSpeedZ = 0;
-        }
-        _context.Player.SetCutsceneDrawZFixed(_linkZFixed);
+        _context.Player.BeginControlledTopDownJump(this,-0x200);
+        _context.Sound.PlaySound(SoundId.SndJump);
     }
 
     private void AdvanceWashedUpLinkAnimation()
@@ -431,7 +380,7 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
 
     private void SynchronizeAccessories()
     {
-        foreach (ThiefState thief in _thieves)
+        foreach (TokayThiefScriptHost thief in _thieves)
         {
             if (thief.Accessory?.Active == true)
             {
@@ -441,45 +390,5 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent
         }
     }
 
-    private static void Move(ThiefState thief, int speed, int angle)
-    {
-        OracleObjectMovement.Shared.ApplySpeed(ref thief.Position, speed, angle);
-        thief.Actor.SetStatePosition(OracleObjectMath.ToPixelPosition(thief.Position));
-    }
-
-    private enum ScriptStage
-    {
-        InitialWait,
-        Down,
-        DownWait,
-        FirstRight,
-        FirstFreeze,
-        SecondRight,
-        FinalFreeze,
-        NativeExit
-    }
-
-    private enum NativeStage
-    {
-        ItemWait,
-        Stagger,
-        FirstJump,
-        LandWait,
-        ExitJump,
-        FinalWait,
-        Deleted
-    }
-
-    private sealed class ThiefState(
-        NpcCharacter actor, int subId, Vector2 position)
-    {
-        internal NpcCharacter Actor { get; } = actor;
-        internal int SubId { get; } = subId;
-        internal Vector2 Position = position;
-        internal NpcCharacter? Accessory;
-        internal NativeStage Stage;
-        internal int Counter;
-        internal int ZFixed;
-        internal int SpeedZ;
-    }
+    private static void Move(TokayThiefScriptHost thief,int speed,int angle) => thief.Move(speed,angle);
 }

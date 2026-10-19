@@ -137,7 +137,7 @@ internal sealed class EnterPastEvent :
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
         RequireVillager(actor).Position =
-            OracleObjectMovement.Shared.ApplySpeed(
+            NativeObjectMovement.ApplySpeed(_context.Entities.RuntimeState,
                 ref _precisePosition, speed, angle);
     }
 

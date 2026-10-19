@@ -105,7 +105,8 @@ public sealed partial class ValidationRoot
     }
 
     private void StepCompanionRom(IRoomEntity actor, CompanionRom rom, int count, Vector2 movement,
-        bool batched, bool attack = false, bool edge = false, Action? compare = null)
+        bool batched, bool attack = false, bool edge = false, Action? compare = null,
+        Action? beforeNativeItems = null)
     {
         int frame = 0;
         string start = $"${rom[0xd104]:x2}:${rom[0xd105]:x2}, frame=${rom[0xcc00]:x2}";
@@ -113,7 +114,8 @@ public sealed partial class ValidationRoot
         StepGameplayUpdates(count, movement, attack ? ["attack"] : [], edge ? ["attack"] : [], batched,
             () =>
             {
-                rom.Update(CompanionMovement.AngleForInput(movement), edge && frame == 0 ? (byte)1 : (byte)0, attack ? (byte)1 : (byte)0);
+                rom.Update(CompanionMovement.AngleForInput(movement), edge && frame == 0 ? (byte)1 : (byte)0,
+                    attack ? (byte)1 : (byte)0, afterLink: beforeNativeItems);
                 frame++;
                 CompareCompanionMotion(actor, rom, $"Companion ${rom[0xd101]:x2} update {frame}, batch={batched}");
                 FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),

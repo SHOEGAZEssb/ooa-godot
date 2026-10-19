@@ -52,11 +52,10 @@ internal sealed partial class RaftonCharacter : NpcCharacter
 
     internal void AdvanceAsNpc(Player player) => AnimateAsNpcOneUpdate(player);
 
-    internal void AdvanceDeparture(Player player, int animationUpdates)
-    {
+    // Behaviour4 only calls interactionAnimateBasedOnSpeed; visiblec2 from
+    // state zero survives. Other behaviours use interactionAnimateAsNpc.
+    internal void AdvanceDeparture(int animationUpdates) =>
         AdvanceAnimationUpdates(animationUpdates);
-        UpdateDrawPriority(player.Position);
-    }
 }
 
 internal sealed class RaftonRoomEntity(RaftonCharacter rafton)

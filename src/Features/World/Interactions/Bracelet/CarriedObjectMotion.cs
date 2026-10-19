@@ -30,6 +30,7 @@ internal struct CarriedObjectMotion
     internal int ZFixed;
     internal int SpeedZ;
     internal int SpeedRaw;
+    private ItemTilePassage? _tilePassage;
 
     internal CarriedObjectMotion(Vector2 position)
     {
@@ -39,6 +40,7 @@ internal struct CarriedObjectMotion
         ZFixed = 0;
         SpeedZ = 0;
         SpeedRaw = ObjectSpeed.Speed0;
+        _tilePassage = null;
     }
 
     internal void Hold(Player player)
@@ -66,25 +68,39 @@ internal struct CarriedObjectMotion
                 ? bracelet.TossSpeedRaw
                 : bracelet.SpeedRaw;
         Direction = releaseDirection;
+        _tilePassage = null; // A release creates a fresh native bracelet child.
         player.EndCarriedObjectPose();
     }
 
     internal bool AdvanceHorizontal(
         BombRecord throwing,
-        Func<Vector2, bool> blocksMovement)
+        OracleRoomData room,
+        Func<OracleObjectPosition, int, int, OracleObjectPosition> move,
+        bool breakOnCollision = false)
     {
-        if (Direction == Vector2I.Zero)
+        if (Angle == 0xff)
             return false;
-        Vector2 edge = GroundPosition + throwing.EdgeOffset(Direction);
-        if (blocksMovement(edge))
+        // commonBombAndBraceletCode.s:itemUpdateThrowingLaterally. These
+        // related-object proxies use weight $00 or $40, not weight $30's
+        // four-corner tile path. Probe only high XY, wrapping both bytes.
+        Vector2I offset = throwing.EdgeOffsets[(Angle & ObjectAngle.CardinalMask) >> 3];
+        Vector2 edge = new(
+            (byte)(OracleObjectPosition.HighByte(GroundPosition.X) + offset.X),
+            (byte)(OracleObjectPosition.HighByte(GroundPosition.Y) + offset.Y));
+        bool blocked = edge.Y < 0xb0 && room.IsSolid(edge) &&
+            !(_tilePassage ??= new ItemTilePassage()).CanPass(room, edge, Angle);
+        if (blocked)
         {
+            if (breakOnCollision) return true;
             Direction = Vector2I.Zero;
-            SpeedRaw = ObjectSpeed.Speed0;
-            return true;
         }
-        OracleObjectMovement.Shared.ApplySpeed(
-            ref GroundPosition, SpeedRaw, Angle);
-        return false;
+        // A newly blocked nonbreakable object retains its speed byte and
+        // falls through objectApplySpeed with angle $ff (zero publication).
+        // Subsequent $ff updates return above without publishing again.
+        if ((room.TilesetFlags & (int)TilesetFlags.Sidescroll) == 0 || (Angle & 0x0f) != 0)
+            GroundPosition = move(
+                OracleObjectPosition.FromPixels(GroundPosition), SpeedRaw, Angle).PrecisePosition;
+        return blocked;
     }
 
     internal bool AdvanceVertical(BraceletDatabaseRecord bracelet) =>
@@ -106,8 +122,8 @@ internal struct CarriedObjectMotion
 
         SpeedZ = rebound;
         SpeedRaw = throwing.ReducedBounceSpeed(SpeedRaw);
-        if (SpeedRaw == ObjectSpeed.Speed0)
-            Direction = Vector2I.Zero;
+        // itemBounce writes speed only. Retain the angle even when speed is
+        // zero: the next live lateral visit still publishes zero velocity.
         return true;
     }
 

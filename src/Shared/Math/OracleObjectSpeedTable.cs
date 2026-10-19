@@ -115,14 +115,18 @@ internal sealed class OracleObjectSpeedTable
     }
 
     // getPositionOffsetForVelocity uses speed*16 as a byte offset, without
-    // rounding. PART $49 halves its speed byte, producing unaligned rows.
+    // rounding. PART $49 halves its speed byte, producing unaligned rows;
+    // Crow can add beyond angle$1f, reading the next row's X component.
     internal OracleObjectVelocity GetRaw(int speed,int angle)
     {
-        if(speed==0) return Get(0,angle);
-        if(speed<5||speed>0x78||angle<0||angle>=32) throw new ArgumentOutOfRangeException(nameof(speed));
+        if(angle<0||angle>=128) throw new ArgumentOutOfRangeException(nameof(angle));
+        if(speed==0) return new(0,0,angle,0,0);
+        if(speed<5||speed>0x78) throw new ArgumentOutOfRangeException(nameof(speed));
         int offset=(speed-5)*16+angle*2;
         int Word(int address)
         {
+            if(address<0||address+1>=SpeedCount*80)
+                throw new NotSupportedException($"getPositionOffsetForVelocity speed${speed:x2}/angle${angle:x2} reads bank3.objectSpeedTable+${address:x4} beyond imported speed data.");
             int row=address/80, word=(address%80)/2;
             return word<32?_velocities[row*32+word].YFixed:_velocities[row*32+word-8].XFixed;
         }

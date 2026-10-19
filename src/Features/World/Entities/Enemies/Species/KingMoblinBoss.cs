@@ -14,6 +14,8 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
     internal int State { get; private set; }
     internal int Counter { get; private set; }
     internal int Speed { get; private set; } = 0x1e;
+    internal int Angle => _angle;
+    internal int ZFixed => _z;
     internal bool ControlsDisabled => State is 9 or 10 || _deathSequence;
     internal KingMoblinMinion?[] Minions { get; } = new KingMoblinMinion?[2];
     internal KingMoblinBomb? Bomb { get; set; }
@@ -100,12 +102,13 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
             case 12:
                 if(CheckCentre() || --Counter!=0) break;
                 State=13; Counter=Data.Bytes("raise")[Health-1];
-                if(Bomb!.State!=5) Bomb.Position=Position+new Vector2(-14,-16);
+                if(Bomb!.State!=5) Bomb.CopyPositionHigh(Position+new Vector2(-14,-16),_z);
                 RestartAnimation(2); break;
             case 13:
                 if(CheckCentre() || --Counter!=0) break;
                 State=14; Counter=30;
-                int angle=OracleObjectMovement.Shared.RelativeAngle(Position,frame.Player.Position);
+                int angle=OracleObjectMovement.Shared.RelativeAngle(Position,
+                    frame.LinkTarget??frame.Player.EnemyContactPosition);
                 int relative=(byte)(angle-12);
                 if(relative>=7) angle=(relative&128)!=0?12:19;
                 if(Bomb!.State!=5) Bomb.Throw(angle,-0x180);
@@ -132,7 +135,8 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
                 if((int)Position.Y<12) {State=19; _angle=ObjectAngle.Down; Speed=0x14; _speedZ=-0x160; World.Shake(60);}
                 break;
             case 19:
-                if(Bounce()) {State=20; Counter=150; Position=new(Position.X,0x20);} else Move(); break;
+                // state13 writes only yh; retained yl survives the landing.
+                if(Bounce()) {State=20; Counter=150; Position=new(Position.X,0x20+Position.Y-Mathf.Floor(Position.Y));} else Move(); break;
             case 20:
                 if(EscapeSignal) {State=21; Counter=98;}
                 else if((frame.Counter&1)==0 && --Counter==0) {State=11; Counter=30; RestartAnimation(0);}
@@ -166,7 +170,7 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
     }
     private void Tile(Vector2 position,byte tile) => World.Room.SetPositionTileAndCollision(position,tile,null,World.Tick());
     private void Pickup() {Counter=Data.Bytes("pickup")[Health-1]; RestartAnimation(4);}
-    private void Grab() {if(Bomb!.State!=5) Bomb.GrabByBoss(Position+new Vector2(0,8)); State=12; Pickup();}
+    private void Grab() {if(Bomb!.State!=5) Bomb.GrabByBoss(Position+new Vector2(0,8),_z); State=12; Pickup();}
     private bool NearBomb() => (byte)((int)Position.X-(int)Bomb!.Position.X+8)<17;
     private bool Centred() => (byte)((int)Position.X-0x4e)<5;
     private bool CheckCentre()
@@ -178,7 +182,8 @@ internal sealed partial class KingMoblinBoss : EnemyCharacter
         return true;
     }
     private void Walk(bool left,int state) {_angle=left?ObjectAngle.Left:ObjectAngle.Right; State=state; RestartAnimation(left?3:1);}
-    private void Move() {var p=Position; OracleObjectMovement.Shared.ApplySpeed(ref p,Speed,_angle); Position=p;}
+    private void Move() => Position=ApplyMovementSpeed(
+        OracleObjectPosition.FromPixels(Position),Speed,_angle).PrecisePosition;
 }
 
 internal sealed record KingMoblinEnvironment(KingMoblinDatabase Data, OracleRoomData Room, OracleRandom Random,

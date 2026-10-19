@@ -107,7 +107,7 @@ internal sealed class PostmanScriptHost : NpcInteractionCommandHost
         string actor,
         int speed,
         int angle) =>
-        RequirePostman(actor).MoveAtSpeed(speed, angle);
+        RequirePostman(actor).MoveAtSpeed(Entities.RuntimeState, speed, angle);
 
     public override void GiveItem(int treasureId, int parameter)
     {

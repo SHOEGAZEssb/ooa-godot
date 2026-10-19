@@ -98,7 +98,7 @@ internal sealed class CompanionRom
         this[0xdc09] = drop ? (byte)0xff : (byte)(direction * 8);
         this[0xdc38] = 0x40; // dimitriState2Substate0 writes wLinkGrabState2=$40.
     }
-    internal void Update(int angle, byte buttons = 0, byte held = 0)
+    internal void Update(int angle, byte buttons = 0, byte held = 0, System.Action? afterLink = null, System.Action? afterItems = null)
     {
         _rom.SoundRequests.Clear();
         this[0xcc2b] = (byte)angle; this[0xcc2a] = buttons; this[0xcc29] = held;
@@ -123,11 +123,17 @@ internal sealed class CompanionRom
             _rom.Call(LinkCollisionRom.Probe);
             _rom.Call(LinkCollisionRom.Move, speed: 0x28, angle: angle);
         }
+        afterLink?.Invoke();
         // Native item slots run after both special objects; later allocations
         // participate in this same pass. No collision outcomes are fabricated.
         for (int page = 0xd6; page <= 0xdf; page++)
         {
             if (this[page << 8] == 0) continue;
+            // updateItems.s admits state zero even while ordinary item updates
+            // are frozen by text, palette, scrolling or category masks.
+            bool itemsFrozen = this[0xcd00] == 8 || (this[0xcc8a] & 0x90) != 0 ||
+                this[0xc4ab] != 0 || this[0xcba0] != 0;
+            if (this[(page << 8) + 4] != 0 && itemsFrozen) continue;
             int entry = this[(page << 8) + 1] switch
             {
                 0x16 => 0x62c6, 0x28 => 0x5b8c, 0x2a => 0x5b00, 0x2b => 0x514d,
@@ -135,6 +141,7 @@ internal sealed class CompanionRom
             };
             if (entry != 0) _rom.Call(entry, bank: 7, objectPage: page);
         }
+        afterItems?.Invoke();
         for (int page = 0xd0; page <= 0xdf; page++)
         {
             int address = (page << 8) + 0x40;

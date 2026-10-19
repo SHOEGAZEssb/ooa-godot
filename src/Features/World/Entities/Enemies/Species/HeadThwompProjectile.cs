@@ -16,6 +16,7 @@ internal sealed partial class HeadThwompProjectile
     private readonly OracleRoomData _room;
     private readonly OracleRandom _random;
     private readonly Action<int> _playSound;
+    private readonly OracleRuntimeState? _memory;
     private readonly EnemyAnimationPlayer _animation;
     private readonly EnemyAnimationPlayer? _impactAnimation;
     private int _angle;
@@ -26,7 +27,6 @@ internal sealed partial class HeadThwompProjectile
     private int _turnPeriod;
     private int _radiusY;
     private int _radiusX;
-    private int _zFixed;
     private int _speedZ;
     private bool _initialized;
     private bool _breaking;
@@ -37,12 +37,14 @@ internal sealed partial class HeadThwompProjectile
         DungeonInteractionVisual? impactVisual,
         OracleRoomData room,
         OracleRandom random,
-        Action<int> playSound)
+        Action<int> playSound,
+        OracleRuntimeState? memory = null)
     {
         _kind = spawn.Kind;
         _room = room;
         _random = random;
         _playSound = playSound;
+        _memory = memory;
         Position = spawn.Position;
         _angle = spawn.Angle & ObjectAngle.Mask;
         _speed = spawn.Speed;
@@ -88,11 +90,12 @@ internal sealed partial class HeadThwompProjectile
     }
 
     public bool Finished { get; private set; }
+    bool IHostileProjectile.InitializationPending => !_initialized;
     public Rect2 CollisionBounds
     {
         get
         {
-            Vector2 center = DrawPosition;
+            Vector2 center = Position;
             Vector2 radii = new(_radiusX, _radiusY);
             return new Rect2(center - radii, radii * 2.0f);
         }
@@ -100,7 +103,7 @@ internal sealed partial class HeadThwompProjectile
 
     internal int Angle => _angle;
     internal int Speed => _speed;
-    internal int ZFixed => _zFixed;
+    internal int ZFixed => 0;
     internal bool Breaking => _breaking;
     internal int AnimationIndex => _breaking ? 1 : _animation.AnimationIndex;
     internal int AnimationFrameIndex => ActiveAnimation.FrameIndex;
@@ -186,37 +189,31 @@ internal sealed partial class HeadThwompProjectile
     {
         if (Finished)
             return;
-        Vector2 offset = _kind == HeadThwompProjectileKind.Fireball
-            ? new Vector2(0, _zFixed / 256.0f)
-            : Vector2.Zero;
         DrawTexture(
             ActiveAnimation.CurrentTexture,
-            new Vector2(-16, -16) + offset + TransitionDrawOffset);
+            new Vector2(-16, -16) + TransitionDrawOffset);
     }
-
-    private Vector2 DrawPosition =>
-        Position + new Vector2(0, _zFixed / 256.0f);
 
     private void UpdateFireball()
     {
-        Position += OracleObjectMovement.Shared.Delta(_speed, _angle);
-        _zFixed += _speedZ;
-        _speedZ += 0x20;
+        Position = NativeObjectMovement.ApplySpeed(_memory,
+            OracleObjectPosition.FromPixels(Position), _speed, _angle).Add(_speedZ, 0).PrecisePosition;
+        _speedZ = unchecked((short)(_speedZ + 0x20));
         if (_counter > 0)
             _counter--;
-        Vector2 point = DrawPosition;
+        if (_counter != 0)
+            return; // PART$39's counter gates both bounds and floor probes.
+        Vector2 point = Position.Floor();
         if (point.Y >= 0xb0)
         {
             Finish();
             return;
         }
-        if (_counter == 0 &&
-            IsSolidExceptHole(point + Vector2.Down * 6))
+        if (IsSolidExceptHole(point + Vector2.Down * 6))
         {
             if (_impactAnimation is not null)
             {
                 _impactAnimation.SetAnimation(0);
-                _speedZ = 0;
                 _breaking = true;
                 _playSound(SoundId.SndBreakRock);
                 return;
@@ -232,16 +229,17 @@ internal sealed partial class HeadThwompProjectile
             Finish();
             return;
         }
-        _counter--;
+        if (_counter != 0)
+            _counter--;
         if (_counter == 0)
         {
             _alternateCounter ^= 1;
-            _turnPeriod += _alternateCounter;
+            _turnPeriod = (_turnPeriod + _alternateCounter) & 0xff;
             _counter = _turnPeriod;
-            _angle = (_angle + (_speed < 0 ? -2 : 2)) & ObjectAngle.Mask;
+            _angle = (_angle + _speed) & ObjectAngle.Mask;
         }
-        Position += OracleObjectMovement.Shared.Delta(
-            0x64, _angle);
+        Position = NativeObjectMovement.ApplySpeed(_memory,
+            OracleObjectPosition.FromPixels(Position), 0x64, _angle).PrecisePosition;
     }
 
     private void TryDamagePlayer(Player player)
@@ -256,10 +254,10 @@ internal sealed partial class HeadThwompProjectile
             Finish();
             return;
         }
-        if (!player.OverlapsEnemyCollision(CollisionBounds, _zFixed >> 8))
+        if (!player.OverlapsEnemyCollision(CollisionBounds))
             return;
         player.ApplyEnemyContactDamage(
-            DrawPosition,
+            Position,
             4,
             RingDamageSource.Generic);
         Finish();
@@ -290,17 +288,8 @@ internal sealed partial class HeadThwompProjectile
 
     private bool IsCircularOutOfBounds()
     {
-        ReadOnlySpan<Vector2I> offsets =
-        [
-            new(-5, 0), new(-5, 4), new(0, 4), new(4, 4),
-            new(4, 0), new(4, -5), new(0, -5), new(-5, -5)
-        ];
-        int roundedAngle = (_angle & 7) == 0
-            ? _angle
-            : (_angle & ObjectAngle.CardinalMask) + 4;
-        Vector2 point = Position + offsets[(roundedAngle & ObjectAngle.Mask) >> 2];
-        return point.X < 0 || point.X >= _room.Width ||
-            point.Y < 0 || point.Y >= _room.Height;
+        return !NativePartBoundary.IsInside(_room,Position,_angle,
+            EnemyBehaviorTables.Shared.WallArrowShooter.BoundaryOffsets);
     }
 
     private void Finish()

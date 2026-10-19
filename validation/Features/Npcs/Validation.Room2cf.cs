@@ -96,8 +96,8 @@ public sealed partial class ValidationRoot
                 entity.State != CuccoState.Standing ||
                 !entity.Visible ||
                 entity.CurrentAnimationPixelHash == 0) ||
-            _random.Calls != callsBeforeInitialization,
-            "ENEMY_CUCCO $36:$00 state 0 changed RNG or failed to enter " +
+            _random.Calls != callsBeforeInitialization + 2,
+            "ENEMY_CUCCO $36:$00 state 0 must consume one common var3d draw per instance and enter " +
             "visible state $08.");
 
         OracleRandomState randomState = _random.CaptureState();

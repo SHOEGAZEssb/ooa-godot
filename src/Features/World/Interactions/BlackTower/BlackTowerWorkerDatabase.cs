@@ -4,8 +4,7 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 /// <summary>
-/// Typed disassembly records shared by the construction interactions in
-/// lower Black Tower rooms $e0/$e1/$e2/$e7/$e8.
+/// Native worker metadata and imported script streams shared by Black Tower interactions.
 /// </summary>
 internal sealed class BlackTowerWorkerDatabase
 {
@@ -15,15 +14,16 @@ internal sealed class BlackTowerWorkerDatabase
         new(StringComparer.Ordinal);
     private readonly Dictionary<
         string, BlackTowerWorkerDatabaseVisualRecord> _visuals = new();
-    private readonly Dictionary<int, PatrolLeg[]> _patrols = new();
     private readonly Dictionary<string, int> _constants = new();
 
     internal int Speed80 => Constant("speed-80");
     internal int Speed100 => Constant("speed-100");
-    internal int PatrolWait => Constant("patrol-wait");
-    internal int TalkWait => Constant("talk-wait");
-    internal int BlockerDistance => Constant("blocker-distance");
-    internal int BlockerWait => Constant("blocker-wait");
+    internal IReadOnlyList<CutsceneCommand> BlockerTalk { get; } = CutsceneCommandCatalog.Load(
+        "res://assets/oracle/cutscenes/black_tower_blocker_talk_commands.tsv");
+    internal IReadOnlyList<CutsceneCommand> BlockerMove { get; } = CutsceneCommandCatalog.Load(
+        "res://assets/oracle/cutscenes/black_tower_blocker_move_commands.tsv");
+    internal IReadOnlyList<CutsceneCommand> PatrolCommands { get; } = CutsceneCommandCatalog.Load(
+        "res://assets/oracle/cutscenes/black_tower_patrol_commands.tsv");
     public BlackTowerWorkerDatabase()
     {
         GeneratedTable texts = GeneratedTable.Load(
@@ -81,29 +81,6 @@ internal sealed class BlackTowerWorkerDatabase
                 row.UnsignedDecimal(3), row.RequiredString(4)));
         }
 
-        GeneratedTable patrols = GeneratedTable.Load(
-            "res://assets/oracle/objects/black_tower_patrols.tsv",
-            new GeneratedTableSchema(
-                "lower Black Tower patrols",
-                GeneratedTableKeySemantics.Unique,
-                ["var03", "direction:counter,..."],
-                ["var03"],
-                headerRequired: true));
-        foreach (GeneratedTableRow row in patrols.Rows)
-        {
-            string[] encodedLegs = row.RequiredString(1).Split(',');
-            var legs = new PatrolLeg[encodedLegs.Length];
-            for (int index = 0; index < encodedLegs.Length; index++)
-            {
-                string[] values = encodedLegs[index].Split(':');
-                if (values.Length != 2)
-                    throw Malformed("patrol leg", encodedLegs[index]);
-                legs[index] = new PatrolLeg(
-                    int.Parse(values[0]), int.Parse(values[1]));
-            }
-            _patrols.Add(row.UnsignedDecimal(0), legs);
-        }
-
         GeneratedTable constants = GeneratedTable.Load(
             "res://assets/oracle/objects/black_tower_constants.tsv",
             new GeneratedTableSchema(
@@ -123,12 +100,10 @@ internal sealed class BlackTowerWorkerDatabase
             SelectorCount("hardhat-text") != 5 ||
             SelectorCount("soldier-text") != 4 ||
             _visuals.Count != 12 ||
-            _patrols.Count != 5 || _constants.Count != 6 ||
+            _constants.Count != 2 ||
             Visual("hardhat-work").Animation.Length == 0 ||
             Visual("shovel").Animation.Length == 0 ||
-            Speed80 != 0x14 || Speed100 != 0x28 ||
-            PatrolWait != 20 || TalkWait != 30 ||
-            BlockerDistance != 16 || BlockerWait != 10)
+            Speed80 != 0x14 || Speed100 != 0x28)
         {
             throw new InvalidOperationException(
                 "Imported lower Black Tower interaction contract is incomplete.");
@@ -161,12 +136,6 @@ internal sealed class BlackTowerWorkerDatabase
             : throw new KeyNotFoundException(
                 $"Black Tower visual '{key}' was not imported.");
 
-    internal PatrolLeg[] Patrol(int var03) =>
-        _patrols.TryGetValue(var03, out PatrolLeg[]? patrol)
-            ? patrol
-            : throw new KeyNotFoundException(
-                $"Black Tower hardhat patrol var03=${var03:x2} was not imported.");
-
     internal int PickaxeAnimation(int index) =>
         Selector("pickaxe-animation", index);
     internal int PickaxeText(int index) => Selector("pickaxe-text", index);
@@ -190,8 +159,6 @@ internal sealed class BlackTowerWorkerDatabase
         : throw new KeyNotFoundException(
             $"Black Tower constant '{key}' was not imported.");
 
-    private static InvalidOperationException Malformed(string kind, string line) =>
-        new($"Malformed Black Tower {kind} row: {line}");
 }
 
 internal readonly record struct BlackTowerWorkerDatabaseVisualRecord(
@@ -199,5 +166,3 @@ internal readonly record struct BlackTowerWorkerDatabaseVisualRecord(
     int TileBase,
     int Palette,
     string Animation);
-
-internal readonly record struct PatrolLeg(int Direction, int Counter);

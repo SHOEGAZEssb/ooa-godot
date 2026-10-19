@@ -85,6 +85,9 @@ public sealed partial class ValidationRoot
                 for (int movement = 1; movement <= 64; movement++)
                 {
                     Step(1, -push);
+                    // waterPushblock.s state2 always executes SPEED_080,
+                    // including the 64th update before entering the wait.
+                    AssertMovementPublication(_runtimeState, 0, reverse ? 128 : -128, "$9e water block");
                     // objectApplySpeed moves 8.8 values; xh truncates negative
                     // half-pixels downward. Link stays where pushing ended.
                     float expectedX = Mathf.Floor(initialBlock.X + push.X * movement / 2);

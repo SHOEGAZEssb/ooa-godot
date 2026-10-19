@@ -197,8 +197,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter, ITerrainShadowSource
     private void UpdateThrown()
     {
         _carried.AdvanceHorizontal(
-            _throwing,
-            edge => WithinRoom(edge) && _room.IsSolid(edge));
+            _throwing, _room, ApplyMovementSpeed);
         bool landed = _carried.AdvanceVertical(_bracelet);
         Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
         if (!WithinRoom(Position))

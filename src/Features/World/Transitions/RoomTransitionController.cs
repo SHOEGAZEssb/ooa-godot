@@ -610,6 +610,14 @@ public sealed class RoomTransitionController
     {
         if (IsTransitioning)
             return;
+        if (_entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode) == 0)
+        {
+            // bank1.func_4000 omits the boundary pass. cutscene01 still
+            // checks screen-edge warp sources, whose scroll gate rejects it.
+            _pendingRoomExit = Vector2I.Zero;
+            FinishUnmatchedTileWarpCheck();
+            return;
+        }
 
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 pixel = OracleObjectMath.ToPixelPosition(
@@ -642,6 +650,7 @@ public sealed class RoomTransitionController
     internal void SampleRoomExit(Player player)
     {
         if (IsTransitioning || RoomExitPending) return;
+        if (_entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode) == 0) return;
         if (player.DelaysOrdinaryScreenTransition)
             _screenTransitionDelay = 4;
 

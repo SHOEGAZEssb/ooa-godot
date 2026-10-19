@@ -60,13 +60,30 @@ public sealed partial class ValidationRoot
             int updates = 0;
             var sounds = _sound.AttachPlayRequestAudit();
             bool Finished() => ((IRoomEntityLifetime)actor).Finished;
+            byte[] observed = new byte[4], expected = new byte[4];
+            int publicationVisits = 0, probeVisits = 0;
+            if (id is 0x0b or 0x0d)
+            {
+                var probe = new PartMovementScratchProbe(() =>
+                { probeVisits++; for (int i = 0; i < 4; i++) observed[i] = _runtimeState.ReadWramByte(0xcec0 + i); });
+                _entities.RegisterEnemySlot(probe, 15); _entities.AddEntity(probe);
+            }
+            void SeedPublication()
+            {
+                if (id is not (0x0b or 0x0d)) return;
+                for (int i = 0; i < 4; i++) { byte value = (byte)(0xa5 + i); rom[0xcec0 + i] = value; _runtimeState.SetWramByte(0xcec0 + i, value); }
+            }
+            SeedPublication();
             // Keep checking after deletion as well: no renewed movement,
             // sound, mount ownership, or reappearance on subsequent updates.
             while (!Finished() && updates < 360)
             {
                 StepGameplayUpdates(batched ? 3 : 1, Vector2.Zero, batched: batched, afterUpdate: () =>
                 {
-                    if (rom[0xd100] != 0) rom.Update(0xff);
+                    bool flight = rom[0xd104] == 0x0a &&
+                        (id == 0x0d && rom[0xd103] == 6 || id == 0x0b && rom[0xd103] == 5);
+                    if (rom[0xd100] != 0) rom.Update(0xff, afterLink: () =>
+                    { for (int i = 0; i < 4; i++) expected[i] = rom[0xcec0 + i]; });
                     else return;
                     updates++;
                     FailIf(Finished() != (rom[0xd100] == 0),
@@ -74,9 +91,18 @@ public sealed partial class ValidationRoot
                     if (!Finished()) CompareCompanionMotion(actor, rom, $"Companion ${id:x2} departure update {updates}");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), $"Companion ${id:x2} departure sounds differ at update {updates}: native=[{string.Join(',', rom.Sounds)}], runtime=[{string.Join(',', sounds.Requests)}].");
                     sounds.Clear();
+                    if (flight)
+                    {
+                        FailIf(probeVisits != 1 || !observed.SequenceEqual(expected),
+                            $"Companion${id:x2} departure visit{updates}: native gravity/no-motion and planar scratch differ before PARTs.");
+                        publicationVisits++;
+                    }
+                    probeVisits = 0; SeedPublication();
                 });
             }
             FailIf(!Finished(), $"Companion ${id:x2} never finished departing, XY={rom.Position}, state=${rom[0xd103]:x2}.");
+            FailIf(id == 0x0d && publicationVisits < 200, "Moosh departure must observe the full native arc/no-motion and retained-height planar flight.");
+            FailIf(id == 0x0b && publicationVisits < 20, "Ricky departure must observe its complete native cliff arc, including the landing move.");
             StepGameplayUpdates(6, Vector2.Zero, batched: batched);
             FailIf(_player.CompanionRideActive || sounds.Requests.Count != 0 ||
                 _entities.EntityAdapters<IRoomEntity>().Contains(actor), $"Companion ${id:x2} retained ownership after departure.");

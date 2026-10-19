@@ -66,9 +66,14 @@ foreach ($spec in @(
     $subid = [int]$spec[1]
     # Armos Warrior actively advances animation $0a beyond its one-frame
     # label into animation $0b's spin loop. Its held animation $09 is not
-    # advanced by the source handler.
-    $fallthroughAnimations = if ($id -eq 0x73) { @(10) } else { @() }
+    # advanced by the source handler. Shadow Hag keeps advancing return
+    # animation $06 into $04's held frame (enemyAnimation37999).
+    $fallthroughAnimations = if ($id -eq 0x73) { @(10) }
+        elseif ($id -eq 0x7a) { @(6) } else { @() }
     $definition = Get-EnemyDefinition $id $subid $fallthroughAnimations
+    if ($id -eq 0x7a -and $definition.Animations[6] -notmatch '^8@[^|]+\|8,1@[^|]+\|127,2@[^|]+~2$') {
+        throw 'Shadow Hag$7a animation$06 must fall through into enemyAnimation37999: durations8/8/127, parameters00/01/02, loop frame2.'
+    }
     $sprites = $dungeonBossSpriteSequences[$id]
     foreach ($sprite in $sprites) { Copy-EnemySprite $sprite }
     $animations = [Convert]::ToBase64String(

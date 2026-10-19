@@ -291,13 +291,13 @@ public sealed partial class ValidationRoot
         leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
         FailIf(
             leever.State != LeeverState.Underground ||
-            leever.Counter != 0x50 || leever.Visible ||
-            leever.CollisionEnabled || leeverRandom.Calls != 1,
+            leever.Counter != 0x10 || leever.Visible ||
+            leever.CollisionEnabled || leeverRandom.Calls != 2,
             "ENEMY_LEEVER $0b:$00 did not consume one source RNG call for " +
-            $"its initial hidden $50-update delay; state={leever.State}, " +
+            $"its initial hidden $10-update delay after common+counter draws; state={leever.State}, " +
             $"counter=${leever.Counter:x2}, visible={leever.Visible}, " +
             $"collision={leever.CollisionEnabled}, rng={leeverRandom.Calls}.");
-        for (int update = 0; update < 79; update++)
+        for (int update = 0; update < 15; update++)
             leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
         FailIf(
             leever.State != LeeverState.Underground || leever.Counter != 1,
@@ -306,7 +306,7 @@ public sealed partial class ValidationRoot
         FailIf(
             leever.State != LeeverState.Emerging ||
             leever.Position != expectedSpawn || !leever.Visible ||
-            leever.CollisionEnabled || leeverRandom.Calls != 1,
+            leever.CollisionEnabled || leeverRandom.Calls != 2,
             $"ENEMY_LEEVER $0b:$00 did not emerge at the source facing/frame " +
             $"offset in room 1:ab; position={leever.Position}, " +
             $"expected={expectedSpawn}.");
@@ -314,14 +314,14 @@ public sealed partial class ValidationRoot
             leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
         FailIf(
             leever.State != LeeverState.Emerging ||
-            leever.CollisionEnabled || leeverRandom.Calls != 1,
+            leever.CollisionEnabled || leeverRandom.Calls != 2,
             "ENEMY_LEEVER $0b:$00 enabled collision before its complete " +
             "source emergence animation.");
         leever.UpdateFrame(linkPosition, linkFacing, spawnFrame);
         FailIf(
             leever.State != LeeverState.Chasing ||
-            leever.Counter != 0x80 || !leever.CollisionEnabled ||
-            leeverRandom.Calls != 2,
+            leever.Counter != 0xa8 || !leever.CollisionEnabled ||
+            leeverRandom.Calls != 3,
             "ENEMY_LEEVER $0b:$00 did not enter collision-enabled chasing " +
             "with the source $70+($38 RNG mask) counter.");
 
@@ -4160,6 +4160,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0x1e);
         GhiniCharacter ghini =
             _entities.Entities<GhiniCharacter>().Single();
+        ghini.UpdateFrame(); // Declare source state8 before exercising collision/recoil.
         (string Axis, Vector2 Position, Vector2 Source, int Angle)[]
             knockbackBoundaryCases =
             [
@@ -4208,7 +4209,7 @@ public sealed partial class ValidationRoot
             ghini.UpdateFrame();
         FailIf(
             ghini.KnockbackCounter != 1 ||
-            ghini.State != GhiniState.Uninitialized,
+            ghini.State != GhiniState.Choosing,
             "Low sword knockback did not retain its final counter update " +
             "or fully pause the Ghini handler.");
         ghini.UpdateFrame();
@@ -4217,12 +4218,12 @@ public sealed partial class ValidationRoot
         FailIf(
             ghini.KnockbackCounter != 0 ||
             !ghini.Position.IsEqualApprox(expectedGhiniPosition) ||
-            ghini.State != GhiniState.Uninitialized,
+            ghini.State != GhiniState.Choosing,
             "Low sword knockback did not move for exactly eight " +
             "SPEED_200 updates.");
         ghini.UpdateFrame();
         FailIf(
-            ghini.State != GhiniState.Choosing,
+            ghini.State != GhiniState.Moving,
             "The Ghini handler did not resume on the update after " +
             "knockback counter zero.");
 

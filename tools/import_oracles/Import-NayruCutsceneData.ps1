@@ -37,6 +37,28 @@ $nayruGhostRows = ConvertTo-CutsceneCommandRows $nayruGhostCommands 'GhostVeran'
 }
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\nayru_ghost_commands.tsv'), $nayruGhostRows)
 
+# The bear's original movement/conversation tail uses ordinary script counters.
+# Import it directly rather than rebuilding its waits in the room controller.
+$bearOpcodes = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($opcode in @('initcollisions', 'jumpifroomflagset', 'checkabutton',
+    'ormemory', 'jumpifmemoryeq', 'showtext', 'scriptjump', 'setdisabledobjectsto11',
+    'setanimation', 'wait', 'setangle', 'setspeed', 'applyspeed', 'orroomflag', 'enableallobjects')) {
+    [void]$bearOpcodes.Add($opcode)
+}
+$bearAll = @(Read-AssemblyCutsceneCommands $nayruScriptPath 'bearSubid00Script_part1' $bearOpcodes)
+$bearStart = @($bearAll | Where-Object Opcode -eq 'setdisabledobjectsto11')
+if ($bearStart.Count -ne 1) { throw 'bearSubid00Script_part1 lost its unique movement entry.' }
+$bearCommands = @($bearAll | Where-Object Index -ge $bearStart[0].Index)
+for ($index = 0; $index -lt $bearCommands.Count; $index++) { $bearCommands[$index].Index = $index }
+$bearRows = ConvertTo-CutsceneCommandRows $bearCommands 'Bear' -symbols @{
+    SPEED_080 = (Resolve-ObjectSpeed '80')
+} -texts @{ 0x5703 = $allTexts[0x5703] } -animations @{ 0 = 'native'; 1 = 'native' } -bindings @{
+    'setdisabledobjectsto11|' = @{ Opcode = 'setdisabledobjects'; Arg0 = '11' }
+    'enableallobjects|' = @{ Opcode = 'setdisabledobjects'; Arg0 = '00' }
+    'orroomflag|$80' = @{ Opcode = 'orroomflag'; Arg0 = '80' }
+}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\nayru_bear_commands.tsv'), $bearRows)
+
 # The stone-child vignette has two concurrent scripts. Preserve their native
 # movement counters and signal $03 instead of baking both into elapsed frames.
 foreach ($lane in @(@('boySubid01Script', 'VignetteBoy'), @('oldLadySubid1Script', 'VignetteLady'))) {
@@ -89,6 +111,35 @@ $nayruRalphLine = Get-AssemblySourceLine `
     $nayruScriptSource '^ralphSubid00Script:' 'ralphSubid00Script'
 $nayruGhostLine = Get-AssemblySourceLine `
     $nayruScriptSource '^ghostVeranSubid1Script_part2:' 'ghostVeranSubid1Script_part2'
+
+# Native Link counters run in the special-object pass, outside script text
+# gates. Keep complete sequences together instead of separate story waits.
+$nayruLinkSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\specialObjects\linkInCutscene.s')
+$nayruLinkReaction = [regex]::Match($nayruLinkSource,
+    '(?ms)^linkCutscene3:.*?^@substate4:.*?SpecialObject\.angle\s*ld \(hl\),\$(?<left>[0-9a-f]{2}).*?' +
+    'SpecialObject\.speed\s*ld \(hl\),SPEED_(?<speed>[0-9a-f]+).*?SpecialObject\.counter1\s*ld \(hl\),\$(?<counter>[0-9a-f]{2}).*?' +
+    '^@substate5:.*?SpecialObject\.counter1\s*ld \(hl\),\$(?<wait>[0-9a-f]{2}).*?' +
+    '^@substate6:.*?ld \(hl\),\$(?<downCounter>[0-9a-f]{2}).*?SpecialObject\.angle\s*ld \(hl\),\$(?<down>[0-9a-f]{2})')
+$nayruLinkAftermath = [regex]::Match($nayruLinkSource,
+    '(?ms)^linkCutscene4:.*?^@substate1:.*?SpecialObject\.counter1\s*ld \(hl\),\$(?<initial>[0-9a-f]{2}).*?' +
+    '^@substate2:.*?ld \(hl\),\$(?<downCounter>[0-9a-f]{2}).*?SpecialObject\.speed\s*ld \(hl\),SPEED_(?<speed>[0-9a-f]+)\s*ld b,\$(?<down>[0-9a-f]{2}).*?' +
+    '^@substate3:.*?ld \(hl\),\$(?<wait>[0-9a-f]{2}).*?' +
+    '^@substate4:.*?ld \(hl\),\$(?<leftCounter>[0-9a-f]{2})\s*ld b,\$(?<left>[0-9a-f]{2}).*?' +
+    '^@substate5:.*?ld a,\$(?<phase>[0-9a-f]{2})\s*ld \(\$cfd0\),a\s*ld a,\$(?<mask>[0-9a-f]{2})\s*ld \(wMenuDisabled\),a\s*ld \(wDisabledObjects\),a.*?' +
+    'SpecialObject\.direction\s*ld a,\$(?<direction>[0-9a-f]{2}).*?lda SPECIALOBJECT_LINK\s*jp setLinkIDOverride')
+if (-not $nayruLinkReaction.Success -or -not $nayruLinkAftermath.Success) {
+    throw 'linkInCutscene.s: Nayru Link reaction/aftermath counter or control handoff changed.'
+}
+$reactionValues = @((Resolve-ObjectSpeed $nayruLinkReaction.Groups['speed'].Value))
+foreach ($field in @('left','counter','wait','down','downCounter')) {
+    $reactionValues += [Convert]::ToInt32($nayruLinkReaction.Groups[$field].Value,16)
+}
+$aftermathValues = @([Convert]::ToInt32($nayruLinkAftermath.Groups['initial'].Value,16),
+    (Resolve-ObjectSpeed $nayruLinkAftermath.Groups['speed'].Value))
+foreach ($field in @('down','downCounter','wait','left','leftCounter','phase','mask','direction')) {
+    $aftermathValues += [Convert]::ToInt32($nayruLinkAftermath.Groups[$field].Value,16)
+}
+$aftermathFrames = $aftermathValues[0] + $aftermathValues[3] + $aftermathValues[4] + $aftermathValues[6]
 
 $nayruCommandRows = [Collections.Generic.List[string]]::new()
 $nayruCommandRows.Add(
@@ -171,7 +222,7 @@ $nayruSound = { param([string]$sound)
 & $nayruNative 'BeginNayruAudienceEscape'; & $nayruBlock 'WaitForGhostAppearance' 1
 & $addNayruCommand 'nativeblock' 'GhostVeran' $nayruGhostRiseCounter '' "GhostInitialRise`0$nayruGhostRiseSpeed" 'runVeranGhostSubid0' $nayruGhostRiseLine
 & $nayruWait 60
-& $nayruBlock 'VeranReaction' 121
+& $nayruBlock 'VeranReaction' 121 '' ($reactionValues -join ',')
 & $nayruSound '6b'; & $nayruObjectMove 'GhostVeran' '200' 0x1c 0x11 -1 2 1; & $nayruWait 8
 & $nayruSound '6b'; & $nayruObjectMove 'GhostVeran' '200' 0x0b 0x25 -1 2 1; & $nayruWait 8
 & $nayruSound '6b'; & $nayruObjectMove 'GhostVeran' '200' 0x18 0x13 -1 2 1; & $nayruWait 8
@@ -225,8 +276,7 @@ $nayruSound = { param([string]$sound)
 & $nayruAnimation 'AftermathRalph' 2; & $nayruSound '78'; & $nayruWait 120
 & $nayruText '2a06'; & $nayruWait 30; & $nayruMove 'AftermathRalph' 0 120 40 2 $true
 & $nayruWait 60; & $nayruNative 'FinishAftermathRalphDeparture'
-& $nayruWait 80; & $nayruObjectMove 'Player' '100' 0x10 0x30 -1 1 1; & $nayruWait 8
-& $nayruObjectMove 'Player' '100' 0x18 0x10 -1 1 1
+& $nayruBlock 'LinkAftermathMotion' $aftermathFrames 'Player' ($aftermathValues -join ',')
 & $nayruBlock 'WaitForImpaRecovery' 1
 & $nayruNative 'RestoreAftermathImpa'; & $nayruWait 60; & $nayruAnimation 'AftermathImpa' 3
 & $nayruWait 50; & $nayruAnimation 'AftermathImpa' 1; & $nayruWait 30

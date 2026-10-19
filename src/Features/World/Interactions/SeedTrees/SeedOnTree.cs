@@ -25,6 +25,9 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
     private int _angle;
     private int _collisionDelay;
     private bool _collisionEnabled;
+    private OracleRuntimeState? _movementMemory;
+
+    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
     internal SeedOnTreeState State { get; private set; }
     internal int Index { get; private set; }
@@ -95,8 +98,8 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
                     return;
                 }
 
-                Position = OracleObjectMovement.Shared.ApplySpeed(
-                    ref _precisePosition, _database.SpeedRaw, _angle);
+                Position = NativeObjectMovement.ApplySpeed(
+                    _movementMemory, ref _precisePosition, _database.SpeedRaw, _angle);
                 if (OracleObjectMath.UpdateSpeedZ(
                     ref _zFixed, ref _speedZ, _database.Gravity))
                 {

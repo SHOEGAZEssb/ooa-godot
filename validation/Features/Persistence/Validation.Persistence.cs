@@ -240,9 +240,43 @@ public sealed partial class ValidationRoot
 
         _saveData.SetGlobalFlag(GlobalFlag.SavedNayru, !flagWasSet);
         _inventory.AddRupees(rupeeDelta);
-        _ExitTree();
         _inventory.AddRupees(-rupeeDelta);
         _saveData.SetGlobalFlag(GlobalFlag.SavedNayru, flagWasSet);
+
+        // Exit an actual application root. Calling this live root's callback
+        // directly leaves its tree/resources active after pretending to exit.
+        var stoppedSave = OracleSaveData.CreateStandardGame();
+        stoppedSave.SetLinkName("Link");
+        stoppedSave.SetGlobalFlag(GlobalFlag.PregameIntroDone);
+        using var stopped = new FrontendValidationRoot();
+        AddChild(stopped);
+        try
+        {
+            stopped.Initialize(stoppedSave);
+            byte[] stored = stopped.FileSlotSnapshot(0);
+            stopped.Step(241, false);
+            stopped.Step(1, false, "inventory");
+            stopped.Step(9, false);
+            stopped.Step(1, false, "inventory");
+            stopped.Step(32, false);
+            stopped.Step(1, false, "inventory");
+            stopped.Step(1, false);
+            stopped.Step(1, false, "inventory");
+            stopped.Step(MainMenuController.WhiteFadeFrames, false);
+            FailIf(stopped._rooms is null || stopped._inventory is null,
+                "The exit-persistence fixture must load its isolated saved file into gameplay.");
+            stopped._saveData.SetGlobalFlag(GlobalFlag.SavedNayru);
+            stopped._inventory.AddRupees(1);
+            FailIf(stopped._saveData.Serialize().SequenceEqual(stored),
+                "The exit-persistence fixture must retain unsaved live changes.");
+            stopped.Free();
+            FailIf(stopped._saveWriteRequests != 0 || !stopped.FileSlotSnapshot(0).SequenceEqual(stored),
+                "Application exit wrote unsaved live changes back to its isolated file slot.");
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(stopped)) stopped.Free();
+        }
 
         _inventoryMenu.OpenSaveImmediatelyForValidation();
         int menuSaveRequests = _inventoryMenu.SaveRequests;

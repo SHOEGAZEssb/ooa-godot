@@ -58,6 +58,8 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
 
     public void UpdateFrame()
     {
+        // INTERAC$68:$00 has no always-update bit after initialization.
+        if (!Context.Entities.InitializedInteractionUpdatesAllowed) return;
         var native = _nativeActor;
         UpdateScript();
         native?.RunNativeUpdate(Context.Player);
@@ -78,7 +80,7 @@ internal sealed class RosaShovelEvent : TokayScriptEvent, IRoomEvent
                 _stage = RosaShovelStage.SecondTextWait;
             }
             else if (--_counter != 0)
-                actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(
+                actor.SetStatePosition(NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState,
                     ref _position, _native.Constant("speed-020"), ObjectAngle.Right));
             return;
         }

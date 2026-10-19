@@ -241,7 +241,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
                     if (Read(0xcfd6) == 0) return;
                     _cart.Position = _cartPosition = new Vector2(0x68, 8); _cartState = 3; return;
                 }
-                _cart.Position = OracleObjectMovement.Shared.ApplySpeed(ref _cartPosition, Database.Constant("speed"), _cartAngle);
+                _cart.Position = NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState, ref _cartPosition, Database.Constant("speed"), _cartAngle);
                 _cart.AdvanceAnimationUpdates(1);
                 int x = (int)_cart.Position.X, y = (int)_cart.Position.Y;
                 if ((x & 15) != 8 || (y & 15) != 8) return;
@@ -402,7 +402,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
     }
     public override void SetActorAnimation(string actor, int animation, string encodedAnimation) => _patch!.SetScriptAnimation(encodedAnimation);
     public override void SetActorMovementAnimation(string actor, int angle, string encodedAnimation) => _patch!.SetScriptAnimation(encodedAnimation);
-    public override void MoveActorAtSpeed(string actor, int speed, int angle) => _patch!.Position = OracleObjectMovement.Shared.ApplySpeed(ref _patchPosition, speed, angle);
+    public override void MoveActorAtSpeed(string actor, int speed, int angle) => _patch!.Position = NativeObjectMovement.ApplySpeed(Context.Entities.RuntimeState, ref _patchPosition, speed, angle);
     public override bool MemoryEquals(string binding, int value) => ReadMemory(binding) == value;
     public override int ReadMemory(string binding) => binding switch
     {

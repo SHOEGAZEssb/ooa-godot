@@ -114,6 +114,8 @@ public partial class GameRoot : Node2D
     public bool RingMenuOpen => _ringMenu?.IsActive ?? false;
     public bool DebugFlagMenuOpen => _debugFlagMenu?.IsActive ?? false;
 
+    public override void _EnterTree() => OracleGraphicsCache.ApplicationEnteredTree();
+
     public override void _Ready()
     {
         _launchOptions = new LaunchOptions();
@@ -699,7 +701,7 @@ public partial class GameRoot : Node2D
         _gameplayPreparation?.Dispose();
         // The original engine does not write SRAM merely because play stops.
         // Unsaved changes remain only in the live WRAM-style save image.
-        OracleGraphicsCache.Shutdown();
+        OracleGraphicsCache.ApplicationExitedTree();
     }
 
     public override void _Process(double delta)
@@ -1257,6 +1259,8 @@ public partial class GameRoot : Node2D
         _entities.NonInteractionObjectsDisabledSource = () => _roomEvents.FreezesNonInteractionObjects ||
             _interactions?.FreezesNonInteractionObjects == true;
         _entities.CameraUpdatesDisabledSource = () => _roomEvents.CameraUpdatesDisabled;
+        _entities.PartPhaseUpdate = _roomEvents.UpdatePartPhase;
+        _entities.InteractionPhaseUpdate = _roomEvents.UpdateInteractionPhase;
         _entities.InitializedObjectsDisabledSource = () => _transitions.AwaitingLinkWarpState;
         _entities.TextAllowsScriptSource = () => _dialogue.AllowsNativeScriptCommands ||
             (_runtimeState.ReadWramByte(WramAddress.wTextIsActive) & 0x80) != 0;
@@ -1423,7 +1427,7 @@ public partial class GameRoot : Node2D
         // updateAnimations returns while wScrollMode bit 0 is clear. Both
         // scrolling and warp transitions keep that bit clear, so the original
         // animation counters and queued VRAM state remain completely frozen.
-        if (IsTransitioning)
+        if (IsTransitioning || (_runtimeState.ReadWramByte(WramAddress.wScrollMode) & 1) == 0)
             return;
 
         _animationTicks += delta * 60.0;

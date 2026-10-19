@@ -181,7 +181,7 @@ internal sealed class PalacePossessionRoomEntity : CutsceneCommandHost, IRoomEnt
             {
                 if (Counter==0x56) _owner.OnSoundRequested(SoundId.SndCircling);
                 if ((Counter&1)!=0) _angle=(_angle-1)&31;
-                SetPosition(new Vector2(0x78+_precise.X%1,0x7e+_precise.Y%1)+(Vector2)OracleObjectMovement.Shared.CircleArcOffset(0x10,_angle));
+                SetPosition(new Vector2(0x78+_precise.X%1,0x7e+_precise.Y%1)+(Vector2)NativeObjectMovement.CircleArcOffset(_owner.RuntimeState,0x10,_angle));
                 _actor.AdvanceAnimationUpdates(1); return;
             }
             Counter=0x50; State=3; _speed=5; _angle=0x10; _owner.OnSoundRequested(SoundId.SndBossDamage);
@@ -191,7 +191,7 @@ internal sealed class PalacePossessionRoomEntity : CutsceneCommandHost, IRoomEnt
     }
     private bool Gravity() => OracleObjectMath.UpdateSpeedZ(ref _z,ref _speedZ,0x30);
     private void DrawZ() => _actor.SetScriptDrawOffset(Vector2.Down*(_z>>8));
-    private void Move() => _actor.SetStatePosition(OracleObjectMovement.Shared.ApplySpeed(ref _precise,_speed,_angle));
+    private void Move() => _actor.SetStatePosition(NativeObjectMovement.ApplySpeed(_owner.RuntimeState,ref _precise,_speed,_angle));
     private void SetPosition(Vector2 position) { _precise=position; _actor.SetStatePosition(position); }
     private void SetAnimation(int index) => _actor.SetScriptAnimation(_data.Animation(index));
     private void Finish() { Finished=true; _actor.SetActive(false); }

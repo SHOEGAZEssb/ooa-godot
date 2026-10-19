@@ -280,12 +280,14 @@ public sealed partial class ValidationRoot
             expected = OracleObjectMovement.Shared.ApplySpeed(
                 expected, record.GhiniSpeed, angle);
         }
-        StepRoomEventFrames(record.GhiniFrames + 1);
+        StepRoomEventFrames(1); // asm15 starts the independent native mover.
+        StepRoomEventFrames(record.GhiniFrames - 1);
+        FailIf(_dialogue.IsOpen, "The first Ghini taunt must wait for its32nd native movement.");
+        StepRoomEventFrames(1);
         FailIf(
-            ghinis[0].Position != expected.PixelPosition || _dialogue.IsOpen,
+            ghinis[0].Position != expected.PixelPosition || !_dialogue.IsOpen,
             "Ghini `$73:$00 did not apply exactly 32 SPEED_140/ANGLE_LEFT " +
             "fixed-point circular updates before its text command.");
-        StepRoomEventFrames(1);
         ExpectDialogue(0x1204, "first Ghini taunt");
 
         _dialogue.Close();
@@ -308,6 +310,11 @@ public sealed partial class ValidationRoot
             "The three `$73 scripts did not replace themselves in source order " +
             "with ordinary killable `$17:$00 Ghinis and restore player input.");
 
+        // The last script allocates its enemy after the ENEMY walk. Its source
+        // state0 properties/collision become eligible on the following update.
+        StepRoomEventFrames(1);
+        FailIf(_entities.Entities<GhiniCharacter>().Any(actor=>actor.InitializationPending),
+            "Rescue Ghinis must execute their next ENEMY state0 before the combat fixture hits them.");
         _entities.ApplySwordHit(
             new Rect2(-16, -16, 192, 160),
             new Vector2(0x50, 0x48),

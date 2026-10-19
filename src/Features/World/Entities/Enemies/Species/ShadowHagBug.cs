@@ -25,7 +25,7 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
     internal int ZFixed => _zFixed;
     internal bool DeathPuff => _deathPuff;
     protected override Vector2 AnimationDrawOffset =>
-        base.AnimationDrawOffset + Vector2.Down * (_zFixed / 256.0f);
+        base.AnimationDrawOffset + Vector2.Down * (_zFixed >> 8);
 
     internal void Initialize(
         ImportedEnemyDefinition record,
@@ -45,7 +45,7 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
     }
 
     internal void UpdateFrame(
-        Player player,
+        Vector2 linkTarget,
         ICollection<RoomEntitySpawn> spawns)
     {
         _ = spawns;
@@ -64,6 +64,7 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
             return;
         if (!_initialized)
         {
+            _random.Next(); // enemyStandardUpdate initializes var3d before state0.
             _initialized = true;
             _state = ShadowHagBugState.Airborne;
             _speedZ = -0xe0;
@@ -86,7 +87,7 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
             _counter2 = 180;
         }
 
-        _counter2 = DecrementByte(_counter2);
+        _counter2 = Math.Max(0, _counter2 - 1); // ecom_decCounter2 saturates.
         if (_counter2 == 0)
         {
             FinishAndReport();
@@ -99,11 +100,11 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
         {
             OracleRandomResult result = _random.Next();
             Vector2 target = new(
-                player.Position.X + (result.Low & 0x0f) - 8,
-                player.Position.Y + (result.High & 0x0f) - 8);
+                (OracleObjectPosition.HighByte(linkTarget.X) + (result.Low & 0x0f) - 8) & 255,
+                (OracleObjectPosition.HighByte(linkTarget.Y) + (result.High & 0x0f) - 8) & 255);
             int targetAngle = OracleObjectMovement.Shared.RelativeAngle(
                 Position, target);
-            _angle = NudgeAngle(_angle, targetAngle);
+            _angle = OracleObjectMath.NudgeAngleTowards(_angle, targetAngle);
         }
         MoveAndAnimate();
     }
@@ -134,7 +135,7 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
 
     private void MoveAndAnimate()
     {
-        Position += OracleObjectMovement.Shared.Delta(0x0f, _angle);
+        Position = ApplyMovementSpeed(OracleObjectPosition.FromPixels(Position), 0x0f, _angle).PrecisePosition;
         AdvanceAnimation();
         QueueRedraw();
     }
@@ -151,13 +152,6 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
             return;
         _reportedFinished = true;
         _owner.BugFinished();
-    }
-
-    private static int NudgeAngle(int current, int target)
-    {
-        int clockwise = (target - current) & 0x1f;
-        return clockwise == 0 ? current
-            : (current + (clockwise < 0x10 ? 1 : -1)) & 0x1f;
     }
 
     private static int DecrementByte(int value) => (value - 1) & 0xff;

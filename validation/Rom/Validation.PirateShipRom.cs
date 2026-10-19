@@ -25,9 +25,12 @@ public sealed partial class ValidationRoot
             rom[slot + 11] = linked ? (byte)0x58 : (byte)0x18;
             rom[slot + 13] = linked ? (byte)0x38 : (byte)0x58;
             int updates = 0;
+            var publication = new InteractionMovementPublication(_entities, _runtimeState);
             void Compare()
             {
+                InteractionMovementPublication.Seed(rom);
                 rom.AdvanceInteractions(_entities.FrameCounter); updates++;
+                publication.Compare(rom, "Pirate departure $c2");
                 bool nativeFinished = rom[slot] == 0;
                 FailIf(ship.Finished != nativeFinished || !nativeFinished &&
                     (ship.State != rom[slot + 4] || ship.Counter != rom[slot + 6] ||
@@ -46,6 +49,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(5, Vector2.Zero, batched: batched, afterUpdate: Compare);
             _dialogue.Close(); rom[0xcba0] = 0;
             StepGameplayUpdates(128, Vector2.Zero, batched: batched, afterUpdate: Compare);
+            FailIf(publication.Publications != 128, "Pirate departure must publish all 128 movements.");
 
             ReinitializeGameplayForValidation();
             LoadValidationRoom(5, 0xf8);

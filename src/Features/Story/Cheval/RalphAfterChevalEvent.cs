@@ -180,8 +180,8 @@ internal class RalphAfterChevalEvent :
                 $"Unsupported Ralph movement ${speed:x2}/${angle:x2}.");
         }
         RequireScriptActor(actor).SetStatePosition(
-            OracleObjectMovement.Shared.ApplySpeed(
-                ref _precisePosition, speed, angle));
+            NativeObjectMovement.ApplySpeed(
+                Context.Entities.RuntimeState, ref _precisePosition, speed, angle));
     }
 
     public override void SetMusic(int music)

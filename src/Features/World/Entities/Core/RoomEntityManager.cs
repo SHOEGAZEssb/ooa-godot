@@ -420,6 +420,8 @@ public sealed class RoomEntityManager : IDisposable
     internal Func<bool> NonInteractionObjectsDisabledSource { get; set; } =
         static () => false;
     internal Func<bool> CameraUpdatesDisabledSource { get; set; } = static () => false;
+    internal Action PartPhaseUpdate { get; set; } = static () => { };
+    internal Action InteractionPhaseUpdate { get; set; } = static () => { };
     private byte NativeObjectMask => _runtimeState.ReadWramByte(WramAddress.wDisabledObjects);
     // wDisabledObjects=$1e uses the same initialization/always-update
     // dispatch branches as text, without making dialogue active.
@@ -596,6 +598,11 @@ public sealed class RoomEntityManager : IDisposable
     internal int ReadPlayingInstrument() => PlayingInstrumentSource();
     internal bool CanCollectGroundTreasure() => GroundTreasureCollectionAllowed();
     internal bool IsTextActive() => TextActiveSource();
+    // updateInteractions samples its ordinary-object gates once, before the
+    // slot walk. Event-owned native lanes dispatched afterwards use this same
+    // admission result even if a later interaction releases a shared mask.
+    internal bool InitializedInteractionUpdatesAllowed { get; private set; } = true;
+    internal bool InitializedPartUpdatesAllowed { get; private set; } = true;
     internal bool IsScriptTextActive() => TextActiveSource() && !TextAllowsScriptSource();
     internal int ReadDisplayedHealth() => DisplayedHealthSource();
     internal Vector2 ToScreen(Vector2 position) => WorldToScreen(position);
@@ -1000,6 +1007,13 @@ public sealed class RoomEntityManager : IDisposable
                 continue;
             // updateSpecialObjects dispatches w1Companion before w1Link.
             _specialObjectsUpdatedBeforePlayer.Add(entity);
+            // companionRetIfInactive's live mask/scroll gate belongs here,
+            // before the species handler. The later entity pass cannot undo
+            // an update already consumed in this earlier special-object pass.
+            if (entity is RickyCompanionRoomEntity or DimitriCompanionRoomEntity or MooshCompanionRoomEntity &&
+                ((NativeObjectMask&0xa0)!=0 || (_runtimeState.ReadWramByte(WramAddress.wScrollMode)&0x0e)!=0) &&
+                entity is not IRoomInitializedCompanion { RoomInitialization.Pending: true })
+                continue;
             if (entity is MapleEncounterRoomEntity)
             {
                 // Maple's native common guard admits text; individual states
@@ -1060,6 +1074,8 @@ public sealed class RoomEntityManager : IDisposable
 
     internal void Update(double delta, Player player, bool timeWarpArrival, bool enemiesDisabled = false)
     {
+        InitializedInteractionUpdatesAllowed = false;
+        InitializedPartUpdatesAllowed = false;
         _deferredSwitchHookContacts.Clear();
         // The original engine freezes both enabled $02 outgoing objects and
         // enabled $01 destination objects until scrolling has completed,
@@ -1134,7 +1150,7 @@ public sealed class RoomEntityManager : IDisposable
             // so reuse does not substitute scene insertion order for $d7-$db.
             // updateItems samples the palette thread separately from text
             // and $90 object masks; state-zero items remain eligible.
-            bool itemPassFrozen = textActive || (NativeObjectMask&0x90) != 0 ||
+            bool itemPassFrozen = textActive || _runtimeState.ReadWramByte(WramAddress.wScrollMode)==8 || (NativeObjectMask&0x90) != 0 ||
                 NativeObjectMask == 0 && roomEntityFreezeActive || PaletteFadeActiveSource();
             // companionCreateWeaponItem owns $d6, before dynamic $d7-$db.
             // These children use updateItems' $90/palette/text admission,
@@ -1221,14 +1237,26 @@ public sealed class RoomEntityManager : IDisposable
                 // updateInteractions samples its disabled mask once. A later
                 // worker clearing it doesn't resume initialized actors in the
                 // same interaction pass.
-                bool interactionsDisabled = phase == 2 && ((NativeObjectMask&0x02) != 0 || FloorToggle?.Frozen == true ||
+                bool interactionsDisabled = phase == 2 && ((NativeObjectMask&0x02) != 0 ||
+                    _runtimeState.ReadWramByte(WramAddress.wScrollMode) == 0x08 || FloorToggle?.Frozen == true ||
                     _activeEntities.Any(entity => entity is IRoomEntityUpdateFreeze
                         { FreezesRoomEntities: true, FreezesInteractions: true }));
-                // bank0.updateEnemies samples the palette thread once before
-                // its slot walk, admitting only state0 while a fade is active.
-                bool enemyPassDisabled = phase == 0 && (enemiesDisabled || PaletteFadeActiveSource());
+                if (phase == 2)
+                    InitializedInteractionUpdatesAllowed = !textActive && !interactionsDisabled;
+                // bank0.updateEnemies admits only state0 under scroll$0e,
+                // text, category masks or a palette thread. Sample before the
+                // slot walk so an earlier actor cannot resume later slots.
+                bool enemyPassDisabled = phase == 0 && (enemiesDisabled || PaletteFadeActiveSource() ||
+                    (_runtimeState.ReadWramByte(WramAddress.wScrollMode) & 0x0e) != 0);
                 bool categoryFrozen = LegacyRoomEntityFreezeActive() ||
+                    phase == 1 && _runtimeState.ReadWramByte(WramAddress.wScrollMode) == 8 ||
                     (NativeObjectMask & (phase == 0 ? 0x84 : phase == 1 ? 0x88 : 0x02)) != 0;
+                if (phase == 1)
+                {
+                    InitializedPartUpdatesAllowed = !textActive && !categoryFrozen &&
+                        _runtimeState.ReadWramByte(WramAddress.wScrollMode) != 0x08;
+                    PartPhaseUpdate();
+                }
                 if (phase == 2)
                     ReservedKeyDoor?.Advance(1.0 / 60.0, player,
                         InitializedObjectsDisabledSource() || (NativeObjectMask&0x02) != 0 || FloorToggle?.Frozen == true || _activeEntities.Any(entity => entity is IRoomEntityUpdateFreeze
@@ -1314,6 +1342,7 @@ public sealed class RoomEntityManager : IDisposable
                         if (_updatedEntitiesThisFrame.Contains(entity) && entity is IRoomInteractionChildSource children)
                             children.UpdateChildren(frame, _pendingSpawns);
                     }
+                    InteractionPhaseUpdate();
                 }
             }
             ProcessSpawns(frame);
@@ -2510,7 +2539,7 @@ public sealed class RoomEntityManager : IDisposable
                     npc.SetDialogue(
                         dialogue.TextId, dialogue.Message, dialogue.CanFace);
                 }
-                if (_npcPositions.TryResolve(
+                if (ordinary.RefreshPosition && _npcPositions.TryResolve(
                     npc.BaseRecord, _saveData, out Vector2 position))
                 {
                     npc.SetStatePosition(position);
@@ -2550,6 +2579,8 @@ public sealed class RoomEntityManager : IDisposable
             arrowProjectile.BindMovementMemory(_runtimeState);
         if (entity.Node is OctorokRockProjectile rockProjectile)
             rockProjectile.BindMovementMemory(_runtimeState);
+        if (entity.Node is StalfosBoneProjectile stalfosBone)
+            stalfosBone.BindMovementMemory(_runtimeState);
         if (entity.Node is SwordBeamEffect swordBeam)
             swordBeam.BindMovementMemory(_runtimeState);
         if (entity.Node is BombEffect bomb)
@@ -2562,8 +2593,24 @@ public sealed class RoomEntityManager : IDisposable
             boomerang.BindMovementMemory(_runtimeState);
         if (entity.Node is SomariaBlock somariaBlock)
             somariaBlock.BindMovementMemory(_runtimeState);
+        if (entity.Node is WildTokayMeat meat)
+            meat.BindMovementMemory(_runtimeState);
         if (entity.Node is FallingDownHoleEffect fallingHole)
             fallingHole.BindMovementMemory(_runtimeState);
+        if (entity.Node is FallingBoulder fallingBoulder)
+            fallingBoulder.BindMovementMemory(_runtimeState);
+        if (entity.Node is GashaSpotInteraction gashaSpot)
+            gashaSpot.BindMovementMemory(_runtimeState);
+        if (entity.Node is GroundTreasurePickup groundTreasure)
+            groundTreasure.BindMovementMemory(_runtimeState);
+        if (entity.Node is WaterPushblockRoomEntity waterPushblock)
+            waterPushblock.BindMovementMemory(_runtimeState);
+        if (entity.Node is SeedOnTree seedOnTree)
+            seedOnTree.BindMovementMemory(_runtimeState);
+        if (entity.Node is Room148PickaxeDebris pickaxeDebris)
+            pickaxeDebris.BindMovementMemory(_runtimeState);
+        if (entity.Node is ShovelDebrisEffect shovelDebris)
+            shovelDebris.BindMovementMemory(_runtimeState);
         if (entity.Node is MovingSideScrollPlatformRoomEntity sidePlatform)
         {
             sidePlatform.BindMovementMemory(_runtimeState);
@@ -2576,6 +2623,8 @@ public sealed class RoomEntityManager : IDisposable
             circularPlatform.BindMovementMemory(_runtimeState);
             circularPlatform.BindRidingState(_platformRiding);
         }
+        if (entity is DungeonDoorRoomEntity door)
+            door.BindMovementMemory(_runtimeState);
         int dynamicId=DynamicItemId(entity);
         // setObjectsEnabledTo2 retains outgoing ITEM allocations until
         // clearItemsWithEnabled2. Held enabled=$03 children keep that slot
@@ -2595,6 +2644,7 @@ public sealed class RoomEntityManager : IDisposable
             spinner.BindArrow(TryCreateSpinnerArrow);
         if (entity is DungeonEssence essence)
         {
+            essence.BindMovementMemory(_runtimeState);
             essence.BindEnergySwirl(center => CreateEnergySwirl(center), () => _runtimeState.SetWramByte(BlueEnergyBeadDatabase.Shared.DeleteAddress, 1));
             essence.BindChildren(CreateEssenceChildren);
         }
@@ -2853,7 +2903,7 @@ public sealed class RoomEntityManager : IDisposable
         // the preload walk owns its presentation rather than a fixed dispatch.
         if (spawn is AllocatedPartUpdateSpawn birth) return birth.Entity;
         if (spawn is PuzzlePuffSpawn puff) return TryCreatePuzzlePuffSpawn(puff);
-        if (spawn is Room148DebrisSpawn or TokayEntranceEyeSpawn or VolcanoHandlerSpawn)
+        if (spawn is Room148DebrisSpawn or TokayEntranceEyeSpawn or VolcanoHandlerSpawn or ShootingGalleryTargetDebrisSpawn)
             return TryCreateInteractionEntity(spawn);
         // ecom_spawnEnemyWithSubid01 and object opcode7 retain the parent
         // allocation during the attempt. A failed checked request creates no
@@ -3048,7 +3098,7 @@ public sealed class RoomEntityManager : IDisposable
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
         PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or MapleTouchingBookRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
-        TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or
+        TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or TokaySeedlingDecorationRoomEntity or
         TokayAttachedVisualRoomEntity { IsNativeExclamation: true } or
         BusinessScrubRoomEntity or BusinessScrubBushRoomEntity or
         GameCompleteDialogRoomEntity or

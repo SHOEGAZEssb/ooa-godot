@@ -66,7 +66,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _animation.Advance();
         Vector2 before = _precisePosition;
         _speed = 0x1e; // mooshStateCSubstate1 rewrites speed on each walk update.
-        SpecialObjectMovement.ApplySpeed(ref _precisePosition, _speed, _angle, AdjacentWalls());
+        SpecialObjectMovement.ApplySpeed(_runtime, ref _precisePosition, _speed, _angle, AdjacentWalls());
         if (before.X < 0 && _precisePosition.X > 128) _precisePosition.X -= 256;
         if (before.Y < 0 && _precisePosition.Y > 128) _precisePosition.Y -= 256;
         if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
@@ -737,7 +737,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
 
-        OracleObjectMovement.Shared.ApplySpeed(
+        NativeObjectMovement.ApplySpeed(_runtime,
             ref _precisePosition,
             _speed,
             goodbye.FlightAngle);
@@ -890,7 +890,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
     private void ApplyMovement(ICollection<RoomEntitySpawn> spawns)
     {
-        SpecialObjectMovement.ApplySpeed(ref _precisePosition, _speed, _angle, _adjacentWalls = AdjacentWalls());
+        SpecialObjectMovement.ApplySpeed(_runtime, ref _precisePosition, _speed, _angle, _adjacentWalls = AdjacentWalls());
         if ((_zFixed >> 8) == 0) BreakGroundTile(spawns);
     }
 
@@ -935,7 +935,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             return;
         }
         _animation.Advance();
-        OracleObjectMovement.Shared.ApplySpeed(ref _precisePosition, _speed, _angle);
+        NativeObjectMovement.ApplySpeed(_runtime, ref _precisePosition, _speed, _angle);
         OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, 0x40);
         int away = CompanionMovement.FacingWallMask((_angle + 0x10) & ObjectAngle.Mask, AdjacentWalls());
         if (away != 0) _cliffWalls = away;

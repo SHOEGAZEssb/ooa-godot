@@ -548,8 +548,8 @@ internal sealed class PreBlackTowerEvent :
     void ICutsceneCommandHost.MoveActorAtSpeed(string actor, int speed, int angle)
     {
         Vector2 precise = _precisePositions[actor];
-        Vector2 pixels = OracleObjectMovement.Shared.ApplySpeed(
-            ref precise, speed, angle);
+        Vector2 pixels = NativeObjectMovement.ApplySpeed(
+            _context.Entities.RuntimeState, ref precise, speed, angle);
         _precisePositions[actor] = precise;
         Actor(actor).Position = pixels;
     }
