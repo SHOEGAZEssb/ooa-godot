@@ -154,6 +154,12 @@ means an APK from another run may require uninstalling the previous APK first.
 The workflow uses `GITHUB_TOKEN` to attach assets only after every export succeeds.
 Rerunning the workflow replaces assets with matching filenames.
 
+After fixing release automation, use the workflow's manual trigger with
+`release_tag` to rebuild an existing release. It checks out that tag using the
+updated workflow, so the published tag does not need to move. CI disables shared
+compilation and reusable .NET build servers: the Windows Godot console waits for
+its child processes, which otherwise can hold an export open after it finishes.
+
 ## Controls
 
 | Action | Keyboard | Gamepad |

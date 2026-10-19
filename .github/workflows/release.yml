@@ -3,17 +3,27 @@ name: Release builds
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to rebuild
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event.release.id }}
+  group: release-${{ github.event.release.tag_name || inputs.release_tag }}
   cancel-in-progress: false
 
 env:
   DOTNET_NOLOGO: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  # The Windows Godot console waits for child processes, including idle build servers.
+  UseSharedCompilation: 'false'
+  MSBUILDDISABLENODEREUSE: '1'
+  DOTNET_CLI_USE_MSBUILD_SERVER: '0'
   GODOT_VERSION: 4.7.1-stable
   GODOT_ARCHIVE_SHA256: 764a089809fb1a6f745686ce9f6d3ca83adce8fb60fb9a4e2324b63baaebaa45
   GODOT_TEMPLATES_SHA256: ef9a708be51ecd974cd7dccdcafd7a1870da3d3e1c24c072bdbb9818c7a7db63
@@ -22,20 +32,20 @@ jobs:
   release:
     name: Validate, export Windows/Linux/Android, and attach builds
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       contents: write
     defaults:
       run:
         shell: pwsh
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
 
     steps:
       - name: Check out the released tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: refs/tags/${{ github.event.release.tag_name }}
+          ref: refs/tags/${{ github.event.release.tag_name || inputs.release_tag }}
           submodules: recursive
           persist-credentials: false
 
@@ -156,13 +166,22 @@ jobs:
               -TimeoutSeconds 1800 `
               -FailOnEngineDiagnostics
 
-      - name: Export all three platforms
+      - name: Export Windows x64
+        timeout-minutes: 15
         run: |
           New-Item -ItemType Directory -Force builds/windows, builds/linux, builds/android | Out-Null
           & $env:GODOT_CONSOLE --headless --path . --export-release Windows builds/windows/oracle-of-ages.exe
           if ($LASTEXITCODE -ne 0) { throw 'Windows export failed.' }
+
+      - name: Export Linux x64
+        timeout-minutes: 15
+        run: |
           & $env:GODOT_CONSOLE --headless --path . --export-release Linux builds/linux/oracle-of-ages.x86_64
           if ($LASTEXITCODE -ne 0) { throw 'Linux export failed.' }
+
+      - name: Export Android ARM64
+        timeout-minutes: 20
+        run: |
           # Match the existing sideloadable APK flow; store signing is not configured.
           & $env:GODOT_CONSOLE --headless --path . --export-debug Android builds/android/oracle-of-ages.apk
           if ($LASTEXITCODE -ne 0) { throw 'Android export failed.' }
