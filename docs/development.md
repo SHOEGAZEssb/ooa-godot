@@ -126,6 +126,14 @@ This creates a debug-signed APK, not a store release. Release exports require a
 release signing key configured locally. Keep signing credentials out of source
 control. Export output under `builds/` is ignored.
 
+For a Release APK, configure `GODOT_ANDROID_KEYSTORE_RELEASE_PATH`,
+`GODOT_ANDROID_KEYSTORE_RELEASE_USER`, and
+`GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD`, and use `--export-release` instead.
+The Android preset excludes C# debug symbols. The publish target in
+`Directory.Build.targets` excludes static `.a` link inputs from Android exports;
+the shared `.so` runtime libraries remain included. This happens before APK
+assembly and signing, so no signed archive needs modification.
+
 The preset includes generated `.bin`, `.tsv`, and `.2bpp` files explicitly;
 Godot's resource export alone does not include these runtime inputs. Imported
 graphics are exported as Godot resources. Regenerate assets before exporting
@@ -138,9 +146,12 @@ controls have not been implemented.
 
 Publishing a GitHub release (including a prerelease) runs
 [Release builds](../.github/workflows/release.yml) against its tag. The workflow
-imports the verified source assets, rebuilds optimized assemblies, and runs the
+imports the verified source assets, rebuilds Release assemblies, and runs the
 full eight-worker validation suite before exporting the three configured targets.
 The Windows runner cross-exports Linux using the matching .NET templates.
+Godot calls its game Release configuration `ExportRelease`; the importer and
+validation project use `Release`. Release assemblies are staged in the `Debug`
+paths expected by the editor validation host, without compiling a Debug build.
 
 The release receives a Windows x64 ZIP, a Linux x64 tarball, an Android ARM64
 APK, and `SHA256SUMS.txt`. Desktop archives include the complete export directory;
@@ -148,18 +159,21 @@ the Linux archive preserves executable permissions. Filenames include the releas
 tag; the embedded game version comes from the tagged project configuration.
 The ROM and private signing keys are not uploaded.
 
-Android uses the existing debug-signed sideloading export, without additional
-repository secrets. This is not a store release; a fresh runner's debug key also
-means an APK from another run may require uninstalling the previous APK first.
+All three targets use `--export-release` and exclude C# debug symbols. Android
+uses a non-debuggable Release template signed with a disposable sideload key,
+without additional repository secrets. The changing signing key means an APK
+from another run may require uninstalling the previous APK first. Store
+distribution and updates across runs require a persistent signing key.
 The workflow uses `GITHUB_TOKEN` to attach assets only after every export succeeds.
 Rerunning the workflow replaces assets with matching filenames.
 
 After fixing release automation, use the workflow's manual trigger with
 `release_tag` to rebuild an existing release. It checks out that tag using the
 updated workflow, so the published tag does not need to move. The validation
-launcher and ROM resolver also come from the workflow revision, keeping
-historical resource and time caps out of release retries; game source and
-validation scenarios stay at the tag.
+launcher, ROM resolver, and Android publish exclusions also come from the
+workflow revision. The workflow disables debug symbols in the tagged export
+presets, avoiding historical packaging overhead and resource/time caps during
+release retries; game source and validation scenarios stay at the tag.
 Exports launch the Godot editor executable directly and wait for that process.
 They capture output to regular log files, avoiding the console wrapper's wait
 for descendant build processes and inherited output pipes. Each export reports the editor's exit code

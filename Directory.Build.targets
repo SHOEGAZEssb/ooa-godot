@@ -1,0 +1,13 @@
+<Project>
+  <!-- Android loads the shared Mono runtime. The runtime pack also supplies
+       static link inputs; Godot 4.7.1 ExportPlugin.IsSharedObject also packages
+       those .a files, although they are not runtime-loadable shared objects. -->
+  <Target Name="ExcludeAndroidStaticArchives"
+          AfterTargets="ComputeFilesToPublish"
+          Condition=" '$(GodotTargetPlatform)' == 'android' ">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition=" '%(ResolvedFileToPublish.Extension)' == '.a' " />
+    </ItemGroup>
+  </Target>
+</Project>

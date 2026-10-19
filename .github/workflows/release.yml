@@ -48,7 +48,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: Install validation launcher from the workflow revision
+      - name: Install release orchestration from the workflow revision
         run: |
           # A manual rebuild may target a tag whose launcher still throttles workers.
           # Keep game/validation source at the tag and use this workflow's orchestration.
@@ -56,6 +56,23 @@ jobs:
               $url = "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_WORKFLOW_SHA/tools/$name"
               Invoke-WebRequest -Uri $url -OutFile (Join-Path 'tools' $name)
           }
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_WORKFLOW_SHA/Directory.Build.targets" `
+              -OutFile Directory.Build.targets
+
+      - name: Exclude debug symbols from every release preset
+        shell: python
+        run: |
+          import configparser
+          from pathlib import Path
+
+          path = Path("export_presets.cfg")
+          presets = configparser.ConfigParser(interpolation=None)
+          presets.read(path, encoding="utf-8")
+          for section in presets.sections():
+              if section.endswith(".options"):
+                  presets[section]["dotnet/include_debug_symbols"] = "false"
+          with path.open("w", encoding="utf-8", newline="\n") as stream:
+              presets.write(stream, space_around_delimiters=False)
 
       - name: Set up .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -104,7 +121,11 @@ jobs:
           . ./tools/Resolve-OracleRom.ps1
           $rom = Resolve-OracleRom -LockTimeoutSeconds 0
           "ORACLES_ROM=$rom" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          & ./tools/import_oracles.ps1 -Rom $rom
+          # The importer expects this output path; compile its contents as Release.
+          dotnet build tools/OracleImporter/OracleImporter.csproj --configuration Release `
+              -t:Rebuild -p:Optimize=true --warnaserror --output tools/OracleImporter/bin/Debug/net8.0
+          if ($LASTEXITCODE -ne 0) { throw 'Release importer build failed.' }
+          & ./tools/import_oracles.ps1 -Rom $rom -SkipBuild
 
       - name: Install verified Godot and .NET export templates
         run: |
@@ -137,7 +158,7 @@ jobs:
           try {
               # Extract only the targets used here, avoiding the large Apple templates.
               foreach ($name in @('windows_release_x86_64.exe', 'windows_release_x86_64_console.exe',
-                      'linux_release.x86_64', 'android_debug.apk', 'android_release.apk')) {
+                      'linux_release.x86_64', 'android_release.apk')) {
                   $entry = $zip.GetEntry("templates/$name")
                   if ($null -eq $entry) { throw "Missing .NET export template: $name" }
                   [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $templateRoot $name))
@@ -157,8 +178,18 @@ jobs:
           export/android/android_sdk_path = "$androidPath"
           "@ | Set-Content -LiteralPath (Join-Path $settingsRoot 'editor_settings-4.7.tres') -Encoding utf8
 
-      - name: Build optimized production and validation assemblies
-        run: dotnet build --configuration Debug -t:Rebuild -p:Optimize=true --warnaserror
+      - name: Build Release production and validation assemblies
+        run: |
+          # Godot's editor host looks in Debug, regardless of compilation settings.
+          # Stage Release assemblies there so validation needs no Debug build.
+          $hostOutput = '.godot/mono/temp/bin/Debug'
+          dotnet build oracle-of-ages.csproj --configuration ExportRelease `
+              -t:Rebuild -p:Optimize=true --warnaserror --output $hostOutput
+          if ($LASTEXITCODE -ne 0) { throw 'Release game build failed.' }
+          dotnet build validation/oracle-of-ages.validation.csproj --configuration Release `
+              -t:Rebuild -p:Optimize=true -p:BuildProjectReferences=false --warnaserror `
+              --output validation/bin/Debug/net8.0
+          if ($LASTEXITCODE -ne 0) { throw 'Release validation build failed.' }
 
       - name: Import Godot resources
         run: |
@@ -211,12 +242,11 @@ jobs:
           parser = argparse.ArgumentParser()
           parser.add_argument("preset", choices=("Windows", "Linux", "Android"))
           parser.add_argument("output")
-          parser.add_argument("--debug", action="store_true")
           args = parser.parse_args()
           Path(args.output).parent.mkdir(parents=True, exist_ok=True)
           log = Path(os.environ["RUNNER_TEMP"]) / f"godot-export-{args.preset.lower()}.log"
           command = [os.environ["GODOT_EDITOR"], "--headless", "--path", ".",
-                     "--export-debug" if args.debug else "--export-release", args.preset, args.output]
+                     "--export-release", args.preset, args.output]
           started = time.monotonic()
           # Bypass the console wrapper's wait for all descendant processes (Godot #110101).
           # A regular file also prevents inherited stdout pipes from holding the CI step open.
@@ -245,14 +275,50 @@ jobs:
           python $env:GODOT_EXPORT_LAUNCHER Linux builds/linux/oracle-of-ages.x86_64
           if ($LASTEXITCODE -ne 0) { throw 'Linux export failed.' }
 
+      - name: Create Android sideload signing key
+        run: |
+          # Signing is independent of Release compilation. Keep the existing
+          # disposable-key sideload policy without requiring repository secrets.
+          $key = Join-Path $env:RUNNER_TEMP 'android-sideload.p12'
+          $password = [Guid]::NewGuid().ToString('N')
+          Write-Output "::add-mask::$password"
+          $env:OOA_SIGNING_PASSWORD = $password
+          & "$env:JAVA_HOME/bin/keytool.exe" -genkeypair -noprompt -storetype PKCS12 `
+              -keystore $key -alias oracle-of-ages -keyalg RSA -keysize 2048 `
+              -validity 10000 -dname 'CN=Oracle of Ages Sideload' `
+              -storepass:env OOA_SIGNING_PASSWORD -keypass:env OOA_SIGNING_PASSWORD
+          if ($LASTEXITCODE -ne 0) { throw 'Android sideload key generation failed.' }
+          "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$key" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          'GODOT_ANDROID_KEYSTORE_RELEASE_USER=oracle-of-ages' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$password" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Export Android ARM64
         run: |
-          # Match the existing sideloadable APK flow; store signing is not configured.
-          python $env:GODOT_EXPORT_LAUNCHER Android builds/android/oracle-of-ages.apk --debug
+          python $env:GODOT_EXPORT_LAUNCHER Android builds/android/oracle-of-ages.apk
           if ($LASTEXITCODE -ne 0) { throw 'Android export failed.' }
           $signer = Join-Path $env:ANDROID_HOME 'build-tools/36.0.0/apksigner.bat'
           & $signer verify builds/android/oracle-of-ages.apk
           if ($LASTEXITCODE -ne 0) { throw 'Android APK signature verification failed.' }
+          $aapt = Join-Path $env:ANDROID_HOME 'build-tools/36.0.0/aapt2.exe'
+          $badging = @(& $aapt dump badging builds/android/oracle-of-ages.apk)
+          if ($LASTEXITCODE -ne 0) { throw 'Android manifest inspection failed.' }
+          if ($badging -match '^application-debuggable') { throw 'Android release must not be debuggable.' }
+
+      - name: Verify Android release contents
+        shell: python
+        run: |
+          import zipfile
+
+          with zipfile.ZipFile("builds/android/oracle-of-ages.apk") as apk:
+              names = apk.namelist()
+              unwanted = [name for name in names if name.endswith((".a", ".pdb"))]
+              if unwanted:
+                  raise SystemExit(f"Build-only files in Android release: {unwanted}")
+              for required in ("lib/arm64-v8a/libgodot_android.so",
+                               "lib/arm64-v8a/libmonosgen-2.0.so",
+                               "assets/.godot/mono/publish/arm64/oracle-of-ages.dll"):
+                  if required not in names or apk.getinfo(required).file_size == 0:
+                      raise SystemExit(f"Missing or empty Android runtime file: {required}")
 
       - name: Package complete builds and checksums
         shell: python
