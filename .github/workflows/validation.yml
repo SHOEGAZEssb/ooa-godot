@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.github/workflows/validation.yml'
+      - '.github/actions/**'
       - '.gitmodules'
       - 'external/**'
       - 'src/**'
@@ -29,75 +30,47 @@ env:
   GODOT_ARCHIVE_SHA256: 764a089809fb1a6f745686ce9f6d3ca83adce8fb60fb9a4e2324b63baaebaa45
 
 jobs:
-  validate:
-    name: Build and headless validation
+  importer:
+    name: Importer validation
     runs-on: windows-latest
-    timeout-minutes: 45
-
+    timeout-minutes: 14
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           submodules: recursive
+      - name: Prepare dependencies
+        uses: ./.github/actions/prepare-validation
+      - name: Verify importer and deterministic generated assets
+        shell: pwsh
+        run: '& ./tools/verify_oracle_import.ps1 -Rom $env:ORACLES_ROM'
+      - name: Test validation orchestration
+        shell: pwsh
+        run: '& ./tools/Test-ValidationLauncher.ps1'
 
-      - name: Set up .NET 8
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+  validate:
+    name: Gameplay validation ${{ matrix.partition }}/4
+    runs-on: windows-latest
+    timeout-minutes: 14
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3, 4]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          dotnet-version: 8.0.x
-
-      - name: Set up ROM build environment
-        id: msys2
-        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+          submodules: recursive
+      - name: Prepare dependencies
+        uses: ./.github/actions/prepare-validation
         with:
-          update: true
-          install: >-
-            git
-            make
-            python
-            python-yaml
-            curl
-            unzip
-
-      - name: Rebuild verified Oracle of Ages source ROM
+          godot: 'true'
+      - name: Import game assets
         shell: pwsh
-        env:
-          OOA_ROM_BUILD_BASH: ${{ steps.msys2.outputs.msys2-location }}/usr/bin/bash.exe
-        run: |
-          . .\tools\Resolve-OracleRom.ps1
-          $rom = Resolve-OracleRom
-          "ORACLES_ROM=$rom" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-      - name: Test importer and verify deterministic generated assets
-        shell: pwsh
-        run: >-
-          & .\tools\verify_oracle_import.ps1
-          -Rom $env:ORACLES_ROM
-
-      - name: Install verified Godot 4.7.1 .NET build
-        shell: pwsh
-        run: |
-          $archive = Join-Path $env:RUNNER_TEMP 'godot.zip'
-          $installRoot = Join-Path $env:RUNNER_TEMP 'godot'
-          $url = "https://github.com/godotengine/godot-builds/releases/download/$env:GODOT_VERSION/Godot_v$env:GODOT_VERSION`_mono_win64.zip"
-
-          Invoke-WebRequest -Uri $url -OutFile $archive
-          $actualHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actualHash -ne $env:GODOT_ARCHIVE_SHA256) {
-              throw "Expected Godot archive SHA256 $env:GODOT_ARCHIVE_SHA256, got $actualHash."
-          }
-
-          Expand-Archive -LiteralPath $archive -DestinationPath $installRoot
-          $console = Get-ChildItem -LiteralPath $installRoot -Recurse -File -Filter '*_console.exe' |
-              Select-Object -First 1
-          if ($null -eq $console) {
-              throw 'Godot console executable was not present in the verified archive.'
-          }
-          "GODOT_CONSOLE=$($console.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
+        run: '& ./tools/import_oracles.ps1 -Rom $env:ORACLES_ROM'
       - name: Build with zero warnings
         shell: pwsh
         run: dotnet build --configuration Debug -t:Rebuild -p:Optimize=true --warnaserror
-
       - name: Restore validation timing profile
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
@@ -105,37 +78,70 @@ jobs:
           key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-
-
-      - name: Run complete headless validation
-        timeout-minutes: 15
+      - name: Run gameplay partition
+        timeout-minutes: 8
         shell: pwsh
         env:
           TEMP: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
+          VALIDATION_PARTITION: ${{ matrix.partition }}
         run: |
           Write-Host "Validation host: $([Environment]::ProcessorCount) logical CPUs; no launcher CPU/RAM caps."
-          & .\tools\validate_parallel.ps1 `
-              -Godot $env:GODOT_CONSOLE `
-              -Rom $env:ORACLES_ROM `
-              -Workers 8 `
-              -TimeoutSeconds 840 `
-              -FailOnEngineDiagnostics
-
-      - name: Save validation timing profile
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+          & ./tools/validate_parallel.ps1 `
+              -Godot $env:GODOT_CONSOLE -Rom $env:ORACLES_ROM `
+              -Workers 4 -PartitionIndex $env:VALIDATION_PARTITION -PartitionCount 4 `
+              -ResultPath ".godot/validation-results/partition-$env:VALIDATION_PARTITION.json" `
+              -TimeoutSeconds 450 -FailOnEngineDiagnostics
+      - name: Upload partition results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          path: .godot/validation-timings.tsv
-          key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
-
+          name: validation-results-${{ matrix.partition }}
+          path: .godot/validation-results/*.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload validation worker logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: validation-worker-logs
+          name: validation-worker-logs-${{ matrix.partition }}
           path: ${{ runner.temp }}/ooa-validation-*/*.log
           if-no-files-found: ignore
           retention-days: 7
 
+  complete:
+    name: Build and headless validation
+    if: always()
+    needs: [importer, validate]
+    runs-on: windows-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require every validation job to pass
+        shell: pwsh
+        env:
+          IMPORTER_RESULT: ${{ needs.importer.result }}
+          GAMEPLAY_RESULT: ${{ needs.validate.result }}
+        run: |
+          if ($env:IMPORTER_RESULT -ne 'success' -or $env:GAMEPLAY_RESULT -ne 'success') {
+              throw "Incomplete validation: importer=$env:IMPORTER_RESULT, gameplay=$env:GAMEPLAY_RESULT"
+          }
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Download partition results
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: validation-results-*
+          path: .godot/validation-results
+          merge-multiple: true
+      - name: Verify complete scenario coverage
+        shell: pwsh
+        run: >-
+          & ./tools/Merge-ValidationResults.ps1
+          -ResultsDirectory .godot/validation-results -PartitionCount 4 -WorkersPerPartition 4
+      - name: Save complete timing profile
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .godot/validation-timings.tsv
+          key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Check patch whitespace
         shell: pwsh
         run: git diff --check

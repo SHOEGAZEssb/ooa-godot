@@ -1,0 +1,51 @@
+name: Prepare validation runner
+description: Install .NET and ROM build tools, rebuild the verified ROM, and optionally install Godot.
+inputs:
+  godot:
+    description: Install the verified Godot editor for gameplay validation
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Set up .NET 8
+      uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Set up ROM build environment
+      id: msys2
+      uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+      with:
+        update: true
+        install: >-
+          git
+          make
+          python
+          python-yaml
+          curl
+          unzip
+
+    - name: Rebuild verified Oracle of Ages source ROM
+      shell: pwsh
+      env:
+        OOA_ROM_BUILD_BASH: ${{ steps.msys2.outputs.msys2-location }}/usr/bin/bash.exe
+      run: |
+        . ./tools/Resolve-OracleRom.ps1
+        $rom = Resolve-OracleRom
+        "ORACLES_ROM=$rom" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+    - name: Install verified Godot .NET build
+      if: inputs.godot == 'true'
+      shell: pwsh
+      run: |
+        $archive = Join-Path $env:RUNNER_TEMP 'godot.zip'
+        $installRoot = Join-Path $env:RUNNER_TEMP 'godot'
+        $url = "https://github.com/godotengine/godot-builds/releases/download/$env:GODOT_VERSION/Godot_v$env:GODOT_VERSION`_mono_win64.zip"
+        Invoke-WebRequest -Uri $url -OutFile $archive
+        $actualHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actualHash -ne $env:GODOT_ARCHIVE_SHA256) { throw "Godot archive SHA256 mismatch: $actualHash" }
+        Expand-Archive -LiteralPath $archive -DestinationPath $installRoot
+        $console = Get-ChildItem -LiteralPath $installRoot -Recurse -File -Filter '*_console.exe' |
+            Select-Object -First 1
+        if ($null -eq $console) { throw 'Godot console executable is missing.' }
+        "GODOT_CONSOLE=$($console.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8

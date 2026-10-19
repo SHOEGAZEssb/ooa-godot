@@ -10,16 +10,31 @@ param(
     [switch]$FailOnEngineDiagnostics,
     [switch]$ProfileMemory,
     [string]$TimingProfile,
+    [ValidateRange(1, 64)]
+    [int]$PartitionIndex = 1,
+    [ValidateRange(1, 64)]
+    [int]$PartitionCount = 1,
+    [string]$ResultPath,
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600
 )
 
 $ErrorActionPreference = 'Stop'
+if ($PartitionIndex -gt $PartitionCount) { throw 'PartitionIndex exceeds PartitionCount.' }
+if ($PartitionCount -gt 1 -and ($ValidateOnly -or $SkipRomValidation -or -not $ResultPath)) {
+    throw 'Distributed validation requires -ResultPath and cannot use -ValidateOnly or -SkipRomValidation.'
+}
+$totalWorkers = $Workers * $PartitionCount
 if ($ValidateOnly) {
     if ($PSBoundParameters.ContainsKey('Workers') -and $Workers -ne 1) {
         throw '-ValidateOnly cannot be combined with multiple workers.'
     }
     $Workers = 1
+    $totalWorkers = 1
+}
+if ($ResultPath) {
+    $ResultPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ResultPath)
+    if ([IO.File]::Exists($ResultPath)) { [IO.File]::Delete($ResultPath) }
 }
 # Windows children inherit the parent's process error mode. Keep native crashes
 # noninteractive without changing machine-wide WER settings or hiding failures.
@@ -60,6 +75,7 @@ if ($ProfileMemory) {
 $logRoot = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($logRoot)
 $defaultTimingProfile = Join-Path $projectRoot '.godot/validation-timings.tsv'
+$profileHash = 'round-robin'
 if (-not $ValidateOnly) {
     $profile = if ($TimingProfile) {
         $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($TimingProfile)
@@ -72,6 +88,7 @@ if (-not $ValidateOnly) {
         # run refreshes the default profile from its completion timings.
         $snapshot = Join-Path $logRoot 'timing-profile.tsv'
         [IO.File]::Copy($profile, $snapshot)
+        $profileHash = (Get-FileHash -LiteralPath $snapshot -Algorithm SHA256).Hash
         $validationArguments += '"--validate-timing-profile=' + $snapshot + '"'
         Write-Host "Balancing workers from timing profile: $profile"
     }
@@ -79,6 +96,7 @@ if (-not $ValidateOnly) {
 $processes = [Collections.Generic.List[object]]::new()
 $timer = [Diagnostics.Stopwatch]::StartNew()
 Write-Host "Running $Workers validation workers. Logs: $logRoot"
+if ($PartitionCount -gt 1) { Write-Host "Partition $PartitionIndex/$PartitionCount of $totalWorkers global workers." }
 Write-Host "No launcher CPU or memory limits; workers inherit process priority."
 
 $previousErrorMode = [OracleValidation.ErrorMode]::GetErrorMode()
@@ -88,17 +106,18 @@ try {
     # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX. Preserve existing flags.
     [void][OracleValidation.ErrorMode]::SetErrorMode($previousErrorMode -bor 0x0003)
     for ($index = 1; $index -le $Workers; $index++) {
-        $stdout = Join-Path $logRoot "$index.stdout.log"
-        $stderr = Join-Path $logRoot "$index.stderr.log"
-        $engineLog = Join-Path $logRoot "$index.godot.log"
-        $selection = if ($ValidateOnly) { "--validate-only=$ValidateOnly" } else { "--validate-shard=$index/$Workers" }
+        $globalIndex = ($PartitionIndex - 1) * $Workers + $index
+        $stdout = Join-Path $logRoot "$globalIndex.stdout.log"
+        $stderr = Join-Path $logRoot "$globalIndex.stderr.log"
+        $engineLog = Join-Path $logRoot "$globalIndex.godot.log"
+        $selection = if ($ValidateOnly) { "--validate-only=$ValidateOnly" } else { "--validate-shard=$globalIndex/$totalWorkers" }
         # Deferred draw scenarios await host frames. The runner quits when all
         # assigned scenarios finish; TimeoutSeconds bounds an incomplete run.
         $arguments = (@('--headless', '--path', ('"' + $projectRoot + '"'),
                 '--log-file', ('"' + $engineLog + '"'),
                 '--', '--validate', $selection) + $validationArguments) -join ' '
         $process = $job.Start($Godot, $arguments, $projectRoot, $stdout, $stderr)
-        $processes.Add([pscustomobject]@{ Process = $process; Index = $index; Out = $stdout; Err = $stderr; EngineLog = $engineLog })
+        $processes.Add([pscustomobject]@{ Process = $process; Index = $globalIndex; Out = $stdout; Err = $stderr; EngineLog = $engineLog })
     }
 
     while (@($processes | Where-Object { -not $_.Process.HasExited }).Count -gt 0) {
@@ -113,6 +132,7 @@ try {
     $skipped = 0
     $failedScenarios = 0
     $registered = $null
+    $workerResults = [Collections.Generic.List[object]]::new()
     $timings = [Collections.Generic.Dictionary[string, double]]::new([StringComparer]::Ordinal)
     foreach ($worker in $processes) {
         $worker.Process.WaitForExit()
@@ -127,7 +147,7 @@ try {
             }
         }
         $output = [string](Get-Content -LiteralPath $worker.Out -Raw)
-        $pattern = "(?m)^VALIDATION_COMPLETE shard=$($worker.Index)/$Workers executed=(\d+) skipped=(\d+) registered=(\d+)(?: failed=(\d+))?\r?$"
+        $pattern = "(?m)^VALIDATION_COMPLETE shard=$($worker.Index)/$totalWorkers executed=(\d+) skipped=(\d+) registered=(\d+)(?: failed=(\d+))?\r?$"
         if ($output -notmatch $pattern) {
             $failed = $true
             Write-Host "Worker $($worker.Index) failed (exit $($worker.Process.ExitCode))."
@@ -155,6 +175,7 @@ try {
             throw 'Workers disagree on the registered validation count.'
         }
         $registered = $total
+        $workerNames = [Collections.Generic.List[string]]::new()
         foreach ($line in ($output -split '\r?\n')) {
             if ($line.StartsWith('VALIDATION_SKIPPED ')) { Write-Host $line }
             if ($line -match '^VALIDATION_TIMING name=(\S+) setup_ms=\S+ total_ms=(\S+)$') {
@@ -163,12 +184,17 @@ try {
                     throw "Invalid or duplicate validation timing: $line"
                 }
                 $timings.Add($Matches[1], $milliseconds)
+                $workerNames.Add($Matches[1])
             }
         }
+        $workerResults.Add([pscustomobject]@{
+            Index = $worker.Index; Executed = $workerExecuted; Skipped = $workerSkipped
+            Failed = $workerFailed; ScenarioNames = @($workerNames.ToArray())
+        })
         Write-Host "Worker $($worker.Index): $workerExecuted scenarios passed, $workerSkipped skipped."
     }
-    $expected = if ($ValidateOnly) { 1 } else { $registered }
-    if (-not $ValidateOnly -and -not $SkipRomValidation -and -not $TimingProfile -and
+    $expected = if ($ValidateOnly) { 1 } elseif ($PartitionCount -gt 1) { $timings.Count } else { $registered }
+    if ($PartitionCount -eq 1 -and -not $ValidateOnly -and -not $SkipRomValidation -and -not $TimingProfile -and
         $executed + $failedScenarios -eq $registered -and $timings.Count -eq $registered) {
         $lines = [Collections.Generic.List[string]]::new()
         $lines.Add("name`ttotal_ms")
@@ -182,7 +208,25 @@ try {
         Write-Host ("Validation elapsed: {0:N1}s with {1} workers; {2} passed, {3} skipped, {4} failed, {5} registered." -f $timer.Elapsed.TotalSeconds, $Workers, $executed, $skipped, $failedScenarios, $registered)
         throw "Parallel validation incomplete: $executed passed, $skipped skipped, $failedScenarios failed, $registered registered. Logs: $logRoot"
     }
-    if ($ValidateOnly) {
+    if ($ResultPath) {
+        if ($ValidateOnly -or $skipped -ne 0 -or $timings.Count -ne $executed) {
+            throw 'Result reports require successful, timed scenarios without skips or a focused filter.'
+        }
+        [void][IO.Directory]::CreateDirectory((Split-Path $ResultPath -Parent))
+        $report = [ordered]@{
+            SchemaVersion = 1; PartitionIndex = $PartitionIndex; PartitionCount = $PartitionCount
+            WorkersPerPartition = $Workers; TotalWorkers = $totalWorkers; Registered = $registered
+            ProfileHash = $profileHash; ElapsedSeconds = $timer.Elapsed.TotalSeconds
+            Workers = @($workerResults.ToArray())
+            Timings = @($timings.Keys | Sort-Object | ForEach-Object {
+                [ordered]@{ Name = $_; Milliseconds = $timings[$_] }
+            })
+        }
+        [IO.File]::WriteAllText($ResultPath, ($report | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+    }
+    if ($PartitionCount -gt 1) {
+        Write-Host ("Validated partition {0}/{1}: {2} scenarios passed, 0 skipped in {3:N1}s with {4} workers; full coverage requires merging every partition." -f $PartitionIndex, $PartitionCount, $executed, $timer.Elapsed.TotalSeconds, $Workers)
+    } elseif ($ValidateOnly) {
         if ($skipped -gt 0) {
             Write-Host "Skipped $ValidateOnly (ROM required)."
         } else {

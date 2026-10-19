@@ -125,16 +125,22 @@ Use `-SkipRomValidation` for focused scenarios that do not need a ROM when
 the build tools and cache are unavailable.
 
 CI rebuilds the clean US ROM from a pinned disassembly revision, verifies its
-MD5, and passes it with `-Rom` to the complete 8-worker suite. Each worker also
+MD5, and passes it with `-Rom` to every gameplay worker. Each worker also
 checks the ROM's size and SHA-256 before reference execution. CI uses
 `-FailOnEngineDiagnostics` to reject Godot errors or warnings in worker logs.
-The CI gameplay suite has a 14-minute launcher deadline inside a 15-minute
-step limit; setup, import verification, and builds are timed separately. Both
-CI workflows restore and save the timing profile so subsequent runs balance
-long scenarios across workers. Coverage is unchanged when no profile exists.
-Worker stdout, stderr, and engine logs
-are retained for 7 days in the `validation-worker-logs` artifact, including
-failed and timed-out runs.
+The validation workflow runs four gameplay partitions concurrently, each with
+four workers and a 14-minute job limit including setup and the optimized build.
+Gameplay has a 450-second launcher deadline inside an eight-minute step limit.
+Importer verification runs alongside gameplay on a separate runner. The final
+coverage check has a one-minute job limit.
+`Build and headless validation` requires every job to pass, all 16 global
+worker IDs, and exactly one successful timing record for every registered
+scenario, with no skips. Missing partitions or duplicate scenarios fail it.
+Only this complete merge refreshes the cached timing profile. A cache miss keeps
+the same coverage using round-robin assignments. Worker stdout, stderr, and engine
+logs are retained for seven days in `validation-worker-logs-*` artifacts, including
+failed and timed-out runs. The release workflow retains its single-runner suite
+with a 14-minute launcher deadline inside a 15-minute step limit.
 
 Use `tools/validate_parallel.ps1 -SkipRomValidation` for an explicit run without
 ROM-dependent scenarios. Mark these scenarios with `requiresRom: true` in the
@@ -193,6 +199,14 @@ This changes distribution only, preserving every scenario, assertion and update.
 Use `-TimingProfile PATH` to freeze a profile for repeated measurements; an
 explicit profile is read without refreshing the default. Focused runs and ROM
 skip runs do not overwrite complete-suite timing history.
+For distributed runs, `-PartitionIndex INDEX -PartitionCount COUNT` assigns a
+contiguous group of global shards to this runner. `-Workers` is the number of
+processes on each runner; every partition must use the same worker count and
+timing-profile snapshot. Distributed runs require `-ResultPath PATH` and reject
+focused filters and ROM skips. A partition success is not a full-suite pass.
+`tools/Merge-ValidationResults.ps1` verifies every partition report and writes
+the complete timing profile only after exact scenario coverage is established.
+Ordinary local runs still default to one complete eight-worker suite.
 Use this launcher for focused runs too: `-ValidateOnly` selects one scenario
 in one worker. Each run uses a writable, unique engine log instead of Godot's
 shared user-log rotation. On Windows, workers inherit an error mode that

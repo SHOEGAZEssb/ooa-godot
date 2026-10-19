@@ -106,6 +106,11 @@ public static class ValidationLauncherFixture {
             Console.WriteLine("VALIDATION_SKIPPED name=ValidateSkipRomArgument reason=rom-required");
         }
         if (selected == "ValidateIncompleteSkip") executed = 0;
+        if (Environment.GetEnvironmentVariable("OOA_TEST_VALIDATION_EMIT_TIMINGS") == "1") {
+            int first = int.Parse(shard.Split('/')[0]) - 1;
+            for (int ordinal = first; ordinal < 8; ordinal += workers)
+                Console.WriteLine("VALIDATION_TIMING name=ValidateFixture" + ordinal + " setup_ms=0 total_ms=1.500");
+        }
         Console.WriteLine("VALIDATION_COMPLETE shard=" + shard + " executed=" + executed +
             " skipped=" + skipped + " registered=8 failed=" + failed);
         return failed == 0 ? 0 : 1;
@@ -193,6 +198,59 @@ public static class ValidationLauncherFixture {
         }
     }
     finally { [void][OracleValidation.ErrorMode]::SetErrorMode($original) }
+    $reports = Join-Path $temporary 'reports'
+    [void][IO.Directory]::CreateDirectory($reports)
+    $mergedProfile = Join-Path $temporary 'merged.tsv'
+    $previousEmitTimings = [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_EMIT_TIMINGS')
+    try {
+        [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_EMIT_TIMINGS', '1')
+        foreach ($partition in 1..2) {
+            & $launcher @fixtureParameters -Workers 4 -PartitionIndex $partition -PartitionCount 2 `
+                -ResultPath (Join-Path $reports "partition-$partition.json") -TimingProfile $timingProfile -TimeoutSeconds 15
+        }
+        $merge = Join-Path $PSScriptRoot 'Merge-ValidationResults.ps1'
+        $mergeParameters = @{ ResultsDirectory = $reports; PartitionCount = 2; WorkersPerPartition = 4; TimingProfile = $mergedProfile }
+        & $merge @mergeParameters
+        if (@([IO.File]::ReadAllLines($mergedProfile)).Count -ne 9) { throw 'Merged timing profile lost scenarios.' }
+        $first = Get-Content -LiteralPath (Join-Path $reports 'partition-1.json') -Raw | ConvertFrom-Json
+        $secondPath = Join-Path $reports 'partition-2.json'
+        $secondText = [IO.File]::ReadAllText($secondPath)
+        foreach ($fault in @('missing-partition', 'duplicate-partition', 'duplicate-worker', 'missing-worker', 'duplicate-scenario',
+            'missing-scenario', 'skip', 'failure', 'registered-count', 'different-profile', 'missing-timing', 'invalid-timing')) {
+            $second = $secondText | ConvertFrom-Json
+            switch ($fault) {
+                'missing-partition' { [IO.File]::Delete($secondPath) }
+                'duplicate-partition' { $second.PartitionIndex = 1 }
+                'duplicate-worker' { $second.Workers[0].Index = 1 }
+                'missing-worker' { $second.Workers = @($second.Workers | Select-Object -Skip 1) }
+                'duplicate-scenario' { $second.Workers[0].ScenarioNames = @($first.Workers[0].ScenarioNames[0]) }
+                'missing-scenario' {
+                    $second.Workers[0].ScenarioNames = @(); $second.Workers[0].Executed = 0
+                    $second.Timings = @($second.Timings | Select-Object -Skip 1)
+                }
+                'skip' { $second.Workers[0].Skipped = 1 }
+                'failure' { $second.Workers[0].Failed = 1 }
+                'registered-count' { $second.Registered = 9 }
+                'different-profile' { $second.ProfileHash = 'different' }
+                'missing-timing' { $second.Timings = @($second.Timings | Select-Object -Skip 1) }
+                'invalid-timing' { $second.Timings[0].Milliseconds = 'NaN' }
+            }
+            if ($fault -ne 'missing-partition') {
+                [IO.File]::WriteAllText($secondPath, ($second | ConvertTo-Json -Depth 8))
+            }
+            $failure = $null
+            try { & $merge @mergeParameters } catch { $failure = $_.ToString() }
+            [IO.File]::WriteAllText($secondPath, $secondText)
+            if ($null -eq $failure) { throw "Distributed validation accepted $fault." }
+        }
+    }
+    finally {
+        [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_EMIT_TIMINGS', $previousEmitTimings)
+        foreach ($partition in 1..2) { [IO.File]::Delete((Join-Path $reports "partition-$partition.json")) }
+        [IO.File]::Delete($mergedProfile)
+        [IO.Directory]::Delete($reports, $false)
+    }
+    Write-Host 'Distributed validation tests passed (global shard IDs, exact coverage, missing/duplicate reports/workers/scenarios, skips, failures, mismatched registration/profile, incomplete timings).'
     Write-Host 'Validation launcher tests passed (no CPU/memory limits or forced priority, child cleanup on timeout and normal exit, 8 workers, focused selection, ROM path forwarding, timing snapshot forwarding, explicit skips, continued failure counts, incomplete/unexpected skip rejection, stdout/stderr/engine-log diagnostic rejection, unique logs, crash exit, missing marker, inherited/restored error mode).'
 }
 finally {
