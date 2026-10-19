@@ -4,12 +4,15 @@ $launcher = Join-Path $PSScriptRoot 'validate_parallel.ps1'
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-launcher-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($temporary)
 $fixture = Join-Path $temporary 'fixture.exe'
+$fixtureSource = Join-Path $temporary 'fixture.cs'
 $timingProfile = Join-Path $temporary 'timing profile [fixture].tsv'
 $childPidFile = Join-Path $temporary 'child.pid'
 # Explicit fixture input keeps this launcher test independent of ROM builds.
 $fixtureParameters = @{ Godot = $fixture; Rom = (Join-Path $temporary 'reference ROM [US].gbc') }
 try {
-    Add-Type -OutputAssembly $fixture -OutputType ConsoleApplication -TypeDefinition @'
+    # PowerShell 7 cannot emit console applications through Add-Type. Build a
+    # Framework executable so this same fixture exercises both shell editions.
+    $source = @'
 using System;
 using System.IO;
 using System.Diagnostics;
@@ -117,6 +120,10 @@ public static class ValidationLauncherFixture {
     }
 }
 '@
+    [IO.File]::WriteAllText($fixtureSource, $source)
+    $compiler = Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
+    & $compiler /nologo /optimize+ /warnaserror+ "/out:$fixture" $fixtureSource
+    if ($LASTEXITCODE -ne 0) { throw 'Could not compile the validation launcher fixture.' }
     # Load the launcher's interop type and exercise a successful focused run.
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateUnrestrictedResources -TimeoutSeconds 15
@@ -256,6 +263,7 @@ public static class ValidationLauncherFixture {
 finally {
     # Only this test's generated executable lives here; no recursive deletion.
     if ([IO.File]::Exists($fixture)) { [IO.File]::Delete($fixture) }
+    if ([IO.File]::Exists($fixtureSource)) { [IO.File]::Delete($fixtureSource) }
     if ([IO.File]::Exists($timingProfile)) { [IO.File]::Delete($timingProfile) }
     if ([IO.File]::Exists($childPidFile)) { [IO.File]::Delete($childPidFile) }
     [IO.Directory]::Delete($temporary, $false)
