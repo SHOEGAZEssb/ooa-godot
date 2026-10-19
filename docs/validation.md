@@ -167,13 +167,6 @@ frame cap when assessing animation and elapsed loading time: uncapped runs can
 hide waits imposed by frame scheduling. Desktop timings do not establish
 Android frame times.
 
-For APK smoke testing on a Windows Android emulator, export the `Android
-Emulator` preset to `builds/android/oracle-of-ages-emulator.apk`. This uses
-x86-64; the normal `Android` preset remains ARM64 for phones. Install the
-emulator APK with `adb -s <emulator-serial> install -r <apk-path>` and collect
-logcat while checking startup and file selection. Emulator timings include
-host virtualization and graphics overhead and are not phone benchmarks.
-
 8 workers is the launcher default. Override it with `-Workers` (1–64).
 For a serial run when debugging:
 
