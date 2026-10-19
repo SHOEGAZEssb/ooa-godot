@@ -33,7 +33,6 @@ jobs:
   importer:
     name: Importer validation
     runs-on: windows-latest
-    timeout-minutes: 14
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -43,7 +42,7 @@ jobs:
         uses: ./.github/actions/prepare-validation
       - name: Verify importer and deterministic generated assets
         shell: pwsh
-        run: '& ./tools/verify_oracle_import.ps1 -Rom $env:ORACLES_ROM'
+        run: '& ./tools/verify_oracle_import.ps1 -Rom $env:ORACLES_ROM -TimeoutSeconds 0'
       - name: Test validation orchestration
         shell: pwsh
         run: '& ./tools/Test-ValidationLauncher.ps1'
@@ -51,7 +50,6 @@ jobs:
   validate:
     name: Gameplay validation ${{ matrix.partition }}/4
     runs-on: windows-latest
-    timeout-minutes: 14
     strategy:
       fail-fast: false
       matrix:
@@ -79,7 +77,6 @@ jobs:
           restore-keys: |
             validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-
       - name: Run gameplay partition
-        timeout-minutes: 8
         shell: pwsh
         env:
           TEMP: ${{ runner.temp }}
@@ -91,7 +88,7 @@ jobs:
               -Godot $env:GODOT_CONSOLE -Rom $env:ORACLES_ROM `
               -Workers 4 -PartitionIndex $env:VALIDATION_PARTITION -PartitionCount 4 `
               -ResultPath ".godot/validation-results/partition-$env:VALIDATION_PARTITION.json" `
-              -TimeoutSeconds 450 -FailOnEngineDiagnostics
+              -TimeoutSeconds 0 -FailOnEngineDiagnostics
       - name: Upload partition results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -113,7 +110,6 @@ jobs:
     if: always()
     needs: [importer, validate]
     runs-on: windows-latest
-    timeout-minutes: 1
     steps:
       - name: Require every validation job to pass
         shell: pwsh

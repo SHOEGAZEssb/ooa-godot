@@ -2,7 +2,7 @@ param(
     [string]$Disassembly = (Join-Path $PSScriptRoot '..\external\oracles-disasm'),
     [string]$Rom,
     [ValidateRange(1, 2)][int]$Workers = 2,
-    [ValidateRange(1, 86400)][int]$TimeoutSeconds = 600
+    [ValidateRange(0, 86400)][int]$TimeoutSeconds = 600
 )
 
 $ErrorActionPreference = 'Stop'

@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory)][string]$Rom,
     [Parameter(Mandatory)][string[]]$OutputDirectories,
     [Parameter(Mandatory)][string]$LogDirectory,
-    [ValidateRange(1, 86400)][int]$TimeoutSeconds = 600
+    [ValidateRange(0, 86400)][int]$TimeoutSeconds = 600
 )
 
 $ErrorActionPreference = 'Stop'
@@ -90,7 +90,7 @@ catch {
             }
         }
         if (-not $running) { break }
-        if ($timer.Elapsed.TotalSeconds -ge $TimeoutSeconds) {
+        if ($TimeoutSeconds -gt 0 -and $timer.Elapsed.TotalSeconds -ge $TimeoutSeconds) {
             throw "Import workers exceeded $TimeoutSeconds seconds. Logs: $LogDirectory"
         }
         Start-Sleep -Milliseconds 100

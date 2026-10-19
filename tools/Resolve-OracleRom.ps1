@@ -58,7 +58,7 @@ function Resolve-OracleRom {
     param(
         [string]$Rom,
         [string]$CacheDirectory = (Join-Path $oracleRomToolsRoot '../.cache/oracle-rom'),
-        [ValidateRange(1, 86400)][int]$LockTimeoutSeconds = 600
+        [ValidateRange(0, 86400)][int]$LockTimeoutSeconds = 600
     )
     $pins = Get-OracleRomBuildPins
     if ($Rom) {
@@ -93,7 +93,7 @@ function Resolve-OracleRom {
                     [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
             }
             catch [IO.IOException] {
-                if ($timer.Elapsed.TotalSeconds -ge $LockTimeoutSeconds) {
+                if ($LockTimeoutSeconds -gt 0 -and $timer.Elapsed.TotalSeconds -ge $LockTimeoutSeconds) {
                     throw "Timed out waiting for ROM build cache lock: $cache"
                 }
                 Start-Sleep -Milliseconds 200

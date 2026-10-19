@@ -15,7 +15,7 @@ param(
     [ValidateRange(1, 64)]
     [int]$PartitionCount = 1,
     [string]$ResultPath,
-    [ValidateRange(1, 86400)]
+    [ValidateRange(0, 86400)]
     [int]$TimeoutSeconds = 600
 )
 
@@ -112,7 +112,7 @@ try {
         $engineLog = Join-Path $logRoot "$globalIndex.godot.log"
         $selection = if ($ValidateOnly) { "--validate-only=$ValidateOnly" } else { "--validate-shard=$globalIndex/$totalWorkers" }
         # Deferred draw scenarios await host frames. The runner quits when all
-        # assigned scenarios finish; TimeoutSeconds bounds an incomplete run.
+        # assigned scenarios finish; a positive TimeoutSeconds bounds an incomplete run.
         $arguments = (@('--headless', '--path', ('"' + $projectRoot + '"'),
                 '--log-file', ('"' + $engineLog + '"'),
                 '--', '--validate', $selection) + $validationArguments) -join ' '
@@ -121,7 +121,7 @@ try {
     }
 
     while (@($processes | Where-Object { -not $_.Process.HasExited }).Count -gt 0) {
-        if ($timer.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
+        if ($TimeoutSeconds -gt 0 -and $timer.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
             throw "Validation exceeded $TimeoutSeconds seconds. Logs: $logRoot"
         }
         Start-Sleep -Milliseconds 200

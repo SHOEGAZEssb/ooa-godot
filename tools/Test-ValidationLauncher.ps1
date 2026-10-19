@@ -126,6 +126,7 @@ public static class ValidationLauncherFixture {
     if ($LASTEXITCODE -ne 0) { throw 'Could not compile the validation launcher fixture.' }
     # Load the launcher's interop type and exercise a successful focused run.
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateFixture -TimeoutSeconds 0
     & $launcher @fixtureParameters -ValidateOnly ValidateUnrestrictedResources -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateMemoryProfileArgument -ProfileMemory -TimeoutSeconds 15
     $previousPidPath = [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID')

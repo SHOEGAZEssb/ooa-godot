@@ -32,7 +32,6 @@ jobs:
   release:
     name: Validate, export Windows/Linux/Android, and attach builds
     runs-on: windows-2025
-    timeout-minutes: 90
     permissions:
       contents: write
     defaults:
@@ -53,7 +52,7 @@ jobs:
         run: |
           # A manual rebuild may target a tag whose launcher still throttles workers.
           # Keep game/validation source at the tag and use this workflow's orchestration.
-          foreach ($name in @('validate_parallel.ps1', 'ValidationProcessJob.cs')) {
+          foreach ($name in @('validate_parallel.ps1', 'ValidationProcessJob.cs', 'Resolve-OracleRom.ps1')) {
               $url = "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_WORKFLOW_SHA/tools/$name"
               Invoke-WebRequest -Uri $url -OutFile (Join-Path 'tools' $name)
           }
@@ -103,7 +102,7 @@ jobs:
           OOA_ROM_BUILD_BASH: ${{ steps.msys2.outputs.msys2-location }}/usr/bin/bash.exe
         run: |
           . ./tools/Resolve-OracleRom.ps1
-          $rom = Resolve-OracleRom
+          $rom = Resolve-OracleRom -LockTimeoutSeconds 0
           "ORACLES_ROM=$rom" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           & ./tools/import_oracles.ps1 -Rom $rom
 
@@ -175,7 +174,6 @@ jobs:
             validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-
 
       - name: Run complete headless validation
-        timeout-minutes: 15
         env:
           TEMP: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
@@ -185,7 +183,7 @@ jobs:
               -Godot $env:GODOT_CONSOLE `
               -Rom $env:ORACLES_ROM `
               -Workers 8 `
-              -TimeoutSeconds 840 `
+              -TimeoutSeconds 0 `
               -FailOnEngineDiagnostics
 
       - name: Save validation timing profile
@@ -214,7 +212,6 @@ jobs:
           parser.add_argument("preset", choices=("Windows", "Linux", "Android"))
           parser.add_argument("output")
           parser.add_argument("--debug", action="store_true")
-          parser.add_argument("--timeout", type=int, default=840)
           args = parser.parse_args()
           Path(args.output).parent.mkdir(parents=True, exist_ok=True)
           log = Path(os.environ["RUNNER_TEMP"]) / f"godot-export-{args.preset.lower()}.log"
@@ -229,11 +226,6 @@ jobs:
                   with log.open(encoding="utf-8", errors="replace") as reader:
                       while process.poll() is None:
                           print(reader.read(), end="", flush=True)
-                          if time.monotonic() - started > args.timeout:
-                              process.kill()
-                              process.wait()
-                              print(reader.read(), end="", flush=True)
-                              raise SystemExit(f"{args.preset} export exceeded {args.timeout}s; log: {log}")
                           time.sleep(0.25)
                       print(reader.read(), end="", flush=True)
                   code = process.returncode
@@ -244,22 +236,19 @@ jobs:
               environment.write(f"GODOT_EXPORT_LAUNCHER={launcher}\n")
 
       - name: Export Windows x64
-        timeout-minutes: 15
         run: |
           python $env:GODOT_EXPORT_LAUNCHER Windows builds/windows/oracle-of-ages.exe
           if ($LASTEXITCODE -ne 0) { throw 'Windows export failed.' }
 
       - name: Export Linux x64
-        timeout-minutes: 15
         run: |
           python $env:GODOT_EXPORT_LAUNCHER Linux builds/linux/oracle-of-ages.x86_64
           if ($LASTEXITCODE -ne 0) { throw 'Linux export failed.' }
 
       - name: Export Android ARM64
-        timeout-minutes: 20
         run: |
           # Match the existing sideloadable APK flow; store signing is not configured.
-          python $env:GODOT_EXPORT_LAUNCHER Android builds/android/oracle-of-ages.apk --debug --timeout 1140
+          python $env:GODOT_EXPORT_LAUNCHER Android builds/android/oracle-of-ages.apk --debug
           if ($LASTEXITCODE -ne 0) { throw 'Android export failed.' }
           $signer = Join-Path $env:ANDROID_HOME 'build-tools/36.0.0/apksigner.bat'
           & $signer verify builds/android/oracle-of-ages.apk

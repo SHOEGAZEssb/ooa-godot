@@ -88,7 +88,7 @@ exit 7
     Assert-RomFailure { Resolve-OracleRom -Rom $bad } 'Unsupported or missing ROM'
     $built = Resolve-OracleRom -CacheDirectory $cache
     Assert-Rom ($buildCount -eq 1 -and (Test-OracleRomImage $built $fixturePins)) 'Cold cache did not publish verified ROM.'
-    $reused = Resolve-OracleRom -CacheDirectory $cache
+    $reused = Resolve-OracleRom -CacheDirectory $cache -LockTimeoutSeconds 0
     Assert-Rom ($reused -ceq $built -and $buildCount -eq 1) 'Warm cache rebuilt the ROM.'
     [IO.File]::WriteAllBytes($built, [byte[]]@(0, 0, 0, 0))
     $null = Resolve-OracleRom -CacheDirectory $cache

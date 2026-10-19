@@ -31,7 +31,7 @@ runs:
         OOA_ROM_BUILD_BASH: ${{ steps.msys2.outputs.msys2-location }}/usr/bin/bash.exe
       run: |
         . ./tools/Resolve-OracleRom.ps1
-        $rom = Resolve-OracleRom
+        $rom = Resolve-OracleRom -LockTimeoutSeconds 0
         "ORACLES_ROM=$rom" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
     - name: Install verified Godot .NET build

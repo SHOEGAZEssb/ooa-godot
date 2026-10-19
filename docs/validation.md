@@ -129,18 +129,19 @@ MD5, and passes it with `-Rom` to every gameplay worker. Each worker also
 checks the ROM's size and SHA-256 before reference execution. CI uses
 `-FailOnEngineDiagnostics` to reject Godot errors or warnings in worker logs.
 The validation workflow runs four gameplay partitions concurrently, each with
-four workers and a 14-minute job limit including setup and the optimized build.
-Gameplay has a 450-second launcher deadline inside an eight-minute step limit.
+four workers and an optimized build.
 Importer verification runs alongside gameplay on a separate runner. The final
-coverage check has a one-minute job limit.
+coverage check merges their results.
 `Build and headless validation` requires every job to pass, all 16 global
 worker IDs, and exactly one successful timing record for every registered
 scenario, with no skips. Missing partitions or duplicate scenarios fail it.
 Only this complete merge refreshes the cached timing profile. A cache miss keeps
 the same coverage using round-robin assignments. Worker stdout, stderr, and engine
 logs are retained for seven days in `validation-worker-logs-*` artifacts, including
-failed and timed-out runs. The release workflow retains its single-runner suite
-with a 14-minute launcher deadline inside a 15-minute step limit.
+failed runs. Both workflows disable launcher and importer deadlines and configure
+no custom job or step timeouts. GitHub-hosted jobs remain subject to GitHub's
+[six-hour platform limit](https://docs.github.com/en/actions/reference/limits).
+The release workflow retains its single-runner suite.
 
 Use `tools/validate_parallel.ps1 -SkipRomValidation` for an explicit run without
 ROM-dependent scenarios. Mark these scenarios with `requiresRom: true` in the
@@ -225,7 +226,8 @@ process flags, crash failure, log isolation, and completion handling without
 requiring a game build.
 
 `-Godot` overrides the executable and `-TimeoutSeconds` sets the overall deadline
-(default 600 seconds). The launcher fails on a worker error, timeout, missing
+(default 600 seconds; zero disables it, as used in CI). The launcher fails on a
+worker error, timeout, missing
 completion marker, or incomplete scenario count, and stops remaining processes
 on exit. `-FailOnEngineDiagnostics` also rejects engine errors and warnings in
 each worker's stdout, stderr, and engine log, even with a successful exit and

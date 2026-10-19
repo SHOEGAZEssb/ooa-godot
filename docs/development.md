@@ -157,13 +157,13 @@ Rerunning the workflow replaces assets with matching filenames.
 After fixing release automation, use the workflow's manual trigger with
 `release_tag` to rebuild an existing release. It checks out that tag using the
 updated workflow, so the published tag does not need to move. The validation
-launcher also comes from the workflow revision, keeping historical CPU/RAM caps
-out of release retries; game source and validation scenarios stay at the tag.
+launcher and ROM resolver also come from the workflow revision, keeping
+historical resource and time caps out of release retries; game source and
+validation scenarios stay at the tag.
 Exports launch the Godot editor executable directly and wait for that process.
-They capture output
-to regular log files, avoiding the console wrapper's wait for descendant build
-processes and inherited output pipes. Each export reports the editor's exit code
-and has its own timeout. Validation and export logs are retained as CI artifacts.
+They capture output to regular log files, avoiding the console wrapper's wait
+for descendant build processes and inherited output pipes. Each export reports the editor's exit code
+without a custom deadline. Validation and export logs are retained as CI artifacts.
 
 ## Controls
 

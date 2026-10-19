@@ -153,7 +153,9 @@ Stages remain ordered within each process, with separate source hosts and caches
 Existing non-generated files in `assets/oracle/` must not be present (Godot
 `.import` metadata is ignored), since they would fail parity with a fresh import.
 Use `-Workers 1` to check two consecutive imports into `assets/oracle/` instead.
-`-TimeoutSeconds` defaults to 600 per worker batch. Failures retain logs and
+`-TimeoutSeconds` defaults to 600 per worker batch; zero disables the deadline,
+as used in CI. ROM cache-lock waits likewise accept `-LockTimeoutSeconds 0`.
+Failures retain logs and
 manifests at the printed temporary path; successful runs clean them up.
 
 The importer itself accepts `-OutputDirectory` for isolated output and

@@ -73,7 +73,7 @@ if ($mode -eq 'parallel') {
     [IO.File]::WriteAllText((Join-Path $serialRoot 'mode.txt'), 'serial')
     foreach ($pass in 1..2) {
         & $workerScript @parameters -OutputDirectories @($serialRoot) `
-            -LogDirectory (Join-Path $temporary "serial-$pass-logs") 6>$null
+            -LogDirectory (Join-Path $temporary "serial-$pass-logs") -TimeoutSeconds 0 6>$null
     }
     Assert-WorkerTest ([IO.File]::ReadAllLines((Join-Path $serialRoot 'completed.txt')).Count -eq 2) `
         'Consecutive workers did not reuse the same output directory.'
