@@ -20,9 +20,6 @@ public static class ValidationLauncherFixture {
     [DllImport("kernel32.dll")] public static extern uint GetErrorMode();
     [DllImport("kernel32.dll")] static extern bool IsProcessInJob(IntPtr process, IntPtr job, out bool result);
     [DllImport("kernel32.dll")] static extern bool QueryInformationJobObject(IntPtr job, int kind, byte[] data, int size, IntPtr returned);
-    [DllImport("kernel32.dll")] static extern IntPtr VirtualAlloc(IntPtr address, UIntPtr size, uint type, uint protect);
-    [DllImport("kernel32.dll")] static extern bool VirtualFree(IntPtr address, UIntPtr size, uint type);
-    static IntPtr Allocate160MB() { return VirtualAlloc(IntPtr.Zero, new UIntPtr(160u * 1024 * 1024), 0x3000, 4); }
     public static int Main(string[] args) {
         // Check inheritance before deliberately crashing; a broken launcher
         // must fail this test without displaying a real crash dialog.
@@ -32,12 +29,6 @@ public static class ValidationLauncherFixture {
         if (Array.IndexOf(args, "--wait-child") >= 0) {
             File.WriteAllText(Environment.GetEnvironmentVariable("OOA_TEST_VALIDATION_CHILD_PID"), Process.GetCurrentProcess().Id.ToString());
             Thread.Sleep(Timeout.Infinite);
-        }
-        if (Array.IndexOf(args, "--memory-child") >= 0) {
-            IntPtr allocation = Allocate160MB();
-            if (allocation == IntPtr.Zero) return 0;
-            VirtualFree(allocation, UIntPtr.Zero, 0x8000);
-            return 98;
         }
         int log = Array.IndexOf(args, "--log-file");
         if (log < 0 || log + 1 == args.Length) return 92;
@@ -72,29 +63,16 @@ public static class ValidationLauncherFixture {
         }
         if (selected == "ValidateMissingMarker") return 0;
         if (selected == "ValidateMemoryProfileArgument" && !profileMemory) return 104;
-        if (selected == "ValidateResourceLimits" || selected == "ValidateCustomResourceLimits") {
-            bool custom = selected == "ValidateCustomResourceLimits";
+        if (selected == "ValidateUnrestrictedResources") {
             // JOB_OBJECT_EXTENDED_LIMIT_INFORMATION, native SIZE_T layout.
             byte[] limits = new byte[IntPtr.Size == 8 ? 144 : 112];
             byte[] cpu = new byte[8];
             if (!QueryInformationJobObject(IntPtr.Zero, 9, limits, limits.Length, IntPtr.Zero) ||
                 !QueryInformationJobObject(IntPtr.Zero, 15, cpu, cpu.Length, IntPtr.Zero)) return 99;
             ulong memory = IntPtr.Size == 8 ? BitConverter.ToUInt64(limits, 120) : BitConverter.ToUInt32(limits, 100);
-            if (memory != (custom ? 256UL : 8192UL) * 1024 * 1024 ||
-                BitConverter.ToUInt32(cpu, 0) != 5 || BitConverter.ToUInt32(cpu, 4) != (custom ? 2500u : 5000u) ||
-                Process.GetCurrentProcess().PriorityClass != ProcessPriorityClass.BelowNormal) return 100;
-        }
-        if (selected == "ValidateAggregateMemoryLimit") {
-            IntPtr allocation = Allocate160MB();
-            if (allocation == IntPtr.Zero) return 101;
-            try {
-                var info = new ProcessStartInfo(Assembly.GetExecutingAssembly().Location, "--memory-child");
-                info.UseShellExecute = false;
-                info.CreateNoWindow = true;
-                using (var child = Process.Start(info)) {
-                    if (!child.WaitForExit(5000) || child.ExitCode != 0) return 102;
-                }
-            } finally { VirtualFree(allocation, UIntPtr.Zero, 0x8000); }
+            // Only KILL_ON_JOB_CLOSE remains: no memory/process CPU limits or forced priority.
+            if (BitConverter.ToUInt32(limits, 16) != 0x2000 || memory != 0 ||
+                BitConverter.ToUInt32(cpu, 0) != 0 || BitConverter.ToUInt32(cpu, 4) != 0) return 100;
         }
         if (selected == "ValidateTimeoutChild" || selected == "ValidateAbandonedChild") {
             var info = new ProcessStartInfo(Assembly.GetExecutingAssembly().Location, "--wait-child");
@@ -136,10 +114,8 @@ public static class ValidationLauncherFixture {
 '@
     # Load the launcher's interop type and exercise a successful focused run.
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
-    & $launcher @fixtureParameters -ValidateOnly ValidateResourceLimits -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateUnrestrictedResources -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateMemoryProfileArgument -ProfileMemory -TimeoutSeconds 15
-    & $launcher @fixtureParameters -ValidateOnly ValidateCustomResourceLimits -MemoryLimitMB 256 -CpuLimitPercent 25 -TimeoutSeconds 15
-    & $launcher @fixtureParameters -ValidateOnly ValidateAggregateMemoryLimit -MemoryLimitMB 256 -TimeoutSeconds 15
     $previousPidPath = [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID')
     try {
         [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID', $childPidFile)
@@ -217,7 +193,7 @@ public static class ValidationLauncherFixture {
         }
     }
     finally { [void][OracleValidation.ErrorMode]::SetErrorMode($original) }
-    Write-Host 'Validation launcher tests passed (aggregate memory rejection, CPU/memory limits, priority, child cleanup on timeout and normal exit, 8 workers, focused selection, ROM path forwarding, timing snapshot forwarding, explicit skips, continued failure counts, incomplete/unexpected skip rejection, stdout/stderr/engine-log diagnostic rejection, unique logs, crash exit, missing marker, inherited/restored error mode).'
+    Write-Host 'Validation launcher tests passed (no CPU/memory limits or forced priority, child cleanup on timeout and normal exit, 8 workers, focused selection, ROM path forwarding, timing snapshot forwarding, explicit skips, continued failure counts, incomplete/unexpected skip rejection, stdout/stderr/engine-log diagnostic rejection, unique logs, crash exit, missing marker, inherited/restored error mode).'
 }
 finally {
     # Only this test's generated executable lives here; no recursive deletion.

@@ -128,8 +128,11 @@ CI rebuilds the clean US ROM from a pinned disassembly revision, verifies its
 MD5, and passes it with `-Rom` to the complete 8-worker suite. Each worker also
 checks the ROM's size and SHA-256 before reference execution. CI uses
 `-FailOnEngineDiagnostics` to reject Godot errors or warnings in worker logs.
-The CI suite has a 30-minute deadline within a 45-minute job budget that also
-covers setup and import verification. Worker stdout, stderr, and engine logs
+The CI gameplay suite has a 14-minute launcher deadline inside a 15-minute
+step limit; setup, import verification, and builds are timed separately. Both
+CI workflows restore and save the timing profile so subsequent runs balance
+long scenarios across workers. Coverage is unchanged when no profile exists.
+Worker stdout, stderr, and engine logs
 are retained for 7 days in the `validation-worker-logs` artifact, including
 failed and timed-out runs.
 
@@ -181,7 +184,7 @@ the ordered scenario registrations with `--validate-shard=INDEX/COUNT`
 scenario list needs maintenance. Save regressions use unique temporary paths,
 and each worker has separate engine and console logs in the printed temporary
 directory. Build once before launching; do not rebuild or import during a run.
-Complete local runs record scenario costs in `.godot/validation-timings.tsv`.
+Complete full-suite runs record scenario costs in `.godot/validation-timings.tsv`.
 The next full run snapshots that profile and assigns long scenarios first to
 the least-loaded worker; each worker still executes in registration order.
 Without timing history, assignment remains round-robin. New scenarios use the
@@ -196,16 +199,14 @@ shared user-log rotation. On Windows, workers inherit an error mode that
 suppresses native crash dialogs; crashes still fail the run and retain logs.
 The calling PowerShell process's original error mode is restored on exit.
 On Windows, the launcher creates every worker inside one job before its first
-instruction. The job includes console-wrapper children and enforces a combined
-committed-memory budget (`-MemoryLimitMB`, default 8192 MiB), a CPU hard cap
-(`-CpuLimitPercent`, default 50), and below normal process priority. These limits
-do not change scenario coverage or the default eight workers. Exceeding the
-memory budget can fail allocations and the run; do not raise it automatically
-to bypass a failure. The launcher reports the job's peak committed-memory
-counter, and closing the job terminates all remaining descendants, including
-on timeout or interruption. Keep these limits identical when comparing times.
+instruction. The job includes console-wrapper children and terminates remaining
+descendants on close, including on timeout or interruption. It imposes no CPU
+or RAM limits and preserves inherited process priority. The launcher still reports
+the job's peak committed memory; `-ProfileMemory` retains per-process and managed
+memory diagnostics for investigating leaks. Keep worker counts, scenario coverage,
+timing profiles, and build settings fixed when comparing performance.
 Run `tools/Test-ValidationLauncher.ps1` after changing the launcher; its fixture
-checks resource limits, aggregate allocation rejection, descendant cleanup,
+checks the absence of resource caps and forced priority, descendant cleanup,
 process flags, crash failure, log isolation, and completion handling without
 requiring a game build.
 

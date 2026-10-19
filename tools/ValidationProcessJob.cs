@@ -7,24 +7,21 @@ using Microsoft.Win32.SafeHandles;
 namespace OracleValidation
 {
     // Windows applies the job at process creation, before the console wrapper
-    // can launch Godot. Descendants inherit its aggregate limits and lifetime.
+    // can launch Godot. Descendants share its lifetime without CPU or memory caps.
     // https://devblogs.microsoft.com/oldnewthing/20230209-00/?p=107812
     public sealed class ValidationProcessJob : IDisposable
     {
         private readonly SafeFileHandle job;
 
-        public ValidationProcessJob(ulong memoryBytes, uint cpuPercent)
+        public ValidationProcessJob()
         {
             job = CreateJobObject(IntPtr.Zero, null);
             if (job.IsInvalid) throw new Win32Exception();
             try
             {
                 var limits = new ExtendedLimits();
-                limits.Basic.LimitFlags = 0x2000 | 0x200 | 0x20; // Kill on close, job memory, priority.
-                limits.Basic.PriorityClass = 0x4000; // Below normal.
-                limits.JobMemoryLimit = new UIntPtr(memoryBytes);
+                limits.Basic.LimitFlags = 0x2000; // Kill on close; preserve inherited priority.
                 SetInformation(9, limits);
-                SetInformation(15, new CpuLimits { Flags = 5, Rate = cpuPercent * 100 });
             }
             catch { job.Dispose(); throw; }
         }
@@ -156,7 +153,6 @@ namespace OracleValidation
             public ulong ReadOperations, WriteOperations, OtherOperations, ReadBytes, WriteBytes, OtherBytes;
             public UIntPtr ProcessMemoryLimit, JobMemoryLimit, PeakProcessMemoryUsed, PeakJobMemoryUsed;
         }
-        [StructLayout(LayoutKind.Sequential)] private struct CpuLimits { public uint Flags, Rate; }
         [StructLayout(LayoutKind.Sequential)] private struct SecurityAttributes { public int Length; public IntPtr Descriptor; public int InheritHandle; }
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] private struct StartupInfo
         {

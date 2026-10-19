@@ -49,6 +49,15 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      - name: Install validation launcher from the workflow revision
+        run: |
+          # A manual rebuild may target a tag whose launcher still throttles workers.
+          # Keep game/validation source at the tag and use this workflow's orchestration.
+          foreach ($name in @('validate_parallel.ps1', 'ValidationProcessJob.cs')) {
+              $url = "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_WORKFLOW_SHA/tools/$name"
+              Invoke-WebRequest -Uri $url -OutFile (Join-Path 'tools' $name)
+          }
+
       - name: Set up .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
@@ -116,6 +125,9 @@ jobs:
               Select-Object -First 1
           if ($null -eq $console) { throw 'Godot console executable is missing.' }
           "GODOT_CONSOLE=$($console.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $editor = $console.FullName.Replace('_console.exe', '.exe')
+          if (-not (Test-Path -LiteralPath $editor)) { throw 'Godot editor executable is missing.' }
+          "GODOT_EDITOR=$editor" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
           $templateArchive = Join-Path $env:RUNNER_TEMP 'godot-templates.zip'
           Get-VerifiedArchive "Godot_v$env:GODOT_VERSION`_mono_export_templates.tpz" $templateArchive $env:GODOT_TEMPLATES_SHA256
@@ -154,36 +166,100 @@ jobs:
           & $env:GODOT_CONSOLE --headless --editor --path . --import
           if ($LASTEXITCODE -ne 0) { throw 'Godot resource import failed.' }
 
+      - name: Restore validation timing profile
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .godot/validation-timings.tsv
+          key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-
+
       - name: Run complete headless validation
+        timeout-minutes: 15
         env:
           TEMP: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
         run: |
+          Write-Host "Validation host: $([Environment]::ProcessorCount) logical CPUs; no launcher CPU/RAM caps."
           & ./tools/validate_parallel.ps1 `
               -Godot $env:GODOT_CONSOLE `
               -Rom $env:ORACLES_ROM `
               -Workers 8 `
-              -TimeoutSeconds 1800 `
+              -TimeoutSeconds 840 `
               -FailOnEngineDiagnostics
+
+      - name: Save validation timing profile
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .godot/validation-timings.tsv
+          key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Prepare export launcher
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+
+          # Generate this from the workflow, since a retried release tag may predate the fix.
+          launcher = Path(os.environ["RUNNER_TEMP"]) / "export-godot.py"
+          launcher.write_text(r'''
+          import argparse
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          import time
+
+          parser = argparse.ArgumentParser()
+          parser.add_argument("preset", choices=("Windows", "Linux", "Android"))
+          parser.add_argument("output")
+          parser.add_argument("--debug", action="store_true")
+          parser.add_argument("--timeout", type=int, default=840)
+          args = parser.parse_args()
+          Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+          log = Path(os.environ["RUNNER_TEMP"]) / f"godot-export-{args.preset.lower()}.log"
+          command = [os.environ["GODOT_EDITOR"], "--headless", "--path", ".",
+                     "--export-debug" if args.debug else "--export-release", args.preset, args.output]
+          started = time.monotonic()
+          # Bypass the console wrapper's wait for all descendant processes (Godot #110101).
+          # A regular file also prevents inherited stdout pipes from holding the CI step open.
+          with log.open("w", encoding="utf-8") as output:
+              with subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT,
+                                    creationflags=subprocess.CREATE_NO_WINDOW) as process:
+                  with log.open(encoding="utf-8", errors="replace") as reader:
+                      while process.poll() is None:
+                          print(reader.read(), end="", flush=True)
+                          if time.monotonic() - started > args.timeout:
+                              process.kill()
+                              process.wait()
+                              print(reader.read(), end="", flush=True)
+                              raise SystemExit(f"{args.preset} export exceeded {args.timeout}s; log: {log}")
+                          time.sleep(0.25)
+                      print(reader.read(), end="", flush=True)
+                  code = process.returncode
+          print(f"{args.preset} editor exited with code {code} after {time.monotonic() - started:.1f}s; log: {log}")
+          sys.exit(code)
+          ''', encoding="utf-8")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:
+              environment.write(f"GODOT_EXPORT_LAUNCHER={launcher}\n")
 
       - name: Export Windows x64
         timeout-minutes: 15
         run: |
-          New-Item -ItemType Directory -Force builds/windows, builds/linux, builds/android | Out-Null
-          & $env:GODOT_CONSOLE --headless --path . --export-release Windows builds/windows/oracle-of-ages.exe
+          python $env:GODOT_EXPORT_LAUNCHER Windows builds/windows/oracle-of-ages.exe
           if ($LASTEXITCODE -ne 0) { throw 'Windows export failed.' }
 
       - name: Export Linux x64
         timeout-minutes: 15
         run: |
-          & $env:GODOT_CONSOLE --headless --path . --export-release Linux builds/linux/oracle-of-ages.x86_64
+          python $env:GODOT_EXPORT_LAUNCHER Linux builds/linux/oracle-of-ages.x86_64
           if ($LASTEXITCODE -ne 0) { throw 'Linux export failed.' }
 
       - name: Export Android ARM64
         timeout-minutes: 20
         run: |
           # Match the existing sideloadable APK flow; store signing is not configured.
-          & $env:GODOT_CONSOLE --headless --path . --export-debug Android builds/android/oracle-of-ages.apk
+          python $env:GODOT_EXPORT_LAUNCHER Android builds/android/oracle-of-ages.apk --debug --timeout 1140
           if ($LASTEXITCODE -ne 0) { throw 'Android export failed.' }
           $signer = Join-Path $env:ANDROID_HOME 'build-tools/36.0.0/apksigner.bat'
           & $signer verify builds/android/oracle-of-ages.apk
@@ -244,11 +320,13 @@ jobs:
           gh release upload --repo $env:GITHUB_REPOSITORY --clobber -- $env:RELEASE_TAG @assets
           if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed.' }
 
-      - name: Upload validation worker logs
+      - name: Upload validation and export logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: release-validation-logs
-          path: ${{ runner.temp }}/ooa-validation-*/*.log
+          name: release-diagnostic-logs
+          path: |
+            ${{ runner.temp }}/ooa-validation-*/*.log
+            ${{ runner.temp }}/godot-export-*.log
           if-no-files-found: ignore
           retention-days: 7

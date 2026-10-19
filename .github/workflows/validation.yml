@@ -98,18 +98,34 @@ jobs:
         shell: pwsh
         run: dotnet build --configuration Debug -t:Rebuild -p:Optimize=true --warnaserror
 
+      - name: Restore validation timing profile
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .godot/validation-timings.tsv
+          key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-
+
       - name: Run complete headless validation
+        timeout-minutes: 15
         shell: pwsh
         env:
           TEMP: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
         run: |
+          Write-Host "Validation host: $([Environment]::ProcessorCount) logical CPUs; no launcher CPU/RAM caps."
           & .\tools\validate_parallel.ps1 `
               -Godot $env:GODOT_CONSOLE `
               -Rom $env:ORACLES_ROM `
               -Workers 8 `
-              -TimeoutSeconds 1800 `
+              -TimeoutSeconds 840 `
               -FailOnEngineDiagnostics
+
+      - name: Save validation timing profile
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .godot/validation-timings.tsv
+          key: validation-timings-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload validation worker logs
         if: always()

@@ -10,10 +10,6 @@ param(
     [switch]$FailOnEngineDiagnostics,
     [switch]$ProfileMemory,
     [string]$TimingProfile,
-    [ValidateRange(256, 65536)]
-    [int]$MemoryLimitMB = 8192,
-    [ValidateRange(1, 100)]
-    [int]$CpuLimitPercent = 50,
     [ValidateRange(1, 86400)]
     [int]$TimeoutSeconds = 600
 )
@@ -83,12 +79,12 @@ if (-not $ValidateOnly) {
 $processes = [Collections.Generic.List[object]]::new()
 $timer = [Diagnostics.Stopwatch]::StartNew()
 Write-Host "Running $Workers validation workers. Logs: $logRoot"
-Write-Host "Combined resource limits: $MemoryLimitMB MiB committed memory, $CpuLimitPercent% CPU, below normal priority."
+Write-Host "No launcher CPU or memory limits; workers inherit process priority."
 
 $previousErrorMode = [OracleValidation.ErrorMode]::GetErrorMode()
 $job = $null
 try {
-    $job = [OracleValidation.ValidationProcessJob]::new([uint64]$MemoryLimitMB * 1MB, [uint32]$CpuLimitPercent)
+    $job = [OracleValidation.ValidationProcessJob]::new()
     # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX. Preserve existing flags.
     [void][OracleValidation.ErrorMode]::SetErrorMode($previousErrorMode -bor 0x0003)
     for ($index = 1; $index -le $Workers; $index++) {
