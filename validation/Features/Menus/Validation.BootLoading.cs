@@ -30,6 +30,15 @@ public sealed partial class ValidationRoot
             "Boot panorama must use an aspect-preserving widescreen canvas.");
         FailIf(!screen.Visible || screen.Progress != 0 || _frontendIntro is not null,
             "Boot loading must precede the original frontend with no completed work.");
+        var version = screen.GetNode<Label>("VersionLabel");
+        Vector2 versionEnd = version.GetGlobalRect().End;
+        Vector2 viewportEnd = screen.GetViewportRect().End;
+        FailIf(version.Text != $"v{ProjectSettings.GetSetting("application/config/version").AsString()}" ||
+            version.GetGlobalRect().Position.X < viewportEnd.X / 2 ||
+            version.GetGlobalRect().Position.Y < viewportEnd.Y / 2 ||
+            versionEnd.X > viewportEnd.X - 4 || versionEnd.X < viewportEnd.X - 12 ||
+            versionEnd.Y > viewportEnd.Y - 2 || versionEnd.Y < viewportEnd.Y - 10,
+            "Boot version must follow the project version and remain inside the resized viewport's bottom-right corner.");
         base._Process(1.0 / 60.0);
         FailIf(screen.Progress != 0, "Boot loading did not allow its first presentation frame.");
         var nayru = screen.GetNode<NpcCharacter>("LoadingNayru");

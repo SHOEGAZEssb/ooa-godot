@@ -11,9 +11,11 @@ config_version=5
 [application]
 
 config/name="oracle-of-ages"
+config/version="0.0.1"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
-config/icon="res://icon.svg"
+; Nayru $36, singing animation $04: spr_nayru_2, OAM tiles $20/$22.
+config/icon="res://icon.png"
 
 [display]
 

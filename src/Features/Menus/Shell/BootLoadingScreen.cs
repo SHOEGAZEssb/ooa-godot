@@ -7,6 +7,7 @@ namespace oracleofages;
 internal partial class BootLoadingScreen : Node2D
 {
     private const int SingerScale = 4;
+    private Label _versionLabel = null!;
     private Window? _window;
     private Vector2I _previousSize;
     private Window.ContentScaleAspectEnum _previousAspect;
@@ -20,6 +21,12 @@ internal partial class BootLoadingScreen : Node2D
     private double _fade = -1;
     internal float Progress { get; private set; }
     internal bool Finished => _fade >= 0.18;
+
+    public override void _Ready()
+    {
+        _versionLabel = GetNode<Label>("VersionLabel");
+        _versionLabel.Text = $"v{ProjectSettings.GetSetting("application/config/version").AsString()}";
+    }
 
     internal void Begin()
     {
@@ -131,8 +138,10 @@ internal partial class BootLoadingScreen : Node2D
 
     private void PositionActors()
     {
+        Vector2 size = GetViewportRect().Size;
+        _versionLabel.Position = (size - _versionLabel.Size - new Vector2(8, 6)).Floor();
         if (_nayru is null) return;
-        Vector2 center = (GetViewportRect().Size / 2).Floor();
+        Vector2 center = (size / 2).Floor();
         _nayru.Position = center;
         for (int index = 0; index < _notes.Length; index++)
         {
