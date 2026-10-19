@@ -27,6 +27,8 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(2, 0x7e);
             LynnaShopEvent shop = _roomEvents.Get<LynnaShopEvent>();
             NpcCharacter keeper = _entities.Entities<NpcCharacter>().Single(n => n.Record.Id == 0x46);
+            FailIf(keeper.CurrentScriptAnimationSource != database.Animation(0x46, 1),
+                "Hidden shopkeeper $46:$01 must retain graphics-default animation $01 on entry.");
             var stock = _entities.Entities<LynnaShopItem>();
             FailIf(!stock.Select(i => i.Record.SubId).SequenceEqual(new[] { 0, 2, 0x15 }) ||
                 !stock.Select(i => i.Position).SequenceEqual(new[] {

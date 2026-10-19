@@ -1802,6 +1802,77 @@ public sealed partial class ValidationRoot
             "SPEED_200 8.8 parabolic flights.");
     }
 
+    private void ValidateRoom149FamilyScreenTransition()
+    {
+        foreach (bool batched in new[] { false, true })
+        foreach (var state in new[] {
+            (Essences: (byte)0x00, Veran: false, Visible: true),
+            (Essences: (byte)0x40, Veran: false, Visible: false),
+            (Essences: (byte)0x40, Veran: true, Visible: true) })
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.WriteWramByte(WramAddress.wEssencesObtained, state.Essences);
+            _saveData.SetRoomFlag(4, 0xfc, 0x80, state.Veran);
+            void Step(int updates, Action? observe = null) =>
+                StepGameplayUpdates(updates, Vector2.Zero, batched: batched, afterUpdate: observe);
+
+            // Admit the real scroll directly; boundary-input geometry is not
+            // under test. boy.s:@initSubid0e skips ball creation only with D7
+            // bit 6 set and Veran's room 4:$fc bit 7 clear. Otherwise $95's
+            // state0 sets visible80 and returns without running its flight.
+            for (int entry = 0; entry < 2; entry++)
+            {
+                LoadValidationRoom(1, 0x48);
+                _player.WarpTo(new Vector2(0x98, 0x68));
+                _transitions.BeginScroll(_player, Vector2I.Right, 0x49);
+                Room149Ball ball = _entities.Entities<Room149Ball>().Single();
+                NpcCharacter boy = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x3c);
+                int boyFrame = boy.CurrentAnimationFrame;
+                void CheckFrozen()
+                {
+                    FailIf(ball.Visible != state.Visible || ball.Active != state.Visible ||
+                        !ball.Idle || ball.Stopped || ball.SubId != 0 ||
+                        ball.Position != new Vector2(0x75, 0x4a) ||
+                        ball.ZFixed != 0 || ball.SpeedZ != 0 ||
+                        boy.CurrentAnimationFrame != boyFrame,
+                        $"Room 1:49 $95 preload/scroll changed its resolved presentation or advanced catch " +
+                        $"(D7=${state.Essences:x2}, Veran={state.Veran}, batched={batched}, entry={entry}).");
+                }
+                CheckFrozen();
+                int total = _transitions.ScrollTotalFrames;
+                Step(total - 1, CheckFrozen);
+                FailIf(!_transitions.ScrollActive, "Room 1:49 scroll finished before its cleanup update.");
+                Step(1, CheckFrozen);
+                FailIf(_transitions.ScrollActive || ball.TransitionDrawOffset != Vector2.Zero,
+                    "Room 1:49 scroll did not finish and clear the ball's presentation offset.");
+
+                // Neither preload nor scrolling may spend the boy's initial
+                // wait 30. Launch installs -$01c0; movement starts next update.
+                Step(29);
+                FailIf(!ball.Idle || ball.Visible != state.Visible,
+                    "Room 1:49 $95 launched early or popped in after scrolling.");
+                Step(1);
+                FailIf(ball.Visible != state.Visible || ball.Idle == state.Visible ||
+                    ball.Position != new Vector2(0x75, 0x4a) ||
+                    ball.SpeedZ != (state.Visible ? -0x1c0 : 0),
+                    "Room 1:49 $95 lost the boy's first throw boundary after scrolling.");
+            }
+
+            LoadValidationRoom(1, 0x48);
+            _transitions.BeginScroll(_player, Vector2I.Right, 0x49);
+            Step(5);
+            // Session teardown cancels the transition and owns actor cleanup.
+            ReinitializeGameplayForValidation();
+            LoadValidationRoom(1, 0x48);
+            Step(2);
+            FailIf(_transitions.ScrollActive || _entities.Entities<Room149Ball>().Count != 0 ||
+                _entities.OutgoingEntities<Room149Ball>().Count != 0,
+                "Cancelling room 1:49's scroll retained an incoming/outgoing $95 ball.");
+        }
+        GD.Print("Validated room 1:49 ball preload in pre-D7, stone and post-Veran states, " +
+            "scroll freeze/completion, first throw, repeated entry and cancellation in split/batched gameplay.");
+    }
+
     private void ValidateRoom157NpcInteractions()
     {
         const double frame = 1.0 / 60.0;
@@ -2433,7 +2504,7 @@ public sealed partial class ValidationRoot
         predicateSave.SetGlobalFlag(database.GlobalCanBuyFlute);
         stock = database.ResolveStock(predicateSave);
         FailIf(
-            stock[0].Item.SubId != 0x0d || stock[0].X != 0x84 ||
+            stock[0].Item.SubId != 0x0d || stock[0].X != 0x84 || stock[0].Item.PriceTile != 0x6f ||
             (predicateSave.ReadWramByte(database.BoughtItems2Address) &
                 database.FluteStockMask) == 0,
             "GLOBALFLAG_CAN_BUY_FLUTE did not replace hearts with the X+4 Strange Flute.");
@@ -2458,7 +2529,8 @@ public sealed partial class ValidationRoot
         predicateSave.SetLinkedGame(false);
         predicateSave.WriteWramByte(WramAddress.wShieldLevel, 0x02);
         stock = database.ResolveStock(predicateSave);
-        FailIf(stock[1].Item.SubId != 0x11, "wShieldLevel bit 1 did not replace L1 with the L2 shield.");
+        FailIf(stock[1].Item.SubId != 0x11 || stock[1].Item.PriceTile != 0x6c,
+            "wShieldLevel bit 1 did not replace L1 with the L2 shield and retain price tile $6c.");
         predicateSave.WriteWramByte(WramAddress.wShieldLevel, 0x03);
         stock = database.ResolveStock(predicateSave);
         FailIf(stock[1].Item.SubId != 0x12, "wShieldLevel bits 1+0 did not follow the L1 -> L2 -> L3 chain.");

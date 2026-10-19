@@ -4121,14 +4121,38 @@ $lynnaShopDefinitions = @(
     @(0x01, 0x6f,  10, 0x29, 0x0c, 0x0e02, 0x004c, 0xc643, 0x08, 0x0d, 4),
     @(0x03, 0x6c,  30, 0x01, 0x01, 0x0e03, 0x001f, 0xc6af, 0x02, 0x11, 0),
     @(0x04, 0x69,  20, 0x03, 0x10, 0x0e04, 0x004d, 0xc642, 0x00, 0xff, 0),
-    @(0x0d, 0x67, 150, 0x0e, 0x0c, 0x0e1b, 0x003b, 0xc643, 0x00, 0xff, 0),
-    @(0x11, 0x6f,  50, 0x01, 0x02, 0x0e29, 0x0020, 0xc6af, 0x01, 0x12, 0),
+    @(0x0d, 0x6f, 150, 0x0e, 0x0c, 0x0e1b, 0x003b, 0xc643, 0x00, 0xff, 0),
+    @(0x11, 0x6c,  50, 0x01, 0x02, 0x0e29, 0x0020, 0xc6af, 0x01, 0x12, 0),
     @(0x12, 0x6c,  80, 0x01, 0x03, 0x0e2a, 0x0021, 0xc6af, 0x00, 0xff, 0),
     @(0x13, 0x6c,  30, 0x34, 0x01, 0x0e1d, 0x004b, 0xc642, 0x20, 0x03, 0),
     @(0x0e, 0x67, 100, 0x34, 0x01, 0x0e1d, 0x004b, 0xc643, 0x01, 0xff, 0),
-    @(0x0f, 0x67, 100, 0x2d, 0x0e, 0x0e23, 0x0054, 0xc643, 0x02, 0xff, 0),
-    @(0x10, 0x67, 100, 0x00, 0x01, 0x0e25, 0x0054, 0xc643, 0x04, 0xff, 0)
+    @(0x0f, 0x6b, 100, 0x2d, 0x0e, 0x0e23, 0x0054, 0xc643, 0x02, 0xff, 0),
+    @(0x10, 0x6f, 100, 0x00, 0x01, 0x0e25, 0x0054, 0xc643, 0x04, 0xff, 0)
 )
+# Bind every exported price location to the executed Ages table, not the
+# item's shelf coordinates or another product's otherwise identical price.
+$shopPricePositions = @(Read-AssemblyDataDirectives (
+    Join-Path $Disassembly 'object_code/common/interactions/shopItem.s') '@itemPricePositions' '.dw' |
+    ForEach-Object {
+        if ($_.Operands.Count -ne 1) {
+            throw 'shopItem.s:@itemPricePositions must contain one address per .dw row.'
+        }
+        $operand = [string]$_.Operands[0]
+        if ($operand -eq '$ffff') { 0xffff }
+        elseif ($operand -match '^w3VramTiles\+\$(?<offset>[0-9a-f]{2})$') {
+            [Convert]::ToInt32($Matches['offset'], 16)
+        }
+        else { throw "shopItem.s:@itemPricePositions has unsupported address '$operand'." }
+    })
+if ($shopPricePositions.Count -ne 0x16) {
+    throw 'shopItem.s:@itemPricePositions must contain $16 Ages price addresses.'
+}
+foreach ($definition in $lynnaShopDefinitions) {
+    if ($definition[1] -ne $shopPricePositions[$definition[0]]) {
+        throw ('shopItem.s:@itemPricePositions: $47:${0:x2} price tile must be ${1:x2}, got ${2:x2}.' -f
+            $definition[0], $shopPricePositions[$definition[0]], $definition[1])
+    }
+}
 foreach ($advance in @(@('0e','TREASURE_GASHA_SEED','\$01','01'), @('0f','TREASURE_RING','GBA_TIME_RING','02'), @('10','\$00','\$01','04'))) {
     $prefix='/\* \$'+$advance[0]+' \*/\s+\.db\s+'
     if($shopItemSource -notmatch ($prefix+'RUPEEVAL_100\b') -or

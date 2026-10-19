@@ -400,6 +400,15 @@ public sealed partial class ValidationRoot
             }
             FailIf(keeper.Record.SubId!=2||keeper.Position!=new Vector2(0x28,0x48)||keeper.ObjectCollisionBounds.Size!=new Vector2(40,12),"Advance shopkeeper lost subid $02, source position or $06/$14 collision.");
             var stock=_entities.Entities<LynnaShopItem>();
+            // shopItem.s:@itemPricePositions indexes $0e/$0f/$10 to
+            // w3VramTiles+$67/$6b/$6f: separate 100-rupee displays.
+            FailIf(!stock.Select(s=>s.PricePosition).SequenceEqual(new[] {
+                new Vector2(0x38,0x18), new Vector2(0x58,0x18), new Vector2(0x78,0x18) }),
+                "Advance shop $47:$0e/$0f/$10 must draw prices at $67/$6b/$6f, without overlapping.");
+            // interactionData.s $46 has flags $11 (animation $01).
+            // shopkeeperState0 only overrides this for subid $00, to $03.
+            FailIf(keeper.CurrentScriptAnimationSource!=data.Animation(0x46,1),
+                "Advance shopkeeper $46:$02 must enter facing right (animation $01), not up ($00).");
             FailIf(!stock.Select(s=>s.Record.SubId).SequenceEqual(new[]{0x0e,0x0f,0x10})||
                 stock.Any(s=>s.Record.Price!=100)||data.Item(0x0f).TreasureId!=0x2d||data.Item(0x0f).Parameter!=0x0e||data.Item(0x10).Parameter!=1,
                 "Advance shop lost its ordered Gasha/GBA_TIME_RING/tier-1 ring stock and 100-rupee prices.");
@@ -466,6 +475,9 @@ public sealed partial class ValidationRoot
             FailIf(_inventory.UnappraisedRingCount!=ringsBefore+2,"Advance fixed GBA ring and random tier-1 ring were not both awarded.");
             FailIf(_inventory.UnappraisedRingAt(ringsBefore)!=0x4e,"Advance shop's fixed ring was not unappraised GBA_TIME_RING $0e (stored with bit $40).");
             LoadValidationRoom(3,0xfe);Step(2);
+            FailIf(_entities.Entities<NpcCharacter>().Single(n=>n.Record.Id==0x46)
+                .CurrentScriptAnimationSource!=data.Animation(0x46,1),
+                "Advance shopkeeper $46:$02 lost its right-facing entry pose on re-entry.");
             FailIf(_entities.Entities<LynnaShopItem>().Count!=0,"Advance shop restocked sold items on re-entry.");
             _player.WarpTo(new(80,104));Merchant();
             FailIf(!_dialogue.IsOpen||!PlainWords(_dialogue.CurrentMessage).Contains("closing shop",StringComparison.Ordinal),"Advance shop did not select TX_0e26 after selling everything.");
