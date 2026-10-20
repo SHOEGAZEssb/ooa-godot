@@ -61,3 +61,20 @@ foreach ($case in @(
     Assert-Normalization $caught "Normalizer lost source-aware diagnostic: $($case.Op) $($case.Args)"
 }
 Write-Host 'Cutscene normalization fixtures passed (relocation, movement, buffer/ROM/conditional jumps, diagnostics).'
+
+# Cached schema results must preserve case and retain negative results. The
+# actual compiled validator remains the only producer of those results.
+$assemblySourceHost = $null
+$script:scalarRequestCount = 0
+function Invoke-AssemblySourceHost($process, [string]$command, [string]$payload) {
+    if ($command -ne 'CUTSCENE_SCALAR') { throw "Unexpected fixture command $command." }
+    $script:scalarRequestCount++
+    if ($payload -ceq ('actor' + [char]0 + 'Actor')) { return '1' }
+    return '0'
+}
+foreach ($repeat in 1..2) {
+    Assert-Normalization (Test-CutsceneSchemaScalar 'actor' 'Actor') 'Valid schema result was lost.'
+    Assert-Normalization (-not (Test-CutsceneSchemaScalar 'actor' 'actor')) 'Schema cache conflated differently cased values.'
+}
+Assert-Normalization ($script:scalarRequestCount -eq 2) 'Repeated positive/negative scalar results were not reused.'
+Write-Host 'Scalar-cache fixtures passed (case-sensitive keys and retained positive/negative results).'

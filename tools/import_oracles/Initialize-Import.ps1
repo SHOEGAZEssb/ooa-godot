@@ -3,14 +3,19 @@ $project = Split-Path $importRoot -Parent
 $destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(
     $OutputDirectory)
 
+$spriteSourceIndex = @{}
 function Find-ImportSpriteSource([string]$name) {
-    $source = Get-ChildItem $Disassembly -Directory -Filter 'gfx*' |
-        ForEach-Object {
-            Get-ChildItem $_.FullName -Recurse -File -Filter "$name.png"
-        } |
-        Select-Object -First 1
-    if ($null -eq $source) { throw "Sprite not found: $name.png" }
-    return $source
+    if ($spriteSourceIndex.Count -eq 0) {
+        foreach ($directory in Get-ChildItem $Disassembly -Directory -Filter 'gfx*') {
+            foreach ($source in Get-ChildItem $directory.FullName -Recurse -File -Filter '*.png') {
+                if (-not $spriteSourceIndex.ContainsKey($source.BaseName)) {
+                    $spriteSourceIndex[$source.BaseName] = $source
+                }
+            }
+        }
+    }
+    if (-not $spriteSourceIndex.ContainsKey($name)) { throw "Sprite not found: $name.png" }
+    return $spriteSourceIndex[$name]
 }
 
 function Get-ImportSpriteSourceGrayscaleInverted([string]$name) {
@@ -38,11 +43,13 @@ if (-not (Test-Path -LiteralPath $Disassembly -PathType Container)) {
 
 $importerProject = Join-Path $project 'tools\OracleImporter\OracleImporter.csproj'
 if (-not $SkipBuild) {
+    $importerBuildTimer = [Diagnostics.Stopwatch]::StartNew()
     $importerBuildOutput = @(
         & dotnet build $importerProject -t:Rebuild -p:Optimize=true --nologo --verbosity quiet 2>&1)
     if ($LASTEXITCODE -ne 0) {
         throw "Could not build the importer source host:`n$($importerBuildOutput -join "`n")"
     }
+    Write-Host ('Optimized importer host build: {0:F3}s.' -f $importerBuildTimer.Elapsed.TotalSeconds)
 }
 $importerHost = Join-Path $project `
     'tools\OracleImporter\bin\Debug\net8.0\OracleOfAges.Importer.dll'
@@ -67,6 +74,8 @@ function Start-AssemblySourceHost {
     # explicitly as well as the selected region.
     $start.EnvironmentVariables['OOA_ASSEMBLY_SYMBOLS'] = (
         'ROM_AGES;REGION_US;AGES_ENGINE;BUILD_VANILLA;ENABLE_US_BUGFIXES')
+    $start.EnvironmentVariables['OOA_IMPORT_EXECUTION_ENVIRONMENT'] = (
+        "$($PSVersionTable.PSEdition)/$($PSVersionTable.PSVersion)/$([Environment]::Version)/$([Globalization.CultureInfo]::CurrentCulture.Name)")
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $start
     if (-not $process.Start()) {
@@ -130,6 +139,20 @@ $assemblySourceHost = Start-AssemblySourceHost
 $assemblyTextCache = @{}
 $assemblyNodeCache = @{}
 $assemblyAnimationCache = @{}
+
+function Find-AssemblySourceLine(
+    [string]$path, [int]$start, [int]$end, [string]$pattern, [int]$occurrence = 0
+) {
+    $fullPath = Resolve-ImportReadPath $path
+    return [int](Invoke-AssemblySourceHost $assemblySourceHost 'SOURCE_LINE' (
+        "$fullPath`0$start`0$end`0$pattern`0$occurrence"))
+}
+
+function Read-AssemblyNodeRange([string]$path, [int]$start, [int]$end) {
+    $fullPath = Resolve-ImportReadPath $path
+    $json = Invoke-AssemblySourceHost $assemblySourceHost 'NODE_RANGE' "$fullPath`0$start`0$end"
+    return @($json | ConvertFrom-Json)
+}
 
 function Resolve-ImportReadPath([string]$path) {
     if ([IO.Path]::IsPathRooted($path)) {
@@ -242,9 +265,9 @@ function Read-AssemblyNodeQuery(
         $json = Invoke-AssemblySourceHost `
             $assemblySourceHost $command "$fullPath`0$label`0$name"
         $parsed = $json | ConvertFrom-Json
-        $assemblyNodeCache[$key] = [object[]]$parsed
+        $assemblyNodeCache[$key] = [object[]]@($parsed | Where-Object IsActive)
     }
-    return @(@($assemblyNodeCache[$key]) | Where-Object IsActive)
+    return @($assemblyNodeCache[$key])
 }
 
 function Read-AssemblyNodes([string]$path) {
@@ -541,9 +564,15 @@ function Read-AssemblyDwTables(
 function Copy-GeneratedFile([string]$relativeSource, [string]$relativeDestination) {
     $source = Join-Path $Disassembly $relativeSource
     $target = Join-Path $destination $relativeDestination
-    if (-not (Test-Path -LiteralPath $source)) {
+    if (-not [IO.File]::Exists($source)) {
         throw "Disassembly asset not found: $source"
     }
-    New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
-    Copy-Item -LiteralPath $source -Destination $target -Force
+    [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
+    if ([IO.File]::Exists($target)) {
+        $attributes = [IO.File]::GetAttributes($target)
+        if (($attributes -band [IO.FileAttributes]::ReadOnly) -ne 0) {
+            [IO.File]::SetAttributes($target, $attributes -band (-bnot [IO.FileAttributes]::ReadOnly))
+        }
+    }
+    [IO.File]::Copy($source, $target, $true)
 }

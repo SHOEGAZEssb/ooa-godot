@@ -49,6 +49,10 @@ public static class AssemblySourceQuery
         string? name = null) =>
         JsonSerializer.Serialize(Select(file, command, label, name), JsonOptions);
 
+    public static string SerializeRange(AssemblySourceFile file, int start, int end) =>
+        JsonSerializer.Serialize(file.GetNodesInRange(start, end)
+            .Where(node => node.IsActive).Select(ToResult), JsonOptions);
+
     private static IEnumerable<AssemblyNode> Scope(
         AssemblySourceFile file,
         string? label) =>

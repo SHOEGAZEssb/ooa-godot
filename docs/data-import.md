@@ -158,9 +158,35 @@ as used in CI. ROM cache-lock waits likewise accept `-LockTimeoutSeconds 0`.
 Failures retain logs and
 manifests at the printed temporary path; successful runs clean them up.
 
-The importer itself accepts `-OutputDirectory` for isolated output and
-`-SkipBuild` when the Debug importer host has already been built. Normal imports
-still build the host and write to `assets/oracle/` by default.
+The importer accepts `-OutputDirectory` for isolated output and `-SkipBuild`
+when the optimized Debug importer host has already been built. Normal imports
+still build the host and write to `assets/oracle/` by default. `-Profile` prints
+individual stage and cache-check timings; every successful invocation reports
+its total time and whether it generated assets or reused a verified import.
+
+Unchanged imports can reuse a completed result recorded under
+`.cache/oracle-import/`. Reuse requires matching content hashes for the ROM,
+disassembly inputs (including graphics, binary files and properties), importer
+code, selected symbols, linked schema, compiled host, build configuration and
+PowerShell/.NET execution environment.
+Every generated output is also checked for content and presence; unexpected
+files invalidate reuse. Godot `.import` metadata is excluded. An output lock
+prevents concurrent imports from owning the same destination, and cache metadata
+is published atomically only after success and a second input fingerprint check.
+Missing, changed or corrupt cache data triggers complete generation.
+
+Use `-Force` to execute every stage even when inputs and outputs match:
+
+```powershell
+& .\tools\import_oracles.ps1 -Force -Profile
+```
+
+The import verifier always forces both complete imports, including its serial
+mode. Cache reuse does not replace stage/schema checks or deterministic-output
+verification. The typed source host owns indexed node-range and source-line
+queries, preserving active branches, source order and occurrence selection.
+Companion indices retain animation fallthrough, loop boundaries and raw OAM;
+animation-specific VRAM resolution still starts fresh for every animation.
 
 Finish with the normal build and full headless suite from
 [Validation](validation.md).

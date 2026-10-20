@@ -8,14 +8,13 @@ function Find-CutsceneCommandSourceLine {
         [int]$occurrence = 0)
     $path = Resolve-AssemblySourceTextPath $source
     if ($null -eq $path) { throw "$script uses untracked assembly source." }
-    $matches = @(Read-AssemblyNodes $path | Where-Object {
-        $_.Offset -ge $bodyStart -and $_.Offset -lt $bodyEnd -and
-        $_.Code -match $pattern
-    })
-    if ($occurrence -lt 0 -or $occurrence -ge $matches.Count) {
+    $line = if ($occurrence -lt 0) { -1 } else {
+        Find-AssemblySourceLine $path $bodyStart $bodyEnd $pattern $occurrence
+    }
+    if ($line -lt 0) {
         throw "Could not locate $script command source occurrence $occurrence matching: $pattern"
     }
-    return $matches[$occurrence].Line
+    return $line
 }
 function ConvertTo-CutsceneCommandPayload {
     param([string]$value)
@@ -43,6 +42,7 @@ function New-CutsceneCommandRow {
 $cutsceneCommandHeader =
     "# script`tlabel`tindex`tsource-line`topcode`tactor`targ0`targ1`tpayload-base64"
 $generatedCutsceneCommandStreams = [Collections.Generic.List[object]]::new()
+$cutsceneScalarCache = [Collections.Generic.Dictionary[string,bool]]::new([StringComparer]::Ordinal)
 
 function Write-CutsceneGeneratedTable([object[]]$arguments) {
     if ($arguments.Count -lt 2) {
@@ -68,8 +68,11 @@ function Write-CutsceneGeneratedTable([object[]]$arguments) {
 
 function Test-CutsceneSchemaScalar {
     param([string]$shape, [string]$value)
-    return (Invoke-AssemblySourceHost $assemblySourceHost 'CUTSCENE_SCALAR' (
-        $shape + [char]0 + $value)) -eq '1'
+    $key = $shape + [char]0 + $value
+    if (-not $cutsceneScalarCache.ContainsKey($key)) {
+        $cutsceneScalarCache[$key] = (Invoke-AssemblySourceHost $assemblySourceHost 'CUTSCENE_SCALAR' $key) -eq '1'
+    }
+    return $cutsceneScalarCache[$key]
 }
 
 function Test-GeneratedCutsceneCommandStreams {
@@ -156,10 +159,7 @@ function Read-AssemblyCutsceneCommands {
             $end[0].Offset -le $start[0].Offset) {
             throw "$path`: invalid $script -> $endLabel command range."
         }
-        @(Read-AssemblyNodes $path | Where-Object {
-            $_.Offset -gt $start[0].Offset -and
-            $_.Offset -lt $end[0].Offset
-        })
+        @(Read-AssemblyNodeRange $path ($start[0].Offset + 1) $end[0].Offset)
     }
     foreach ($node in $nodes) {
         if ($node.Kind -eq 'Label') {
@@ -198,11 +198,9 @@ function Read-AssemblyCutsceneCommands {
 function Get-AssemblySourceLine {
     param([string]$source, [string]$pattern, [string]$description)
     $path = Resolve-AssemblySourceTextPath $source
-    $node = @(Read-AssemblyNodes $path | Where-Object {
-        $_.Code -match $pattern
-    } | Select-Object -First 1)
-    if ($node.Count -eq 0) {
+    $line = Find-AssemblySourceLine $path 0 $source.Length $pattern
+    if ($line -lt 0) {
         throw "Could not locate $description source label."
     }
-    return $node[0].Line
+    return $line
 }

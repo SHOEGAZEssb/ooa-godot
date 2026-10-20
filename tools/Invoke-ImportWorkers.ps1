@@ -33,7 +33,7 @@ try {
 $ErrorActionPreference = 'Stop'
 $timer = [Diagnostics.Stopwatch]::StartNew()
 try {
-    & IMPORT_SCRIPT -Disassembly DISASSEMBLY_PATH -Rom ROM_PATH -OutputDirectory OUTPUT_PATH -SkipBuild
+    & IMPORT_SCRIPT -Disassembly DISASSEMBLY_PATH -Rom ROM_PATH -OutputDirectory OUTPUT_PATH -SkipBuild -Force
     Write-Host ('Import worker completed in {0:N2}s.' -f $timer.Elapsed.TotalSeconds)
     exit 0
 }
@@ -108,7 +108,19 @@ finally {
                 $worker.Process.Kill($true)
             }
             else {
-                & taskkill.exe /PID $worker.Process.Id /T /F 2>&1 | Out-Null
+                # A worker can finish between HasExited and taskkill. Native
+                # stderr is a terminating error under Windows PowerShell's
+                # Stop preference; retain the original worker failure instead.
+                $stopPreference = $ErrorActionPreference
+                try {
+                    $ErrorActionPreference = 'Continue'
+                    & taskkill.exe /PID $worker.Process.Id /T /F 2>&1 | Out-Null
+                    $killExitCode = $LASTEXITCODE
+                }
+                finally { $ErrorActionPreference = $stopPreference }
+                if ($killExitCode -ne 0 -and -not $worker.Process.HasExited) {
+                    throw "Could not stop import worker $($worker.Index) (exit $killExitCode)."
+                }
             }
             $worker.Process.WaitForExit()
         }

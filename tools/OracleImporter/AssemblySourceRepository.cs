@@ -50,6 +50,14 @@ public sealed class AssemblySourceRepository
 
     public string GetText(string relativeOrFullPath) => Open(relativeOrFullPath).Text;
 
+    // Cache invalidation treats sources as opaque bytes; parsing still goes
+    // exclusively through Open and its ordered, read-once source model.
+    internal static string HashSourceFile(string path)
+    {
+        using FileStream input = File.OpenRead(path);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(input));
+    }
+
     public void AssertReadOnce()
     {
         string[] repeated = _readCounts

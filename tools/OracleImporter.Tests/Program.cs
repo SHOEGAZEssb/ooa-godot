@@ -8,6 +8,8 @@ Directory.CreateDirectory(temporaryRoot);
 try
 {
     RunSourceModelTests(temporaryRoot);
+    OracleOfAges.Importer.Tests.AssemblySourceRangeTests.Run(temporaryRoot);
+    OracleOfAges.Importer.Tests.ImportCacheTests.Run(temporaryRoot);
     RunManifestTests(temporaryRoot);
     GeneratedGrayscalePngTests.Run(temporaryRoot);
     RunImporterBoundaryTests();

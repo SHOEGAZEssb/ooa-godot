@@ -151,6 +151,48 @@ $specialObjectCommonSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\specialObjects\commonCode.s')
 $specialOamPath = Join-Path $Disassembly 'data\ages\specialObjectOamData.s'
 $specialOamNodes = @(Read-AssemblyNodes $specialOamPath)
+# These indices retain source order and duplicate labels. An animation label
+# is an entry point; it must not truncate frames which cross the next label.
+function New-CompanionAnimationIndex([object[]]$animations, [object[]]$oam) {
+    $labels = @{}
+    $frames = [Collections.Generic.List[object]]::new()
+    $loops = [Collections.Generic.List[object]]::new()
+    $oamRows = @{}
+    foreach ($node in $animations) {
+        if ($node.Kind -eq 'Label') {
+            if (-not $labels.ContainsKey($node.Name)) { $labels[$node.Name] = [Collections.Generic.List[object]]::new() }
+            $labels[$node.Name].Add($node)
+        } elseif ($node.Kind -eq 'Data' -and $node.Name -ieq '.db') {
+            $frames.Add($node)
+        } elseif ($node.Kind -eq 'MacroInvocation' -and $node.Name -eq 'm_AnimationLoop') {
+            $loops.Add($node)
+        }
+    }
+    foreach ($node in $oam) {
+        if ($node.Kind -ne 'Data' -or $node.Name -ine '.db' -or
+            [string]::IsNullOrEmpty($node.EnclosingGlobalLabel)) { continue }
+        $label = $node.EnclosingGlobalLabel
+        if (-not $oamRows.ContainsKey($label)) { $oamRows[$label] = [Collections.Generic.List[object]]::new() }
+        $oamRows[$label].Add($node)
+    }
+    return @{ Labels = $labels; Frames = $frames; Loops = $loops; Oam = $oamRows }
+}
+function Get-CompanionAnimationLabels([string]$label) {
+    if ($specialAnimationIndex.Labels.ContainsKey($label)) { return @($specialAnimationIndex.Labels[$label]) }
+}
+function Get-CompanionNodesInRange($nodes, [int]$start, [int]$end, [switch]$First) {
+    $lower = 0; $upper = $nodes.Count
+    while ($lower -lt $upper) {
+        $middle = $lower + [int][Math]::Floor(($upper - $lower) / 2)
+        if ($nodes[$middle].Offset -le $start) { $lower = $middle + 1 } else { $upper = $middle }
+    }
+    for ($index = $lower; $index -lt $nodes.Count -and $nodes[$index].Offset -lt $end; $index++) {
+        $nodes[$index]
+        if ($First) { break }
+    }
+}
+$specialAnimationIndex = New-CompanionAnimationIndex $specialAnimationNodes $specialOamNodes
+$specialEncodedOamCache = @{}
 $specialOamTables = Read-AssemblyDwTables `
     $specialAnimationPath 'specialObject(?:08|09|0b|0c|0d|0f|10|11)OamDataPointers' 'oamData[0-9a-f]+'
 $mooshOamPointers = $specialOamTables['specialObject0dOamDataPointers']
@@ -163,21 +205,22 @@ if ($null -eq $mooshOamPointers -or $mooshOamPointers.Count -ne 0x3f -or
     throw 'Moosh special-object animation $00 changed.'
 }
 function Resolve-MooshOam([string]$label) {
-    $rows = @($specialOamNodes | Where-Object {
-        $_.EnclosingGlobalLabel -eq $label -and
-        $_.Kind -eq 'Data' -and $_.Name -ieq '.db'
-    })
+    if ($specialEncodedOamCache.ContainsKey($label)) { return $specialEncodedOamCache[$label] }
+    $rows = @()
+    if ($specialAnimationIndex.Oam.ContainsKey($label)) { $rows = @($specialAnimationIndex.Oam[$label]) }
     if ($rows.Count -lt 2) { throw "Moosh OAM block $label is incomplete." }
     $count = Convert-AssemblyInteger $rows[0].Operands[0]
     if ($rows.Count -ne $count + 1) {
         throw "Moosh OAM block $label declares $count cells but has $($rows.Count - 1)."
     }
-    return @($rows | Select-Object -Skip 1 | ForEach-Object {
+    $encoded = @($rows | Select-Object -Skip 1 | ForEach-Object {
         if ($_.Operands.Count -ne 4) {
             throw "Moosh OAM block $label has a malformed cell at line $($_.Line)."
         }
         ($_.Operands | ForEach-Object { Convert-AssemblyInteger $_ }) -join ','
     }) -join ';'
+    $specialEncodedOamCache[$label] = $encoded
+    return $encoded
 }
 $mooshGfxStart = $specialAnimationSource.IndexOf(
     'specialObject0dGfxPointers:', [StringComparison]::Ordinal)
@@ -234,28 +277,21 @@ function Resolve-MooshOamTiles(
     }) -join ';')
 }
 function Resolve-MooshSpecialAnimation([string]$label) {
-    $start = @($specialAnimationNodes | Where-Object { $_.Kind -eq 'Label' -and $_.Name -eq $label })
+    $start = @(Get-CompanionAnimationLabels $label)
     if ($start.Count -ne 1) { throw "Could not resolve Moosh animation $label." }
-    $loop = @($specialAnimationNodes | Where-Object {
-        $_.Kind -eq 'MacroInvocation' -and $_.Name -eq 'm_AnimationLoop' -and
-        $_.Offset -gt $start[0].Offset -and $_.Offset -lt $mooshOamStart
-    } | Select-Object -First 1)
+    $loop = @(Get-CompanionNodesInRange $specialAnimationIndex.Loops $start[0].Offset $mooshOamStart -First)
     # Bit 7 is the handler's terminal signal for falling/stomp sequences.
-    $terminal = @($specialAnimationNodes | Where-Object {
-        $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and $_.Operands.Count -eq 3 -and
-        ((Convert-AssemblyInteger $_.Operands[2]) -band 0x80) -ne 0 -and
-        $_.Offset -gt $start[0].Offset -and $_.Offset -lt $mooshOamStart
+    $terminal = @(Get-CompanionNodesInRange $specialAnimationIndex.Frames $start[0].Offset $mooshOamStart | Where-Object {
+        $_.Operands.Count -eq 3 -and
+        ((Convert-AssemblyInteger $_.Operands[2]) -band 0x80) -ne 0
     } | Select-Object -First 1)
     $end = if ($loop.Count -eq 1) { $loop[0].Offset } else { $mooshOamStart }
     if ($terminal.Count -eq 1 -and $terminal[0].Offset -lt $end) { $end = $terminal[0].Offset + 1; $loop = @() }
     if ($end -eq $mooshOamStart) { throw "Moosh animation $label has neither loop nor terminal signal." }
-    $frameNodes = @($specialAnimationNodes | Where-Object {
-        $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and
-        $_.Offset -gt $start[0].Offset -and $_.Offset -lt $end
-    })
+    $frameNodes = @(Get-CompanionNodesInRange $specialAnimationIndex.Frames $start[0].Offset $end)
     $loopStart = 0
     if ($loop.Count -eq 1) {
-        $target = @($specialAnimationNodes | Where-Object { $_.Kind -eq 'Label' -and $_.Name -eq $loop[0].Operands[0] })
+        $target = @(Get-CompanionAnimationLabels $loop[0].Operands[0])
         if ($target.Count -ne 1 -or $target[0].Offset -lt $start[0].Offset -or $target[0].Offset -gt $loop[0].Offset) {
             throw "Moosh animation $label has an invalid loop target."
         }
@@ -658,34 +694,24 @@ function Resolve-CompanionSpecialAnimation(
     [string]$label, [string]$companionName, [hashtable]$gfxOffsets,
     [hashtable]$gfxCounts, [hashtable]$oamIndices, [array]$oamPointers,
     [int]$oamStart) {
-    $startLabel = @($specialAnimationNodes | Where-Object {
-        $_.Kind -eq 'Label' -and $_.Name -eq $label
-    })
+    $startLabel = @(Get-CompanionAnimationLabels $label)
     if ($startLabel.Count -ne 1) {
         throw "Could not resolve $companionName animation label $label."
     }
     # Labels are alternate entry points, not stream terminators. In
     # particular Ricky animation $04 falls through animationData1a60c.
-    $loopNodes = @($specialAnimationNodes | Where-Object {
-        $_.Kind -eq 'MacroInvocation' -and $_.Name -eq 'm_AnimationLoop' -and
-        $_.Offset -gt $startLabel[0].Offset -and
-        $_.Offset -lt $oamStart
-    } | Select-Object -First 1)
+    $loopNodes = @(Get-CompanionNodesInRange $specialAnimationIndex.Loops $startLabel[0].Offset $oamStart -First)
     if ($loopNodes.Count -ne 1) {
         throw "$companionName animation $label has no loop terminator before its OAM table."
     }
     $endOffset = $loopNodes[0].Offset
-    $frameNodes = @($specialAnimationNodes | Where-Object {
-        $_.Kind -eq 'Data' -and $_.Name -ieq '.db' -and
-        $_.Offset -gt $startLabel[0].Offset -and
-        $_.Offset -lt $endOffset -and $_.Operands.Count -ge 3
+    $frameNodes = @(Get-CompanionNodesInRange $specialAnimationIndex.Frames $startLabel[0].Offset $endOffset | Where-Object {
+        $_.Operands.Count -ge 3
     })
     $loopStart = 0
     if ($loopNodes.Count -eq 1) {
         $target = $loopNodes[0].Operands[0]
-        $targetLabel = @($specialAnimationNodes | Where-Object {
-            $_.Kind -eq 'Label' -and $_.Name -eq $target
-        })
+        $targetLabel = @(Get-CompanionAnimationLabels $target)
         if ($targetLabel.Count -ne 1 -or
             $targetLabel[0].Offset -lt $startLabel[0].Offset -or
             $targetLabel[0].Offset -gt $loopNodes[0].Offset) {

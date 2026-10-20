@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 
 namespace OracleOfAges.Importer;
 
@@ -114,6 +115,39 @@ public sealed class AssemblySourceFile
             .Skip(label.NodeIndex + 1)
             .Take(endNode - label.NodeIndex - 1)
             .ToArray();
+    }
+
+    // Node offsets retain source order, including several nodes on one line.
+    // Restrict queries before serializing or matching rather than streaming a
+    // complete source file through every PowerShell consumer.
+    public IEnumerable<AssemblyNode> GetNodesInRange(int start, int end)
+    {
+        if (start < 0 || end < start || end > Text.Length)
+            throw new AssemblySourceException($"{RelativePath}: invalid source range [{start}, {end}).");
+        int lower = 0;
+        int upper = Nodes.Count;
+        while (lower < upper)
+        {
+            int middle = lower + (upper - lower) / 2;
+            if (Nodes[middle].Span.Start.Offset < start)
+                lower = middle + 1;
+            else
+                upper = middle;
+        }
+        for (int index = lower; index < Nodes.Count && Nodes[index].Span.Start.Offset < end; index++)
+            yield return Nodes[index];
+    }
+
+    public int FindSourceLine(int start, int end, string pattern, int occurrence = 0)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(occurrence);
+        var expression = new Regex(pattern, RegexOptions.IgnoreCase);
+        foreach (AssemblyNode node in GetNodesInRange(start, end))
+        {
+            if (node.IsActive && expression.IsMatch(node.Code) && occurrence-- == 0)
+                return node.Span.Start.Line;
+        }
+        return -1;
     }
 
     public IReadOnlyList<AssemblyNode> GetDataDirectives(string label)

@@ -13,9 +13,10 @@ function Assert-WorkerTest([bool]$condition, [string]$message) {
 try {
     $fixture = Join-Path $temporary 'fixture.ps1'
     $fixtureSource = @'
-param([string]$Disassembly, [string]$Rom, [string]$OutputDirectory, [switch]$SkipBuild)
+param([string]$Disassembly, [string]$Rom, [string]$OutputDirectory, [switch]$SkipBuild, [switch]$Force)
 $ErrorActionPreference = 'Stop'
 if (-not $SkipBuild) { throw 'Worker attempted to build.' }
+if (-not $Force) { throw 'Verification worker did not force complete generation.' }
 [void][IO.Directory]::CreateDirectory($OutputDirectory)
 @{ Disassembly = $Disassembly; Rom = $Rom } |
     Export-Clixml -LiteralPath (Join-Path $OutputDirectory 'arguments.xml')

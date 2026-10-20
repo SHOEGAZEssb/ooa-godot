@@ -2,10 +2,13 @@ param(
     [string]$Disassembly = (Join-Path $PSScriptRoot '..\external\oracles-disasm'),
     [string]$Rom,
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\assets\oracle'),
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$Force,
+    [switch]$Profile
 )
 
 $ErrorActionPreference = "Stop"
+$importTimer = [Diagnostics.Stopwatch]::StartNew()
 $importRoot = $PSScriptRoot
 $importModuleRoot = Join-Path $importRoot 'import_oracles'
 . (Join-Path $importRoot 'Resolve-OracleRom.ps1')
@@ -362,6 +365,7 @@ $stageContracts = @(
 $commonStageInputs = @('destination', 'Disassembly', 'romBytes')
 $commonStageFunctionInputs = @(
     'Convert-AssemblyInteger', 'Copy-GeneratedFile', 'Get-AssemblyLabelBody',
+    'Find-AssemblySourceLine', 'Read-AssemblyNodeRange',
     'Read-AssemblyAnimationDefinitions', 'Read-AssemblyConstants',
     'Read-AssemblyDataDirectives',
     'Read-AssemblyDwTables', 'Read-AssemblyLabelBlock',
@@ -376,6 +380,7 @@ $commonStageFunctionInputs = @(
 $importSucceeded = $false
 $assemblySourceStats = ''
 $assemblySourceHost = $null
+$importCacheReused = $false
 $importValues = @{
     importRoot = $importRoot
     Disassembly = $Disassembly
@@ -401,7 +406,12 @@ try {
             $arguments.CommonInputs = $commonStageInputs
             $arguments.CommonFunctions = $commonStageFunctionInputs
         }
+        $stageTimer = [Diagnostics.Stopwatch]::StartNew()
         $stage = Invoke-ImportStage @arguments
+        $stageTimer.Stop()
+        if ($Profile) {
+            Write-Host ('Import stage {0}: {1:F3}s' -f $contract.Name, $stageTimer.Elapsed.TotalSeconds)
+        }
         $stageModules.Add($stage)
         foreach ($output in $stage.ExportedVariables.GetEnumerator()) {
             $importValues[$output.Key] = $output.Value.Value
@@ -411,10 +421,26 @@ try {
         }
         if ($contract -eq $initializeContract) {
             $assemblySourceHost = $importValues.assemblySourceHost
+            $cacheTimer = [Diagnostics.Stopwatch]::StartNew()
+            $cacheStatus = & $importFunctions['Invoke-AssemblySourceHost'] $assemblySourceHost 'CACHE_BEGIN' (
+                "$importRoot`0$Rom`0$($importValues.destination)`0$(if ($Force) { '1' } else { '0' })")
+            $cacheFields = $cacheStatus.Split("`t", 2)
+            if ($Profile) { Write-Host ('Import cache verification: {0:F3}s' -f $cacheTimer.Elapsed.TotalSeconds) }
+            if ($cacheFields[0] -eq 'HIT') {
+                $importCacheReused = $true
+                Write-Host "Reused unchanged import after verifying all inputs and $($cacheFields[1]) generated assets."
+                break
+            }
+            Write-Host "Generating complete import: $($cacheFields[1])."
         }
     }
     $assemblySourceStats = & $importFunctions['Invoke-AssemblySourceHost'] `
         $assemblySourceHost 'ASSERT'
+    if (-not $importCacheReused) {
+        $cacheTimer = [Diagnostics.Stopwatch]::StartNew()
+        [void](& $importFunctions['Invoke-AssemblySourceHost'] $assemblySourceHost 'CACHE_COMPLETE')
+        if ($Profile) { Write-Host ('Import cache publication: {0:F3}s' -f $cacheTimer.Elapsed.TotalSeconds) }
+    }
     $importSucceeded = $true
 }
 finally {
@@ -440,6 +466,9 @@ finally {
     }
 }
 
+Write-Host ('Import completed in {0:F3}s ({1}).' -f $importTimer.Elapsed.TotalSeconds,
+    $(if ($importCacheReused) { 'verified cache reuse' } else { "$($stageModules.Count) stages executed" }))
+if ($importCacheReused) { return }
 Write-Host "Validated clean US ROM: $($importValues.hash)"
 & {
     $assemblySourceParts = $assemblySourceStats.Split("`t")
