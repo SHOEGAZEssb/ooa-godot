@@ -483,6 +483,9 @@ public partial class GameRoot : Node2D
             InitializeGameplay(save,
                 initialRoomLoadKind: InitialRoomLoadKind.LinkSummonedCutscene);
 
+        // bank1.linkSummonedCutscene state 0 enables the boundary pass when
+        // loading arrival graphics, before the fade and deferred initializeRoom.
+        _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
         // linkSummonedCutscene state 0 starts SND_WARP_START when it loads the
         // arrival room and initializes the divisor-2 white fade/wave.
         _sound.PlaySound(SoundId.SndWarpStart);

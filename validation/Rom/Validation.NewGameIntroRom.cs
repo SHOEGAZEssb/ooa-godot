@@ -118,6 +118,8 @@ public sealed partial class ValidationRoot
                 }
                 if (handoff && rom[0xc2ee] == 3)
                 {
+                    FailIf(root._runtimeState.ReadWramByte(WramAddress.wScrollMode) != rom[WramAddress.wScrollMode],
+                        $"{context}: arrival wScrollMode differs from the clean US ROM.");
                     FailIf(root._player.Position != new Vector2(rom[0xd00d], rom[0xd00b]) ||
                         root._player.ObjectZHigh != rom[0xd00f], $"{context}: arrival Link position/Z differs.");
                     bool falling = rom[0xd000] != 0 && rom[0xd004] == 0x0a && rom[0xd005] == 1;

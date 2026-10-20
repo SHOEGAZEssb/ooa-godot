@@ -84,6 +84,8 @@ public sealed partial class ValidationRoot
                 _rooms.ActiveGroup != save.RespawnGroup || _currentRoom.Id != save.RespawnRoom ||
                 _newGameArrivalFadeFrames != 65,
                 "Prepared handoff entered objects early or lost the source 65-update arrival fade.");
+            FailIf(_runtimeState.ReadWramByte(WramAddress.wScrollMode) != 1,
+                "linkSummonedCutscene state $00 did not enable the room boundary pass before the arrival fade.");
             var scene = _scene;
             int handoffRng = _random.Calls;
             for (int frame = 0; frame < 10; frame++)
@@ -106,6 +108,22 @@ public sealed partial class ValidationRoot
             FailIf(save.GashaMaturity != 0 || _player.Position != arrivalPosition + Vector2.Up ||
                 !save.HasRoomFlag(save.RespawnGroup, save.RespawnRoom, OracleSaveData.RoomFlagVisited),
                 "cutscene00 did not resume Link and record the arrival visit after object updates.");
+            StepGameplayUpdates(60, Vector2.Up, batched: batched);
+            FailIf(!_transitions.IsTransitioning,
+                $"New-game room $00:$8a did not start its north exit; Link is at {_player.Position}.");
+            StepGameplayUpdates(64, Vector2.Zero, batched: batched);
+            FailIf(_transitions.IsTransitioning || _rooms.ActiveGroup != 0 || _currentRoom.Id != 0x7a,
+                "New-game north exit did not finish in room $00:$7a.");
+            foreach (var (movement, destination) in new[] { (Vector2.Down, 0x8a), (Vector2.Up, 0x7a) })
+            {
+                StepGameplayUpdates(24, movement, batched: batched);
+                FailIf(!_transitions.IsTransitioning,
+                    $"New-game return/repeated exit to $00:${destination:x2} did not start at {_player.Position}.");
+                StepGameplayUpdates(64, Vector2.Zero, batched: batched);
+                FailIf(_transitions.IsTransitioning || _rooms.ActiveGroup != 0 || _currentRoom.Id != destination ||
+                    _runtimeState.ReadWramByte(WramAddress.wScrollMode) != 1,
+                    $"New-game return/repeated exit did not finish in room $00:${destination:x2} with boundaries enabled.");
+            }
         }
         // Simulate an intro advanced without any preparation host frames.
         // Completion must drain the same iterator and enter exactly once.
