@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             for (int y = 8; y < 176; y += 16)
             for (int x = 8; x < 240; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0x0c, 0, 0);
-            var database = new EnemyDatabase();
+            var database = EnemyDatabase.Shared;
             var record = database.GetRoomObjects(1, 0x5b).Single(row => row.Id == 0x0d);
             var actors = new List<LynelCharacter>();
             for (int slot = 0; slot < 2; slot++)

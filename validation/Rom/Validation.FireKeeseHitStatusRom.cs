@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
                     target.InvincibilityCounter != unchecked((sbyte)native[0xd0ab]) || target.KnockbackCounter != native[0xd0ad] ||
                     target.KnockbackAngle != native[0xd0ac] || target.State != native[0xd084] || target.Counter != native[0xd086] ||
                     target.Position != new Vector2(native.Word(0xd08c) / 256f, native.Word(0xd08a) / 256f),
-                    context + $": native status/motion differs: HP={target.Health}/{native[0xd0a9]}, inv={target.InvincibilityCounter}/{unchecked((sbyte)native[0xd0ab])}, recoil={target.KnockbackCounter}/{native[0xd0ad]}, pending={target.NativeHitPending}/${native[0xd0aa]:x2}, counter={target.Counter}/{native[0xd086]}, XY={target.Position}/{native.Word(0xd08c)/256f},{native.Word(0xd08a)/256f}.");
+                    $"{context}: native status/motion differs: HP={target.Health}/{native[0xd0a9]}, inv={target.InvincibilityCounter}/{unchecked((sbyte)native[0xd0ab])}, recoil={target.KnockbackCounter}/{native[0xd0ad]}, pending={target.NativeHitPending}/${native[0xd0aa]:x2}, counter={target.Counter}/{native[0xd086]}, XY={target.Position}/{native.Word(0xd08c)/256f},{native.Word(0xd08a)/256f}.");
             }
             void Step(int count = 1, bool press = false, Vector2 movement = default) =>
                 StepGameplayUpdates(count, movement, press ? ["attack"] : [], press ? ["attack"] : [], batched, Compare);

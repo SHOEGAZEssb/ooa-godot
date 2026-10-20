@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
                     (((int)_player.InvincibilityFrames) & 255) != native[0xd02b] ||
                     (int)_player.KnockbackFrames != native[0xd02d] ||
                     _player.Position != new Vector2(native[0xd00d], native[0xd00b]),
-                    context + $": Link damage/recoil/XY differs (runtime={_player.PendingContactDamageRaw & 255:x2}/{_player.InvincibilityFrames}/{_player.KnockbackFrames}/{_player.Position}; native={native[0xd025]:x2}/{unchecked((sbyte)native[0xd02b])}/{native[0xd02d]}/{native[0xd00d]},{native[0xd00b]}).");
+                    $"{context}: Link damage/recoil/XY differs (runtime={_player.PendingContactDamageRaw & 255:x2}/{_player.InvincibilityFrames}/{_player.KnockbackFrames}/{_player.Position}; native={native[0xd025]:x2}/{unchecked((sbyte)native[0xd02b])}/{native[0xd02d]}/{native[0xd00d]},{native[0xd00b]}).");
                 FailIf(_saveData.ReadWramByte(WramAddress.wLinkHealth) != native[WramAddress.wLinkHealth],
                     context + ": applied health differs.");
                 for (int slot = 0; slot < 16; slot++)

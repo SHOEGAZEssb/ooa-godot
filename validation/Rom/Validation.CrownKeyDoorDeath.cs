@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
                         FailIf(_currentRoom.GetMetatile(point) != rom[0xcf00+packed] ||
                             _currentRoom.GetTerrainInfo(point).Collision != rom[0xce00+packed] ||
                             _currentRoom.GetUnderlyingMetatile(point) != rom.Underlying(packed),
-                            context+$": room buffers differ at${packed:x2}.");
+                            $"{context}: room buffers differ at${packed:x2}.");
                     }
                 });
             }

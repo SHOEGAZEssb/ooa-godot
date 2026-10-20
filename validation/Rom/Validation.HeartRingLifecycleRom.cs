@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
                     int nativeCounter = rom.Word(0xcc53) | rom[0xcc55] << 16;
                     string context = $"Heart Ring ${ring:x2} tile=${tile:x2} collision=${collision:x2} angle=${angle:x2} air={airborne} batch={batched} update={++update}";
                     FailIf((int)counter.GetValue(_player)! != nativeCounter || _inventory.HealthQuarters != rom[0xc6aa],
-                        context + $": distance/heal differs: runtime={(int)counter.GetValue(_player)!:x6}/${_inventory.HealthQuarters:x2} XY={_player.PrecisePosition}, native={nativeCounter:x6}/${rom[0xc6aa]:x2} XY={rom.Word(0xd00c) / 256.0f},{rom.Word(0xd00a) / 256.0f}.");
+                        $"{context}: distance/heal differs: runtime={(int)counter.GetValue(_player)!:x6}/${_inventory.HealthQuarters:x2} XY={_player.PrecisePosition}, native={nativeCounter:x6}/${rom[0xc6aa]:x2} XY={rom.Word(0xd00c) / 256.0f},{rom.Word(0xd00a) / 256.0f}.");
                     FailIf(_saveData.ReadWramByte(0xc65f) != rom[0xc65f] || _saveData.ReadWramByte(0xc660) != rom[0xc660] ||
                         _inventory.HasTreasure(TreasureId.HeartRefill) != ((rom[0xc69f] & 2) != 0),
                         context + ": Heart refill treasure flag/Gasha maturity differs.");
@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
                     // separate owners; compare only ensuing movement/item cues.
                     FailIf(!sounds.Requests.Where(id => id is not (SoundId.SndText or SoundId.SndGainHeart or SoundId.SndDamageLink))
                         .SequenceEqual(rom.Sounds.Where(id => id != SoundId.SndDamageLink)),
-                        context + $": item cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
+                        $"{context}: item cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                         random.Calls - seed.Calls != rom.RandomCalls, context + ": shared RNG differs.");

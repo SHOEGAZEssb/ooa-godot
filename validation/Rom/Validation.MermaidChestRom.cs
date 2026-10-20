@@ -45,13 +45,13 @@ public sealed partial class ValidationRoot
                 string context=$"Mermaid chest5:${roomId:x2}, batch={batch}, update{++update}";
                 CompareSomariaMotionRom(rom,context);
                 for (int address=0xc672;address<0xc6cc;address++)
-                    FailIf(_saveData.ReadWramByte(address) != rom[address],context+$": inventory${address:x4} runtime=${_saveData.ReadWramByte(address):x2}, native=${rom[address]:x2}.");
+                    FailIf(_saveData.ReadWramByte(address) != rom[address],$"{context}: inventory${address:x4} runtime=${_saveData.ReadWramByte(address):x2}, native=${rom[address]:x2}.");
                 FailIf(_saveData.GetRoomFlags(5,roomId) != rom[0xca00+roomId],context+": ROOMFLAG_ITEM handoff differs.");
                 FailIf(_runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != rom[0xcc8a] ||
                     _runtimeState.ReadWramByte(WramAddress.wDisableLinkCollisionsAndMenu) != rom[0xcbca],context+": chest object/collision/menu masks differ.");
                 if (_interactions.ChestReward is { } reward)
                     FailIf(reward.Position != new Vector2(rom[0xd04d],rom[0xd04b]) ||
-                        reward.Visible != ((rom[0xd05a]&0x80) != 0),context+$": reserved treasure runtime={reward.Position}/{reward.Visible}, native={rom[0xd04d]},{rom[0xd04b]}/{rom[0xd05a]:x2}.");
+                        reward.Visible != ((rom[0xd05a]&0x80) != 0),$"{context}: reserved treasure runtime={reward.Position}/{reward.Visible}, native={rom[0xd04d]},{rom[0xd04b]}/{rom[0xd05a]:x2}.");
             });
             Step(1,0,press:true); Step(36,0);
             Step(8,0); // Finish the landing and reach both native chest wall probes.

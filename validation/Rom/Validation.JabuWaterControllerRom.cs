@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
                         _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != rom[0xcc8a] ||
                         _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != rom[0xcc02] ||
                         _entities.ScreenShakeCounter != rom[0xcd18] || _entities.HorizontalScreenShakeCounter != rom[0xcd19],
-                        context+$": controller/water/trigger/lock/shake differs, state {controller.State}/{rom[slot+4]}, counter{controller.Counter}/{rom[slot+6]}.");
+                        $"{context}: controller/water/trigger/lock/shake differs, state {controller.State}/{rom[slot+4]}, counter{controller.Counter}/{rom[slot+6]}.");
                     var random=_random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls ||
                         !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),

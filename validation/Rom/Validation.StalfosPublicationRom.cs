@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
             _player.Face(new Vector2I[]{Vector2I.Up,Vector2I.Right,Vector2I.Down,Vector2I.Left}[facing]);
             _runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);_runtimeState.SetWramByte(WramAddress.wScrollMode,0);
             _entities.AddEntity(new ProjectileMotionContactSuppression());
-            var data=new EnemyDatabase();var source=new RoomObjectRecord(4,0x13,0,RoomObjectKind.FixedEnemy,0x31,sub,2,1,88,120,0x57,0);
+            var data=EnemyDatabase.Shared;var source=new RoomObjectRecord(4,0x13,0,RoomObjectKind.FixedEnemy,0x31,sub,2,1,88,120,0x57,0);
             var adapter=new RoomEnemyFactory(_entities,data,new RoomEntityResources(_rooms),_rooms)
                 .CreateOrderedEnemy(data.EnemyHandlers.ResolveHandler(source),source,_currentRoom,initial,0,0,EnemyPlacementContext.Unrestricted)
                 ??throw new InvalidOperationException("Missing Stalfos source handler.");

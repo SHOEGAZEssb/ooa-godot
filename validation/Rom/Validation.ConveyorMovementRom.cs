@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
                         Field("_topDownMovementSpeedRaw") != rom[0xd010] ||
                         _player.TopDownSwimming || _player.TopDownAirborne ||
                         _player.IsFallingInHole || _transitions.IsTransitioning || _currentRoom.IsSolid(_player.Position),
-                        context + $": fixed XY/angle/speed/facing/ground state differs: runtime={_player.PrecisePosition}, native={expected}, velocity={Field("_topDownMovementAngle"):x2}/{Field("_topDownMovementSpeedRaw"):x2} vs {rom[0xd009]:x2}/{rom[0xd010]:x2}.");
+                        $"{context}: fixed XY/angle/speed/facing/ground state differs: runtime={_player.PrecisePosition}, native={expected}, velocity={Field("_topDownMovementAngle"):x2}/{Field("_topDownMovementSpeedRaw"):x2} vs {rom[0xd009]:x2}/{rom[0xd010]:x2}.");
                     FailIf(Field("_tilePushWalls") != rom[0xd033],
                         context + ": retained wall publication differs across terrain/input movement phases.");
                     // Native Link observes cba0; this fixture does not execute

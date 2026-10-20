@@ -51,15 +51,15 @@ public sealed partial class ValidationRoot
                     string context = $"Sea chest3:${roomId:x2}, linked={linked}, batch={batch}, update{++update}";
                     CompareSomariaMotionRom(rom, context);
                     for (int a = 0xc672; a < 0xc6cc; a++)
-                        FailIf(_saveData.ReadWramByte(a) != rom[a], context + $": inventory${a:x4} differs.");
+                        FailIf(_saveData.ReadWramByte(a) != rom[a], $"{context}: inventory${a:x4} differs.");
                     for (int a = 0xc5c0; a < 0xc600; a++)
-                        FailIf(_saveData.ReadWramByte(a) != rom[a], context + $": unappraised ring${a:x4} differs.");
+                        FailIf(_saveData.ReadWramByte(a) != rom[a], $"{context}: unappraised ring${a:x4} differs.");
                     FailIf(_saveData.GetRoomFlags(3, roomId) != rom[0xc800 + roomId] ||
                         _runtimeState.ReadWramByte(WramAddress.wChestContentsOverride) != rom[0xcca3] ||
                         _runtimeState.ReadWramByte(WramAddress.wChestContentsOverride + 1) != rom[0xcca4] ||
                         _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != rom[0xcc8a] ||
                         _runtimeState.ReadWramByte(WramAddress.wDisableLinkCollisionsAndMenu) != rom[0xcbca],
-                        context + $": flags=${_saveData.GetRoomFlags(3, roomId):x2}/${rom[0xc800 + roomId]:x2}, " +
+                        $"{context}: flags=${_saveData.GetRoomFlags(3, roomId):x2}/${rom[0xc800 + roomId]:x2}, " +
                         $"override=${_runtimeState.ReadWramByte(WramAddress.wChestContentsOverride):x2}${_runtimeState.ReadWramByte(WramAddress.wChestContentsOverride + 1):x2}/${rom[0xcca3]:x2}${rom[0xcca4]:x2}, " +
                         $"masks=${_runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}/${rom[0xcc8a]:x2}, ${_runtimeState.ReadWramByte(WramAddress.wDisableLinkCollisionsAndMenu):x2}/${rom[0xcbca]:x2}.");
                     if (_interactions.ChestReward is { } reward)

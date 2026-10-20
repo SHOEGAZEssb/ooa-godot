@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
             // collision scan, and supply only ITEM-owned XYZ/substate writes.
             var crab = new SandCrabCharacter();
             var random = new OracleRandom();
-            crab.Initialize(new EnemyDatabase().ImportedEnemy(0x1a), _currentRoom, new(104.25f, 88.5f), random);
+            crab.Initialize(EnemyDatabase.Shared.ImportedEnemy(0x1a), _currentRoom, new(104.25f, 88.5f), random);
             crab.UpdateFrame(); crab.UpdateFrame();
             var rom = new EnemyStatusRom(_currentRoom, _saveData, 0);
             const int address = 0xd080;

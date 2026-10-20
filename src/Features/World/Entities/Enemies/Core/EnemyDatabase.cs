@@ -6,6 +6,12 @@ namespace oracleofages;
 
 public sealed class EnemyDatabase
 {
+    // These definitions (including their palette/animation arrays) are
+    // read-only inputs. Placement, handlers' live state and RNG stay private
+    // to each manager; constructing a session must not parse them again.
+    private static readonly Lazy<EnemyDatabase> SharedInstance = new(() => new());
+    internal static EnemyDatabase Shared => SharedInstance.Value;
+
     private readonly Lookup<int, RoomObjectRecord> _roomObjectsByRoom = new();
     private readonly Dictionary<int, KeeseDefinition> _keeseDefinitions = new();
     private readonly Dictionary<int, OctorokDefinition> _octorokDefinitions = new();

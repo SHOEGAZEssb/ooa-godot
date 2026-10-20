@@ -72,10 +72,10 @@ public sealed partial class ValidationRoot
                     Vector2 expected = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(_player.PrecisePosition != expected || Z() != unchecked((short)rom.Word(0xd00e)) ||
                         _player.MinecartRideActive != (rom[0xcc2c] == 0xd1),
-                        context + $": fixed Link XY/Z/ride differs: runtime={_player.PrecisePosition}, native={expected}, Z={Z()}/{unchecked((short)rom.Word(0xd00e))}, interaction=${rom[slot + 4]:x2}.");
+                        $"{context}: fixed Link XY/Z/ride differs: runtime={_player.PrecisePosition}, native={expected}, Z={Z()}/{unchecked((short)rom.Word(0xd00e))}, interaction=${rom[slot + 4]:x2}.");
                     if (rom[slot] != 0 && rom[slot + 4] == 1)
                         FailIf(cart.PushCounter != rom[slot + 6] || cart.Mounting,
-                            context + $": centered push gate differs: runtime counter={cart.PushCounter}, native={rom[slot + 6]}, mounting={cart.Mounting}, eligible={_player.IsAttemptingMinecartPush}, passNPC={_player.PassesNpcs}, XY={_player.PrecisePosition}, native radii={rom[0xd026]}/{rom[0xd027]}/{rom[slot + 0x26]}/{rom[slot + 0x27]}, air=${rom[0xcc5c]:x2}.");
+                            $"{context}: centered push gate differs: runtime counter={cart.PushCounter}, native={rom[slot + 6]}, mounting={cart.Mounting}, eligible={_player.IsAttemptingMinecartPush}, passNPC={_player.PassesNpcs}, XY={_player.PrecisePosition}, native radii={rom[0xd026]}/{rom[0xd027]}/{rom[slot + 0x26]}/{rom[slot + 0x27]}, air=${rom[0xcc5c]:x2}.");
                     if (rom[slot] != 0 && rom[slot + 4] == 2)
                         FailIf(!cart.Mounting, context + ": native eligible approach must start boarding on this update.");
                     if (rom[0xd100] != 0 && rom[0xd104] == 1)
@@ -88,10 +88,10 @@ public sealed partial class ValidationRoot
                             1 => SwordActionState.Swing, 2 => SwordActionState.Held,
                             3 => SwordActionState.Charged, 4 => SwordActionState.Spin,
                             5 or 6 => SwordActionState.Poke,
-                            _ => throw new System.InvalidOperationException(context + $": unexpected Sword parent state ${rom[0xd204]:x2}.")
+                            _ => throw new System.InvalidOperationException($"{context}: unexpected Sword parent state ${rom[0xd204]:x2}.")
                         };
                         FailIf(_player.SwordState != expectedSword,
-                            context + $": Sword parent differs across boarding: runtime={_player.SwordState}, native=${rom[0xd200]:x2}/${rom[0xd204]:x2}.");
+                            $"{context}: Sword parent differs across boarding: runtime={_player.SwordState}, native=${rom[0xd200]:x2}/${rom[0xd204]:x2}.");
                         bool collision = (rom[0xd624] & 0x80) != 0;
                         Rect2 hitbox = _player.GetSwordHitbox();
                         FailIf((hitbox.Size != Vector2.Zero) != collision, context + ": Sword child collision eligibility differs.");
@@ -100,7 +100,7 @@ public sealed partial class ValidationRoot
                             Rect2 expectedHitbox = new(new(rom[0xd60d] - rom[0xd627], rom[0xd60b] - rom[0xd626]),
                                 new(2 * rom[0xd627], 2 * rom[0xd626]));
                             FailIf(hitbox != expectedHitbox || _player.SwordDamage != -unchecked((sbyte)rom[0xd628]),
-                                context + $": Sword child geometry/damage differs: runtime={hitbox}, native={expectedHitbox}, arc={_player.SwordArcIndex}/${rom[0xd630]:x2}, frame={_player.SwordStateFrame}, raised={rom[0xcc69]}, ride={cart.Riding}, dismount={cart.Dismounting}.");
+                                $"{context}: Sword child geometry/damage differs: runtime={hitbox}, native={expectedHitbox}, arc={_player.SwordArcIndex}/${rom[0xd630]:x2}, frame={_player.SwordStateFrame}, raised={rom[0xcc69]}, ride={cart.Riding}, dismount={cart.Dismounting}.");
                             FailIf(_player.MeleeItemZ != unchecked((sbyte)rom[0xd60f]) ||
                                 SwordCollision.Type(_player.SwordCollisionState, 1) != (rom[0xd624] & 0x7f),
                                 context + ": Sword child Z/collision type differs.");
@@ -109,7 +109,7 @@ public sealed partial class ValidationRoot
                         if (cart.Dismounting && rom[0xd200] != 0 && Z() < 0) dismountSwordUpdates++;
                     }
                     for (int address = 0xcd80; address < 0xcdc0; address++)
-                        FailIf(_runtimeState.ReadWramByte(address) != rom[address], context + $": static byte ${address:x4} differs.");
+                        FailIf(_runtimeState.ReadWramByte(address) != rom[address], $"{context}: static byte ${address:x4} differs.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds), context + ": sound order differs.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||

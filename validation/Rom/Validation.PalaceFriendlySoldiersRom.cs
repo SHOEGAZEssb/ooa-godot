@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         // Literal source tables, independent of the imported script/assets.
         int[] texts = [0x5912,0x5913,0x5911,0x5910,0x5913,0x5911,0x5914,0x5913,
             0x5915,0x5913,0x5912,0x5915,0x5913,0x5913,0x5912,0x5914];
-        var placements = new NpcDatabase().AllRecords.Where(npc => npc.Id == 0x40 && npc.SubId == 0x0d).ToArray();
+        var placements = NpcDatabase.Shared.AllRecords.Where(npc => npc.Id == 0x40 && npc.SubId == 0x0d).ToArray();
         FailIf(placements.Length != 16, "Palace $40:$0d must retain sixteen source placements.");
         foreach (NpcRecord placement in placements)
         foreach (bool batched in RomHostSchedules(placement.Var03))

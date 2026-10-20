@@ -40,10 +40,10 @@ public sealed partial class ValidationRoot
                     FailIf(_player.CompanionRideActive != (rom[0xcc2c] == 0xd1) ||
                         _player.CompanionJumpActive != (rom[0xcc2c] == 0xd0 && rom[0xcc5c] != 0) ||
                         _player.Position != new Vector2(rom[0xd00d], rom[0xd00b]),
-                        context + $": ride/air/Link runtime={_player.CompanionRideActive}/{_player.CompanionJumpActive}/{_player.Position}, native=${rom[0xcc2c]:x2}/${rom[0xcc5c]:x2}/{rom[0xd00d]},{rom[0xd00b]}, companion=${rom[0xd104]:x2}/${rom[0xd105]:x2} parameter=${rom[0xd121]:x2}.");
+                        $"{context}: ride/air/Link runtime={_player.CompanionRideActive}/{_player.CompanionJumpActive}/{_player.Position}, native=${rom[0xcc2c]:x2}/${rom[0xcc5c]:x2}/{rom[0xd00d]},{rom[0xd00b]}, companion=${rom[0xd104]:x2}/${rom[0xd105]:x2} parameter=${rom[0xd121]:x2}.");
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
                         _entities.BoomerangParent.Active != (rom[0xd300] != 0),
-                        context + $": equipped parent runtime={_player.IsUsingShield}/{_entities.BoomerangParent.Active}, native=${rom[0xcc6f]:x2}/${rom[0xd300]:x2}; Link=${rom[0xd004]:x2}, companion=${rom[0xd104]:x2}, air=${rom[0xcc5c]:x2}.");
+                        $"{context}: equipped parent runtime={_player.IsUsingShield}/{_entities.BoomerangParent.Active}, native=${rom[0xcc6f]:x2}/${rom[0xd300]:x2}; Link=${rom[0xd004]:x2}, companion=${rom[0xd104]:x2}, air=${rom[0xcc5c]:x2}.");
                     FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                         context + ": companion/equipped item sound order differs.");
                     OracleRandomState random = _random.CaptureState();

@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
                             BombParentState state = rom[0xd200] == 0 ? BombParentState.Idle : rom[0xd204] switch
                             {
                                 2 => BombParentState.Lifting, 3 => BombParentState.Holding, 4 => BombParentState.Throwing,
-                                _ => throw new InvalidOperationException(context + $": native Bomb state ${rom[0xd204]:x2}.")
+                                _ => throw new InvalidOperationException($"{context}: native Bomb state ${rom[0xd204]:x2}.")
                             };
                             FailIf(_bomb.State != state || _inventory.Bombs != rom[0xc6b0], context + ": bomb parent/ammo differs.");
                             BombEffect[] children = _entities.Entities<BombEffect>().Where(child => !child.Finished).ToArray();
@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
                                 FailIf(child.PrecisePosition != new Vector2(rom.Word(slot + 0xc) / 256f, rom.Word(slot + 0xa) / 256f) ||
                                     child.ZFixed != unchecked((short)rom.Word(slot + 0xe)) ||
                                     child.State == BombState.Thrown && (child.SpeedRaw != rom[slot + 0x10] || child.SpeedZ != unchecked((short)rom.Word(slot + 0x14))),
-                                    context + $": ITEM$03 position {child.PrecisePosition}/{new Vector2(rom.Word(slot + 0xc) / 256f, rom.Word(slot + 0xa) / 256f)}, Z ${child.ZFixed & 0xffff:x4}/${rom.Word(slot + 0xe):x4}, speed ${child.SpeedRaw:x2}/${rom[slot + 0x10]:x2}, VZ ${child.SpeedZ & 0xffff:x4}/${rom.Word(slot + 0x14):x4} differs.");
+                                    $"{context}: ITEM$03 position {child.PrecisePosition}/{new Vector2(rom.Word(slot + 0xc) / 256f, rom.Word(slot + 0xa) / 256f)}, Z ${child.ZFixed & 0xffff:x4}/${rom.Word(slot + 0xe):x4}, speed ${child.SpeedRaw:x2}/${rom[slot + 0x10]:x2}, VZ ${child.SpeedZ & 0xffff:x4}/${rom.Word(slot + 0x14):x4} differs.");
                             }
                         }
                         else
@@ -78,10 +78,10 @@ public sealed partial class ValidationRoot
                             {
                                 0 => BraceletState.SeekingWall, 1 => BraceletState.GrabbingWall, 2 => BraceletState.Lifting,
                                 3 => BraceletState.Holding, 4 => BraceletState.Throwing,
-                                _ => throw new InvalidOperationException(context + $": native Bracelet state ${rom[0xd204]:x2}.")
+                                _ => throw new InvalidOperationException($"{context}: native Bracelet state ${rom[0xd204]:x2}.")
                             };
                             FailIf(_bracelet.State != state || (_bracelet.LiftedObject is not null) != (rom[0xdc00] != 0) ||
-                                _currentRoom.GetMetatile(pot) != rom[0xcf57], context + $": Bracelet parent {_bracelet.State}/{state}, ITEM$16 {_bracelet.LiftedObject is not null}/${rom[0xdc00]:x2}, pot ${_currentRoom.GetMetatile(pot):x2}/${rom[0xcf57]:x2} differs.");
+                                _currentRoom.GetMetatile(pot) != rom[0xcf57], $"{context}: Bracelet parent {_bracelet.State}/{state}, ITEM$16 {_bracelet.LiftedObject is not null}/${rom[0xdc00]:x2}, pot ${_currentRoom.GetMetatile(pot):x2}/${rom[0xcf57]:x2} differs.");
                             if (_bracelet.LiftedObject is { } child)
                             {
                                 Vector2 ground = child.Thrown ? child.GroundPosition : _player.Position + new Vector2(child.Position.X, 0);

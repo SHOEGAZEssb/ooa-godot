@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
 {
     private IRoomEntity CreateOctorokInitializationActor(int sub)
     {
-        var database = new EnemyDatabase();
+        var database = EnemyDatabase.Shared;
         var source = new RoomObjectRecord(0, 0x33, 0, RoomObjectKind.FixedEnemy,
             9, sub, 2, 1, 72, 80, 0x47, 0);
         return new RoomEnemyFactory(_entities, database, new RoomEntityResources(_rooms), _rooms)

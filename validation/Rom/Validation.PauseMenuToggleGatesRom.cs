@@ -53,9 +53,9 @@ public sealed partial class ValidationRoot
                     FailIf(_menuLifecycle.IsActive != (rom[0xcbcb] != 0), context + ": menu dispatch differs from native cutscene caller.");
                     FailIf(toggle.Active != (rom[0xc2ef] == 2) || toggle.Active &&
                         (toggle.State != rom[0xcc03] || toggle.Counter != rom[0xcbb4]),
-                        context + $": cutscene state/counter differs: runtime={toggle.State}/{toggle.Counter}, native=${rom[0xc2ef]:x2}/{rom[0xcc03]}/{rom[0xcbb4]}.");
+                        $"{context}: cutscene state/counter differs: runtime={toggle.State}/{toggle.Counter}, native=${rom[0xc2ef]:x2}/{rom[0xcc03]}/{rom[0xcbb4]}.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
-                        context + $": cutscene/IntroDone/menu cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
+                        $"{context}: cutscene/IntroDone/menu cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
                 });
             }
             if (elapsed != 0) Step(elapsed);

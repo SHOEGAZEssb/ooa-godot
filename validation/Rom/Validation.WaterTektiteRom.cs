@@ -163,7 +163,7 @@ public sealed partial class ValidationRoot
         scentRom.Word(0xd08a, 0x4880);
         scentRom.Word(0xd08c, 0x6880);
         var attracted = new WaterTektiteCharacter();
-        attracted.Initialize(new EnemyDatabase().ImportedEnemy(0x3a), _currentRoom,
+        attracted.Initialize(EnemyDatabase.Shared.ImportedEnemy(0x3a), _currentRoom,
             new(104.5f,72.5f), random);
         try
         {

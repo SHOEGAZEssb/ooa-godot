@@ -50,7 +50,7 @@ public sealed partial class ValidationRoot
                         context + ": forbidden parent/projectile or Pegasus activation.");
                     for (int address = 0xc6b9; address <= 0xc6bd; address++)
                         FailIf(_saveData.ReadWramByte(address) != rom[address] || rom[address] != 0x20,
-                            context + $": forbidden seed consumption at ${address:x4}.");
+                            $"{context}: forbidden seed consumption at ${address:x4}.");
                     FailIf(sounds.Requests.Any(id => id is 0x52 or 0x72 or 0x85 or 0x7b or 0x90 or 0xa3) ||
                         rom.Sounds.Any(id => id is 0x52 or 0x72 or 0x85 or 0x7b or 0x90 or 0xa3),
                         context + ": rejected Satchel initialized a seed sound.");

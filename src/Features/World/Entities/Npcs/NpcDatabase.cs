@@ -5,6 +5,11 @@ namespace oracleofages;
 
 public sealed class NpcDatabase
 {
+    // Parsed source records only. Family selection and all live NPC state
+    // belong to the session's resolver and actors, never this shared table.
+    private static readonly Lazy<NpcDatabase> SharedInstance = new(() => new());
+    internal static NpcDatabase Shared => SharedInstance.Value;
+
     private readonly Lookup<int, NpcRecord> _byRoom = new();
     private readonly Lookup<int, FamilyNpcRecord> _familyByRoom = new();
     private readonly List<NpcRecord> _allRecords = new();

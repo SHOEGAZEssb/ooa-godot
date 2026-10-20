@@ -188,7 +188,7 @@ public sealed partial class ValidationRoot
                     script.Initialized != (rom[0xd344] != 0) || script.Finished != (rom[0xd340] == 0) ||
                     door.Finished != (rom[0xd240] == 0) || !door.Finished &&
                         (SomariaPrivate<int>(door,"_counter") != rom[0xd246] || door.Counter2Alias != rom[0xd247]),
-                    context+$": script/door clock or shared trigger handoff differs (${_entities.ActiveTriggers:x2}/${rom[0xcca0]:x2}).");
+                    $"{context}: script/door clock or shared trigger handoff differs (${_entities.ActiveTriggers:x2}/${rom[0xcca0]:x2}).");
                 foreach (var button in buttons)
                 {
                     int a=0xd0c0+slots[button]*256;

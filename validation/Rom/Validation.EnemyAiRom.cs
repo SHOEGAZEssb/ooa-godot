@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
     {
         LoadValidationRoom(0, 0x33);
         OracleRoomData room = _rooms.CurrentRoom;
-        var database = new EnemyDatabase();
+        var database = EnemyDatabase.Shared;
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         foreach (int id in new[] { 0x08, 0x18 })
         foreach (int initialSeed in new[] { 0x0d37, 0x1234, 0x80ff, 0xffff })

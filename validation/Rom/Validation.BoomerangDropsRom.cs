@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
                             (drop.ZFixed & 0xffff) != rom.Word(part + 0x0e) ||
                             (drop.SpeedZ & 0xffff) != rom.Word(part + 0x14) ||
                             drop.CollisionEnabled != ((rom[part + 0x24] & 0x80) != 0),
-                            context + $": drop state/count/XY/Z/speedZ/collision differs: runtime={drop.State}/{drop.Counter}/{drop.PrecisePosition}/${drop.ZFixed & 0xffff:x4}/${drop.SpeedZ & 0xffff:x4}/{drop.CollisionEnabled}, native={rom[part + 4]}/{rom[part + 6]}/{rom.Word(part + 0x0c) / 256.0f},{rom.Word(part + 0x0a) / 256.0f}/${rom.Word(part + 0x0e):x4}/${rom.Word(part + 0x14):x4}/{(rom[part + 0x24] & 0x80) != 0}.");
+                            $"{context}: drop state/count/XY/Z/speedZ/collision differs: runtime={drop.State}/{drop.Counter}/{drop.PrecisePosition}/${drop.ZFixed & 0xffff:x4}/${drop.SpeedZ & 0xffff:x4}/{drop.CollisionEnabled}, native={rom[part + 4]}/{rom[part + 6]}/{rom.Word(part + 0x0c) / 256.0f},{rom.Word(part + 0x0a) / 256.0f}/${rom.Word(part + 0x0e):x4}/${rom.Word(part + 0x14):x4}/{(rom[part + 0x24] & 0x80) != 0}.");
                     int[] children = Enumerable.Range(0xd7, 5).Select(page => page << 8)
                         .Where(slot => rom[slot] != 0 && rom[slot + 1] == 6).ToArray();
                     var items = _entities.Entities<BoomerangItem>();
@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
                             context + ": carrier flight/contact/return differs.");
                     }
                     foreach (int address in new[] { 0xc627, 0xc628, 0xc6ad, 0xc6ae })
-                        FailIf(_saveData.ReadWramByte(address) != rom[address], context + $": rupee grant byte ${address:x4} differs.");
+                        FailIf(_saveData.ReadWramByte(address) != rom[address], $"{context}: rupee grant byte ${address:x4} differs.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
                         context + ": shared RNG differs.");

@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
                     FailIf(phase != nativePhase || spinner.Red != (rom[a+9] != 0) ||
                         phase == 1 && spinner.WaitCounter != rom[a+6] || phase == 4 && spinner.ExitCounter != rom[a+6] ||
                         animation.CurrentParameter != rom[a+0x21] || SomariaPrivate<int>(animation,"_frameCounter") != rom[a+0x20],
-                        context+$": physical spinner${a:x4} phase/color/clock/animation differs.");
+                        $"{context}: physical spinner${a:x4} phase/color/clock/animation differs.");
                 }
                 var arrows=_entities.Entities<DungeonSpinnerArrowRoomEntity>();
                 int nativeArrows=Enumerable.Range(0xd2,14).Count(page => rom[page*256+0x40] != 0 &&

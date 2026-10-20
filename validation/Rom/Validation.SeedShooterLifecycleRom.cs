@@ -190,7 +190,7 @@ public sealed partial class ValidationRoot
                         FailIf(eye.Counter != rom[0xd0c6] || eye.Invincibility != unchecked((sbyte)rom[0xd0eb]) ||
                             eye.PendingHit != ((rom[0xd0ea] & 0x80) != 0) ||
                             eye.Visible != ((rom[0xd0da] & 0x80) != 0) || _entities.ActiveTriggers != rom[0xcca0],
-                            context + $": PART$46 hit/lockout/activation differs: runtime={eye.Counter}/{eye.Invincibility}/{eye.PendingHit}/{eye.Visible}/{_entities.ActiveTriggers:x2}, native={rom[0xd0c6]}/{unchecked((sbyte)rom[0xd0eb])}/{rom[0xd0ea]:x2}/{rom[0xd0da]:x2}/{rom[0xcca0]:x2}.");
+                            $"{context}: PART$46 hit/lockout/activation differs: runtime={eye.Counter}/{eye.Invincibility}/{eye.PendingHit}/{eye.Visible}/{_entities.ActiveTriggers:x2}, native={rom[0xd0c6]}/{unchecked((sbyte)rom[0xd0eb])}/{rom[0xd0ea]:x2}/{rom[0xd0da]:x2}/{rom[0xcca0]:x2}.");
                         if (eye.PendingHit) hits++;
                     }
                     if (reflector is not null)
@@ -203,7 +203,7 @@ public sealed partial class ValidationRoot
                         FailIf(child.Position != new Vector2(rom.Word(0xd1cc) / 256f, rom.Word(0xd1ca) / 256f) ||
                             child.CollisionRadii != new Vector2(rom[0xd1e7], rom[0xd1e6]) ||
                             child.SeedBounceOrientation != rom[0xd1e1] || child.Visible || rom[0xd1cf] != 0xf2,
-                            context + $": PART$33:$03 child runtime={child.Position}/{child.CollisionRadii}/{child.SeedBounceOrientation}, native={rom.Word(0xd1cc) / 256f},{rom.Word(0xd1ca) / 256f}/{rom[0xd1e7]},{rom[0xd1e6]}/{rom[0xd1e1]}/z{rom[0xd1cf]:x2}, id={rom[0xd1c1]:x2}/{rom[0xd1c2]:x2}.");
+                            $"{context}: PART$33:$03 child runtime={child.Position}/{child.CollisionRadii}/{child.SeedBounceOrientation}, native={rom.Word(0xd1cc) / 256f},{rom.Word(0xd1ca) / 256f}/{rom[0xd1e7]},{rom[0xd1e6]}/{rom[0xd1e1]}/z{rom[0xd1cf]:x2}, id={rom[0xd1c1]:x2}/{rom[0xd1c2]:x2}.");
                     }
                     if (parent != 0)
                         FailIf(_seedSatchel.ShooterAngle != rom[parent + 9] ||
@@ -217,7 +217,7 @@ public sealed partial class ValidationRoot
                         FailIf(_player.TopDownAirborne != (rom[0xcc5c] != 0) ||
                             (_player.ItemCreationZFixed & 0xffff) != rom.Word(0xd00e) ||
                             (_player.TopDownAirSpeedZ & 0xffff) != rom.Word(0xd014),
-                            context + $": Link gravity/landing differs: runtime=air{_player.TopDownAirborne}/Z${_player.ItemCreationZFixed & 0xffff:x4}/Vz${_player.TopDownAirSpeedZ & 0xffff:x4}, native=air${rom[0xcc5c]:x2}/Z${rom.Word(0xd00e):x4}/Vz${rom.Word(0xd014):x4}.");
+                            $"{context}: Link gravity/landing differs: runtime=air{_player.TopDownAirborne}/Z${_player.ItemCreationZFixed & 0xffff:x4}/Vz${_player.TopDownAirSpeedZ & 0xffff:x4}, native=air${rom[0xcc5c]:x2}/Z${rom.Word(0xd00e):x4}/Vz${rom.Word(0xd014):x4}.");
                         FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
                             context + ": full Feather/Shooter sound order differs.");
                     }
@@ -239,7 +239,7 @@ public sealed partial class ValidationRoot
                             (_player.SwitchHookZFixed & 0xffff) != rom.Word(0xd00e),
                             context + ": cart rider/air/Z differs.");
                         for (int address = 0xcd80; address < 0xcdc0; address++)
-                            FailIf(_runtimeState.ReadWramByte(address) != rom[address], context + $": static byte ${address:x4} differs.");
+                            FailIf(_runtimeState.ReadWramByte(address) != rom[address], $"{context}: static byte ${address:x4} differs.");
                         FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
                             context + ": full cart/seed sound order differs.");
                     }
@@ -259,7 +259,7 @@ public sealed partial class ValidationRoot
                             item.Angle * 4 != rom[slot + 9] || item.Visible != ((rom[slot + 0x1a] & 0x80) != 0) ||
                             item.CollisionEnabled != ((rom[slot + 0x24] & 0x80) != 0) ||
                             item.BouncesRemaining != rom[slot + 0x34] || item.ShooterElevation != rom[slot + 0x3e],
-                            context + $": shot state/fixed XY/Z/angle/bounce/collision differs: runtime={state}/{item.PrecisePosition}/z{item.ZFixed}/vz{item.SpeedZ}/a{item.Angle * 4}/b{item.BouncesRemaining}/e{item.ShooterElevation}/visible{item.Visible}/collision{item.CollisionEnabled}, native={rom[slot + 4]}/{rom.Word(slot + 0x0c) / 256.0f},{rom.Word(slot + 0x0a) / 256.0f}/z{rom.Word(slot + 0x0e)}/vz{rom.Word(slot + 0x14)}/a{rom[slot + 9]}/b{rom[slot + 0x34]}/e{rom[slot + 0x3e]}/visible{(rom[slot + 0x1a] & 0x80) != 0}/collision{(rom[slot + 0x24] & 0x80) != 0}.");
+                            $"{context}: shot state/fixed XY/Z/angle/bounce/collision differs: runtime={state}/{item.PrecisePosition}/z{item.ZFixed}/vz{item.SpeedZ}/a{item.Angle * 4}/b{item.BouncesRemaining}/e{item.ShooterElevation}/visible{item.Visible}/collision{item.CollisionEnabled}, native={rom[slot + 4]}/{rom.Word(slot + 0x0c) / 256.0f},{rom.Word(slot + 0x0a) / 256.0f}/z{rom.Word(slot + 0x0e)}/vz{rom.Word(slot + 0x14)}/a{rom[slot + 9]}/b{rom[slot + 0x34]}/e{rom[slot + 0x3e]}/visible{(rom[slot + 0x1a] & 0x80) != 0}/collision{(rom[slot + 0x24] & 0x80) != 0}.");
                         int animationCounter = (int)typeof(EmberSeedEffect).GetField("_frameCounter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(item)!;
                         FailIf(animationCounter != rom[slot + 0x20] || state > 1 && item.FlameCounter != rom[slot + 6] ||
                             seedItem == 0x24 && item.MysteryEffect != rom[slot + 3],
@@ -269,7 +269,7 @@ public sealed partial class ValidationRoot
                                 context + ": Gale state/counter/palette differs.");
                     }
                     for (int address = 0xc6b9; address <= 0xc6bd; address++)
-                        FailIf(_saveData.ReadWramByte(address) != rom[address], context + $": seed byte ${address:x4} differs.");
+                        FailIf(_saveData.ReadWramByte(address) != rom[address], $"{context}: seed byte ${address:x4} differs.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
                         context + ": shot RNG differs.");

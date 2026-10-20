@@ -85,14 +85,14 @@ public sealed partial class ValidationRoot
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                         _player.TopDownSwimming || _player.IsFallingInHole || _player.IsPullingIntoHole ||
                         _transitions.IsTransitioning || _currentRoom.IsSolid(_player.Position),
-                        context + $": fixed XY/facing/dry underwater state differs: runtime={_player.PrecisePosition}, native={rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}.");
+                        $"{context}: fixed XY/facing/dry underwater state differs: runtime={_player.PrecisePosition}, native={rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}.");
                     FailIf(Field("_topDownMovementAngle") != rom[0xd009] || Field("_topDownMovementSpeedRaw") != rom[0xd010] ||
                             Field("_topDownMovementTargetSpeedRaw") != rom[0xd011] || Field("_topDownMovementVelocityCounter") != rom[0xd012] ||
                             Field("_topDownMovementVelocityInterval") != rom[0xd013] || Field("_topDownMovementTerrainMode") != rom[0xd036] ||
                             Field("_topDownMermaidImpulseCounter") != rom[0xd03e] ||
                             Field("_linkWalkAnimationCounter") != rom[0xd020] ||
                             (Field("_linkWalkAnimationFrame") == 0 ? 0x54 : 0x80) != rom[0xd031],
-                            context + $": raw velocity/impulse/WALK animation differ: runtime={Field("_topDownMovementAngle"):x2}/{Field("_topDownMovementSpeedRaw"):x2}/{Field("_topDownMovementTargetSpeedRaw"):x2}/{Field("_topDownMovementVelocityCounter"):x2}/{Field("_topDownMermaidImpulseCounter"):x2}/{Field("_linkWalkAnimationCounter")}, native={rom[0xd009]:x2}/{rom[0xd010]:x2}/{rom[0xd011]:x2}/{rom[0xd012]:x2}/{rom[0xd03e]:x2}/{rom[0xd020]}.");
+                            $"{context}: raw velocity/impulse/WALK animation differ: runtime={Field("_topDownMovementAngle"):x2}/{Field("_topDownMovementSpeedRaw"):x2}/{Field("_topDownMovementTargetSpeedRaw"):x2}/{Field("_topDownMovementVelocityCounter"):x2}/{Field("_topDownMermaidImpulseCounter"):x2}/{Field("_linkWalkAnimationCounter")}, native={rom[0xd009]:x2}/{rom[0xd010]:x2}/{rom[0xd011]:x2}/{rom[0xd012]:x2}/{rom[0xd03e]:x2}/{rom[0xd020]}.");
                     FailIf(Field("_tilePushWalls") != rom[0xd033],
                         context + ": retained wall publication differs across terrain/input movement phases.");
                     FailIf(rom[0xd036] != 0x98 || rom[0xd013] != 5 || rom[0xd011] != (ring == 0x15 ? 0x37 : 0x2d) ||

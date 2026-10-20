@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
                     FailIf(_player.HealthQuarters != rom[0xc6aa] || (_player.PendingContactDamageRaw & 0xff) != rom[0xd025] ||
                         _player.NativeContactSignal != (rom[0xd02a] != 0) || (int)fraction.GetValue(_player)! != rom[0xd029] ||
                         _inventory.HasTreasure(TreasureId.Potion) != ((rom[0xc69f] & 0x80) != 0) || _player.IsDying != (rom[0xcdd5] != 0),
-                        context + $": health/pending byte/contact lifetime/fraction/potion/death differs: runtime={_player.HealthQuarters}/${_player.PendingContactDamageRaw & 0xff:x2}/{_player.NativeContactSignal}/${(int)fraction.GetValue(_player)!:x2}, native={rom[0xc6aa]}/${rom[0xd025]:x2}/${rom[0xd02a]:x2}/${rom[0xd029]:x2}.");
+                        $"{context}: health/pending byte/contact lifetime/fraction/potion/death differs: runtime={_player.HealthQuarters}/${_player.PendingContactDamageRaw & 0xff:x2}/{_player.NativeContactSignal}/${(int)fraction.GetValue(_player)!:x2}, native={rom[0xc6aa]}/${rom[0xd025]:x2}/${rom[0xd02a]:x2}/${rom[0xd029]:x2}.");
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                         _player.KnockbackFrames != rom[0xd02d] || _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) ||
                         _player.IsAttacking != Enumerable.Range(0xd2, 3).Any(page => rom[page << 8] != 0 && rom[(page << 8) + 1] == 5),
@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
                     // The native fixture supplies object passes, while the
                     // status bar/menu warning has its own ROM comparisons.
                     FailIf(!sounds.Requests.Where(id => id is not (SoundId.SndText or SoundId.SndGainHeart or SoundId.SndHeartBeep)).SequenceEqual(rom.Sounds),
-                        context + $": cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
+                        $"{context}: cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
                         context + ": shared RNG differs.");
@@ -187,7 +187,7 @@ public sealed partial class ValidationRoot
                     _player.ElectricShockActive != (rom[0xccdb] != 0) || _player.KnockbackFrames != rom[0xd02d] ||
                     _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) ||
                     _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
-                    context + $": health {_player.HealthQuarters}/{rom[0xc6aa]}, damage ${_player.PendingContactDamageRaw & 0xff:x2}/${rom[0xd025]:x2}, signal {_player.NativeContactSignal}/${rom[0xd02a]:x2}, inv {_player.InvincibilityFrames}/{unchecked((sbyte)rom[0xd02b])}, recoil {_player.KnockbackFrames}/{rom[0xd02d]}, shock {_player.ElectricShockCounter}/{rom[0xccdc]}, XY {_player.PrecisePosition}/{new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f)} differs.");
+                    $"{context}: health {_player.HealthQuarters}/{rom[0xc6aa]}, damage ${_player.PendingContactDamageRaw & 0xff:x2}/${rom[0xd025]:x2}, signal {_player.NativeContactSignal}/${rom[0xd02a]:x2}, inv {_player.InvincibilityFrames}/{unchecked((sbyte)rom[0xd02b])}, recoil {_player.KnockbackFrames}/{rom[0xd02d]}, shock {_player.ElectricShockCounter}/{rom[0xccdc]}, XY {_player.PrecisePosition}/{new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f)} differs.");
                 FailIf(!audit.Requests.Where(id => id is not (SoundId.SndGainHeart or SoundId.SndHeartBeep)).SequenceEqual(rom.Sounds), context + ": cue order differs.");
                 var random = _random.CaptureState();
                 FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,

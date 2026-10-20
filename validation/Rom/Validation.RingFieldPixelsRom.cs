@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
                 ((pixels[offset + 1] * 31 + 127) / 255) << 5 |
                 ((pixels[offset + 2] * 31 + 127) / 255) << 10;
             if (pixels[offset + 3] != 255 || observed != expectedPixels[y * 160 + x]) FailIf(true,
-                context + $": pixel ({x},{y}) runtime=${observed:x4}, ROM=${expectedPixels[y * 160 + x]:x4}.");
+                $"{context}: pixel ({x},{y}) runtime=${observed:x4}, ROM=${expectedPixels[y * 160 + x]:x4}.");
         }
     }
 }

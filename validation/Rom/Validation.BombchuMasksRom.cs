@@ -43,8 +43,7 @@ public sealed partial class ValidationRoot
                     context + ": physical allocation/ammo differs.");
                 if (item is not null)
                     FailIf(item.ItemState != rom[0xd704] || item.Counter2 != rom[0xd707] ||
-                        item.Position != new Vector2(rom[0xd70d], rom[0xd70b]), context +
-                        $": state-zero admission or initialized freeze runtime={item.ItemState}/{item.Counter2}/{item.Position}, " +
+                        item.Position != new Vector2(rom[0xd70d], rom[0xd70b]), $"{context}: state-zero admission or initialized freeze runtime={item.ItemState}/{item.Counter2}/{item.Position}, " +
                         $"native={rom[0xd704]}/{rom[0xd707]}/({rom[0xd70d]},{rom[0xd70b]}) differs.");
                 CompareSomariaMotionRom(rom, context);
                 var rng = _random.CaptureState();

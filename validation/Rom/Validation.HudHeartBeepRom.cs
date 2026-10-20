@@ -66,7 +66,7 @@ public sealed partial class ValidationRoot
                     int phase = _saveData.ReadWramByte(0xc622);
                     rom.Update(0, 0, phase); rom.UpdateHud(phase);
                     string context = $"Warning recovery maximum=${maximum:x2} damage={damage} hidden={hidden} first-frame=${frame:x2} update={++update} batch={batched}";
-                    FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), context + $": live warning/display recovery cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
+                    FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), $"{context}: live warning/display recovery cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
                     int money = (rom[0xcbe6] & 15) * 100 + (rom[0xcbe5] >> 4) * 10 + (rom[0xcbe5] & 15);
                     FailIf(_statusBar.DisplayedHealth != rom[0xcbe4] || _statusBar.DisplayedRupees != money,
                         context + ": trailing HUD health/money differs.");
@@ -115,7 +115,7 @@ public sealed partial class ValidationRoot
                     rom.AdvancePalette(); rom.Update(edge, held, _saveData.ReadWramByte(0xc622)); edge = 0;
                     string context = $"Heart beep maximum=${maximum:x2} health=${health:x2} gate={gate} update={++update} batch={batched}";
                     FailIf(!sounds.Requests.Where(Relevant).SequenceEqual(rom.Sounds.Where(Relevant)),
-                        context + $": heart/menu cue order differs: runtime={string.Join(',', sounds.Requests.Where(Relevant))}, native={string.Join(',', rom.Sounds.Where(Relevant))}.");
+                        $"{context}: heart/menu cue order differs: runtime={string.Join(',', sounds.Requests.Where(Relevant))}, native={string.Join(',', rom.Sounds.Where(Relevant))}.");
                     FailIf(_menuLifecycle.IsActive != (rom[0xcbcb] != 0), context + ": menu ownership differs.");
                 });
             }

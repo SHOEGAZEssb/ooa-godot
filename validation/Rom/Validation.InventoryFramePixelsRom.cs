@@ -111,7 +111,7 @@ public sealed partial class ValidationRoot
                             pixels[offset + channel] / 255f + additiveFade.Value) * 31) << (channel * 5);
                 }
                 if (pixels[offset + 3] != 255 || observed != expected) FailIf(true,
-                    context + $": pixel ({x},{y}) runtime=${observed:x4}, native=${expected:x4}, tile=${tile:x2}/flags=${flags:x2}, BG shade={shade} base=${rom.HudColor(false, flags & 7, shade):x4}, fade={additiveFade}, menu=${rom[0xcbcd]:x2}/${rom[0xcbce]:x2}, OBJ={(winningSprite < 0 ? "none" : $"${rom[winningSprite + 2]:x2}/${rom[winningSprite + 3]:x2} shade={winningShade}")}.");
+                    $"{context}: pixel ({x},{y}) runtime=${observed:x4}, native=${expected:x4}, tile=${tile:x2}/flags=${flags:x2}, BG shade={shade} base=${rom.HudColor(false, flags & 7, shade):x4}, fade={additiveFade}, menu=${rom[0xcbcd]:x2}/${rom[0xcbce]:x2}, OBJ={(winningSprite < 0 ? "none" : $"${rom[winningSprite + 2]:x2}/${rom[winningSprite + 3]:x2} shade={winningShade}")}.");
             }
         }
     }

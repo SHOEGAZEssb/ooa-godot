@@ -109,7 +109,7 @@ public sealed partial class ValidationRoot
                     string context = $"Surfacing {group:x1}:{sourceRoom:x2} B=${equippedB:x2} batched={batched} update={++update}";
                     FailIf(_rooms.ActiveGroup != rom[0xcc2d] || _currentRoom.Id != rom[0xcc30] ||
                         _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
-                        context + $": room/fixed XY differ: runtime={_rooms.ActiveGroup:x1}:{_currentRoom.Id:x2}/{_player.PrecisePosition}, native={rom[0xcc2d]:x1}:{rom[0xcc30]:x2}/{rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}; flags=${_currentRoom.TilesetFlags:x2}/${rom[0xcc34]:x2}, tile=${_terrain.GetActiveTerrain(_player.Position).Terrain.Tile:x2}/${rom[0xcf00 + rom[0xcc99]]:x2}, type={_terrain.GetActiveTerrain(_player.Position).Terrain.Type}, native velocity=${rom[0xd009]:x2}/${rom[0xd010]:x2}, held=${held:x2}.");
+                        $"{context}: room/fixed XY differ: runtime={_rooms.ActiveGroup:x1}:{_currentRoom.Id:x2}/{_player.PrecisePosition}, native={rom[0xcc2d]:x1}:{rom[0xcc30]:x2}/{rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}; flags=${_currentRoom.TilesetFlags:x2}/${rom[0xcc34]:x2}, tile=${_terrain.GetActiveTerrain(_player.Position).Terrain.Tile:x2}/${rom[0xcf00 + rom[0xcc99]]:x2}, type={_terrain.GetActiveTerrain(_player.Position).Terrain.Type}, native velocity=${rom[0xd009]:x2}/${rom[0xd010]:x2}, held=${held:x2}.");
                     if (!loaded)
                     {
                         if (equippedB != 0)
@@ -125,7 +125,7 @@ public sealed partial class ValidationRoot
                             // only the runtime renders this literal message.
                             FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(
                                 rom.Sounds.Where(id => id != SoundId.SndText)),
-                                context + $": reserved B changed native sound order: runtime={string.Join(',', sounds.Requests)}, ROM={string.Join(',', rom.Sounds)}.");
+                                $"{context}: reserved B changed native sound order: runtime={string.Join(',', sounds.Requests)}, ROM={string.Join(',', rom.Sounds)}.");
                         }
                         FailIf(_transitions.IsTransitioning != (rom[0xc2ef] == 3) || _player.TopDownSwimming,
                             context + ": source dry-underwater state or fade request differs.");
@@ -145,7 +145,7 @@ public sealed partial class ValidationRoot
                         if (rom[0xd004] == 1)
                             FailIf(CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                                 _player.TopDownSwimmingState != (rom[0xcc5d] & 15),
-                                context + $": initialized destination facing/swimming differs: runtime={CarriedObjectMotion.DirectionIndex(_player.FacingVector)}/{_player.TopDownSwimmingState}, native={rom[0xd008]}/{rom[0xcc5d] & 15}, mode=${rom[0xc4ab]:x2}, Link=${rom[0xd004]:x2}/${rom[0xd005]:x2}, tile=${_currentRoom.GetMetatile(_player.Position):x2}.");
+                                $"{context}: initialized destination facing/swimming differs: runtime={CarriedObjectMotion.DirectionIndex(_player.FacingVector)}/{_player.TopDownSwimmingState}, native={rom[0xd008]}/{rom[0xcc5d] & 15}, mode=${rom[0xc4ab]:x2}, Link=${rom[0xd004]:x2}/${rom[0xd005]:x2}, tile=${_currentRoom.GetMetatile(_player.Position):x2}.");
                     }
                     FailIf(sounds.Requests.Contains(SoundId.SndEnterCave) || rom.Sounds.Contains(SoundId.SndEnterCave),
                         context + ": direct surfacing incorrectly played entrance sound $6e.");

@@ -39,7 +39,7 @@ public partial class ValidationRoot
                     string context = $"Push cube pos${position:x2}/color${color:x2}, batch={batch}, update={++update}";
                     FailIf(_pushBlocks.RemainingPushFrames != rom[0xcc6a] ||
                         _pushBlocks.Active != (rom[0xd140] != 0) || _rooms.BlockPushAngle != rom[0xcca6],
-                        context + $": contact clock/allocation/angle differ: runtime={_pushBlocks.RemainingPushFrames}/{_pushBlocks.Active}/${_rooms.BlockPushAngle:x2}, native={rom[0xcc6a]}/{rom[0xd140] != 0}/${rom[0xcca6]:x2}.");
+                        $"{context}: contact clock/allocation/angle differ: runtime={_pushBlocks.RemainingPushFrames}/{_pushBlocks.Active}/${_rooms.BlockPushAngle:x2}, native={rom[0xcc6a]}/{rom[0xd140] != 0}/${rom[0xcca6]:x2}.");
                     if (_pushBlocks.Active)
                         FailIf(_pushBlocks.BlockTopLeft + new Vector2(8,6) !=
                             new Vector2(rom.Word(0xd14c) / 256f,rom.Word(0xd14a) / 256f) ||

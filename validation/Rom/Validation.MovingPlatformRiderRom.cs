@@ -31,7 +31,7 @@ public partial class ValidationRoot
                 FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f) ||
                     _player.TopDownAirborne != (rom[0xcc5c] != 0) || (_player.SwitchHookZFixed&0xffff) != rom.Word(0xd00e) ||
                     _player.HealthQuarters != rom[0xc6aa] || _entities.PlayerRidingObject != (rom[0xcc96] != 0),
-                    context+$": Link XY/Z/air/health/support differ: {_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, support={_entities.PlayerRidingObject}/{rom[0xcc96]:x2}, text={_dialogue.IsOpen}/{rom[0xcba0]:x2}, platform={rider.PrecisePosition}/{rom.Word(0xd24a)/256f}, counter={rider.Counter}/{rom[0xd246]}, state={rom[0xd004]:x2}, drowning={_player.IsDrowning}.");
+                    $"{context}: Link XY/Z/air/health/support differ: {_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, support={_entities.PlayerRidingObject}/{rom[0xcc96]:x2}, text={_dialogue.IsOpen}/{rom[0xcba0]:x2}, platform={rider.PrecisePosition}/{rom.Word(0xd24a)/256f}, counter={rider.Counter}/{rom[0xd246]}, state={rom[0xd004]:x2}, drowning={_player.IsDrowning}.");
                 foreach (var platform in _entities.Entities<MovingPlatformRoomEntity>())
                 {
                     int slot = (0xd0+_entities.InteractionSlot(platform))*256+0x40;

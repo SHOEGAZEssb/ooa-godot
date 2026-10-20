@@ -58,22 +58,22 @@ public sealed partial class ValidationRoot
                     string context = $"Lever $4:${room:x2} A={primary} batch={batched} update={++update}";
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                         lever.Position != new Vector2(rom[slot + 0x0d], rom[slot + 0x0b]) || lever.PullDistance != rom[0xccab],
-                        context + $": Link/lever/pull offset differs: runtime={_player.PrecisePosition}/{lever.Position}/${lever.PullDistance:x2}, native={rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}/{rom[slot + 0x0d]},{rom[slot + 0x0b]}/${rom[0xccab]:x2}.");
+                        $"{context}: Link/lever/pull offset differs: runtime={_player.PrecisePosition}/{lever.Position}/${lever.PullDistance:x2}, native={rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}/{rom[slot + 0x0d]},{rom[slot + 0x0b]}/${rom[0xccab]:x2}.");
                     FailIf(lever.Grabbed != (rom[slot + 4] == 2 && rom[slot + 5] < 2) ||
                         _player.PatchCollisionsEnabled != ((rom[0xd024] & 0x80) != 0),
-                        context + $": grabbed/collision runtime={lever.Grabbed}/{_player.BraceletLiftCollisionsDisabled}/{_bracelet.State}, native=${rom[slot + 4]:x2}/${rom[slot + 5]:x2}/collision=${rom[0xd024]:x2}/grab=${rom[0xcc5a]:x2}, parent=${rom[0xd201]:x2}/${rom[0xd204]:x2}.");
+                        $"{context}: grabbed/collision runtime={lever.Grabbed}/{_player.BraceletLiftCollisionsDisabled}/{_bracelet.State}, native=${rom[slot + 4]:x2}/${rom[slot + 5]:x2}/collision=${rom[0xd024]:x2}/grab=${rom[0xcc5a]:x2}, parent=${rom[0xd201]:x2}/${rom[0xd204]:x2}.");
                     FailIf(lava.State != rom[lavaSlot + 4] ||
                         lava.State is 2 or 3 or 4 && lava.Counter != rom[lavaSlot + 6],
-                        context + $": lava state/counter runtime={lava.State}/{lava.Counter}, native={rom[lavaSlot + 4]}/{rom[lavaSlot + 6]}.");
+                        $"{context}: lava state/counter runtime={lava.State}/{lava.Counter}, native={rom[lavaSlot + 4]}/{rom[lavaSlot + 6]}.");
                     FailIf(_rooms.PendingTileGraphics != ((rom[0xcce0] - rom[0xccdf]) & 31),
                         context + ": queued tile graphics count differs.");
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0), context + ": Shield grab interruption differs.");
                     for (int packed = 0; packed < _currentRoom.Layout.Length; packed++)
                         if (_currentRoom.Layout[packed] != rom[0xcf00 + packed] ||
                             _currentRoom.GetUnderlyingStorageMetatile(packed) != rom.Underlying(packed))
-                            FailIf(true, context + $": lava tile ${packed:x2} runtime=${_currentRoom.Layout[packed]:x2}/${_currentRoom.GetUnderlyingStorageMetatile(packed):x2}, native=${rom[0xcf00 + packed]:x2}/${rom.Underlying(packed):x2}, state={lava.State}, cursor={lava.Cursor}.");
+                            FailIf(true, $"{context}: lava tile ${packed:x2} runtime=${_currentRoom.Layout[packed]:x2}/${_currentRoom.GetUnderlyingStorageMetatile(packed):x2}, native=${rom[0xcf00 + packed]:x2}/${rom.Underlying(packed):x2}, state={lava.State}, cursor={lava.Cursor}.");
                     FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                        context + $": cue order runtime=[{string.Join(',', sounds.Requests.Where(cue => cue != SoundId.SndText).Select(cue => cue.ToString("x2")))}], native=[{string.Join(',', rom.Sounds.Select(cue => cue.ToString("x2")))}].");
+                        $"{context}: cue order runtime=[{string.Join(',', sounds.Requests.Where(cue => cue != SoundId.SndText).Select(cue => cue.ToString("x2")))}], native=[{string.Join(',', rom.Sounds.Select(cue => cue.ToString("x2")))}].");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                         random.Calls - seed.Calls != rom.RandomCalls, context + ": shared RNG differs.");

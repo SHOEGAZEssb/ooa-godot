@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
                             _player.NativeInAirForInteraction != (rom[0xcc5c] != 0) ||
                             CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                             _transitions.IsTransitioning,
-                            context + $": fixed XY/Z/state differs: runtime={_player.PrecisePosition}, native={expected}, Z={_player.LedgeZ}/{z >> 8}, state=${rom[0xd004]:x2}/${rom[0xd005]:x2}.");
+                            $"{context}: fixed XY/Z/state differs: runtime={_player.PrecisePosition}, native={expected}, Z={_player.LedgeZ}/{z >> 8}, state=${rom[0xd004]:x2}/${rom[0xd005]:x2}.");
                         if (rom[0xd004] == 0x12)
                             FailIf(_player.LedgeSpeedRaw != rom[0xd010] ||
                                 _player.LedgeSpeedZ != unchecked((short)rom.Word(0xd014)),

@@ -33,14 +33,14 @@ public sealed partial class ValidationRoot
                         .FirstOrDefault(slot => rom[slot] != 0 && rom[slot + 1] == id);
                     FailIf(parent.Active != (slot != 0) || parent.Active &&
                         (parent.Slot != ((slot >> 8) & 15) || parent.Counter != rom[slot + 0x20] || parent.Parameter != rom[slot + 0x21]),
-                        context + $": ITEM${id:x2} parent allocation/clock differs.");
+                        $"{context}: ITEM${id:x2} parent allocation/clock differs.");
                 }
                 var child = pool.LiveOwners().OfType<BombchuRoomEntity>().SingleOrDefault();
                 int native = Enumerable.Range(0xd7, 5).Select(page => page << 8)
                     .FirstOrDefault(slot => rom[slot] != 0 && rom[slot + 1] == 0x0d);
                 FailIf((child is null) != (native == 0) || child is not null &&
                     (pool.SlotOf(child) != native >> 8 || child.Node.Position != new Vector2(rom[native + 0xd], rom[native + 0xb])),
-                    context + $": physical allocation order or motion runtime=${(child is null ? 0 : pool.SlotOf(child)):x2}/{child?.Node.Position}, " +
+                    $"{context}: physical allocation order or motion runtime=${(child is null ? 0 : pool.SlotOf(child)):x2}/{child?.Node.Position}, " +
                     $"native=${native:x4}/({rom[native + 0xd]},{rom[native + 0xb]}) differs.");
                 FailIf(_player.IsUsingHarp != (rom[0xd500] != 0) || _player.IsAttacking != (rom[0xd200] != 0 && rom[0xd201] == 5) ||
                     _inventory.Bombchus != rom[0xc6b3], context + ": competing parent/ammo differs.");

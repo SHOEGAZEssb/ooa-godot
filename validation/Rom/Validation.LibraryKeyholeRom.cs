@@ -49,11 +49,11 @@ public partial class ValidationRoot
                     gate.BlocksGameplay != ((rom[0xcc8a] & 0x81) != 0) ||
                     _roomEvents.MenusDisabled != (rom[0xcc02] != 0) ||
                     gate.BlocksGameplay && gate.Counter != rom[0xd246],
-                    context + $": shared signal/input/menu/event clock runtime={gate.BlocksGameplay}/{gate.Counter}, ROM=${rom[0xcc8a]:x2}/${rom[0xcc02]:x2}/{rom[0xd246]}.");
+                    $"{context}: shared signal/input/menu/event clock runtime={gate.BlocksGameplay}/{gate.Counter}, ROM=${rom[0xcc8a]:x2}/${rom[0xcc02]:x2}/{rom[0xd246]}.");
                 FailIf(_player.IsAttacking != (rom[0xd200] != 0 && rom[0xd201] == 0x05),
                     context + ": Sword parent allocation differs.");
                 for (int room = 0; room < 256; room++)
-                    FailIf(_saveData.GetRoomFlags(1,room) != rom[0xc800+room],context + $": room flag${room:x2} differs.");
+                    FailIf(_saveData.GetRoomFlags(1,room) != rom[0xc800+room],$"{context}: room flag${room:x2} differs.");
                 var keys = _entities.Entities<OverworldKeyUseEffect>();
                 var slots = Enumerable.Range(0xd2,14).Select(page => (page << 8) | 0x40)
                     .Where(slot => rom[slot] != 0 && rom[slot+1] == 0x18).ToArray();
@@ -70,7 +70,7 @@ public partial class ValidationRoot
                 var random = _random.CaptureState();
                 FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                    context + $": gameplay cues/RNG differ: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}.");
+                    $"{context}: gameplay cues/RNG differ: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}.");
             },contextPrefix:$"Library$1:$a5 ownership={ownership}, after={update}");
             Step();
             for (int wait = 0; !gate.BlocksGameplay && !_dialogue.IsOpen &&

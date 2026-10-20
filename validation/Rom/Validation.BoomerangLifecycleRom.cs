@@ -145,7 +145,7 @@ public sealed partial class ValidationRoot
                             item.PrecisePosition != new Vector2(rom.Word(slot + 0x0c) / 256.0f, rom.Word(slot + 0x0a) / 256.0f) ||
                             item.CollisionEnabled != ((rom[slot + 0x24] & 0x80) != 0) ||
                             item.Visible != ((rom[slot + 0x1a] & 0x80) != 0),
-                            context + $": runtime state/count/angle/XY={item.State}/{item.Counter}/${item.Angle:x2}/{item.PrecisePosition}, native={rom[slot + 4]}/{rom[slot + 6]}/${rom[slot + 9]:x2}/{rom.Word(slot + 0x0c) / 256.0f},{rom.Word(slot + 0x0a) / 256.0f}.");
+                            $"{context}: runtime state/count/angle/XY={item.State}/{item.Counter}/${item.Angle:x2}/{item.PrecisePosition}, native={rom[slot + 4]}/{rom[slot + 6]}/${rom[slot + 9]:x2}/{rom.Word(slot + 0x0c) / 256.0f},{rom.Word(slot + 0x0a) / 256.0f}.");
                     }
                     int parent = rom[0xd300] != 0 && rom[0xd301] == 6 ? 0xd300 : rom[0xd400] != 0 && rom[0xd401] == 6 ? 0xd400 : 0;
                     FailIf(_player.IsUsingBoomerang != (parent != 0) ||
@@ -156,7 +156,7 @@ public sealed partial class ValidationRoot
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                         !sounds.Requests.Where(id => id is SoundId.SndBoomerang or SoundId.SndClink)
                             .SequenceEqual(rom.Sounds.Where(id => id is SoundId.SndBoomerang or SoundId.SndClink)),
-                        context + $": Link movement lock/facing/sound differs: runtime={_player.PrecisePosition}/dir{CarriedObjectMotion.DirectionIndex(_player.FacingVector)}, native={rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}/dir{rom[0xd008]}.");
+                        $"{context}: Link movement lock/facing/sound differs: runtime={_player.PrecisePosition}/dir{CarriedObjectMotion.DirectionIndex(_player.FacingVector)}, native={rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}/dir{rom[0xd008]}.");
                     if (airborne || raft || minecart)
                     {
                         FailIf(_player.TopDownAirborne != (rom[0xcc5c] != 0) ||
@@ -179,7 +179,7 @@ public sealed partial class ValidationRoot
                             context + ": minecart rider/locked jump ownership differs.");
                         if (minecart)
                             for (int address = 0xcd80; address < 0xcdc0; address++)
-                                FailIf(_runtimeState.ReadWramByte(address) != rom[address], context + $": static byte ${address:x4} differs.");
+                                FailIf(_runtimeState.ReadWramByte(address) != rom[address], $"{context}: static byte ${address:x4} differs.");
                     }
                 });
             }

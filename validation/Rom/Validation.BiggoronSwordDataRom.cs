@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
                 FailIf(rom[0xd200]!=0xff || rom[0xd204]!=1 || rom[0xd230]!=parent.Mode ||
                     rom[0xd220]!=parent.Counter || rom[0xd221]!=parent.Parameter ||
                     rom[0xd231]!=data.Frames(parent.Mode)[parent.Frame].Graphic,
-                    context+$": parent counter/parameter runtime={parent.Counter}/${parent.Parameter:x2}, native={rom[0xd220]}/${rom[0xd221]:x2}; enabled/state/mode/graphic=${rom[0xd200]:x2}/{rom[0xd204]}/${rom[0xd230]:x2}/${rom[0xd231]:x2}, expected mode/graphic=${parent.Mode:x2}/${data.Frames(parent.Mode)[parent.Frame].Graphic:x2}.");
+                    $"{context}: parent counter/parameter runtime={parent.Counter}/${parent.Parameter:x2}, native={rom[0xd220]}/${rom[0xd221]:x2}; enabled/state/mode/graphic=${rom[0xd200]:x2}/{rom[0xd204]}/${rom[0xd230]:x2}/${rom[0xd231]:x2}, expected mode/graphic=${parent.Mode:x2}/${data.Frames(parent.Mode)[parent.Frame].Graphic:x2}.");
                 int sector=data.SelectArc(parent.Parameter,direction);
                 SwordArc arc=data.Arc(sector); BiggoronSwordGraphic weapon=data.Weapon(sector);
                 FailIf(rom[0xd600]==0 || rom[0xd601]!=0x0c || rom[0xd604]!=1 || rom[0xd630]!=sector ||
@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
                     rom[0xd60f]!=0xfe || rom[0xd626]!=arc.RadiusY || rom[0xd627]!=arc.RadiusX ||
                     rom[0xd624]!=weapon.Collision || rom[0xd628]!=weapon.Damage ||
                     rom[0xd63a]!=weapon.Damage || rom[0xd60b]==112 && rom[0xd60d]==120,
-                    context+$": sector {sector} geometry/attributes differ; native enabled/id/state=${rom[0xd600]:x2}/${rom[0xd601]:x2}/{rom[0xd604]}, sector={rom[0xd630]}, XY={rom[0xd60d]},{rom[0xd60b]}, Z=${rom[0xd60f]:x2}, radius={rom[0xd626]},{rom[0xd627]}, collision/damage/base=${rom[0xd624]:x2}/${rom[0xd628]:x2}/${rom[0xd63a]:x2}; expected arc={arc}, collision/damage=${weapon.Collision:x2}/${weapon.Damage:x2}.");
+                    $"{context}: sector {sector} geometry/attributes differ; native enabled/id/state=${rom[0xd600]:x2}/${rom[0xd601]:x2}/{rom[0xd604]}, sector={rom[0xd630]}, XY={rom[0xd60d]},{rom[0xd60b]}, Z=${rom[0xd60f]:x2}, radius={rom[0xd626]},{rom[0xd627]}, collision/damage/base=${rom[0xd624]:x2}/${rom[0xd628]:x2}/${rom[0xd63a]:x2}; expected arc={arc}, collision/damage=${weapon.Collision:x2}/${weapon.Damage:x2}.");
                 var frame=OracleGraphicsCache.GetAnimationDefinition(weapon.Animation).Frames.Single();
                 FailIf(frame.Duration!=rom[0xd620] || frame.Parameter!=rom[0xd621] || frame.EncodedOam!=Oam(rom,0xd600) ||
                     weapon.TileBase!=rom[0xd61d] || weapon.OamFlags!=rom[0xd61c] || weapon.SourceOffset!=0xa0,
@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
                 int sourceOffset=(source&0xffe0)-0x4000+((source&1)<<14);
                 FailIf(link.GraphicsIndex!=rom[0xd032] || link.OamIndex!=bytes.Span[record] ||
                     link.ByteOffset!=sourceOffset || link.Oam!=Oam(rom,0xd000),
-                    context+$": native Link graphics source/OAM differs: runtime=${link.GraphicsIndex:x2}/${link.ByteOffset:x4}/{link.Oam}, native=${rom[0xd032]:x2}/${sourceOffset:x4}/{Oam(rom,0xd000)}.");
+                    $"{context}: native Link graphics source/OAM differs: runtime=${link.GraphicsIndex:x2}/${link.ByteOffset:x4}/{link.Oam}, native=${rom[0xd032]:x2}/${sourceOffset:x4}/{Oam(rom,0xd000)}.");
                 // Freeze two actual parent callers while the post pass keeps
                 // resetting the weapon's inert pose. No long held-input loop.
                 bool frozen=updates is 4 or 5;

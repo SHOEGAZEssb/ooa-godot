@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
                             !dust[0].Clouds.ToArray().SequenceEqual(Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index])),
                             context + ": dust state/position/animation/clouds differs.");
                     for (int address = 0xcd80; address < 0xcdc0; address++)
-                        FailIf(_runtimeState.ReadWramByte(address) != rom[address], context + $": static byte ${address:x4} differs.");
+                        FailIf(_runtimeState.ReadWramByte(address) != rom[address], $"{context}: static byte ${address:x4} differs.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds), context + ": sounds differ.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||

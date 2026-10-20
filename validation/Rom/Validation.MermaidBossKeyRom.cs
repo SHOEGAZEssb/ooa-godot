@@ -89,10 +89,10 @@ public sealed partial class ValidationRoot
                     FailIf(_player.PrecisePosition != link ||
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                         _player.PatchCollisionsEnabled != ((rom[0xd024]&0x80) != 0),
-                        context+$": Link motion/facing/collision runtime={_player.PrecisePosition}/{_player.FacingVector}/{_player.PatchCollisionsEnabled}, native={link}/{rom[0xd008]}/${rom[0xd024]:x2}.");
+                        $"{context}: Link motion/facing/collision runtime={_player.PrecisePosition}/{_player.FacingVector}/{_player.PatchCollisionsEnabled}, native={link}/{rom[0xd008]}/${rom[0xd024]:x2}.");
                     FailIf(controller.Finished != (rom[p] == 0) || !controller.Finished && controller.State != rom[p+4] ||
                         _entities.RoomEnemyCount != rom[0xcdd1] || _entities.ActiveTriggers != rom[0xcca0],
-                        context+$": controller/count/trigger runtime={controller.State}/{controller.Finished}/{_entities.RoomEnemyCount}/${_entities.ActiveTriggers:x2}, native={rom[p+4]}/{rom[p] == 0}/{rom[0xcdd1]}/${rom[0xcca0]:x2}.");
+                        $"{context}: controller/count/trigger runtime={controller.State}/{controller.Finished}/{_entities.RoomEnemyCount}/${_entities.ActiveTriggers:x2}, native={rom[p+4]}/{rom[p] == 0}/{rom[0xcdd1]}/${rom[0xcca0]:x2}.");
                     foreach (var actor in levers)
                     {
                         int a = 0xd040+_entities.InteractionSlot(actor)*256;
@@ -105,7 +105,7 @@ public sealed partial class ValidationRoot
                         bool visible = (rom[a+0x1a]&0x80) != 0;
                         FailIf(actor.Visible != visible || (bool)nativeVisible.GetValue(actor)! != visible ||
                             visible && (actor.CurrentAnimationOpaquePixels == 0 || actor.ZIndex != 8 || (rom[a+0x1a]&3) != 3),
-                            context+$": lever${a:x4} native draw visibility, fixed priority $83 or handle pixels differ.");
+                            $"{context}: lever${a:x4} native draw visibility, fixed priority $83 or handle pixels differ.");
                     }
                     var children = _entities.Entities<LeverConnectionRoomEntity>();
                     int nativeChildren = Enumerable.Range(0xd2,14).Count(page => rom[(page<<8)+0x40] != 0 &&
@@ -116,11 +116,11 @@ public sealed partial class ValidationRoot
                         int a = 0xd040+_entities.InteractionSlot(child)*256;
                         // Uninitialized connections have not copied X yet.
                         FailIf(rom[a+2] != 0x80 || rom[a+4] != 0 &&
-                            child.Position != new Vector2(rom[a+13],rom[a+11]),context+$": native connection slot${a:x4} runtime={child.Position}, native={rom[a+13]},{rom[a+11]}/${rom[a+2]:x2}/${rom[a+4]:x2}.");
+                            child.Position != new Vector2(rom[a+13],rom[a+11]),$"{context}: native connection slot${a:x4} runtime={child.Position}, native={rom[a+13]},{rom[a+11]}/${rom[a+2]:x2}/${rom[a+4]:x2}.");
                         bool visible = (rom[a+0x1a]&0x80) != 0;
                         FailIf(child.Visible != visible || (bool)nativeVisible.GetValue(child)! != visible ||
                             visible && (child.CurrentAnimationOpaquePixels == 0 || child.ZIndex != 8 || (rom[a+0x1a]&3) != 3),
-                            context+$": connection${a:x4} native draw visibility, fixed priority $83 or pixels differ.");
+                            $"{context}: connection${a:x4} native draw visibility, fixed priority $83 or pixels differ.");
                     }
                     var enemySlots = SomariaPrivate<Dictionary<IRoomEntity,int>>(_entities,"_enemySlots");
                     foreach (var rope in _entities.Entities<RopeCharacter>())
@@ -132,13 +132,13 @@ public sealed partial class ValidationRoot
                     }
                     var rng = _random.CaptureState();
                     FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls,
-                        context+$": global RNG runtime=${rng.Rng1:x2}/${rng.Rng2:x2}/{rng.Calls-seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls}.");
+                        $"{context}: global RNG runtime=${rng.Rng1:x2}/${rng.Rng2:x2}/{rng.Calls-seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls}.");
                     if (controller.State == 2)
                     {
                         for (int index = 0; index < 256; index++)
                             FailIf(rng.PlacementBuffer[index] != rom.FloorPermutation(index),context+": regenerated shared placement permutation differs.");
                         for (int address = 0xcec0; address < 0xcee0; address++)
-                            FailIf(_runtimeState.ReadWramByte(address) != rom[address],context+$": placement scratch${address:x4} runtime=${_runtimeState.ReadWramByte(address):x2}, native=${rom[address]:x2}, exclusion=${_runtimeState.ReadWramByte(WramAddress.wWarpDestPos):x2}/${rom[0xcc4a]:x2}.");
+                            FailIf(_runtimeState.ReadWramByte(address) != rom[address],$"{context}: placement scratch${address:x4} runtime=${_runtimeState.ReadWramByte(address):x2}, native=${rom[address]:x2}, exclusion=${_runtimeState.ReadWramByte(WramAddress.wWarpDestPos):x2}/${rom[0xcc4a]:x2}.");
                         FailIf(_runtimeState.ReadWramByte(WramAddress.wWarpDestPos) != rom[0xcc4a],context+": active tile exclusion differs.");
                     }
                     FailIf(_currentRoom.GetPackedStorageMetatile(0x17) != rom[0xcf17] ||

@@ -53,9 +53,9 @@ public partial class ValidationRoot
                     for (int index = 0; index < 16; index++)
                         FailIf(_inventory.GetDungeonSmallKeys(index) != rom[0xc672 + index] ||
                             _inventory.HasDungeonBossKey(index) != ((rom[0xc682 + index / 8] & (1 << (index & 7))) != 0),
-                            context + $": dungeon${index:x2} small/boss-key bytes differ.");
+                            $"{context}: dungeon${index:x2} small/boss-key bytes differ.");
                     for (int index = 0; index < 256; index++)
-                        FailIf(_saveData.GetRoomFlags(4,index) != rom[0xc900 + index],context + $": room flags$4:${index:x2} differ.");
+                        FailIf(_saveData.GetRoomFlags(4,index) != rom[0xc900 + index],$"{context}: room flags$4:${index:x2} differ.");
                     var puffs = _entities.Entities<PuzzlePuffEffect>().OrderBy(_entities.InteractionSlot).ToArray();
                     int[] nativePuffs = Enumerable.Range(0xd2,14).Select(page => (page << 8) | 0x40)
                         .Where(slot => rom[slot] != 0 && rom[slot + 1] == 5).ToArray();

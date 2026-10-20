@@ -14,13 +14,10 @@ internal sealed class FrontendRom
     private readonly byte[][] _vram = [new byte[0x2000], new byte[0x2000]];
     private readonly byte[] _sram = new byte[0x2000];
     private readonly OracleCpu _cpu;
+    private readonly Func<int, bool> _stopAtBoundary;
     private int _bank;
-    private bool _specialObjectPrelude;
-    private sealed class SpecialObjectPreludeComplete : Exception { }
-    private bool _deathPrelude;
-    private sealed class DeathPreludeComplete : Exception { }
-    private bool _toggleCutscene;
-    private sealed class ToggleCutsceneComplete : Exception { }
+    private int _stopAddress = -1;
+    private int _stopBank;
     internal bool FileSelectHandoff { get; private set; }
     internal bool GameplayHandoff { get; private set; }
     internal bool StopAtReset { get; set; }
@@ -84,10 +81,9 @@ internal sealed class FrontendRom
         // bank5.updateSpecialObjects $4000 through updateGameKeysPressed
         // $40b3. Execute native ID, Mermaid/underwater and signal writes;
         // the fixture supplies host keys instead of reading the joypad.
-        _specialObjectPrelude = true;
+        _stopAddress = 0x40b3; _stopBank = 5;
         try { Call(0x4000, 5); }
-        catch (SpecialObjectPreludeComplete) { }
-        finally { _specialObjectPrelude = false; }
+        finally { _stopAddress = -1; }
     }
 
     internal void AdvanceToggleCutscene()
@@ -95,20 +91,18 @@ internal sealed class FrontendRom
         // Execute cutscene02's native caller and handler, stopping at its
         // unconditional object pass. It never dispatches updateMenus, even
         // when the handler changes wCutsceneIndex back to $01.
-        _toggleCutscene = true;
+        _stopAddress = 0x345b; _stopBank = -1;
         try { Call(0x7c80, 1); }
-        catch (ToggleCutsceneComplete) { }
-        finally { _toggleCutscene = false; this[0xff70] = 0; }
+        finally { _stopAddress = -1; this[0xff70] = 0; }
     }
 
     internal void UpdateDeathPrelude()
     {
         // standardGameState handles $ff -> $e7 before cutscene dispatch.
         // The caller executes the bounded object pass separately.
-        _deathPrelude = true;
+        _stopAddress = 0x5acd; _stopBank = 1;
         try { Call(0x5abc, 1); }
-        catch (DeathPreludeComplete) { }
-        finally { _deathPrelude = false; }
+        finally { _stopAddress = -1; }
     }
 
     internal void InitializeMenu()
@@ -120,6 +114,7 @@ internal sealed class FrontendRom
 
     internal FrontendRom()
     {
+        _stopAtBoundary = StopAtBoundary;
         for (int bank = 2; bank < 8; bank++) _wram[bank] = new byte[0x1000];
         this[0xff70] = 0;
         this[0xffb4] = this[0xffb5] = 0xa0;
@@ -167,21 +162,28 @@ internal sealed class FrontendRom
         this[0xff97] = (byte)bank;
         // Full-screen native decompression exceeds the ordinary small-call
         // budget. It remains bounded, without converting CPU cost to updates.
-        try { _cpu.RunCall(entry, instructionLimit: 1000000, stackAddress: 0xc2dc); }
+        // This fixture has no peripheral clock callback. Frequent preludes
+        // stop before their boundary opcode, without exceptions per update.
+        // Ordinary calls need no per-instruction callback; rare frontend
+        // handoffs still stop in Read below.
+        try
+        {
+            if (_stopAddress >= 0)
+                _cpu.RunCallUntil(entry, _stopAtBoundary, instructionLimit: 1000000, stackAddress: 0xc2dc);
+            else
+                _cpu.RunCall(entry, instructionLimit: 1000000, stackAddress: 0xc2dc);
+        }
         catch (OperationCanceledException) when (FileSelectHandoff || GameplayHandoff || ResetHandoff || InitializationHandoff) { }
     }
+
+    private bool StopAtBoundary(int address) =>
+        address == _stopAddress && (_stopBank < 0 || _bank == _stopBank);
 
     private int Read(int address)
     {
         // CGB echo RAM aliases $c000-$ddff, including the selected bank's
         // $d000-$ddff region. Native allocation failures can retain HL=$e040.
         if (address is >= 0xe000 and <= 0xfdff) return Read(address - 0x2000);
-        if (_toggleCutscene && address == 0x345b && address == _cpu.InstructionAddress)
-            throw new ToggleCutsceneComplete();
-        if (_deathPrelude && _bank == 1 && address == 0x5acd && address == _cpu.InstructionAddress)
-            throw new DeathPreludeComplete();
-        if (_specialObjectPrelude && _bank == 5 && address == 0x40b3 && address == _cpu.InstructionAddress)
-            throw new SpecialObjectPreludeComplete();
         if (_stopAtInitialization && address == _cpu.InstructionAddress && address == 0x341a)
         {
             // initializeGame has restored save/checkpoint, display bytes and

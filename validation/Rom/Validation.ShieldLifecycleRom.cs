@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
                         Private<int>(_player, "_shieldParentButton") != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
                         Private<bool>(_player, "_shieldParentInitialized") != (rom[0xd504] != 0),
-                        context + $": raised/parent initialized runtime={_player.IsUsingShield}/{Private<int>(_player, "_shieldParentButton")}/{Private<bool>(_player, "_shieldParentInitialized")}, ROM=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd503]:x2}/${rom[0xd504]:x2}.");
+                        $"{context}: raised/parent initialized runtime={_player.IsUsingShield}/{Private<int>(_player, "_shieldParentButton")}/{Private<bool>(_player, "_shieldParentInitialized")}, ROM=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd503]:x2}/${rom[0xd504]:x2}.");
                     FailIf(_player.Position != new Vector2(rom[0xd00d], rom[0xd00b]) ||
                         _player.FacingVector != (Vector2I)OracleObjectMath.StrictCardinalVector(rom[0xd008] * 8),
                         context + ": movement/facing differs from native raised-shield Link.");

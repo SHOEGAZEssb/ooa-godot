@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             // This bounded PART regression declares relatedObj1's live health;
             // it does not claim to execute the Vire encounter controller.
             var parent = new ArrowMoblinCharacter();
-            parent.Initialize(new EnemyDatabase().ImportedEnemy(0x0c, 0), _currentRoom, floor, _random);
+            parent.Initialize(EnemyDatabase.Shared.ImportedEnemy(0x0c, 0), _currentRoom, floor, _random);
             parent.Health = health;
             var parentOwner = new EnemyAiSlotReservation(parent);
             _entities.AddEntity(parentOwner); _entities.RegisterEnemySlot(parentOwner, 0);

@@ -36,7 +36,7 @@ public partial class ValidationRoot
     {
         FailIf(SomariaPrivate<int>(synchronizer,"_state") != rom[0xd244] ||
             _rooms.BlockPushAngle != rom[0xcca6] || _pushBlocks.RemainingPushFrames != rom[0xcc6a],
-            context + $": $bd phase/shared direction/contact counter runtime={SomariaPrivate<int>(synchronizer,"_state")}/${_rooms.BlockPushAngle:x2}/{_pushBlocks.RemainingPushFrames}, ROM={rom[0xd244]}/${rom[0xcca6]:x2}/{rom[0xcc6a]}.");
+            $"{context}: $bd phase/shared direction/contact counter runtime={SomariaPrivate<int>(synchronizer,"_state")}/${_rooms.BlockPushAngle:x2}/{_pushBlocks.RemainingPushFrames}, ROM={rom[0xd244]}/${rom[0xcca6]:x2}/{rom[0xcc6a]}.");
         CompareNativePushBlockRom(rom,_pushBlocks,0xd140,context);
         var blocks = _entities.Entities<PushBlockController>()
             .OrderBy(_entities.InteractionSlot).ToArray();
@@ -58,13 +58,13 @@ public partial class ValidationRoot
     private void CompareNativePushBlockRom(SomariaRom rom,PushBlockController block,int slot,string context)
     {
         bool active = rom[slot] != 0 && rom[slot + 1] == 0x14;
-        FailIf(block.Active != active,context + $": INTERAC${slot >> 8:x2} allocation differs.");
+        FailIf(block.Active != active,$"{context}: INTERAC${slot >> 8:x2} allocation differs.");
         if (!active) return;
         FailIf(block.ActiveTile != rom[slot + 0x31] || block.PushAngle != (rom[slot + 9] & 31) ||
             block.BlockTopLeft + new Vector2(8,6) !=
                 new Vector2(rom.Word(slot + 0xc) / 256f,rom.Word(slot + 0xa) / 256f) ||
             block.BlockZHigh != unchecked((sbyte)rom[slot + 0xf]) ||
             block.ActiveMoveFrames - (int)SomariaPrivate<float>(block,"_moveFrame") != rom[slot + 6],
-            context + $": INTERAC${slot >> 8:x2} full XY/Z, tile, angle or movement clock differs.");
+            $"{context}: INTERAC${slot >> 8:x2} full XY/Z, tile, angle or movement clock differs.");
     }
 }

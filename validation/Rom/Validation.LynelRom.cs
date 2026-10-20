@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         LoadValidationRoom(1, 0x5b);
-        var database = new EnemyDatabase();
+        var database = EnemyDatabase.Shared;
         FailIf(database.ImportedEnemy(0x0d, 0) is not { Health: 8, DamageQuarters: 4, RadiusX: 6, RadiusY: 6, Palette: 2, Animations.Length: 8 } ||
             database.ImportedEnemy(0x0d, 1) is not { Health: 12, DamageQuarters: 4, Palette: 1, Animations.Length: 8 },
             "enemy0dSubidData / extraEnemyData $17/$1b lost the red/blue Lynel attributes.");
@@ -159,7 +159,7 @@ public sealed partial class ValidationRoot
     private void ValidateLynelCombatRom()
     {
         LoadValidationRoom(1, 0x5b);
-        var database = new EnemyDatabase();
+        var database = EnemyDatabase.Shared;
         foreach (int collision in new[] { 1,2,3,4,5,6,7,8,9,10,11,13,0x16,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e })
         {
             var random = new OracleRandom();

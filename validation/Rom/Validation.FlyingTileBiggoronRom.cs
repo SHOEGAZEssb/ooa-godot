@@ -103,7 +103,7 @@ public sealed partial class ValidationRoot
                             tile.InvincibilityCounter != unchecked((sbyte)native[0xd0ab]) || (int)tile.State != native[0xd084] ||
                             tile.Counter != native[0xd086] || tile.ZFixed != unchecked((short)native.Word(0xd08e)) ||
                             tile.Position != new Vector2(native.Word(0xd08c)/256f, native.Word(0xd08a)/256f),
-                            context + $": source status differs: pending={Pending()}/${native[0xd0aa]:x2}, HP={tile.Health}/{native[0xd0a9]}, identity=${_entities.EntityAdapters<FlyingTileRoomEntity>().Single().DimitriCollisionType:x}, state={tile.State}/${native[0xd084]:x2}.");
+                            $"{context}: source status differs: pending={Pending()}/${native[0xd0aa]:x2}, HP={tile.Health}/{native[0xd0a9]}, identity=${_entities.EntityAdapters<FlyingTileRoomEntity>().Single().DimitriCollisionType:x}, state={tile.State}/${native[0xd084]:x2}.");
                     }
                     void Step(int count = 1, bool press = false, Vector2 movement = default) =>
                         StepGameplayUpdates(count, movement, press ? ["attack"] : [], press ? ["attack"] : [], batched, Compare);

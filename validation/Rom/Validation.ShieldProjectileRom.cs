@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
                         FailIf((snapshot.State == HostileProjectileState.Bouncing) != bouncing ||
                             snapshot.Angle != rom[part + 9] || snapshot.Counter != rom[part + 6] ||
                             (snapshot.ZFixed & 0xffff) != rom.Word(part + 0x0e) || projectile.Position != nativePosition,
-                            context + $": runtime={snapshot}/{projectile.Position}, ROM state=${rom[part + 4]:x2} angle=${rom[part + 9]:x2} counter=${rom[part + 6]:x2} Z=${rom.Word(part + 0x0e):x4} XY={nativePosition}.");
+                            $"{context}: runtime={snapshot}/{projectile.Position}, ROM state=${rom[part + 4]:x2} angle=${rom[part + 9]:x2} counter=${rom[part + 6]:x2} Z=${rom.Word(part + 0x0e):x4} XY={nativePosition}.");
                     }
                     FailIf(_player.HealthQuarters != rom[0xc6aa] ||
                         !sounds.Requests.Where(id => id == SoundId.SndClink2).SequenceEqual(rom.Sounds.Where(id => id == SoundId.SndClink2)),

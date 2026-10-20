@@ -89,10 +89,10 @@ public sealed partial class ValidationRoot
                         _player.MinecartRideActive != (rom[0xcc2c] == 0xd1) ||
                         _player.HealthQuarters != rom[0xc6aa] ||
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008],
-                        context + $": fixed Link XY/Z/ride/facing differs: runtime={_player.PrecisePosition}, native={expected}, Z={Field("_topDownAirZFixed")}/{z}, inAir=${rom[0xcc5c]:x2}, native cart=${rom[0xd100]:x2}/${rom[0xd104]:x2}, interaction=${rom[slot + 4]:x2}.");
+                        $"{context}: fixed Link XY/Z/ride/facing differs: runtime={_player.PrecisePosition}, native={expected}, Z={Field("_topDownAirZFixed")}/{z}, inAir=${rom[0xcc5c]:x2}, native cart=${rom[0xd100]:x2}/${rom[0xd104]:x2}, interaction=${rom[slot + 4]:x2}.");
                     if (cart.Mounting && rom[slot] != 0)
                         FailIf(rom[slot + 4] != 2 || cart.PushCounter != rom[slot + 6],
-                            context + $": push countdown/boarding state differs: runtime={cart.PushCounter}, native={rom[slot + 6]}, state=${rom[slot + 4]:x2}, Link={_player.PrecisePosition}.");
+                            $"{context}: push countdown/boarding state differs: runtime={cart.PushCounter}, native={rom[slot + 6]}, state=${rom[slot + 4]:x2}, Link={_player.PrecisePosition}.");
                     if (rom[0xd100] != 0 && rom[0xd104] == 1)
                         FailIf(cart.Position != new Vector2(rom[0xd10d], rom[0xd10b]) ||
                             cart.Direction != rom[0xd108] || cart.Angle != rom[0xd109],
@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
                     }
                     for (int address = 0xcd80; address < 0xcdc0; address++)
                         FailIf(_runtimeState.ReadWramByte(address) != rom[address],
-                            context + $": static-cart byte ${address:x4} differs: runtime=${_runtimeState.ReadWramByte(address):x2}, native=${rom[address]:x2}.");
+                            $"{context}: static-cart byte ${address:x4} differs: runtime=${_runtimeState.ReadWramByte(address):x2}, native=${rom[address]:x2}.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText &&
                         (heartRing == 0xff || id != SoundId.SndGainHeart)).SequenceEqual(rom.Sounds),
                         context + ": jump/cart sound order differs.");

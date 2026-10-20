@@ -73,21 +73,21 @@ public sealed partial class ValidationRoot
                         _ => throw new InvalidOperationException(context + ": unexpected menu load state.")
                     };
                     FailIf(_menuLifecycle.CurrentPhase != expected || _gameplayPause.IsLeased != (rom[0xcbcb] != 0),
-                        context + $": phase/lease {_menuLifecycle.CurrentPhase} != ROM {expected}.");
+                        $"{context}: phase/lease {_menuLifecycle.CurrentPhase} != ROM {expected}.");
                     if (screen.Visible)
                         FailIf(screen.Cursor != rom[0xcbb5] || screen.DelayCounter != rom[0xcbb6],
-                            context + $": cursor/delay {screen.Cursor}/{screen.DelayCounter} != ROM {rom[0xcbb5]}/{rom[0xcbb6]}.");
+                            $"{context}: cursor/delay {screen.Cursor}/{screen.DelayCounter} != ROM {rom[0xcbb5]}/{rom[0xcbb6]}.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
-                        context + $": sounds {string.Join(',', sounds.Requests)} != ROM {string.Join(',', rom.Sounds)}.");
+                        $"{context}: sounds {string.Join(',', sounds.Requests)} != ROM {string.Join(',', rom.Sounds)}.");
                     for (int address = 0xc622; address < 0xc626; address++)
-                        FailIf(save.ReadWramByte(address) != rom[address], context + $": playtime ${address:x4} differs.");
+                        FailIf(save.ReadWramByte(address) != rom[address], $"{context}: playtime ${address:x4} differs.");
                     if (rom[0xcbb3] == 2 && rom[0xcbb6] == 30 && rom[0xcbb5] != 0)
                     {
                         written = save.Serialize();
                         for (int offset = 0; offset < OracleSaveData.FileSize; offset++)
                             foreach (bool backup in new[] { false, true })
                                 FailIf(written[offset] != rom.SavedByte(slot, 0xc5b0 + offset, backup),
-                                    context + $": {(backup ? "backup" : "primary")} payload ${0xc5b0 + offset:x4} differs.");
+                                    $"{context}: {(backup ? "backup" : "primary")} payload ${0xc5b0 + offset:x4} differs.");
                     }
                 });
             }

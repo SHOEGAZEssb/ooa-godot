@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
                 int parentSlot = rom[0xd300] != 0 && rom[0xd301] == 0x0d ? 0xd300 :
                     rom[0xd400] != 0 && rom[0xd401] == 0x0d ? 0xd400 : 0;
                 FailIf(children.Count != native.Length || parent.Active != (parentSlot != 0) || _inventory.Bombchus != rom[0xc6b3],
-                    context + $": child/parent/ammo runtime={children.Count}/{parent.Active}/${_inventory.Bombchus:x2}, native={native.Length}/${parentSlot:x4}/${rom[0xc6b3]:x2}.");
+                    $"{context}: child/parent/ammo runtime={children.Count}/{parent.Active}/${_inventory.Bombchus:x2}, native={native.Length}/${parentSlot:x4}/${rom[0xc6b3]:x2}.");
                 if (parent.Active)
                     FailIf(parent.Slot != ((parentSlot >> 8) & 15) || parent.Counter != rom[parentSlot + 0x20] ||
                         parent.Parameter != rom[parentSlot + 0x21] || parent.Mode != rom[parentSlot + 0x30],
@@ -60,7 +60,7 @@ public sealed partial class ValidationRoot
                         (ushort)child.ZFixed != rom.Word(slot + 0xe) || (ushort)child.SpeedZ != rom.Word(slot + 0x14) ||
                         child.SpeedRaw != rom[slot + 0x10] || child.SpeedTmp != rom[slot + 0x11] ||
                         child.Radius != rom[slot + 0x26] || child.Radius != rom[slot + 0x27],
-                        context + $": state/counters/XY/Z/speed/radius runtime={child.ItemState}/{child.Counter1},{child.Counter2}/{child.Position}/{child.ZFixed},{child.SpeedZ}/{child.SpeedRaw},{child.SpeedTmp}/{child.Radius}, " +
+                        $"{context}: state/counters/XY/Z/speed/radius runtime={child.ItemState}/{child.Counter1},{child.Counter2}/{child.Position}/{child.ZFixed},{child.SpeedZ}/{child.SpeedRaw},{child.SpeedTmp}/{child.Radius}, " +
                         $"native={rom[slot+4]}/{rom[slot+6]},{rom[slot+7]}/{rom[slot+0xd]},{rom[slot+0xb]}/{rom.Word(slot+0xe):x4},{rom.Word(slot+0x14):x4}/{rom[slot+0x10]},{rom[slot+0x11]}/{rom[slot+0x26]}.");
                     if (child.ItemState != 0xff)
                     {
@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
                         (ushort)(sideview ? _player.SideScrollSpeedZ : _player.TopDownAirSpeedZ) != rom.Word(0xd014) ||
                         children.SingleOrDefault() is { } airChild && airChild.PrecisePosition !=
                             new Vector2(rom.Word(native.Single() + 0xc) / 256f, rom.Word(native.Single() + 0xa) / 256f),
-                        context + $": full Link air/Z or child XY fractions differ: air={(sideview ? _player.SideScrollAirborne : _player.TopDownAirborne)}/{rom[0xcc5c]}, " +
+                        $"{context}: full Link air/Z or child XY fractions differ: air={(sideview ? _player.SideScrollAirborne : _player.TopDownAirborne)}/{rom[0xcc5c]}, " +
                         $"Link Z=${(ushort)_player.ItemCreationZFixed:x4}/${rom.Word(0xd00e):x4}, Vz=${(ushort)(sideview ? _player.SideScrollSpeedZ : _player.TopDownAirSpeedZ):x4}/${rom.Word(0xd014):x4}, " +
                         $"child XY={children.SingleOrDefault()?.PrecisePosition}, native=" +
                         (native.Length == 0 ? "empty" : $"${rom.Word(native.Single() + 0xc):x4}/${rom.Word(native.Single() + 0xa):x4}"));

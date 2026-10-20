@@ -54,7 +54,7 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             LoadValidationRoom(5, 0xf8);
             _player.WarpTo(new(0x68, 0x58));
-            var records = new NpcDatabase().GetRoomNpcs(5, 0xf8);
+            var records = NpcDatabase.Shared.GetRoomNpcs(5, 0xf8);
             rom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 2, 0x68, 0x58);
             rom[0xcc01] = 0;
             for (int index = 0; index < records.Count; index++)

@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
                             block.Flags != rom[slot + 0x2f] || block.Health != rom[slot + 0x29] ||
                             (block.DamageToApply & 255) != rom[slot + 0x25] || block.ContactFlags != rom[slot + 0x2a] ||
                             block.Collision != rom[slot + 0x24] || block.Position != new Vector2(rom[slot + 0xd], rom[slot + 0xb]),
-                            context + $": block state/flag differs: flags=${block.Flags:x2}/${rom[slot + 0x2f]:x2}.");
+                            $"{context}: block state/flag differs: flags=${block.Flags:x2}/${rom[slot + 0x2f]:x2}.");
                     }
                     Vector2 point = new(88, 72); const int packed = 0x45;
                     FailIf(_currentRoom.GetMetatile(point) != rom[0xcf00 + packed] ||

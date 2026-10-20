@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             for (int y = 8; y < _currentRoom.Height; y += 16)
             for (int x = 8; x < _currentRoom.Width; x += 16)
                 _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
-            var database = new EnemyDatabase();
+            var database = EnemyDatabase.Shared;
             var visuals = new DungeonInteractionVisualDatabase();
             IRoomEntity actor;
             int id = kind switch { 0 => 0x3e, 1 => 0x31, 2 => 0x0b, 3 => 0x79, _ => 0xa4 };
@@ -114,7 +114,7 @@ public sealed partial class ValidationRoot
                     string context = $"Movement memory ${id:x2}:${sub:x2}, batch={batched}, update={++updates}";
                     FailIf(staged != updates || observations != updates, context + ": missing phase observation.");
                     FailIf(!Enumerable.Range(0, 4).All(i => observed[i] == native[0xcec0 + i]),
-                        context + $": scratch differs: runtime={string.Join(' ', observed.Select(b => b.ToString("x2")))}, native={string.Join(' ', Enumerable.Range(0, 4).Select(i => native[0xcec0 + i].ToString("x2")))}.");
+                        $"{context}: scratch differs: runtime={string.Join(' ', observed.Select(b => b.ToString("x2")))}, native={string.Join(' ', Enumerable.Range(0, 4).Select(i => native[0xcec0 + i].ToString("x2")))}.");
                     if (observed.SequenceEqual(sentinel)) preserved++; else movementWrites++;
                     if (cancelled)
                     {
@@ -122,7 +122,7 @@ public sealed partial class ValidationRoot
                         return;
                     }
                     FailIf(Precise() != new Vector2(native.Word(slot + 0x0c) / 256f, native.Word(slot + 0x0a) / 256f),
-                        context + $": fixed position differs: runtime={Precise()}, native={native.Word(slot + 0x0c)/256f},{native.Word(slot + 0x0a)/256f}.");
+                        $"{context}: fixed position differs: runtime={Precise()}, native={native.Word(slot + 0x0c)/256f},{native.Word(slot + 0x0a)/256f}.");
                     if (actor.Node is PeahatCharacter peahat)
                         FailIf((int)peahat.State != native[slot + 4] || peahat.Counter != native[slot + 6] ||
                             unchecked((byte)peahat.ZHigh) != native[slot + 15], context + ": Peahat state/counter/Z differs.");

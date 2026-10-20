@@ -65,7 +65,7 @@ public partial class ValidationRoot
                 for (int index = 0; index < slots.Length; index++)
                     FailIf(_entities.InteractionSlot(doors[index]) != (slots[index]>>8)-0xd0 ||
                         doors[index].PackedPosition != rom[slots[index]+0x3e],
-                        context+$": opener slot/packed doorway differs: runtime slot={_entities.InteractionSlot(doors[index])}/position${doors[index].PackedPosition:x2}, native slot${slots[index]:x4}/position${rom[slots[index]+0x3e]:x2}.");
+                        $"{context}: opener slot/packed doorway differs: runtime slot={_entities.InteractionSlot(doors[index])}/position${doors[index].PackedPosition:x2}, native slot${slots[index]:x4}/position${rom[slots[index]+0x3e]:x2}.");
                 foreach (var (puff,slot) in puffs)
                     FailIf(puff.Finished == (rom[slot] != 0 && rom[slot+1] == 5),context+": original puff deletion differs.");
                 FailIf(_currentRoom.Layout[0x35] != rom[0xcf35] ||

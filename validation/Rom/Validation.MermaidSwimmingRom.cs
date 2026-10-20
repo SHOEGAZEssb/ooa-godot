@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
                             Field("_topDownDiveCounter") != rom[0xd007] ||
                             Field("_topDownSwimVelocityCounter") != rom[0xd012] ||
                             _player.TopDownSwimAnimationCounter != rom[0xd020],
-                            context + $": angle/speed/target/entry/velocity/animation counters differ: runtime={_player.TopDownSwimAngle:x2}/{_player.TopDownSwimSpeedRaw}/{_player.TopDownSwimTargetSpeedRaw}/{_player.TopDownSwimmingEntryCounter}/{Field("_topDownSwimVelocityCounter")}/{_player.TopDownSwimAnimationCounter}, native={rom[0xd009]:x2}/{rom[0xd010]}/{rom[0xd011]}/{rom[0xd006]}/{rom[0xd012]}/{rom[0xd020]}.");
+                            $"{context}: angle/speed/target/entry/velocity/animation counters differ: runtime={_player.TopDownSwimAngle:x2}/{_player.TopDownSwimSpeedRaw}/{_player.TopDownSwimTargetSpeedRaw}/{_player.TopDownSwimmingEntryCounter}/{Field("_topDownSwimVelocityCounter")}/{_player.TopDownSwimAnimationCounter}, native={rom[0xd009]:x2}/{rom[0xd010]}/{rom[0xd011]}/{rom[0xd006]}/{rom[0xd012]}/{rom[0xd020]}.");
                         if (_player.TopDownSwimmingState == 3)
                         {
                             FailIf(Field("_topDownMermaidImpulseCounter") != rom[0xd03e] ||

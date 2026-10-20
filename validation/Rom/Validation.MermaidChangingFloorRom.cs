@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
                     FailIf(_runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != rom[0xcc8a] ||
                         _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != rom[0xcc02] ||
                         _runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) != rom[0xcdd2],
-                        context+$": source freeze/menu/orb bytes differ, runtime=${_runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}/${_runtimeState.ReadWramByte(WramAddress.wMenuDisabled):x2}/${_runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress):x2}, ROM=${rom[0xcc8a]:x2}/${rom[0xcc02]:x2}/${rom[0xcdd2]:x2}, controller=${rom[p+4]:x2}:${rom[p+6]:x2}/${rom[p+7]:x2}.");
+                        $"{context}: source freeze/menu/orb bytes differ, runtime=${_runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}/${_runtimeState.ReadWramByte(WramAddress.wMenuDisabled):x2}/${_runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress):x2}, ROM=${rom[0xcc8a]:x2}/${rom[0xcc02]:x2}/${rom[0xcdd2]:x2}, controller=${rom[p+4]:x2}:${rom[p+6]:x2}/${rom[p+7]:x2}.");
                     var workers = _entities.Entities<MermaidChangingFloorWorkerRoomEntity>().Where(worker => !worker.Finished).ToArray();
                     var nativeWorkers = Enumerable.Range(0xd2,14).Select(page => (page<<8)+0x40)
                         .Where(a => rom[a] != 0 && rom[a+1] == 0x90 && rom[a+2] is 5 or 6).ToArray();
@@ -62,16 +62,16 @@ public sealed partial class ValidationRoot
                         int a = 0xd040+_entities.InteractionSlot(worker)*256;
                         FailIf(rom[a+2] != worker.SubId || worker.Initialized != (rom[a+5] == 1) ||
                             worker.PackedPosition != rom[a+0x30] || worker.YStep != rom[a+0x31] || worker.BufferOffset != rom[a+0x33],
-                            context+$": INTERAC$90:${worker.SubId:x2} physical slot/substate/serpentine cursor differs.");
+                            $"{context}: INTERAC$90:${worker.SubId:x2} physical slot/substate/serpentine cursor differs.");
                     }
                     for (int index = 0; index < 256; index++)
-                        FailIf(_runtimeState.ReadWramByte(WramAddress.wBigBuffer+index) != rom[0xc300+index],context+$": live shared floor buffer byte${index:x2} differs.");
+                        FailIf(_runtimeState.ReadWramByte(WramAddress.wBigBuffer+index) != rom[0xc300+index],$"{context}: live shared floor buffer byte${index:x2} differs.");
                     for (int index = 0; index < 0xb0; index++)
                     {
                         Vector2 point = new((index&15)*16+8,(index>>4)*16+8);
                         FailIf(_currentRoom.GetPackedStorageMetatile((byte)index) != rom[0xcf00+index] ||
                             (index&15) < 15 && _currentRoom.GetTerrainInfo(point).Collision != rom[0xce00+index],
-                            context+$": cell${index:x2} floor/solidity differs.");
+                            $"{context}: cell${index:x2} floor/solidity differs.");
                     }
                     FailIf(orb.IsOn != (rom[0xcdd2] != 0) || orb.PendingHit != ((rom[o+0x2a]&0x80) != 0) ||
                         !sounds.Requests.SequenceEqual(rom.Sounds),context+": orb handoff or ordered cues differ.");

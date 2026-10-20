@@ -80,17 +80,17 @@ public sealed partial class ValidationRoot
                     rom.AdvancePalette(); rom.Update(edge, pressed, _saveData.ReadWramByte(0xc622));
                     rom.AdvanceText(); edge = 0; update++;
                     FailIf(_mapMenu.IsActive != (rom[0xcbcb] == menu) ||
-                        _gameplayPause.IsLeased != (rom[0xcbcb] == menu), context + $" update={update}: modal ownership differs.");
+                        _gameplayPause.IsLeased != (rom[0xcbcb] == menu), $"{context} update={update}: modal ownership differs.");
                     if (_mapScreen.Visible && rom[0xcbcc] is 1 or 2)
                     {
                         using Image frame = _mapScreen.ComposeImage();
                         using Image panel = _dialogue.ComposeImage();
                         frame.BlendRect(panel, new Rect2I(0, 0, panel.GetWidth(), panel.GetHeight()),
                             new Vector2I((int)_dialogue.Position.X, (int)_dialogue.Position.Y));
-                        CompareMenuFramePixelsRom(rom, frame, context + $" update={update} text=${rom.TextState:x2}/${rom[0xcba0]:x2} glyphs={_dialogue.VisibleGlyphCount} line=${rom.Text(0xd400):x2}/${rom.Text(0xd401):x2} timer={rom.Text(0xd0c5)} message='{_dialogue.CurrentMessage.Replace('\n', '|')}'");
+                        CompareMenuFramePixelsRom(rom, frame, $"{context} update={update} text=${rom.TextState:x2}/${rom[0xcba0]:x2} glyphs={_dialogue.VisibleGlyphCount} line=${rom.Text(0xd400):x2}/${rom.Text(0xd401):x2} timer={rom.Text(0xd0c5)} message='{_dialogue.CurrentMessage.Replace('\n', '|')}'");
                     }
                     FailIf(sounds.Requests.Count != rom.Sounds.Count,
-                        context + $" update={update}: native prompt/menu sound count differs: runtime=[{string.Join(',', sounds.Requests)}], native=[{string.Join(',', rom.Sounds)}], message='{_dialogue.CurrentMessage.Replace('\n', '|')}', native index=${rom[0xcba3]:x2}${rom[0xcba2]:x2}, state=${rom.TextState:x2}, glyphs={_dialogue.VisibleGlyphCount}, line=${rom.Text(0xd400):x2}/${rom.Text(0xd401):x2}.");
+                        $"{context} update={update}: native prompt/menu sound count differs: runtime=[{string.Join(',', sounds.Requests)}], native=[{string.Join(',', rom.Sounds)}], message='{_dialogue.CurrentMessage.Replace('\n', '|')}', native index=${rom[0xcba3]:x2}${rom[0xcba2]:x2}, state=${rom.TextState:x2}, glyphs={_dialogue.VisibleGlyphCount}, line=${rom.Text(0xd400):x2}/${rom.Text(0xd401):x2}.");
                     for (int sound = 0; sound < sounds.Requests.Count; sound++)
                         FailIf(sounds.Requests[sound] != rom.Sounds[sound], context + ": prompt/menu sound order differs.");
                 });
@@ -112,7 +112,7 @@ public sealed partial class ValidationRoot
                         FailIf(!_mapScreen.TryGetSelectedAreaText(out MapText selected) ||
                             selected.TextId != destination.ExpectedText ||
                             ((rom[0xcba3] - 4) << 8 | rom[0xcba2]) != destination.ExpectedText,
-                            context + $": expected source text ${destination.ExpectedText:x4}.");
+                            $"{context}: expected source text ${destination.ExpectedText:x4}.");
                     int began = update;
                     // PrintingComplete denotes the non-exitable publication
                     // handoff, not an ordinary textbox's final input gate.
@@ -122,11 +122,11 @@ public sealed partial class ValidationRoot
                         else Step();
                     }
                     FailIf(rom.TextState != 0x0f,
-                        context + $": area text did not reach its final exit gate: runtime={_dialogue.IsOpen}/{_dialogue.PrintingComplete}, native=${rom.TextState:x2}/${rom[0xcba0]:x2}, cursor=${rom[0xcbb6]:x2}, message='{_dialogue.CurrentMessage.Replace('\n', '|')}'.");
+                        $"{context}: area text did not reach its final exit gate: runtime={_dialogue.IsOpen}/{_dialogue.PrintingComplete}, native=${rom.TextState:x2}/${rom[0xcba0]:x2}, cursor=${rom[0xcbb6]:x2}, message='{_dialogue.CurrentMessage.Replace('\n', '|')}'.");
                     Step(1, close); Step(4);
                     FailIf(_dialogue.BlocksPlayerInput || rom[0xcba0] != 0 || !_mapMenu.IsOpen ||
                         _mapScreen.CursorRoom != destination.Room || rom[0xcbb6] != destination.Room,
-                        context + $": closing text with ${close:x2} leaked a navigation/menu edge.");
+                        $"{context}: closing text with ${close:x2} leaked a navigation/menu edge.");
                 }
                 Step(1, 2); Step(22);
                 FailIf(_mapMenu.IsActive || _gameplayPause.IsLeased, context + ": repeated area text retained the closing menu lease.");

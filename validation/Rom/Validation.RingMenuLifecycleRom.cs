@@ -37,9 +37,9 @@ public sealed partial class ValidationRoot
                     FailIf(_ringMenu.IsActive != (rom[0xcbcb] == 4) ||
                         _gameplayPause.IsLeased != (rom[0xcbcb] == 4) ||
                         completions != openings - (rom[0xcbcb] == 4 ? 1 : 0),
-                        context + $" update={update}: menu lease/completion boundary differs.");
+                        $"{context} update={update}: menu lease/completion boundary differs.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
-                        context + $" update={update}: runtime=[{string.Join(',', sounds.Requests)}], native=[{string.Join(',', rom.Sounds)}].");
+                        $"{context} update={update}: runtime=[{string.Join(',', sounds.Requests)}], native=[{string.Join(',', rom.Sounds)}].");
                     if (_ringMenuScreen.Visible && rom[0xcbcc] is 1 or 2 &&
                         (_menuLifecycle.CurrentPhase == Phase.Open || _menuLifecycle.FadeUpdate > 0))
                     {
@@ -47,8 +47,8 @@ public sealed partial class ValidationRoot
                         // an empty appraisal; list initialization writes four.
                         int pages = mode == RingMenuMode.List ? 4 : (count + 15) / 16;
                         FailIf(_ringMenuScreen.PageCount != pages || rom[0xcbb5] != pages,
-                            context + $" update={update}: page count runtime={_ringMenuScreen.PageCount}, native={rom[0xcbb5]}, source={pages}.");
-                        CompareRingFramePixelsRom(rom, mode, context + $" update={update}",
+                            $"{context} update={update}: page count runtime={_ringMenuScreen.PageCount}, native={rom[0xcbb5]}, source={pages}.");
+                        CompareRingFramePixelsRom(rom, mode, $"{context} update={update}",
                             _menuLifecycle.CurrentPhase == Phase.Open ? null : _scene.MenuFade.Color.A);
                     }
                 });

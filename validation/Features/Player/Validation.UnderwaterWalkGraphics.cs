@@ -64,10 +64,10 @@ public sealed partial class ValidationRoot
         int index = graphic >= 0xa8 ? graphic - 0xa8 + 4 : graphic - 0x7c;
         int[] offsets = { 0x1640, 0x1680, 0x1600, 0x1680, 0x1640, 0x16c0, 0x1600, 0x16c0 };
         bool[] mirrors = { false, true, false, false, true, true, true, false };
-        FailIf(index is < 0 or > 7, context + $": unexpected underwater WALK graphic ${graphic:x2}.");
+        FailIf(index is < 0 or > 7, $"{context}: unexpected underwater WALK graphic ${graphic:x2}.");
         var body = _player.CurrentWalkBodyFrame;
         FailIf(body.Region != new Rect2((index / 4) * 16, (index % 4) * 16, 16, 16),
-            context + $": selected body region {body.Region} differs from graphic ${graphic:x2}.");
+            $"{context}: selected body region {body.Region} differs from graphic ${graphic:x2}.");
         using Image atlas = body.Texture.GetImage();
         using Image actual = atlas.GetRegion(new Rect2I((Vector2I)body.Region.Position, new(16, 16)));
         using Image expected = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
@@ -86,6 +86,6 @@ public sealed partial class ValidationRoot
             expected.SetPixel(x, y, color);
         }
         FailIf(OracleGraphicsCache.PixelHash(actual) != OracleGraphicsCache.PixelHash(expected),
-            context + $": selected WALK graphic ${graphic:x2} pixels differ (damage={_player.DamagePaletteActive}).");
+            $"{context}: selected WALK graphic ${graphic:x2} pixels differ (damage={_player.DamagePaletteActive}).");
     }
 }

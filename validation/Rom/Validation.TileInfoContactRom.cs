@@ -76,7 +76,7 @@ public sealed partial class ValidationRoot
                         random.Calls - seed.Calls != rom.RandomCalls ||
                         !sounds.Requests.Where(cue => cue is not (SoundId.SndText or SoundId.SndDamageLink))
                             .SequenceEqual(rom.Sounds.Where(cue => cue != SoundId.SndDamageLink)),
-                        context + $": gameplay cues/shared RNG differ: runtime cues={string.Join(',',sounds.Requests)}, native={string.Join(',',rom.Sounds)}, RNG=${random.Rng1:x2}/${random.Rng2:x2}/{random.Calls - seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls}.");
+                        $"{context}: gameplay cues/shared RNG differ: runtime cues={string.Join(',',sounds.Requests)}, native={string.Join(',',rom.Sounds)}, RNG=${random.Rng1:x2}/${random.Rng2:x2}/{random.Calls - seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls}.");
                 },contextPrefix:$"Info TX_{row.Text:x4}");
             Step();
             int direction = row.Direction * 8;

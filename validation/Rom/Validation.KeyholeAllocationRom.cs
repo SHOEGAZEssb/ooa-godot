@@ -28,7 +28,7 @@ public partial class ValidationRoot
                     _roomEvents.MenusDisabled != (rom[0xcc02] != 0) || gate.BlocksGameplay && gate.Counter != rom[0xd246],
                     context + ": shared contact/script/input/menu clock differs.");
                 for (int room = 0; room < 256; room++)
-                    FailIf(_saveData.GetRoomFlags(1,room) != rom[0xc800+room],context + $": room flag${room:x2} differs.");
+                    FailIf(_saveData.GetRoomFlags(1,room) != rom[0xc800+room],$"{context}: room flag${room:x2} differs.");
                 var keys = _entities.Entities<OverworldKeyUseEffect>();
                 var slots = Enumerable.Range(0xd2,14).Select(page => (page << 8) | 0x40)
                     .Where(slot => rom[slot] != 0 && rom[slot+1] == 0x18).ToArray();

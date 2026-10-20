@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
                         _player.KnockbackFrames != rom[0xd02d] || _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) ||
                         _player.HealthQuarters != rom[0xc6aa] ||
                         (_player.PendingContactDamageRaw & 0xff) != rom[0xd025] || _player.NativeContactSignal != (rom[0xd02a] != 0),
-                        context + $": Link motion/air/contact counters/health/pending damage differ: runtime={_player.PrecisePosition}/{_player.ItemCreationZFixed:x4}/{_player.HealthQuarters}, native={rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}/{rom.Word(0xd00e):x4}/{rom[0xc6aa]}.");
+                        $"{context}: Link motion/air/contact counters/health/pending damage differ: runtime={_player.PrecisePosition}/{_player.ItemCreationZFixed:x4}/{_player.HealthQuarters}, native={rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}/{rom.Word(0xd00e):x4}/{rom[0xc6aa]}.");
                     if (shot is not null)
                     {
                         bool alive = rom[0xd0c0] != 0;

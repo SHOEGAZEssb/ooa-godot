@@ -78,7 +78,7 @@ public sealed partial class ValidationRoot
                     string context = $"Pushblock$4:$09 wrong-direction={wrongDirection}, Bracelet L{level}, batch={batched}, update={++update}";
                     bool active = rom[0xd140] != 0 && rom[0xd141] == 0x14;
                     FailIf(_pushBlocks.Active != active || _pushBlocks.RemainingPushFrames != rom[0xcc6a],
-                        context + $": allocation/push clock runtime={_pushBlocks.Active}/{_pushBlocks.RemainingPushFrames}, native={active}/{rom[0xcc6a]}.");
+                        $"{context}: allocation/push clock runtime={_pushBlocks.Active}/{_pushBlocks.RemainingPushFrames}, native={active}/{rom[0xcc6a]}.");
                     if (active)
                         FailIf(_pushBlocks.ActiveTile != rom[0xd171] || _pushBlocks.PushAngle != (rom[0xd149] & 31) ||
                             _pushBlocks.BlockTopLeft + new Vector2(8, 6) !=

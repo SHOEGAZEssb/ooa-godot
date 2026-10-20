@@ -157,7 +157,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateDialogueChoicesRom()
     {
-        string prompt = new NpcDatabase().GetRoomNpcs(3, 0xf7).Single(record => record.SubId == 0).Message;
+        string prompt = NpcDatabase.Shared.GetRoomNpcs(3, 0xf7).Single(record => record.SubId == 0).Message;
         // Independent source text for two-row option layouts: text/ages/text.yaml.
         (int Id, string Text)[] cases =
         [

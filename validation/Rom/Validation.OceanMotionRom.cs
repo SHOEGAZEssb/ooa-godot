@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
                 rom=new SomariaRom(_saveData,_random.CaptureState(),_currentRoom,0,(int)_player.Position.X,(int)_player.Position.Y);
                 // initializeGame copies the file header into live wIsLinkedGame.
                 rom[0xcc01]=_saveData.IsLinkedGame?(byte)1:(byte)0;
-                var records=new NpcDatabase().GetRoomNpcs(_rooms.ActiveGroup,_currentRoom.Id);
+                var records=NpcDatabase.Shared.GetRoomNpcs(_rooms.ActiveGroup,_currentRoom.Id);
                 for(int index=0;index<records.Count;index++)
                 {
                     var record=records[index];int slot=0xd240+index*0x100;

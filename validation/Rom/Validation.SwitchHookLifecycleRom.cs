@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
                     FailIf(_player.NativeItemUseActive != (rom[0xcc5f] != 0),context + ": wLinkUsingItem1 must survive child deletion until the parent clears.");
                     FailIf((hook is { Finished: false }) != nativeActive ||
                         _player.IsUsingSwitchHook != (rom[0xd200] != 0 && rom[0xd201] == 0x0a),
-                        context + $": reserved weapon/parent deletion or release differs: runtime={hook?.State}/{hook?.Substate}/{hook?.ZHigh}/finished={hook?.Finished}/parent={_player.IsUsingSwitchHook}, native=${rom[0xd604]:x2}/${rom[0xd605]:x2}/${rom[0xd60f]:x2}/enabled={rom[0xd600]}/parent={rom[0xd200]}.");
+                        $"{context}: reserved weapon/parent deletion or release differs: runtime={hook?.State}/{hook?.Substate}/{hook?.ZHigh}/finished={hook?.Finished}/parent={_player.IsUsingSwitchHook}, native=${rom[0xd604]:x2}/${rom[0xd605]:x2}/${rom[0xd60f]:x2}/enabled={rom[0xd600]}/parent={rom[0xd200]}.");
                     if (underwater && _player.IsUsingSwitchHook)
                         FailIf(rom[0xd032] != 0xc0 + CarriedObjectMotion.DirectionIndex(_player.FacingVector),
                             context + ": underwater mode$2e must retain the source $c0-$c3 hook pose.");
@@ -98,7 +98,7 @@ public sealed partial class ValidationRoot
                             hook.PrecisePosition != new Vector2(rom.Word(0xd60c) / 256.0f, rom.Word(0xd60a) / 256.0f) ||
                             hook.Visible != ((rom[0xd61a] & 0x80) != 0) ||
                             hook.CollisionEnabled != ((rom[0xd624] & 0x80) != 0),
-                            context + $": hook state/count/XY differs: runtime={hook.State}/{hook.Substate}/{hook.Counter}/{hook.PrecisePosition}, native={rom[0xd604]}/{rom[0xd605]}/{rom[0xd606]}/{rom.Word(0xd60c) / 256.0f},{rom.Word(0xd60a) / 256.0f}.");
+                            $"{context}: hook state/count/XY differs: runtime={hook.State}/{hook.Substate}/{hook.Counter}/{hook.PrecisePosition}, native={rom[0xd604]}/{rom[0xd605]}/{rom[0xd606]}/{rom.Word(0xd60c) / 256.0f},{rom.Word(0xd60a) / 256.0f}.");
                         var animation = (EnemyAnimationPlayer)typeof(SwitchHookItem).GetField("_animation", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(hook)!;
                         // itemMimicBgTile replaces the hook animation with a
                         // static tile sprite. The port's tile texture owns
@@ -114,7 +114,7 @@ public sealed partial class ValidationRoot
                         FailIf((z & 0xffff) != rom.Word(0xd00e) ||
                             _entities.SwitchHook.ExchangeState != rom[0xccdd] ||
                             _entities.PlayerMenusDisabled != (rom[0xcbca] != 0),
-                            context + $": exchange Link Z/state/menu lock differs: runtime={z}/{_entities.SwitchHook.ExchangeState}/{_entities.PlayerMenusDisabled}, native={rom.Word(0xd00e)}/${rom[0xccdd]:x2}/${rom[0xcbca]:x2}.");
+                            $"{context}: exchange Link Z/state/menu lock differs: runtime={z}/{_entities.SwitchHook.ExchangeState}/{_entities.PlayerMenusDisabled}, native={rom.Word(0xd00e)}/${rom[0xccdd]:x2}/${rom[0xcbca]:x2}.");
                         FailIf(_player.TopDownSwimmingState != (rom[0xcc5d] & 15),
                             context + ": exchange landing swimming handoff differs.");
                         if (hook is { Finished: false, State: 3, Substate: 1 } && liftStarted < 0) liftStarted = update;
@@ -142,13 +142,13 @@ public sealed partial class ValidationRoot
                             Vector2 point = new(x * 16 + 8, y * 16 + 8); int packed = y * 16 + x;
                             FailIf(_currentRoom.GetMetatile(point) != rom[0xcf00 + packed] ||
                                 _currentRoom.GetTerrainInfo(point).Collision != rom[0xce00 + packed],
-                                context + $": exchanged tile/collision differs at ${packed:x2}.");
+                                $"{context}: exchanged tile/collision differs at ${packed:x2}.");
                         }
                     }
                     int[] chains = Enumerable.Range(0xd7, 5).Select(page => page << 8)
                         .Where(slot => rom[slot] != 0 && rom[slot + 1] == 0x0b).ToArray();
                     FailIf((hook?.ChainAllocated == true) != (chains.Length == 1),
-                        context + $": chain allocation differs: runtime={hook?.ChainAllocated}, native={chains.Length}, slot $d7=${rom[0xd700]:x2}/${rom[0xd701]:x2}.");
+                        $"{context}: chain allocation differs: runtime={hook?.ChainAllocated}, native={chains.Length}, slot $d7=${rom[0xd700]:x2}/${rom[0xd701]:x2}.");
                     if (chains.Length == 1)
                     {
                         int chain = chains[0];

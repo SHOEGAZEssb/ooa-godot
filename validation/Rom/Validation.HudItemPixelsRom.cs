@@ -140,7 +140,7 @@ public sealed partial class ValidationRoot
             int observed = (pixels[pixel] * 31 + 127) / 255 |
                 ((pixels[pixel + 1] * 31 + 127) / 255) << 5 |
                 ((pixels[pixel + 2] * 31 + 127) / 255) << 10;
-            if (observed != expected) FailIf(true, context + $": pixel ({x},{y}) runtime=${observed:x4}, native=${expected:x4}, BG tile=${bgTile:x2}/attr=${attribute:x2}/shade={bgShade}, B=${rom[0xc688]:x2}/treasure=${rom[0xcbea]:x2}/mode=${rom[0xcbee]:x2}/seed=${rom[0xc6c4]:x2}, A=${rom[0xc689]:x2}/treasure=${rom[0xcbef]:x2}/mode=${rom[0xcbf3]:x2}.");
+            if (observed != expected) FailIf(true, $"{context}: pixel ({x},{y}) runtime=${observed:x4}, native=${expected:x4}, BG tile=${bgTile:x2}/attr=${attribute:x2}/shade={bgShade}, B=${rom[0xc688]:x2}/treasure=${rom[0xcbea]:x2}/mode=${rom[0xcbee]:x2}/seed=${rom[0xc6c4]:x2}, A=${rom[0xc689]:x2}/treasure=${rom[0xcbef]:x2}/mode=${rom[0xcbf3]:x2}.");
         }
     }
 }

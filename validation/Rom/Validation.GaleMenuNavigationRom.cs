@@ -59,11 +59,11 @@ public sealed partial class ValidationRoot
                         context + ": menu ownership leaked gameplay input.");
                     FailIf(_mapMenu.GaleState != rom[0xcbcd] || _mapScreen.CursorRoom != rom[0xcbb6] ||
                         _mapScreen.PopupSize != rom[0xcbbd] || _mapScreen.PopupPrimary != rom[0xcbbe] ||
-                        _mapScreen.PopupAlternate != rom[0xcbc0], context + $": cursor/popup runtime={_mapMenu.GaleState}/${_mapScreen.CursorRoom:x2}/{_mapScreen.PopupSize}/{_mapScreen.PopupPrimary}/{_mapScreen.PopupAlternate}, native={rom[0xcbcd]}/${rom[0xcbb6]:x2}/{rom[0xcbbd]}/{rom[0xcbbe]}/{rom[0xcbc0]}.");
+                        _mapScreen.PopupAlternate != rom[0xcbc0], $"{context}: cursor/popup runtime={_mapMenu.GaleState}/${_mapScreen.CursorRoom:x2}/{_mapScreen.PopupSize}/{_mapScreen.PopupPrimary}/{_mapScreen.PopupAlternate}, native={rom[0xcbcd]}/${rom[0xcbb6]:x2}/{rom[0xcbbd]}/{rom[0xcbbe]}/{rom[0xcbc0]}.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), context + ": native navigation sounds differ.");
-                    if (compareOam) CompareMapMenuOamRom(rom, context + $" batch={batched}");
+                    if (compareOam) CompareMapMenuOamRom(rom, $"{context} batch={batched}");
                     if (compareFramePixels) CompareMapFramePixelsRom(rom, ref lastFrameBackground, ref lastFrameCommands,
-                        context + $" frame batch={batched}");
+                        $"{context} frame batch={batched}");
                 });
             }
             Step(55);

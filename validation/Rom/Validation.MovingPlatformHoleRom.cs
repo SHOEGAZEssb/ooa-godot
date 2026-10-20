@@ -40,7 +40,7 @@ public partial class ValidationRoot
                     _player.HealthQuarters != rom[0xc6aa] || _player.NativeNormalStateForInteraction != (rom[0xd004] == 1) ||
                     platform.LinkRiding != (rom[0xcc96] == 0xd2) || _entities.PlayerRidingObject != (rom[0xcc96] != 0) ||
                     platform.PrecisePosition != new Vector2(rom.Word(0xd24c)/256f,rom.Word(0xd24a)/256f) || platform.Counter != rom[0xd246],
-                    context+$": Link={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, before={observed}/{nativeBefore}, platform={platform.PrecisePosition}/{rom.Word(0xd24c)/256f},{rom.Word(0xd24a)/256f}, state={rom[0xd004]:x2}, support={platform.LinkRiding}/{rom[0xcc96]:x2}, hole={_player.IsPullingIntoHole}:{SomariaPrivate<int>(_player,"_holePullCounter")}/{rom[0xcc9b]}.");
+                    $"{context}: Link={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, before={observed}/{nativeBefore}, platform={platform.PrecisePosition}/{rom.Word(0xd24c)/256f},{rom.Word(0xd24a)/256f}, state={rom[0xd004]:x2}, support={platform.LinkRiding}/{rom[0xcc96]:x2}, hole={_player.IsPullingIntoHole}:{SomariaPrivate<int>(_player,"_holePullCounter")}/{rom[0xcc9b]}.");
                 if (_player.IsPullingIntoHole) FailIf(SomariaPrivate<int>(_player,"_holePullCounter") != rom[0xcc9b],context+": native partial hole-pull counter differs.");
                 var random = _random.CaptureState();
                 FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls ||

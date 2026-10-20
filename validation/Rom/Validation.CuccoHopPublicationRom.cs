@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,104));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(WramAddress.wScrollMode,0);
-            var data=new EnemyDatabase();var resources=new RoomEntityResources(_rooms);var actor=new CuccoCharacter();
+            var data=EnemyDatabase.Shared;var resources=new RoomEntityResources(_rooms);var actor=new CuccoCharacter();
             Vector2 initial=angle<8?new(8,8):new(80,64);
             actor.Initialize(data.ImportedEnemy(0x36),data.ImportedEnemy(0x3b),_currentRoom,initial,_random,
                 resources.Bracelet.Data,resources.Bomb.Data,_sound.PlaySound,_=>{},(_,_,_,_)=>{});

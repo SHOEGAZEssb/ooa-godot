@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
         // runMapMenu clears all slots; only ring/inventory reserve HUD OAM.
         int nativeCount = rom[0xff9f] / 4;
         FailIf(sprites.Count != nativeCount,
-            context + $": map OAM count differs: runtime={sprites.Count}, native={nativeCount}.");
+            $"{context}: map OAM count differs: runtime={sprites.Count}, native={nativeCount}.");
         for (int index = 0; index < sprites.Count; index++)
         {
             object sprite = sprites[sprites.Count - 1 - index]!;
@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
             int address = 0xcb00 + index * 4;
             FailIf(y != rom[address] || x != rom[address + 1] || tile != rom[address + 2] ||
                 attributes != rom[address + 3],
-                context + $": map OAM part {index}: runtime=${y:x2}/${x:x2}/${tile:x2}/${attributes:x2}, native=${rom[address]:x2}/${rom[address + 1]:x2}/${rom[address + 2]:x2}/${rom[address + 3]:x2}.");
+                $"{context}: map OAM part {index}: runtime=${y:x2}/${x:x2}/${tile:x2}/${attributes:x2}, native=${rom[address]:x2}/${rom[address + 1]:x2}/${rom[address + 2]:x2}/${rom[address + 3]:x2}.");
         }
     }
 }

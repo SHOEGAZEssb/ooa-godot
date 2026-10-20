@@ -57,10 +57,10 @@ public sealed partial class ValidationRoot
                             FailIf(fairy.State != native[0xd0c4] || fairy.Counter != native[0xd0c6] ||
                                 fairy.Health != native[0xd0e9] || fairy.CollisionZ != unchecked((sbyte)native[0xd0cf]) ||
                                 fairy.PrecisePosition != new Vector2(native.Word(0xd0cc) / 256f, native.Word(0xd0ca) / 256f),
-                                context + $": state/health/XY/Z differs (runtime={fairy.State}/{fairy.Health}/{fairy.PrecisePosition}/z{fairy.CollisionZ}; native={native[0xd0c4]}/{native[0xd0e9]}/{native.Word(0xd0cc)/256f},{native.Word(0xd0ca)/256f}/z{unchecked((sbyte)native[0xd0cf])}).");
+                                $"{context}: state/health/XY/Z differs (runtime={fairy.State}/{fairy.Health}/{fairy.PrecisePosition}/z{fairy.CollisionZ}; native={native[0xd0c4]}/{native[0xd0e9]}/{native.Word(0xd0cc)/256f},{native.Word(0xd0ca)/256f}/z{unchecked((sbyte)native[0xd0cf])}).");
                         foreach (int address in new[] { WramAddress.wLinkHealth, WramAddress.wLinkMaxHealth,
                             WramAddress.wGashaMaturity, WramAddress.wGashaMaturity + 1, 0xc69f })
-                            FailIf(_saveData.ReadWramByte(address) != native[address], context + $": treasure byte ${address:x4} differs.");
+                            FailIf(_saveData.ReadWramByte(address) != native[address], $"{context}: treasure byte ${address:x4} differs.");
                         var rng = _random.CaptureState();
                         FailIf(rng.Rng1 != native[0xff94] || rng.Rng2 != native[0xff95], context + ": RNG differs.");
                         if (!fairy.Finished && fairy.State == 2) attached = true;

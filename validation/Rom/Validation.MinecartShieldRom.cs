@@ -64,9 +64,9 @@ public sealed partial class ValidationRoot
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
                         Private<int>("_shieldParentButton") != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
                         Private<bool>("_shieldParentInitialized") != (rom[0xd504] != 0),
-                        context + $": Shield parent/raised state differs: runtime={_player.IsUsingShield}/{Private<int>("_shieldParentButton")}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}.");
+                        $"{context}: Shield parent/raised state differs: runtime={_player.IsUsingShield}/{Private<int>("_shieldParentButton")}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}.");
                     for (int address = 0xcd80; address < 0xcdc0; address++)
-                        FailIf(_runtimeState.ReadWramByte(address) != rom[address], context + $": static byte ${address:x4} differs.");
+                        FailIf(_runtimeState.ReadWramByte(address) != rom[address], $"{context}: static byte ${address:x4} differs.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds), context + ": sounds differ.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||

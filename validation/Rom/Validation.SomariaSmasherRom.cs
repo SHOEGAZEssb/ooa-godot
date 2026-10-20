@@ -13,7 +13,7 @@ public partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             LoadValidationRoom(4, 0xb4); _entities.Clear();
-            var db = new EnemyDatabase(); var random = new OracleRandom();
+            var db = EnemyDatabase.Shared; var random = new OracleRandom();
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
             var world = new SmasherRoomEnvironment(_ => parent, () => { }, () => { },
                 () => true, () => true, () => { }, () => { }, _ => { }, 1, true);

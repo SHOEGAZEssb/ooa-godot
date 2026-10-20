@@ -58,7 +58,7 @@ public partial class ValidationRoot
                     _player.PrecisePosition != new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f) ||
                     _player.HealthQuarters != rom[0xc6aa] ||
                     !sounds.Requests.Where(cue=>cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                    context+$": phase={phase}, pointer=${rom.Word(0xd258):x4}/${scriptStart+offset:x4}, counter={SomariaPrivate<int>(spawner,"_counter")}/{rom[0xd246]}, deleted={spawner.Finished}/{rom[0xd240]:x2}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
+                    $"{context}: phase={phase}, pointer=${rom.Word(0xd258):x4}/${scriptStart+offset:x4}, counter={SomariaPrivate<int>(spawner,"_counter")}/{rom[0xd246]}, deleted={spawner.Finished}/{rom[0xd240]:x2}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
                 var puffs = _entities.Entities<PuzzlePuffEffect>();
                 int[] nativePuffs = Enumerable.Range(0xd2,14).Select(page=>page*256+0x40)
                     .Where(address=>rom[address] != 0 && rom[address+1] == 5).ToArray();

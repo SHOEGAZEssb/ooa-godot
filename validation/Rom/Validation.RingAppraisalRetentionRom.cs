@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
                     FailIf(_ringMenuScreen.PageCount != rom[0xcbb5] || _ringMenuScreen.RequestedPage != rom[0xcbb6],
                         $"{context} update={update}: retained page/count differs, runtime={_ringMenuScreen.RequestedPage}/{_ringMenuScreen.PageCount}, native={rom[0xcbb6]}/{rom[0xcbb5]}.");
                     if (_ringMenuScreen.Visible)
-                        CompareRingFramePixelsRom(rom, RingMenuMode.Appraisal, context + $" update={update}");
+                        CompareRingFramePixelsRom(rom, RingMenuMode.Appraisal, $"{context} update={update}");
                 });
             }
             Step(60);
@@ -60,7 +60,7 @@ public sealed partial class ValidationRoot
                 for (int limit = 0; limit < 500 && !_inventory.HasAppraisedRing(selectedRing); limit++)
                 { Step(1, 1); Step(); }
                 FailIf(!_inventory.HasAppraisedRing(selectedRing) || rom[0xc5c0 + selected + removal] != 0xff,
-                    context + $": appraisal failed to remove entry ${selected + removal:x2}.");
+                    $"{context}: appraisal failed to remove entry ${selected + removal:x2}.");
                 // State 3 leaves a hole. State 4 publishes BCD after its
                 // result delay, without changing cursor or page capacity.
                 for (int limit = 0; limit < 500 && rom[0xcbce] != 0; limit++) { Step(1, 1); Step(); }

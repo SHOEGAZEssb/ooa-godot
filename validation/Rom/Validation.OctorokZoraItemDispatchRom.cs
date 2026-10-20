@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             else
             {
                 _entities.Clear();
-                var database = new EnemyDatabase();
+                var database = EnemyDatabase.Shared;
                 var source = new RoomObjectRecord(0, 0x33, 0, RoomObjectKind.FixedEnemy, 9, sub, 2, 1, 72, 112, 0x47, 0);
                 var adapter = new RoomEnemyFactory(_entities, database, new RoomEntityResources(_rooms), _rooms)
                     .CreateOrderedEnemy(database.EnemyHandlers.ResolveHandler(source), source, _currentRoom,
@@ -114,7 +114,7 @@ public sealed partial class ValidationRoot
                         FailIf(target.Health != native[0xd0a9] || target.InvincibilityCounter != unchecked((sbyte)native[0xd0ab]) ||
                             target.KnockbackCounter != native[0xd0ad] || target.KnockbackAngle != native[0xd0ac] ||
                             target.NativeHitPending != ((native[0xd0aa] & 0x80) != 0) || OctorokItemStun(target) != native[0xd0ae],
-                            context + $": contact status differs: HP={target.Health}/{native[0xd0a9]}, inv={target.InvincibilityCounter}/{unchecked((sbyte)native[0xd0ab])}, stun={OctorokItemStun(target)}/{native[0xd0ae]}, hit={target.NativeHitPending}/{native[0xd0aa]:x2}.");
+                            $"{context}: contact status differs: HP={target.Health}/{native[0xd0a9]}, inv={target.InvincibilityCounter}/{unchecked((sbyte)native[0xd0ab])}, stun={OctorokItemStun(target)}/{native[0xd0ae]}, hit={target.NativeHitPending}/{native[0xd0aa]:x2}.");
                     }
                     var items = _entities.Entities<BoomerangItem>();
                     var nativeItems = Enumerable.Range(0xd7, 5).Select(page => page << 8)

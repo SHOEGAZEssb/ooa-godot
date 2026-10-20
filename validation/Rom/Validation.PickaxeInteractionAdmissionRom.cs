@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(1, 0x48); _entities.Clear();
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(24, 112)); _player.BeginCutsceneControl();
-            var record = new NpcDatabase().GetRoomNpcs(1, 0x48).Single(row => row.Id == 0x57 && row.SubId == 0);
+            var record = NpcDatabase.Shared.GetRoomNpcs(1, 0x48).Single(row => row.Id == 0x57 && row.SubId == 0);
             var worker = NpcCharacter.CreateFromRecord(record); var data = new Room148PickaxeDatabase().Record;
             worker.SetScriptAnimation(data.WorkAnimation);
             var parent = new Room148PickaxeWorkerRoomEntity(worker, data, _sound.PlaySound);

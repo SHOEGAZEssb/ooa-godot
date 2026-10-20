@@ -349,9 +349,9 @@ public partial class GameRoot : Node2D
             _ = TopDownSwimmingDatabase.Shared;
             _ = EnemyBehaviorTables.Shared;
             _ = FrontendIntroDatabase.Shared;
-            _ = new NpcDatabase();
-            _ = new EnemyDatabase();
-            _ = new TreasureDatabase();
+            _ = NpcDatabase.Shared;
+            _ = EnemyDatabase.Shared;
+            _ = TreasureDatabase.Shared;
             _ = new WarpDatabase();
             return new PreparedBootData(images, new RoomSessionResources());
         }, cancellation);
@@ -526,7 +526,7 @@ public partial class GameRoot : Node2D
             _animationTicks = debugSavestate.AnimationTicks;
         _random ??= new OracleRandom();
         _runtimeState = new OracleRuntimeState();
-        _treasures = new TreasureDatabase();
+        _treasures = TreasureDatabase.Shared;
         yield return false;
         bool useDebugSavestate = debugSavestate is not null;
         bool useSavedSpawn = !useDebugSavestate && (forceDeathRespawn ||
@@ -1148,10 +1148,10 @@ public partial class GameRoot : Node2D
     private IEnumerable<bool> CreateControllersSteps()
     {
         var timePortals = new TimePortalDatabase();
-        var enemies = new EnemyDatabase();
+        var enemies = EnemyDatabase.Shared;
         yield return false;
         _entities = new RoomEntityManager(
-            _scene.WorldRoot, new NpcDatabase(), enemies,
+            _scene.WorldRoot, NpcDatabase.Shared, enemies,
             new ItemDropDatabase(), timePortals, _random, _saveData,
             runtimeState: _runtimeState,
             inventory: _inventory,

@@ -14,6 +14,13 @@ the loading animation begins, then its presentation resources are built in
 small main-thread steps. No gameplay node enters the tree or binds a save until
 file selection. Cancellation frees the detached hierarchy.
 
+Parsed NPC, enemy and treasure definitions are shared read-only source data,
+initialized once on first use and retained across sessions. Their record,
+animation and palette arrays must not be modified by consumers. Session
+replacement still creates fresh saves, inventory, RNG, worlds, mutable room
+layouts, entity managers and event controllers; source tables never bind to
+those live owners.
+
 Boot resource steps share a soft 3 ms work budget per host frame. Small steps
 can finish together; asset count must not impose one rendered frame per asset.
 The budget is checked between operations, so an individual resource load can

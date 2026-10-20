@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
                     update++;
                     string context = $"Minecart track dir={row.Direction}, tile=${row.Tile:x2}, next=${next:x2}, update={update}, batch={batched}";
                     FailIf(soundPosition is { } soundAt && soundAt != before,
-                        context + $": SND_MINECART must precede motion, at {before}, got {soundPosition}.");
+                        $"{context}: SND_MINECART must precede motion, at {before}, got {soundPosition}.");
                     soundPosition = null;
                     if (rom[0xcba0] == 0)
                         FailIf(!observedVelocity.SequenceEqual(expectedVelocity), context + ": shared cart velocity differs.");
@@ -92,7 +92,7 @@ public sealed partial class ValidationRoot
                     Vector2 nativeLink = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(cart.Position != nativeCart || cart.Direction != rom[0xd108] || cart.Angle != rom[0xd109] ||
                         _player.PrecisePosition != nativeLink || !_player.MinecartRideActive,
-                        context + $": cart/rider motion differs: cart={cart.Position}/{nativeCart}, dir={cart.Direction}/{rom[0xd108]}, Link={_player.PrecisePosition}/{nativeLink}.");
+                        $"{context}: cart/rider motion differs: cart={cart.Position}/{nativeCart}, dir={cart.Direction}/{rom[0xd108]}, Link={_player.PrecisePosition}/{nativeLink}.");
                     if (update == 1)
                     {
                         int expected = row.Allowed.Contains(next) ? row.Exit : row.Direction ^ 2;

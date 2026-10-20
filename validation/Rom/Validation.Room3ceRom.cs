@@ -49,7 +49,7 @@ public sealed partial class ValidationRoot
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                         _dialogue.IsOpen != rom.Active || npc.FacingVector != OracleObjectMath.StrictCardinalVector(rom[address + 9]) ||
                         SomariaPrivate<double>(npc, "_faceCooldownFrames") != rom[address + 0x2b],
-                        context + $": XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; " +
+                        $"{context}: XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; " +
                         $"text={_dialogue.IsOpen}/{rom.Active}, facing={npc.FacingVector}/${rom[address+9]:x2}, " +
                         $"turn counter={SomariaPrivate<double>(npc, "_faceCooldownFrames")}/{rom[address+0x2b]}.");
                     if (rom.Active && rom.State != 0x10) CompareDialogueLineRom(rom, context);

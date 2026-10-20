@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             Vector2 start=!atBoundary?new(80,80):angle switch
             {0=>new(80,3),8=>new(_currentRoom.Width-6,64),16=>new(80,_currentRoom.Height-6),_=>new(5,64)};
             if(fractional)start+=new Vector2(.25f,.75f);
-            var data=new EnemyDatabase();var actor=new GhiniCharacter();actor.Initialize(data.ImportedEnemy(0x17,0),_currentRoom,start,_random);
+            var data=EnemyDatabase.Shared;var actor=new GhiniCharacter();actor.Initialize(data.ImportedEnemy(0x17,0),_currentRoom,start,_random);
             var source=data.EnemyHandlers.ResolveHandler(0x17,0,"ghini.s:subid00")
                 .CombatSource(0,0,"ghini.s:subid00");
             var adapter=new GhiniRoomEntity(actor,source,_sound.PlaySound);

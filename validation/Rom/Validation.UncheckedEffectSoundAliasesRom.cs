@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private TingleRoomEntity PrepareTingleAliasHit(bool batched)
     {
         ReinitializeGameplayForValidation(); LoadValidationRoom(0, 0x79); _entities.Clear();
-        var actor = new TingleRoomEntity(new NpcDatabase().GetRoomNpcs(0, 0x79).Single(row => row.Id == 0xc8), new TingleDatabase(), _inventory);
+        var actor = new TingleRoomEntity(NpcDatabase.Shared.GetRoomNpcs(0, 0x79).Single(row => row.Id == 0xc8), new TingleDatabase(), _inventory);
         _entities.AddEntity(actor);
         _inventory.GiveTreasure(TreasureId.Feather, 1); _inventory.GiveTreasure(TreasureId.Sword, 1);
         _inventory.SetScriptedEquippedItems(equippedB: TreasureId.Feather, equippedA: TreasureId.Sword);

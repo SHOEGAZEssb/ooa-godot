@@ -103,7 +103,7 @@ public sealed partial class ValidationRoot
                         FailIf(rom[child + 4] != 1 || rom[child + 6] != _shovel.ChildCounter ||
                             new Vector2(rom.Word(child + 0x0c) / 256.0f, rom.Word(child + 0x0a) / 256.0f) !=
                                 _shovel.ChildPosition,
-                            context + $": shovel child state/counter/full fixed offset differs: runtime={_shovel.ChildCounter}/{_shovel.ChildPosition}, native={rom[child + 4]}/{rom[child + 6]}/{rom.Word(child + 0x0c) / 256f},{rom.Word(child + 0x0a) / 256f}.");
+                            $"{context}: shovel child state/counter/full fixed offset differs: runtime={_shovel.ChildCounter}/{_shovel.ChildPosition}, native={rom[child + 4]}/{rom[child + 6]}/{rom.Word(child + 0x0c) / 256f},{rom.Word(child + 0x0a) / 256f}.");
                     }
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f) ||
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008],
@@ -136,18 +136,18 @@ public sealed partial class ValidationRoot
                         var rewards = _entities.Entities<ItemDropEffect>();
                         int[] parts = Enumerable.Range(0xd0, 16).Select(page => page * 256 + 0xc0)
                             .Where(slot => rom[slot] != 0 && rom[slot + 1] == 1).ToArray();
-                        FailIf(rewards.Count != parts.Length, context + $": digging PART$01 deletion differs: runtime={rewards.Count}, native={parts.Length}, Link={_player.PrecisePosition}, nativeLink={rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}, grants={_saveData.ReadWramByte(0xc627)}/{rom[0xc627]}, rewards={string.Join(';', rewards.Select(reward => $"{reward.PrecisePosition}/{reward.State}/{reward.CollisionEnabled}"))}.");
+                        FailIf(rewards.Count != parts.Length, $"{context}: digging PART$01 deletion differs: runtime={rewards.Count}, native={parts.Length}, Link={_player.PrecisePosition}, nativeLink={rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}, grants={_saveData.ReadWramByte(0xc627)}/{rom[0xc627]}, rewards={string.Join(';', rewards.Select(reward => $"{reward.PrecisePosition}/{reward.State}/{reward.CollisionEnabled}"))}.");
                         for (int index = 0; index < rewards.Count; index++)
                         {
                             var reward = rewards[index]; int part = parts[index];
                             FailIf(reward.SubId != rom[part + 2] || (int)reward.State != rom[part + 4] || reward.Counter != rom[part + 6] ||
                                 reward.PrecisePosition != new Vector2(rom.Word(part + 0x0c) / 256f, rom.Word(part + 0x0a) / 256f) ||
                                 (reward.ZFixed & 0xffff) != rom.Word(part + 0x0e) || (reward.SpeedZ & 0xffff) != rom.Word(part + 0x14) ||
-                                reward.CollisionEnabled != ((rom[part + 0x24] & 0x80) != 0), context + $": digging drop runtime={reward.SubId}/{reward.State}/{reward.Counter}/{reward.PrecisePosition}/z{reward.ZFixed}/vz{reward.SpeedZ}/c{reward.CollisionEnabled}, native={rom[part + 2]}/{rom[part + 4]}/{rom[part + 6]}/{rom.Word(part + 0x0c) / 256f},{rom.Word(part + 0x0a) / 256f}/z{rom.Word(part + 0x0e)}/vz{rom.Word(part + 0x14)}/c{rom[part + 0x24]:x2}.");
+                                reward.CollisionEnabled != ((rom[part + 0x24] & 0x80) != 0), $"{context}: digging drop runtime={reward.SubId}/{reward.State}/{reward.Counter}/{reward.PrecisePosition}/z{reward.ZFixed}/vz{reward.SpeedZ}/c{reward.CollisionEnabled}, native={rom[part + 2]}/{rom[part + 4]}/{rom[part + 6]}/{rom.Word(part + 0x0c) / 256f},{rom.Word(part + 0x0a) / 256f}/z{rom.Word(part + 0x0e)}/vz{rom.Word(part + 0x14)}/c{rom[part + 0x24]:x2}.");
                             if (reward.SubId == expectedDrop) dropsObserved++;
                         }
                         foreach (int address in new[] { 0xc627, 0xc628, 0xc6aa, 0xc6b0, 0xc6b9, 0xc6ba, 0xc6bb, 0xc6bc, 0xc6bd })
-                            FailIf(_saveData.ReadWramByte(address) != rom[address], context + $": reward save byte ${address:x4} differs.");
+                            FailIf(_saveData.ReadWramByte(address) != rom[address], $"{context}: reward save byte ${address:x4} differs.");
                     }
                     int[] debris = Enumerable.Range(0xd0, 16).Select(page => page * 256 + 0x40)
                         .Where(slot => rom[slot] != 0 && rom[slot + 1] == 0x0a).ToArray();
@@ -158,7 +158,7 @@ public sealed partial class ValidationRoot
                         var chip = chips[index]; int slot = debris[index];
                         FailIf(chip.PrecisePosition != new Vector2(rom.Word(slot + 0x0c) / 256.0f, rom.Word(slot + 0x0a) / 256.0f) ||
                             (chip.ZFixed & 0xffff) != rom.Word(slot + 0x0e) || (chip.SpeedZ & 0xffff) != rom.Word(slot + 0x14),
-                            context + $": shovel debris fixed XYZ/speedZ differs: runtime={chip.PrecisePosition}/{chip.ZFixed}/{chip.SpeedZ}, native={rom.Word(slot + 0x0c) / 256.0f},{rom.Word(slot + 0x0a) / 256.0f}/{rom.Word(slot + 0x0e)}/{rom.Word(slot + 0x14)}.");
+                            $"{context}: shovel debris fixed XYZ/speedZ differs: runtime={chip.PrecisePosition}/{chip.ZFixed}/{chip.SpeedZ}, native={rom.Word(slot + 0x0c) / 256.0f},{rom.Word(slot + 0x0a) / 256.0f}/{rom.Word(slot + 0x0e)}/{rom.Word(slot + 0x14)}.");
                     }
                 });
             }

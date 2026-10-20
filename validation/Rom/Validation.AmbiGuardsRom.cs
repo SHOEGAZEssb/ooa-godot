@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateAmbiGuardsRom()
     {
-        var database = new EnemyDatabase();
+        var database = EnemyDatabase.Shared;
         var rooms = (from groupId in new[] { 1, 5 } from room in Enumerable.Range(0, 256)
             where database.GetRoomObjects(groupId, room).Any(row => row.Id == 0x54)
             select (groupId, room)).ToArray();

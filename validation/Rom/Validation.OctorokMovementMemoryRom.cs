@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
                     FailIf(!Enumerable.Range(0, 4).All(i => native[0xcec0 + i] == expected[i]),
                         context + ": native scratch disagrees with the source-derived movement/no-movement boundary.");
                     FailIf(!Enumerable.Range(0, 4).All(i => observed[i] == native[0xcec0 + i]),
-                        context + $": live movement memory differs: runtime={string.Join(' ', observed.Select(b => b.ToString("x2")))}, native={string.Join(' ', expected.Select(b => b.ToString("x2")))}.");
+                        $"{context}: live movement memory differs: runtime={string.Join(' ', observed.Select(b => b.ToString("x2")))}, native={string.Join(' ', expected.Select(b => b.ToString("x2")))}.");
                     bool finished = native[part] == 0;
                     FailIf(cancelled ? _entities.Entities<OctorokRockProjectile>().Count != 0 : rock.Finished != finished,
                         context + ": deletion/cancellation boundary differs.");

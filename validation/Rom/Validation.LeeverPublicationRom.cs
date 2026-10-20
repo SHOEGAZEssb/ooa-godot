@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(link);_player.Face(Vector2I.Up);
             _runtimeState.SetWramByte(0xcc8a,1);_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(WramAddress.wScrollMode,0);_entities.AddEntity(new ProjectileMotionContactSuppression());
-            var data=new EnemyDatabase();var actor=new LeeverCharacter();actor.Initialize(data.ImportedEnemy(0x0b,subid),_currentRoom,initial,_random);
+            var data=EnemyDatabase.Shared;var actor=new LeeverCharacter();actor.Initialize(data.ImportedEnemy(0x0b,subid),_currentRoom,initial,_random);
             F1Set(actor,"_state",scenario==4?LeeverState.Uninitialized:scenario==3?LeeverState.Emerging:LeeverState.Chasing);
             F1Set(actor,"_counter",scenario==4?0:scenario==2?1:18);
             F1Set(actor,"_angle",scenario==4?0:angle);F1Set(actor,"_collisionEnabled",scenario<3);F1Set(actor,"_emergenceComplete",scenario==3);

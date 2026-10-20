@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
                     rom.UpdateGameplay(edge, buttons, angle, _entities.FrameCounter); edge = 0;
                     string context = $"Pegasus competing ITEM${item:x2} selection=${selection:x2} A={primary} batch={batched} update={++update}";
                     FailIf(_seedSatchel.Pegasus.RawCounter != rom.Word(0xcc6c) || _inventory.PegasusSeeds != rom[0xc6bb],
-                        context + $": timer/ammo runtime=${_seedSatchel.Pegasus.RawCounter:x4}/${_inventory.PegasusSeeds:x2}, native=${rom.Word(0xcc6c):x4}/${rom[0xc6bb]:x2}, parents=${rom[0xd201]:x2}/${rom[0xd204]:x2},${rom[0xd301]:x2}/${rom[0xd304]:x2}.");
+                        $"{context}: timer/ammo runtime=${_seedSatchel.Pegasus.RawCounter:x4}/${_inventory.PegasusSeeds:x2}, native=${rom.Word(0xcc6c):x4}/${rom[0xc6bb]:x2}, parents=${rom[0xd201]:x2}/${rom[0xd204]:x2},${rom[0xd301]:x2}/${rom[0xd304]:x2}.");
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                         _player.IsUsingShield != (rom[0xcc6f] != 0), context + ": Link movement/facing/Shield differs.");
@@ -53,10 +53,10 @@ public sealed partial class ValidationRoot
                         FailIf(_player.IsUsingHarp != (rom[0xd500] != 0) || _harp.PlayingInstrument != rom[0xcc8d],
                             context + ": instrument parent/publication differs.");
                     if (!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds))
-                        FailIf(true, context + $": sounds runtime=[{string.Join(',', sounds.Requests.Where(cue => cue != SoundId.SndText).Select(cue => cue.ToString("x2")))}], native=[{string.Join(',', rom.Sounds.Select(cue => cue.ToString("x2")))}].");
+                        FailIf(true, $"{context}: sounds runtime=[{string.Join(',', sounds.Requests.Where(cue => cue != SoundId.SndText).Select(cue => cue.ToString("x2")))}], native=[{string.Join(',', rom.Sounds.Select(cue => cue.ToString("x2")))}].");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
-                        context + $": shared RNG runtime=${random.Rng1:x2}/${random.Rng2:x2}/{random.Calls - seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls} differs.");
+                        $"{context}: shared RNG runtime=${random.Rng1:x2}/${random.Rng2:x2}/{random.Calls - seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls} differs.");
                 });
             }
             void ReleaseParents()

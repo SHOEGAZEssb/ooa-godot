@@ -129,17 +129,17 @@ public sealed partial class ValidationRoot
                             (item.ZFixed & 0xffff) != rom.Word(slot + 0x0e) || (item.SpeedZ & 0xffff) != rom.Word(slot + 0x14) ||
                             item.NativeAngle != rom[slot + 9] || item.Visible != ((rom[slot + 0x1a] & 0x80) != 0) ||
                             item.CollisionEnabled != ((rom[slot + 0x24] & 0x80) != 0),
-                            context + $": seed state/full XY/Z/angle/collision differs: runtime={state}/{item.PrecisePosition}/{item.ZFixed}/{item.SpeedZ}/a{item.NativeAngle}/v{item.Visible}/c{item.CollisionEnabled}, native={rom[slot + 4]}/{rom.Word(slot + 0x0c) / 256.0f},{rom.Word(slot + 0x0a) / 256.0f}/{rom.Word(slot + 0x0e)}/{rom.Word(slot + 0x14)}/a{rom[slot + 9]}/v{rom[slot + 0x1a]:x2}/c{rom[slot + 0x24]:x2}.");
+                            $"{context}: seed state/full XY/Z/angle/collision differs: runtime={state}/{item.PrecisePosition}/{item.ZFixed}/{item.SpeedZ}/a{item.NativeAngle}/v{item.Visible}/c{item.CollisionEnabled}, native={rom[slot + 4]}/{rom.Word(slot + 0x0c) / 256.0f},{rom.Word(slot + 0x0a) / 256.0f}/{rom.Word(slot + 0x0e)}/{rom.Word(slot + 0x14)}/a{rom[slot + 9]}/v{rom[slot + 0x1a]:x2}/c{rom[slot + 0x24]:x2}.");
                         int counter = (int)typeof(EmberSeedEffect).GetField("_frameCounter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(item)!;
                         FailIf(counter != rom[slot + 0x20] || state > 1 && item.FlameCounter != rom[slot + 6] ||
                             item.SeedItem == 0x24 && item.MysteryEffect != rom[slot + 3],
-                            context + $": seed animation/effect differs: runtime=frame{counter}/life{item.FlameCounter}/mystery{item.MysteryEffect}, native=frame{rom[slot + 0x20]}/life{rom[slot + 6]}/mystery{rom[slot + 3]}/state{rom[slot + 4]}/hit{rom[slot + 0x2a]:x2}.");
+                            $"{context}: seed animation/effect differs: runtime=frame{counter}/life{item.FlameCounter}/mystery{item.MysteryEffect}, native=frame{rom[slot + 0x20]}/life{rom[slot + 6]}/mystery{rom[slot + 3]}/state{rom[slot + 4]}/hit{rom[slot + 0x2a]:x2}.");
                         if (gale && state == 2)
                             FailIf(item.GaleSubstate != rom[slot + 5] || item.GaleCounter2 != rom[slot + 7] || item.GalePalette != rom[slot + 0x1c] || item.GaleMenuRequested,
                                 context + ": indoor Gale substate/counter/palette or menu request differs.");
                     }
                     for (int address = 0xc6b9; address <= 0xc6bd; address++)
-                        FailIf(_saveData.ReadWramByte(address) != rom[address], context + $": BCD seed byte ${address:x4} differs.");
+                        FailIf(_saveData.ReadWramByte(address) != rom[address], $"{context}: BCD seed byte ${address:x4} differs.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
                         context + ": seed shared RNG differs.");

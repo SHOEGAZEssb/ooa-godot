@@ -71,16 +71,16 @@ public sealed partial class ValidationRoot
                         bead.Duration != rom[part+6] || bead.Initialized != (rom[part+4] != 0) ||
                         bead.Visible != ((rom[part+26]&0x80) != 0) ||
                         bead.PrecisePosition != new Vector2(rom.Word(part+12)/256f,rom.Word(part+10)/256f),
-                        context+$": native PART$53 slot${part:x4} motion, visibility or delay differs.");
+                        $"{context}: native PART$53 slot${part:x4} motion, visibility or delay differs.");
                 }
                 var precise=SomariaPrivate<Vector2>(essence,"_precisePosition");
                 FailIf(precise != new Vector2(rom.Word(s+12)/256f,rom.Word(s+10)/256f) ||
                     (SomariaPrivate<int>(essence,"_zFixed")&0xffff) != rom.Word(s+14) ||
                     _inventory.Essences != rom[WramAddress.wEssencesObtained] || _saveData.GetRoomFlags(5,0x37) != rom[0xca37] ||
                     essence.EssenceIndex != rom[s+3] || essence.Visible != ((rom[s+26]&0x80) != 0),
-                    context+$": source motion/collection/OAM differs: state={rom[s+4]}, XY={precise}/{rom.Word(s+12)/256f},{rom.Word(s+10)/256f}, Z={SomariaPrivate<int>(essence,"_zFixed")}/{unchecked((short)rom.Word(s+14))}, essences=${_inventory.Essences:x2}/${rom[WramAddress.wEssencesObtained]:x2}, flags=${_saveData.GetRoomFlags(5,0x37):x2}/${rom[0xca37]:x2}, visible={essence.Visible}/${rom[s+26]:x2}.");
+                    $"{context}: source motion/collection/OAM differs: state={rom[s+4]}, XY={precise}/{rom.Word(s+12)/256f},{rom.Word(s+10)/256f}, Z={SomariaPrivate<int>(essence,"_zFixed")}/{unchecked((short)rom.Word(s+14))}, essences=${_inventory.Essences:x2}/${rom[WramAddress.wEssencesObtained]:x2}, flags=${_saveData.GetRoomFlags(5,0x37):x2}/${rom[0xca37]:x2}, visible={essence.Visible}/${rom[s+26]:x2}.");
                 FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                    context+$": collection/script music or ordered cues differ: runtime=[{string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}], native=[{string.Join(',',rom.Sounds)}], state={rom[s+4]}.");
+                    $"{context}: collection/script music or ordered cues differ: runtime=[{string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}], native=[{string.Join(',',rom.Sounds)}], state={rom[s+4]}.");
             });
             for (int walk=0;!_dialogue.IsOpen && walk<240;walk++) Step(approach:true);
             FailIf(approachPublications == 0, "Essence approach must exercise the native state2 movement publication.");

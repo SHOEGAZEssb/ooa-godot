@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
         rom[0xff94] = seed.Rng1;
         rom[0xff95] = seed.Rng2;
         enemy = new ArrowMoblinCharacter();
-        enemy.Initialize(new EnemyDatabase().ImportedEnemy(0x0c, 0), _currentRoom, new(120.5f, 88.5f), _random);
+        enemy.Initialize(EnemyDatabase.Shared.ImportedEnemy(0x0c, 0), _currentRoom, new(120.5f, 88.5f), _random);
         var source = new EnemyCombatSourceDescriptor(0x0c, 0, 0x91, 0, 1,
             EnemyHandlerKind.ArrowMoblin, "moblinsAndShroudedStalfos.s:enemyCode0c");
         _entities.AddEntity(new ArrowMoblinRoomEntity(enemy, source, _sound.PlaySound));

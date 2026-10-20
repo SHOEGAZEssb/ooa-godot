@@ -32,7 +32,7 @@ public sealed partial class ValidationRoot
         FailIf((int)HeartRingDistanceField.GetValue(_player)! != native || _inventory.HealthQuarters != rom[0xc6aa] ||
             _saveData.ReadWramByte(0xc65f) != rom[0xc65f] || _saveData.ReadWramByte(0xc660) != rom[0xc660] ||
             _inventory.HasTreasure(TreasureId.HeartRefill) != ((rom[0xc69f] & 2) != 0),
-            context + $": Heart Ring counter/health/treasure/maturity differs, runtime=${(int)HeartRingDistanceField.GetValue(_player)!:x6}/${_inventory.HealthQuarters:x2}, native=${native:x6}/${rom[0xc6aa]:x2}.");
+            $"{context}: Heart Ring counter/health/treasure/maturity differs, runtime=${(int)HeartRingDistanceField.GetValue(_player)!:x6}/${_inventory.HealthQuarters:x2}, native=${native:x6}/${rom[0xc6aa]:x2}.");
     }
 
     private void AssertHeartRingVehicleRetained(SomariaRom rom, int ring, int health)
@@ -85,8 +85,7 @@ public sealed partial class ValidationRoot
                     FailIf(_player.CompanionRideActive != (rom[0xcc2c] == 0xd1) ||
                         _player.CompanionJumpActive != (rom[0xcc2c] == 0xd0 && rom[0xcc5c] != 0) ||
                         _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
-                        (ushort)(_player.CompanionRideActive ? _player.CompanionRideZFixed : _player.ItemCreationZFixed) != rom.Word(0xd00e), context +
-                        $": rider motion/air handoff differs: runtime={_player.CompanionRideActive}/{_player.CompanionJumpActive}/{_player.PrecisePosition}/z=${(ushort)_player.ItemCreationZFixed:x4}; native=${rom[0xcc2c]:x2}/${rom[0xcc5c]:x2}/{rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}/z=${rom.Word(0xd00e):x4}, companion XY={rom.Word(0xd10c) / 256f},{rom.Word(0xd10a) / 256f}.");
+                        (ushort)(_player.CompanionRideActive ? _player.CompanionRideZFixed : _player.ItemCreationZFixed) != rom.Word(0xd00e), $"{context}: rider motion/air handoff differs: runtime={_player.CompanionRideActive}/{_player.CompanionJumpActive}/{_player.PrecisePosition}/z=${(ushort)_player.ItemCreationZFixed:x4}; native=${rom[0xcc2c]:x2}/${rom[0xcc5c]:x2}/{rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}/z=${rom.Word(0xd00e):x4}, companion XY={rom.Word(0xd10c) / 256f},{rom.Word(0xd10a) / 256f}.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
                         !sounds.Requests.Where(cue => cue is not (SoundId.SndText or SoundId.SndGainHeart)).SequenceEqual(rom.Sounds),

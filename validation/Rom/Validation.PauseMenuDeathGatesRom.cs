@@ -55,13 +55,13 @@ public sealed partial class ValidationRoot
                     FailIf(_menuLifecycle.IsActive || rom[0xcbcb] != 0 || !_player.IsDying || rom[0xcdd5] != 0xe7 ||
                         _player.Position != position || _player.HealthQuarters != rom[0xc6aa] ||
                         _player.DeathAnimationActive != (rom[0xd004] == 3 && rom[0xd005] == 1),
-                        context + $": menu={_menuLifecycle.IsActive}/${rom[0xcbcb]:x2}, dying={_player.IsDying}/${rom[0xcdd5]:x2}, position={_player.Position}/{position}, health={_player.HealthQuarters}/{rom[0xc6aa]}, animation={_player.DeathAnimationActive}/${rom[0xd004]:x2}:${rom[0xd005]:x2}.");
+                        $"{context}: menu={_menuLifecycle.IsActive}/${rom[0xcbcb]:x2}, dying={_player.IsDying}/${rom[0xcdd5]:x2}, position={_player.Position}/{position}, health={_player.HealthQuarters}/{rom[0xc6aa]}, animation={_player.DeathAnimationActive}/${rom[0xd004]:x2}:${rom[0xd005]:x2}.");
                     if (_player.DeathAnimationActive)
                         FailIf(_player.DeathAnimationCounter != rom[0xd020] ||
                             _player.DeathAnimationFrame != rom[0xd031] || _player.DeathSpinLoopsRemaining != rom[0xd006],
                             context + ": menu input changed native death animation/counter/loop boundaries.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
-                        context + $": death/menu/IntroDone cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
+                        $"{context}: death/menu/IntroDone cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                         random.Calls - seed.Calls != rom.RandomCalls, context + ": native death/menu RNG differs.");

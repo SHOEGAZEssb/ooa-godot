@@ -71,7 +71,7 @@ public partial class ValidationRoot
                         context+": shared tile queue rejection/draining differs.");
                     FailIf(part.Finished != (rom[0xd0c0] == 0) || part.HitLockout != -unchecked((sbyte)rom[0xd0eb]) ||
                         _entities.RuntimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != rom[0xcdd3],
-                        context + $": part lifetime/lockout/shared switch state differs: runtime={part.HitLockout}/${_entities.RuntimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress):x2}, native={unchecked((sbyte)rom[0xd0eb])}/${rom[0xcdd3]:x2}, hit=${rom[0xd0ea]:x2}, state=${rom[0xd0c4]:x2}.");
+                        $"{context}: part lifetime/lockout/shared switch state differs: runtime={part.HitLockout}/${_entities.RuntimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress):x2}, native={unchecked((sbyte)rom[0xd0eb])}/${rom[0xcdd3]:x2}, hit=${rom[0xd0ea]:x2}, state=${rom[0xd0c4]:x2}.");
                     FailIf(_currentRoom.Layout[c.Switch] != rom[0xcf00+c.Switch] ||
                         _currentRoom.GetTerrainInfo(Point(c.Switch)).Collision != rom[0xce00+c.Switch] ||
                         _currentRoom.GetUnderlyingMetatile(Point(c.Switch)) != rom.Underlying(c.Switch),
@@ -92,7 +92,7 @@ public partial class ValidationRoot
                                 hook.CollisionEnabled != ((rom[0xd624] & 0x80) != 0),context + ": Hook state/clock/full XY/collision mask differs.");
                     }
                     else if (!seedShot) FailIf(_player.IsAttacking != (rom[0xd200] != 0),context + ": Sword parent ownership differs.");
-                    FailIf(_inventory.EmberSeeds != rom[0xc6b9],context + $": seed spending differs: runtime={_inventory.EmberSeeds}, native={rom[0xc6b9]}, parent=${rom[0xd200]:x2}/${rom[0xd204]:x2}/${rom[0xd207]:x2}, child=${rom[0xd600]:x2}/${rom[0xd604]:x2}, seed=${rom[0xd700]:x2}/${rom[0xd704]:x2}, post={_seedSatchel.ShooterPostShotCounter}.");
+                    FailIf(_inventory.EmberSeeds != rom[0xc6b9],$"{context}: seed spending differs: runtime={_inventory.EmberSeeds}, native={rom[0xc6b9]}, parent=${rom[0xd200]:x2}/${rom[0xd204]:x2}/${rom[0xd207]:x2}, child=${rom[0xd600]:x2}/${rom[0xd604]:x2}, seed=${rom[0xd700]:x2}/${rom[0xd704]:x2}, post={_seedSatchel.ShooterPostShotCounter}.");
                     if (seedShot)
                     {
                         FailIf(_player.IsUsingSeedShooter != (rom[0xd200] != 0),context + ": Shooter parent ownership differs.");

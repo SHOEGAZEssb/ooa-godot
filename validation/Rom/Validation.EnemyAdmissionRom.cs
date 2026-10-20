@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyAdmissionRom()
     {
-        var enemies = new EnemyDatabase();
+        var enemies = EnemyDatabase.Shared;
         var redSource = Enumerable.Range(0, 8).SelectMany(group => Enumerable.Range(0, 256)
             .SelectMany(room => enemies.GetRoomObjects(group, room))).First(row => row.Id == 0x34 && row.SubId == 1);
         foreach (bool batched in new[] { false, true })

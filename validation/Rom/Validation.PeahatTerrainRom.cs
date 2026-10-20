@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(link);
             _runtimeState.SetWramByte(0xcc8a,1);_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);_runtimeState.SetWramByte(WramAddress.wScrollMode,0);
             _entities.AddEntity(new ProjectileMotionContactSuppression());
-            var data=new EnemyDatabase();var actor=new PeahatCharacter();actor.Initialize(data.ImportedEnemy(0x3e),_currentRoom,initial,_random);
+            var data=EnemyDatabase.Shared;var actor=new PeahatCharacter();actor.Initialize(data.ImportedEnemy(0x3e),_currentRoom,initial,_random);
             int state=form==0?0:form is 3 or 4?10:form==5?8:11;
             int counter=form==0||form==5?0:form is 1 or 2?127:form==6?255:63;
             int z=form is 3 or 4?-6:0,speed=form==0?0:form is 3 or 4?0x1e:5;

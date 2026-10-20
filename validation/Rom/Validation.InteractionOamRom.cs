@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
         var native = rom.CreateMenuView();
         var source = ValidationRom.LoadCleanUs();
         int address = 0x14 * 0x4000 + rom.Word(slot + 0x1e) - 0x4000;
-        FailIf(source.Span[address] != expectedCells, context + $": expected {expectedCells} native OBJ cells.");
+        FailIf(source.Span[address] != expectedCells, $"{context}: expected {expectedCells} native OBJ cells.");
         using Image actual = texture.GetImage();
         int width = actual.GetWidth(), height = actual.GetHeight();
         byte[]? pixels = actual.GetFormat() == Image.Format.Rgba8 ? actual.GetData() : null;

@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
                     int expectedZ = above ? 12 : 11;
                     FailIf(native[slot + 3] != 3 || native[slot + 0x1c] != 0x0b ||
                         (native[slot + 0x1a] & 3) != (above ? 0 : 1) || chip.Palette != 3 || chip.ZIndex != expectedZ,
-                        context + $": palette/priority={chip.Palette}/{chip.ZIndex}, original flags=${native[slot + 0x1c]:x2}, visible=${native[slot + 0x1a]:x2}; expected palette3/Z{expectedZ}.");
+                        $"{context}: palette/priority={chip.Palette}/{chip.ZIndex}, original flags=${native[slot + 0x1c]:x2}, visible=${native[slot + 0x1a]:x2}; expected palette3/Z{expectedZ}.");
                     FailIf(chip.PrecisePosition != new Vector2(native.Word(slot + 12)/256f, native.Word(slot + 10)/256f) ||
                         chip.ZFixed != unchecked((short)native.Word(slot + 14)), context + ": presentation fix changed source motion.");
                     if (parameter == 0) continue;

@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
             for (int reopen = 0; reopen < 2; reopen++)
             {
                 _mapMenu.OpenImmediatelyForValidation(); rom.OpenImmediately(2); sounds.Clear();
-                CompareMapBackgroundPixelsRom(rom, ref background, context + $" reopen={reopen}");
+                CompareMapBackgroundPixelsRom(rom, ref background, $"{context} reopen={reopen}");
                 int edge = 0x10;
                 StepGameplayUpdates(4, Vector2.Zero, MenuRomActions(0x10), MenuRomActions(0x10), batched, () =>
                 {
@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
                         ((pixels[pixel + 1] * 31 + 127) / 255) << 5 |
                         ((pixels[pixel + 2] * 31 + 127) / 255) << 10;
                     if (observed != expected || pixels[pixel + 3] != 255) FailIf(true,
-                        context + $": background pixel ({column * 8 + x},{row * 8 + y}) runtime=${observed:x4}, native=${expected:x4}, tile=${tile:x2}/attr=${attribute:x2}/shade={shade}.");
+                        $"{context}: background pixel ({column * 8 + x},{row * 8 + y}) runtime=${observed:x4}, native=${expected:x4}, tile=${tile:x2}/attr=${attribute:x2}/shade={shade}.");
                 }
             }
         }

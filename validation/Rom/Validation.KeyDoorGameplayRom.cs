@@ -36,7 +36,7 @@ public partial class ValidationRoot
                         context + ": shared hint mask/modal handoff differs.");
                     for (int room = 0; room < 256; room++)
                         FailIf(_saveData.GetRoomFlags(4,room) != rom[0xc900 + room],
-                            context + $": room flags$4:${room:x2} differ.");
+                            $"{context}: room flags$4:${room:x2} differ.");
                 });
             try
             {
@@ -97,7 +97,7 @@ public partial class ValidationRoot
                 key.Initialized && (key.Counter != rom[slot + 6] || key.Z != unchecked((sbyte)rom[slot + 0xf])) ||
                 key.Position != new Vector2(rom[slot + 0xd],rom[slot + 0xb]) ||
                 key.Visible != ((rom[slot + 0x1a] & 0x80) != 0),
-                context + $": key sprite${slot >> 8:x2} phase/clock/position/Z/visibility differs.");
+                $"{context}: key sprite${slot >> 8:x2} phase/clock/position/Z/visibility differs.");
         }
         FailIf(_inventory.GetDungeonSmallKeys(dungeon) != rom[0xc672 + dungeon],context + ": small-key debit differs.");
         var random = _random.CaptureState();

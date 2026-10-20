@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, 0xa1); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0); _player.WarpTo(new(120, 40)); _player.BeginCutsceneControl();
-            var database = new EnemyDatabase(); var vines = new VineSproutDatabase();
+            var database = EnemyDatabase.Shared; var vines = new VineSproutDatabase();
             int callsBeforeConstruction = _random.Calls;
             IRoomEntity Baby()
             {

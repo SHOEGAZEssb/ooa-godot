@@ -35,13 +35,13 @@ public sealed partial class ValidationRoot
                         _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != rom[0xcc8a] ||
                         _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != rom[0xcc02] ||
                         _saveData.GetRoomFlags(1, 0x8c) != rom[0xc88c],
-                        context + $": state/counter/flag/masks differ: runtime={entrance.State}/{entrance.Counter}, native={rom[slot + 4]}/{rom[slot + 6]}.");
+                        $"{context}: state/counter/flag/masks differ: runtime={entrance.State}/{entrance.Counter}, native={rom[slot + 4]}/{rom[slot + 6]}.");
                     foreach (int position in new[] { 0x04, 0x05, 0x14, 0x15, 0x34, 0x35 })
                     {
                         Vector2 point = new((position & 15) * 16 + 8, (position >> 4) * 16 + 8);
                         FailIf(_currentRoom.GetMetatile(point) != rom[0xcf00 + position] ||
                             _currentRoom.GetTerrainInfo(point).Collision != rom[0xce00 + position],
-                            context + $": tile/collision at ${position:x2} differs from clean ROM.");
+                            $"{context}: tile/collision at ${position:x2} differs from clean ROM.");
                     }
                     var puffs = _entities.Entities<PuzzlePuffEffect>();
                     var nativePuffs = Enumerable.Range(2, 14).Select(index => (0xd0 + index) * 256 + 0x40)

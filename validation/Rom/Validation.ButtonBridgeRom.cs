@@ -42,12 +42,12 @@ public partial class ValidationRoot
                     button.Pressed != (rom[0xd0f0] != 0) || _entities.ActiveTriggers != rom[0xcca0] ||
                     _player.PrecisePosition != new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f) ||
                     !sounds.Requests.Where(cue=>cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                    context+$": controller={bridge.State}/{rom[0xd244]}, counter={bridge.Counter}/{rom[0xd246]}, trigger/Link/cues differ.");
+                    $"{context}: controller={bridge.State}/{rom[0xd244]}, counter={bridge.Counter}/{rom[0xd246]}, trigger/Link/cues differ.");
                 foreach (int packed in new[] {0x55,0x56,0x57,0x58,0x59,0x74})
                     FailIf(_currentRoom.Layout[packed] != rom[0xcf00+packed] ||
                         _currentRoom.GetUnderlyingStorageMetatile(packed) != rom.Underlying(packed) ||
                         _currentRoom.GetTerrainInfo(Point(packed)).Collision != rom[0xce00+packed],
-                        context+$": native layout/collision/underlying bytes differ at${packed:x2}.");
+                        $"{context}: native layout/collision/underlying bytes differ at${packed:x2}.");
                 var debris = _entities.Entities<RockDebrisEffect>();
                 int[] native = Enumerable.Range(0xd2,14).Select(page=>page*256+0x40)
                     .Where(slot=>rom[slot] != 0 && rom[slot+1] == 6).ToArray();

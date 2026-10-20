@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
                             SomariaPrivate<float>(_player, "_enemyKnockbackFrames") != rom[0xd02d] ||
                             (SomariaPrivate<int>(_player, "_forcedRespawnPhase") == 1) != (rom[0xcc4f] == 2) ||
                             _player.NativeNormalStateForInteraction != (rom[0xd004] == 1),
-                            context + $": XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; " +
+                            $"{context}: XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; " +
                             $"PART={sea.State}:{sea.Counter:x2}/{rom[0xd0c4]}:{rom[0xd0c6]:x2}; " +
                             $"health={_player.HealthQuarters}/{rom[0xc6aa]}, damage={_player.PendingContactDamageRaw}/{unchecked((sbyte)rom[0xd025])}, " +
                             $"inv={_player.InvincibilityFrames}/{unchecked((sbyte)rom[0xd02b])}, recoil={SomariaPrivate<float>(_player, "_enemyKnockbackFrames")}/{rom[0xd02d]}.");

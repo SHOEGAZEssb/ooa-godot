@@ -491,6 +491,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDimitriWaterDismountRom, requiresRom: true);
         RunIsolatedValidation(ValidateTreasureRupeeValues);
         RunIsolatedValidation(ValidateCpuDecimalArithmetic);
+        RunIsolatedValidation(ValidateCpuCallBoundaries);
         RunIsolatedValidation(ValidateAnimationCounterBoundaries);
         RunIsolatedValidation(ValidateRoomEventTimeline);
         RunIsolatedValidation(ValidateRoomEventScheduling);

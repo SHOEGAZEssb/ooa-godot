@@ -58,11 +58,11 @@ public partial class ValidationRoot
                         context + ": shared shake clock/camera offset differs.");
                     FailIf(gate.BlocksGameplay != ((rom[0xcc8a] & 0x81) != 0) ||
                         gate.BlocksGameplay && gate.Counter != rom[0xd346],
-                        context + $": input/event clock runtime={gate.BlocksGameplay}/{gate.Counter}, ROM=${rom[0xcc8a]:x2}/{rom[0xd346]}.");
+                        $"{context}: input/event clock runtime={gate.BlocksGameplay}/{gate.Counter}, ROM=${rom[0xcc8a]:x2}/{rom[0xd346]}.");
                     FailIf(barrier.State != rom[0xd244] || barrier.Finished || !controller.Initialized || controller.Finished,
                         context + ": original barrier/gate state or retained allocations differ.");
                     for (int room = 0; room < 256; room++)
-                        FailIf(_saveData.GetRoomFlags(0,room) != rom[0xc700+room],context + $": room flag${room:x2} differs.");
+                        FailIf(_saveData.GetRoomFlags(0,room) != rom[0xc700+room],$"{context}: room flag${room:x2} differs.");
                     var effects = _entities.Entities<OverworldKeyUseEffect>();
                     var keys = Enumerable.Range(0xd2,14).Select(page => (page << 8) | 0x40)
                         .Where(slot => rom[slot] != 0 && rom[slot+1] == 0x18).ToArray();
@@ -105,7 +105,7 @@ public partial class ValidationRoot
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                         random.Calls-seed.Calls != rom.RandomCalls ||
                         !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                        context + $": cue/RNG order differs: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}; draws={random.Calls-seed.Calls}/{rom.RandomCalls}.");
+                        $"{context}: cue/RNG order differs: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}; draws={random.Calls-seed.Calls}/{rom.RandomCalls}.");
                 });
             }
             long randomDraws() => _random.CaptureState().Calls-seed.Calls;

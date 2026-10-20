@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
                         _player.NativeNormalStateForInteraction != (rom[0xd004] == 1) ||
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                         detector.State != rom[slot + 4],
-                        context + $": fixed XY/health/visibility/collision/state differs: runtime={_player.PrecisePosition}, native={expected}, state=${rom[0xd004]:x2}/${rom[0xd005]:x2}.");
+                        $"{context}: fixed XY/health/visibility/collision/state differs: runtime={_player.PrecisePosition}, native={expected}, state=${rom[0xd004]:x2}/${rom[0xd005]:x2}.");
                     if (_player.SquishAnimation is { State: > 0, Finished: false } animation)
                         FailIf(rom[0xd004] != 0x11 || animation.State != rom[0xd005] ||
                             animation.Current.Graphic != rom[0xd031] || animation.AnimationCounter != rom[0xd020] ||

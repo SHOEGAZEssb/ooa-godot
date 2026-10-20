@@ -57,7 +57,7 @@ public partial class ValidationRoot
                         gate.BlocksGameplay != ((rom[0xcc8a] & 0x81) != 0) ||
                         _roomEvents.MenusDisabled != (rom[0xcc02] != 0) ||
                         gate.BlocksGameplay && gate.Counter != rom[0xd246],
-                        context + $": shared signal/locks/event clock runtime={gate.BlocksGameplay}/{gate.Counter}, ROM=${rom[0xcc8a]:x2}/{rom[0xd246]}.");
+                        $"{context}: shared signal/locks/event clock runtime={gate.BlocksGameplay}/{gate.Counter}, ROM=${rom[0xcc8a]:x2}/{rom[0xd246]}.");
                     FailIf(_player.IsAttacking != (rom[0xd200] != 0 && rom[0xd201] == 0x05),
                         context + ": Sword parent allocation differs.");
                     FailIf(_entities.ScreenShakeCounter != rom[0xcd18] ||
@@ -65,7 +65,7 @@ public partial class ValidationRoot
                         _roomCamera.Offset != new Vector2(unchecked((sbyte)rom[0xc48d]),unchecked((sbyte)rom[0xc48c])),
                         context + ": shared Y/X shake clock/camera differs.");
                     for (int room = 0; room < 256; room++)
-                        FailIf(_saveData.GetRoomFlags(0,room) != rom[0xc700+room],context + $": room flag${room:x2} differs.");
+                        FailIf(_saveData.GetRoomFlags(0,room) != rom[0xc700+room],$"{context}: room flag${room:x2} differs.");
                     var keys = _entities.Entities<OverworldKeyUseEffect>();
                     var slots = Enumerable.Range(0xd2,14).Select(page => (page << 8) | 0x40).Where(slot => rom[slot] != 0).ToArray();
                     var keySlots = slots.Where(slot => rom[slot+1] == 0x18).ToArray();
@@ -88,7 +88,7 @@ public partial class ValidationRoot
                         FailIf(_entities.InteractionSlot(puff) != (slot >> 8)-0xd0 ||
                             puff.Position != new Vector2(rom[slot+0xd],rom[slot+0xb]) ||
                             puff.Initialized != (rom[slot+4] != 0) || puff.CurrentParameter != rom[slot+0x21] ||
-                            puff.Visible != ((rom[slot+0x1a] & 0x80) != 0),context + $": puff${slot>>8:x2} slot/XY/animation/flicker differs.");
+                            puff.Visible != ((rom[slot+0x1a] & 0x80) != 0),$"{context}: puff${slot>>8:x2} slot/XY/animation/flicker differs.");
                     }
                     int nativePhase = rom.Sounds.Count(cue => cue == SoundId.SndDoorClose);
                     FailIf(gate.Phase != nativePhase,context + ": opening phase differs.");
@@ -101,7 +101,7 @@ public partial class ValidationRoot
                         for (int x = 12; x < 18; x++)
                             FailIf(_currentRoom.GetBackgroundSubtileForValidation(x,y) != rom.BackgroundTile(x,y) ||
                                 _currentRoom.GetBackgroundAttributeForValidation(x,y) != rom.BackgroundAttribute(x,y),
-                                context + $": native opening BG tile/attribute ({x},{y}) differs.");
+                                $"{context}: native opening BG tile/attribute ({x},{y}) differs.");
                     }
                     if (nativePhase > phases)
                     {
@@ -115,7 +115,7 @@ public partial class ValidationRoot
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                         random.Calls-seed.Calls != rom.RandomCalls ||
                         !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                        context + $": gameplay cues/RNG differ: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}; draws={random.Calls-seed.Calls}/{rom.RandomCalls}.");
+                        $"{context}: gameplay cues/RNG differ: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}; draws={random.Calls-seed.Calls}/{rom.RandomCalls}.");
                 });
             }
             long randomDraws() => _random.CaptureState().Calls-seed.Calls;

@@ -41,6 +41,28 @@ internal sealed class OracleCpu
         throw Failure($"exceeded {instructionLimit} instructions");
     }
 
+    // Bounded callers can stop at a declared control-transfer boundary before
+    // fetching its opcode. Keep the ordinary driver loop free of this callback.
+    internal void RunCallUntil(int entry, Func<int, bool> stopBeforeInstruction,
+        int argument = 0, int instructionLimit = 100000, int stackAddress = 0xdff0)
+    {
+        ArgumentNullException.ThrowIfNull(stopBeforeInstruction);
+        if (instructionLimit <= 0) throw new ArgumentOutOfRangeException(nameof(instructionLimit));
+        if (stackAddress is < 0 or > 0xfffd) throw new ArgumentOutOfRangeException(nameof(stackAddress));
+        BeginCall(entry, argument, stackAddress);
+        for (int count = 0; count < instructionLimit; count++)
+        {
+            if (_pc == 0 && _sp == stackAddress + 2) return;
+            if (stopBeforeInstruction(_pc))
+            {
+                _instructionAddress = _pc;
+                return;
+            }
+            Step();
+        }
+        throw Failure($"exceeded {instructionLimit} instructions");
+    }
+
     private Exception Failure(string detail) => _failure(_instructionAddress, detail);
     private void Clock(int cycles) { _cycles += cycles; _clock(cycles); }
     private int Read(int address) { Clock(4); return _read(address & 0xffff); }

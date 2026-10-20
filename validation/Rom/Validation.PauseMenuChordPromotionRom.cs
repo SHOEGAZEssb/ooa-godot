@@ -41,14 +41,14 @@ public sealed partial class ValidationRoot
                     };
                     FailIf(_menuLifecycle.CurrentPhase != expected ||
                         _gameplayPause.IsLeased != (rom[0xcbcb] != 0) || _player.Position != pausedPosition,
-                        context + $" actual update={update}: ownership/phase/movement differs.");
+                        $"{context} actual update={update}: ownership/phase/movement differs.");
                     if (expected is Phase.OpeningFadeIn or Phase.Open)
                         FailIf(_inventoryScreen.Visible != (rom[0xcbcb] == 1) ||
                             _mapScreen.Visible != (rom[0xcbcb] == 2) ||
                             _saveQuitScreen.Visible != (rom[0xcbcb] == 3),
-                            context + $" actual update={update}: selected screen differs from native menu ${rom[0xcbcb]:x2}.");
+                            $"{context} actual update={update}: selected screen differs from native menu ${rom[0xcbcb]:x2}.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
-                        context + $" actual update={update}: transfer changed cue order.");
+                        $"{context} actual update={update}: transfer changed cue order.");
                 });
             }
             int open = initialMenu == 1 ? 8 : 4;

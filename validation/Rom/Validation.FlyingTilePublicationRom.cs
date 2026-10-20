@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
-            var data=new EnemyDatabase();var actor=_entities.Spawn<FlyingTileCharacter>(
+            var data=EnemyDatabase.Shared;var actor=_entities.Spawn<FlyingTileCharacter>(
                 new FlyingTileSpawn(data.ImportedEnemy(0x52,0),start,true));
             byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
             var after=new PartMovementScratchProbe(()=>

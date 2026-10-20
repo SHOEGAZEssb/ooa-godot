@@ -57,13 +57,13 @@ public sealed partial class ValidationRoot
         {
             for (int offset = 0; offset < expected.Length; offset++)
                 FailIf(rom.SavedByte(slot, 0xc5b0 + offset, backup) != expected[offset],
-                    context + $": repaired {(backup ? "backup" : "primary")} ${0xc5b0 + offset:x4} differs.");
+                    $"{context}: repaired {(backup ? "backup" : "primary")} ${0xc5b0 + offset:x4} differs.");
         }
         void CheckNativeLive(byte[] expected, string context)
         {
             for (int offset = 0; offset < expected.Length; offset++)
                 FailIf(rom[0xc5b0 + offset] != expected[offset],
-                    context + $": loaded WRAM ${0xc5b0 + offset:x4} differs.");
+                    $"{context}: loaded WRAM ${0xc5b0 + offset:x4} differs.");
         }
         // The source checksum adds little-endian words, excludes its own two
         // bytes, and retains a 16-bit sum. Independently re-sign bad signatures

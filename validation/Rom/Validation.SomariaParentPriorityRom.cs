@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
                 int parent = rom[0xd200] != 0 ? rom[0xd201] : 0;
                 FailIf(cane.Active != (parent == 4) || OtherActive() != (parent == other) ||
                     (cane.Weapon != null) != (rom[0xd600] != 0 && rom[0xd601] == 4),
-                    context + $": parent/reserved weapon ownership differs; native parent=${parent:x2}.");
+                    $"{context}: parent/reserved weapon ownership differs; native parent=${parent:x2}.");
                 if (cane.Active)
                     FailIf(cane.Parent!.Parameter != rom[0xd221] || SomariaPrivate<int>(cane.Parent, "_counter") != rom[0xd220] ||
                         cane.Weapon!.State != rom[0xd604], context + ": Cane creation clock/state differs.");

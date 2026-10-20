@@ -58,6 +58,9 @@ expressions. Non-interpolated strings retain ordinary eager evaluation. Sprite
 pixel comparisons snapshot RGBA8 bytes once per image, retaining native reads
 for other formats and the same alpha/channel tolerances.
 
+Keep message prefixes inside the interpolation: use `$"{context}: ..."` as the
+`FailIf` argument. Concatenating `context + $"..."` formats the message eagerly.
+
 Keep every phase of a scripted update sequence on explicit input samples,
 including cancellation and restart. Calling `GameRoot._Process` captures live
 Godot input again; a released key can remain just-pressed until the next Godot
@@ -178,6 +181,13 @@ production continues to read generated assets only.
 Each worker loads and verifies the ROM once, then shares a read-only image.
 Registers and writable memory remain private to each execution fixture. Start
 a new run to validate a changed ROM file.
+
+Frequent object, death and toggle reference preludes stop before fetching
+their declared boundary instruction. The frontend fixture has no peripheral
+clock callback; this preserves the executed prefix and bank checks without
+throwing an exception every update. Ordinary calls retain the execution path
+without a stop callback, including their rare frontend handoffs. Instruction
+limits, unexpected memory accesses and unsupported instructions still fail.
 
 When changing source-backed runtime symbol definitions, also run
 `& .\tools\verify_runtime_symbols.ps1`. It checks annotated constants against

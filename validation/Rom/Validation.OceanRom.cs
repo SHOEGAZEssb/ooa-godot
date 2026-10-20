@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateOceanNpcSelectionRom()
     {
-        var records=new NpcDatabase().AllRecords.Where(n=>
+        var records=NpcDatabase.Shared.AllRecords.Where(n=>
             n.Id==0xab && (n.SubId<0x0a || n.SubId is >=0x13 and <=0x1b) || n.Id==0xba).ToArray();
         int fixture=0;
         foreach(var roomRecords in records.GroupBy(n=>(n.Group,n.Room)))
@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(roomRecords.Key.Group,roomRecords.Key.Room);
             _inventory.EquipA(0);_inventory.EquipB(0);_player.WarpTo(new(8,8));
             var rom=new SomariaRom(_saveData,_random.CaptureState(),_currentRoom,0,8,8);
-            var ordered=new NpcDatabase().GetRoomNpcs(roomRecords.Key.Group,roomRecords.Key.Room).ToArray();
+            var ordered=NpcDatabase.Shared.GetRoomNpcs(roomRecords.Key.Group,roomRecords.Key.Room).ToArray();
             for(int index=0;index<ordered.Length;index++)
             {
                 var record=ordered[index];int slot=0xd240+index*0x100;
@@ -82,7 +82,7 @@ public sealed partial class ValidationRoot
         foreach(var stream in new[]{data.KingPast,data.KingPresent,data.Scale,data.StormGuard})
         foreach(var text in stream.OfType<CutsceneShowTextCommand>().Where(t=>t.TextId is 0x3401 or 0x340d or 0x3430))
             RunDialogueRom(text.TextId,text.Message,3,batched:true,accelerate:true,choice:text.TextId==0x3401);
-        RunDialogueRom(0x5711,new NpcDatabase().GetRoomNpcs(3,0x90).Single(n=>n.Id==0xba).Message,3,batched:true,accelerate:true);
-        RunDialogueRom(0x3442,new NpcDatabase().GetRoomNpcs(3,0xb1).Single(n=>n.SubId==0x18).Message,3,batched:true,accelerate:true);
+        RunDialogueRom(0x5711,NpcDatabase.Shared.GetRoomNpcs(3,0x90).Single(n=>n.Id==0xba).Message,3,batched:true,accelerate:true);
+        RunDialogueRom(0x3442,NpcDatabase.Shared.GetRoomNpcs(3,0xb1).Single(n=>n.SubId==0x18).Message,3,batched:true,accelerate:true);
     }
 }

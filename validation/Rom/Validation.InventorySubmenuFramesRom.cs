@@ -51,19 +51,19 @@ public sealed partial class ValidationRoot
                 application.Step(count, Vector2.Zero, MenuRomActions(pressed), MenuRomActions(pressed), batched, () =>
                 {
                     rom.Update(edge, pressed, ++update); rom.PublishHudGraphics(); rom.AdvanceText(); edge = 0;
-                    FailIf(_inventoryScreen.ItemSubmenuActive != (rom[0xcbcd] == 2), context + $" update={update}: panel gate differs.");
+                    FailIf(_inventoryScreen.ItemSubmenuActive != (rom[0xcbcd] == 2), $"{context} update={update}: panel gate differs.");
                     if (_inventoryScreen.ItemSubmenuActive && rom[0xcbce] != 0)
                         FailIf(_inventoryScreen.ItemSubmenuReady != (rom[0xcbce] == 2) ||
                             _inventoryScreen.ItemSubmenuWidth != rom[0xcbc0] ||
                             _inventoryScreen.ItemSubmenuHeight != rom[0xcbc1] ||
-                            _inventoryScreen.ItemSubmenuIndex != rom[0xcbb5], context + $" update={update}: panel rectangle/selection differs.");
+                            _inventoryScreen.ItemSubmenuIndex != rom[0xcbb5], $"{context} update={update}: panel rectangle/selection differs.");
                     FailIf(_inventory.EquippedA != rom[0xc689] || _inventory.EquippedB != rom[0xc688] ||
                         _inventory.StorageItemAt(slot) != rom[0xc68a + slot] ||
                         _inventory.SelectedHarpSong != rom[0xc6b7] ||
                         _inventory.SatchelSelectedSeeds != rom[0xc6c4] ||
-                        _inventory.ShooterSelectedSeeds != rom[0xc6c5], context + $" update={update}: equipment/selection differs.");
-                    FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), context + $" update={update}: cue order differs.");
-                    CompareInventoryFramePixelsRom(rom, context + $" update={update}");
+                        _inventory.ShooterSelectedSeeds != rom[0xc6c5], $"{context} update={update}: equipment/selection differs.");
+                    FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), $"{context} update={update}: cue order differs.");
+                    CompareInventoryFramePixelsRom(rom, $"{context} update={update}");
                 });
             }
             for (int row = 0; row < slot / 4; row++) { Step(1, 0x80); Step(); }

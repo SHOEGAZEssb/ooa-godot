@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
                     SwordActionState expected = parent == 0 ? SwordActionState.None : rom[parent + 4] switch
                     {
                         1 => SwordActionState.Swing, 2 => SwordActionState.Held,
-                        _ => throw new InvalidOperationException(context + $": unsupported Sword parent state ${rom[parent + 4]:x2}.")
+                        _ => throw new InvalidOperationException($"{context}: unsupported Sword parent state ${rom[parent + 4]:x2}.")
                     };
                     FailIf(_player.SwordState != expected, context + ": Sword parent state differs.");
                     Rect2 hitbox = _player.GetSwordHitbox();

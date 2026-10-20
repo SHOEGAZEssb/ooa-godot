@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(link);
             _runtimeState.SetWramByte(0xcc8a,1);_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);_runtimeState.SetWramByte(WramAddress.wScrollMode,0);
             _entities.AddEntity(new ProjectileMotionContactSuppression());
-            var data=new EnemyDatabase();var head=new MoldormCharacter();head.Initialize(data.ImportedEnemy(0x4f,1),_currentRoom,initial,_random);
+            var data=EnemyDatabase.Shared;var head=new MoldormCharacter();head.Initialize(data.ImportedEnemy(0x4f,1),_currentRoom,initial,_random);
             var source=data.EnemyHandlers.ResolveHandler(0x4f,0,"moldorm.s:head/tail publication").CombatSource(0,0,"moldorm.s:head/tail publication");
             var adapter=new MoldormRoomEntity(head,source with{SubId=1},_sound.PlaySound);_entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
             var tails=new MoldormTailCharacter[2];

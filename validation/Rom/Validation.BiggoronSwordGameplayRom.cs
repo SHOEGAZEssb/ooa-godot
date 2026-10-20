@@ -35,13 +35,13 @@ public sealed partial class ValidationRoot
                         weapon.Position!=new Vector2(rom[0xd60d],rom[0xd60b]) ||
                         weapon.ZHigh!=unchecked((sbyte)rom[0xd60f]) || weapon.Collision!=rom[0xd624] ||
                         weapon.Radius!=new Vector2I(rom[0xd627],rom[0xd626]) || weapon.Damage!=-(sbyte)rom[0xd628],
-                        context+$": weapon runtime={weapon.State}/{weapon.Sector}/{weapon.Position}/{weapon.ZHigh}/{weapon.Radius}/{weapon.Damage}, native={rom[0xd604]}/{rom[0xd630]}/{rom[0xd60d]},{rom[0xd60b]}/{unchecked((sbyte)rom[0xd60f])}/{rom[0xd627]},{rom[0xd626]}/{-(sbyte)rom[0xd628]}.");
+                        $"{context}: weapon runtime={weapon.State}/{weapon.Sector}/{weapon.Position}/{weapon.ZHigh}/{weapon.Radius}/{weapon.Damage}, native={rom[0xd604]}/{rom[0xd630]}/{rom[0xd60d]},{rom[0xd60b]}/{unchecked((sbyte)rom[0xd60f])}/{rom[0xd627]},{rom[0xd626]}/{-(sbyte)rom[0xd628]}.");
                 var rng=_random.CaptureState();
                 FailIf(rng.Rng1!=rom[0xff94] || rng.Rng2!=rom[0xff95] || rng.Calls-seed.Calls!=rom.RandomCalls ||
                     // The declared text owner renders the long ring pause;
                     // the native fixture executes item dispatch, not that text.
                     !sounds.Requests.Where(id => !(primary && direction == 0) || id != SoundId.SndText)
-                        .SequenceEqual(rom.Sounds),context+$": RNG={rng.Rng1:x2},{rng.Rng2:x2},{rng.Calls-seed.Calls}/{rom[0xff94]:x2},{rom[0xff95]:x2},{rom.RandomCalls}; cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
+                        .SequenceEqual(rom.Sounds),$"{context}: RNG={rng.Rng1:x2},{rng.Rng2:x2},{rng.Calls-seed.Calls}/{rom[0xff94]:x2},{rom[0xff95]:x2},{rom.RandomCalls}; cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
             }
             void Step(int count=1,int held=0,int angle=0xff)
             {

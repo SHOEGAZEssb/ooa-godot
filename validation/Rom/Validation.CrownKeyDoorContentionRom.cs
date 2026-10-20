@@ -38,10 +38,10 @@ public sealed partial class ValidationRoot
                     CompareKeyDoorGameplayRom(rom,seed,sounds.Requests,context,excludeText:true);
                     FailIf(_keyDoors.RemainingPushFrames != rom[0xcc6a] ||
                         _rooms.InformativeTextsShown != rom[0xccd7] || _dialogue.IsOpen != (rom[0xcba0] != 0),
-                        context + $": shared contact clock/hint/modal state differs: runtime={_keyDoors.RemainingPushFrames}/${_rooms.InformativeTextsShown:x2}/{_dialogue.IsOpen}, native={rom[0xcc6a]}/${rom[0xccd7]:x2}/{rom[0xcba0] != 0}.");
+                        $"{context}: shared contact clock/hint/modal state differs: runtime={_keyDoors.RemainingPushFrames}/${_rooms.InformativeTextsShown:x2}/{_dialogue.IsOpen}, native={rom[0xcc6a]}/${rom[0xccd7]:x2}/{rom[0xcba0] != 0}.");
                     for (int room = 0; room < 256; room++)
                         FailIf(_saveData.GetRoomFlags(4,room) != rom[0xc900 + room],
-                            context + $": room flags$4:${room:x2} differ.");
+                            $"{context}: room flags$4:${room:x2} differ.");
                 });
             }
             try

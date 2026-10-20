@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
                         (_player.ItemCreationZFixed & 0xffff) != rom.Word(0xd00e) ||
                         (_player.TopDownAirSpeedZ & 0xffff) != rom.Word(0xd014) ||
                         _player.TopDownAirborne != ((rom[0xcc5c] & 15) != 0),
-                        context + $": fixed XY/Z/gravity/air differs: runtime={_player.PrecisePosition}/{_player.ItemCreationZFixed:x4}/{_player.TopDownAirSpeedZ:x4}, native={rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}/{rom.Word(0xd00e):x4}/{rom.Word(0xd014):x4}.");
+                        $"{context}: fixed XY/Z/gravity/air differs: runtime={_player.PrecisePosition}/{_player.ItemCreationZFixed:x4}/{_player.TopDownAirSpeedZ:x4}, native={rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}/{rom.Word(0xd00e):x4}/{rom.Word(0xd014):x4}.");
                     FailIf(_player.KnockbackFrames != rom[0xd02d] || _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) ||
                         _player.HealthQuarters != rom[0xc6aa] || (int)heartCounter.GetValue(_player)! != (rom.Word(0xcc53) | rom[0xcc55] << 16),
                         context + ": recoil/invincibility, health or Heart Ring movement eligibility differs.");

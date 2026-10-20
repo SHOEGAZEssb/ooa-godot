@@ -90,22 +90,22 @@ public sealed partial class ValidationRoot
                     Vector2 nativeLink = new(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f);
                     FailIf(cart.Position != nativeCart || cart.Direction != rom[0xd108] || cart.Angle != rom[0xd109] ||
                         _player.PrecisePosition != nativeLink || !_player.MinecartRideActive,
-                        context + $": cart/rider motion differs: cart={cart.Position}/{nativeCart}, direction={cart.Direction}/{rom[0xd108]}, Link={_player.PrecisePosition}/{nativeLink}.");
+                        $"{context}: cart/rider motion differs: cart={cart.Position}/{nativeCart}, direction={cart.Direction}/{rom[0xd108]}, Link={_player.PrecisePosition}/{nativeLink}.");
                     FailIf(_currentRoom.GetMetatile(doorway) != rom[0xcf00 + packed] ||
                         _currentRoom.GetTerrainInfo(doorway).Collision != rom[0xce00 + packed],
-                        context + $": door layout/collision differ: runtime=${_currentRoom.GetMetatile(doorway):x2}/${_currentRoom.GetTerrainInfo(doorway).Collision:x2}, native=${rom[0xcf00 + packed]:x2}/${rom[0xce00 + packed]:x2}, controller=${rom[0xd244]:x2}/${rom[0xd245]:x2}, counter={rom[0xd246]}.");
+                        $"{context}: door layout/collision differ: runtime=${_currentRoom.GetMetatile(doorway):x2}/${_currentRoom.GetTerrainInfo(doorway).Collision:x2}, native=${rom[0xcf00 + packed]:x2}/${rom[0xce00 + packed]:x2}, controller=${rom[0xd244]:x2}/${rom[0xd245]:x2}, counter={rom[0xd246]}.");
                     if (persistent) FailIf(_player.LocalRespawnPosition != new Vector2(rom[0xcc22], rom[0xcc21]) ||
                         CarriedObjectMotion.DirectionIndex(_player.LocalRespawnFacingVector) != rom[0xcc23],
-                        context + $": local respawn differs: runtime={_player.LocalRespawnPosition}, native={rom[0xcc22]},{rom[0xcc21]}.");
+                        $"{context}: local respawn differs: runtime={_player.LocalRespawnPosition}, native={rom[0xcc22]},{rom[0xcc21]}.");
                     if (cramped) FailIf(_player.HealthQuarters != rom[0xc6aa] ||
                         _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) ||
                         _player.Visible != ((rom[0xd01a] & 0x80) != 0) ||
                         _player.NativeNormalStateForInteraction != (rom[0xd004] == 1),
-                        context + $": riding respawn state/health/visibility differs: health={_player.HealthQuarters}/{rom[0xc6aa]}, visible={_player.Visible}/${rom[0xd01a]:x2}, native state=${rom[0xd004]:x2}.");
+                        $"{context}: riding respawn state/health/visibility differs: health={_player.HealthQuarters}/{rom[0xc6aa]}, visible={_player.Visible}/${rom[0xd01a]:x2}, native state=${rom[0xd004]:x2}.");
                     FailIf(_entities.BossEntrySignal != rom[0xcc93],
-                        context + $": shared shutter count differs: runtime=${_entities.BossEntrySignal:x2}, native=${rom[0xcc93]:x2}.");
+                        $"{context}: shared shutter count differs: runtime=${_entities.BossEntrySignal:x2}, native=${rom[0xcc93]:x2}.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
-                        context + $": ordered cart/door sounds differ: runtime=[{string.Join(',', sounds.Requests)}], native=[{string.Join(',', rom.Sounds)}], controller={controller?.State}, native=${rom[0xd244]:x2}/${rom[0xd245]:x2}, sub=${rom[0xd242]:x2}, XY={rom[0xd24d]},{rom[0xd24b]}, radius={rom[0xd266]},{rom[0xd267]}, angle=${rom[0xd249]:x2}, index=${rom[0xcc2c]:x2}.");
+                        $"{context}: ordered cart/door sounds differ: runtime=[{string.Join(',', sounds.Requests)}], native=[{string.Join(',', rom.Sounds)}], controller={controller?.State}, native=${rom[0xd244]:x2}/${rom[0xd245]:x2}, sub=${rom[0xd242]:x2}, XY={rom[0xd24d]},{rom[0xd24b]}, radius={rom[0xd266]},{rom[0xd267]}, angle=${rom[0xd249]:x2}, index=${rom[0xcc2c]:x2}.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                         random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": shared RNG differs.");

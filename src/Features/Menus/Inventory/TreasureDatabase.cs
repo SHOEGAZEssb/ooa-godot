@@ -5,6 +5,11 @@ namespace oracleofages;
 
 public sealed class TreasureDatabase
 {
+    // Source definitions have no inventory/save binding. Queries receive the
+    // live inventory explicitly, so sessions can share the parsed tables.
+    private static readonly Lazy<TreasureDatabase> SharedInstance = new(() => new());
+    internal static TreasureDatabase Shared => SharedInstance.Value;
+
     private readonly Dictionary<string, TreasureObjectRecord> _objects = new();
     private readonly List<TreasureObjectRecord> _objectRows = new();
     private readonly Dictionary<int, TreasureObjectVisualRecord> _objectVisuals = new();

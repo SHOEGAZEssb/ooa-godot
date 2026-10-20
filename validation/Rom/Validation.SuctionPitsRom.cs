@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
                             rom[0xcc4f] == 2 && SomariaPrivate<int>(_player, "_forcedRespawnParameter") != 0 ||
                             _player.NativeNormalStateForInteraction != (rom[0xd004] == 1) ||
                             _player.HealthQuarters != rom[0xc6aa] || _player.Visible != ((rom[0xd01a] & 0x80) != 0),
-                            context + $": XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; " +
+                            $"{context}: XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; " +
                             $"PART={pit.State}:{pit.Counter:x2}/{rom[0xd0c4]}:{rom[0xd0c6]:x2}, Link state${rom[0xd004]:x2}:${rom[0xd005]:x2}, force${rom[0xcc4f]:x2}, " +
                             $"velocity=${SomariaPrivate<int>(_player, "_topDownMovementSpeedRaw"):x2}/${rom[0xd010]:x2}, angle=${SomariaPrivate<int>(_player, "_topDownMovementAngle"):x2}/${rom[0xd009]:x2}, impulse=${SomariaPrivate<int>(_player, "_topDownMermaidImpulseCounter"):x2}/${rom[0xd03e]:x2}.");
                         if (rom[0xcc91] != 0) sawPull = true;

@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private IRoomEntity CreateInitializationRngEnemy(int id, int order)
     {
-        var database = new EnemyDatabase();
+        var database = EnemyDatabase.Shared;
         var source = new RoomObjectRecord(4, 0xa1, order, RoomObjectKind.FixedEnemy,
             id, 0, 2, 1, 40, 120, 0x27, 0);
         var factory = new RoomEnemyFactory(_entities, database, new RoomEntityResources(_rooms), _rooms);

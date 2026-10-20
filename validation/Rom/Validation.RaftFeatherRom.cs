@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
                         (_player.SwitchHookZFixed & 0xffff) != rom.Word(0xd00e) ||
                         (_player.TopDownAirSpeedZ & 0xffff) != rom.Word(0xd014) ||
                         _player.HealthQuarters != rom[0xc6aa] || _player.IsDrowning || _player.TopDownSwimming,
-                        context + $": motion/ride/air differs: runtime={_player.PrecisePosition}/ride={_player.RaftRideActive}/air={_player.TopDownAirborne}/Z${_player.SwitchHookZFixed & 0xffff:x4}/Vz${_player.TopDownAirSpeedZ & 0xffff:x4}, native={nativePosition}/rider${rom[0xcc2c]:x2}/air${rom[0xcc5c]:x2}/Z${rom.Word(0xd00e):x4}/Vz${rom.Word(0xd014):x4}/companion${rom[0xd100]:x2}:${rom[0xd104]:x2}.");
+                        $"{context}: motion/ride/air differs: runtime={_player.PrecisePosition}/ride={_player.RaftRideActive}/air={_player.TopDownAirborne}/Z${_player.SwitchHookZFixed & 0xffff:x4}/Vz${_player.TopDownAirSpeedZ & 0xffff:x4}, native={nativePosition}/rider${rom[0xcc2c]:x2}/air${rom[0xcc5c]:x2}/Z${rom.Word(0xd00e):x4}/Vz${rom.Word(0xd014):x4}/companion${rom[0xd100]:x2}:${rom[0xd104]:x2}.");
                     FailIf(Enumerable.Range(0xd2, 4).Any(page => rom[page << 8] != 0 && rom[(page << 8) + 1] == 0x17),
                         context + ": Ages Feather must release the launch/rejected parent immediately.");
                     if (rom[0xd100] != 0 && rom[0xd104] == 0 && rom[0xcc5c] != 0)
@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
                             context + ": native interaction accepted high or rising Link.");
                     }
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
-                        context + $": jump/landing/raft sounds differ: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
+                        $"{context}: jump/landing/raft sounds differ: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                         random.Calls - randomStart.Calls != rom.RandomCalls, context + ": shared RNG differs.");

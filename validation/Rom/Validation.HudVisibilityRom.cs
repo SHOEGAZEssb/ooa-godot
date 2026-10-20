@@ -43,10 +43,10 @@ public sealed partial class ValidationRoot
                         _statusBar.DisplayedHealth != rom[0xcbe4] ||
                         _statusBar.DisplayedRupees != (rom[0xcbe6] & 15) * 100 +
                             (rom[0xcbe5] >> 4) * 10 + (rom[0xcbe5] & 15),
-                        context + $": update {updates}, visibility or frozen/recovering caches differ.");
+                        $"{context}: update {updates}, visibility or frozen/recovering caches differ.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
-                        context + $": update {updates}, recovery cue order differs.");
-                    CompareHudPixelsRom(_hud, rom, context + $" update={updates}", displayImage: true);
+                        $"{context}: update {updates}, recovery cue order differs.");
+                    CompareHudPixelsRom(_hud, rom, $"{context} update={updates}", displayImage: true);
                 });
             }
             Step(1);
@@ -65,11 +65,11 @@ public sealed partial class ValidationRoot
                 for (int offset = 0; offset < 64; offset++)
                     FailIf(rom.Tile(offset) != 0 || rom.HudAttribute(offset) !=
                         (visibility.Flag == 0x77 ? 0 : 0x80),
-                        context + $": native cleared tile/attribute ${offset:x2} differs.");
+                        $"{context}: native cleared tile/attribute ${offset:x2} differs.");
                 for (int offset = 0; offset < 16; offset++)
                     FailIf(rom[0xcb00 + offset] != (visibility.Tail == 0x10 ? 0xe0 : retainedOam[offset]),
-                        context + $": native conditional OAM clear differs at ${offset:x2}.");
-                CompareHudPixelsRom(_hud, rom, context + $" hidden cycle={cycle}", displayImage: true);
+                        $"{context}: native conditional OAM clear differs at ${offset:x2}.");
+                CompareHudPixelsRom(_hud, rom, $"{context} hidden cycle={cycle}", displayImage: true);
                 if (cycle == 0) { _inventory.ApplyDamage(4); _inventory.AddRupees(7); }
                 else { _inventory.Heal(4); _inventory.AddRupees(-5); }
                 rom.CopySave(_saveData);

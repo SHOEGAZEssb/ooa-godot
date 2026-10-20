@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
                     _rooms.PendingTileGraphics != ((rom[0xcce0]-rom[0xccdf])&31) ||
                     puffs.Length != nativePuffs.Length || chest.Finished != (rom[chestSlot] == 0 || rom[chestSlot+1] != 0x21) ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                    context + $": endpoint=${filler.Endpoint:x2}/${rom[fillerSlot+0x30]:x2}, start=${_currentRoom.Layout[start]:x2}/${rom[0xcf00+start]:x2}, queue={_rooms.PendingTileGraphics}/{((rom[0xcce0]-rom[0xccdf])&31)}, puffs={puffs.Length}/{nativePuffs.Length}, chest={chest.Finished}/{rom[chestSlot]==0}, cues=[{string.Join(',',sounds.Requests.Select(cue=>$"${cue:x2}"))}]/[{string.Join(',',rom.Sounds.Select(cue=>$"${cue:x2}"))}].");
+                    $"{context}: endpoint=${filler.Endpoint:x2}/${rom[fillerSlot+0x30]:x2}, start=${_currentRoom.Layout[start]:x2}/${rom[0xcf00+start]:x2}, queue={_rooms.PendingTileGraphics}/{((rom[0xcce0]-rom[0xccdf])&31)}, puffs={puffs.Length}/{nativePuffs.Length}, chest={chest.Finished}/{rom[chestSlot]==0}, cues=[{string.Join(',',sounds.Requests.Select(cue=>$"${cue:x2}"))}]/[{string.Join(',',rom.Sounds.Select(cue=>$"${cue:x2}"))}].");
                 for (int index = 0; index < puffs.Length; index++)
                     FailIf(_entities.InteractionSlot(puffs[index]) != (nativePuffs[index]>>8)-0xd0 ||
                         puffs[index].Position != new Vector2(rom[nativePuffs[index]+0xd],rom[nativePuffs[index]+0xb]),

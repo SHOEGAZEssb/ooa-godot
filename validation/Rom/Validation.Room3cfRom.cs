@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                         _dialogue.IsOpen != rom.Active || npc.Position != new Vector2(80, 64) ||
                         npc.FacingVector != Vector2I.Down || !npc.Active || !npc.Visible,
-                        context + $": XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; text={_dialogue.IsOpen}/{rom.Active}.");
+                        $"{context}: XY={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}; text={_dialogue.IsOpen}/{rom.Active}.");
                     // interactionAnimation5a468: two $10-update frames, OAM
                     // indices $00/$02 -> $420e/$42a7, no facing or RNG.
                     int frame = animatedUpdates / 16 % 2;
@@ -78,7 +78,7 @@ public sealed partial class ValidationRoot
                         SomariaPrivate<double>(npc, "_animationTicks") != animatedUpdates % 16 ||
                         rom[address + 0x20] != 16 - animatedUpdates % 16 ||
                         rom.Word(address + 0x1e) != (frame == 0 ? 0x420e : 0x42a7),
-                        context + $": animation frame={npc.CurrentAnimationFrame}/{frame}, ROM counter=${rom[address+0x20]:x2}, OAM=${rom.Word(address+0x1e):x4}.");
+                        $"{context}: animation frame={npc.CurrentAnimationFrame}/{frame}, ROM counter=${rom[address+0x20]:x2}, OAM=${rom.Word(address+0x1e):x4}.");
                     if (rom.Active && rom.State != 0x10)
                     {
                         CompareDialogueLineRom(rom, context);

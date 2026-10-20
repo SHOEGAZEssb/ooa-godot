@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
                         int[] slots = Enumerable.Range(0xd2,14).Select(page => page*256+0x40)
                             .Where(slot => rom[slot] != 0 && rom[slot+1] == id).ToArray();
                         FailIf(effects.Length != slots.Length,
-                            context + $": checked native splash allocation differs: runtime={effects.Length}, native={slots.Length}.");
+                            $"{context}: checked native splash allocation differs: runtime={effects.Length}, native={slots.Length}.");
                         for (int i = 0; i < effects.Length; i++)
                             FailIf(_entities.InteractionSlot(effects[i]) != (slots[i]>>8)-0xd0 ||
                                 effects[i].Position != new Vector2(rom[slots[i]+0xd],rom[slots[i]+0xb]) ||

@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach(int gate in new[]{0,1,2,3})
         {
             ReinitializeGameplayForValidation();LoadValidationRoom(4,0x17);_entities.Clear();
-            var data=new EnemyDatabase();
+            var data=EnemyDatabase.Shared;
             var cells=(from y in Enumerable.Range(1,_currentRoom.HeightInTiles-2) from x in Enumerable.Range(1,_currentRoom.WidthInTiles-2)
                 let p=new Vector2(x*16+8,y*16+8) where _currentRoom.GetTerrainInfo(p) is {Collision:0,Hazard:HazardType.None} select p).ToArray();
             Vector2 initial=cells.OrderBy(p=>p.DistanceSquaredTo(new(80,64))).First();

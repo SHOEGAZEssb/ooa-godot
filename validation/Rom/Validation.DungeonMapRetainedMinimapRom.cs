@@ -62,18 +62,18 @@ public sealed partial class ValidationRoot
                         _mapScreen.DisplayedDungeonFloor != rom[0xcc40] - 1 - rom[0xcbb7] ||
                         _mapScreen.DungeonScrollY != rom[0xcbb8] || _mapScreen.IsScrolling != (rom[0xcbce] != 0) ||
                         _mapScreen.DungeonLinkIconPosition != new Vector2(80 + (cursor & 7) * 8, 32 + (cursor >> 3) * 8),
-                        context + $" update={update}: retained floor/scroll/cursor/icon position differs.");
+                        $"{context} update={update}: retained floor/scroll/cursor/icon position differs.");
                     bool flicker = (bool)typeof(MapScreen).GetField("_dungeonFlicker", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_mapScreen)!;
-                    FailIf(flicker != (rom[0xcbb9] != 0), context + $" update={update}: retained dungeon flicker counter differs.");
+                    FailIf(flicker != (rom[0xcbb9] != 0), $"{context} update={update}: retained dungeon flicker counter differs.");
                     for (int y = 0; y < 18; y++)
                     for (int x = 0; x < 20; x++)
                         FailIf(_mapScreen.DungeonScreenTileAt(x, y) != rom.MapTile(x, y),
-                            context + $" update={update}: dungeon tile ({x},{y}) differs.");
+                            $"{context} update={update}: dungeon tile ({x},{y}) differs.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), context + ": direction sound order differs.");
-                    if (compareOam) CompareMapMenuOamRom(rom, context + $" update={update}");
-                    if (comparePixels) CompareMapBackgroundPixelsRom(rom, ref lastBackground, context + $" update={update}");
+                    if (compareOam) CompareMapMenuOamRom(rom, $"{context} update={update}");
+                    if (comparePixels) CompareMapBackgroundPixelsRom(rom, ref lastBackground, $"{context} update={update}");
                     if (compareFramePixels) CompareMapFramePixelsRom(rom, ref lastFrameBackground, ref lastFrameCommands,
-                        context + $" frame update={update}");
+                        $"{context} frame update={update}");
                 }
                 void Step(int count = 1, int pressed = 0)
                 {

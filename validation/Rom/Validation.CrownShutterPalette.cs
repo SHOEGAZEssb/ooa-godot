@@ -146,15 +146,14 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<int>(door,"_counter") != rom[slot+6] ||
                     _currentRoom.GetMetatile(door.Position) != rom[0xcfa7] ||
                     _currentRoom.GetTerrainInfo(door.Position).Collision != rom[0xcea7],
-                    context+$": native room/Link/palette/shutter differ; counter={SomariaPrivate<int>(door,"_counter")}/{rom[slot+6]}, state={SomariaPrivate<DoorState>(door,"_state")}/${rom[slot+4]:x2}:${rom[slot+5]:x2}.");
+                    $"{context}: native room/Link/palette/shutter differ; counter={SomariaPrivate<int>(door,"_counter")}/{rom[slot+6]}, state={SomariaPrivate<DoorState>(door,"_state")}/${rom[slot+4]:x2}:${rom[slot+5]:x2}.");
                 FailIf(!loaded && (SomariaPrivate<DoorState>(sourceDoor,"_state") != heldState ||
                     SomariaPrivate<int>(sourceDoor,"_counter") != heldCounter),
                     context+": CUTSCENE_03 must omit the entire source object pass, including palette-independent closing.");
                 // Complete incoming enemy AI, preload RNG and rendering are
                 // outside this bounded reload/palette/shutter comparison.
                 bool DoorCue(int cue) => cue is SoundId.SndDoorClose or SoundId.SndSolvePuzzle;
-                FailIf(!sounds.Requests.Where(DoorCue).SequenceEqual(rom.Sounds.Where(DoorCue)),context+
-                    $": ordered shutter/solve cues differ: runtime={string.Join(",",sounds.Requests.Where(DoorCue))}, native={string.Join(",",rom.Sounds.Where(DoorCue))}, state={SomariaPrivate<DoorState>(door,"_state")}/${rom[slot+4]:x2}:${rom[slot+5]:x2}, script=${rom.Word(slot+0x18):x4}.");
+                FailIf(!sounds.Requests.Where(DoorCue).SequenceEqual(rom.Sounds.Where(DoorCue)),$"{context}: ordered shutter/solve cues differ: runtime={string.Join(",",sounds.Requests.Where(DoorCue))}, native={string.Join(",",rom.Sounds.Where(DoorCue))}, state={SomariaPrivate<DoorState>(door,"_state")}/${rom[slot+4]:x2}:${rom[slot+5]:x2}, script=${rom.Word(slot+0x18):x4}.");
             });
             Step(delayed ? 124 : 31);
             FailIf(loaded || SomariaPrivate<DoorState>(sourceDoor,"_state") != heldState,

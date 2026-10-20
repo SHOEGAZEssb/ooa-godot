@@ -67,13 +67,13 @@ public sealed partial class ValidationRoot
                     CompareSomariaMotionRom(rom,context);
                     FailIf(mirror.Finished != (rom[p] == 0),context+": mirror lifetime differs.");
                     for (int index = 0; index < 256; index++)
-                        FailIf(_saveData.GetRoomFlags(5,index) != rom[0xca00+index],context+$": flags$5:${index:x2} differ.");
+                        FailIf(_saveData.GetRoomFlags(5,index) != rom[0xca00+index],$"{context}: flags$5:${index:x2} differ.");
                     for (int index = 0; index < 0xb0; index++)
                     {
                         Vector2 point = new((index&15)*16+8,(index>>4)*16+8);
                         FailIf(_currentRoom.GetPackedStorageMetatile((byte)index) != rom[0xcf00+index] ||
                             (index&15) < 15 && _currentRoom.GetTerrainInfo(point).Collision != rom[0xce00+index],
-                            context+$": wall tile/collision${index:x2} differs.");
+                            $"{context}: wall tile/collision${index:x2} differs.");
                     }
                     var rng = _random.CaptureState();
                     FailIf(!cues.Requests.SequenceEqual(rom.Sounds) || rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] ||

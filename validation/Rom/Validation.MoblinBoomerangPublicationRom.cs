@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             Vector2 parentPosition=cells.OrderBy(p=>p.DistanceSquaredTo(new(80,64))).First(Clear);
             if(scenario==5)parentPosition=new(2,parentPosition.Y); // Declared wrapping catch boundary, not a placed enemy.
             if(fractional)parentPosition+=new Vector2(.25f,.5f);
-            var data=new EnemyDatabase();var parent=new BoomerangMoblinCharacter();parent.Initialize(data.ImportedEnemy(0x0a),_currentRoom,parentPosition,_random);
+            var data=EnemyDatabase.Shared;var parent=new BoomerangMoblinCharacter();parent.Initialize(data.ImportedEnemy(0x0a),_currentRoom,parentPosition,_random);
             F1Set(parent,"_initialized",true);F1Set(parent,"_state",BoomerangMoblinCharacterMoblinState.WaitingForBoomerang);
             F1Set(parent,"_angle",angle);parent.Animation.SetAnimation(angle>>3);
             var source=data.EnemyHandlers.ResolveHandler(0x0a,0,"moblinBoomerang.s:owner handoff").CombatSource(0,0,"moblinBoomerang.s:owner handoff");

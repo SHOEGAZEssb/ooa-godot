@@ -63,14 +63,14 @@ public sealed partial class ValidationRoot
                         context+": controller state/cache/order/lifetime differs.");
                     FailIf(_runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != rom[0xcc8a] ||
                         _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != rom[0xcc02] || retraction.HasState != (rom[0xc2ef] == 0x0b),
-                        context+$": mask/menu/cutscene differs: masks=${_runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}/${rom[0xcc8a]:x2}, cutscene={retraction.HasState}/${rom[0xc2ef]:x2}.");
+                        $"{context}: mask/menu/cutscene differs: masks=${_runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}/${rom[0xcc8a]:x2}, cutscene={retraction.HasState}/${rom[0xc2ef]:x2}.");
                     if (cutscene)
                         FailIf(retraction.Counter != rom[0xcbb4] || retraction.Phase != rom[0xcbb3] || retraction.Retractions != rom[0xcbb7],
-                            context+$": cutscene counter/phase/steps differ: {retraction.Counter}/{retraction.Phase}/{retraction.Retractions} vs {rom[0xcbb4]}/{rom[0xcbb3]}/{rom[0xcbb7]}.");
+                            $"{context}: cutscene counter/phase/steps differ: {retraction.Counter}/{retraction.Phase}/{retraction.Retractions} vs {rom[0xcbb4]}/{rom[0xcbb3]}/{rom[0xcbb7]}.");
                     var torches=_entities.Entities<LightableTorchRoomEntity>().Where(actor => !actor.Finished).ToArray();
                     var nativeTorches=Enumerable.Range(0xd0,16).Select(page => (page<<8)+0xc0)
                         .Where(a => rom[a] != 0 && rom[a+1] == 6).ToArray();
-                    FailIf(torches.Length != nativeTorches.Length,context+$": recreated torch count differs {torches.Length}/{nativeTorches.Length}; native interactions="+
+                    FailIf(torches.Length != nativeTorches.Length,$"{context}: recreated torch count differs {torches.Length}/{nativeTorches.Length}; native interactions="+
                         string.Join(';',Enumerable.Range(0xd2,14).Select(page => page*256+0x40).Where(a => rom[a] != 0)
                             .Select(a => $"${a:x4}:${rom[a+1]:x2}:${rom[a+2]:x2}:state{rom[a+4]}:xy{rom[a+13]},{rom[a+11]}"))+"; parts="+
                         string.Join(';',Enumerable.Range(0xd0,16).Select(page => page*256+0xc0).Where(a => rom[a] != 0).Select(a => $"${a:x4}:${rom[a+1]:x2}")));
@@ -96,10 +96,10 @@ public sealed partial class ValidationRoot
                     for (int index=0;index<0xb0;index++)
                     {
                         FailIf(_currentRoom.GetPackedStorageMetatile((byte)index) != rom[0xcf00+index] ||
-                            (index&15) < 15 && collisions[index] != rom[0xce00+index],context+$": layout/collision${index:x2} differs.");
+                            (index&15) < 15 && collisions[index] != rom[0xce00+index],$"{context}: layout/collision${index:x2} differs.");
                     }
                     for (int room=0;room<256;room++)
-                        FailIf(_saveData.GetRoomFlags(5,room) != rom[0xca00+room],context+$": flag5:${room:x2} differs.");
+                        FailIf(_saveData.GetRoomFlags(5,room) != rom[0xca00+room],$"{context}: flag5:${room:x2} differs.");
                     int nativeSteps=rom.Sounds.Count(cue => cue == SoundId.SndDoorClose);
                     if (nativeSteps != steps)
                     {
@@ -109,11 +109,11 @@ public sealed partial class ValidationRoot
                         for (int y=0;y<22;y++) for (int x=0;x<30;x++)
                             FailIf(_currentRoom.GetBackgroundSubtileForValidation(x,y) != rom.BackgroundTile(x,y) ||
                                 _currentRoom.GetBackgroundAttributeForValidation(x,y) != rom.BackgroundAttribute(x,y),
-                                context+$": wall step{steps} BG tile/attribute({x},{y}) differs.");
+                                $"{context}: wall step{steps} BG tile/attribute({x},{y}) differs.");
                     }
                     var rng=_random.CaptureState();
                     FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls ||
-                        !sounds.Requests.SequenceEqual(rom.Sounds),context+$": shared RNG or ordered sounds differ: rng={rng.Rng1:x2}/{rng.Rng2:x2}/{rng.Calls-seed.Calls} vs {rom[0xff94]:x2}/{rom[0xff95]:x2}/{rom.RandomCalls}; sounds="+
+                        !sounds.Requests.SequenceEqual(rom.Sounds),$"{context}: shared RNG or ordered sounds differ: rng={rng.Rng1:x2}/{rng.Rng2:x2}/{rng.Calls-seed.Calls} vs {rom[0xff94]:x2}/{rom[0xff95]:x2}/{rom.RandomCalls}; sounds="+
                         string.Join(',',sounds.Requests.Select(cue => cue.ToString("x2")))+" vs "+string.Join(',',rom.Sounds.Select(cue => cue.ToString("x2"))));
                     FailIf(_entities.ScreenShakeCounter != rom[0xcd18] || _entities.HorizontalScreenShakeCounter != rom[0xcd19],
                         context+": scroll-gated shared shake counters differ.");

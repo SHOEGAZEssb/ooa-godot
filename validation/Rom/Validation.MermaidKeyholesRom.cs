@@ -42,18 +42,18 @@ public partial class ValidationRoot
                 FailIf(_rooms.InformativeTextsShown != rom[0xccd7] || _dialogue.IsOpen != (rom[0xcba0] != 0),
                     context + ": shared hint/modal differs.");
                 FailIf(_keyholes.RemainingPushFrames != rom[0xcc6a],
-                    context + $": contact clock runtime={_keyholes.RemainingPushFrames}, ROM={rom[0xcc6a]}.");
+                    $"{context}: contact clock runtime={_keyholes.RemainingPushFrames}, ROM={rom[0xcc6a]}.");
                 FailIf(_entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) != rom[0xcfc0],
                     context + ": retained keyhole signal differs.");
                 FailIf(controller.BlocksGameplay != ((rom[0xcc8a] & 0x81) != 0),context + ": keyhole/event input lock differs.");
                 FailIf(_roomEvents.MenusDisabled != (rom[0xcc02] != 0),context + ": source wMenuDisabled differs.");
                 FailIf(controller.BlocksGameplay && controller.Counter != rom[0xd246],
-                    context + $": event clock runtime={controller.Counter}, ROM={rom[0xd246]}, pointer=${rom.Word(0xd258):x4}, text=${rom[0xcba0]:x2}.");
+                    $"{context}: event clock runtime={controller.Counter}, ROM={rom[0xd246]}, pointer=${rom.Word(0xd258):x4}, text=${rom[0xcba0]:x2}.");
                 FailIf(_player.IsAttacking != (rom[0xd200] != 0 && rom[0xd201] == 0x05),
                     context + ": Sword parent allocation differs.");
                 for (int room = 0; room < 256; room++)
                     FailIf(_saveData.GetRoomFlags(entrance.Group,room) != rom[0xc800 + room],
-                        context + $": room flag${room:x2} differs.");
+                        $"{context}: room flag${room:x2} differs.");
                 var keys = _entities.Entities<OverworldKeyUseEffect>();
                 var slots = Enumerable.Range(0xd2,14).Select(page => (page << 8) | 0x40)
                     .Where(slot => rom[slot] != 0 && rom[slot + 1] == 0x18).ToArray();
@@ -70,8 +70,7 @@ public partial class ValidationRoot
                 var random = _random.CaptureState();
                 FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                     random.Calls - randomSeed.Calls != rom.RandomCalls ||
-                    !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),context +
-                    $": gameplay cue/RNG order differs: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}; RNG calls={random.Calls-randomSeed.Calls}/{rom.RandomCalls}.");
+                    !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),$"{context}: gameplay cue/RNG order differs: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}; RNG calls={random.Calls-randomSeed.Calls}/{rom.RandomCalls}.");
             },contextPrefix:$"Mermaid${entrance.Group:x1}:${entrance.Room:x2}, ownership={ownership}, after={update}");
             Step();
             for (int wait = 0; !controller.BlocksGameplay && !_dialogue.IsOpen &&

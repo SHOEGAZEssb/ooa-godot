@@ -80,19 +80,19 @@ public sealed partial class ValidationRoot
                     FailIf(_mapScreen.Mode != MapMode.Dungeon ||
                         _mapScreen.DisplayedDungeonFloor != rom[0xcc40] - 1 - rom[0xcbb7] ||
                         _mapScreen.DungeonScrollY != rom[0xcbb8] || _mapScreen.IsScrolling != (rom[0xcbce] != 0),
-                        context + $" update={update}: initial or scrolled floor/offset differs.");
+                        $"{context} update={update}: initial or scrolled floor/offset differs.");
                     // Compare all screen tile commands, including floor names,
                     // key digits, hidden/visited/chest/boss rooms and adjacent
                     // floors that intersect the 18-row scrolling window.
                     for (int y = 0; y < 18; y++)
                     for (int x = 0; x < 20; x++)
                         FailIf(_mapScreen.DungeonScreenTileAt(x, y) != rom.MapTile(x, y),
-                            context + $" update={update} tile=({x},{y}): runtime=${_mapScreen.DungeonScreenTileAt(x, y):x2}, native=${rom.MapTile(x, y):x2}.");
+                            $"{context} update={update} tile=({x},{y}): runtime=${_mapScreen.DungeonScreenTileAt(x, y):x2}, native=${rom.MapTile(x, y):x2}.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), context + ": floor selection sound order differs.");
-                    if (compareOam) CompareMapMenuOamRom(rom, context + $" update={update}");
-                    if (comparePixels) CompareMapBackgroundPixelsRom(rom, ref lastBackground, context + $" update={update}");
+                    if (compareOam) CompareMapMenuOamRom(rom, $"{context} update={update}");
+                    if (comparePixels) CompareMapBackgroundPixelsRom(rom, ref lastBackground, $"{context} update={update}");
                     if (compareFramePixels) CompareMapFramePixelsRom(rom, ref lastFrameBackground, ref lastFrameCommands,
-                        context + $" frame update={update}");
+                        $"{context} frame update={update}");
                 }
                 void Step(int count = 1, int pressed = 0)
                 {

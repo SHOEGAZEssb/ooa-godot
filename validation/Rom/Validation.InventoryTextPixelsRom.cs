@@ -194,16 +194,16 @@ public sealed partial class ValidationRoot
                             ((pixels[offset + 1] * 31 + 127) / 255) << 5 |
                             ((pixels[offset + 2] * 31 + 127) / 255) << 10;
                         if (pixels[offset + 3] != 255 || observed != expectedPixels[pixel]) FailIf(true,
-                            context + $" update={update} pixel=({pixel % 128},{pixel / 128}): runtime=${observed:x4}, native=${expectedPixels[pixel]:x4}, state=${rom.TextState:x2}/active=${rom[0xcba0]:x2}, text=${rom[0xcba2]:x2}.");
+                            $"{context} update={update} pixel=({pixel % 128},{pixel / 128}): runtime=${observed:x4}, native=${expectedPixels[pixel]:x4}, state=${rom.TextState:x2}/active=${rom[0xcba0]:x2}, text=${rom[0xcba2]:x2}.");
                     }
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
-                        context + $" update={update}: ordered text/menu sounds differ.");
+                        $"{context} update={update}: ordered text/menu sounds differ.");
                     // Text-strip pixels still compare every update. During
                     // long replay, sample complete layers at state boundaries
                     // and character intervals; transitions/input compare fully.
                     if (compareFramePixels && (!replayingText || rom.TextState != lastFrameTextState || update % 8 == 0))
                     {
-                        CompareInventoryFramePixelsRom(rom, context + $" update={update}");
+                        CompareInventoryFramePixelsRom(rom, $"{context} update={update}");
                         lastFrameTextState = rom.TextState;
                     }
                 });
@@ -225,7 +225,7 @@ public sealed partial class ValidationRoot
                     int textKey = fixture.Item3 switch { 0 => 0x45, 3 => 0x15, 6 => 0x47,
                         7 => 0x4c, 10 => 0x51, 11 => 0x52, _ => 0 };
                     FailIf(rom[0xcbbb] != textKey || _inventoryScreen.ActiveTextKey != textKey,
-                        context + $": shared passive slot lost its source-ordered winning row, native=${rom[0xcbbb]:x2}, runtime=${_inventoryScreen.ActiveTextKey:x2}, expected=${textKey:x2}.");
+                        $"{context}: shared passive slot lost its source-ordered winning row, native=${rom[0xcbbb]:x2}, runtime=${_inventoryScreen.ActiveTextKey:x2}, expected=${textKey:x2}.");
                 }
             }
             if (essenceReplay)
@@ -243,7 +243,7 @@ public sealed partial class ValidationRoot
                     (fixture.Item1 == 0x0f ? 0x37 : 0x32) + option;
                 FailIf(rom[0xcbcd] != 2 || rom[0xcbce] != 2 || rom[0xcbbb] != textKey ||
                     !_inventoryScreen.ItemSubmenuReady || _inventoryScreen.ActiveTextKey != textKey,
-                    context + $": selected submenu option did not dispatch its native text key, menu=${rom[0xcbcd]:x2}/${rom[0xcbce]:x2}, native=${rom[0xcbbb]:x2}, runtime=${_inventoryScreen.ActiveTextKey:x2}, ready={_inventoryScreen.ItemSubmenuReady}, expected=${textKey:x2}.");
+                    $"{context}: selected submenu option did not dispatch its native text key, menu=${rom[0xcbcd]:x2}/${rom[0xcbce]:x2}, native=${rom[0xcbbb]:x2}, runtime=${_inventoryScreen.ActiveTextKey:x2}, ready={_inventoryScreen.ItemSubmenuReady}, expected=${textKey:x2}.");
                 states = 0; // Require this option's complete cycle, not earlier item/option text.
             }
             bool emptyText = passivePage && (fixture.Item1 == 0x41 && fixture.Item2 == 12 ||
@@ -264,7 +264,7 @@ public sealed partial class ValidationRoot
                 replayingText = false;
             }
             FailIf(replayText && (states & 0x1e) != 0x1e,
-                context + $": fixture missed native pause/description/trailing-space/replay states, mask=${states:x2}.");
+                $"{context}: fixture missed native pause/description/trailing-space/replay states, mask=${states:x2}.");
             if (questPage)
             {
                 if (!essenceReplay)

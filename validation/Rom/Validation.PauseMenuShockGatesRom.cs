@@ -55,9 +55,9 @@ public sealed partial class ValidationRoot
                     string context = $"Shock menu gates intro={introDone} keys=${keys:x2} elapsed={elapsed} batch={batched} update={++update}";
                     FailIf(_menuLifecycle.IsActive != (rom[0xcbcb] != 0) ||
                         _player.ElectricShockActive != (rom[0xccdb] != 0) || _player.ElectricShockCounter != rom[0xccdc],
-                        context + $": menu/shock ownership or counter differs: runtime={_menuLifecycle.IsActive}/{_player.ElectricShockActive}/{_player.ElectricShockCounter}, native=${rom[0xcbcb]:x2}/${rom[0xccdb]:x2}/{rom[0xccdc]}.");
+                        $"{context}: menu/shock ownership or counter differs: runtime={_menuLifecycle.IsActive}/{_player.ElectricShockActive}/{_player.ElectricShockCounter}, native=${rom[0xcbcb]:x2}/${rom[0xccdb]:x2}/{rom[0xccdc]}.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
-                        context + $": shock/IntroDone/menu cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
+                        $"{context}: shock/IntroDone/menu cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
                     FailIf(_player.HealthQuarters != rom[0xc6aa], context + ": shock/menu changed protected health.");
                     FailIf(_entities.ScreenShakeCounter != rom[0xcd18] ||
                         _entities.HorizontalScreenShakeCounter != rom[0xcd19],

@@ -118,13 +118,13 @@ public sealed partial class ValidationRoot
                             bool expectedOpen = elapsed >= 34;
                             int expectedMenu = !expectedOpen ? 0 : probeKey == 12 ? 3 : probeKey == 8 ? 1 : 2;
                             FailIf(rom[0xcbcb] != expectedMenu,
-                                context + $": native arrival caller gate differs at elapsed={elapsed}, key=${probeKey:x2}, menu=${rom[0xcbcb]:x2}, scroll=${rom[0xcd00]:x2}, screen=${rom[0xcd04]:x2}/${rom[0xcd05]:x2}/{rom[0xcd03]}, palette=${rom[0xc4ab]:x2}/${rom[0xc4ae]:x2}, caller=${rom[0xc2ef]:x2}, locks=${rom[0xcc02]:x2}/${rom[0xcbca]:x2}.");
+                                $"{context}: native arrival caller gate differs at elapsed={elapsed}, key=${probeKey:x2}, menu=${rom[0xcbcb]:x2}, scroll=${rom[0xcd00]:x2}, screen=${rom[0xcd04]:x2}/${rom[0xcd05]:x2}/{rom[0xcd03]}, palette=${rom[0xc4ab]:x2}/${rom[0xc4ae]:x2}, caller=${rom[0xc2ef]:x2}, locks=${rom[0xcc02]:x2}/${rom[0xcbca]:x2}.");
                             FailIf(_menuLifecycle.IsActive != expectedOpen ||
                                 _menuLifecycle.IsActive && _menuLifecycle.CurrentPhase != Phase.OpeningFadeOut ||
                                 _inventoryMenu.IsActive != (expectedMenu is 1 or 3) ||
                                 _mapMenu.IsActive != (expectedMenu == 2) ||
                                 _gameplayPause.IsLeased != expectedOpen,
-                                context + $": runtime arrival menu gate differs at elapsed={elapsed}, key=${probeKey:x2}, expectedMenu=${expectedMenu:x2}, active={_menuLifecycle.IsActive}.");
+                                $"{context}: runtime arrival menu gate differs at elapsed={elapsed}, key=${probeKey:x2}, expectedMenu=${expectedMenu:x2}, active={_menuLifecycle.IsActive}.");
                             FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                                 _player.ObjectZHigh != rom[0xd00f], context + ": arrival menu opening advanced the frozen Link object.");
                             arrivalMenuStarted = expectedOpen;
@@ -149,7 +149,7 @@ public sealed partial class ValidationRoot
                                 context + ": arrival menu phase/pause/fixed fall/collapse retention differs.");
                             if (_menuLifecycle.FadeUpdate > 0 && expectedPhase is Phase.OpeningFadeOut or Phase.OpeningFadeIn or Phase.ClosingFadeOut or Phase.ClosingFadeIn)
                                 FailIf(Mathf.Clamp(Mathf.RoundToInt((_warpFade.Color.A + _scene.MenuFade.Color.A) * 31), 0, 31) != Mathf.Clamp(rom[0xc2ff], 0, 31),
-                                    context + $": retained warp overlay conflicts with the menu palette: warp={_warpFade.Color.A}, menu={_scene.MenuFade.Color.A}, native=${rom[0xc2ff]:x2}.");
+                                    $"{context}: retained warp overlay conflicts with the menu palette: warp={_warpFade.Color.A}, menu={_scene.MenuFade.Color.A}, native=${rom[0xc2ff]:x2}.");
                             return;
                         }
                         if (resumeMenu && arrivalMenuStarted)
@@ -169,33 +169,33 @@ public sealed partial class ValidationRoot
                             FailIf(_rooms.ActiveGroup != rom[0xcc2d] || _rooms.CurrentRoom.Id != rom[0xcc30] ||
                                 elapsed == 32 && _transitions.ActiveWarpDestinationPosition != rom[0xcc4a] ||
                                 _mapMenu.IsActive || _gameplayPause.IsLeased,
-                                context + $": accepted destination/white handoff differs, runtime=${_rooms.ActiveGroup:x1}:${_rooms.CurrentRoom.Id:x2}/${_transitions.ActiveWarpDestinationPosition:x2}, native=${rom[0xcc2d]:x1}:${rom[0xcc30]:x2}/${rom[0xcc4a]:x2}.");
+                                $"{context}: accepted destination/white handoff differs, runtime=${_rooms.ActiveGroup:x1}:${_rooms.CurrentRoom.Id:x2}/${_transitions.ActiveWarpDestinationPosition:x2}, native=${rom[0xcc2d]:x1}:${rom[0xcc30]:x2}/${rom[0xcc4a]:x2}.");
                             if (completeArrival)
                             {
                                 FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                                     _player.ObjectZHigh != rom[0xd00f] ||
                                     _player.IsRoomWarpFalling != (rom[0xd004] == 0x0a) ||
                                     CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008],
-                                    context + $": arrival motion differs at elapsed={elapsed}, runtime={_player.PrecisePosition}/${_player.ObjectZHigh:x2}, native=({rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f})/${rom[0xd00f]:x2}, Link=${rom[0xd004]:x2}/${rom[0xd005]:x2}/force=${rom[0xcc4f]:x2}.");
+                                    $"{context}: arrival motion differs at elapsed={elapsed}, runtime={_player.PrecisePosition}/${_player.ObjectZHigh:x2}, native=({rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f})/${rom[0xd00f]:x2}, Link=${rom[0xd004]:x2}/${rom[0xd005]:x2}/force=${rom[0xcc4f]:x2}.");
                                 if (_player.IsRoomWarpFalling)
                                     FailIf(((int)fallZ.GetValue(_player)! & 0xffff) != rom.Word(0xd00e) ||
                                         ((int)fallSpeed.GetValue(_player)! & 0xffff) != rom.Word(0xd014) ||
                                         _player.RoomWarpFallCollapsed != (rom[0xd005] == 2) ||
                                         _player.RoomWarpFallCollapsed && (int)fallCounter.GetValue(_player)! != rom[0xd006],
-                                        context + $": fixed fall/collapse differs at elapsed={elapsed}: Z=${(int)fallZ.GetValue(_player)! & 0xffff:x4}/${rom.Word(0xd00e):x4}, speed=${(int)fallSpeed.GetValue(_player)! & 0xffff:x4}/${rom.Word(0xd014):x4}, collapse={_player.RoomWarpFallCollapsed}, counter={(int)fallCounter.GetValue(_player)!}/${rom[0xd006]:x2}.");
+                                        $"{context}: fixed fall/collapse differs at elapsed={elapsed}: Z=${(int)fallZ.GetValue(_player)! & 0xffff:x4}/${rom.Word(0xd00e):x4}, speed=${(int)fallSpeed.GetValue(_player)! & 0xffff:x4}/${rom.Word(0xd014):x4}, collapse={_player.RoomWarpFallCollapsed}, counter={(int)fallCounter.GetValue(_player)!}/${rom[0xd006]:x2}.");
                             }
                         }
                         return;
                     }
                     FailIf(_player.IsUsingSeedSatchel != Enumerable.Range(0xd2, 4).Any(page => rom[page << 8] != 0 && rom[(page << 8) + 1] == 0x19),
                         context + ": Satchel parent retirement differs.");
-                    FailIf(_player.GaleActive != (rom[0xcc4f] == 7 || rom[0xd004] == 7 || returning && rom[0xd004] == 0x0a), context + $": capture differs: runtime={_player.GaleActive}, native state={rom[0xd004]:x2}/{rom[0xd005]:x2}, force={rom[0xcc4f]:x2}, locks={rom[0xcc02]:x2}/{rom[0xcc8a]:x2}, collision={rom[0xd024]:x2}, air={rom[0xcc61]:x2}.");
+                    FailIf(_player.GaleActive != (rom[0xcc4f] == 7 || rom[0xd004] == 7 || returning && rom[0xd004] == 0x0a), $"{context}: capture differs: runtime={_player.GaleActive}, native state={rom[0xd004]:x2}/{rom[0xd005]:x2}, force={rom[0xcc4f]:x2}, locks={rom[0xcc02]:x2}/{rom[0xcc8a]:x2}, collision={rom[0xd024]:x2}, air={rom[0xcc61]:x2}.");
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
-                        _player.ObjectZHigh != rom[0xd00f], context + $": Link position/height differs: runtime={_player.PrecisePosition}/${_player.ObjectZHigh:x2}, native=({rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f})/${rom[0xd00f]:x2}, state={rom[0xd004]:x2}/{rom[0xd005]:x2}, menu={rom[0xcbcb]:x2}/{rom[0xcbcc]:x2}.");
+                        _player.ObjectZHigh != rom[0xd00f], $"{context}: Link position/height differs: runtime={_player.PrecisePosition}/${_player.ObjectZHigh:x2}, native=({rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f})/${rom[0xd00f]:x2}, state={rom[0xd004]:x2}/{rom[0xd005]:x2}, menu={rom[0xcbcb]:x2}/{rom[0xcbcc]:x2}.");
                     if (rom[0xd004] == 7 && rom[0xd005] == 1)
                     {
                         int ticks = (int)typeof(Player).GetField("_galeFrameTicks", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
-                        FailIf(ticks != rom[0xd020], context + $": Link spinning animation timing differs: runtime={ticks}, native={rom[0xd020]}.");
+                        FailIf(ticks != rom[0xd020], $"{context}: Link spinning animation timing differs: runtime={ticks}, native={rom[0xd020]}.");
                     }
                     var items = _entities.Entities<EmberSeedEffect>();
                     int[] children = Enumerable.Range(0xd7, 5).Select(page => page << 8).Where(slot => rom[slot] != 0 && rom[slot + 1] == 0x23).ToArray();
@@ -229,10 +229,10 @@ public sealed partial class ValidationRoot
                         FailIf(_menuLifecycle.CurrentPhase != expected, context + ": Gale menu fade phase differs.");
                         if (_mapMenu.IsOpen)
                             FailIf(_mapMenu.GaleState != rom[0xcbcd] || _mapScreen.CursorRoom != rom[0xcbb6],
-                                context + $": Gale selection/prompt state differs: runtime={_mapMenu.GaleState}/${_mapScreen.CursorRoom:x2}/text={_dialogue.BlocksPlayerInput}, native={rom[0xcbcd]}/${rom[0xcbb6]:x2}/text={rom[0xcba0]:x2}/state={menus.TextState:x2}/option={rom[0xcba5]}.");
+                                $"{context}: Gale selection/prompt state differs: runtime={_mapMenu.GaleState}/${_mapScreen.CursorRoom:x2}/text={_dialogue.BlocksPlayerInput}, native={rom[0xcbcd]}/${rom[0xcbb6]:x2}/text={rom[0xcba0]:x2}/state={menus.TextState:x2}/option={rom[0xcba5]}.");
                     }
                     for (int address = 0xc6b9; address <= 0xc6bd; address++)
-                        FailIf(_saveData.ReadWramByte(address) != rom[address], context + $": ammo ${address:x4} differs.");
+                        FailIf(_saveData.ReadWramByte(address) != rom[address], $"{context}: ammo ${address:x4} differs.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - randomSeed.Calls != rom.RandomCalls, context + ": RNG differs.");
                     FailIf(!sounds.Requests.Where(id => id is 0x52 or 0x90).SequenceEqual(rom.Sounds.Where(id => id is 0x52 or 0x90)), context + ": Gale sounds differ.");

@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(24,104));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             Vector2 initial=new(4+(fractional?.25f:0),250+(fractional?.5f:0));
-            var actor=new CheepCheepCharacter();actor.Initialize(new EnemyDatabase().ImportedEnemy(0x2c,subid),_currentRoom,initial.Floor(),distance,_random);
+            var actor=new CheepCheepCharacter();actor.Initialize(EnemyDatabase.Shared.ImportedEnemy(0x2c,subid),_currentRoom,initial.Floor(),distance,_random);
             var source=new EnemyCombatSourceDescriptor(0x2c,subid,0x94,0,1,EnemyHandlerKind.CheepCheep,"cheepcheep.s:enemyCode2c");
             var adapter=new CheepCheepRoomEntity(actor,source,_sound.PlaySound);
             var before=new PartMovementScratchProbe(()=>

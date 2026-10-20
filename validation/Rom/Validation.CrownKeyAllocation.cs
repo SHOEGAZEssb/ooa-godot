@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
                         _rooms.PendingTileGraphics != ((rom[0xcce0]-rom[0xccdf]) & 31),
                         context+": shared contact/queue count differs.");
                     for (int id = 0; id < 256; id++)
-                        FailIf(_saveData.GetRoomFlags(4,id) != rom[0xc900+id],context+$": room flags$4:${id:x2} differ.");
+                        FailIf(_saveData.GetRoomFlags(4,id) != rom[0xc900+id],$"{context}: room flags$4:${id:x2} differ.");
                     var puffs = _entities.Entities<PuzzlePuffEffect>().OrderBy(_entities.InteractionSlot).ToArray();
                     int[] slots = Enumerable.Range(0xd2,14).Select(page => page*256+0x40)
                         .Where(slot => rom[slot] != 0 && rom[slot+1] == 5).ToArray();

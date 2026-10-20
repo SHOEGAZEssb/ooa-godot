@@ -95,15 +95,14 @@ public sealed partial class ValidationRoot
                     string context = $"Deep-water {group:x1}:{sourceRoom:x2} ring=${ring:x2} batched={batched} update={++update}";
                     FailIf(_rooms.ActiveGroup != rom[0xcc2d] || _currentRoom.Id != rom[0xcc30] ||
                         _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
-                        context + $": room/full fixed XY differ: runtime={_rooms.ActiveGroup:x1}:{_currentRoom.Id:x2}/{_player.PrecisePosition}, native={rom[0xcc2d]:x1}:{rom[0xcc30]:x2}/{rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}.");
+                        $"{context}: room/full fixed XY differ: runtime={_rooms.ActiveGroup:x1}:{_currentRoom.Id:x2}/{_player.PrecisePosition}, native={rom[0xcc2d]:x1}:{rom[0xcc30]:x2}/{rom.Word(0xd00c):x4},{rom.Word(0xd00a):x4}.");
                     if (!loaded)
                     {
                         FailIf(_player.TopDownDiving != ((rom[0xcc5d] & 0x80) != 0) ||
                             _player.TopDownSwimming && (_player.TopDownDiveCounter != rom[0xd007] ||
                             _player.TopDownSwimAngle != rom[0xd009] || _player.TopDownSwimSpeedRaw != rom[0xd010]),
                             context + ": dive counter/angle/speed differ before or during fade-out.");
-                        FailIf(_transitions.IsTransitioning != (rom[0xc2ef] == 3), context +
-                            $": fade dispatch differs: runtime={_transitions.TimeWarpPhaseName}/{_transitions.IsTransitioning}, native=${rom[0xc2ef]:x2}, tile=${_currentRoom.GetMetatile(_player.Position):x2}, lock=${_runtimeState.ReadWramByte(0xcc91):x2}, swim={_player.TopDownSwimmingState}, diving={_player.TopDownDiving}, captured=${captured:x2}.");
+                        FailIf(_transitions.IsTransitioning != (rom[0xc2ef] == 3), $"{context}: fade dispatch differs: runtime={_transitions.TimeWarpPhaseName}/{_transitions.IsTransitioning}, native=${rom[0xc2ef]:x2}, tile=${_currentRoom.GetMetatile(_player.Position):x2}, lock=${_runtimeState.ReadWramByte(0xcc91):x2}, swim={_player.TopDownSwimmingState}, diving={_player.TopDownDiving}, captured=${captured:x2}.");
                         if (rom[0xc2ef] == 3)
                             FailIf(!Mathf.IsEqualApprox(_warpFade.Color.A, System.Math.Min((int)rom[0xc2ff], 31) / 31f),
                                 context + ": fade-out palette offset differs.");
@@ -114,8 +113,7 @@ public sealed partial class ValidationRoot
                     else
                     {
                         FailIf(!Mathf.IsEqualApprox(_warpFade.Color.A,
-                            System.Math.Min((int)rom[0xc2ff], 31) / 31f), context +
-                            $": arrival fade offset differs: runtime={_warpFade.Color.A}, native=${rom[0xc2ff]:x2}, mode=${rom[0xc4ab]:x2}, Link=${rom[0xd004]:x2}/${rom[0xd005]:x2}.");
+                            System.Math.Min((int)rom[0xc2ff], 31) / 31f), $"{context}: arrival fade offset differs: runtime={_warpFade.Color.A}, native=${rom[0xc2ff]:x2}, mode=${rom[0xc4ab]:x2}, Link=${rom[0xd004]:x2}/${rom[0xd005]:x2}.");
                         if (rom[0xd004] == 1)
                         {
                             FailIf(CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||

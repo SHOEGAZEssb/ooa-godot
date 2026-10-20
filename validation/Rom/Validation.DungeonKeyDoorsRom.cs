@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
             var overworldRooms = new RoomSession(
                 overworldGroup, overworldRoomId,
                 () => 0, () => { }, overworldSave);
-            var overworldTreasures = new TreasureDatabase();
+            var overworldTreasures = TreasureDatabase.Shared;
             var overworldInventory = new InventoryState(
                 overworldTreasures,
                 overworldSave,

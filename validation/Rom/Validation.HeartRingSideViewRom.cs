@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
                     CompareSideViewRom(rom, context);
                     int nativeCounter = rom.Word(0xcc53) | rom[0xcc55] << 16;
                     FailIf((int)counter.GetValue(_player)! != nativeCounter,
-                        context + $": movement eligibility/distance differs: runtime={(int)counter.GetValue(_player)!:x6}, native={nativeCounter:x6}.");
+                        $"{context}: movement eligibility/distance differs: runtime={(int)counter.GetValue(_player)!:x6}, native={nativeCounter:x6}.");
                     FailIf(_saveData.ReadWramByte(0xc65f) != rom[0xc65f] || _saveData.ReadWramByte(0xc660) != rom[0xc660] ||
                         _inventory.HasTreasure(TreasureId.HeartRefill) != ((rom[0xc69f] & 2) != 0),
                         context + ": refill treasure flag/Gasha maturity differs.");

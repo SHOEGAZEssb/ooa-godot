@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
                         _player.NativeNormalStateForInteraction != (rom[0xd004] == 1) ||
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008] ||
                         _player.TopDownSwimming || _player.IsFallingInHole || _transitions.IsTransitioning,
-                        context + $": motion/state/recovery differs: runtime={_player.PrecisePosition}, native={expected}, state=${rom[0xd004]:x2}/${rom[0xd005]:x2}, force=${rom[0xcc4f]:x2}, swim=${rom[0xcc5d]:x2}, health={_player.HealthQuarters}/{rom[0xc6aa]}.");
+                        $"{context}: motion/state/recovery differs: runtime={_player.PrecisePosition}, native={expected}, state=${rom[0xd004]:x2}/${rom[0xd005]:x2}, force=${rom[0xcc4f]:x2}, swim=${rom[0xcc5d]:x2}, health={_player.HealthQuarters}/{rom[0xc6aa]}.");
                     if (rom[0xd004] == 2 && rom[0xd005] == 5)
                         FailIf((_player.DrownAnimationFrame == 0 ? 0xd4 : 0x0b) != rom[0xd031],
                             context + ": native drowning animation frame differs.");
@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
                     int invincibility = (int)(float)typeof(Player).GetField("_enemyInvincibilityFrames",
                         BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
                     FailIf((invincibility & 0xff) != rom[0xd02b],
-                        context + $": post-Link invincibility differs: runtime=${invincibility & 0xff:x2}, native=${rom[0xd02b]:x2}.");
+                        $"{context}: post-Link invincibility differs: runtime=${invincibility & 0xff:x2}, native=${rom[0xd02b]:x2}.");
                     var random = _random.CaptureState();
                     FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
                         random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": shared RNG differs.");

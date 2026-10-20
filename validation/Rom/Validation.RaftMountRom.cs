@@ -132,7 +132,7 @@ public sealed partial class ValidationRoot
                     if(nativeMovement&&movingRaft)
                     {
                         FailIf(probes!=1||!observed.SequenceEqual(expectedScratch)||_player.KnockbackFrames!=rom[0xd02d]||observedLink!=expectedLink,
-                            context+$": pre-PART original masked raft movement/knockback scratch differs: probes{probes}, [{string.Join(',',observed)}]/[{string.Join(',',expectedScratch)}], knockback{_player.KnockbackFrames}/{rom[0xd02d]}.");
+                            $"{context}: pre-PART original masked raft movement/knockback scratch differs: probes{probes}, [{string.Join(',',observed)}]/[{string.Join(',',expectedScratch)}], knockback{_player.KnockbackFrames}/{rom[0xd02d]}.");
                         publicationVisits++;
                     }
                     probes=0;SeedScratch();
@@ -141,14 +141,14 @@ public sealed partial class ValidationRoot
                     FailIf(_player.PrecisePosition != expected || _player.RaftRideActive != (rom[0xcc2c] == 0xd1) ||
                         _player.HealthQuarters != rom[0xc6aa] || _player.TopDownSwimming || _player.IsDrowning ||
                         CarriedObjectMotion.DirectionIndex(_player.FacingVector) != rom[0xd008],
-                        context + $": Link motion/ride/facing differs: runtime={_player.PrecisePosition}, native={expected}, companion=${rom[0xd100]:x2}:${rom[0xd101]:x2}/${rom[0xd104]:x2}, raftXY={rom.Word(0xd10c) / 256.0f},{rom.Word(0xd10a) / 256.0f}, parameter=${rom[0xd121]:x2}, interactionXY={rom[slot + 0x0d]},{rom[slot + 0x0b]}, rider=${rom[0xcc2c]:x2}.");
+                        $"{context}: Link motion/ride/facing differs: runtime={_player.PrecisePosition}, native={expected}, companion=${rom[0xd100]:x2}:${rom[0xd101]:x2}/${rom[0xd104]:x2}, raftXY={rom.Word(0xd10c) / 256.0f},{rom.Word(0xd10a) / 256.0f}, parameter=${rom[0xd121]:x2}, interactionXY={rom[slot + 0x0d]},{rom[slot + 0x0b]}, rider=${rom[0xcc2c]:x2}.");
                     if (rom[0xd100] != 0 && rom[0xd104] != 0)
                     {
                         Vector2 nativeRaft = new(rom.Word(0xd10c) / 256.0f, rom.Word(0xd10a) / 256.0f);
                         FailIf(raft.PrecisePosition != nativeRaft || raft.Direction != rom[0xd108] ||
                             raft.Angle != rom[0xd109] || rom[0xd104] == 1 && (Field("_dismountAngle") != rom[0xd13e] ||
                             Field("_dismountCounter") != rom[0xd13f]),
-                            context + $": raft fixed motion/direction/dismount counters differ: runtime={raft.PrecisePosition}, native={nativeRaft}, angle=${raft.Angle:x2}/${rom[0xd109]:x2}, facing={raft.Direction}/{rom[0xd108]}, dismount={Field("_dismountAngle")}/{rom[0xd13e]},{Field("_dismountCounter")}/{rom[0xd13f]}.");
+                            $"{context}: raft fixed motion/direction/dismount counters differ: runtime={raft.PrecisePosition}, native={nativeRaft}, angle=${raft.Angle:x2}/${rom[0xd109]:x2}, facing={raft.Direction}/{rom[0xd108]}, dismount={Field("_dismountAngle")}/{rom[0xd13e]},{Field("_dismountCounter")}/{rom[0xd13f]}.");
                     }
                     if (bombchuButton != 0)
                     {
@@ -182,7 +182,7 @@ public sealed partial class ValidationRoot
                         FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
                             PlayerField<int>("_shieldParentButton") != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
                             PlayerField<bool>("_shieldParentInitialized") != (rom[0xd504] != 0),
-                            context + $": Shield L{shieldLevel} parent/raised state differs: runtime={_player.IsUsingShield}/{PlayerField<int>("_shieldParentButton")}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}.");
+                            $"{context}: Shield L{shieldLevel} parent/raised state differs: runtime={_player.IsUsingShield}/{PlayerField<int>("_shieldParentButton")}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}.");
                     if (satchelButton != 0)
                     {
                         FailIf(_player.IsUsingSeedSatchel ||
@@ -193,9 +193,9 @@ public sealed partial class ValidationRoot
                         for (int address = 0xc6b9; address <= 0xc6bd; address++)
                             FailIf(_saveData.ReadWramByte(address) != rom[address] ||
                                 !pegasusBeforeMount && rom[address] != 0x20,
-                                context + $": seed count differs at ${address:x4}.");
+                                $"{context}: seed count differs at ${address:x4}.");
                         FailIf(_seedSatchel.Pegasus.RawCounter != rom.Word(0xcc6c),
-                            context + $": Pegasus counter differs: runtime=${_seedSatchel.Pegasus.RawCounter:x4}, native=${rom.Word(0xcc6c):x4}.");
+                            $"{context}: Pegasus counter differs: runtime=${_seedSatchel.Pegasus.RawCounter:x4}, native=${rom.Word(0xcc6c):x4}.");
                         var dust = _entities.Entities<PegasusDustRoomEntity>();
                         bool nativeDust = rom[0xdf00] != 0 && rom[0xdf01] == 0x1a;
                         FailIf((dust.Count == 1) != nativeDust, context + ": reserved dust allocation/deletion differs.");
@@ -205,7 +205,7 @@ public sealed partial class ValidationRoot
                                 dust[0].OamFlags != rom[0xdf1c] ||
                                 (int)typeof(PegasusDustRoomEntity).GetField("_subid", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dust[0])! != rom[0xdf02] ||
                                 !dust[0].Clouds.ToArray().SequenceEqual(Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index])),
-                                context + $": reserved dust differs: runtime={dust[0].Substate}/{dust[0].Position}/visible={dust[0].Visible}/tile${dust[0].TileBase:x2}/flags${dust[0].OamFlags:x2}/subid={typeof(PegasusDustRoomEntity).GetField("_subid", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dust[0])}/clouds={string.Join(',', dust[0].Clouds.ToArray())}, native={rom[0xdf05]}/{rom[0xdf0d]},{rom[0xdf0b]}/visible={(rom[0xdf1a] & 0x80) != 0}/tile${rom[0xdf1d]:x2}/flags${rom[0xdf1c]:x2}/subid={rom[0xdf02]}/clouds={string.Join(',', Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index]))}, Linkstate=${rom[0xd004]:x2}, raftstate=${rom[0xd104]:x2}.");
+                                $"{context}: reserved dust differs: runtime={dust[0].Substate}/{dust[0].Position}/visible={dust[0].Visible}/tile${dust[0].TileBase:x2}/flags${dust[0].OamFlags:x2}/subid={typeof(PegasusDustRoomEntity).GetField("_subid", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dust[0])}/clouds={string.Join(',', dust[0].Clouds.ToArray())}, native={rom[0xdf05]}/{rom[0xdf0d]},{rom[0xdf0b]}/visible={(rom[0xdf1a] & 0x80) != 0}/tile${rom[0xdf1d]:x2}/flags${rom[0xdf1c]:x2}/subid={rom[0xdf02]}/clouds={string.Join(',', Enumerable.Range(0, 8).Select(index => rom[0xdf30 + index]))}, Linkstate=${rom[0xd004]:x2}, raftstate=${rom[0xd104]:x2}.");
                     }
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText &&
                         (heartRing == 0xff || id != SoundId.SndGainHeart)).SequenceEqual(rom.Sounds),

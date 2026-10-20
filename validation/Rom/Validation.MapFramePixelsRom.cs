@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
                 ((actual[offset + 1] * 31 + 127) / 255) << 5 |
                 ((actual[offset + 2] * 31 + 127) / 255) << 10;
             if (observed != expected[pixel] || actual[offset + 3] != 255) FailIf(true,
-                context + $": composed pixel ({pixel % 160},{pixel / 160}) runtime=${observed:x4}, native=${expected[pixel]:x4}, OAM={count}.");
+                $"{context}: composed pixel ({pixel % 160},{pixel / 160}) runtime=${observed:x4}, native=${expected[pixel]:x4}, OAM={count}.");
         }
     }
 }

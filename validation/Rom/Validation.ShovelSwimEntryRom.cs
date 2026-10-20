@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
                     FailIf(_player.IsUsingShovel != parent || _shovel.ChildActive != (children.Length == 1) ||
                         _player.TopDownSwimmingState != (rom[0xcc5d] & 0x0f) ||
                         _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
-                        context + $": parent/child/swimming/full fixed Link position differs: runtime={_player.IsUsingShovel}/{_shovel.ChildActive}/{_player.TopDownSwimmingState}/{_player.PrecisePosition}, native={parent}/{children.Length}/{rom[0xcc5d]:x2}/{rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}, var2f=${rom[0xd02f]:x2}.");
+                        $"{context}: parent/child/swimming/full fixed Link position differs: runtime={_player.IsUsingShovel}/{_shovel.ChildActive}/{_player.TopDownSwimmingState}/{_player.PrecisePosition}, native={parent}/{children.Length}/{rom[0xcc5d]:x2}/{rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}, var2f=${rom[0xd02f]:x2}.");
                     if (_player.TopDownSwimming)
                     {
                         // SpecialObject.counter1 holds the entry delay in
@@ -57,7 +57,7 @@ public sealed partial class ValidationRoot
                             ? _player.TopDownSwimmingEntryCounter : _player.TopDownSwimBurstCounter;
                         FailIf(_player.TopDownSwimAngle != rom[0xd009] || _player.TopDownSwimSpeedRaw != rom[0xd010] ||
                             _player.TopDownSwimTargetSpeedRaw != rom[0xd011] || counter != rom[0xd006],
-                            context + $": swim angle/speed/target/counter runtime={_player.TopDownSwimAngle:x2}/{_player.TopDownSwimSpeedRaw}/{_player.TopDownSwimTargetSpeedRaw}/{counter}, native={rom[0xd009]:x2}/{rom[0xd010]}/{rom[0xd011]}/{rom[0xd006]}.");
+                            $"{context}: swim angle/speed/target/counter runtime={_player.TopDownSwimAngle:x2}/{_player.TopDownSwimSpeedRaw}/{_player.TopDownSwimTargetSpeedRaw}/{counter}, native={rom[0xd009]:x2}/{rom[0xd010]}/{rom[0xd011]}/{rom[0xd006]}.");
                     }
                     if (children.Length == 1)
                     {

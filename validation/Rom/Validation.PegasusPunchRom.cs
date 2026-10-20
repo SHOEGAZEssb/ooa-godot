@@ -31,7 +31,7 @@ public sealed partial class ValidationRoot
                     bool punch = rom[0xd200] != 0 && rom[0xd201] == 2;
                     FailIf(_player.IsUsingPunch != punch || punch && _player.IsUsingExpertPunch != (ring == 0x0b) ||
                         _seedSatchel.Pegasus.RawCounter != rom.Word(0xcc6c) || _inventory.PegasusSeeds != rom[0xc6bb],
-                        context + $": punch={_player.IsUsingPunch}/{punch}, frame={_player.PunchFrame}, parent clock=${rom[0xd220]:x2}/${rom[0xd221]:x2}, " +
+                        $"{context}: punch={_player.IsUsingPunch}/{punch}, frame={_player.PunchFrame}, parent clock=${rom[0xd220]:x2}/${rom[0xd221]:x2}, " +
                         $"timer=${_seedSatchel.Pegasus.RawCounter:x4}/${rom.Word(0xcc6c):x4}, ammo=${_inventory.PegasusSeeds:x2}/${rom[0xc6bb]:x2}.");
                     ComparePegasusDustRom(rom, false, context);
                     var random = _random.CaptureState();

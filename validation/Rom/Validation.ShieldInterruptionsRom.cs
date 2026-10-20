@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
                         Field<int>("_shieldParentButton") != (rom[0xd500] == 0 ? 0 : rom[0xd503]) ||
                         Field<bool>("_shieldParentInitialized") != (rom[0xd504] != 0),
-                        context + $": raised/parent/state runtime={_player.IsUsingShield}/{Field<int>("_shieldParentButton")}/{Field<bool>("_shieldParentInitialized")}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}; lower slots=${rom[0xd200]:x2}/${rom[0xd300]:x2}/${rom[0xd400]:x2}.");
+                        $"{context}: raised/parent/state runtime={_player.IsUsingShield}/{Field<int>("_shieldParentButton")}/{Field<bool>("_shieldParentInitialized")}, native=${rom[0xcc6f]:x2}/${rom[0xd500]:x2}/${rom[0xd504]:x2}; lower slots=${rom[0xd200]:x2}/${rom[0xd300]:x2}/${rom[0xd400]:x2}.");
                     FailIf(_player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
                         context + ": Link position differs.");
                     FailIf(!sounds.Requests.Where(id => id == SoundId.SndShield).SequenceEqual(rom.Sounds.Where(id => id == SoundId.SndShield)),
