@@ -1424,6 +1424,9 @@ public sealed partial class ValidationRoot
         FailIf(
             incomingImpa is null || incomingImpa == impa ||
             incomingImpa.Position != impa.Position + Vector2.Left * 160 ||
+            !incomingImpa.Visible || incomingImpa.CurrentAnimationCounter != impa.CurrentAnimationCounter ||
+            incomingImpa.CurrentAnimationPixelHash != impa.CurrentAnimationPixelHash ||
+            incomingImpa.Position + incomingImpa.TransitionDrawOffset != impa.Position + impa.TransitionDrawOffset ||
             impa.Active ||
             !impaEvent.Following,
             "Following Impa was not transferred into room 0:6b with the original " +
@@ -1476,6 +1479,9 @@ public sealed partial class ValidationRoot
         NpcCharacter? returningFollower = impaEvent.Actor;
         FailIf(
             returningImpas.Count != 2 || returningFollower is null ||
+            !returningFollower.Visible || returningFollower.CurrentAnimationCounter != incomingImpa.CurrentAnimationCounter ||
+            returningFollower.CurrentAnimationPixelHash != incomingImpa.CurrentAnimationPixelHash ||
+            returningFollower.Position + returningFollower.TransitionDrawOffset != incomingImpa.Position + incomingImpa.TransitionDrawOffset ||
             incomingImpa.Active ||
             !returningFollower.Active || returningImpas.Count(npc => npc.Active) != 1 ||
             !impaEvent.Following,

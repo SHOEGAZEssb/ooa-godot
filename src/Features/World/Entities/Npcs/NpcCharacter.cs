@@ -702,6 +702,21 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         _animationRate = Math.Max(0.0f, rate);
     }
 
+    internal void ContinueDirectionalAnimationFrom(NpcCharacter source)
+    {
+        if (source._scriptAnimationActive || _scriptAnimationActive ||
+            Record.SpriteName != source.Record.SpriteName ||
+            Record.UpAnimation != source.Record.UpAnimation || Record.RightAnimation != source.Record.RightAnimation ||
+            Record.DownAnimation != source.Record.DownAnimation || Record.LeftAnimation != source.Record.LeftAnimation)
+            throw new InvalidOperationException(
+                $"NPC ${Record.Id:x2}:${Record.SubId:x2} cannot retain animation from incompatible directional graphics.");
+        SetFacingDirection(source.FacingVector);
+        _animationFrame = source._animationFrame;
+        _animationTicks = source._animationTicks;
+        _animationParameterConsumed = source._animationParameterConsumed;
+        QueueRedraw();
+    }
+
     /// <summary>
     /// Advances the animation by an exact number of interactionAnimate calls.
     /// Cutscene interactions use this when their script changes animation or

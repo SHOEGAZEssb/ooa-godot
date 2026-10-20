@@ -759,6 +759,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePirateCrewDialogueAndCancellation);
         RunIsolatedValidation(ValidatePirateShipNativeRom, requiresRom: true);
         RunIsolatedValidation(ValidateImpaHelpFreeze);
+        RunIsolatedValidation(ValidateImpaFollowerScroll);
         RunIsolatedValidation(ValidateImpaGraphicsContinuation);
         RunIsolatedValidation(ValidateBootLoading);
         RunIsolatedValidation(ValidateSoundEngine);

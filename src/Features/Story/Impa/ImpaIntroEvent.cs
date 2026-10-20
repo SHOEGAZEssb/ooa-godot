@@ -341,8 +341,15 @@ internal sealed class ImpaIntroEvent :
         incoming.SetSpritePalette(_database.PossessedPalette);
         incoming.Position = Actor.Position + offset;
         incoming.SetBlocksLink(false);
-        incoming.SetFacingDirection(Actor.FacingVector);
+        incoming.ContinueDirectionalAnimationFrom(outgoing);
         incoming.SetAnimationRate(0);
+        // objectSetReservedBit1 retains the native object, including its
+        // visible bit, animation counters and current projected position.
+        // Transfer happens after the destination list received its offsets;
+        // the newly spawned renderer must receive that projection immediately.
+        incoming.SetTransitionDrawOffset(outgoing.TransitionDrawOffset - offset);
+        incoming.ZIndex = outgoing.ZIndex;
+        incoming.SetScriptVisible(outgoing.ScriptVisible);
         _followerLastPosition += offset;
         // objectSetReservedBit1 keeps one interaction slot alive across the
         // original reload. Our room lists require a destination-owned actor,
