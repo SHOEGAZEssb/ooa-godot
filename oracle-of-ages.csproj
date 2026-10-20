@@ -5,7 +5,7 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
     <RootNamespace>oracleofages</RootNamespace>
-    <Version>0.0.1</Version>
+    <Version>0.0.2</Version>
     <!-- Sideloaded debug APKs still synthesize audio in real time. -->
     <Optimize Condition=" '$(GodotTargetPlatform)' == 'android' ">true</Optimize>
   </PropertyGroup>
