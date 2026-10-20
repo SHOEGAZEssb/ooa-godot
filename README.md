@@ -10,11 +10,16 @@ complete.
 
 ## Requirements
 
-- Godot 4.7.1 with .NET support
+- Godot 4.7.1 with .NET support, with its executable directory on `PATH`
 - .NET 8 SDK and PowerShell (PowerShell 7 on Linux)
 - The pinned `external/oracles-disasm` Git submodule
 - ROM build tools: MSYS2 on Windows; Bash and WLA-DX 10.6 on Linux
   (see [setup](docs/development.md#requirements))
+
+Add the Godot executable's directory to `PATH`. The examples use the Windows
+.NET console executable's original name,
+`Godot_v4.7.1-stable_mono_win64_console.exe`. On other platforms, substitute
+your installed executable's filename.
 
 Initialize the disassembly after cloning (or clone with `--recurse-submodules`):
 
@@ -52,13 +57,13 @@ regenerate them; never edit generated files directly.
 Launch the normal title and file-select flow:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path .
+Godot_v4.7.1-stable_mono_win64_console.exe --path .
 ```
 
 Launch directly into a hexadecimal group and room for development:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --group=4 --room=04
+Godot_v4.7.1-stable_mono_win64_console.exe --path . -- --group=4 --room=04
 ```
 
 Arguments after `--` belong to the project. Direct room launches bypass normal
@@ -82,7 +87,7 @@ Development controls and launch options are in the
 
 ```powershell
 dotnet build
-& .\tools\validate_parallel.ps1
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
 ```
 
 Gameplay changes require a focused regression and a passing full suite. See

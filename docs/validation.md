@@ -96,7 +96,7 @@ workers. Agents must use this build command for both focused and full validation
 
 ```powershell
 dotnet build -t:Rebuild -p:Optimize=true
-& .\tools\validate_parallel.ps1
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
 ```
 
 This preserves all scenarios and assertions and uses the same Debug output
@@ -110,7 +110,7 @@ the preceding build.
 Run one exact registered method while developing:
 
 ```powershell
-& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source -ValidateOnly ValidateMethodName
 ```
 
 An unknown name fails. A focused run is a development aid; run the complete
@@ -143,7 +143,7 @@ no custom job or step timeouts. GitHub-hosted jobs remain subject to GitHub's
 [six-hour platform limit](https://docs.github.com/en/actions/reference/limits).
 The release workflow retains its single-runner suite.
 
-Use `tools/validate_parallel.ps1 -SkipRomValidation` for an explicit run without
+Add `-SkipRomValidation` to the validation command for an explicit run without
 ROM-dependent scenarios. Mark these scenarios with `requiresRom: true` in the
 ordered registration.
 Skipping preserves shard assignments and reports each excluded scenario plus
@@ -181,7 +181,7 @@ Android frame times.
 For a serial run when debugging:
 
 ```powershell
-& .\tools\validate_parallel.ps1 -Workers 1
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source -Workers 1
 ```
 
 The launcher uses separate headless Godot processes; each keeps scene-tree,
@@ -225,7 +225,11 @@ checks the absence of resource caps and forced priority, descendant cleanup,
 process flags, crash failure, log isolation, and completion handling without
 requiring a game build.
 
-`-Godot` overrides the executable and `-TimeoutSeconds` sets the overall deadline
+Add the Godot executable's directory to `PATH`, as described in
+[Development](development.md#requirements). The examples resolve the original
+Windows executable's filename with `Get-Command` and pass its path through
+`-Godot` to override the launcher's local default. Substitute your installed
+executable's filename on other platforms. `-TimeoutSeconds` sets the overall deadline
 (default 600 seconds; zero disables it, as used in CI). The launcher fails on a
 worker error, timeout, missing
 completion marker, or incomplete scenario count, and stops remaining processes
@@ -264,7 +268,7 @@ Handoff checks:
 
 ```powershell
 dotnet build -t:Rebuild -p:Optimize=true
-& .\tools\validate_parallel.ps1
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
 git diff --check
 git status --short
 ```

@@ -28,8 +28,12 @@ Local paths:
 ```text
 Repository:     E:\Stuff\Github\ooa-godot
 Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm (pinned submodule)
-Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
+
+Add the Godot 4.7.1 .NET executable's directory to `PATH`. The examples use
+the original Windows filename `Godot_v4.7.1-stable_mono_win64_console.exe`;
+substitute the installed executable's filename on other platforms. Pass its
+resolved path through `-Godot` to override the validation launcher's local default.
 
 ## Start every task this way
 
@@ -139,7 +143,7 @@ owner.
 & .\tools\verify_oracle_import.ps1
 dotnet build -t:Rebuild -p:Optimize=true
 
-& .\tools\validate_parallel.ps1
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
 
 git diff --check
 git status --short
@@ -175,11 +179,11 @@ the required parallel run; use serial runs only for additional debugging.
 For a focused validation during development:
 
 ```powershell
-& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source -ValidateOnly ValidateMethodName
 ```
 
 Before a handoff involving changes to actual game source files, run
-`& .\tools\validate_parallel.ps1` and require success from all workers and the
+the full validation command above and require success from all workers and the
 complete registered scenario count. Focused validations do not replace this
 check. If the parallel run fails or cannot complete, report the failure rather
 than treating a focused or serial run as sufficient.

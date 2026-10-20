@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Godot 4.7.1 with .NET support
+- Godot 4.7.1 with .NET support, with its executable directory on `PATH`
 - .NET 8 SDK and PowerShell
 - The pinned vanilla `external/oracles-disasm` Git submodule
 - Windows: MSYS2 with `git`, `make`, `python`, `python-yaml`, `curl` and `unzip`.
@@ -20,8 +20,14 @@ The current environment uses:
 ```text
 Repository:     E:\Stuff\Github\ooa-godot
 Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm
-Godot console:  E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe
 ```
+
+Add the Godot executable's directory to `PATH`. The examples use the Windows
+.NET console executable's original name,
+`Godot_v4.7.1-stable_mono_win64_console.exe`. On other platforms, substitute
+your installed executable's filename. Validation commands resolve it with
+`Get-Command` and pass its path through `-Godot` to override the launcher's
+local default executable path.
 
 The importer builds and verifies the supported clean US ROM automatically,
 then reuses it from `.cache/oracle-rom/`. First use needs network access;
@@ -59,13 +65,13 @@ dotnet build -t:Rebuild -p:Optimize=true
 Run the normal game flow:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path .
+Godot_v4.7.1-stable_mono_win64_console.exe --path .
 ```
 
 Start directly in a hexadecimal room for development:
 
 ```powershell
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64.exe' --path . -- --group=5 --room=26
+Godot_v4.7.1-stable_mono_win64_console.exe --path . -- --group=5 --room=26
 ```
 
 Project arguments must follow `--`. Direct room starts bypass retail file and
@@ -82,8 +88,8 @@ After building, run all headless validations with the standard 8 workers,
 or one exact registered method:
 
 ```powershell
-& .\tools\validate_parallel.ps1
-& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
+& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source -ValidateOnly ValidateMethodName
 ```
 
 See [Validation](validation.md) for scenario isolation and handoff checks.
@@ -99,8 +105,8 @@ After building with optimization and running validation, export with:
 
 ```powershell
 New-Item -ItemType Directory -Force builds/windows, builds/linux | Out-Null
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe' --headless --path . --export-release Windows builds/windows/oracle-of-ages.exe
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe' --headless --path . --export-release Linux builds/linux/oracle-of-ages.x86_64
+Godot_v4.7.1-stable_mono_win64_console.exe --headless --path . --export-release Windows builds/windows/oracle-of-ages.exe
+Godot_v4.7.1-stable_mono_win64_console.exe --headless --path . --export-release Linux builds/linux/oracle-of-ages.x86_64
 ```
 
 Distribute each complete output directory, including its `.pck` and .NET
@@ -119,7 +125,7 @@ After building and running validation, export with:
 
 ```powershell
 New-Item -ItemType Directory -Force builds/android | Out-Null
-& 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe' --headless --path . --export-debug Android builds/android/oracle-of-ages.apk
+Godot_v4.7.1-stable_mono_win64_console.exe --headless --path . --export-debug Android builds/android/oracle-of-ages.apk
 ```
 
 This creates a debug-signed APK, not a store release. Release exports require a
