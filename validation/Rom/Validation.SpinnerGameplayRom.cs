@@ -70,7 +70,8 @@ public partial class ValidationRoot
                     _entities.ScreenShakeCounter != rom[0xcd18] || _entities.HorizontalScreenShakeCounter != rom[0xcd19] ||
                     phase == 1 && spinner.WaitCounter != rom[0xd246] || phase == 4 && spinner.ExitCounter != rom[0xd246] ||
                     !sounds.Requests.Where(cue=>cue != SoundId.SndText).SequenceEqual(rom.Sounds),
-                    $"Spinner update{++update}, batch={batch}: Link={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, phase={phase}/{nativePhase}, counter={spinner.WaitCounter}:{spinner.ExitCounter}/{rom[0xd246]}, state={rom[0xcdd4]:x2}, Linkstate={rom[0xd004]:x2}, signal={rom[0xcc95]:x2}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
+                    $"Spinner update{update + 1}, batch={batch}: Link={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, phase={phase}/{nativePhase}, counter={spinner.WaitCounter}:{spinner.ExitCounter}/{rom[0xd246]}, state={rom[0xcdd4]:x2}, Linkstate={rom[0xd004]:x2}, signal={rom[0xcc95]:x2}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
+                update++;
                 var random = _random.CaptureState();
                 if (death) FailIf(_player.HealthQuarters != rom[0xc6aa] ||
                     _player.IsDying != (rom[0xcdd5] != 0) ||

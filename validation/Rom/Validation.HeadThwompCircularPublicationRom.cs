@@ -6,10 +6,10 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidateHeadThwompCircularPublicationRom()
+    private void ValidateHeadThwompCircularPublicationRom(int firstAngle, int angleCount)
     {
-        int flights=0,immediateDeletes=0,turns=0,counterEdges=0;
-        foreach(int angle in Enumerable.Range(0,32))
+        int flights=0,immediateDeletes=0,turns=0,counterEdges=0,cases=0;
+        foreach(int angle in Enumerable.Range(firstAngle,angleCount))
         foreach(int turnDelta in new[]{-2,2})
         foreach(Vector2 origin in new Vector2[]{new(120,88),new(120,3),new(3,80),new(237,80),new(120,173)})
         foreach(bool fractional in new[]{false,true})
@@ -72,7 +72,9 @@ public sealed partial class ValidationRoot
             FailIf(!actor.Finished,"Circular native boundary probes must eventually complete the expanding flight.");
             if(moves>8)flights++;
             Step(2);_entities.Clear();StepGameplayUpdates(2,Vector2.Zero);_entities.EnableLinkCollisionsAndMenu();_player.EndCutsceneControl();
+            cases++;
         }
-        FailIf(flights==0||immediateDeletes==0||turns<32||counterEdges!=4,"Circular coverage must include expanding flight, initial wrapped edge rejection, both turn directions and declared byte-counter arithmetic.");
+        FailIf(flights==0||immediateDeletes==0||turns<angleCount||counterEdges!=(firstAngle==0?4:0),"Circular coverage must include expanding flight, initial wrapped edge rejection, both turn directions and declared byte-counter arithmetic.");
+        VerifyValidationMatrixCases(nameof(ValidateHeadThwompCircularPublicationRom), firstAngle, angleCount, 32, cases, angleCount * 40);
     }
 }

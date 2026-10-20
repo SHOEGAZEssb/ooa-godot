@@ -147,8 +147,9 @@ public sealed partial class ValidationRoot
                     rom.UpdateParents();
                     FailIf(_entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter) != rom[0xcc59],
                         "Sword jinx must decrement once per eligible item pass throughout recoil and its completion update.");
+                    updates++;
                     FailIf(_player.IsAttacking != (rom[0xd200] != 0),
-                        $"ROM item during/after recoil update={++updates}, batch={batched}: sword parent lifetime differs.");
+                        $"ROM item during/after recoil update={updates}, batch={batched}: sword parent lifetime differs.");
                 });
                 FailIf(_player.KnockbackFrames != 0, "The item/recoil fixture must run past knockback completion.");
             }

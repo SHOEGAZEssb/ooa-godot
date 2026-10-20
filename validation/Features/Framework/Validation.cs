@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace oracleofages;
@@ -20,9 +21,10 @@ public sealed partial class ValidationRoot : GameRoot
     private int _validationOrdinal;
     private int _shardIndex;
     private int _shardCount = 1;
-    private readonly List<(Delegate Run, bool RequiresRom)> _registeredValidations = [];
+    private readonly List<ValidationScenario> _registeredValidations = [];
     private ValidationCutsceneTrace? _enterPastCommandTrace;
     private ValidationCombatEffectAudit _combatEffectAudit = null!;
+    private ValidationScriptResources? _scriptResources;
 
     public override void _Ready()
     {
@@ -31,6 +33,8 @@ public sealed partial class ValidationRoot : GameRoot
             BeginStartupProfile();
             return;
         }
+        if (!OS.GetCmdlineUserArgs().Contains("--validate-no-script-retention"))
+            _scriptResources = new ValidationScriptResources();
         base._Ready();
         _sound.AttachPlayRequestAudit();
         _combatEffectAudit = new ValidationCombatEffectAudit();
@@ -112,6 +116,8 @@ public sealed partial class ValidationRoot : GameRoot
             // Finalize unused managed image/texture readers while Godot is
             // alive, then let it drain their deferred native references. Do
             // this once per worker, outside scenario execution and timing.
+            _scriptResources?.Dispose();
+            _scriptResources = null;
             GC.Collect();
             GC.WaitForPendingFinalizers();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -122,6 +128,8 @@ public sealed partial class ValidationRoot : GameRoot
         }
         catch (Exception exception)
         {
+            _scriptResources?.Dispose();
+            _scriptResources = null;
             GD.PushError($"Validation failed.\n{exception}");
             GetTree().Quit(1);
         }
@@ -133,6 +141,12 @@ public sealed partial class ValidationRoot : GameRoot
     {
         if (condition)
             throw new InvalidOperationException(message);
+    }
+
+    private static void FailIf([DoesNotReturnIf(true)] bool condition,
+        [InterpolatedStringHandlerArgument("condition")] ref ValidationFailureMessage message)
+    {
+        if (condition) throw new InvalidOperationException(message.GetText());
     }
 
     private static void ResetValidationInput()
@@ -157,10 +171,10 @@ public sealed partial class ValidationRoot : GameRoot
         Input.IsActionJustPressed("map") || Input.IsActionJustPressed("inventory");
 
     private void RunIsolatedValidation(Action validation, bool requiresRom = false)
-        => _registeredValidations.Add((validation, requiresRom));
+        => _registeredValidations.Add(new(validation.Method.Name, validation, requiresRom));
 
     private void RunIsolatedValidation(Func<Task> validation, bool requiresRom = false)
-        => _registeredValidations.Add((validation, requiresRom));
+        => _registeredValidations.Add(new(validation.Method.Name, validation, requiresRom));
 
     private async Task RunRegisteredValidations()
     {
@@ -169,35 +183,40 @@ public sealed partial class ValidationRoot : GameRoot
         foreach (string argument in OS.GetCmdlineUserArgs())
             if (argument.StartsWith(prefix, StringComparison.Ordinal))
                 weights = ValidationShardPlanner.ParseWeights(File.ReadLines(argument[prefix.Length..]), argument[prefix.Length..]);
-        int[] assignments = ValidationShardPlanner.Assign(
-            _registeredValidations.Select(scenario => scenario.Run.Method.Name).ToArray(), _shardCount, weights);
+        if (weights is not null) ValidationCaseRanges.SeedTimingWeights(_registeredValidations, weights);
+        string[] names = _registeredValidations.Select(scenario => scenario.Name).ToArray();
+        FailIf(names.Distinct(StringComparer.Ordinal).Count() != names.Length, "Validation names must be unique, including matrix ranges.");
+        int[] assignments = ValidationShardPlanner.Assign(names, _shardCount, weights);
         GD.Print($"VALIDATION_SCHEDULING mode={(weights is null ? "round-robin" : "timings")} registered={assignments.Length}");
         foreach (var scenario in _registeredValidations)
         {
             int ordinal = _validationOrdinal++;
-            if (assignments[ordinal] == _shardIndex) await ExecuteIsolatedValidation(scenario.Run, scenario.RequiresRom);
+            if (assignments[ordinal] == _shardIndex) await ExecuteIsolatedValidation(scenario);
         }
     }
 
-    private async Task ExecuteIsolatedValidation(Delegate validation, bool requiresRom)
+    private async Task ExecuteIsolatedValidation(ValidationScenario scenario)
     {
+        Delegate validation = scenario.Run;
+        string name = scenario.Name;
         if (_validationFilter is not null &&
             !string.Equals(
-                validation.Method.Name,
+                name,
                 _validationFilter,
                 StringComparison.Ordinal))
         {
             return;
         }
 
-        if (requiresRom && _skipRomValidation)
+        if (scenario.RequiresRom && _skipRomValidation)
         {
             _skippedValidationCount++;
-            GD.Print($"VALIDATION_SKIPPED name={validation.Method.Name} reason=rom-required");
+            GD.Print($"VALIDATION_SKIPPED name={name} reason=rom-required");
             return;
         }
 
         _executedValidationCount++;
+        _executingValidationName = name;
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         ReinitializeGameplayForValidation();
         _sound.AttachPlayRequestAudit();
@@ -218,7 +237,7 @@ public sealed partial class ValidationRoot : GameRoot
             else
                 ((Action)validation)();
             GD.Print(FormattableString.Invariant(
-                $"VALIDATION_TIMING name={validation.Method.Name} setup_ms={setupMs:F3} total_ms={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F3}"));
+                $"VALIDATION_TIMING name={name} setup_ms={setupMs:F3} total_ms={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F3}"));
         }
         catch (Exception exception)
         {
@@ -227,12 +246,12 @@ public sealed partial class ValidationRoot : GameRoot
                 _executedValidationCount--;
                 _failedValidationCount++;
                 GD.Print(FormattableString.Invariant(
-                    $"VALIDATION_TIMING name={validation.Method.Name} setup_ms={setupMs:F3} total_ms={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F3}"));
-                GD.PushError($"Isolated validation {validation.Method.Name} failed.\n{exception}");
+                    $"VALIDATION_TIMING name={name} setup_ms={setupMs:F3} total_ms={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F3}"));
+                GD.PushError($"Isolated validation {name} failed.\n{exception}");
                 return;
             }
             throw new InvalidOperationException(
-                $"Isolated validation {validation.Method.Name} failed.",
+                $"Isolated validation {name} failed.",
                 exception);
         }
     }
@@ -259,6 +278,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateApplicationValidationFixture);
         RunIsolatedValidation(ValidateApplicationSessionLifetime);
         RunIsolatedValidation(ValidateGraphicsCacheLifetime);
+        RunIsolatedValidation(ValidateRoomTileBatches);
+        RunIsolatedValidation(ValidateMatrixRangePlanning);
+        RunIsolatedValidation(ValidateFailureDiagnostics);
+        RunIsolatedValidation(ValidateSpritePixelSnapshots);
         RunIsolatedValidation(ValidateHotPaths);
         RunIsolatedValidation(ValidateControllerMovement);
         RunIsolatedValidation(ValidateGeneratedTableReader);
@@ -1118,7 +1141,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateCuccoHopPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateEyesoarChildPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateEyesoarBodyPublicationRom, requiresRom: true);
-        RunIsolatedValidation(ValidateFloormasterPlacementPublicationRom, requiresRom: true);
+        RegisterValidationMatrix(ValidateFloormasterPlacementPublicationRom, 32, 4);
         RunIsolatedValidation(ValidateFlyingTilePublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateFountainHeartPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateGhiniPublicationRom, requiresRom: true);
@@ -1127,7 +1150,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGiantGhiniContactRom, requiresRom: true);
         RunIsolatedValidation(ValidateHeadThwompDropperPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateHeadThwompFireballPublicationRom, requiresRom: true);
-        RunIsolatedValidation(ValidateHeadThwompCircularPublicationRom, requiresRom: true);
+        RegisterValidationMatrix(ValidateHeadThwompCircularPublicationRom, 32, 4);
         RunIsolatedValidation(ValidateKingMoblinBombPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateKingMoblinMinionHandoffRom, requiresRom: true);
         RunIsolatedValidation(ValidateKingMoblinBodyPublicationRom, requiresRom: true);
@@ -1140,7 +1163,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePumpkinBodyPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidatePumpkinStompPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidatePumpkinGhostSeekRom, requiresRom: true);
-        RunIsolatedValidation(ValidatePumpkinGhostTerrainRom, requiresRom: true);
+        RegisterValidationMatrix(ValidatePumpkinGhostTerrainRom, 4, 1);
         RunIsolatedValidation(ValidatePumpkinProjectileBirthRom, requiresRom: true);
         RunIsolatedValidation(ValidatePumpkinProjectileMotionRom, requiresRom: true);
         RunIsolatedValidation(ValidateShadowHagBodyPublicationRom, requiresRom: true);

@@ -45,6 +45,19 @@ production host owns session teardown and initialization from a supplied save.
 Call available owner operations directly. Reserve reflection for source-state
 probes that have no meaningful runtime operation or observable result.
 
+Fixture arrangement may batch ordered tile/collision writes through
+`SetTilesAndCollisions` and publish one final image before the first observed
+update. Preserve each fixture's original bounds, including basins occupying only
+part of a large room. Ordinary gameplay writes and the native changed-tile queue
+retain their individual publication boundaries; do not batch across updates or
+skip intermediate pixel assertions.
+
+Interpolated `FailIf` diagnostics are formatted only on failure. Keep counters,
+reference stepping, state changes and other side effects outside diagnostic
+expressions. Non-interpolated strings retain ordinary eager evaluation. Sprite
+pixel comparisons snapshot RGBA8 bytes once per image, retaining native reads
+for other formats and the same alpha/channel tolerances.
+
 Keep every phase of a scripted update sequence on explicit input samples,
 including cancellation and restart. Calling `GameRoot._Process` captures live
 Godot input again; a released key can remain just-pressed until the next Godot
@@ -65,6 +78,13 @@ validation, preserve live orphan fixtures, and use a debug Godot build that
 supports `Node.GetOrphanNodeIds`. Production retirement still follows the normal
 engine frame. `-ProfileMemory` on the launcher logs managed heap, process memory,
 and collection counts every sixteen resets without forcing collection.
+
+Each worker retains immutable C# Script resources across resets to avoid
+repeated class registration. Scenes, nodes, controllers, save bytes, RNG and
+runtime state are still recreated; script retention must preserve collection
+of discarded sessions. Startup profiling excludes this validation cache.
+`-DisableScriptRetention` disables it for controlled performance comparisons
+and does not refresh the default timing history.
 
 ## Shared-system regressions
 
@@ -200,6 +220,16 @@ This changes distribution only, preserving every scenario, assertion and update.
 Use `-TimingProfile PATH` to freeze a profile for repeated measurements; an
 explicit profile is read without refreshing the default. Focused runs and ROM
 skip runs do not overwrite complete-suite timing history.
+
+Large independent matrices register named `RangeXXToYY` scenarios. Registration
+covers each domain value once, and each range asserts its original case count.
+The original family name remains an exact focused command that executes the
+complete matrix in one worker; a range name selects that range alone. Existing
+family timings seed missing range weights proportionally until individual
+measurements exist. The launcher reports case counts and summed range times by
+family, with comparisons against the supplied timing profile. Summed scenario
+time is distinct from parallel elapsed time. Complete local runs reject missing
+or overlapping ranges; partition and focused reports identify selected ranges.
 For distributed runs, `-PartitionIndex INDEX -PartitionCount COUNT` assigns a
 contiguous group of global shards to this runner. `-Workers` is the number of
 processes on each runner; every partition must use the same worker count and

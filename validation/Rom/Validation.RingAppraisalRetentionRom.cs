@@ -39,11 +39,11 @@ public sealed partial class ValidationRoot
                     rom.PublishHudGraphics(); rom.AdvanceText(); edge = 0;
                     for (int index = 0; index < 64; index++)
                         FailIf(_inventory.UnappraisedRingAt(index) != rom[0xc5c0 + index],
-                            context + $" update={update} state=${rom[0xcbce]:x2}: slot ${index:x2} runtime=${_inventory.UnappraisedRingAt(index):x2}, native=${rom[0xc5c0 + index]:x2}.");
+                            $"{context} update={update} state=${rom[0xcbce]:x2}: slot ${index:x2} runtime=${_inventory.UnappraisedRingAt(index):x2}, native=${rom[0xc5c0 + index]:x2}.");
                     FailIf(_saveData.ReadWramByte(WramAddress.wNumUnappraisedRingsBcd) != rom[0xc6cd],
-                        context + $" update={update}: retained unappraised BCD count differs.");
+                        $"{context} update={update}: retained unappraised BCD count differs.");
                     FailIf(_ringMenuScreen.PageCount != rom[0xcbb5] || _ringMenuScreen.RequestedPage != rom[0xcbb6],
-                        context + $" update={update}: retained page/count differs, runtime={_ringMenuScreen.RequestedPage}/{_ringMenuScreen.PageCount}, native={rom[0xcbb6]}/{rom[0xcbb5]}.");
+                        $"{context} update={update}: retained page/count differs, runtime={_ringMenuScreen.RequestedPage}/{_ringMenuScreen.PageCount}, native={rom[0xcbb6]}/{rom[0xcbb5]}.");
                     if (_ringMenuScreen.Visible)
                         CompareRingFramePixelsRom(rom, RingMenuMode.Appraisal, context + $" update={update}");
                 });

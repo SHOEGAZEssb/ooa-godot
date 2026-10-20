@@ -25,9 +25,7 @@ public sealed partial class ValidationRoot
                 FailIf(!_inventory.SetRingBoxSlotFromList(0, ring) || !_inventory.EquipRingAt(0),
                     $"Could not equip Boomerang drop ring ${ring:x2}.");
             }
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 10; x++)
-                _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 10, height: 8);
             _player.WarpTo(new(40, 64)); _player.Face(Vector2I.Right);
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 1, 40, 64) { HostilePartsEnabled = true };

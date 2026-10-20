@@ -712,6 +712,31 @@ public sealed class OracleRoomData
         long animationTick,
         bool preserveRenderedTile = false)
     {
+        if (WritePositionTileAndCollision(localPoint, tile, collision, preserveRenderedTile))
+            Redraw(animationTick);
+    }
+
+    // Apply an ordered initialization batch before publishing its final image.
+    // Ordinary gameplay writes and the native changed-tile queue retain their
+    // individual publication boundaries. Even a partial, rejected batch must
+    // leave the already-applied logical and displayed terrain consistent.
+    internal void SetTilesAndCollisions(ReadOnlySpan<RoomTileWrite> writes, long animationTick)
+    {
+        bool redraw = false;
+        try
+        {
+            foreach (RoomTileWrite write in writes)
+                redraw |= WritePositionTileAndCollision(write.Position, write.Tile, write.Collision, false);
+        }
+        finally
+        {
+            if (redraw) Redraw(animationTick);
+        }
+    }
+
+    private bool WritePositionTileAndCollision(Vector2 localPoint, byte tile, byte? collision,
+        bool preserveRenderedTile)
+    {
         int tileX = Mathf.FloorToInt(localPoint.X / MetatileSize);
         int tileY = Mathf.FloorToInt(localPoint.Y / MetatileSize);
         if (tileX < 0 || tileX >= WidthInTiles || tileY < 0 || tileY >= HeightInTiles)
@@ -738,12 +763,7 @@ public sealed class OracleRoomData
         else
             _positionCollisionOverrides.Remove(index);
 
-        if (!redraw)
-            return;
-        int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, animationTick);
-        _activeAnimationHeaders = activeHeaders;
-        _animationSignature = GetAnimationSignature(activeHeaders);
-        ReplaceRoomTexture(activeHeaders);
+        return redraw;
     }
 
     /// <summary>

@@ -38,9 +38,10 @@ public sealed partial class ValidationRoot
             application.Step(119, Vector2.Zero, batched: batched, afterUpdate: () =>
             {
                 invincibility.Call(LinkCollisionRom.Invincibility);
+                update++;
                 FailIf(_player.InvincibilityFrames != unchecked((sbyte)invincibility[0xd02b]) ||
                     _player.ApplyEnemyContactDamage(_player.Position + new Vector2(8, 0), 1),
-                    $"Continue companion ${companion:x2} update {++update}: invincibility expired early or differs from native counter.");
+                    $"Continue companion ${companion:x2} update {update}: invincibility expired early or differs from native counter.");
             });
             FailIf(_player.InvincibilityFrames != -1, "Continue initial protection did not retain its last update.");
             application.Step(1, Vector2.Zero, batched: batched);

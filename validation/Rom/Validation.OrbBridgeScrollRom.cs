@@ -53,10 +53,11 @@ public partial class ValidationRoot
                 if (!_transitions.ScrollActive) { rom.ClearOutgoingInteractions(); rom.ClearOutgoingParts(); rom[0xcd00] = 4; }
                 var part = _entities.Entities<BridgeSpawnerRoomEntity>().SingleOrDefault();
                 bool nativePart = rom[bridgeAddress] != 0 && rom[bridgeAddress+1] == 0x0c;
+                update++;
                 FailIf(_entities.OutgoingEntities<Node2D>().Contains(controller.Node) != (rom[0xd240] != 0) ||
                     (part != null) != nativePart || _saveData.GetRoomFlags(4,0xa6) != rom[0xc9a6] ||
                     !sounds.Requests.SequenceEqual(rom.Sounds),
-                    $"Orb-controller scroll completed={completed}, batch={batch}, update{++update}: controller={controller.Finished}/{rom[0xd240]:x2}, PART={part != null}/{rom[bridgeAddress]:x2}:{rom[bridgeAddress+1]:x2} slot={bridgeSlot}, flags={_saveData.GetRoomFlags(4,0xa6):x2}/{rom[0xc9a6]:x2}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
+                    $"Orb-controller scroll completed={completed}, batch={batch}, update{update}: controller={controller.Finished}/{rom[0xd240]:x2}, PART={part != null}/{rom[bridgeAddress]:x2}:{rom[bridgeAddress+1]:x2} slot={bridgeSlot}, flags={_saveData.GetRoomFlags(4,0xa6):x2}/{rom[0xc9a6]:x2}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
                 if (part != null) FailIf(SomariaPrivate<int>(part,"_counter") != rom[bridgeAddress+6] ||
                     SomariaPrivate<bool>(part,"_initialized") != (rom[bridgeAddress+4] != 0),
                     "Pending bridge must initialize once during scrolling and retain its state1 counter until scrolling completes.");

@@ -55,10 +55,11 @@ public partial class ValidationRoot
                     ((int)(point.X*256)&0xffff)/256f,((int)(point.Y*256)&0xffff)/256f);
                 Vector2 nativeCart = new(rom.Word(0xd10c)/256f,rom.Word(0xd10a)/256f);
                 Vector2 nativeLink = new(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f);
+                update++;
                 FailIf(NativePoint(cart.ScreenTransitionPosition) != nativeCart || cart.Direction != rom[0xd108] ||
                     NativePoint(_player.PrecisePosition) != nativeLink || !_player.MinecartRideActive ||
                     !sounds.Requests.SequenceEqual(rom.Sounds),
-                    $"Minecart room${c.Room:x2}, {stage}, batch={batch}, update{++update}: cart={cart.ScreenTransitionPosition}/{nativeCart}, Link={_player.PrecisePosition}/{nativeLink}, direction={cart.Direction}/{rom[0xd108]}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
+                    $"Minecart room${c.Room:x2}, {stage}, batch={batch}, update{update}: cart={cart.ScreenTransitionPosition}/{nativeCart}, Link={_player.PrecisePosition}/{nativeLink}, direction={cart.Direction}/{rom[0xd108]}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
             }
             for (int travel = 0; !_transitions.ScrollActive && travel < 40; travel++)
                 StepGameplayUpdates(1,Vector2.Zero,batched:batch,afterUpdate:()=> {

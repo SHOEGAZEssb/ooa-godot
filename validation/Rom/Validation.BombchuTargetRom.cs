@@ -28,10 +28,11 @@ public sealed partial class ValidationRoot
             {
                 var item = _entities.Entities<BombchuItem>().Single();
                 const int slot = 0xd700;
+                update++;
                 FailIf(item.ItemState != rom[slot + 4] || item.Counter1 != rom[slot + 6] || item.Counter2 != rom[slot + 7] ||
                     item.Position != new Vector2(rom[slot + 0xd], rom[slot + 0xb]) || item.SpeedRaw != rom[slot + 0x10] ||
                     item.Radius != rom[slot + 0x26] || item.Steering!.Angle != rom[slot + 9],
-                    $"Bombchu declared target batch={batched}, update={++update}: native capture/wait/chase/reference differs.");
+                    $"Bombchu declared target batch={batched}, update={update}: native capture/wait/chase/reference differs.");
                 if (item.TargetSlot >= 0) FailIf(rom.Word(slot + 0x18) != 0xd080, "Bombchu must retain the original ENEMY slot reference.");
             }
             void Step(int count = 1, bool press = false)

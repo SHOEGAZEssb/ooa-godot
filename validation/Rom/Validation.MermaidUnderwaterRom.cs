@@ -49,14 +49,12 @@ public sealed partial class ValidationRoot
                 FailIf(!_inventory.SetRingBoxSlotFromList(0, ring) || !_inventory.EquipRingAt(0),
                     $"Underwater fixture could not equip ring ${ring:x2}.");
             }
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 10; x++)
-                // $ff is both water and a downward cliff in this collision
-                // set. Ordinary basin walls use dry floor; the separate
-                // cliff-coasting fixture retains $ff on the solid border.
-                _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8),
-                    (water || currents || floors || conveyors) && (x is 0 or 9 || y is 0 or 7) ? (byte)0xa0 : (byte)tile,
-                    x is 0 or 9 || y is 0 or 7 ? (byte)0x0f : (byte)0, 0);
+            // $ff is both water and a downward cliff in this collision
+            // set. Ordinary basin walls use dry floor; the separate
+            // cliff-coasting fixture retains $ff on the solid border.
+            ConfigureValidationRoomTiles((x, y) => (
+                (water || currents || floors || conveyors) && (x is 0 or 9 || y is 0 or 7) ? (byte)0xa0 : (byte)tile,
+                x is 0 or 9 || y is 0 or 7 ? (byte)0x0f : (byte)0), width: 10, height: 8);
             if (edges)
                 for (int y = 2; y < 6; y++)
                 foreach (int x in new[] { 3, 6 })

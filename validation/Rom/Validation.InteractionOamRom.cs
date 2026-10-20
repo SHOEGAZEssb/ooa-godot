@@ -30,6 +30,7 @@ public sealed partial class ValidationRoot
         FailIf(source.Span[address] != expectedCells, context + $": expected {expectedCells} native OBJ cells.");
         using Image actual = texture.GetImage();
         int width = actual.GetWidth(), height = actual.GetHeight();
+        byte[]? pixels = actual.GetFormat() == Image.Format.Rgba8 ? actual.GetData() : null;
         var expected = new Color[width * height];
         for (int cell = expectedCells - 1; cell >= 0; cell--)
         {
@@ -58,11 +59,11 @@ public sealed partial class ValidationRoot
         for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++)
         {
-            Color pixel = actual.GetPixel(x, y), wanted = expected[y * width + x];
+            Color pixel = ReadValidationPixel(actual, pixels, width, x, y), wanted = expected[y * width + x];
             FailIf(Math.Abs(pixel.A - wanted.A) > 1f / 255 || wanted.A != 0 &&
                 (Math.Abs(pixel.R - wanted.R) > 1f / 255 || Math.Abs(pixel.G - wanted.G) > 1f / 255 ||
                  Math.Abs(pixel.B - wanted.B) > 1f / 255),
-                context + $": pixel ({x},{y})={pixel}, clean-US OBJ={wanted}.");
+                $"{context}: pixel ({x},{y})={pixel}, clean-US OBJ={wanted}.");
         }
     }
 
@@ -79,13 +80,18 @@ public sealed partial class ValidationRoot
             frames = SomariaPrivate<List<NpcCharacterAnimationFrame>[]>(actor, "_facingAnimations")
                 [(int)SomariaPrivate<NpcCharacterFacing>(actor, "_facing")];
         using Image image = frames[actor.CurrentAnimationFrame].Texture.GetImage();
-        for (int y = 0; y < image.GetHeight(); y++)
-        for (int x = 0; x < image.GetWidth(); x++)
+        int width = image.GetWidth(), height = image.GetHeight();
+        byte[]? pixels = image.GetFormat() == Image.Format.Rgba8 ? image.GetData() : null;
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
         {
-            Color pixel = image.GetPixel(x, y);
+            Color pixel = ReadValidationPixel(image, pixels, width, x, y);
             if (pixel.A == 0) continue;
-            FailIf(!colors.Any(color => Math.Abs(pixel.R - color.R) <= 1f / 255 &&
-                Math.Abs(pixel.G - color.G) <= 1f / 255 && Math.Abs(pixel.B - color.B) <= 1f / 255),
+            bool matches = false;
+            foreach (Color color in colors)
+                matches |= Math.Abs(pixel.R - color.R) <= 1f / 255 &&
+                    Math.Abs(pixel.G - color.G) <= 1f / 255 && Math.Abs(pixel.B - color.B) <= 1f / 255;
+            FailIf(!matches,
                 $"{context}: pixel ({x},{y})={pixel} is outside native OBJ palette ${paletteIndex:x2}.");
         }
     }

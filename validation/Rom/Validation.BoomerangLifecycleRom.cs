@@ -50,13 +50,11 @@ public sealed partial class ValidationRoot
                 FailIf(!_inventory.SetRingBoxSlotFromList(0, ring) || !_inventory.EquipRingAt(0),
                     $"Could not equip Boomerang ROM ring ${ring:x2}.");
             }
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 10; x++)
+            ConfigureValidationRoomTiles((x, y) =>
             {
                 bool water = raft && y is >= 3 and <= 6 && x is > 0 and < 9;
-                _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8),
-                    water ? (byte)0xfc : (byte)0xa0, water ? (byte)0x10 : (byte)0, 0);
-            }
+                return (water ? (byte)0xfc : (byte)0xa0, water ? (byte)0x10 : (byte)0);
+            }, width: 10, height: 8);
             if (terrain is >= 1 and <= 5)
             {
                 int tile = terrain switch { 1 => 0x2e, 2 => 0xfd, 3 => 0x64, 4 => 0x0a, _ => 0x0b };

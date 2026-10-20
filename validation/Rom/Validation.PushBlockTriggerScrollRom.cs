@@ -42,11 +42,12 @@ public partial class ValidationRoot
                 rom.AdvanceInteractions(_entities.FrameCounter);
                 if (!_transitions.ScrollActive) rom.ClearOutgoingInteractions();
                 bool alive = rom[0xd240] != 0;
+                frame++;
                 FailIf(_entities.OutgoingEntities<PushBlockTriggerRoomEntity>().Count != (alive ? 1 : 0) ||
                     _transitions.ScrollActive && (trigger.Finished == alive ||
                         alive && SomariaPrivate<int>(trigger,"_state") != rom[0xd244]) ||
                     sounds.Requests.Any() || rom.Sounds.Any(),
-                    $"Trigger scroll initialized={initialized}, batch={batch}, update{++frame}: outgoing count/state/lifetime/cues differ.");
+                    $"Trigger scroll initialized={initialized}, batch={batch}, update{frame}: outgoing count/state/lifetime/cues differ.");
             });
             Step();
             FailIf(trigger.Finished == initialized || initialized && SomariaPrivate<int>(trigger,"_state") != state,

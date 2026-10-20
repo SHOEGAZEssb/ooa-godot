@@ -14,9 +14,7 @@ public sealed partial class ValidationRoot
         _inventory.GiveTreasure(TreasureId.Feather, 1);
         _inventory.EquipA(primary ? TreasureId.Feather : 0);
         _inventory.EquipB(primary ? 0 : TreasureId.Feather);
-        for (int y = 8; y < _currentRoom.Height; y += 16)
-        for (int x = 8; x < _currentRoom.Width; x += 16)
-            _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+        FillValidationRoom(0xa0);
         _player.WarpTo(new(120, 104));
         StepGameplayUpdates(16, Vector2.Up);
         FailIf(_player.Position != new Vector2(120, 88) || _currentRoom.IsSolid(_player.Position),

@@ -54,9 +54,10 @@ public partial class ValidationRoot
                         }
                     }
                 }
+                update++;
                 FailIf(_rooms.ActiveGroup != rom[0xcc2d] || _currentRoom.Id != rom[0xcc30] ||
                     _player.PrecisePosition != new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f),
-                    $"Toggle/stair update{++update}, loaded={loaded}, batch={batch}: room/Link runtime={_rooms.ActiveGroup:x1}:{_currentRoom.Id:x2}/{_player.PrecisePosition}, ROM={rom[0xcc2d]:x1}:{rom[0xcc30]:x2}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, cutscene={rom[0xc2ef]:x2}, Linkstate={rom[0xd004]:x2}, force={rom[0xcc50]:x2}.");
+                    $"Toggle/stair update{update}, loaded={loaded}, batch={batch}: room/Link runtime={_rooms.ActiveGroup:x1}:{_currentRoom.Id:x2}/{_player.PrecisePosition}, ROM={rom[0xcc2d]:x1}:{rom[0xcc30]:x2}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, cutscene={rom[0xc2ef]:x2}, Linkstate={rom[0xd004]:x2}, force={rom[0xcc50]:x2}.");
                 FailIf(!sounds.Requests.Where(cue => cue is SoundId.SndEnterCave or SoundId.SndSwitch or SoundId.SndDoorClose)
                     .SequenceEqual(rom.Sounds.Where(cue => cue is SoundId.SndEnterCave or SoundId.SndSwitch or SoundId.SndDoorClose)),
                     "Toggle-before-stair selection must preserve original orb/door/entrance cue order.");

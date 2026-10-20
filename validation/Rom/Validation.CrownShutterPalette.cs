@@ -205,10 +205,11 @@ public sealed partial class ValidationRoot
                         _currentRoom.GetUnderlyingMetatile(point) != rom.Underlying(packed),
                         $"Room-local palette/shutter layout/collision/underlying bytes differ at ${packed:x2}.");
                 }
+                update++;
                 FailIf(fade.FadeActive != (rom[0xc4ab] != 0) ||
                     SomariaPrivate<int>(door,"_counter") != rom[0xd246] ||
                     _entities.BossEntrySignal != rom[0xcc93] || !sounds.Requests.SequenceEqual(rom.Sounds),
-                    $"Original brightenRoom/PART/shutter terminal ordering differs on update{++update}.");
+                    $"Original brightenRoom/PART/shutter terminal ordering differs on update{update}.");
             });
             Step(15);
             FailIf(!fade.FadeActive || SomariaPrivate<DoorState>(door,"_state") != DoorState.ReadyToOpen,

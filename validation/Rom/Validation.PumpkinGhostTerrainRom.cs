@@ -6,14 +6,16 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidatePumpkinGhostTerrainRom()
+    private void ValidatePumpkinGhostTerrainRom(int firstSchedule, int scheduleCount)
     {
-        int moves=0,finalMoves=0,waitChoices=0;
+        int moves=0,finalMoves=0,waitChoices=0,cases=0;
         foreach(int form in Enumerable.Range(0,7))
         foreach(int variant in form==0?Enumerable.Range(0,64):form==1?Enumerable.Range(0,96):form is 2 or 6?Enumerable.Range(0,32):new[]{0})
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
+            int schedule = (fractional ? 2 : 0) + (batched ? 1 : 0);
+            if (schedule < firstSchedule || schedule >= firstSchedule + scheduleCount) continue;
             ReinitializeGameplayForValidation();LoadValidationRoom(4,0x13);
             var parent=_entities.EntityAdapters<PumpkinHeadBossRoomEntity>().Single();var boss=(PumpkinHeadBoss)parent.Node;
             F1Retain(parent);F1Set(parent,"_initialized",true);F1Set(boss,"_initialized",true);
@@ -97,7 +99,9 @@ public sealed partial class ValidationRoot
             _runtimeState.SetWramByte(0xcc8a,5);native[0xcc8a]=5;Step(3);_runtimeState.SetWramByte(0xcc8a,1);native[0xcc8a]=1;
             _runtimeState.SetWramByte(0xcd00,8);native[0xcd00]=8;Step(3);_runtimeState.SetWramByte(0xcd00,0);native[0xcd00]=0;
             Step(form==2?34:12);_entities.Clear();_runtimeState.SetWramByte(0xcc8a,0);StepGameplayUpdates(2,Vector2.Zero);
+            cases++;
         }
         FailIf(moves==0||finalMoves==0||waitChoices==0,"Ghost terrain checks must exercise movement, final flee visits and wait-counter priority.");
+        VerifyValidationMatrixCases(nameof(ValidatePumpkinGhostTerrainRom), firstSchedule, scheduleCount, 4, cases, scheduleCount * 227);
     }
 }

@@ -18,8 +18,7 @@ public sealed partial class ValidationRoot
             var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
             save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);LoadValidationRoom(2,0xcf);_entities.Clear();
-            for(int y=8;y<_currentRoom.Height;y+=16)for(int x=8;x<_currentRoom.Width;x+=16)
-                _currentRoom.SetPositionTileAndCollision(new(x,y),0,0,0);
+            FillValidationRoom(0);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,104));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(WramAddress.wScrollMode,0);

@@ -56,15 +56,14 @@ public sealed partial class ValidationRoot
             _inventory.SelectShooterSeeds(seedItem - 0x20);
             _inventory.EquipA(primary ? TreasureId.Shooter : airborne ? TreasureId.Feather : 0);
             _inventory.EquipB(primary ? airborne ? TreasureId.Feather : 0 : TreasureId.Shooter);
-            for (int y = 0; y < (reflectors ? _currentRoom.HeightInTiles : 8); y++)
-            for (int x = 0; x < (reflectors ? _currentRoom.WidthInTiles : 10); x++)
+            ConfigureValidationRoomTiles((x, y) =>
             {
                 bool wall = walls && (x is 2 or 7 || y is 1 or 6);
                 bool water = raft && y is >= 3 and <= 6 && x is > 0 and < 9;
-                _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8),
+                return (
                     wall ? (byte)0x2e : water ? (byte)0xfc : (byte)0xa0,
-                    wall ? (byte)0x0f : water ? (byte)0x10 : (byte)0, 0);
-            }
+                    wall ? (byte)0x0f : water ? (byte)0x10 : (byte)0);
+            }, width: reflectors ? _currentRoom.WidthInTiles : 10, height: reflectors ? _currentRoom.HeightInTiles : 8);
             RaftRoomEntity? raftEntity = null;
             if (raft)
             {

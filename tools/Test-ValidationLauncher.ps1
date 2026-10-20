@@ -42,6 +42,7 @@ public static class ValidationLauncherFixture {
         bool skipRom = false;
         bool continueOnFailure = false;
         bool profileMemory = false;
+        bool disableScriptRetention = false;
         string timingProfile = null;
         foreach (string arg in args) {
             if (arg.StartsWith("--validate-shard=")) shard = arg.Substring(17);
@@ -50,6 +51,7 @@ public static class ValidationLauncherFixture {
             if (arg == "--skip-rom-validation") skipRom = true;
             if (arg == "--validate-continue-on-failure") continueOnFailure = true;
             if (arg == "--validate-memory-profile") profileMemory = true;
+            if (arg == "--validate-no-script-retention") disableScriptRetention = true;
             const string timingPrefix = "--validate-timing-profile=";
             if (arg.StartsWith(timingPrefix)) timingProfile = arg.Substring(timingPrefix.Length);
         }
@@ -66,6 +68,7 @@ public static class ValidationLauncherFixture {
         }
         if (selected == "ValidateMissingMarker") return 0;
         if (selected == "ValidateMemoryProfileArgument" && !profileMemory) return 104;
+        if (selected == "ValidateScriptRetentionArgument" && !disableScriptRetention) return 105;
         if (selected == "ValidateUnrestrictedResources") {
             // JOB_OBJECT_EXTENDED_LIMIT_INFORMATION, native SIZE_T layout.
             byte[] limits = new byte[IntPtr.Size == 8 ? 144 : 112];
@@ -111,8 +114,18 @@ public static class ValidationLauncherFixture {
         if (selected == "ValidateIncompleteSkip") executed = 0;
         if (Environment.GetEnvironmentVariable("OOA_TEST_VALIDATION_EMIT_TIMINGS") == "1") {
             int first = int.Parse(shard.Split('/')[0]) - 1;
-            for (int ordinal = first; ordinal < 8; ordinal += workers)
+            for (int ordinal = first; ordinal < 8; ordinal += workers) {
                 Console.WriteLine("VALIDATION_TIMING name=ValidateFixture" + ordinal + " setup_ms=0 total_ms=1.500");
+                string mode = Environment.GetEnvironmentVariable("OOA_TEST_VALIDATION_MATRIX");
+                if (mode != null) {
+                    int start = ordinal;
+                    if (ordinal == 3 && mode == "gap") start = 4;
+                    if (ordinal == 3 && mode == "overlap") start = 2;
+                    string entry = "VALIDATION_CASES name=ValidateFixture" + ordinal + " family=ValidateMatrix first=" + start + " count=1 domain=8 cases=2";
+                    Console.WriteLine(entry);
+                    if (ordinal == 3 && mode == "duplicate") Console.WriteLine(entry);
+                }
+            }
         }
         Console.WriteLine("VALIDATION_COMPLETE shard=" + shard + " executed=" + executed +
             " skipped=" + skipped + " registered=8 failed=" + failed);
@@ -129,6 +142,7 @@ public static class ValidationLauncherFixture {
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture -TimeoutSeconds 0
     & $launcher @fixtureParameters -ValidateOnly ValidateUnrestrictedResources -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateMemoryProfileArgument -ProfileMemory -TimeoutSeconds 15
+    & $launcher @fixtureParameters -ValidateOnly ValidateScriptRetentionArgument -DisableScriptRetention -TimeoutSeconds 15
     $previousPidPath = [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID')
     try {
         [Environment]::SetEnvironmentVariable('OOA_TEST_VALIDATION_CHILD_PID', $childPidFile)
@@ -212,6 +226,33 @@ public static class ValidationLauncherFixture {
         }
     }
     finally { [void][OracleValidation.ErrorMode]::SetErrorMode($original) }
+    $matrixReport = Join-Path $temporary 'matrix.json'
+    $previousMatrix = [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_MATRIX')
+    $previousMatrixTimings = [Environment]::GetEnvironmentVariable('OOA_TEST_VALIDATION_EMIT_TIMINGS')
+    try {
+        $env:OOA_TEST_VALIDATION_EMIT_TIMINGS = '1'
+        foreach ($mode in @('complete', 'gap', 'overlap', 'duplicate')) {
+            $env:OOA_TEST_VALIDATION_MATRIX = $mode
+            $failure = $null
+            try { & $launcher @fixtureParameters -ResultPath $matrixReport -TimingProfile $timingProfile -TimeoutSeconds 15 }
+            catch { $failure = $_.ToString() }
+            if ($mode -eq 'complete') {
+                if ($failure) { throw $failure }
+                $result = Get-Content -LiteralPath $matrixReport -Raw | ConvertFrom-Json
+                if (@($result.MatrixCases).Count -ne 8 -or ($result.MatrixCases | Measure-Object Cases -Sum).Sum -ne 16) {
+                    throw 'Matrix reporting lost original cases or ranges.'
+                }
+            } elseif ($null -eq $failure -or $failure -notmatch 'missing or overlapping range|Duplicate matrix range') {
+                throw "Matrix coverage accepted $mode or failed unexpectedly: $failure"
+            }
+        }
+    }
+    finally {
+        $env:OOA_TEST_VALIDATION_MATRIX = $previousMatrix
+        $env:OOA_TEST_VALIDATION_EMIT_TIMINGS = $previousMatrixTimings
+        if ([IO.File]::Exists($matrixReport)) { [IO.File]::Delete($matrixReport) }
+    }
+    Write-Host 'Matrix launcher tests passed (complete case reporting, missing/overlapping/duplicate range rejection, script retention forwarding).'
     $reports = Join-Path $temporary 'reports'
     [void][IO.Directory]::CreateDirectory($reports)
     $mergedProfile = Join-Path $temporary 'merged.tsv'

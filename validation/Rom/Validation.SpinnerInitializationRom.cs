@@ -47,8 +47,9 @@ public partial class ValidationRoot
                 rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter);
                 var arrow = _entities.Entities<DungeonSpinnerArrowRoomEntity>().SingleOrDefault();
                 bool nativeArrow = free == 2 && rom[parentAddress+0x100] != 0 && rom[parentAddress+0x101] == 0x7d;
+                updates++;
                 FailIf((arrow != null) != nativeArrow || (spinner != null) != expected,
-                    $"Spinner initialization update{++updates}, room${room:x2}, free={free}: parent/arrow capacity or retry differs.");
+                    $"Spinner initialization update{updates}, room${room:x2}, free={free}: parent/arrow capacity or retry differs.");
                 if (spinner != null) FailIf(!spinner.Visible || rom[parentAddress+4] != 1 ||
                     spinner.WaitCounter != rom[parentAddress+6] ||
                     arrow != null && _entities.InteractionSlot(arrow) != parentSlot+1,

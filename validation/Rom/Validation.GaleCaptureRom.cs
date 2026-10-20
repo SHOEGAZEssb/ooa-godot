@@ -53,9 +53,7 @@ public sealed partial class ValidationRoot
             _inventory.SelectSatchelSeeds(3);
             _inventory.EquipA(primary ? TreasureId.SeedSatchel : 0);
             _inventory.EquipB(primary ? 0 : TreasureId.SeedSatchel);
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 10; x++)
-                _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 10, height: 8);
             Vector2 facing = OracleObjectMovement.Shared.Direction(direction * 8);
             _player.WarpTo(new(80.25f, 64.5f)); _player.Face(new((int)facing.X, (int)facing.Y));
             var randomSeed = _random.CaptureState();

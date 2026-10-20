@@ -21,13 +21,11 @@ public sealed partial class ValidationRoot
             // Bounded terrain fixture: source water metatile $fa and collision
             // $10 in a basin approached from a walkable neighboring metatile.
             // Neither runtime nor native Link starts inside the water.
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 10; x++)
+            ConfigureValidationRoomTiles((x, y) =>
             {
                 bool water = x is >= 4 and <= 7 && y is >= 2 and <= 5;
-                _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8),
-                    water ? (byte)0xfa : (byte)0xa0, water ? (byte)0x10 : (byte)0, 0);
-            }
+                return (water ? (byte)0xfa : (byte)0xa0, water ? (byte)0x10 : (byte)0);
+            }, width: 10, height: 8);
             _player.WarpTo(new(56, 64));
             _player.Face(Vector2I.Right);
             var rom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 56, 64);
@@ -42,10 +40,11 @@ public sealed partial class ValidationRoot
                 {
                     rom.UpdateGameplay(edge, held | direction, angle, _entities.FrameCounter);
                     edge = 0;
+                    update++;
                     FailIf(_player.IsUsingShield != (rom[0xcc6f] != 0) ||
                         _player.TopDownSwimmingState != (rom[0xcc5d] & 0x0f) ||
                         _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f),
-                        $"Shield water A={primary} update={++update}: shield/swim/position runtime={_player.IsUsingShield}/{_player.TopDownSwimmingState}/{_player.PrecisePosition}, ROM=${rom[0xcc6f]:x2}/${rom[0xcc5d]:x2}/{rom.Word(0xd00c) / 256.0f},{rom.Word(0xd00a) / 256.0f}.");
+                        $"Shield water A={primary} update={update}: shield/swim/position runtime={_player.IsUsingShield}/{_player.TopDownSwimmingState}/{_player.PrecisePosition}, ROM=${rom[0xcc6f]:x2}/${rom[0xcc5d]:x2}/{rom.Word(0xd00c) / 256.0f},{rom.Word(0xd00a) / 256.0f}.");
                     FailIf(!sounds.Requests.Where(id => id == SoundId.SndShield).SequenceEqual(rom.Sounds.Where(id => id == SoundId.SndShield)),
                         "Water entry/exit restarted or retained the shield initialization cue incorrectly.");
                 });

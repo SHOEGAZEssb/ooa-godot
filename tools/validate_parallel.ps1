@@ -9,6 +9,7 @@ param(
     [switch]$ContinueOnFailure,
     [switch]$FailOnEngineDiagnostics,
     [switch]$ProfileMemory,
+    [switch]$DisableScriptRetention,
     [string]$TimingProfile,
     [ValidateRange(1, 64)]
     [int]$PartitionIndex = 1,
@@ -72,10 +73,14 @@ if ($ContinueOnFailure) {
 if ($ProfileMemory) {
     $validationArguments += '--validate-memory-profile'
 }
+if ($DisableScriptRetention) {
+    $validationArguments += '--validate-no-script-retention'
+}
 $logRoot = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($logRoot)
 $defaultTimingProfile = Join-Path $projectRoot '.godot/validation-timings.tsv'
 $profileHash = 'round-robin'
+$comparisonTimings = [Collections.Generic.Dictionary[string, double]]::new([StringComparer]::Ordinal)
 if (-not $ValidateOnly) {
     $profile = if ($TimingProfile) {
         $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($TimingProfile)
@@ -88,6 +93,9 @@ if (-not $ValidateOnly) {
         # run refreshes the default profile from its completion timings.
         $snapshot = Join-Path $logRoot 'timing-profile.tsv'
         [IO.File]::Copy($profile, $snapshot)
+        foreach ($row in (Import-Csv -LiteralPath $snapshot -Delimiter "`t")) {
+            $comparisonTimings[$row.name] = [double]::Parse($row.total_ms, [Globalization.CultureInfo]::InvariantCulture)
+        }
         $profileHash = (Get-FileHash -LiteralPath $snapshot -Algorithm SHA256).Hash
         $validationArguments += '"--validate-timing-profile=' + $snapshot + '"'
         Write-Host "Balancing workers from timing profile: $profile"
@@ -98,6 +106,7 @@ $timer = [Diagnostics.Stopwatch]::StartNew()
 Write-Host "Running $Workers validation workers. Logs: $logRoot"
 if ($PartitionCount -gt 1) { Write-Host "Partition $PartitionIndex/$PartitionCount of $totalWorkers global workers." }
 Write-Host "No launcher CPU or memory limits; workers inherit process priority."
+Write-Host "Validation script retention: $(-not $DisableScriptRetention)."
 
 $previousErrorMode = [OracleValidation.ErrorMode]::GetErrorMode()
 $job = $null
@@ -134,6 +143,7 @@ try {
     $registered = $null
     $workerResults = [Collections.Generic.List[object]]::new()
     $timings = [Collections.Generic.Dictionary[string, double]]::new([StringComparer]::Ordinal)
+    $matrixCases = [Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
     foreach ($worker in $processes) {
         $worker.Process.WaitForExit()
         if ($FailOnEngineDiagnostics) {
@@ -178,6 +188,14 @@ try {
         $workerNames = [Collections.Generic.List[string]]::new()
         foreach ($line in ($output -split '\r?\n')) {
             if ($line.StartsWith('VALIDATION_SKIPPED ')) { Write-Host $line }
+            if ($line -match '^VALIDATION_CASES name=(\S+) family=(\S+) first=(\d+) count=(\d+) domain=(\d+) cases=(\d+)$') {
+                $entry = [pscustomobject]@{
+                    Name = $Matches[1]; Family = $Matches[2]; First = [int]$Matches[3]
+                    Count = [int]$Matches[4]; Domain = [int]$Matches[5]; Cases = [int]$Matches[6]
+                }
+                if ($matrixCases.ContainsKey($entry.Name)) { throw "Duplicate matrix range: $line" }
+                $matrixCases.Add($entry.Name, $entry)
+            }
             if ($line -match '^VALIDATION_TIMING name=(\S+) setup_ms=\S+ total_ms=(\S+)$') {
                 $milliseconds = [double]::Parse($Matches[2], [Globalization.CultureInfo]::InvariantCulture)
                 if ([double]::IsNaN($milliseconds) -or [double]::IsInfinity($milliseconds) -or $milliseconds -lt 0 -or $timings.ContainsKey($Matches[1])) {
@@ -194,7 +212,7 @@ try {
         Write-Host "Worker $($worker.Index): $workerExecuted scenarios passed, $workerSkipped skipped."
     }
     $expected = if ($ValidateOnly) { 1 } elseif ($PartitionCount -gt 1) { $timings.Count } else { $registered }
-    if ($PartitionCount -eq 1 -and -not $ValidateOnly -and -not $SkipRomValidation -and -not $TimingProfile -and
+    if ($PartitionCount -eq 1 -and -not $ValidateOnly -and -not $SkipRomValidation -and -not $TimingProfile -and -not $DisableScriptRetention -and
         $executed + $failedScenarios -eq $registered -and $timings.Count -eq $registered) {
         $lines = [Collections.Generic.List[string]]::new()
         $lines.Add("name`ttotal_ms")
@@ -208,6 +226,42 @@ try {
         Write-Host ("Validation elapsed: {0:N1}s with {1} workers; {2} passed, {3} skipped, {4} failed, {5} registered." -f $timer.Elapsed.TotalSeconds, $Workers, $executed, $skipped, $failedScenarios, $registered)
         throw "Parallel validation incomplete: $executed passed, $skipped skipped, $failedScenarios failed, $registered registered. Logs: $logRoot"
     }
+    foreach ($family in ($matrixCases.Values | Group-Object Family | Sort-Object Name)) {
+        $ranges = @($family.Group | Sort-Object First)
+        $domain = $ranges[0].Domain
+        $next = 0
+        $cases = 0
+        $milliseconds = 0.0
+        foreach ($range in $ranges) {
+            if (-not $timings.ContainsKey($range.Name) -or $range.Count -lt 1 -or $range.Cases -lt 1 -or
+                $range.First + $range.Count -gt $range.Domain -or $range.Domain -ne $domain) {
+                throw "Invalid or untimed matrix range: $($range.Name)"
+            }
+            if (-not $ValidateOnly -and $PartitionCount -eq 1 -and $range.First -ne $next) {
+                throw "Matrix $($family.Name) has a missing or overlapping range at $next."
+            }
+            $next = $range.First + $range.Count
+            $cases += $range.Cases
+            $milliseconds += $timings[$range.Name]
+        }
+        if (-not $ValidateOnly -and $PartitionCount -eq 1 -and $next -ne $domain) {
+            throw "Matrix $($family.Name) covered $next of $domain domain values."
+        }
+        $scope = if ($PartitionCount -gt 1 -or ($ValidateOnly -and ($ranges.Count -ne 1 -or $ranges[0].Count -ne $domain))) { 'selected ranges' } else { 'complete' }
+        Write-Host ("Matrix {0}: {1} cases, {2} ranges, {3:N3}s summed scenario time ({4})." -f $family.Name, $cases, $ranges.Count, ($milliseconds / 1000), $scope)
+        if ($scope -eq 'complete') {
+            $baseline = $null
+            if ($comparisonTimings.ContainsKey($family.Name)) {
+                $baseline = $comparisonTimings[$family.Name]
+            } elseif (@($ranges | Where-Object { -not $comparisonTimings.ContainsKey($_.Name) }).Count -eq 0) {
+                $baseline = 0.0
+                foreach ($range in $ranges) { $baseline += $comparisonTimings[$range.Name] }
+            }
+            if ($null -ne $baseline) {
+                Write-Host ("  Profile comparison: {0:N3}s -> {1:N3}s summed scenario time." -f ($baseline / 1000), ($milliseconds / 1000))
+            }
+        }
+    }
     if ($ResultPath) {
         if ($ValidateOnly -or $skipped -ne 0 -or $timings.Count -ne $executed) {
             throw 'Result reports require successful, timed scenarios without skips or a focused filter.'
@@ -217,6 +271,8 @@ try {
             SchemaVersion = 1; PartitionIndex = $PartitionIndex; PartitionCount = $PartitionCount
             WorkersPerPartition = $Workers; TotalWorkers = $totalWorkers; Registered = $registered
             ProfileHash = $profileHash; ElapsedSeconds = $timer.Elapsed.TotalSeconds
+            ScriptRetention = -not $DisableScriptRetention
+            MatrixCases = @($matrixCases.Values | Sort-Object Name)
             Workers = @($workerResults.ToArray())
             Timings = @($timings.Keys | Sort-Object | ForEach-Object {
                 [ordered]@{ Name = $_; Milliseconds = $timings[$_] }

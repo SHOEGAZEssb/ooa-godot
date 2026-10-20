@@ -13,9 +13,7 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         LoadValidationRoom(4, 0xa8);
         _entities.Clear();
-        for (int y = 8; y < _currentRoom.Height; y += 16)
-        for (int x = 8; x < _currentRoom.Width; x += 16)
-            _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+        FillValidationRoom(0xa0);
         _player.WarpTo(new(24, 24));
         StepGameplayUpdates(8, Vector2.Right);
         FailIf(_player.Position.X <= 24, "Enemy-status fixture requires Link to walk through the declared collision-safe floor.");

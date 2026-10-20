@@ -32,14 +32,12 @@ public sealed partial class ValidationRoot
             }
             // A bounded shoreline using the native sea tile/collision bytes.
             // Link approaches through walkable geometry; no swimming state is injected.
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 10; x++)
+            ConfigureValidationRoomTiles((x, y) =>
             {
                 bool wall = x is 0 or 9 || y is 0 or 7;
                 bool water = !wall && !(x == 1 && y == 4);
-                _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8),
-                    water ? (byte)0xfc : (byte)0xa0, wall ? (byte)0x0f : water ? (byte)0x10 : (byte)0, 0);
-            }
+                return (water ? (byte)0xfc : (byte)0xa0, wall ? (byte)0x0f : water ? (byte)0x10 : (byte)0);
+            }, width: 10, height: 8);
             _player.WarpTo(new(24.25f, 60.5f)); _player.Face(Vector2I.Right);
             var initialRandom = _random.CaptureState();
             var rom = new SomariaRom(_saveData, initialRandom, _currentRoom, 1, 24, 60);

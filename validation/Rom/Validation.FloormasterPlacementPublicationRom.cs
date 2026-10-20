@@ -7,15 +7,16 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidateFloormasterPlacementPublicationRom()
+    private void ValidateFloormasterPlacementPublicationRom(int firstAngle, int angleCount)
     {
+        int cases = 0;
         foreach(int room in new[]{0x19,0x3a,0xa7})
         {
             var supported=_rooms.GetRoom(5,room);
             FailIf(supported.Width!=240||supported.Height!=176,
                 $"Source Floormaster room$5:${room:x2} must retain its large-room collision-buffer boundary.");
         }
-        foreach(int angle in Enumerable.Range(0,32))
+        foreach(int angle in Enumerable.Range(firstAngle,angleCount))
         foreach(Vector2 link in new[]{new Vector2(88,88),new Vector2(232,88),new Vector2(88,8)})
         foreach(int sub in new[]{1,2})
         foreach(bool blocked in new[]{false,true})
@@ -26,8 +27,7 @@ public sealed partial class ValidationRoot
             var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
             save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);LoadValidationRoom(5,0xa7);_entities.Clear();
-            for(int y=8;y<_currentRoom.Height;y+=16)for(int x=8;x<_currentRoom.Width;x+=16)
-                _currentRoom.SetPositionTileAndCollision(new(x,y),0,(byte)(blocked?15:0),0);
+            FillValidationRoom(0, (byte)(blocked ? 15 : 0));
             _currentRoom.SetPositionTileAndCollision(link,0,0,0);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(link);_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
@@ -37,7 +37,9 @@ public sealed partial class ValidationRoot
             {
             var actualWrites=new List<uint>();var expectedWrites=new List<uint>();bool capture=false;
             uint last=0;
-            uint RuntimeScratch()=>Enumerable.Range(0,4).Aggregate(0u,(packed,i)=>packed|((uint)_runtimeState.ReadWramByte(0xcec0+i)<<(i*8)));
+            uint RuntimeScratch() => (uint)_runtimeState.ReadWramByte(0xcec0) |
+                (uint)_runtimeState.ReadWramByte(0xcec1) << 8 | (uint)_runtimeState.ReadWramByte(0xcec2) << 16 |
+                (uint)_runtimeState.ReadWramByte(0xcec3) << 24;
             void Observe()
             {
                 if(!capture)return;uint value=RuntimeScratch();if(value==last)return;
@@ -111,6 +113,10 @@ public sealed partial class ValidationRoot
             finally{_runtimeState.Changed-=Observe;}
             }
             finally{parent.Free();}
+            cases++;
         }
+        int cardinalAngles = Enumerable.Range(firstAngle, angleCount).Count(angle => (angle & 7) == 0);
+        VerifyValidationMatrixCases(nameof(ValidateFloormasterPlacementPublicationRom), firstAngle, angleCount, 32, cases,
+            angleCount * 16 + cardinalAngles * 32);
     }
 }

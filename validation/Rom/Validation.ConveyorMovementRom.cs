@@ -24,11 +24,9 @@ public sealed partial class ValidationRoot
                 FailIf(!_inventory.SetRingBoxSlotFromList(0, ring) || !_inventory.EquipRingAt(0),
                     "Conveyor fixture could not equip QUICKSAND_RING $23.");
             }
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 10; x++)
-                _currentRoom.SetPositionTileAndCollision(new(x * 16 + 8, y * 16 + 8),
+            ConfigureValidationRoomTiles((x, y) => (
                     x is 0 or 9 || y is 0 or 7 ? (byte)0xa0 : (byte)tile,
-                    x is 0 or 9 || y is 0 or 7 ? (byte)0x0f : (byte)0, 0);
+                    x is 0 or 9 || y is 0 or 7 ? (byte)0x0f : (byte)0), width: 10, height: 8);
             // Partial obstacles require tile-edge sliding without making the
             // basin escapable. Native probes retain their preceding publication
             // for the terrain step and refresh before input movement.

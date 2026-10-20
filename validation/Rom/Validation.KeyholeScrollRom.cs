@@ -42,10 +42,11 @@ public partial class ValidationRoot
                 rom.AdvanceInteractions(_entities.FrameCounter);
                 if (!_transitions.ScrollActive) rom.ClearOutgoingInteractions();
                 bool alive = rom[0xd240] != 0;
+                update++;
                 FailIf(_entities.OutgoingEntities<Node2D>().Contains(controller.Node) != alive ||
                     _transitions.ScrollActive && (controller.Finished == alive ||
                         alive && controller.Initialized != (rom[0xd244] != 0)) || sounds.Requests.Any() || rom.Sounds.Any(),
-                    $"Keyhole${source.Id:x2}:${source.SubId:x2} scroll completed={completed}, batch={batch}, update{++update}: pending initialization/deletion/slot/cues differ.");
+                    $"Keyhole${source.Id:x2}:${source.SubId:x2} scroll completed={completed}, batch={batch}, update{update}: pending initialization/deletion/slot/cues differ.");
             });
             Step();
             bool crown = source.Id == 0x90 && source.SubId == 0x11;

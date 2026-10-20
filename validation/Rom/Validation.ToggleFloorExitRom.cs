@@ -45,9 +45,10 @@ public partial class ValidationRoot
                         if (rom[0xcd00] == 1) rom.AdvanceEnemyAndPartCollisions();
                     }
                 }
+                update++;
                 FailIf(_currentRoom.Id != rom[0xcc30] || !IsTransitioning &&
                     _player.PrecisePosition != new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f),
-                    $"Toggle/exit update{++update}, batch={batch}: room/Link runtime={_currentRoom.Id:x2}/{_player.PrecisePosition}, ROM={rom[0xcc30]:x2}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, scroll={rom[0xcd00]:x2}:{rom[0xcd04]}, cutscene={rom[0xc2ef]:x2}.");
+                    $"Toggle/exit update{update}, batch={batch}: room/Link runtime={_currentRoom.Id:x2}/{_player.PrecisePosition}, ROM={rom[0xcc30]:x2}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}, scroll={rom[0xcd00]:x2}:{rom[0xcd04]}, cutscene={rom[0xc2ef]:x2}.");
                 bool OrbCue(int cue) => cue is SoundId.SndSwitch or SoundId.SndDoorClose;
                 FailIf(!sounds.Requests.Where(OrbCue).SequenceEqual(rom.Sounds.Where(OrbCue)),
                     "Deferred exit must preserve the original orb/floor cue order.");
