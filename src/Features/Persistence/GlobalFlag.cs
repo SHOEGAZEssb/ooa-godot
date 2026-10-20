@@ -70,10 +70,14 @@ public static class GlobalFlag
     public const int PiratesGone = 0x34;
     // constants/common/globalFlags.s: GLOBALFLAG_GOT_RING_FROM_ZELDA
     public const int GotRingFromZelda = 0x38;
+    // constants/common/globalFlags.s: GLOBALFLAG_IMPA_MOVED_AFTER_ZELDA_KIDNAPPED
+    public const int ImpaMovedAfterZeldaKidnapped = 0x39;
     // constants/common/globalFlags.s: GLOBALFLAG_FLAME_OF_DESPAIR_LIT
     public const int FlameOfDespairLit = 0x3a;
     // constants/common/globalFlags.s: GLOBALFLAG_RETURNED_DOG
     public const int ReturnedDog = 0x3b;
+    // constants/common/globalFlags.s: GLOBALFLAG_ZELDA_SAVED_FROM_VIRE
+    public const int ZeldaSavedFromVire = 0x3c;
     // constants/common/globalFlags.s: GLOBALFLAG_3d
     public const int LinkSummoned = 0x3d;
     // constants/common/globalFlags.s: GLOBALFLAG_MAKU_GIVES_ADVICE_FROM_PRESENT_MAP

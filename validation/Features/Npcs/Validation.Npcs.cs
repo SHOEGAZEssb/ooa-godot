@@ -563,8 +563,8 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 81,
                 [NpcImplementationClassification.SpecializedNative] = 234,
-                [NpcImplementationClassification.EventOwned] = 128,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 19
+                [NpcImplementationClassification.EventOwned] = 130,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 17
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -577,7 +577,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "81 ordinary, 234 specialized, 128 event-owned, and 19 " +
+            "81 ordinary, 234 specialized, 130 event-owned, and 17 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -820,6 +820,7 @@ public sealed partial class ValidationRoot
         string[] expectedSources =
         [
             "blossom.s:MENU_KIDNAME",
+            "impaInCutscene.s:$31:$07;bird.s:$4c:$04",
             "goron.s:scriptTable;goronElder.s;shootingGallery.s",
             "plen.s:plenSubid0Script",
             "symmetryNpc.s:scriptTable",
@@ -4323,11 +4324,13 @@ public sealed partial class ValidationRoot
         if (save.WriteWramByte(WramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
 
-        manager.LoadRoom(0, _world.LoadRoom(0, 0x65));
+        var rescueVisibility = new NpcVisibilityRuleDatabase();
+        var rescueRecords = npcs.GetRoomNpcs(0, 0x65);
         FailIf(
-            manager.Entities<NpcCharacter>().Count != 0,
-            "Room 0:65 instantiated its unsupported kidnapped-Zelda " +
-            "actors through the generic NPC path.");
+            rescueRecords.Count != 2 || rescueRecords.Any(record =>
+                record.Implementation != NpcImplementationClassification.EventOwned ||
+                rescueVisibility.ShouldShow(record, save, manager.RuntimeState)),
+            "Room 0:65 must retain native-owned kidnapped-Zelda actors and their imported unlinked deletion gate.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x68));
         NpcCharacter? earlyLynnaMan = manager.Entities<NpcCharacter>().Find(npc =>

@@ -223,6 +223,7 @@ public sealed class RoomEntityManager : IDisposable
     internal Action<bool,int> BeginPalacePossessionFade { get; set; } = null!;
     internal Func<NpcRecord, IRoomEntity>? BlackTowerRalphFactory { get; set; }
     internal Func<NpcRecord, IRoomEntity>? BlackTowerAmbiFactory { get; set; }
+    internal Func<NpcRecord, IRoomEntity>? ZeldaRescueFactory { get; set; }
     internal Func<NpcRecord, IRoomEntity>? VeranFaceFactory { get; set; }
     internal Func<VeranFinalCharacter,bool>? VeranFinalDeathFade {get;set;}
     internal Action? VeranFinalEscape {get;set;}
@@ -3115,6 +3116,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
+        ZeldaRescueActor or
         PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or MapleTouchingBookRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
         TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or TokaySeedlingDecorationRoomEntity or TokayHeldAccessoryRoomEntity or TokayShopItemRoomEntity or

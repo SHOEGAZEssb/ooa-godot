@@ -33,9 +33,12 @@ public partial class Player
         SetScriptedLinkAnimationMode(null);ResetLinkWalkAnimation();
     }
     private int _nativeForcedMovementRequest = -1, _nativeForcedMovementCounter;
+    private object? _nativeForcedMovementOwner;
+    internal bool NativeForcedMovementActive => _nativeForcedMovementCounter != 0;
     private Vector2I _nativeForcedMovementDirection, _nativeForcedMovementFacing;
-    internal void RequestNativeForcedMovement(int parameter, int angle, int direction)
+    internal void RequestNativeForcedMovement(int parameter, int angle, int direction, object? owner = null)
     {
+        _nativeForcedMovementOwner = owner;
         _nativeForcedMovementRequest = parameter;
         _nativeForcedMovementDirection = angle switch { 0 => Vector2I.Up, 8 => Vector2I.Right,
             16 => Vector2I.Down, 24 => Vector2I.Left, _ => throw new System.NotSupportedException($"LINK_STATE_FORCE_MOVEMENT $0b angle${angle:x2}.") };
@@ -44,7 +47,11 @@ public partial class Player
         Face(_nativeForcedMovementFacing);
     }
     private void CancelNativeForcedMovement()
-    { _nativeForcedMovementRequest = -1; _nativeForcedMovementCounter = 0; }
+    { _nativeForcedMovementRequest = -1; _nativeForcedMovementCounter = 0; _nativeForcedMovementOwner = null; }
+    internal void CancelNativeForcedMovement(object owner)
+    {
+        if (ReferenceEquals(_nativeForcedMovementOwner, owner)) EndForcedRoomEntryMovement();
+    }
     private bool AdvanceNativeForcedMovement()
     {
         if (_world.DialogueOpen || _world.IsTransitioning) return _nativeForcedMovementCounter != 0;

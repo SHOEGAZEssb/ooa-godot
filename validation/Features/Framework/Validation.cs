@@ -825,6 +825,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePalaceEntranceGuardCollision);
         RunIsolatedValidation(ValidatePalaceSoldierGatesRom, requiresRom: true);
         RunIsolatedValidation(ValidatePalaceRalphRom, requiresRom: true);
+        RunIsolatedValidation(ValidateZeldaRescueRom, requiresRom: true);
+        RunIsolatedValidation(ValidateZeldaKidnappedRom, requiresRom: true);
+        RunIsolatedValidation(ValidateZeldaRescueLifecycle);
         RunIsolatedValidation(ValidatePalaceFriendlySoldiersRom, requiresRom: true);
         RunIsolatedValidation(ValidateAmbiGuardsRom, requiresRom: true);
         RunIsolatedValidation(ValidateGuardSomariaRemovalRom, requiresRom: true);

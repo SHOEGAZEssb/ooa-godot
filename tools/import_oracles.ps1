@@ -148,6 +148,9 @@ $stageContracts = @(
         -inputs @('allTextPositions', 'allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectLines', 'npcRows', 'paletteDataSource', 'speedSource') `
         -functionInputs @('Export-PaletteBlock', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable') `
         -functionOutputs @('Resolve-ObjectSpeed', 'Resolve-SoundConstant')
+    New-ImportStageContract 'zelda-rescue' 'Import-ZeldaRescue.ps1' `
+        -inputs @('allTexts', 'globalFlagValues', 'gfxNames', 'interactionGraphics', 'cutsceneCommandHeader') `
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-vocabulary' 'Import-CutsceneVocabulary.ps1' `
         -outputs @('cutsceneCommandSchemas') `
         -functionInputs @('Write-CutsceneGeneratedTable')

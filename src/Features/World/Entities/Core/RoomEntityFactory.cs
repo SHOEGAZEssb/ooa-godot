@@ -1103,6 +1103,8 @@ internal sealed class RoomEntityFactory
                             ? new BombUpgradeFairyRoomEntity(NpcCharacter.CreateFromRecord(record))
                             : record.Id is InteractionId.Goron or InteractionId.GoronElder || record is {Id:InteractionId.ShootingGallery,SubId:1}
                                 ? new GoronCaveRoomEntity(NpcCharacter.CreateFromRecord(record))
+                                : record is { Id: 0x31, SubId: 0x07 } or { Id: 0x4c, SubId: 0x04 }
+                                ? owner.ZeldaRescueFactory?.Invoke(record) ?? throw new InvalidOperationException("Room $0:$65 requires its Zelda rescue native owner.")
                                 : new EventOwnedNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
                         break;
                     case NpcImplementationClassification.DeliberatelyUnsupported:

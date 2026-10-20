@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 352 | Traced and covered by named NPC/event scenarios. |
+| **I** | 354 | Traced and covered by named NPC/event scenarios. |
 | **P** | 19 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 19 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -62,8 +62,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 81 | 0 | 81 |
 | Specialized native interaction | 162 | 72 | 234 |
-| Event-owned actor | 128 | 0 | 128 |
-| Deliberately unsupported | 19 | 0 | 19 |
+| Event-owned actor | 130 | 0 | 130 |
+| Deliberately unsupported | 17 | 0 | 17 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -99,7 +99,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:58` | [I] `$41:$04/v$00` miscMan |
 | `0:5a` | [I] `$39:$02/v$00` monkey<br>[I] `$39:$03/v$00` monkey |
 | `0:5d` | [I] `$cb:$00/v$00` linkedGameGhini |
-| `0:65` | [D] `$31:$07/v$00` impaInCutscene<br>[D] `$4c:$04/v$00` bird |
+| `0:65` | [I] `$31:$07/v$00` impaInCutscene<br>[I] `$4c:$04/v$00` bird |
 | `0:66` | [I] `$3b:$01/v$00` femaleVillager |
 | `0:67` | [I] `$41:$03/v$00` miscMan |
 | `0:68` | [I] `$44:$02/v$00` miscMan2<br>[I] `$3a:$05/v$00` villager<br>[I] `$3b:$02/v$00` femaleVillager<br>[I] `$3c:$02/v$00` boy |

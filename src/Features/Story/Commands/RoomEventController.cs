@@ -153,6 +153,7 @@ public sealed class RoomEventController
             () => new MakuTreeDisappearanceEvent(_context),
             () => new RalphPortalEvent(_context),
             () => new PreBlackTowerEvent(_context),
+            () => new ZeldaRescueEvent(_context),
             () => new BlackTowerDoorwayEvent(_context),
             () => new BlackTowerSeedEvent(_context),
             () => new BlackTowerConfrontationEvent(_context),
@@ -179,6 +180,7 @@ public sealed class RoomEventController
                 Array.Exists(handlers, handler => handler(target.Npc)));
         _interactionHandlers =
         [
+            Npc("impaInCutscene.s:$31:$07;bird.s:$4c:$04", Get<ZeldaRescueEvent>().TryInteractNpc),
             Npc("goron.s:scriptTable;goronElder.s;shootingGallery.s", Get<GoronCaveEvent>().TryInteractNpc),
             Npc("plen.s:plenSubid0Script", Get<PlenEvent>().TryInteractNpc),
             Npc("symmetryNpc.s:scriptTable",
@@ -257,6 +259,7 @@ public sealed class RoomEventController
         _context.Entities.PostD7AmbiFactory = Get<PostD7Event>().CreatePlacedAmbi;
         _context.Entities.BlackTowerRalphFactory = Get<BlackTowerConfrontationEvent>().CreateRalph;
         _context.Entities.BlackTowerAmbiFactory = Get<BlackTowerPossessionEvent>().CreateAmbi;
+        _context.Entities.ZeldaRescueFactory = Get<ZeldaRescueEvent>().CreatePlaced;
         VeranFaceDatabase? veranFace=null;
         _context.Entities.VeranFaceFactory=record=>new VeranFaceRoomEntity(_context,veranFace??=new(),record);
         _context.Entities.VeranFinalDeathFade=parent=>
