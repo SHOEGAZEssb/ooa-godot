@@ -10,14 +10,14 @@ public sealed partial class ValidationRoot
     private void ValidateTokayCookScript()
     {
         var commands = CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/tokay_cook_commands.tsv");
-        FailIf(commands.Count != 35 ||
+        FailIf(commands.Count != 37 ||
             !commands.OfType<CutsceneWaitCommand>().Select(c => c.Frames).SequenceEqual(
                 new[] { 30, 30, 30, 30, 30, 40, 30 }) ||
-            commands[22] is not CutsceneWriteObjectByteCommand { Address: 0x3f, Value: 1 } ||
-            commands[24] is not CutsceneMemoryGateCommand { Binding: "CookAwayFromStart", Value: 0 } ||
-            commands[25] is not CutsceneWriteObjectByteCommand { Address: 0x3f, Value: 0 } ||
-            commands[29] is not CutsceneGiveItemCommand { TreasureId: TreasureId.TradeItem, Parameter: 3 } ||
-            commands.OfType<CutsceneBranchYieldCommand>().Count() != 4,
+            commands[24] is not CutsceneWriteObjectByteCommand { Address: 0x3f, Value: 1 } ||
+            commands[26] is not CutsceneMemoryGateCommand { Binding: "CookAwayFromStart", Value: 0 } ||
+            commands[27] is not CutsceneWriteObjectByteCommand { Address: 0x3f, Value: 0 } ||
+            commands[31] is not CutsceneGiveItemCommand { TreasureId: TreasureId.TradeItem, Parameter: 3 } ||
+            commands.OfType<CutsceneBranchYieldCommand>().Count() != 6,
             "tokayCookScript lost source waits, $3e/$3f handshake, Tasty Meat or wBigBuffer jump boundaries.");
         var texts = new TokayInteractionDatabase();
         var results = new List<string[]>();
@@ -69,6 +69,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.TradeItem, 1);
             Talk(0x0a00);
             CloseAndWait(30);
+            Step(1);
             ExpectText(0x0a09);
             _dialogue.Close();
             Step(3);
@@ -77,6 +78,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.TradeItem, 2);
             Talk(0x0a00);
             CloseAndWait(30);
+            Step(1);
             ExpectText(0x0a01);
             _dialogue.SubmitChoiceForValidation(1);
             Step(31);
@@ -88,6 +90,7 @@ public sealed partial class ValidationRoot
                 "Declining the cook trade changed its item/room flag or retained input.");
             Talk(0x0a00);
             CloseAndWait(30);
+            Step(1);
             ExpectText(0x0a01);
             _dialogue.SubmitChoiceForValidation(0);
             Step(30);
@@ -112,7 +115,7 @@ public sealed partial class ValidationRoot
                 "Cook did not repeat its six native jump paths during long dialogue.");
             _dialogue.Close();
             int returning = 0;
-            while (cooking.CurrentCommandIndex != 26 && returning++ < 600) Step(1);
+            while (cooking.CurrentCommandIndex != 28 && returning++ < 600) Step(1);
             FailIf(returning >= 600 || cooking.Jumping || cook.Position != new Vector2(0x48, 0x28),
                 "Cook failed to return to $48,$28 before clearing $3f.");
             // The successful checkobjectbyteeq and writeobjectbyte each yield.
@@ -129,6 +132,7 @@ public sealed partial class ValidationRoot
             FailIf(cooking.BlocksGameplay || _player.CutsceneControlled ||
                 !_saveData.HasRoomFlag(2, 0x3f, 0x20),
                 "Cook failed to restore input and retain the trade room flag.");
+            for(int update=0;update<90&&(_player.IsHoldingItemOneHand||_player.IsHoldingItemTwoHands);update++)Step(1);
             Talk(0x0a07);
             _dialogue.Close();
             Step(3);

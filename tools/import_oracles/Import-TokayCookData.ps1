@@ -16,10 +16,35 @@ if ($tokayCookWrapper -notmatch '(?ms)^tokayCookScript:\s+loadscript scriptHelp\
     $tokayCookTrade -notmatch 'TRADEITEM_STINK_BAG\s+db ; \$02') {
     throw 'Tokay cook script installation, always-update wrapper or Stink Bag binding changed.'
 }
-$tokayCookRows = ConvertTo-CutsceneCommandRows $tokayCookCommands 'Cook' `
+# scriptCmd_jumpIfSomething preserves CP's carry on a missed comparison.
+# Match/no item/lower item yield; a higher trade item continues on a miss.
+# Preserve that distinction without changing the shared trade opcode's users.
+$tokayCookExpanded=[Collections.Generic.List[object]]::new()
+$tokayCookMap=@{}
+foreach($command in $tokayCookCommands) {
+    $tokayCookMap[$command.Index]=$tokayCookExpanded.Count
+    $copy=$command.PSObject.Copy();$copy.Index=$tokayCookExpanded.Count;$tokayCookExpanded.Add($copy)
+    if($command.Opcode -eq 'jumpiftradeitemeq') {
+        foreach($outcome in @('Miss','Match')) {
+            $copy=$command.PSObject.Copy();$copy.Index=$tokayCookExpanded.Count
+            $copy.Opcode='cookTrade'+$outcome;$copy.Operands='';$tokayCookExpanded.Add($copy)
+        }
+    }
+}
+$tokayCookTradeCommand=@($tokayCookCommands | Where-Object Opcode -eq 'jumpiftradeitemeq')[0]
+$tokayCookTradeIndex=$tokayCookMap[$tokayCookTradeCommand.Index]
+$tokayCookTradeNext=$tokayCookMap[$tokayCookTradeCommand.Index+1]
+$tokayCookTradeTarget=@($tokayCookExpanded | Where-Object Label -eq '@askForTrade')[0].Index
+$tokayCookBindings=@{
+    'jumpiftradeitemeq|TRADEITEM_STINK_BAG, @askForTrade'=@{
+        Opcode='jumptablememory';Payload='CookTradeOutcome|'+($tokayCookTradeIndex+1)+','+($tokayCookTradeIndex+2)+','+$tokayCookTradeNext
+    }
+    'cookTradeMiss|'=@{Opcode='scriptjumpyield';Arg0=$tokayCookTradeNext.ToString()}
+    'cookTradeMatch|'=@{Opcode='scriptjumpyield';Arg0=$tokayCookTradeTarget.ToString()}
+}
+$tokayCookRows = ConvertTo-CutsceneCommandRows $tokayCookExpanded 'Cook' `
     -symbols @{
         TRADEITEM_STINK_BAG = 0x02; TREASURE_TRADEITEM = 0x41
         'Interaction.var3f' = 0x3f; 'Interaction.var3e' = 'CookAwayFromStart'
-    } -texts $allTexts -positions $allTextPositions -yieldOnJump $true
+    } -texts $allTexts -positions $allTextPositions -yieldOnJump $true -bindings $tokayCookBindings
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\tokay_cook_commands.tsv'), $tokayCookRows)
-

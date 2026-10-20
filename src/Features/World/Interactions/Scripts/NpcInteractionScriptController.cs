@@ -19,6 +19,8 @@ internal sealed class NpcInteractionScriptController
     private double _frameAccumulator;
     private KnowItAllBirdScriptHost? _birdTalk;
     private readonly List<SharedNpcScriptHost> _shared = new();
+    private readonly List<TokayNpcScriptHost> _tokays = new();
+    private readonly List<DimitriRescueScriptHost> _dimitriRescue = new();
     private readonly List<BlackTowerBlockerScriptHost> _blockers = new();
     private readonly List<BlackTowerPatrolScriptHost> _patrollers = new();
     private readonly SharedNpcDatabase _sharedData = new();
@@ -66,6 +68,12 @@ internal sealed class NpcInteractionScriptController
         _hosts = [_linked, _pastBipin, _hardhat, _postman, _oldMan];
         _handlers =
         [
+            NpcInteractionHandler.ForNpc("tokay.s:tokayHoldingItemScript/genericNpcScript", (target, player) =>
+            {
+                foreach (var host in _tokays)
+                    if (host.TryInteract(target, player)) return true;
+                return false;
+            }),
             NpcInteractionHandler.ForNpc("sharedNpcScript", (target, player) =>
             {
                 foreach (var host in _shared)
@@ -108,6 +116,21 @@ internal sealed class NpcInteractionScriptController
         rooms.RoomChanged += OnRoomChanged;
         entities.RoomEntitiesLoaded += (_, _) =>
         {
+            foreach(var host in _dimitriRescue)host.Cancel();_dimitriRescue.Clear();
+            foreach(var slot in entities.EntityAdapters<DimitriRescueScriptRoomEntity>())
+            {
+                var host=new DimitriRescueScriptHost(slot,rooms,entities,dialogue);
+                slot.Script=host;_dimitriRescue.Add(host);
+            }
+            foreach (var host in _tokays) host.Cancel();
+            _tokays.Clear();
+            foreach (var slot in entities.EntityAdapters<TokayNpcRoomEntity>())
+            {
+                if (!TokayNpcScriptHost.Matches(slot.Npc)) continue;
+                var host = new TokayNpcScriptHost(slot, new TokayInteractionDatabase(), rooms, entities, dialogue, inventory);
+                slot.Script = host;
+                _tokays.Add(host);
+            }
             foreach (var host in _shared) host.Cancel();
             _shared.Clear();
             foreach (var host in _blockers) host.Cancel();
@@ -170,6 +193,7 @@ internal sealed class NpcInteractionScriptController
                 host.SetTraceSink(value);
             foreach (var host in _blockers) host.SetTraceSink(value);
             foreach (var host in _patrollers) host.SetTraceSink(value);
+            foreach (var host in _tokays) host.SetTraceSink(value);
         }
     }
 
@@ -186,8 +210,11 @@ internal sealed class NpcInteractionScriptController
 
     private void OnRoomChanged(int group, OracleRoomData room)
     {
+        foreach(var host in _dimitriRescue)host.Cancel();_dimitriRescue.Clear();
         _birdTalk?.Cancel();
         _birdTalk = null;
+        foreach (var host in _tokays) host.Cancel();
+        _tokays.Clear();
         _ = group;
         _ = room;
         foreach (NpcInteractionCommandHost host in _hosts)

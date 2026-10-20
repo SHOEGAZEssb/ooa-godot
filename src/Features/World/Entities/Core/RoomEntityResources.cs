@@ -115,6 +115,8 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
     internal TokayInteractionDatabase TokayInteractions => _tokayInteractionsData ??= new();
     private TokayNativeDatabase? _tokayNativeData;
     internal TokayNativeDatabase TokayNative => _tokayNativeData ??= new();
+    private TokayDimitriDatabase? _tokayDimitriData;
+    internal TokayDimitriDatabase TokayDimitri=>_tokayDimitriData??=new();
     private TokaySeedlingPlotDatabase? _tokaySeedlingPlotData;
     private FountainDatabase? _fountainData;
     internal FountainDatabase Fountains => _fountainData ??= new();

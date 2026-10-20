@@ -169,6 +169,13 @@ public sealed partial class ValidationRoot
             native.Spawn(subid);
             FailIf(native.Memory[0xd100] == 0, $"Preset ${subid:x2} fixture did not spawn natively.");
             LoadValidationRoom(0, room);
+            if(subid==3)
+            {
+                FailIf(_entities.EntityAdapters<IRoomEntity>().Any(e=>e is IRoomInitializedCompanion)||
+                    _entities.InteractionSlot(_entities.EntityAdapters<DimitriPresetSpawnerRoomEntity>().Single().Node)!=4,
+                    "Placed $67:$03 must reserve $d4 after both Tokays and defer the companion until its own first dispatch.");
+                StepGameplayUpdates(1,Vector2.Zero);
+            }
             var actors = _entities.EntityAdapters<IRoomEntity>().Where(e => e is IRoomInitializedCompanion).ToArray();
             FailIf(actors.Length != 1 || actors[0].Node.Position != new Vector2(native.Memory[0xd10d], native.Memory[0xd10b]),
                 $"Preset ${subid:x2} did not allocate one companion at the native preset position.");

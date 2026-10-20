@@ -80,14 +80,13 @@ internal partial class TokayHoldingItemCharacter : TokayCharacter
         QueueRedraw();
     }
 
-    public override void _Draw()
+    internal void DrawHeldItem(CanvasItem canvas)
     {
-        base._Draw();
-        if (_heldItemVisible && _heldItemTexture is not null)
+        if (_heldItemTexture is not null)
         {
-            DrawTexture(
+            canvas.DrawTexture(
                 _heldItemTexture,
-                _heldItemFrameOffset + HeldItemOffset + SourceOamDrawOffset);
+                _heldItemFrameOffset + SourceOamWrapOffset);
         }
     }
 }

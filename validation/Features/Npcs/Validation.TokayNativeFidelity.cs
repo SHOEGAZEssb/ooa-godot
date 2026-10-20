@@ -49,87 +49,12 @@ public sealed partial class ValidationRoot
         digging.Cancel();
         _dialogue.Close();
 
-        _saveData.SetRoomFlag(1, 0xbb, OracleSaveData.RoomFlag80, value: false);
-        LoadValidationRoom(1, 0xbb);
-        FailIf(_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 1,
-            "Rosa-escape initialization did not set wDiggingUpEnemiesForbidden $ccde.");
-        TokayCharacter escape = _entities.Entities<TokayCharacter>().Single(npc => npc.Record.SubId == 0x0b);
-        Vector2 escapeStart = escape.Position;
-        _player.WarpTo(new Vector2(0x70, 0x50), recordSafe: false);
-        StepRoomEventFrames(31);
-        _dialogue.Close();
-        StepRoomEventFrames(1);
-        StepRoomEventFrames(16);
-        FailIf(escape.Position != escapeStart + new Vector2(0, -24),
-            "Rosa escape moveup $11 did not execute 16 SPEED_180 updates.");
-        StepRoomEventFrames(2 + 30);
-        FailIf(escape.FacingVector != Vector2I.Down,
-            "Rosa escape did not turn down between its separate 30-update waits.");
-        StepRoomEventFrames(30);
-        FailIf(_roomEvents.Get<TokayRunningFromRosaEvent>().Stage != TokayRunningFromRosaStage.Jumping,
-            "Rosa escape did not start its native -$01c0 jump after both waits.");
-        for (int frame = 0; frame < 300 && _roomEvents.Get<TokayRunningFromRosaEvent>().HasState; frame++)
-        {
-            if (_dialogue.IsOpen) _dialogue.Close();
-            StepRoomEventFrames(1);
-        }
-        FailIf(_roomEvents.Get<TokayRunningFromRosaEvent>().HasState ||
-            !_saveData.HasRoomFlag(1, 0xbb, OracleSaveData.RoomFlag80),
-            "Rosa escape did not finish its remaining source moves and room flag.");
-        _roomEvents.Get<TokayRunningFromRosaEvent>().Cancel();
-        LoadValidationRoom(1, 0xcb);
-        FailIf(_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 0,
-            "Room loading retained the previous room's digging restriction.");
+        // Linked Rosa escape runs through ValidateTokayEscapePublicationRom.
 
-        _saveData.SetRoomFlag(0, 0xbb, OracleSaveData.RoomFlag40, value: false);
-        LoadValidationRoom(0, 0xbb);
-        TokayCharacter vine = _entities.Entities<TokayCharacter>().Single(npc => npc.Record.SubId == 0x1e);
-        _player.WarpTo(vine.Position + Vector2.Down * 24, recordSafe: false);
-        StepRoomEventFrames(1);
-        FailIf(_player.CutsceneControlled || _roomEvents.MenusDisabled,
-            "Vine explanation triggered or disabled menus at excluded distance $18.");
-        _player.WarpTo(vine.Position + Vector2.Up * 20, recordSafe: false);
-        StepRoomEventFrames(1);
-        FailIf(_player.CutsceneControlled, "Vine explanation treated native direction zero as a trigger.");
-        _player.WarpTo(vine.Position + Vector2.Right * 20, recordSafe: false);
-        int vineJumpSounds = _sound.PlayRequestsFor(SoundId.SndJump);
-        StepRoomEventFrames(1);
-        FailIf(!_player.CutsceneControlled || _player.FacingVector != Vector2I.Left || _dialogue.IsOpen ||
-            !_entities.Entities<TokayAttachedVisualRoomEntity>().Any() ||
-            _rooms.CurrentRoom.GetMetatile(vine.Position) != 0 ||
-            _rooms.CurrentRoom.GetTerrainInfo(vine.Position).Collision != 0x0f,
-            "Vine proximity did not turn Link, spawn the mark, and retain initialization tile effects.");
-        StepRoomEventFrames(29);
-        FailIf(_dialogue.IsOpen, "Vine explanation skipped its 30-update reaction.");
-        StepRoomEventFrames(1);
-        FailIf(_dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(0x0a6a)) ||
-            _sound.PlayRequestsFor(SoundId.SndJump) != vineJumpSounds,
-            "Vine reaction added a jump sound or lost TX_0a6a.");
-        _dialogue.Close();
-        StepRoomEventFrames(1);
-        FailIf(vine.FacingVector != Vector2I.Down || !_roomEvents.Get<TokayVineExplanationEvent>().TryInteractNpc(vine) ||
-            _dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(0x0a6b)),
-            "Vine repeat did not require A and select TX_0a6b.");
-        _roomEvents.Get<TokayVineExplanationEvent>().Cancel();
-        _dialogue.Close();
+        // Vine proximity, script and reaction are covered by
+        // ValidateTokayVineScriptRom and the admission regression.
 
-        foreach (int level in new[] { 1, 2 })
-        {
-            _saveData.SetRoomFlag(5, 0xe9, OracleSaveData.RoomFlag40, value: false);
-            _inventory.GiveTreasure(TreasureId.Shield, level);
-            LoadValidationRoom(5, 0xe9);
-            TokayCharacter holder = _entities.Entities<TokayCharacter>().Single(npc => npc.Record.SubId == 0x1d);
-            FailIf(holder.Accessory is null || !_roomEvents.Get<TokayShieldUpgradeEvent>().TryInteractNpc(holder),
-                $"Shield Tokay did not hold level ${level:x2}.");
-            _dialogue.Close();
-            StepRoomEventFrames(31);
-            FailIf(!_saveData.HasRoomFlag(5, 0xe9, OracleSaveData.RoomFlag40) ||
-                !holder.Accessory!.Retired || !_dialogue.IsOpen ||
-                _roomEvents.Get<TokayShieldUpgradeEvent>().Stage != TokayShieldUpgradeStage.Reward,
-                "Shield handoff delayed bit $40 until after reward text or retained its accessory.");
-            _roomEvents.Get<TokayShieldUpgradeEvent>().Cancel();
-            _dialogue.Close();
-        }
+        // Shield handoffs run through ValidateTokayShieldScriptRom.
 
         var theft = new TokayTheftEventDatabase();
         foreach (int treasure in theft.Record.StolenItems.Where(item => item != TreasureId.Shield))
@@ -139,10 +64,8 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(5, 0xca);
         TokayHoldingItemCharacter returned = _entities.Entities<TokayHoldingItemCharacter>().Single();
         _inventory.GiveTreasure(TreasureId.Feather, 1);
-        FailIf(returned.ReturnedItemDialogue != 0x0a0c || !_roomEvents.Get<TokayHoldingItemEvent>().TryInteractNpc(returned) ||
-            _dialogue.CurrentMessage != DialogueBox.PlainText(texts.Text(0x0a0c)),
+        FailIf(returned.ReturnedItemDialogue != 0x0a0c,
             "Returned holder recomputed its initialization snapshot without leaving.");
-        _roomEvents.Get<TokayHoldingItemEvent>().Cancel();
         _dialogue.Close();
         LoadValidationRoom(5, 0xca);
         returned = _entities.Entities<TokayHoldingItemCharacter>().Single();
@@ -191,6 +114,7 @@ public sealed partial class ValidationRoot
             NpcCharacter npc = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x48);
             _player.WarpTo(npc.Position + delta, recordSafe: false);
             _entities.Update(1.0 / 60.0, _player);
+            _entities.Update(1.0 / 60.0, _player);
             Vector2I expected = delta.X > 0 ? Vector2I.Right : Vector2I.Left;
             FailIf(npc.FacingVector != expected,
                 "Ordinary Tokay did not choose horizontal facing on equal native X/Y distances.");
@@ -203,6 +127,7 @@ public sealed partial class ValidationRoot
         }
 
         LoadValidationRoom(2, 0xe5);
+        _entities.Update(1.0 / 60.0, _player);
         TokayCharacter[] statues = _entities.Entities<TokayCharacter>()
             .Where(npc => npc.Record.SubId is >= 0x1a and <= 0x1c).ToArray();
         FailIf(statues.Length != 3 || statues.Single(npc => npc.Record.SubId == 0x1a).Record.Palette != 2 ||

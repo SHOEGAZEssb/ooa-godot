@@ -84,6 +84,10 @@ content. Every table or binary format must have:
 
 Use the shared generated-table writer and reader for TSV data. Preserve empty
 cells and escaping; do not split rows independently in feature databases.
+Treasure-object rows retain the original flags byte as well as the item,
+parameter, text and graphics. Native producers derive spawn mode, grab mode
+and room-item marking from that byte; receiving an item is not sufficient
+evidence for substituting another presentation or persistence policy.
 Generated tables and verification manifests use UTF-8 without BOM and LF
 newlines. Generated opaque grayscale PNGs use the importer host's portable
 writer, with stored DEFLATE blocks to keep Windows and Linux output identical.

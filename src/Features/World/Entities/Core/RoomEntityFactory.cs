@@ -117,6 +117,8 @@ internal sealed class RoomEntityFactory
             }
         }
         int activeGroup = group;
+        if(Resources.TokayDimitri.Matches(activeGroup,room.Id)&&!CompanionRuntimeState.AnyActive(_runtimeState))
+            CompanionRuntimeState.ClearScriptScratch(_runtimeState);
         Resources.KingMoblin.ApplyRoomLayout(group,room,_animationTick());
         // initializeRoom calls createSeaEffectsPartIfApplicable after room
         // code, before companions and the ordered placed object stream.
@@ -250,21 +252,6 @@ internal sealed class RoomEntityFactory
                 Goodbye: goodbye), room);
             companionEntity = moosh;
             companionBarrierTarget = moosh;
-        }
-        if (companionEntity is null && !companionSlotActive && _saveData is not null)
-        {
-            // companionSpawner.s subid $03 / preset $03.
-            bool preset = Resources.Dimitri.ShouldSpawnPreset(activeGroup, room.Id, _saveData);
-            if (preset)
-            {
-                // Room initialization restores a remembered companion before
-                // $67:$03; the spawner then sees the occupied slot and deletes.
-                Vector2 position = Resources.Dimitri.PresetPosition;
-                CompanionRuntimeState.InstallPreset(_runtimeState, _saveData ?? throw new InvalidOperationException("INTERAC$67 requires live save state."), position);
-                var dimitri = CreateDimitri(new(position, ObjectDirection.Down, activeGroup, room.Id), room);
-                companionEntity = dimitri;
-                companionBarrierTarget = dimitri;
-            }
         }
         if (companionEntity is null && !companionSlotActive && !rickySpawnerActive && _saveData is not null &&
             Resources.Ricky.ShouldSpawnPreset(activeGroup, room.Id, _saveData))
@@ -1037,6 +1024,15 @@ internal sealed class RoomEntityFactory
                 switch (record.Implementation)
                 {
                     case NpcImplementationClassification.OrdinaryGeneric:
+                        if (record.Id == InteractionId.Tokay)
+                        {
+                            var tokay = new TokayCharacter { Name=$"Npc_48_{record.SubId:x2}" };
+                            tokay.Initialize(record);
+                            ConfigureTokayActor(tokay);
+                            tokay.NativeAnimation=TokayAnimationMode.FaceLink;
+                            yield return new TokayNpcRoomEntity(tokay);
+                            break;
+                        }
                         yield return record.Id == InteractionId.Zora
                             ? new ZoraNpcRoomEntity(NpcCharacter.CreateFromRecord(record))
                             : new NpcRoomEntity(NpcCharacter.CreateFromRecord(record),
@@ -1047,7 +1043,7 @@ internal sealed class RoomEntityFactory
                     case NpcImplementationClassification.SpecializedNative:
                         IRoomEntity specialized = CreateSpecializedNpc(record, room);
                         yield return specialized;
-                        if (specialized.Node is TokayCharacter { Accessory: { } accessory })
+                        if (specialized.Node is TokayCharacter { Accessory: { } accessory } actor && actor.Record.SubId!=0x1d)
                             yield return accessory;
                         if (specialized is RosaNpcRoomEntity { Shovel: { } shovel })
                             yield return shovel;
@@ -1114,6 +1110,18 @@ internal sealed class RoomEntityFactory
                     default:
                         throw UnsupportedNpcClassification(record);
                 }
+            }
+        }
+
+        if(_saveData is not null&&Resources.TokayDimitri.Matches(group,room.Id))
+        {
+            // The complete placed prefix reserves $d2-$d5 before state-zero
+            // $67:$03 may delete. $71:$07 must retain the later physical slot.
+            foreach(var placement in Resources.TokayDimitri.Placements.Where(p=>p.Id!=0x48))
+            {
+                if(placement.Id==0x67)
+                    yield return new DimitriPresetSpawnerRoomEntity(()=>SpawnDimitriPreset(activeGroup,room));
+                else yield return new DimitriRescueScriptRoomEntity(_saveData);
             }
         }
 
@@ -3076,7 +3084,7 @@ internal sealed class RoomEntityFactory
         RickyTileBreakSpawn tileBreak => CreateRickyTileBreak(tileBreak, room),
         MooshCompanionSpawn moosh => CreateMoosh(moosh, room),
         DimitriCompanionSpawn dimitri => CreateDimitri(dimitri, room),
-        TokayRescueEmberSpawn ember => new TokayRescueEmberRoomEntity(ember),
+        TokayRescueEmberSpawn ember => new TokayRescueEmberRoomEntity(ember,owner.IsTextActive),
         TokayAttachedVisualSpawn accessory => new TokayAttachedVisualRoomEntity(
             accessory.Parent, accessory.Record, accessory.Offset),
         KingZoraPotionSpawn potion => new KingZoraPotionRoomEntity(NpcCharacter.CreateFromRecord(potion.Record)),
@@ -3157,10 +3165,21 @@ internal sealed class RoomEntityFactory
                 drop, _random, _inventory, _saveData));
     }
 
+    private void SpawnDimitriPreset(int group,OracleRoomData room)
+    {
+        if(_saveData is null||!Resources.Dimitri.ShouldSpawnPreset(group,room.Id,_saveData)||CompanionRuntimeState.AnyActive(_runtimeState)||
+            owner.EntityAdapters<IRoomEntity>().Any(e=>e is not IRoomEntityLifetime{Finished:true}&&
+                e is IForestCompanion or MapleEncounterRoomEntity or MinecartRoomEntity{UsesSpecialObjectSlot:true} or RaftRoomEntity{UsesSpecialObjectSlot:true}))return;
+        Vector2 position=Resources.Dimitri.PresetPosition;
+        CompanionRuntimeState.InstallPreset(_runtimeState,_saveData,position);
+        var companion=CreateDimitri(new(position,ObjectDirection.Down,group,room.Id),room);
+        owner.InitializeCompanionRoomEntity(companion,room);owner.AddEntity(companion);
+    }
     private DimitriCompanionRoomEntity CreateDimitri(DimitriCompanionSpawn spawn, OracleRoomData room) =>
         new(spawn, room, Resources.Dimitri, _saveData ?? throw new InvalidOperationException("Dimitri requires live save state."),
             _runtimeState, owner.OnSoundRequested, owner.OnRoomEntityDialogueRequested, owner.IsTextActive,
-            destination => CreateCompanionTileBreaker(spawn.Group, destination.Id, destination));
+            destination => CreateCompanionTileBreaker(spawn.Group, destination.Id, destination),
+            nativeRescueScript:Resources.TokayDimitri.Matches(spawn.Group,room.Id)&&(_saveData.ReadWramByte(WramAddress.wDimitriState)&0x20)==0);
 
     private MooshCompanionRoomEntity CreateMoosh(
         MooshCompanionSpawn spawn,
@@ -3554,27 +3573,18 @@ internal sealed class RoomEntityFactory
             }
             tokay.NativeAnimation = record.SubId switch
             {
-                0x05 => TokayAnimationMode.FaceLink,
+                0x05 or >= 0x12 and <= 0x18 or 0x1f => TokayAnimationMode.FaceLink,
                 >= 0x1a and <= 0x1c => TokayAnimationMode.Still,
                 _ => TokayAnimationMode.Animate
             };
             if (record.SubId is 0x0f or 0x10)
                 tokay.SetFacingDirection(record.SubId == 0x0f ? Vector2I.Right : Vector2I.Up);
-            if (record.SubId == 0x1a)
-            {
-                tokay.SetBasePalette(2);
-                tokay.ForceNextAnimationFrame();
-            }
-            if (record.SubId == 0x1c)
-            {
-                tokay.SetScriptAnimation(Resources.TokayInteractions.Animation(9));
-                tokay.Accessory = new TokayAttachedVisualRoomEntity(tokay,
-                    Resources.TokayNative.Visual("museum-meat", record.Group, record.Room), new Vector2(0, -12));
-            }
+            if (record.SubId is >=0x1a and <=0x1c)
+                return new TokayStatueRoomEntity(tokay,owner,Resources.TokayNative,Resources.TokayInteractions);
             if (record.SubId == 0x1d && _saveData is not null && _inventory is not null)
             {
                 bool returned = _saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag40);
-                tokay.SetScriptAnimation(Resources.TokayInteractions.Animation(returned ? 2 : 6));
+                if (returned) tokay.SetScriptAnimation(Resources.TokayInteractions.Animation(2));
                 if (!returned)
                     tokay.Accessory = new TokayAttachedVisualRoomEntity(tokay,
                         Resources.TokayNative.Visual(_inventory.ShieldLevel < 2 ? "shield1" : "shield2", record.Group, record.Room),
@@ -4161,10 +4171,11 @@ internal sealed class RoomEntityFactory
         {
             int subId;
             int treasure;
+            bool deleteOnInitialization=false;
             if (placement.PlacedSubId == 0)
             {
                 if (_saveData.HasGlobalFlag(Resources.TokayShop.BoughtFeatherFlag))
-                    continue;
+                    deleteOnInitialization=true;
                 bool replace = _inventory.HasTreasure(TreasureId.Feather);
                 subId = replace ? 2 : 0;
                 treasure = replace
@@ -4174,7 +4185,7 @@ internal sealed class RoomEntityFactory
             else if (placement.PlacedSubId == 1)
             {
                 if (_saveData.HasGlobalFlag(Resources.TokayShop.BoughtBraceletFlag))
-                    continue;
+                    deleteOnInitialization=true;
                 bool replace = _inventory.HasTreasure(TreasureId.Bracelet);
                 subId = replace ? 3 : 1;
                 treasure = replace
@@ -4184,7 +4195,7 @@ internal sealed class RoomEntityFactory
             else
             {
                 if (!_saveData.HasGlobalFlag(Resources.TokayShop.BoughtBraceletFlag))
-                    continue;
+                    deleteOnInitialization=true;
                 subId = Math.Clamp(4 + Math.Max(0, _inventory.ShieldLevel - 1), 4, 6);
                 treasure = TreasureId.Shield;
             }
@@ -4198,6 +4209,7 @@ internal sealed class RoomEntityFactory
             var item = new TokayShopItem
             {
                 Name = $"TokayShopItem_{placement.Order}_{subId:x2}",
+                DeleteOnInitialization=deleteOnInitialization,
                 ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
             };
             item.Initialize(

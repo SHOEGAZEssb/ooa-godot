@@ -39,6 +39,12 @@ internal static class CompanionRuntimeState
 
     internal static bool AnyActive(OracleRuntimeState state) =>
         state.ReadWramByte(Active) != 0;
+    internal static int ReadScriptSignals(OracleRuntimeState state)=>state.ReadWramByte(0xd13e);
+    internal static void OrScriptSignals(OracleRuntimeState state,int mask)=>state.SetWramByte(0xd13e,(byte)(ReadScriptSignals(state)|mask));
+    internal static int ReadScriptButton(OracleRuntimeState state)=>state.ReadWramByte(0xd13d);
+    internal static void WriteScriptButton(OracleRuntimeState state,int value)=>state.SetWramByte(0xd13d,checked((byte)value));
+    internal static void ClearScriptScratch(OracleRuntimeState state)
+    {state.SetWramByte(0xd13d,0);state.SetWramByte(0xd13e,0);}
 
     internal static ActiveCompanion Read(OracleRuntimeState state) => new(
         state.ReadWramByte(Id),

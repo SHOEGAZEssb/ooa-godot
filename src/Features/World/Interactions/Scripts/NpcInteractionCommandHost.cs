@@ -54,10 +54,13 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;
+    internal int NativeCounter1 => _runner.NativeCounter1;
     internal bool InputDisabled => InputControlHeld;
     protected int ActorMovementCounter(CutsceneActorId actor) => _runner.MovementCounter(actor);
     protected bool ObjectButtonPending => _binding.ButtonPending;
     protected void ClearObjectButton() => _binding.ClearPendingButton();
+    protected void SetNativeObjectButton(bool pressed) => _binding.SetNativeButton(pressed);
+    protected void SetNativeActorSpeed(CutsceneActorId actor,int speed)=>_runner.SetNativeActorSpeed(actor,speed);
     protected void ReplaceObjectScript(IReadOnlyList<CutsceneCommand> commands) => _runner.Start(commands);
     internal void SetTraceSink(ICutsceneCommandTraceSink? traceSink) =>
         _traceSink = traceSink;

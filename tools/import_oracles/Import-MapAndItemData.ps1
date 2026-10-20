@@ -2382,7 +2382,7 @@ Write-GeneratedTable(
 # Treasure objects encode the object subid found in chestData.s and the exact
 # b/c values passed to giveTreasure.
 $treasureObjectRows = [Collections.Generic.List[string]]::new()
-$treasureObjectRows.Add("# treasure-object`ttreasure-id`tsubid`tparameter`ttext-id`tgraphic`tmessage-base64")
+$treasureObjectRows.Add("# treasure-object`ttreasure-id`tsubid`tparameter`ttext-id`tgraphic`tmessage-base64`tflags")
 $treasureObjectRecords = @{}
 $treasureObjectSource = Read-ImportLines (Join-Path $Disassembly "data\ages\treasureObjectData.s")
 $currentTreasure = -1
@@ -2405,6 +2405,7 @@ foreach ($line in $treasureObjectSource) {
     $treasure = if ($currentTreasure -ge 0) { $currentTreasure } else { $commentTreasure }
     if ($treasure -lt 0) { throw "Could not resolve treasure index for $($Matches['label'])." }
     $label = $Matches['label']
+    $flags = Convert-AsmByte $Matches['spawn']
     $parameterText = $Matches['parameter']
     $textText = $Matches['text']
     $graphicText = $Matches['graphic']
@@ -2419,7 +2420,7 @@ foreach ($line in $treasureObjectSource) {
         ''
     }
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message))
-    $row = "$label`t$($treasure.ToString('x2'))`t$($subid.ToString('x2'))`t$($parameter.ToString('x2'))`t$($textId.ToString('x2'))`t$($graphic.ToString('x2'))`t$encoded"
+    $row = "$label`t$($treasure.ToString('x2'))`t$($subid.ToString('x2'))`t$($parameter.ToString('x2'))`t$($textId.ToString('x2'))`t$($graphic.ToString('x2'))`t$encoded`t$($flags.ToString('x2'))"
     $treasureObjectRows.Add($row)
     $treasureObjectRecords[$label] = @{
         Treasure = $treasure
@@ -2428,6 +2429,7 @@ foreach ($line in $treasureObjectSource) {
         TextId = $textId
         Graphic = $graphic
         Message = $message
+        Flags = $flags
     }
 }
 if (-not $treasureObjectRecords.ContainsKey('TREASURE_OBJECT_SWORD_00') -or

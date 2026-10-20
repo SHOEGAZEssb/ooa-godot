@@ -180,7 +180,7 @@ public sealed class TreasureDatabase
                 GeneratedTableKeySemantics.Aliased,
                 [
                     "treasure-object", "treasure-id", "subid", "parameter", "text-id",
-                    "graphic", "message-base64"
+                    "graphic", "message-base64", "flags"
                 ],
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
@@ -192,7 +192,7 @@ public sealed class TreasureDatabase
                 row.HexByte(3),
                 row.HexByteOrSentinel(4, "ffffffff", -1),
                 row.HexByte(5),
-                row.Base64Utf8(6));
+                row.Base64Utf8(6)) { NativeFlags = row.HexByte(7) };
             if (!_objects.ContainsKey(record.Name))
             {
                 _objects.Add(record.Name, record);
@@ -487,4 +487,9 @@ public readonly record struct InventoryTextRecord(string Kind, int Index, int Na
 
 public readonly record struct TreasureObjectVisualRecord(int Graphic, string Sprite, int TileBase, int Palette, int DefaultAnimation, string Animation, bool SourceGrayscaleInverted);
 
-public readonly record struct TreasureObjectRecord(string Name, int TreasureId, int SubId, int Parameter, int TextId, int Graphic, string Message);
+public readonly record struct TreasureObjectRecord(string Name, int TreasureId, int SubId, int Parameter, int TextId, int Graphic, string Message)
+{
+    // treasureObjectData.s:m_TreasureSubid b0 retains native spawn/grab modes
+    // and the ROOMFLAG_ITEM bit; synthetic shop records have no native row.
+    public int NativeFlags { get; init; }
+}

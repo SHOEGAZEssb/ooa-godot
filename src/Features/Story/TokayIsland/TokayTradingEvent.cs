@@ -30,18 +30,6 @@ internal sealed class TokayTradingEvent :
     public bool HasState => _stage != TokayTradingStage.Inactive;
     internal TokayTradingStage Stage => _stage;
 
-    internal bool TryInteractNpc(NpcCharacter npc)
-    {
-        if (HasState || !npc.Active || npc.Record is not { Id: InteractionId.Tokay, SubId: 0x0e })
-            return false;
-
-        ShowDialogueOnly(
-            Context.Entities.Entities<TokayShopItem>().Any(item => !item.Removed)
-                ? 0x0a37
-                : 0x0a38);
-        return true;
-    }
-
     internal bool TryInteractPlayer(Player player)
     {
         if (HasState ||
@@ -93,7 +81,6 @@ internal sealed class TokayTradingEvent :
 
         switch (_stage)
         {
-            case TokayTradingStage.DialogueOnly:
             case TokayTradingStage.ShopResultText:
                 FinishInteraction();
                 break;
@@ -378,12 +365,6 @@ internal sealed class TokayTradingEvent :
             _shop.ItemCollisionRadius);
     }
 
-    private void ShowDialogueOnly(int textId)
-    {
-        Show(textId);
-        _stage = TokayTradingStage.DialogueOnly;
-    }
-
     private int TakeChoice() =>
         EventResources.RequireDialogueChoice("Tokay trading prompt closed without a text-option result.");
 
@@ -398,7 +379,6 @@ internal sealed class TokayTradingEvent :
 internal enum TokayTradingStage
 {
     Inactive,
-    DialogueOnly,
     ShopPrompt,
     ShopResultText,
     ShopReturnText,

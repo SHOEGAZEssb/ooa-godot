@@ -5,12 +5,13 @@ namespace oracleofages;
 // INTERAC_EXCLAMATION_MARK $9f; state zero initializes without consuming counter1.
 internal sealed class ExclamationMarkRoomEntity(NpcCharacter actor,int frames)
     : NpcCharacterRoomEntityAdapter(actor,actor.SetTransitionDrawOffset), IFixedRoomEntity,
-        IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity
+        IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
     private bool _initialized;
     private int _counter=frames;
     public bool Finished { get; private set; }
     public bool UpdatesDuringDialogue => true;
+    public bool UpdatesDuringRoomEntityFreeze => true;
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
         if(!_initialized) {_initialized=true;

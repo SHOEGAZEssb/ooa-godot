@@ -4,233 +4,115 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-/// <summary>Bracelet-liftable INTERAC_TOKAY_MEAT `$8c used by Wild Tokay.</summary>
+// INTERAC_TOKAY_MEAT $8c; the reserved ITEM C owns thrown physics.
 internal partial class WildTokayMeat : TransitionOffsetNode2D
 {
-    private readonly List<WildTokayMeatFrame> _frames = new();
-    private BraceletDatabaseRecord _bracelet;
-    private BombRecord _throwing = null!;
-    private OracleRoomData _room = null!;
-    private Action<int> _soundRequested = null!;
-    private CarriedObjectMotion _carried;
-    private OracleRuntimeState? _movementMemory;
-    internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
-    private int _fallDelay;
-    private int _fallGravity;
-    private int _fallSound;
-    private int _landingSound;
-    private int _dropLife;
-    private bool _lifted;
-    private bool _dropped;
-    private bool _fallStarted;
+    private readonly List<WildTokayMeatFrame> _frames=new();
+    private WildTokayMeatDatabase _data=null!;
+    private OracleRoomData _room=null!;
+    private BombRecord _throwing=null!;
+    private Action<int> _sound=null!;
+    private RoomEntityManager _world=null!;
     private Player? _holder;
-
-    internal bool Lifted => _lifted;
-    internal bool Thrown { get; private set; }
-    internal bool Finished { get; private set; }
-    internal int ZFixed => _carried.ZFixed;
-    internal int SpeedZ => _carried.SpeedZ;
-    internal int ThrowSpeedRaw => _carried.SpeedRaw;
-    internal Vector2I ThrowDirection => _carried.Direction;
-    internal int BounceCount { get; private set; }
-
-    internal void Initialize(
-        WildTokayMeatDatabase database,
-        OracleRoomData room,
-        BombRecord throwing,
-        Action<int> soundRequested)
+    private NativeBraceletThrow? _throw;
+    private readonly BraceletGrabGeometry _grab=new();
+    private int _z,_speedZ;
+    internal int State {get;private set;}
+    internal int Substate {get;private set;}
+    internal int Counter {get;private set;}
+    internal bool Lifted=>State==2&&Substate<2;
+    internal bool Thrown=>_throw?.Active==true;
+    internal bool Finished {get;private set;}
+    internal int ZFixed=>_z;
+    internal int SpeedZ=>_speedZ;
+    internal NativeBraceletThrow? ReservedThrow=>_throw;
+    internal void BindWorld(RoomEntityManager world)=>_world=world;
+    internal void Initialize(WildTokayMeatDatabase database,OracleRoomData room,BombRecord throwing,Action<int> soundRequested)
     {
-        _room = room;
-        _throwing = throwing;
-        _soundRequested = soundRequested;
-        _bracelet = new BraceletDatabase().Data;
-        Position = new Vector2(database.StartX, database.StartY);
-        _carried = new CarriedObjectMotion(Position)
+        _data=database;_room=room;_throwing=throwing;_sound=soundRequested;Position=new(database.StartX,database.StartY);Visible=false;
+        Image image=OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{database.Sprite}.png");
+        foreach(var frame in OracleGraphicsCache.GetAnimationDefinition(database.Animation).Frames)
         {
-            ZFixed = database.StartZ << 8
-        };
-        _fallDelay = database.FallDelay;
-        _fallGravity = database.FallGravity;
-        _fallSound = database.SoundFall;
-        _landingSound = database.SoundLand;
-        _dropLife = database.DropLife;
-        Visible = false;
-        Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{database.Sprite}.png");
-        AnimationDefinition animation =
-            OracleGraphicsCache.GetAnimationDefinition(database.Animation);
-        foreach (AnimationFrameDefinition frame in animation.Frames)
-        {
-            (Texture2D texture, Vector2 offset) =
-                NpcCharacter.BuildPositionedOamTexture(
-                    source, frame.EncodedOam, database.TileBase,
-                    database.Palette, paletteOverride: null,
-                    sourceGrayscaleInverted: true);
-            _frames.Add(new WildTokayMeatFrame(texture, offset));
+            var (texture,offset)=NpcCharacter.BuildPositionedOamTexture(image,frame.EncodedOam,database.TileBase,database.Palette,null,true);
+            _frames.Add(new(texture,offset));
         }
-        if (_frames.Count == 0)
-            throw new InvalidOperationException("Wild Tokay meat has no animation frames.");
-        QueueRedraw();
+        TreeExiting+=Finish;
     }
-
-    internal bool TryUseBracelet(Player player, Vector2I releaseDirection)
+    internal bool TryUseBracelet(Player player,Vector2I direction)
     {
-        if (Finished)
-            return false;
-        if (_lifted)
+        if(Finished)return false;
+        if(_holder==player)
         {
-            Release(player, releaseDirection);
-            return true;
+            if(_throw is null)throw new InvalidOperationException("INTERAC$8c release precedes native state2 setup.");
+            _throw.Begin(CarriedObjectMotion.DirectionIndex(player.FacingVector),direction==Vector2I.Zero?0xff:CarriedObjectMotion.DirectionIndex(direction)*8,RingEffects.UsesStrongThrow(player.Inventory));
+            player.EndCarriedObjectPose();_holder=null;return true;
         }
-        if (Thrown || _dropped ||
-            _carried.ZFixed != 0 || player.IsCarryingObject)
-            return false;
-
-        Vector2 point = OracleObjectMath.ToPixelPosition(player.Position) +
-            player.FacingVector * NpcCharacter.AButtonPointOffset;
-        if ((Position - point).LengthSquared() >= 14 * 14)
-            return false;
-        _lifted = true;
-        _holder = player;
-        player.BeginCarriedObjectPose();
-        UpdateHeld(player);
+        if(State!=1||player.IsCarryingObject||!player.IsOnGroundForBracelet)return false;
+        if(!_grab.Overlaps(new(player.EnemyContactPosition-new Vector2(6,6),new(12,12)),player.EnemyContactZ,CarriedObjectMotion.DirectionIndex(player.FacingVector),new(Position-new Vector2(8,8),new(16,16)),_z>>8,false))return false;
+        State=2;Substate=0;_holder=player;player.BeginCarriedObjectPose();
+        _throw=new(_room,0,()=>!Finished&&Lifted,()=>!Finished&&State==2&&Substate<3,()=>Position,()=>_z,
+            CopyPosition,_=>Substate=2,()=>Substate=3,
+            (position,speed,angle)=>{var velocity=NativeObjectMovement.Velocity(_world.RuntimeState,speed,angle);return position.Add(velocity.YFixed,velocity.XFixed);},
+            BraceletWeightDatabase.Shared,_throwing);
         return true;
     }
-
-    internal void UpdateFrame(Player player, int frameCounter = 0)
+    internal void UpdateFrame(Player player,int frameCounter=0)
     {
-        if (Finished)
-            return;
-        if (_lifted)
+        if(Finished)return;
+        switch(State)
         {
-            UpdateHeld(player);
-            return;
+            case 0:State=1;Counter=_data.FallDelay;_z=_data.StartZ<<8;_speedZ=0;return;
+            case 1:
+                switch(Substate)
+                {
+                    case 0:if(Counter!=0){Counter--;return;}Substate=1;Visible=true;ZIndex=ObjectDrawPriority.InFrontOfLinkZIndex;_sound(_data.SoundFall);return;
+                    case 1:
+                        if(OracleObjectMath.UpdateSpeedZ(ref _z,ref _speedZ,_data.FallGravity)){Substate=2;_sound(_data.SoundLand);}
+                        QueueRedraw();return;
+                    case 2:ZIndex=ObjectDrawPriority.RelativeToLink(Position.Y,player.Position.Y);return;
+                    default:throw new InvalidOperationException($"INTERAC$8c state1/substate${Substate:x2}.");
+                }
+            case 2:
+                if(Substate==0)
+                {
+                    // justGrabbed republishes the pointer and retries its
+                    // checked replacement allocation until it succeeds.
+                    _world.RuntimeState.SetWramByte(0xcfda,(byte)(0xd0+_world.InteractionSlot(this)));
+                    _world.RuntimeState.SetWramByte(0xcfdb,0x45);
+                    if(_world.TryCreateInteraction(new WildTokayMeatSpawn()) is not null)Substate=1;
+                    return;
+                }
+                if(Substate==1)return;
+                if(Substate!=2)throw new InvalidOperationException($"INTERAC$8c unsupported grabbed substate${Substate:x2}.");
+                if((_z>>8)<0)return;
+                // dropLinkHeldItem clears Link's grab bytes, but ITEM C
+                // remains enabled until its following item-phase check.
+                State=3;Counter=_data.DropLife;ZIndex=ObjectDrawPriority.FixedLowPriorityZIndex;return;
+            case 3:
+                if(--Counter==0){Finish();return;}Visible=(frameCounter&1)!=0;ZIndex=ObjectDrawPriority.RelativeToLink(Position.Y,player.Position.Y);return;
+            default:throw new InvalidOperationException($"INTERAC$8c unsupported state${State:x2}.");
         }
-        if (_fallDelay > 0)
-        {
-            _fallDelay--;
-            return;
-        }
-        if (!_fallStarted)
-        {
-            _fallStarted = true;
-            Visible = true;
-            _soundRequested(_fallSound);
-            QueueRedraw();
-            return;
-        }
-        if (_carried.ZFixed < 0 && !Thrown)
-        {
-            if (OracleObjectMath.UpdateSpeedZ(
-                    ref _carried.ZFixed,
-                    ref _carried.SpeedZ,
-                    _fallGravity))
-            {
-                _carried.SpeedZ = 0;
-                _soundRequested(_landingSound);
-            }
-            QueueRedraw();
-            return;
-        }
-        if (Thrown)
-        {
-            UpdateThrown();
-            return;
-        }
-        if (!_dropped)
-            return;
-
-        _dropLife--;
-        Visible = (frameCounter & 1) != 0;
-        if (_dropLife <= 0)
-            Finish();
     }
-
-    internal void Catch() => Finish();
-
+    internal void UpdateBraceletChild(Player player)
+    {
+        if(_holder is not null&&!_holder.IsCarryingObject){_holder=null;Substate=2;}
+        _throw?.Update(_sound);
+    }
+    internal void UpdateHeldPosition(Player player)
+    {
+        if(_holder!=player||!Lifted)return;
+        if(player.BraceletEntityOffset is Vector2I offset)CopyPosition(new((byte)((int)player.Position.X+offset.X),(byte)(int)player.Position.Y),unchecked((sbyte)(player.EnemyContactZ+offset.Y)));
+        else _throw?.Hold(player.Position,player.EnemyContactZ,player.CarriedObjectAnimationFrame==0?2:3,CarriedObjectMotion.DirectionIndex(player.FacingVector));
+    }
+    private void CopyPosition(Vector2 position,int zHigh){Position=position.Floor();_z=zHigh<<8;QueueRedraw();}
+    internal void CancelReservedThrow()=>_throw?.Cancel();
+    internal void Catch()=>Finish();
     internal void Finish()
     {
-        // IRoomEntityLifetime removes and queues this node as soon as Finished
-        // becomes true. Event-owned lists may retain the managed reference
-        // until the round's return-warp boundary, so repeated cleanup must not
-        // touch native CanvasItem state after that removal.
-        if (Finished)
-            return;
-        if (_holder is not null)
-            _holder.EndCarriedObjectPose();
-        _holder = null;
-        _lifted = false;
-        Thrown = false;
-        Finished = true;
-        Visible = false;
-        QueueRedraw();
+        if(Finished)return;_holder?.EndCarriedObjectPose();_holder=null;CancelReservedThrow();Finished=true;Visible=false;
     }
-
     public override void _Draw()
-    {
-        if (Finished || _frames.Count == 0)
-            return;
-        WildTokayMeatFrame frame = _frames[0];
-        DrawTexture(
-            frame.Texture,
-            frame.Offset + new Vector2(0, _carried.ZFixed >> 8) +
-                TransitionDrawOffset);
-    }
-
-    private void UpdateHeld(Player player)
-    {
-        _carried.Hold(player);
-        Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
-        QueueRedraw();
-    }
-
-    private void Release(Player player, Vector2I releaseDirection)
-    {
-        _carried.Release(player, releaseDirection, _bracelet);
-        Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
-        BounceCount = 0;
-        _lifted = false;
-        _holder = null;
-        Thrown = true;
-        QueueRedraw();
-    }
-
-    private void UpdateThrown()
-    {
-        if (!WithinRoom(_carried.GroundPosition))
-        {
-            Finish();
-            return;
-        }
-
-        _carried.AdvanceHorizontal(
-            _throwing, _room,
-            (position, speed, angle) => NativeObjectMovement.ApplySpeed(_movementMemory, position, speed, angle));
-        bool landed = _carried.AdvanceVertical(_bracelet);
-        Position = OracleObjectMath.ToPixelPosition(_carried.GroundPosition);
-        if (!landed)
-        {
-            QueueRedraw();
-            return;
-        }
-
-        _soundRequested(_landingSound);
-        if (_carried.Bounce(_throwing))
-        {
-            BounceCount++;
-            QueueRedraw();
-            return;
-        }
-
-        Thrown = false;
-        _dropped = true;
-        QueueRedraw();
-    }
-
-    private bool WithinRoom(Vector2 point) =>
-        point.X >= 0 && point.X < _room.Width &&
-        point.Y >= 0 && point.Y < _room.Height;
-
+    {if(!Finished&&Visible&&_frames.Count!=0)DrawTexture(_frames[0].Texture,_frames[0].Offset+new Vector2(0,_z>>8)+SourceOamDrawOffset);}
 }
 
-internal sealed record WildTokayMeatFrame(Texture2D Texture, Vector2 Offset);
+internal sealed record WildTokayMeatFrame(Texture2D Texture,Vector2 Offset);

@@ -4,13 +4,17 @@ using System;
 namespace oracleofages;
 
 /// <summary>INTERAC_TOKAY_CUTSCENE_EMBER_SEED $8f; stepped after its source Tokay slots.</summary>
-internal sealed partial class TokayRescueEmberRoomEntity : TransitionOffsetNode2D, IRoomEntity, IRoomEntityLifetime
+internal sealed partial class TokayRescueEmberRoomEntity : TransitionOffsetNode2D, IRoomEntity, IRoomEntityLifetime,
+    IFixedRoomEntity,IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze
 {
     private readonly TokayRescueEmberRecord _record;
     private readonly EnemyAnimationPlayer _seed;
     private readonly EnemyAnimationPlayer _flame;
     private int _zFixed;
     private int _speedZ;
+    private readonly Func<bool> _textActive;
+    public bool UpdatesDuringDialogue=>true;
+    public bool UpdatesDuringRoomEntityFreeze=>true;
     internal int Phase { get; private set; }
     internal int Counter { get; private set; }
     internal int ZFixed => _zFixed;
@@ -18,8 +22,9 @@ internal sealed partial class TokayRescueEmberRoomEntity : TransitionOffsetNode2
     public Node2D Node => this;
     public bool Finished => Phase == 4;
 
-    internal TokayRescueEmberRoomEntity(TokayRescueEmberSpawn spawn)
+    internal TokayRescueEmberRoomEntity(TokayRescueEmberSpawn spawn,Func<bool> textActive)
     {
+        _textActive=textActive;
         _record = spawn.Record;
         Position = spawn.Position;
         _seed = new(this, 1);
@@ -31,8 +36,9 @@ internal sealed partial class TokayRescueEmberRoomEntity : TransitionOffsetNode2
         _seed.SetAnimation(0);
         _flame.SetAnimation(0);
         Visible = false;
-        ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
+        ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
     }
+    public void UpdateFrame(RoomEntityFrame frame,System.Collections.Generic.ICollection<RoomEntitySpawn> spawns)=>UpdateNative(_textActive());
 
     internal void UpdateNative(bool dialogueOpen)
     {

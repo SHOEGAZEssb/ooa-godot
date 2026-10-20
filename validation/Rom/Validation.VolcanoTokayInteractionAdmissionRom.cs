@@ -69,62 +69,8 @@ public sealed partial class ValidationRoot
             });
         }
 
-        foreach (bool batched in new[] { false, true })
-        foreach (int free in new[] { 0, 1 })
-        foreach (bool cancel in new[] { false, true })
-        {
-            ReinitializeGameplayForValidation(); _saveData.SetRoomFlag(0, 0xbb, OracleSaveData.RoomFlag40, false); LoadValidationRoom(0, 0xbb);
-            _inventory.SetScriptedEquippedItems(0, 0);
-            var parent = _entities.Entities<TokayCharacter>().Single(actor => actor.Record.SubId == 0x1e);
-            Vector2 outward = new[] { Vector2.Down, Vector2.Right, Vector2.Left }
-                .First(direction => Enumerable.Range(20, 5).All(distance => !_collision.Collides(parent.Position + direction * distance)));
-            _player.WarpTo(parent.Position + outward * 24); _player.Face(new((int)-outward.X, (int)-outward.Y));
-            StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-            FailIf(_player.CutsceneControlled, "Tokay vine approach must start outside source Manhattan distance $18.");
-            var soundAudit = _sound.AttachPlayRequestAudit();
-            var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, (int)_player.Position.X, (int)_player.Position.Y);
-            foreach (int slot in InteractionAdmissionPool.Values)
-            {
-                int at = 0xd040 + slot * 256; native[at] = 1; native[at + 1] = 5; native[at + 2] = 0x80;
-            }
-            int parentAt = 0xd040 + _entities.InteractionSlot(parent) * 256;
-            native[parentAt] = 1; native[parentAt + 1] = 0x48; native[parentAt + 2] = 0x1e; native[parentAt + 4] = 1;
-            native[parentAt + 11] = (byte)parent.Position.Y; native[parentAt + 13] = (byte)parent.Position.X;
-            FillInteractionAdmissionPool(native, free); _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 4);
-            StepGameplayUpdates(1, -outward, batched: batched);
-            // Original checked exclamation helper at the accepted-script
-            // boundary; native proximity and full dialogue are not replayed.
-            CallInteractionAdmissionHelper(native, (byte)(parentAt >> 8), 0x5c1e, 0x15);
-            native[0xcc8a] = 2; native.AdvanceInteractions(_entities.FrameCounter);
-            var visuals = _entities.Entities<TokayAttachedVisualRoomEntity>().Where(visual => visual.IsNativeExclamation).ToArray();
-            var source = NativeAdmissionChildren(native, 0x9f, 0);
-            FailIf(!soundAudit.Requests.SequenceEqual(native.Sounds) || soundAudit.Requests.Count(sound => sound == 0x50) != free,
-                "Tokay's checked exclamation helper must request SND_CLINK $50 exactly once on admission, and remain silent on failure.");
-            FailIf(visuals.Length != free || source.Length != free || !_player.CutsceneControlled ||
-                !_saveData.HasRoomFlag(0, 0xbb, OracleSaveData.RoomFlag40),
-                "Actual Tokay approach must accept/retire the script identically when checked $9f allocation fails or succeeds.");
-            if (free == 1) FailIf(_entities.InteractionSlot(visuals.Single()) != (source.Single() >> 8) - 0xd0,
-                "Tokay $9f must claim the same lowest free slot as objectCreateExclamationMark.");
-            if (cancel)
-            {
-                LoadValidationRoom(4, 0xa1); StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-                LoadValidationRoom(0, 0xbb); StepGameplayUpdates(2, Vector2.Zero, batched: batched);
-                FailIf(_player.CutsceneControlled || _entities.Entities<TokayAttachedVisualRoomEntity>().Any(visual => visual.IsNativeExclamation) ||
-                    soundAudit.Requests.Count(sound => sound == 0x50) != free ||
-                    !_saveData.HasRoomFlag(0, 0xbb, OracleSaveData.RoomFlag40),
-                    "Cancelled Tokay reaction must release control and retain its flag without replaying a cue/child on re-entry.");
-                continue;
-            }
-            StepGameplayUpdates(30, Vector2.Zero, batched: batched);
-            FailIf(!_dialogue.IsOpen || visuals.Any(visual => !visual.Retired), "Tokay script must finish its wait 30 even without its optional reaction.");
-            _dialogue.Close(); StepGameplayUpdates(1, Vector2.Zero, batched: batched);
-            StepGameplayUpdates(10, -outward, batched: batched); StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
-            FailIf(!_dialogue.IsOpen || _entities.Entities<TokayAttachedVisualRoomEntity>().Any(visual => visual.IsNativeExclamation),
-                "Repeat Tokay A conversation must remain reachable without replaying the one-time reaction.");
-            FailIf(soundAudit.Requests.Count(sound => sound == 0x50) != free,
-                "Reaction expiry and repeat conversation must not replay the admitted Clink.");
-            _dialogue.Close(); LoadValidationRoom(4, 0xa1);
-        }
+        // Vine allocation/cancellation now runs against the complete native
+        // script in ValidateTokayVineScriptRom.
 
         foreach (bool batched in new[] { false, true })
         foreach (int free in new[] { 0, 1 })

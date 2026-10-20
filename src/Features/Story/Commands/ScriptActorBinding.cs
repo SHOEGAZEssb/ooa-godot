@@ -42,6 +42,9 @@ internal sealed class ScriptActorBinding<TActor>(string name) where TActor : Npc
     }
 
     public void ClearPendingButton() => ButtonPending = false;
+    // Some native handlers overwrite pressedAButton before dispatching the
+    // script, including before the script installs A-list sensitivity.
+    public void SetNativeButton(bool pressed) => ButtonPending = pressed;
 
     public void Clear()
     {

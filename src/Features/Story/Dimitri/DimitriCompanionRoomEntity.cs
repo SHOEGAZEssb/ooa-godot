@@ -61,6 +61,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private int _adjacentWalls;
     private Player? _holder;
     private bool _forestInteraction;
+    private readonly bool _nativeRescueScript;
+    private bool _ownsNativeRescueInput;
     public bool ForestButtonPressed { get; private set; }
 
     public void UseForestInteraction(bool outside)
@@ -109,9 +111,11 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     internal DimitriCompanionRoomEntity(DimitriCompanionSpawn spawn, OracleRoomData room,
         DimitriDatabase data, OracleSaveData save, OracleRuntimeState runtime,
         Action<int> sound, Action<int, string, Vector2> showText, Func<bool> dialogueOpen,
-        Func<OracleRoomData, CompanionAttackTileBreaker> createTileBreaker)
+        Func<OracleRoomData, CompanionAttackTileBreaker> createTileBreaker,bool nativeRescueScript=false)
     {
         _data = data; _save = save; _runtime = runtime; _sound = sound;
+        _nativeRescueScript=nativeRescueScript;
+        if(!spawn.Riding)CompanionRuntimeState.ClearScriptScratch(_runtime);
         _showText = showText; _dialogueOpen = dialogueOpen; _room = room;
         _createTileBreaker = createTileBreaker;
         _tileBreaker = createTileBreaker(room);
@@ -136,11 +140,14 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         Name = $"Dimitri_{_group:x}_{room.Id:x2}";
     }
 
-    internal void BeginIntroResponse()
+    internal void ReleaseNativeRescueInput()
     {
-        if ((_save.ReadWramByte(WramAddress.wDimitriState) & 1) == 0)
-            _phase = DimitriPhase.IntroPending;
+        CompanionRuntimeState.WriteScriptButton(_runtime,0);
+        if(_ownsNativeRescueInput&&_runtime.ReadWramByte(WramAddress.wDisabledObjects)==0x81)
+            _runtime.SetWramByte(WramAddress.wDisabledObjects,0);
+        _ownsNativeRescueInput=false;
     }
+    internal void AcknowledgeNativeRescueInput()=>_ownsNativeRescueInput=false;
 
     internal void StopAtCarpenterSearchBoundary()
     {
@@ -158,6 +165,11 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         if (Math.Abs(delta.X) + Math.Abs(delta.Y) > 24 ||
             delta.Dot(player.FacingVector) <= 0) return false;
         if (_forestInteraction) { ForestButtonPressed = true; return true; }
+        if(_nativeRescueScript)
+        {
+            if(CompanionRuntimeState.ReadScriptButton(_runtime)!=0)return false;
+            CompanionRuntimeState.WriteScriptButton(_runtime,1);player.ApplyObjectInteractionGrace();return true;
+        }
         if ((_save.ReadWramByte(WramAddress.wDimitriState) & 2) == 0)
         {
             Show(0x2100, player);
@@ -212,6 +224,10 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         switch (_phase)
         {
             case DimitriPhase.Harassed:
+                if(_nativeRescueScript&&CompanionRuntimeState.ReadScriptButton(_runtime)!=0)
+                {
+                    _runtime.SetWramByte(WramAddress.wDisabledObjects,0x81);_ownsNativeRescueInput=true;
+                }
                 _animation.Advance();
                 break;
             case DimitriPhase.IntroPending:

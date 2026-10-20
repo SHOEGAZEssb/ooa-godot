@@ -19,6 +19,7 @@ internal sealed class NativeBraceletThrow(OracleRoomData room, int weight,
     internal int SpeedZ => _speedZ;
     internal int Speed { get; private set; }
     internal int Angle { get; private set; } = 0xff;
+    internal void Cancel()=>Active=false;
 
     internal void Hold(Vector2 linkPosition, int linkZHigh, int frame, int direction)
     {

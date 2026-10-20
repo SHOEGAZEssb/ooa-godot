@@ -27,7 +27,7 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     }
 
     public bool HasState => _runner.Active;
-    public bool BlocksGameplay => InputControlHeld;
+    public virtual bool BlocksGameplay => InputControlHeld;
     public override RoomEventContext Context => _context;
     protected TActor? ScriptActor => _binding.Actor;
     protected bool PendingActorButton => _binding.ButtonPending;
@@ -35,6 +35,7 @@ internal abstract class InteractiveInfiniteScriptHost<TActor> :
     internal int CurrentCommandIndex =>
         _runner.CurrentCommand?.Source.CommandIndex ?? -1;
     internal int Counter => _runner.Counter;
+    internal int NativeCounter1 => _runner.NativeCounter1;
     internal bool ButtonSensitive => _binding.ButtonSensitive;
 
     public abstract void UpdateFrame();

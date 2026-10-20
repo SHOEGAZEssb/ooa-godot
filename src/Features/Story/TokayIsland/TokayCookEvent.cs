@@ -6,8 +6,7 @@ namespace oracleofages;
 
 /// <summary>tokayCookScript for INTERAC_TOKAY $48:$05; native movement follows each script update.</summary>
 internal sealed class TokayCookEvent :
-    InteractiveInfiniteScriptHost<TokayCharacter>, IRoomEntryEvent,
-    IUpdatesDuringDialogueRoomEvent
+    InteractiveInfiniteScriptHost<TokayCharacter>, IRoomEntryEvent
 {
     private readonly TokayInteractionDatabase _interactions;
     private readonly TokayNativeDatabase _native = new();
@@ -21,11 +20,14 @@ internal sealed class TokayCookEvent :
     private int _z;
     private int _speedZ;
     private Vector2 _position;
+    private TokayNpcRoomEntity? _slot;
+    private bool _ownsInput;
 
     internal TokayCookEvent(RoomEventContext context, TokayInteractionDatabase database)
         : base(context, "Cook") => _interactions = database;
 
     public bool MenusDisabled => BlocksGameplay;
+    public override bool BlocksGameplay => _ownsInput;
     internal bool Jumping => _jumping;
 
     public bool Matches(int group, OracleRoomData room) =>
@@ -39,17 +41,23 @@ internal sealed class TokayCookEvent :
             actor => actor.Active && actor.Record.SubId == 0x05);
         actor.ScriptOwnsNativeUpdate = true;
         // @initSubid05 falls through tokayState1 and interactionRunScript.
-        StartInfiniteScript(actor, _commands, initialScriptUpdates: 1);
-        UpdateActor();
+        StartInfiniteScript(actor, _commands);
+        _slot=Context.Entities.EntityAdapters<TokayNpcRoomEntity>().Single(slot=>ReferenceEquals(slot.Npc,actor));
+        _slot.NativeUpdate=AdvanceObject;
     }
 
-    public override void UpdateFrame()
+    public override void UpdateFrame() { } // The physical object slot dispatches this lane.
+    private void AdvanceObject()
     {
         AdvanceInfiniteScript();
         UpdateActor();
     }
 
-    public void UpdateDuringDialogueFrame() => UpdateActor();
+    public override void SetInputEnabled(bool enabled)
+    {
+        NativeScriptInputControl.SetEnabled(Context.Entities.RuntimeState,Context.Player,enabled);
+        _ownsInput=!enabled;
+    }
 
     public override void InitializeActorCollisionRadii(string actor) =>
         RequireScriptActor(actor).InitializeCollisionRadii();
@@ -77,6 +85,10 @@ internal sealed class TokayCookEvent :
         binding == "CookAwayFromStart"
             ? (_awayFromStart ? 1 : 0) == value
             : throw UnsupportedCommand($"read '{binding}'");
+    public override int ReadMemory(string binding) => binding=="CookTradeOutcome"
+        ? !Context.Inventory.HasTreasure(TreasureId.TradeItem)||Context.Inventory.TradeItem<2 ? 0
+            : Context.Inventory.TradeItem==2 ? 1 : 2
+        : throw UnsupportedCommand($"read '{binding}'");
 
     public override void WriteObjectByte(string actor, int address, int value)
     {
@@ -92,20 +104,32 @@ internal sealed class TokayCookEvent :
     {
         if (treasureId != TreasureId.TradeItem || parameter != 0x03)
             throw UnsupportedCommand($"give treasure ${treasureId:x2}:${parameter:x2}");
-        _reward = Context.GrantScriptTreasure(
-            Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id,
-            treasureId, parameter, "TREASURE_OBJECT_TRADEITEM_03",
-            "scriptHelper.s:tokayCookScript giveitem TREASURE_TRADEITEM,$03");
+        if(!Context.Entities.InteractionSlotAvailable)return;
+        TreasureObjectRecord treasure=Context.Treasures.GetObject("TREASURE_OBJECT_TRADEITEM_03");
+        Vector2 position=Context.Player.Position;
+        _reward=Context.Entities.SpawnGroundTreasure(new GroundTreasureGrantRequest(
+            Context.Rooms.ActiveGroup,Context.Rooms.CurrentRoom.Id,0,(int)position.Y,(int)position.X,
+            treasure.Name,"scriptHelper.s:tokayCookScript giveitem TREASURE_TRADEITEM,$03")
+        {
+            SpawnMode=(treasure.NativeFlags>>4)&7,GrabMode=treasure.NativeFlags&7,
+            RoomFlagTiming=(treasure.NativeFlags&8)!=0?GroundTreasureRoomFlagTiming.OnActivation:GroundTreasureRoomFlagTiming.Never,
+            ExpectedTreasureId=treasureId,ExpectedSubId=parameter,ExpectedObjectParameter=treasure.Parameter
+        });
+        _reward.BeginScriptGrant();
+        WaitForNativeCounter(3);
     }
 
     protected override void ReleaseScriptActor(TokayCharacter actor)
     {
+        if(_slot is not null)_slot.NativeUpdate=null;
+        _slot=null;
         actor.ScriptOwnsNativeUpdate = false;
         actor.SetScriptDrawOffset(Vector2.Zero);
     }
 
     protected override void ResetEventState()
     {
+        if(_ownsInput)SetInputEnabled(true);
         _reward?.Finish(Context.Player);
         _reward = null;
         _jumping = false;

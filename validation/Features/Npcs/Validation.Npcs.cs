@@ -462,6 +462,7 @@ public sealed partial class ValidationRoot
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
             ["objects/tingle_texts.tsv|\\secret1"] = 1,
             ["objects/tokay_interaction_texts.tsv|\\secret1"] = 1,
+            ["cutscenes/wild_tokay_present_commands.tsv|\\secret1"] = 1,
             ["objects/troy_house.tsv|\\call(0xff)"] = 16,
             ["objects/vasu_shop_texts.tsv|\\call(0xfd)"] = 1
         };
@@ -856,6 +857,7 @@ public sealed partial class ValidationRoot
             "poe.s:poeScript",
             "comedian.s:comedianScript",
             "soldier.s:soldierSubid02/07/09",
+            "tokay.s:tokayHoldingItemScript/genericNpcScript",
             "sharedNpcScript",
             "knowItAllBirdScript",
             "oldManScript_takesRupees",

@@ -864,6 +864,12 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateTokayCookPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateRosaShovelPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateTokayDimitriPublicationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokayDimitriScriptRom, requiresRom: true);
+        RunIsolatedValidation(ValidateWildTokayManagerScriptRom, requiresRom: true);
+        RunIsolatedValidation(ValidateWildTokayControllerRom, requiresRom: true);
+        RunIsolatedValidation(ValidateWildTokayMeatRom, requiresRom: true);
+        RunIsolatedValidation(ValidateWildTokayParticipantRom, requiresRom: true);
+        RunIsolatedValidation(ValidateWildTokayResultRom, requiresRom: true);
         RunIsolatedValidation(ValidateTokayEscapePublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateTokaySeedlingPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidatePolsVoiceInstrumentGatesRom, requiresRom: true);
@@ -1038,6 +1044,15 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRaftwreckCutscene);
         RunIsolatedValidation(ValidateTokayTheftCutscene);
         RunIsolatedValidation(ValidateTokayIslandInteractions);
+        RunIsolatedValidation(ValidateTokayItemRecoveryGameplay);
+        RunIsolatedValidation(ValidateTokayRecoveryScriptRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokayGenericNpcRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokayShopkeeperScriptRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokayMuseumStatuesRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokayShieldScriptRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokayVineScriptRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokayCookScriptRom, requiresRom: true);
+        RunIsolatedValidation(ValidateTokayTradingGameplay);
         RunIsolatedValidation(ValidateTokayNativeFidelity);
         RunIsolatedValidation(ValidateTokayBusinessScrubs);
         RunIsolatedValidation(ValidateTokayPresentationAndSocket);
@@ -1047,6 +1062,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidatePlenSecret);
         RunIsolatedValidation(ValidateTokayDimitriScrollEntry);
         RunIsolatedValidation(ValidateTokayDimitriDeparture);
+        RunIsolatedValidation(ValidateWildTokayGameplay);
+        RunIsolatedValidation(ValidateWildTokayLossAndCancellation);
         RunIsolatedValidation(ValidateTokayRescueEmberEffects);
         RunIsolatedValidation(ValidateDimitriCompanion);
         RunIsolatedValidation(ValidateDimitriCarrying);

@@ -17,6 +17,8 @@ internal partial class TokayShopItem : TransitionOffsetNode2D
     internal int Treasure { get; private set; }
     internal int CollisionRadius { get; private set; }
     internal bool Removed { get; private set; }
+    private bool _initialized;
+    internal bool DeleteOnInitialization { get; set; }
 
     internal void Initialize(
         TokayShopPlacementRecord placement,
@@ -36,7 +38,7 @@ internal partial class TokayShopItem : TransitionOffsetNode2D
         Treasure = treasure;
         CollisionRadius = collisionRadius;
         Removed = false;
-        Visible = true;
+        Visible = _initialized;
         Position = new Vector2(placement.X, placement.Y);
         Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{placement.Sprite}.png");
@@ -59,7 +61,7 @@ internal partial class TokayShopItem : TransitionOffsetNode2D
 
     internal bool CanInteract(Player player)
     {
-        if (Removed || player.CutsceneControlled)
+        if (!_initialized || Removed || player.CutsceneControlled)
             return false;
         Vector2 point = OracleObjectMath.ToPixelPosition(player.Position) +
             player.FacingVector * NpcCharacter.AButtonPointOffset;
@@ -69,7 +71,7 @@ internal partial class TokayShopItem : TransitionOffsetNode2D
 
     internal bool BlocksLink(Vector2 linkCenter)
     {
-        if (Removed)
+        if (!_initialized || Removed)
             return false;
         Vector2 delta = OracleObjectMath.ToPixelPosition(linkCenter) -
             OracleObjectMath.ToPixelPosition(Position);
@@ -88,6 +90,13 @@ internal partial class TokayShopItem : TransitionOffsetNode2D
 
     internal void UpdateFrame()
     {
+        if (!_initialized)
+        {
+            _initialized=true;
+            if (DeleteOnInitialization) Remove();
+            else Visible=true;
+            return;
+        }
         if (Removed || _frames.Count <= 1)
             return;
         _frameTicks++;

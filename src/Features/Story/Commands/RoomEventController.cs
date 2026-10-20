@@ -140,13 +140,6 @@ public sealed class RoomEventController
             () => new RaftwreckEvent(_context),
             () => new TokayTheftEvent(_context),
             () => new TokayCookEvent(_context, tokayInteractions),
-            () => new TokayHoldingItemEvent(_context, tokayInteractions),
-            () => new TokayRunningFromRosaEvent(_context, tokayInteractions),
-            () => new TokayDimitriEvent(_context, tokayInteractions),
-            () => new TokaySeedlingPlotEvent(
-                _context, tokayInteractions, new TokaySeedlingPlotDatabase()),
-            () => new TokayShieldUpgradeEvent(_context, tokayInteractions),
-            () => new TokayVineExplanationEvent(_context, tokayInteractions),
             () => new RosaShovelEvent(_context, tokayInteractions),
             () => new TokayTradingEvent(_context, tokayInteractions, new TokayShopDatabase()),
             () => new WildTokayGameEvent(_context, tokayInteractions, new WildTokayGameDatabase()),
@@ -219,13 +212,7 @@ public sealed class RoomEventController
                 Get<TingleEvent>().TryInteractNpc),
             Npc("tokay.s:tokayScriptTable; rosa.s:interactionCode68",
                 Get<TokayCookEvent>().TryInteractNpc,
-                Get<TokayHoldingItemEvent>().TryInteractNpc,
                 Get<WildTokayGameEvent>().TryInteractNpc,
-                Get<TokayTradingEvent>().TryInteractNpc,
-                Get<TokayDimitriEvent>().TryInteractNpc,
-                Get<TokaySeedlingPlotEvent>().TryInteractNpc,
-                Get<TokayShieldUpgradeEvent>().TryInteractNpc,
-                Get<TokayVineExplanationEvent>().TryInteractNpc,
                 Get<RosaShovelEvent>().TryInteractNpc),
             Npc("makuTree.s:interactionCode87Subid02",
                 Get<MakuTreeSavedEvent>().TryInteractNpc,
@@ -337,6 +324,7 @@ public sealed class RoomEventController
         cleanSeas.AdvanceBeforeObjects();
         postD7.AdvanceBeforeObjects();
         makuSeed.AdvanceBeforeObjects();
+        Get<WildTokayGameEvent>().AdvanceBeforeObjects();
         return owned || rescueWarp.HasState || makuSeed.OwnsGameLogic;
     }
     internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);

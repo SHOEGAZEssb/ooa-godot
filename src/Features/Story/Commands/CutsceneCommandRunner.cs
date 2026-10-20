@@ -52,6 +52,11 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
 
     public int ActorSpeed(CutsceneActorId actor) =>
         _speeds.TryGetValue(actor, out int speed) ? speed : 0;
+    internal void SetNativeActorSpeed(CutsceneActorId actor,int speed)
+    {
+        if(speed is <0 or >0xff)throw new ArgumentOutOfRangeException(nameof(speed));
+        _speeds[actor]=speed;
+    }
     internal int ActorAngle(CutsceneActorId actor) =>
         _angles.TryGetValue(actor, out int angle) ? angle : 0;
 

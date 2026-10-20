@@ -2341,12 +2341,7 @@ public sealed class RoomEntityManager : IDisposable
         }
         foreach (var entity in _activeEntities)
         {
-            if (entity is not IRoomInitializedCompanion companion ||
-                entity is IPlayerRideableRoomEntity { LinkRiding: true } ||
-                entity is MooshCompanionRoomEntity { GoodbyeActive: true }) continue;
-            companion.RoomInitialization = new(room, _saveData ?? throw new InvalidOperationException("Animal companion initialization requires live save state."),
-                position => TimeWarpPositionOccupied(_companionSolidPositions ??= new(), room.GetPackedPosition(position)));
-            entity.Node.Visible = false;
+            InitializeCompanionRoomEntity(entity,room);
         }
         // The placed object stream allocates before native state zero creates
         // $ce:$80 children. Retain each child allocation after that stream.
@@ -2554,8 +2549,32 @@ public sealed class RoomEntityManager : IDisposable
         }
     }
 
+    internal void InitializeCompanionRoomEntity(IRoomEntity entity,OracleRoomData room)
+    {
+        if(entity is not IRoomInitializedCompanion companion||entity is IPlayerRideableRoomEntity{LinkRiding:true}||
+            entity is MooshCompanionRoomEntity{GoodbyeActive:true})return;
+        companion.RoomInitialization=new(room,_saveData??throw new InvalidOperationException("Animal companion initialization requires live save state."),
+            position=>TimeWarpPositionOccupied(_companionSolidPositions??=new(),room.GetPackedPosition(position)));
+        entity.Node.Visible=false;
+    }
     internal IRoomEntity AddEntity(IRoomEntity entity)
     {
+        if (entity is TokayNpcRoomEntity tokaySlot)
+        {
+            tokaySlot.CreateShieldAccessory = parent =>
+            {
+                if (parent.Accessory is not { } accessory) return;
+                if (!InteractionSlotAvailable) { parent.Accessory=null; return; }
+                parent.SetScriptAnimation(_factory.Resources.TokayInteractions.Animation(6));
+                AddEntity(accessory);
+            };
+            tokaySlot.CreateHeldAccessory = parent =>
+            {
+                if (!InteractionSlotAvailable) return false;
+                AddEntity(new TokayHeldAccessoryRoomEntity(parent) { Visible=false });
+                return true;
+            };
+        }
         if (entity.Node is EnemyCharacter enemy)
         {
             enemy.TryCreateKnockbackDust = TryCreateKnockbackDust;
@@ -2594,7 +2613,7 @@ public sealed class RoomEntityManager : IDisposable
         if (entity.Node is SomariaBlock somariaBlock)
             somariaBlock.BindMovementMemory(_runtimeState);
         if (entity.Node is WildTokayMeat meat)
-            meat.BindMovementMemory(_runtimeState);
+            meat.BindWorld(this);
         if (entity.Node is FallingDownHoleEffect fallingHole)
             fallingHole.BindMovementMemory(_runtimeState);
         if (entity.Node is FallingBoulder fallingBoulder)
@@ -2650,7 +2669,7 @@ public sealed class RoomEntityManager : IDisposable
         }
         if (UsesInteractionSlot(entity) && entity is NpcCharacterRoomEntityAdapter && entity.Node is NpcCharacter npcActor)
             npcActor.NativeActivationChanged = active => SetNpcInteractionActive(entity, active);
-        if (UsesInteractionSlot(entity) && entity.Node is not NpcCharacter { Active: false })
+        if (UsesInteractionSlot(entity) && (entity.Node is not NpcCharacter { Active: false }||entity is TokayNpcRoomEntity{ReservesInitializationSlot:true}))
         {
             int slot = entity is PirateShipRoomEntity { Reserved: true } ? 1 : FindFreeInteractionSlot();
             if (slot < 0) throw new InvalidOperationException($"{entity.GetType().Name}: native dynamic INTERACTION pool is full ($d2-$df).");
@@ -3098,8 +3117,8 @@ public sealed class RoomEntityManager : IDisposable
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
         PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or MapleTouchingBookRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
-        TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or TokaySeedlingDecorationRoomEntity or
-        TokayAttachedVisualRoomEntity { IsNativeExclamation: true } or
+        TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or TokaySeedlingDecorationRoomEntity or TokayHeldAccessoryRoomEntity or TokayShopItemRoomEntity or
+          TokayStatueRoomEntity or TokayRescueEmberRoomEntity or DimitriPresetSpawnerRoomEntity or DimitriRescueScriptRoomEntity or WildTokayControllerRoomEntity or WildTokayParticipantRoomEntity or WildTokayMeatRoomEntity or TokayAttachedVisualRoomEntity { NativeAllocationEnabled: true } or
         BusinessScrubRoomEntity or BusinessScrubBushRoomEntity or
         GameCompleteDialogRoomEntity or
         BlackTowerSeedRoomEntity or BlackTowerConfrontationActor or BlackTowerPossessionActor or BlackTowerEndingActor or ImpaCreditsRoomEntity or CreditsLinkLoaderRoomEntity or CreditsCompanionLoaderRoomEntity or CreditsHorizontalRoomEntity or CreditsVerticalRoomEntity or ForestAudienceRoomEntity or RestoredRabbitRoomEntity or LinkedSwordRoomEntity or FallingRockRoomEntity or VeranCutsceneWallmasterRoomEntity or VeranFaceRoomEntity or VeranDeathFadeRoomEntity or ExplosionWithDebrisRoomEntity or PickaxeWorkerCreditsRoomEntity or MakuStatueConstructionRoomEntity or

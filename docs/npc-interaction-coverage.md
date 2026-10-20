@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 326 | Traced and covered by named NPC/event scenarios. |
-| **P** | 45 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 352 | Traced and covered by named NPC/event scenarios. |
+| **P** | 19 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 19 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -121,11 +121,11 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:88` | [D] `$54:$01/v$02` mamamuDog |
 | `0:a0` | [D] `$cd:$00/v$00` masterDiver |
 | `0:a7` | [I] `$41:$06/v$00` miscMan |
-| `0:aa` | [P] `$48:$0f/v$00` tokay<br>[P] `$48:$10/v$00` tokay |
-| `0:bb` | [P] `$48:$1e/v$00` tokay |
-| `0:bd` | [P] `$48:$12/v$00` tokay |
-| `0:cd` | [P] `$48:$13/v$00` tokay |
-| `0:dd` | [P] `$48:$14/v$00` tokay |
+| `0:aa` | [I] `$48:$0f/v$00` tokay<br>[I] `$48:$10/v$00` tokay |
+| `0:bb` | [I] `$48:$1e/v$00` tokay |
+| `0:bd` | [I] `$48:$12/v$00` tokay |
+| `0:cd` | [I] `$48:$13/v$00` tokay |
+| `0:dd` | [I] `$48:$14/v$00` tokay |
 | `1:03` | [I] `$bf:$0c/v$00` symmetryNpc |
 | `1:05` | [I] `$40:$0d/v$02` soldier |
 | `1:06` | [I] `$40:$0d/v$03` soldier<br>[I] `$40:$0d/v$04` soldier |
@@ -167,17 +167,17 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:94` | [I] `$43:$00/v$01` pastGuy |
 | `1:96` | [D] `$3b:$06/v$00` femaleVillager |
 | `1:97` | [I] `$37:$03/v$00` ralph |
-| `1:aa` | [I] `$48:$00/v$00` tokay<br>[I] `$48:$01/v$00` tokay<br>[I] `$48:$02/v$00` tokay<br>[I] `$48:$03/v$00` tokay<br>[I] `$48:$04/v$00` tokay<br>[P] `$48:$1f/v$00` tokay |
-| `1:ac` | [P] `$48:$11/v$00` tokay |
-| `1:ad` | [P] `$48:$15/v$00` tokay |
+| `1:aa` | [I] `$48:$00/v$00` tokay<br>[I] `$48:$01/v$00` tokay<br>[I] `$48:$02/v$00` tokay<br>[I] `$48:$03/v$00` tokay<br>[I] `$48:$04/v$00` tokay<br>[I] `$48:$1f/v$00` tokay |
+| `1:ac` | [I] `$48:$11/v$00` tokay |
+| `1:ad` | [I] `$48:$15/v$00` tokay |
 | `1:ba` | [I] `$c4:$04/v$00` pirate |
-| `1:bb` | [P] `$48:$0a/v$00` tokay<br>[P] `$48:$0b/v$00` tokay |
+| `1:bb` | [I] `$48:$0a/v$00` tokay<br>[I] `$48:$0b/v$00` tokay |
 | `1:bc` | [P] `$ce:$00/v$00` businessScrub |
-| `1:bd` | [P] `$48:$16/v$00` tokay |
-| `1:cb` | [P] `$48:$07/v$00` tokay<br>[P] `$68:$00/v$00` rosa |
-| `1:cd` | [P] `$48:$17/v$00` tokay |
-| `1:da` | [P] `$48:$08/v$00` tokay |
-| `1:dd` | [P] `$48:$18/v$00` tokay |
+| `1:bd` | [I] `$48:$16/v$00` tokay |
+| `1:cb` | [I] `$48:$07/v$00` tokay<br>[P] `$68:$00/v$00` rosa |
+| `1:cd` | [I] `$48:$17/v$00` tokay |
+| `1:da` | [I] `$48:$08/v$00` tokay |
+| `1:dd` | [I] `$48:$18/v$00` tokay |
 | `2:0e` | [I] `$3c:$0d/v$00` boy<br>[I] `$3d:$00/v$00` oldLady |
 | `2:0f` | [I] `$6a:$00/v$00` cheval |
 | `2:1e` | [I] `$69:$00/v$00` rafton |
@@ -185,7 +185,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `2:2e` | [I] `$59:$00/v$01` poe |
 | `2:2f` | [I] `$55:$00/v$00` postman |
 | `2:3e` | [I] `$5b:$00/v$00` toiletHand |
-| `2:3f` | [P] `$48:$05/v$00` tokay |
+| `2:3f` | [I] `$48:$05/v$00` tokay |
 | `2:4e` | [I] `$2e:$01/v$00` oldManWithRupees |
 | `2:5e` | [I] `$46:$00/v$00` shopkeeper |
 | `2:7e` | [I] `$46:$01/v$00` shopkeeper |
@@ -193,9 +193,9 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `2:b1` | [I] `$ab:$13/v$00` zora |
 | `2:d1` | [I] `$ab:$1b/v$00` zora |
 | `2:d7` | [I] `$ab:$12/v$00` zora |
-| `2:de` | [P] `$48:$0d/v$00` tokay |
-| `2:e4` | [P] `$48:$0e/v$00` tokay |
-| `2:e5` | [P] `$48:$19/v$00` tokay<br>[P] `$48:$1a/v$00` tokay<br>[P] `$48:$1b/v$00` tokay<br>[P] `$48:$1c/v$00` tokay |
+| `2:de` | [I] `$48:$0d/v$00` tokay |
+| `2:e4` | [I] `$48:$0e/v$00` tokay |
+| `2:e5` | [I] `$48:$19/v$00` tokay<br>[I] `$48:$1a/v$00` tokay<br>[I] `$48:$1b/v$00` tokay<br>[I] `$48:$1c/v$00` tokay |
 | `2:e6` | [I] `$5c:$00/v$00` maskSalesman |
 | `2:e7` | [I] `$53:$00/v$00` mamamuYan<br>[I] `$54:$00/v$00` mamamuDog |
 | `2:e8` | [I] `$51:$00/v$00` dumbellMan |
@@ -271,8 +271,8 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:c4` | [I] `$66:$05/v$00` goron<br>[I] `$66:$05/v$01` goron |
 | `5:c6` | [I] `$66:$0d/v$03` goron<br>[I] `$66:$0e/v$07` goron |
 | `5:c8` | [I] `$52:$01/v$00` oldMan |
-| `5:ca` | [P] `$48:$06/v$00` tokay |
-| `5:cc` | [P] `$48:$09/v$00` tokay |
+| `5:ca` | [I] `$48:$06/v$00` tokay |
+| `5:cc` | [I] `$48:$09/v$00` tokay |
 | `5:ce` | [I] `$6d:$00/v$00` possessedNayru<br>[I] `$40:$0d/v$0e` soldier |
 | `5:cf` | [D] `$10:$00/v$00` farore |
 | `5:d0` | [I] `$3b:$07/v$00` femaleVillager<br>[I] `$ab:$0e/v$00` zora<br>[I] `$3c:$0b/v$00` boy<br>[I] `$2a:$00/v$00` librarian<br>[I] `$9a:$09/v$00` carpenter |
@@ -291,7 +291,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:e2` | [I] `$66:$0c/v$01` goron<br>[I] `$66:$0c/v$02` goron |
 | `5:e4` | [I] `$52:$00/v$00` oldMan<br>[I] `$52:$02/v$00` oldMan |
 | `5:e8` | [I] `$94:$01/v$00` patch<br>[I] `$94:$02/v$00` patch |
-| `5:e9` | [P] `$48:$1d/v$00` tokay |
+| `5:e9` | [I] `$48:$1d/v$00` tokay |
 | `5:ec` | [I] `$52:$03/v$00` oldMan<br>[I] `$52:$04/v$00` oldMan<br>[I] `$52:$05/v$00` oldMan<br>[I] `$52:$06/v$00` oldMan |
 | `5:f1` | [D] `$ad:$00/v$00` zelda |
 | `5:f6` | [I] `$bf:$08/v$00` symmetryNpc<br>[I] `$bf:$09/v$00` symmetryNpc |

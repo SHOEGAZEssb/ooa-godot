@@ -39,12 +39,13 @@ public sealed partial class ValidationRoot
                 armed=false;
             }
             _runtimeState.Changed+=Capture;
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
+            var before=new PartMovementScratchProbe(()=>
             {
                 armed=false;for(int i=0;i<4;i++)
                 {observed[i]=(byte)(0xa5+i);_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));}
                 armed=true;
-            }));
+            });
+            _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
                 for(int i=0;i<4;i++)native[0xcec0+i]=(byte)(0xa5+i);
