@@ -89,6 +89,9 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
             if (Read(0xcfd2) == 0) { _patch.SetActive(false); _patch = null; return; }
             InitializeDownstairs();
         }
+        // patch.s subids $00/$01 publish objectSetVisiblec2 in state 0;
+        // all deletion branches above return before exposing a renderer.
+        _patch?.ShowInitializedPresentation();
     }
     private void InitializeDownstairs()
     {

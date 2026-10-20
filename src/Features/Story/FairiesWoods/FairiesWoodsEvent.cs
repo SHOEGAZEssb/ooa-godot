@@ -129,6 +129,11 @@ internal sealed class FairiesWoodsEvent :
         }
     }
 
+    internal void InitializeDuringTransition()
+    {
+        foreach (ForestFairyFlight flight in _flights) flight.InitializeState();
+    }
+
     public void UpdateFrame()
     {
         _sparkles?.UpdateFrame();

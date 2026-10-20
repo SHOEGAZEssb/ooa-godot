@@ -107,6 +107,11 @@ internal sealed class CompanionForestEvent : InteractiveCutsceneCommandHost,
         _runner.Start(_data.Commands(_role));
     }
 
+    internal void InitializeDuringTransition()
+    {
+        foreach (ForestFairyFlight flight in _flights) flight.InitializeState();
+    }
+
     public void UpdateFrame()
     {
         UpdateExclamation();

@@ -19,6 +19,9 @@ internal sealed class SymmetryRoomEntity : NpcCharacterRoomEntityAdapter, IRoomB
             npc.SetActive(false);
         npc.SetDialogue(0, string.Empty, canFace: true);
         npc.SetScriptButtonSensitive(false);
+        // symmetryNpc.s state 0: objectSetVisible82, independently of the
+        // script's later execution. The subid $0c deletion still wins.
+        npc.ShowInitializedPresentation();
     }
 
     public bool BlocksLink(Vector2 center) => Entity.BlocksLinkCenter(center);

@@ -104,6 +104,13 @@ internal sealed class MooshRescueEvent :
         }
 
         SpawnMoosh();
+        // ghiniHarassingMoosh.s state 0 sets visiblec0 after its deletion
+        // gates. moosh.s state A initializes the rescue pose with visiblec3.
+        // Neither visibility write waits for the event's first script tick.
+        foreach (string name in new[] { Ghini0, Ghini1, Ghini2 })
+            Actor(name).SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex);
+        _moosh!.ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
+        _moosh.ShowInitializedPresentation();
         _stage = MooshRescueStage.Running;
         _screenTransitionsDisabled = true;
         // companionScript_subid00 leaves this room-local gate set until loading.

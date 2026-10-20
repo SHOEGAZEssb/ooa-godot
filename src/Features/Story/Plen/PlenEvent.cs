@@ -42,6 +42,9 @@ internal sealed class PlenEvent : InteractiveCutsceneCommandHost, IRoomEntryEven
         Cancel();
         _npc = Context.Entities.EntityAdapters<PlenRoomEntity>().Single().Npc;
         _runner.Start(Commands);
+        // plen.s state 0 falls through to interactionAnimateAsNpc. Publish
+        // its draw state before the house-entry fade, without ticking scripts.
+        _npc.ShowInitializedPresentation();
     }
 
     public void UpdateFrame()

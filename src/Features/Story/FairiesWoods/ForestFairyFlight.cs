@@ -64,6 +64,13 @@ internal sealed class ForestFairyFlight
         LoadPreset(setPosition: true);
     }
 
+    internal void InitializeState()
+    {
+        if (!_stateZeroPending || !Active) return;
+        _stateZeroPending = false;
+        Actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // $49: objectSetVisiblec1
+    }
+
     internal void UpdateFrame(int globalFrame, bool textActive = false)
     {
         if (!Active)
@@ -71,8 +78,7 @@ internal sealed class ForestFairyFlight
         if (textActive && !_stateZeroPending) return;
         if (_stateZeroPending)
         {
-            _stateZeroPending = false;
-            Actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // $49: objectSetVisiblec1
+            InitializeState();
             return;
         }
 

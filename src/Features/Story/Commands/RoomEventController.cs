@@ -417,6 +417,9 @@ public sealed class RoomEventController
             if (inObjectPass) return;
             Get<ImpaIntroEvent>().InitializeEncounterInteraction();
             Get<GoronCaveEvent>().InitializeDuringTransition();
+            Get<FairiesWoodsEvent>().InitializeDuringTransition();
+            Get<CompanionForestEvent>().InitializeDuringTransition();
+            Get<TokayTheftEvent>().InitializeDuringTransition();
             Get<DefeatedMoblinEvent>().UpdateDuringWarpArrival();
             if (Get<ImpaIntroEvent>().UpdatesDuringTransition)
                 Get<ImpaIntroEvent>().UpdateDuringTransition();

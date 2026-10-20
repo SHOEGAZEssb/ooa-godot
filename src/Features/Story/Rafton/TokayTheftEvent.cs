@@ -93,14 +93,20 @@ internal sealed class TokayTheftEvent : IRoomEntryEvent, IUpdatesDuringDialogueR
         _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
     }
 
+    internal void InitializeDuringTransition()
+    {
+        if (!_active || !_initializing) return;
+        _initializing = false;
+        foreach (TokayThiefScriptHost thief in _thieves)
+            thief.Actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // tokay.s state 0: objectSetVisiblec2
+    }
+
     public void UpdateFrame()
     {
         if (!_active) return;
         if (_initializing)
         {
-            _initializing = false;
-            foreach (TokayThiefScriptHost thief in _thieves)
-                thief.Actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // tokay.s state 0: objectSetVisiblec2
+            InitializeDuringTransition();
             return;
         }
         if (!_context.Entities.InitializedInteractionUpdatesAllowed) return;

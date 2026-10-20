@@ -141,6 +141,10 @@ their source show or draw-priority operation; deferred event actors remain
 hidden until that operation runs. Script show/hide commands use the shared NPC
 visibility owner. Scrolling preloads report this resolved presentation without
 advancing the actor's script or counters.
+Event owners must publish source state-zero visibility after selecting the
+initial pose, before an incoming scroll or destination fade exposes the room.
+Deferring the whole event update must not defer that visibility write; deliberate
+source invisibility and deletion predicates still take precedence.
 
 If an interaction classified as specialized reaches the generic path, fail
 with group, room, interaction ID/subid, and source context. A placeholder actor

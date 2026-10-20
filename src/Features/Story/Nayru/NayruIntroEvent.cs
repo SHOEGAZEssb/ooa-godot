@@ -236,6 +236,12 @@ internal sealed class NayruIntroEvent :
             "Boy", 0x2510, _nayruRecord.Group, _nayruRecord.Room);
         _nayruActors.SpawnAudience(
             "Bird", 0x3214, _nayruRecord.Group, _nayruRecord.Room);
+        // nayru.s, ralph.s, bear.s, monkey.s, rabbit.s, boy.s and bird.s
+        // publish their state-zero poses during incoming scrolling. The
+        // event's later updates remain frozen; loading animations alone does
+        // not set Object.visible bit 7 on these newly allocated actors.
+        foreach (NpcCharacter actor in _nayruActors.Values)
+            actor.ShowInitializedPresentation();
     }
 
     internal bool TryInteractNpc(NpcCharacter npc)
