@@ -49,7 +49,6 @@ public partial class GameRoot : Node2D
     internal SeedSatchelController _seedSatchel = null!;
     internal HarpController _harp = null!;
     internal DebugCollisionController _debugCollision = null!;
-    internal DebugMapleController _debugMaple = null!;
     internal MapMenuController _mapMenu = null!;
     internal InventoryMenuController _inventoryMenu = null!;
     internal RingMenuController _ringMenu = null!;
@@ -843,7 +842,6 @@ public partial class GameRoot : Node2D
         _debugFlagMenu.Update();
         if (_debugFlagMenu.IsActive)
             return;
-        _debugMaple.Update();
         bool secretOwnedFrame = _secretEntry.IsActive;
         _secretEntry.Update(delta);
         if (secretOwnedFrame || _secretEntry.IsActive) return;
@@ -1338,15 +1336,6 @@ public partial class GameRoot : Node2D
             _terrain, _combat, _entities,
             _bomb, _bracelet, _shovel, _seedSatchel, _harp, _roomEvents,
             _inventory, _sound, () => _debugCollision.CollisionsDisabled, _rooms);
-        _debugMaple = new DebugMapleController(
-            _entities, _rooms, _saveData, _inventory, _player,
-            LoadDebugRoom, FindSpawn,
-            () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&
-                !InventoryMenuOpen && !RingMenuOpen &&
-                !_player.GaleActive && !_player.IsDying && !_player.IsUsingHarp && !_roomEvents.Active &&
-                !_roomEvents.MenusDisabled &&
-                !_interactions.GameplayMenuActive &&
-                !_entities.PlayerMenusDisabled && !_player.ElectricShockActive);
         _gameplayPause = new GameplayPauseController(_player, _roomDebug);
         _gameplayPause.SetRoomOverlayEnabled(_presentationSettings.RoomOverlayEnabled);
         _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);

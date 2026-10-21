@@ -1194,11 +1194,12 @@ public sealed partial class ValidationRoot
             "debug_house",
             "debug_chest",
             "debug_bracelet_chest",
-            "debug_room_warp"
+            "debug_room_warp",
+            "debug_maple"
         ];
         FailIf(
             removedActions.Any(action => InputMap.HasAction(action)),
-            "A fixed test-room input action remained registered.");
+            "A removed debug input action remained registered.");
 
         FailIf(
             InputMap.GetActions().Any(action => InputMap.ActionGetEvents(action)
@@ -1208,59 +1209,13 @@ public sealed partial class ValidationRoot
                     !key.MetaPressed && !key.ShiftPressed)),
             "The removed V debug shortcut remained bound to an input action.");
 
-        GD.Print("Validated removal of fixed test-room shortcuts, including V.");
-    }
-
-    private void ValidateDebugMapleShortcut()
-    {
-        InputEventKey[] bindings = InputMap.HasAction("debug_maple")
-            ? InputMap.ActionGetEvents("debug_maple")
+        FailIf(
+            InputMap.GetActions().Any(action => InputMap.ActionGetEvents(action)
                 .OfType<InputEventKey>()
-                .ToArray()
-            : [];
-        FailIf(
-            bindings.Length != 1 ||
-            bindings[0].PhysicalKeycode != Key.F3,
-            "The Maple encounter shortcut was not bound exclusively to physical F3.");
+                .Any(key => key.PhysicalKeycode == Key.F3 || key.Keycode == Key.F3)),
+            "The removed F3 Maple shortcut remained bound to an input action.");
 
-        var database = new MapleEventDatabase();
-        (int expectedGroup, int expectedRoom) = database.DebugLocation(
-            4, _inventory.AnimalCompanion);
-        _saveData.SetMapleKillCounter(0);
-        LoadValidationRoom(4, 0x09);
-        FailIf(
-            !_debugMaple.ActivateForValidation() ||
-            _activeGroup != expectedGroup ||
-            _currentRoom.Id != expectedRoom ||
-            _player.Position != FindSpawn() ||
-            _player.FacingVector != Vector2I.Down ||
-            _saveData.MapleKillCounter != 0 ||
-            _entities.Entities<MapleEncounter>().Count != 1,
-            "F3 did not move from an ineligible room to the imported canonical " +
-            "location and start Maple through the normal threshold path.");
-
-        FailIf(
-            _debugMaple.ActivateForValidation() ||
-            _entities.Entities<MapleEncounter>().Count != 1,
-            "F3 started a duplicate Maple encounter while one was already active.");
-
-        _saveData.SetMapleKillCounter(0);
-        LoadValidationRoom(expectedGroup, expectedRoom);
-        Vector2 retainedPosition = new(24, 24);
-        _player.WarpTo(retainedPosition);
-        FailIf(
-            !_debugMaple.ActivateForValidation() ||
-            _activeGroup != expectedGroup ||
-            _currentRoom.Id != expectedRoom ||
-            _player.Position != retainedPosition ||
-            _saveData.MapleKillCounter != 0 ||
-            _entities.Entities<MapleEncounter>().Count != 1,
-            "F3 did not reload an already eligible room in place and start Maple.");
-
-        _saveData.SetMapleKillCounter(0);
-        LoadValidationRoom(4, 0x09);
-        GD.Print("Validated F3 Maple activation, imported-location fallback, " +
-            "normal threshold reset, in-place eligible-room reload, and duplicate prevention.");
+        GD.Print("Validated removal of fixed test-room shortcuts and the F3 Maple shortcut.");
     }
 
     private void ValidateDebugSavestates()

@@ -52,20 +52,6 @@ internal sealed partial class MapleEventDatabase
         };
     }
 
-    internal (int Group, int Room) DebugLocation(
-        int preferredGroup,
-        int animalCompanion)
-    {
-        int group = preferredGroup == 1 ? 1 : 0;
-        int companion = group == 1 ? -1 : NormalizeCompanion(animalCompanion);
-        int room = _locations
-            .Where(location =>
-                location.Group == group &&
-                location.Companion == companion)
-            .Min(location => location.Room);
-        return (group, room);
-    }
-
     internal MaplePathRecord Path(MaplePathKind kind, int index) =>
         _paths.TryGetValue((kind, index), out MaplePathRecord? path)
             ? path

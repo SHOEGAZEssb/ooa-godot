@@ -24,7 +24,6 @@ internal sealed class ApplicationInputBuffer
         "debug_map_travel",
         "debug_collision",
         "debug_flags",
-        "debug_maple",
         "debug_object_spawner"
     };
     private static readonly StringName[] SampledActionNames =
