@@ -64,12 +64,9 @@ internal sealed class VeranSpiderRoomEntity : CombatEnemyRoomEntityAdapter<Veran
         return new(true,seed.SeedItem==ItemId.MysterySeed?SeedHitResult.ActivateRandomSeed:SeedHitResult.Activate,
             effect!=CollisionEffect.SwordLowKnockback);
     }
-    public bool BurnTargetAlive=>Godot.GodotObject.IsInstanceValid(Entity)&&!Entity.IsDead;
     public int BurnTargetId=>0x0f;
-    public Godot.Vector2 BurnPosition=>Entity.Position;
-    public int BurnHealth {get=>Entity.Health;set=>Entity.Health=value;}
     public int BurnZFixed {get=>Entity.BurnZFixed;set=>Entity.BurnZFixed=value;}
-    public void ReleaseBurn()=>Entity.ReleaseBurn();
+    public override void ReleaseBurn()=>Entity.ReleaseBurn();
     public void SetLinkSwordState(SwordActionState state,int level,int? collision=null)=>
         _swordCollision=collision??SwordCollision.Type(state,level);
     public bool ApplySomariaBlockCollision(SomariaBlock block,ICollection<RoomEntitySpawn> spawns)=>

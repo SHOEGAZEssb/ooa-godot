@@ -79,12 +79,6 @@ internal sealed class LynelRoomEntity(LynelCharacter enemy, EnemyCombatSourceDes
         if (effect != CollisionEffect.Effect1c) return false;
         Entity.DeferNativeHitStatus(); return true;
     }
-    public override SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY$0d requires Mystery Seed's live collision type.");
-        return new SeedSatchelDatabase().TryGet(seedItem, out var seed)
-            ? ApplySeedCollision(bounds, origin, seed, seed.Collision & 0x7f, spawns).Effect : SeedHitResult.None;
-    }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed, int collision,
         ICollection<RoomEntitySpawn> spawns)
     {
@@ -109,10 +103,7 @@ internal sealed class LynelRoomEntity(LynelCharacter enemy, EnemyCombatSourceDes
         return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate,
             effect != CollisionEffect.SwordNoKnockback);
     }
-    public bool BurnTargetAlive => GodotObject.IsInstanceValid(Entity) && !Entity.IsDead;
     public int BurnTargetId => Entity.Record.Id;
-    public Vector2 BurnPosition => Entity.Position;
-    public int BurnHealth { get => Entity.Health; set => Entity.Health = value; }
     public int BurnZFixed { get => Entity.ZFixed; set => Entity.ZFixed = value; }
-    public void ReleaseBurn() => Entity.ReleaseBurn();
+    public override void ReleaseBurn() => Entity.ReleaseBurn();
 }

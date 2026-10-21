@@ -83,10 +83,6 @@ internal sealed class IronMaskRoomEntity : CombatEnemyRoomEntityAdapter<IronMask
     }
     internal Func<byte> RandomSource {private get;set;}=null!;
     internal Func<bool> PartSlotAvailable {private get;set;}=null!;
-    public bool BurnTargetAlive=>GodotObject.IsInstanceValid(Entity) && !Entity.IsDead;
     public int BurnTargetId=>0x1c;
-    public Vector2 BurnPosition=>Entity.Position;
-    public int BurnHealth {get=>Entity.Health;set=>Entity.Health=value;}
     public int BurnZFixed {get=>Entity.ZFixed;set=>Entity.ZFixed=value;}
-    public void ReleaseBurn()=>Entity.InvincibilityCounter=0;
 }

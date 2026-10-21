@@ -40,13 +40,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
                 bomb.CollisionBounds.GetCenter(), bomb.Damage, spawns);
         if (effect == CollisionEffect.SwordNoKnockback)
             return ApplyNoKnockbackItemHit(bomb.CollisionBounds.GetCenter(), bomb.Damage);
-        var strength = effect switch
-        {
-            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
-            CollisionEffect.Sword => EnemyKnockbackStrength.Normal,
-            CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
-            _ => throw new NotSupportedException($"{combatDescriptor.Source?.Source ?? Entity.GetType().Name}: ENEMY ${DimitriCollisionType:x2} mode ${DimitriCollisionMode:x2}, ITEMCOLLISION_BOMB $18 effect ${effect:x2} requires its native response owner.")
-        };
+        var strength = CollisionKnockback(ItemCollisionType.Bomb, effect);
         if (combatDescriptor.Source is null)
             throw new NotSupportedException($"ENEMY ${DimitriCollisionType:x2} mode ${DimitriCollisionMode:x2}: Bomb effect ${effect:x2} has no source-backed damage owner.");
         bool accepted = combatDescriptor.Combat.ApplyDamageAfterCollision(bomb.CollisionBounds.GetCenter(), bomb.Damage,
@@ -167,6 +161,66 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     public virtual bool FreezesDuringSeedBurn => true;
     public Vector2 SeedBurnPosition => Entity.Position;
     protected EnemyCombatDescriptor CombatDescriptor => combatDescriptor;
+    // These members satisfy IBurningEnemyTarget only on adapters which already
+    // opt into that interface. Do not enroll legacy enemies in the native scan.
+    public virtual bool BurnTargetAlive => GodotObject.IsInstanceValid(Entity) && !Entity.IsDead;
+    public Vector2 BurnPosition => Entity.Position;
+    public int BurnHealth { get => Entity.Health; set => Entity.Health = value; }
+    public virtual void ReleaseBurn() => Entity.InvincibilityCounter = 0;
+
+    protected bool NativeCollisionEligible(int collision, Rect2 bounds,
+        IReadOnlyList<EnemyBehaviorValue> mask, bool pendingHit) =>
+        !GaleCaught && !pendingHit && Entity.CollisionEnabled && Entity.InvincibilityCounter == 0 &&
+        mask[collision].Value != 0 && RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);
+
+    // collisionEffects.s shares status dispatch; species retain health/enable
+    // bits, state-5/reservation writes and the item's collision-bit policy.
+    protected virtual void BeginSeedStatus(bool ember, int damage) =>
+        throw new NotSupportedException($"{combatDescriptor.Source?.Source}: ENEMY ${DimitriCollisionType:x2} has no native seed status owner.");
+    protected virtual void CatchStatusGale(Vector2 origin, Func<byte> random) =>
+        throw new NotSupportedException($"{combatDescriptor.Source?.Source}: ENEMY ${DimitriCollisionType:x2} has no native Gale status owner.");
+    protected virtual bool SeedStatusDisablesCollision(int effect) =>
+        effect is CollisionEffect.Effect20 or CollisionEffect.GaleSeed;
+    protected virtual bool SeedStatusAcceptsStrongKnockback => false;
+    protected virtual int SeedStatusBurnEffect => CollisionEffect.Burn;
+    protected SeedCollisionResponse ApplyStatusSeedCollision(int effect, int collision,
+        Rect2 bounds, Vector2 origin, SeedRecord seed, ICollection<RoomEntitySpawn> spawns,
+        Func<bool> freePart, Func<byte> random)
+    {
+        switch (effect)
+        {
+            case CollisionEffect.None: return new(true, SeedHitResult.None, false);
+            case CollisionEffect.Effect20: break;
+            case CollisionEffect.SwordLowKnockback:
+            case CollisionEffect.Sword when SeedStatusAcceptsStrongKnockback:
+            case CollisionEffect.SwordHighKnockback when SeedStatusAcceptsStrongKnockback:
+                ((IItemCollisionHittableRoomEntity)this).ApplyItemCollision(
+                    (RoomEntityItemCollision)collision, bounds, origin, -unchecked((sbyte)seed.Damage), spawns);
+                break;
+            case CollisionEffect.Burn when SeedStatusBurnEffect == CollisionEffect.Burn:
+            case CollisionEffect.Effect34 when SeedStatusBurnEffect == CollisionEffect.Effect34:
+                BeginSeedStatus(ember: true, -unchecked((sbyte)seed.Damage));
+                if (freePart()) spawns.Add(new BurningEnemySpawn((IBurningEnemyTarget)this));
+                break;
+            case CollisionEffect.PegasusSeed:
+                BeginSeedStatus(ember: false, 0);
+                combatDescriptor.RequestSound(SoundId.SndDamageEnemy);
+                break;
+            case CollisionEffect.GaleSeed: CatchStatusGale(origin, random); break;
+            default: throw new NotSupportedException($"{combatDescriptor.Source?.Source}: ENEMY ${DimitriCollisionType:x2}:${combatDescriptor.Source?.SubId:x2}, seed collision ${collision:x2}, effect ${effect:x2} requires its native response.");
+        }
+        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate,
+            SeedStatusDisablesCollision(effect));
+    }
+
+    protected EnemyKnockbackStrength CollisionKnockback(int collision, int effect) => effect switch
+    {
+        // code/collisionEffects.s:collisionEffect08/09/0a select ENEMYDMG_00/04/08.
+        CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
+        CollisionEffect.Sword => EnemyKnockbackStrength.Normal,
+        CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
+        _ => throw new NotSupportedException($"{combatDescriptor.Source?.Source}: ENEMY ${DimitriCollisionType:x2}:${combatDescriptor.Source?.SubId:x2}, collision ${collision:x2}, effect ${effect:x2} requires its native response.")
+    };
     protected bool ApplyBoomerangTransformCollision(Rect2 bounds,
         IReadOnlyList<EnemyBehaviorValue> mask, IReadOnlyList<EnemyBehaviorValue> effects, Action hit)
     {
@@ -296,13 +350,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         if(effect==CollisionEffect.None) return true;
         if (effect == CollisionEffect.SwordNoKnockback)
             return ApplyNoKnockbackItemHit(origin, damage);
-        var strength=effect switch
-        {
-            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
-            CollisionEffect.Sword => EnemyKnockbackStrength.Normal,
-            CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
-            _ => throw new NotSupportedException($"Enemy ${DimitriCollisionType:x2} mode ${DimitriCollisionMode:x2}: ITEMCOLLISION_BIGGORON_SWORD $07 effect ${effect:x2} requires its native response owner.")
-        };
+        var strength = CollisionKnockback(ItemCollisionType.BiggoronSword, effect);
         bool accepted = ApplySwordHit(bounds, origin, damage, strength, spawns);
         // Common damaging rows publish JUST_HIT for their status owner.
         // Species-specific responses retain their own signal lifetime.
@@ -330,6 +378,17 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         int seedItem,
         ICollection<RoomEntitySpawn> spawns)
     {
+        if (this is ISeedCollisionTarget native)
+        {
+            // ITEM24 keeps its damage byte while changing collisionType. Only
+            // non-Mystery seeds can reconstruct that identity from the item ID.
+            if (seedItem == ItemId.MysterySeed)
+                throw new InvalidOperationException($"{combatDescriptor.Source?.Source}: ENEMY ${DimitriCollisionType:x2}:${combatDescriptor.Source?.SubId:x2} requires Mystery Seed's live collision type.");
+            return new SeedSatchelDatabase().TryGet(seedItem, out var seed)
+                ? native.ApplySeedCollision(hitbox, sourcePosition, seed,
+                    seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect
+                : SeedHitResult.None;
+        }
         if (seedItem == ItemId.ScentSeed)
         {
             if (_seedBurning || !Entity.CollisionEnabled ||

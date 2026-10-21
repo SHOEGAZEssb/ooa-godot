@@ -66,12 +66,6 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
             throw new NotSupportedException($"ENEMY $4b item collision ${(int)collision:x2}: expected effect$0b.");
         return Hit(bounds, origin, damage, spawns);
     }
-    public override SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int item, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (item == 0x24) throw new InvalidOperationException("ENEMY $4b requires Mystery's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(item, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(bounds, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
-    }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed, int collision,
         ICollection<RoomEntitySpawn> spawns)
     {

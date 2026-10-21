@@ -97,11 +97,33 @@ public sealed partial class ValidationRoot
             FailIf(first.StunCounter != 0 || first.ZFixed != unchecked((short)rom.Word(firstAddress + 14)),
                 "ENEMY$17:$02 stun completion must restore its hovering Z high byte $fe.");
 
+            var adapter = (TargetGhiniRoomEntity)enemies[0].Key;
+            var spawns = new List<RoomEntitySpawn>();
+            Vector2 origin = first.Position.Floor() - Vector2.Right;
+            bool rejectedMystery = false;
+            try { adapter.ApplySeedHit(first.CollisionBounds, origin, ItemId.MysterySeed, spawns); }
+            catch (System.InvalidOperationException ex) { rejectedMystery = ex.Message.Contains("$17") && ex.Message.Contains("live collision type"); }
+            FailIf(!rejectedMystery || adapter.ApplySeedHit(first.CollisionBounds, origin, -1, spawns) != SeedHitResult.None,
+                "ENEMY$17:$02 seed-item entry must reject unresolvable ITEM24 identity and ignore unknown seed IDs.");
+            // objectCollisionTable mode$1a/column$1d selects effect$28. Run
+            // its native scan, then compare status and recovery in the real loop.
+            rom[0xd701] = ItemId.PegasusSeed;
+            rom.HitWithSword(0x1d, 1);
+            FailIf(adapter.ApplySeedHit(first.CollisionBounds, origin, ItemId.PegasusSeed, spawns) != SeedHitResult.Activate || spawns.Count != 0,
+                "ENEMY$17:$02 Pegasus effect$28 must publish status without allocating PART$12.");
+            FailIf(first.StunCounter != 0xf0 || first.InvincibilityCounter != -16,
+                "collisionEffects.s ENEMYDMG_38 writes stun$f0 and signed invincibility$f0.");
+            new SeedSatchelDatabase().TryGet(ItemId.PegasusSeed, out var pegasus);
+            FailIf(adapter.ApplySeedCollision(first.CollisionBounds, origin, pegasus, 0x1d, spawns).Contact,
+                "ENEMY$17:$02 invincibility must reject a repeated seed collision.");
+            text = true; Step(3); text = false; Step(485);
+            FailIf(first.StunCounter != 0 || first.InvincibilityCounter != 0,
+                "ENEMY$17:$02 Pegasus stun and invincibility must finish after eligible updates resume.");
+
             first.Health = 1; rom[firstAddress + 0x29] = 1;
             rom[0xd701] = ItemId.EmberSeed;
             rom.HitWithSword(ItemCollisionType.EmberSeed, 1);
             new SeedSatchelDatabase().TryGet(ItemId.EmberSeed, out var ember);
-            var adapter = (TargetGhiniRoomEntity)enemies[0].Key;
             FailIf(!adapter.ApplySeedCollision(first.CollisionBounds, first.Position.Floor() - Vector2.Right,
                 ember, ItemCollisionType.EmberSeed, new List<RoomEntitySpawn>()).Contact,
                 "ENEMY$17:$02 must accept its native Ember effect$27.");

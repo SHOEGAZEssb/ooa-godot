@@ -50,12 +50,6 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
             player.ApplyEnemyContactDamage(Entity.Position, Entity.DamageQuarters))
             Entity.NotifyLinkCollision();
     }
-    public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_FIRE_KEESE $39 requires Mystery's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
-    }
     public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {

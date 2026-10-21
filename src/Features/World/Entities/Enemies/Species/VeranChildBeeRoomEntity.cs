@@ -74,12 +74,9 @@ internal sealed class VeranChildBeeRoomEntity : CombatEnemyRoomEntityAdapter<Ver
         return new(true,seed.SeedItem==ItemId.MysterySeed?SeedHitResult.ActivateRandomSeed:SeedHitResult.Activate,
             effect is not (CollisionEffect.SwordLowKnockback or CollisionEffect.Sword));
     }
-    public bool BurnTargetAlive=>GodotObject.IsInstanceValid(Entity)&&!Entity.IsDead;
     public int BurnTargetId=>0x1f;
-    public Vector2 BurnPosition=>Entity.Position;
-    public int BurnHealth {get=>Entity.Health;set=>Entity.Health=value;}
     public int BurnZFixed {get=>Entity.BurnZFixed;set=>Entity.BurnZFixed=value;}
-    public void ReleaseBurn()=>Entity.ReleaseBurn();
+    public override void ReleaseBurn()=>Entity.ReleaseBurn();
     public override void HandleLinkContact(Player player)
     {
         if(!Entity.CollisionEnabled||Entity.NativeHitPending||!player.EnemyContactHeightOverlaps(CollisionZ))return;

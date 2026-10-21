@@ -41,12 +41,6 @@ internal sealed class GibdoRoomEntity : CombatEnemyRoomEntityAdapter<GibdoCharac
         return true;
     }
 
-    public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_GIBDO $12 requires Mystery's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
-    }
     public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
@@ -80,10 +74,7 @@ internal sealed class GibdoRoomEntity : CombatEnemyRoomEntityAdapter<GibdoCharac
         if (Entity.StunCounter != 0 && !shield) return;
         base.HandleLinkContact(player);
     }
-    public bool BurnTargetAlive => GodotObject.IsInstanceValid(Entity) && !Entity.IsDead && !Entity.Replaced;
+    public override bool BurnTargetAlive => GodotObject.IsInstanceValid(Entity) && !Entity.IsDead && !Entity.Replaced;
     public int BurnTargetId => Entity.Record.Id;
-    public Vector2 BurnPosition => Entity.Position;
-    public int BurnHealth { get => Entity.Health; set => Entity.Health = value; }
     public int BurnZFixed { get => Entity.ZFixed; set => Entity.ZFixed = value; }
-    public void ReleaseBurn() => Entity.InvincibilityCounter = 0;
 }

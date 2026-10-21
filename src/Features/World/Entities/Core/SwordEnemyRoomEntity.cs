@@ -61,54 +61,25 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
     {
         int effect = EnemyBehaviorTables.Shared.SwordEnemyCollisionEffect(Entity.CollisionMode, collision);
         if (effect == CollisionEffect.None) return false;
-        EnemyKnockbackStrength strength = effect switch
-        {
-            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,
-            CollisionEffect.Sword => EnemyKnockbackStrength.Normal,
-            CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
-            _ => throw new NotSupportedException($"Sword enemy ${Entity.Record.Id:x2}:${Entity.Record.SubId:x2}, collision ${collision:x2}: effect ${effect:x2}.")
-        };
+        var strength = CollisionKnockback(collision, effect);
         return base.ApplySwordHit(hitbox, origin, damage, strength, spawns);
     }
-
-    public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem,
-        ICollection<RoomEntitySpawn> spawns)
-    {
-        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("Sword enemies require Mystery Seed's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
-    }
-
-    public SeedCollisionResponse ApplySeedCollision(Rect2 hitbox, Vector2 origin, SeedRecord seed,
+    public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
-        if (GaleCaught || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
-            EnemyBehaviorTables.Shared.SwordEnemyActiveCollisions[collisionType].Value == 0 ||
-            !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, hitbox)) return default;
-        int effect = EnemyBehaviorTables.Shared.SwordEnemyCollisionEffect(Entity.CollisionMode, collisionType);
-        switch (effect)
-        {
-            case CollisionEffect.None: return new(true, SeedHitResult.None, false);
-            case CollisionEffect.Effect20: break; // Consume an ineffective seed, including fire against Darknuts.
-            case CollisionEffect.SwordLowKnockback:
-                ApplyDamageCollision(collisionType, hitbox, origin, -(sbyte)seed.Damage, spawns);
-                break;
-            case CollisionEffect.PegasusSeed:
-                Entity.BeginPegasusHit();
-                CombatDescriptor.RequestSound(SoundId.SndDamageEnemy);
-                break;
-            case CollisionEffect.GaleSeed:
-                Entity.ClearSeedStun();
-                BeginNativeGale(origin, _random);
-                break;
-            case CollisionEffect.Effect34:
-                Entity.BeginEmberHit();
-                if (_freePartSlot()) spawns.Add(new BurningEnemySpawn(this));
-                break;
-            default: throw new NotSupportedException($"Sword enemy ${Entity.Record.Id:x2}:${Entity.Record.SubId:x2}, seed collision ${collisionType:x2}: effect ${effect:x2}.");
-        }
-        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != CollisionEffect.SwordLowKnockback);
+        if (!NativeCollisionEligible(collisionType, bounds, EnemyBehaviorTables.Shared.SwordEnemyActiveCollisions, false)) return default;
+        return ApplyStatusSeedCollision(EnemyBehaviorTables.Shared.SwordEnemyCollisionEffect(Entity.CollisionMode, collisionType), collisionType,
+            bounds, origin, seed, spawns, _freePartSlot, _random);
     }
+    protected override void BeginSeedStatus(bool ember, int damage)
+    {
+        if (ember) Entity.BeginEmberHit();
+        else Entity.BeginPegasusHit();
+    }
+    protected override void CatchStatusGale(Vector2 origin, Func<byte> random)
+    { Entity.ClearSeedStun(); BeginNativeGale(origin, random); }
+    protected override bool SeedStatusDisablesCollision(int effect) => effect != CollisionEffect.SwordLowKnockback;
+    protected override int SeedStatusBurnEffect => CollisionEffect.Effect34;
 
     public override void HandleLinkContact(Player player)
     {
@@ -116,10 +87,7 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
             CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))) return;
         base.HandleLinkContact(player);
     }
-    public bool BurnTargetAlive => GodotObject.IsInstanceValid(Entity) && !Entity.IsDead;
     public int BurnTargetId => Entity.Record.Id;
-    public Vector2 BurnPosition => Entity.Position;
-    public int BurnHealth { get => Entity.Health; set => Entity.Health = value; }
     public int BurnZFixed { get => Entity.ZFixed; set => Entity.ZFixed = value; }
-    public void ReleaseBurn() => Entity.ReleaseBurn();
+    public override void ReleaseBurn() => Entity.ReleaseBurn();
 }

@@ -54,13 +54,6 @@ internal sealed class BubbleRoomEntity : CombatEnemyRoomEntityAdapter<BubbleChar
         hook.NotifyObjectCollision();
         return true;
     }
-    public override SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int seedItem,
-        ICollection<RoomEntitySpawn> spawns)
-    {
-        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("Bubble $15 requires Mystery Seed's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(bounds, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
-    }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {

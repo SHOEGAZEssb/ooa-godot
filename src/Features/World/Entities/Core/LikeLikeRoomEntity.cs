@@ -60,46 +60,25 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
         if (data.ActiveCollisions[collision].Value == 0) return false;
         int effect = data.CollisionEffects[collision].Value;
         if (effect == CollisionEffect.None) return false;
-        var strength = effect switch
-        {
-            CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low, CollisionEffect.Sword => EnemyKnockbackStrength.Normal, CollisionEffect.SwordHighKnockback => EnemyKnockbackStrength.High,
-            _ => throw new NotSupportedException($"ENEMY_LIKE_LIKE $24 collision ${collision:x2}: damage effect ${effect:x2} is not represented.")
-        };
+        var strength = CollisionKnockback(collision, effect);
         return base.ApplySwordHit(bounds, origin, damage, strength, spawns);
     }
 
-    public override SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_LIKE_LIKE $24 requires Mystery's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
-        return ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
-    }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = EnemyBehaviorTables.Shared.LikeLike;
-        if (GaleCaught || Entity.PendingHit || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
-            data.ActiveCollisions[collisionType].Value == 0 || !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds)) return default;
-        int effect = data.CollisionEffects[collisionType].Value;
-        switch (effect)
-        {
-            case CollisionEffect.None: return new(true, SeedHitResult.None, false);
-            case CollisionEffect.Effect20: break;
-            case CollisionEffect.SwordLowKnockback: Hit(collisionType, bounds, origin, -(sbyte)seed.Damage, spawns); break;
-            case CollisionEffect.Burn:
-                Entity.BeginEmberHit();
-                if (_freePart()) spawns.Add(new BurningEnemySpawn(this));
-                break;
-            case CollisionEffect.PegasusSeed: Entity.BeginPegasusHit(); CombatDescriptor.RequestSound(SoundId.SndDamageEnemy); break;
-            case CollisionEffect.GaleSeed: Entity.ClearSeedStun(); BeginNativeGale(origin, _random); break;
-            default: throw new NotSupportedException($"ENEMY_LIKE_LIKE $24 seed collision ${collisionType:x2}: effect ${effect:x2} is not represented.");
-        }
-        return new(true, seed.SeedItem == ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate, effect != CollisionEffect.SwordLowKnockback);
+        if (!NativeCollisionEligible(collisionType, bounds, EnemyBehaviorTables.Shared.LikeLike.ActiveCollisions, Entity.PendingHit)) return default;
+        return ApplyStatusSeedCollision(EnemyBehaviorTables.Shared.LikeLike.CollisionEffects[collisionType].Value, collisionType,
+            bounds, origin, seed, spawns, _freePart, _random);
     }
-    public bool BurnTargetAlive => GodotObject.IsInstanceValid(Entity) && !Entity.IsDead;
+    protected override void BeginSeedStatus(bool ember, int damage)
+    {
+        if (ember) Entity.BeginEmberHit();
+        else Entity.BeginPegasusHit();
+    }
+    protected override void CatchStatusGale(Vector2 origin, Func<byte> random)
+    { Entity.ClearSeedStun(); BeginNativeGale(origin, random); }
+    protected override bool SeedStatusDisablesCollision(int effect) => effect != CollisionEffect.SwordLowKnockback;
     public int BurnTargetId => 0x24;
-    public Vector2 BurnPosition => Entity.Position;
-    public int BurnHealth { get => Entity.Health; set => Entity.Health = value; }
     public int BurnZFixed { get => Entity.ZFixed; set => Entity.ZFixed = value; }
-    public void ReleaseBurn() => Entity.InvincibilityCounter = 0;
 }

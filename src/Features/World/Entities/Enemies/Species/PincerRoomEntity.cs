@@ -75,10 +75,6 @@ internal sealed class PincerRoomEntity : CombatEnemyRoomEntityAdapter<PincerChar
         return new(true,seed.SeedItem==ItemId.MysterySeed ? SeedHitResult.ActivateRandomSeed : SeedHitResult.Activate,effect!=CollisionEffect.SwordNoKnockback);
     }
     internal Func<bool> PartSlotAvailable {private get;set;}=null!;
-    public bool BurnTargetAlive=>GodotObject.IsInstanceValid(Entity) && !Entity.IsDead;
     public int BurnTargetId=>0x45;
-    public Vector2 BurnPosition=>Entity.Position;
-    public int BurnHealth {get=>Entity.Health;set=>Entity.Health=value;}
     public int BurnZFixed {get=>Entity.ZFixed;set=>Entity.ZFixed=value;}
-    public void ReleaseBurn()=>Entity.InvincibilityCounter=0;
 }
