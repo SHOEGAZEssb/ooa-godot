@@ -25,9 +25,10 @@ Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm
 Add the Godot executable's directory to `PATH`. The examples use the Windows
 .NET console executable's original name,
 `Godot_v4.7.1-stable_mono_win64_console.exe`. On other platforms, substitute
-your installed executable's filename. Validation commands resolve it with
-`Get-Command` and pass its path through `-Godot` to override the launcher's
-local default executable path.
+your installed executable's filename. The validation launcher automatically
+finds this Windows executable on `PATH`. Use `-Godot` to select another
+executable name or an explicit path. A missing executable fails before ROM
+resolution or worker startup, with instructions for fixing the path.
 
 The importer builds and verifies the supported clean US ROM automatically,
 then reuses it from `.cache/oracle-rom/`. First use needs network access;
@@ -88,8 +89,8 @@ After building, run all headless validations with the standard 8 workers,
 or one exact registered method:
 
 ```powershell
-& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
-& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source -ValidateOnly ValidateMethodName
+& .\tools\validate_parallel.ps1
+& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
 ```
 
 See [Validation](validation.md) for scenario isolation and handoff checks.

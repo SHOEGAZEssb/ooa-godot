@@ -33,7 +33,8 @@ Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm (pinned submod
 Add the Godot 4.7.1 .NET executable's directory to `PATH`. The examples use
 the original Windows filename `Godot_v4.7.1-stable_mono_win64_console.exe`;
 substitute the installed executable's filename on other platforms. Pass its
-resolved path through `-Godot` to override the validation launcher's local default.
+executable name or resolved path through `-Godot` to override the validation
+launcher's automatic lookup of that Windows filename on `PATH`.
 
 ## Start every task this way
 

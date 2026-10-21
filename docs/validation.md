@@ -262,15 +262,15 @@ memory diagnostics for investigating leaks. Keep worker counts, scenario coverag
 timing profiles, and build settings fixed when comparing performance.
 Run `tools/Test-ValidationLauncher.ps1` after changing the launcher; its fixture
 checks the absence of resource caps and forced priority, descendant cleanup,
-process flags, crash failure, log isolation, and completion handling without
-requiring a game build.
+process flags, executable discovery and overrides, crash failure, log isolation,
+and completion handling without requiring a game build.
 
 Add the Godot executable's directory to `PATH`, as described in
-[Development](development.md#requirements). The examples resolve the original
-Windows executable's filename with `Get-Command` and pass its path through
-`-Godot` to override the launcher's local default. Substitute your installed
-executable's filename on other platforms. `-TimeoutSeconds` sets the overall deadline
-(default 600 seconds; zero disables it, as used in CI). The launcher fails on a
+[Development](development.md#requirements). The launcher automatically resolves
+`Godot_v4.7.1-stable_mono_win64_console.exe` on `PATH`. Use `-Godot` to select
+another executable name or an explicit path. Missing executables fail before
+ROM resolution, result deletion, or worker startup. `-TimeoutSeconds` sets the
+overall deadline (default 600 seconds; zero disables it, as used in CI). The launcher fails on a
 worker error, timeout, missing
 completion marker, or incomplete scenario count, and stops remaining processes
 on exit. `-FailOnEngineDiagnostics` also rejects engine errors and warnings in

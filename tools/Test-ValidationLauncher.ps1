@@ -1,9 +1,9 @@
 # Windows launcher regression: no ROM/game build required.
 $ErrorActionPreference = 'Stop'
 $launcher = Join-Path $PSScriptRoot 'validate_parallel.ps1'
-$temporary = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-launcher-' + [Guid]::NewGuid().ToString('N'))
+$temporary = Join-Path ([IO.Path]::GetTempPath()) ('ooa-validation-launcher [fixture] ' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($temporary)
-$fixture = Join-Path $temporary 'fixture.exe'
+$fixture = Join-Path $temporary 'Godot_v4.7.1-stable_mono_win64_console.exe'
 $fixtureSource = Join-Path $temporary 'fixture.cs'
 $timingProfile = Join-Path $temporary 'timing profile [fixture].tsv'
 $childPidFile = Join-Path $temporary 'child.pid'
@@ -139,6 +139,46 @@ public static class ValidationLauncherFixture {
     if ($LASTEXITCODE -ne 0) { throw 'Could not compile the validation launcher fixture.' }
     # Load the launcher's interop type and exercise a successful focused run.
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture -FailOnEngineDiagnostics -TimeoutSeconds 15
+    $previousPath = $env:PATH
+    $discoveryResult = Join-Path $temporary 'discovery-result.json'
+    try {
+        $env:PATH = $temporary
+        & $launcher -Rom $fixtureParameters.Rom -ValidateOnly ValidateFixture -TimeoutSeconds 15
+        & $launcher -Godot ([IO.Path]::GetFileName($fixture)) -Rom $fixtureParameters.Rom `
+            -ValidateOnly ValidateFixture -TimeoutSeconds 15
+        $failure = $null
+        try { & $launcher -Godot (Join-Path $temporary 'missing.exe') }
+        catch { $failure = $_.ToString() }
+        if ($null -eq $failure -or -not $failure.Contains('missing.exe') -or -not $failure.Contains('pass -Godot')) {
+            throw "Missing explicit executable did not fail with actionable guidance: $failure"
+        }
+        $env:PATH = ''
+        # An explicit executable remains usable without PATH discovery.
+        & $launcher @fixtureParameters -ValidateOnly ValidateFixture -TimeoutSeconds 15
+        Push-Location -LiteralPath $temporary
+        try {
+            & $launcher -Godot (Join-Path '.' ([IO.Path]::GetFileName($fixture))) `
+                -Rom $fixtureParameters.Rom -ValidateOnly ValidateFixture -TimeoutSeconds 15
+        }
+        finally { Pop-Location }
+        [IO.File]::WriteAllText($discoveryResult, 'preserve previous result')
+        $failure = $null
+        # No ROM override: missing Godot must fail before any ROM build or result deletion.
+        try { & $launcher -ResultPath $discoveryResult }
+        catch { $failure = $_.ToString() }
+        if ($null -eq $failure -or -not $failure.Contains('Godot executable') -or
+            -not $failure.Contains('PATH') -or -not $failure.Contains('pass -Godot')) {
+            throw "Missing PATH executable did not fail with actionable guidance: $failure"
+        }
+        if ([IO.File]::ReadAllText($discoveryResult) -ne 'preserve previous result') {
+            throw 'Missing executable deleted the previous result.'
+        }
+    }
+    finally {
+        $env:PATH = $previousPath
+        if ([IO.File]::Exists($discoveryResult)) { [IO.File]::Delete($discoveryResult) }
+    }
+    Write-Host 'Godot discovery tests passed (PATH lookup, executable-name and literal-path overrides, missing executable diagnostics before side effects).'
     & $launcher @fixtureParameters -ValidateOnly ValidateFixture -TimeoutSeconds 0
     & $launcher @fixtureParameters -ValidateOnly ValidateUnrestrictedResources -TimeoutSeconds 15
     & $launcher @fixtureParameters -ValidateOnly ValidateMemoryProfileArgument -ProfileMemory -TimeoutSeconds 15

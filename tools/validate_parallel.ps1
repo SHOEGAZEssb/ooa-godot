@@ -1,7 +1,7 @@
 param(
     [ValidateRange(1, 64)]
     [int]$Workers = 8,
-    [string]$Godot = 'E:\Stuff\Gamedev\Godot\Godot_v4.7.1-stable_mono_win64_console.exe',
+    [string]$Godot = 'Godot_v4.7.1-stable_mono_win64_console.exe',
     [ValidatePattern('^Validate[A-Za-z0-9_]+$')]
     [string]$ValidateOnly,
     [string]$Rom,
@@ -32,6 +32,20 @@ if ($ValidateOnly) {
     }
     $Workers = 1
     $totalWorkers = 1
+}
+# Resolve before deleting results, loading interop, or building the reference ROM.
+# Literal file handling preserves explicit paths containing wildcard characters.
+if ($Godot -and (Test-Path -LiteralPath $Godot -PathType Leaf -ErrorAction SilentlyContinue)) {
+    $Godot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Godot)
+} else {
+    $godotCommand = if (-not [string]::IsNullOrWhiteSpace($Godot)) {
+        Get-Command -Name $Godot -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+    }
+    if (-not $godotCommand) {
+        throw "Godot executable '$Godot' was not found. Add the Godot 4.7.1 .NET executable's directory to PATH or pass -Godot with its executable path."
+    }
+    $Godot = $godotCommand.Source
 }
 if ($ResultPath) {
     $ResultPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ResultPath)
