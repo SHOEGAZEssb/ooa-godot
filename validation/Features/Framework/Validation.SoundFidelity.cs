@@ -187,14 +187,21 @@ public sealed partial class ValidationRoot
             int warmedSkips = -1;
             double[] unevenDeltas = [1.0 / 120, 1.0 / 40, 1.0 / 60, 1.0 / 30, 1.0 / 120];
             double[] jitterDeltas = [1.0 / 120, 1.0 / 120, 0.075, 1.0 / 120, 1.0 / 120];
-            int maximumPending = mixFrames == 512 && hostRate >= 0 ? 2940 : 6326;
+            // Target plus two updates of phase headroom; the device reserve
+            // can grow from 1024 to 4410 frames only after an underrun.
+            int maximumPending = (mixFrames == 512 && hostRate >= 0 ? 2940 : 6326) + 1470;
             var field = typeof(OracleSoundEngine).GetField("_samples",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
             var queued = (Queue<Vector2>)field.GetValue(sound)!;
+            int discarded = 0;
             void AdvanceHost(double delta)
             {
                 scheduler.Advance(delta, sound.Tick);
+                int managedBefore = queued.Count;
+                int nativeBefore = capacity - playback.GetFramesAvailable();
                 sound._Process(0);
+                int nativeAfter = capacity - playback.GetFramesAvailable();
+                if (elapsed > 1) discarded += Math.Max(0, managedBefore - queued.Count - (nativeAfter - nativeBefore));
                 // Include native and managed storage. Capacity alone does not
                 // establish latency; the old managed ring retained 250 ms.
                 int pending = capacity - playback.GetFramesAvailable() + queued.Count;
@@ -214,13 +221,16 @@ public sealed partial class ValidationRoot
                 if (elapsed >= 1 && warmedSkips < 0) warmedSkips = playback.GetSkips();
             }
             int skips = playback.GetSkips() - warmedSkips;
+            GD.Print($"AUDIO_QUEUE music={music:x2} host={hostRate} mixer={mixFrames} steady_discarded={discarded}");
+            FailIf(discarded != 0,
+                $"Ordinary host/mixer phase variation discarded {discarded} PCM samples at {hostRate} FPS with a {mixFrames}-frame mixer.");
             FailIf(skips != 0 || queued.Count != 0,
                 $"Audio at {hostRate} FPS, {mixFrames}-frame mixer has {skips} mixer underruns or a stale PCM backlog of {queued.Count} samples.");
 
             // A real host stall lets the mixer drain first, then batches the
             // missed game updates. Do not keep playing all that stale PCM.
             double stall = 0.25;
-            maximumPending = 6326;
+            maximumPending = 7796;
             while (nextMix < elapsed + stall)
             {
                 playback.MixAudio(1, mixFrames);
@@ -563,6 +573,15 @@ public sealed partial class ValidationRoot
         var right = (Queue<Vector2>)field.GetValue(batched)!;
         FailIf(left.Count < 8800 || !left.SequenceEqual(right) || left.All(s => s == Vector2.Zero),
             "Batched application updates dropped intermediate sound or produced different PCM samples.");
+        string pcmHash = Convert.ToHexString(SHA256.HashData(
+            System.Runtime.InteropServices.MemoryMarshal.AsBytes(left.ToArray().AsSpan())));
+        // Captured with instruction-by-instruction APU clocking before the
+        // driver coalesced clocks between register accesses. The independent
+        // clean-ROM catalog above separately establishes driver fidelity.
+        FailIf(left.Count != 8820 || individual.Apu.Clocks != 842774 ||
+            pcmHash != "32EC9BDF00FE866A8C38CF9157942D5F3A0130A3CEFFB132D72B9C3691755D88",
+            $"Driver clock barriers changed PCM or elapsed clocks: {left.Count} samples, " +
+            $"{individual.Apu.Clocks} clocks, SHA-256={pcmHash}.");
 
         int[]? gameplayTrace = null;
         foreach (bool batchGameplay in new[] { false, true })

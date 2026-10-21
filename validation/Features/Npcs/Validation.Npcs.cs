@@ -2464,6 +2464,24 @@ public sealed partial class ValidationRoot
 
     private void ValidateLynnaShopInteractions()
     {
+        if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--profile-native-construction") >= 0)
+        {
+            if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--preload-native-script") >= 0)
+            {
+                var loadTimer = System.Diagnostics.Stopwatch.StartNew();
+                var script = ResourceLoader.Load<CSharpScript>("res://src/Features/World/Interactions/LynnaShop/LynnaShopItem.cs");
+                loadTimer.Stop();
+                GD.Print($"NATIVE_SCRIPT_LOAD ms={loadTimer.Elapsed.TotalMilliseconds:F3} valid={script is not null}");
+            }
+            for (int pass = 1; pass <= 2; pass++)
+            {
+                var constructorTimer = System.Diagnostics.Stopwatch.StartNew();
+                var dormant = new LynnaShopItem();
+                constructorTimer.Stop();
+                GD.Print($"NATIVE_CONSTRUCTOR type=LynnaShopItem pass={pass} ms={constructorTimer.Elapsed.TotalMilliseconds:F3}");
+                dormant.Free();
+            }
+        }
         const int group = 2;
         const int roomId = 0x5e;
         var database = new LynnaShopDatabase();
@@ -2568,6 +2586,12 @@ public sealed partial class ValidationRoot
 
         LynnaShopEvent shop = _roomEvents.Get<LynnaShopEvent>();
         List<LynnaShopItem> products = _entities.Entities<LynnaShopItem>();
+        const System.Reflection.BindingFlags digitFlags =
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var digitField = typeof(LynnaShopItem).GetField("_digitTextures", digitFlags)!;
+        FailIf(products.Count == 0 || products.Any(item =>
+                !ReferenceEquals(digitField.GetValue(products[0]), digitField.GetValue(item))),
+            "Room 2:5e stock did not share one room-entry BG price digit set.");
         NpcCharacter shopkeeper = _entities.Entities<NpcCharacter>().Single(npc =>
             npc.Record is { Id: InteractionId.Shopkeeper, SubId: 0x00 });
         FailIf(
@@ -2702,6 +2726,15 @@ public sealed partial class ValidationRoot
             shop.HasState || !hearts.Removed || hearts.Visible ||
             _player.IsCarryingObject || _player.IsHoldingItemTwoHands,
             "Purchased shop stock did not delete after its item textbox closed.");
+
+        object initialDigits = digitField.GetValue(products[0])!;
+        LoadValidationRoom(0, 0x68);
+        LoadValidationRoom(group, roomId);
+        List<LynnaShopItem> returnedProducts = _entities.Entities<LynnaShopItem>();
+        FailIf(returnedProducts.Count == 0 || returnedProducts.Any(item =>
+                ReferenceEquals(initialDigits, digitField.GetValue(item)) ||
+                !ReferenceEquals(digitField.GetValue(returnedProducts[0]), digitField.GetValue(item))),
+            "Shop re-entry reused an old palette snapshot or rebuilt BG prices separately for each item.");
 
         _inventory.AddRupees(rupeesBefore - _inventory.Rupees);
         _saveData.SetLinkedGame(linkedBefore);

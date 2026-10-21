@@ -5,7 +5,7 @@ namespace oracleofages;
 /// $8a:$00/v$02 in room 0:3a after obtaining the Harp of Ages.
 /// </summary>
 internal sealed class RemoteMakuHarpEvent(RoomEventContext context) :
-    RemoteMakuEntryEvent<RemoteMakuHarpDatabase>(context, new RemoteMakuHarpDatabase())
+    RemoteMakuEntryEvent<RemoteMakuHarpDatabase>(context, RoomEventSourceData.Shared.MakuHarp)
 {
     public override bool Matches(int group, OracleRoomData room)
     {

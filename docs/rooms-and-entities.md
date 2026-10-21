@@ -81,6 +81,25 @@ through `RoomSession` before preload, and reapply live persistent substitutions
 when loading cached data. Keep logical layout, underlying terrain, collision,
 and displayed tile mappings distinct.
 
+Legacy collision passes retain a separate membership snapshot for the item
+scan and each item's target scan. Callbacks may change live membership;
+changes reach the next snapshot without invalidating one already in progress.
+Scoped pooled arrays preserve these boundaries and clear references on return.
+Incoming-room state-zero preparation rescans live membership after each actor,
+selecting the next native category/slot while preserving ties in list order.
+An object created below a category cursor waits for the next preparation pass.
+
+Debug device builds can opt into room-loading timings with
+`user://room-load-diagnostics.enabled` (or `--room-load-diagnostics` for desktop
+profiling). Reports identify the original room and separate data/raster work,
+live substitutions, actor construction, entry events and transition state zero.
+These CPU timings help distinguish first-use work from repeated entry; they do
+not measure deferred GPU execution and do not change gameplay scheduling.
+
+Shop stock shares one immutable set of BG price digits per room entry. Build
+it from the room's current palette; a later entry creates a fresh set rather
+than retaining palette-dependent textures across room activations.
+
 Native changes to live tileset flags belong to the active room data. Room
 initialization restores imported flags before native actors apply their writes.
 

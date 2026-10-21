@@ -152,6 +152,107 @@ public sealed partial class ValidationRoot
             !SamePayloadExceptPlaytime(cancelledBytes, cancelled) || cancelled.ReadWramByte(0xc622) != 1,
             "Cancelling partial preparation retained the intro or committed its save state.");
         GD.Print("Validated staged intro preparation and original handoff through individual and batched host updates.");
+        ValidatePreparedSavedGameHandoff();
+    }
+
+    private void ValidatePreparedSavedGameHandoff()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var root = typeof(GameRoot);
+        void Invoke(string name, params object[] args) => root.GetMethod(name, flags)!.Invoke(this, args);
+        bool Loading() => (bool)root.GetField("_loadingSavedGame", flags)!.GetValue(this)!;
+        void ClearScene()
+        {
+            ReinitializeGameplayForValidation();
+            Invoke("ReleaseGameplayScene", true);
+            _scene = null!;
+            _random = new OracleRandom();
+        }
+        static OracleSaveData Save()
+        {
+            var save = OracleSaveData.CreateStandardGame();
+            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);
+            save.SetGlobalFlag(GlobalFlag.IntroDone);
+            save.WriteWramByte(WramAddress.wLinkHealth, 0);
+            return save;
+        }
+        void Select(OracleSaveData save)
+        {
+            var persist = root.GetField("_persistSaveData", flags)!;
+            persist.SetValue(this, true);
+            try { Invoke("StartSelectedFile", 0, save); }
+            finally { persist.SetValue(this, false); }
+        }
+
+        // Compare with the original synchronous initialization order, including
+        // native initializeGame's health restore and mainThreadStart's first tick.
+        ClearScene();
+        var expected = Save();
+        expected.AdvancePlaytime();
+        _sound.RestartSound();
+        Invoke("InitializeGameplay", expected, true, null!, InitialRoomLoadKind.Ordinary);
+        byte[] expectedSave = expected.Serialize();
+        byte[] expectedWram = _runtimeState.CaptureState().Wram;
+        int expectedRng = _random.Calls;
+        Vector2 expectedPosition = _player.Position;
+        int expectedEntities = _entities.EntityAdapters<IRoomEntity>().Count();
+        int expectedMusic = _sound.ActiveMusic;
+        foreach (bool batched in new[] { false, true })
+        {
+            ClearScene();
+            var save = Save();
+            Select(save);
+            byte[] selected = save.Serialize();
+            FailIf(!Loading() || _random.Calls != 0 || save.ReadWramByte(WramAddress.wLinkHealth) != 12,
+                "Saved-file selection did not restore source health before dormant preparation.");
+            for (int host = 0; Loading() && host < 256; host++)
+            {
+                base._Process((batched ? 4 : 1) / 60.0);
+                if (!Loading()) break;
+                FailIf(_random.Calls != 0 || !selected.SequenceEqual(save.Serialize()),
+                    "Saved-file preparation advanced playtime, save bytes or object RNG.");
+                if (_scene is not null)
+                    FailIf(_scene.Visible || _scene.InterfaceLayer.Visible || _roomCamera.Enabled ||
+                        _scene.ProcessMode != ProcessModeEnum.Disabled,
+                        "Saved-file preparation exposed or enabled a partial gameplay scene.");
+            }
+            FailIf(Loading() || !expectedSave.SequenceEqual(save.Serialize()) ||
+                !expectedWram.SequenceEqual(_runtimeState.CaptureState().Wram) ||
+                _random.Calls != expectedRng || _player.Position != expectedPosition ||
+                _entities.EntityAdapters<IRoomEntity>().Count() != expectedEntities ||
+                _sound.ActiveMusic != expectedMusic || !_scene!.Visible || !_roomCamera.Enabled ||
+                save.ReadWramByte(WramAddress.wPlaytimeCounter) != 1 ||
+                !save.HasRoomFlag(0, 0x8a, OracleSaveData.RoomFlagVisited) ||
+                _runtimeState.ReadWramByte(WramAddress.wScrollMode) != 1,
+                $"Staged saved-file entry mismatch: loading={Loading()}, save={expectedSave.SequenceEqual(save.Serialize())}, " +
+                $"WRAM={expectedWram.SequenceEqual(_runtimeState.CaptureState().Wram)}, RNG={_random.Calls}/{expectedRng}, " +
+                $"spawn={_player.Position}/{expectedPosition}, entities={_entities.EntityAdapters<IRoomEntity>().Count()}/{expectedEntities}, " +
+                $"music=${_sound.ActiveMusic:x2}/${expectedMusic:x2}, visible={_scene!.Visible}, camera={_roomCamera.Enabled}, " +
+                $"playtime={save.ReadWramByte(WramAddress.wPlaytimeCounter)}, visited={save.HasRoomFlag(0, 0x8a, OracleSaveData.RoomFlagVisited)}, " +
+                $"scroll=${_runtimeState.ReadWramByte(WramAddress.wScrollMode):x2}.");
+            int rng = _random.Calls;
+            int maturity = save.GashaMaturity;
+            base._Process(1.0 / 60);
+            FailIf(save.ReadWramByte(WramAddress.wPlaytimeCounter) != 2 ||
+                _random.Calls != rng || save.GashaMaturity != maturity,
+                "First post-load update repeated room entry or failed to resume playtime.");
+        }
+
+        ClearScene();
+        var cancelled = Save();
+        Select(cancelled);
+        byte[] before = cancelled.Serialize();
+        // Stop after exactly one resource step, independently of CPU speed.
+        ((System.Collections.Generic.IEnumerator<bool>)root.GetField("_gameplayPreparation", flags)!.GetValue(this)!).MoveNext();
+        ReinitializeGameplayForValidation();
+        AdvanceGameplayPreparation();
+        FailIf(Loading() || !before.SequenceEqual(cancelled.Serialize()) ||
+            cancelled.HasRoomFlag(0, 0x8a, OracleSaveData.RoomFlagVisited),
+            "Cancelling staged saved-file loading committed entry or retained pending work.");
+        FailIf(!ReferenceEquals(RoomEventSourceData.Shared.MakuFirst,
+                _roomEvents.Get<RemoteMakuFirstEssenceEvent>().Database),
+            "Remote Maku definitions were rebuilt for a fresh event instance.");
+        GD.Print("Validated saved-file preparation, single entry commit, resumed play, cancellation and repeated selections across host batching.");
     }
 
     private void ValidateDeferredGameplayAssets()
@@ -164,8 +265,11 @@ public sealed partial class ValidationRoot
         int rngCalls = _random.Calls;
         var factory = (RoomEntityFactory)Field(_entities, "_factory")!;
         PlayerSpriteLibrary sprites = _player.Sprites;
-        FailIf(Field(factory.Resources, "_smogProjectileData") is not null ||
-            Field(sprites, "_swordTextureCache") is not null ||
+        object? preparedSmog = Field(factory.Resources, "_smogProjectileData");
+        FailIf(preparedSmog is not null && !ReferenceEquals(preparedSmog,
+                Field(RoomEntityResources.CreateSession(_rooms), "_smogProjectileData")),
+            "Prewarmed immutable boss definitions were duplicated for a session.");
+        FailIf(Field(sprites, "_swordTextureCache") is not null ||
             Field(sprites, "_seedShooterTexturesCache") is not null,
             "Gameplay initialization eagerly prepared unused boss/item assets.");
 

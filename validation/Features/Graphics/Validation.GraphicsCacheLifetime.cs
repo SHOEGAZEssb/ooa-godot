@@ -10,6 +10,7 @@ public sealed partial class ValidationRoot
         const string path = "res://assets/oracle/gfx/gfx_font.png";
         Image source = OracleGraphicsCache.LoadImage(path);
         Texture2D font = OracleGraphicsCache.LoadMonochromeFont(path);
+        OracleImagePixels pixels = OracleGraphicsCache.GetImagePixels(source);
         using Image original = OracleGraphicsCache.LoadRawPngForValidation(path);
         ulong expected = OracleGraphicsCache.PixelHash(original);
         for (int repeat = 0; repeat < 8; repeat++)
@@ -20,7 +21,8 @@ public sealed partial class ValidationRoot
             CollectReleasedSessions();
             Image retained = OracleGraphicsCache.LoadImage(path);
             Texture2D retainedFont = OracleGraphicsCache.LoadMonochromeFont(path);
-            FailIf(!ReferenceEquals(source, retained) || !ReferenceEquals(font, retainedFont),
+            FailIf(!ReferenceEquals(source, retained) || !ReferenceEquals(font, retainedFont) ||
+                !ReferenceEquals(pixels, OracleGraphicsCache.GetImagePixels(retained)),
                 "Exiting a temporary application root invalidated another live root's shared graphics cache.");
             FailIf(!GodotObject.IsInstanceValid(source) || !GodotObject.IsInstanceValid(font) ||
                 OracleGraphicsCache.PixelHash(retained) != expected,

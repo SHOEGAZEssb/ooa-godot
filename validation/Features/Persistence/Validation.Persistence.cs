@@ -263,6 +263,7 @@ public sealed partial class ValidationRoot
             stopped.Step(1, false);
             stopped.Step(1, false, "inventory");
             stopped.Step(MainMenuController.WhiteFadeFrames, false);
+            stopped.CompleteSavedGameLoading(false);
             FailIf(stopped._rooms is null || stopped._inventory is null,
                 "The exit-persistence fixture must load its isolated saved file into gameplay.");
             stopped._saveData.SetGlobalFlag(GlobalFlag.SavedNayru);

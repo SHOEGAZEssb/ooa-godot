@@ -15,7 +15,9 @@ public partial class GameRoot : Node2D
     internal ApplicationInputBuffer ApplicationInput => _applicationInput;
     private bool _debugFastForward;
     private readonly GameplaySceneResource _gameplaySceneResource = new();
+    private readonly GameplayScriptResources _gameplayScriptResources = new();
     private IEnumerator<bool>? _gameplayPreparation;
+    private bool _loadingSavedGame;
     internal bool GameplayPrepared { get; private set; }
     private BootLoadingScreen? _bootLoading;
     private readonly Queue<System.Func<IEnumerator<bool>?>> _bootTasks = new();
@@ -150,7 +152,7 @@ public partial class GameRoot : Node2D
 
     public override void _Input(InputEvent @event)
     {
-        if (_bootLoading is not null) return;
+        if (_bootLoading is not null || _loadingSavedGame) return;
         if (@event is InputEventKey
             {
                 PhysicalKeycode: Key.F5, Pressed: true, Echo: false,
@@ -287,7 +289,10 @@ public partial class GameRoot : Node2D
             return;
         }
 
-        InitializeGameplay(save);
+        _loadingSavedGame = true;
+        _gameplayPreparation = InitializeGameplaySteps(save,
+            forceDeathRespawn: _persistSaveData && !_launchOptions.HasWorldOverride && !_launchOptions.Has("--skip-menu"),
+            prepare: true).GetEnumerator();
     }
 
     internal void StartFrontend(bool startAtTitle)
@@ -351,13 +356,16 @@ public partial class GameRoot : Node2D
             _ = NpcDatabase.Shared;
             _ = EnemyDatabase.Shared;
             _ = TreasureDatabase.Shared;
-            _ = new WarpDatabase();
+            _ = WarpDatabase.Shared;
+            _ = RoomEventSourceData.Shared;
+            RoomEntityResources.PrepareSources();
             return new PreparedBootData(images, new RoomSessionResources());
         }, cancellation);
         _gameplaySceneResource.BeginPreload();
         // Only retained resources are warmed here. A selected file and its
         // gameplay owners are still created by their normal later handoff.
         _bootTasks.Enqueue(() => PrepareBootSources().GetEnumerator());
+        _bootTasks.Enqueue(() => _gameplayScriptResources.Prepare().GetEnumerator());
         _bootTasks.Enqueue(() => _gameplaySceneResource.Prepare().GetEnumerator());
         _bootTasks.Enqueue(() => PrepareGameplayPresentation().GetEnumerator());
         _bootTasks.Enqueue(() =>
@@ -704,6 +712,7 @@ public partial class GameRoot : Node2D
         // The original engine does not write SRAM merely because play stops.
         // Unsaved changes remain only in the live WRAM-style save image.
         OracleGraphicsCache.ApplicationExitedTree();
+        _gameplayScriptResources.Clear();
     }
 
     public override void _Process(double delta)
@@ -733,6 +742,16 @@ public partial class GameRoot : Node2D
                 throw new InvalidOperationException("Gameplay preparation missed its handoff boundary.");
             GameplayPrepared = _gameplayPreparation.Current;
         } while (!GameplayPrepared && budget.Elapsed.TotalMilliseconds < 2);
+        if (_loadingSavedGame && GameplayPrepared)
+        {
+            // Resource preparation has no original updates. Commit entry and
+            // placement once, then let the next application update run play.
+            while (_gameplayPreparation.MoveNext()) { }
+            _gameplayPreparation.Dispose();
+            _gameplayPreparation = null;
+            GameplayPrepared = false;
+            _loadingSavedGame = false;
+        }
     }
 
     internal void AdvanceApplicationUpdate()
@@ -752,6 +771,7 @@ public partial class GameRoot : Node2D
     private void AdvanceApplicationState()
     {
         const double delta = ApplicationFixedUpdateScheduler.UpdateDelta;
+        if (_loadingSavedGame) return;
         if (_frontendIntro is not null)
         {
             _frontendIntro.Update(delta);
@@ -1195,7 +1215,7 @@ public partial class GameRoot : Node2D
         _deathRespawnPoints = new DeathRespawnPointController(
             _rooms, _player, _runtimeState);
         _transitions = new RoomTransitionController(
-            _rooms, new WarpDatabase(), _roomView, _scene.RoomLoadReveal,
+            _rooms, WarpDatabase.Shared, _roomView, _scene.RoomLoadReveal,
             _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities,
             _deathRespawnPoints, _sound, timePortals);
@@ -1606,6 +1626,7 @@ public partial class GameRoot : Node2D
         _preparedRoomResources = null;
         _gameplayPreparation?.Dispose();
         _gameplayPreparation = null;
+        _loadingSavedGame = false;
         GameplayPrepared = false;
         if (_persistSaveData)
         {

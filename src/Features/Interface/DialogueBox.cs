@@ -717,9 +717,9 @@ public partial class DialogueBox : Node2D
         if (_retainedPresentation is not null) return (Image)_retainedPresentation.Duplicate();
         if (_scrollingText && _textScrollState == 0 && _scrollStartPresentation is not null)
             return (Image)_scrollStartPresentation.Duplicate();
-        Image output = Image.CreateEmpty(160, PanelHeight, false, Image.Format.Rgba8);
+        var output = new OracleImageCanvas(160, PanelHeight);
         output.Fill(Colors.Transparent);
-        if (!_open || _ownerClosing) return output;
+        if (!_open || _ownerClosing) return output.ToImage();
         output.FillRect(new Rect2I(PanelX, 0, PanelWidth, _visiblePanelHeight), BackgroundColor);
 
         if (_scrollingText)
@@ -757,7 +757,7 @@ public partial class DialogueBox : Node2D
             DrawChoiceCursor(output);
 
         DrawHeartPieceDisplay(output);
-        return output;
+        return output.ToImage();
     }
 
     internal void AdvanceArrowClockForValidation(double delta)
@@ -1004,7 +1004,7 @@ public partial class DialogueBox : Node2D
         QueueRedraw();
     }
 
-    private void DrawChoiceCursor(Image output)
+    private void DrawChoiceCursor(OracleImageCanvas output)
     {
         int optionIndex = 0;
         for (int lineIndex = 0; lineIndex < LinesPerPage; lineIndex++)
@@ -1261,7 +1261,7 @@ public partial class DialogueBox : Node2D
             : TextLine.Empty;
     }
 
-    private void DrawFontLineClipped(Image output, TextLine line, Vector2 destination, int visibleGlyphs)
+    private void DrawFontLineClipped(OracleImageCanvas output, TextLine line, Vector2 destination, int visibleGlyphs)
     {
         int length = Math.Min(Math.Min(line.Glyphs.Count, visibleGlyphs), CharactersPerLine);
         float visibleTop = Mathf.Max(0.0f, destination.Y);
@@ -1290,7 +1290,7 @@ public partial class DialogueBox : Node2D
         }
     }
 
-    private void DrawFontLine(Image output, TextLine line, Vector2 destination, int visibleGlyphs)
+    private void DrawFontLine(OracleImageCanvas output, TextLine line, Vector2 destination, int visibleGlyphs)
     {
         int length = Math.Min(Math.Min(line.Glyphs.Count, visibleGlyphs), CharactersPerLine);
         for (int column = 0; column < length; column++)
@@ -1311,7 +1311,7 @@ public partial class DialogueBox : Node2D
         }
     }
 
-    private void DrawHeartPieceDisplay(Image output)
+    private void DrawHeartPieceDisplay(OracleImageCanvas output)
     {
         if (_heartPieceLine < _firstLineIndex ||
             _heartPieceLine >= _firstLineIndex + LinesPerPage)
@@ -1325,27 +1325,9 @@ public partial class DialogueBox : Node2D
             new Rect2(Vector2.Zero, texture.GetSize()), Colors.White);
     }
 
-    private static void BlitDialogueTexture(Image output, Texture2D texture,
-        Rect2 target, Rect2 sourceRectangle, Color modulation)
-    {
-        Image source = texture.GetImage();
-        for (int y = 0; y < (int)target.Size.Y; y++)
-        for (int x = 0; x < (int)target.Size.X; x++)
-        {
-            int destinationX = (int)target.Position.X + x;
-            int destinationY = (int)target.Position.Y + y;
-            if ((uint)destinationX >= output.GetWidth() || (uint)destinationY >= output.GetHeight()) continue;
-            Color ink = source.GetPixel((int)sourceRectangle.Position.X + x,
-                (int)sourceRectangle.Position.Y + y) * modulation;
-            if (ink.A == 0) continue;
-            Color background = output.GetPixel(destinationX, destinationY);
-            float alpha = ink.A + background.A * (1 - ink.A);
-            output.SetPixel(destinationX, destinationY, new Color(
-                (ink.R * ink.A + background.R * background.A * (1 - ink.A)) / alpha,
-                (ink.G * ink.A + background.G * background.A * (1 - ink.A)) / alpha,
-                (ink.B * ink.A + background.B * background.A * (1 - ink.A)) / alpha, alpha));
-        }
-    }
+    private static void BlitDialogueTexture(OracleImageCanvas output, Texture2D texture,
+        Rect2 target, Rect2 sourceRectangle, Color modulation) =>
+        output.BlitTexture(texture, target, sourceRectangle, modulation);
 
     private Texture2D TextureFor(TextGlyph glyph) => glyph.Source switch
     {

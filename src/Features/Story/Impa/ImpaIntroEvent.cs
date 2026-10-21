@@ -16,7 +16,7 @@ internal sealed class ImpaIntroEvent :
 {
 
     private readonly RoomEventContext _context;
-    private readonly ImpaIntroEventDatabase _database = new();
+    private readonly ImpaIntroEventDatabase _database = RoomEventSourceData.Shared.Impa;
     private readonly ImpaIntroEventRecord _record;
     private readonly ImpaHelpEventRecord _helpRecord;
     private readonly ImpaStoneEventRecord _stoneRecord;

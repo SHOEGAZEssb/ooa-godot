@@ -57,6 +57,7 @@ public sealed partial class ValidationRoot
                 FailIf(root._mainMenu is null || root._entities is not null,
                     "Room objects appeared before the file menu's fade completed.");
                 root.Step(1, batched);
+                root.CompleteSavedGameLoading(batched);
                 FailIf(root._mainMenu is not null || root._rooms.ActiveGroup != 2 || root._rooms.CurrentRoom.Id != 0xff,
                     "Slot 1 handoff did not resume room 2:ff.");
                 var cave = root._roomEvents.Get<GoronCaveEvent>();

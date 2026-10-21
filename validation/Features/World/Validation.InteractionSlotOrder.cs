@@ -73,5 +73,6 @@ public partial class ValidationRoot
             FailIf(trace.Count != 0,"Clearing the room must remove all native slot dispatches.");
         }
         _player.EndCutsceneControl();
+        ValidateEntityPreparationPerformance();
     }
 }

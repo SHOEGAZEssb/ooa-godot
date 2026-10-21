@@ -28,6 +28,8 @@ internal static class OracleGraphicsCache
         new(StringComparer.Ordinal);
     private static readonly Dictionary<CompositeKey, Image> CompositeImages = new();
     private static readonly Dictionary<ulong, ulong> ImageHashes = new();
+    private static readonly HashSet<ulong> ImmutableImages = new();
+    private static readonly Dictionary<ulong, OracleImagePixels> ImagePixels = new();
     private static readonly Dictionary<string, AnimationDefinition> AnimationDefinitions =
         new(StringComparer.Ordinal);
     private static readonly Dictionary<OamKey, OamFrame> OamFrames = new();
@@ -84,6 +86,7 @@ internal static class OracleGraphicsCache
             image.Convert(Image.Format.Rgba8);
 
         SourceImages.Add(path, image);
+        ImmutableImages.Add(image.GetInstanceId());
         ImageHashes.Add(image.GetInstanceId(), PixelHash(image));
         Observe(OracleGraphicsCacheOperation.SourceLoad, path);
         return image;
@@ -134,6 +137,7 @@ internal static class OracleGraphicsCache
 
         Image image = DecodeTwoBitSpriteSheet(bytes, cellsPerRow);
         SourceImages.Add(cacheKey, image);
+        ImmutableImages.Add(image.GetInstanceId());
         ImageHashes.Add(image.GetInstanceId(), PixelHash(image));
         Observe(OracleGraphicsCacheOperation.SourceLoad, path);
         return image;
@@ -209,6 +213,7 @@ internal static class OracleGraphicsCache
             new Vector2I(extraOffset, 0));
 
         CompositeImages.Add(key, combined);
+        ImmutableImages.Add(combined.GetInstanceId());
         ImageHashes.Add(combined.GetInstanceId(), PixelHash(combined));
         if (_observer is not null)
         {
@@ -398,8 +403,24 @@ internal static class OracleGraphicsCache
         return hash;
     }
 
+    internal static OracleImagePixels GetImagePixels(Image source)
+    {
+        ulong id = source.GetInstanceId();
+        // Only cache images this owner loaded or assembled as immutable art.
+        // Live VRAM and caller-owned images receive a fresh composition snapshot.
+        if (!ImmutableImages.Contains(id)) return new OracleImagePixels(source);
+        if (!ImagePixels.TryGetValue(id, out OracleImagePixels? pixels))
+        {
+            pixels = new OracleImagePixels(source);
+            ImagePixels.Add(id, pixels);
+        }
+        return pixels;
+    }
+
     private static void Shutdown()
     {
+        ImagePixels.Clear();
+        ImmutableImages.Clear();
         MonochromeFonts.Clear();
         OamCells.Clear();
         OamFrames.Clear();

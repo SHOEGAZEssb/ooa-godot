@@ -10,6 +10,23 @@ public sealed partial class ValidationRoot
 {
     private void ValidateBootLoading()
     {
+        var scriptResources = new GameplayScriptResources();
+        double nodesBefore = Performance.GetMonitor(Performance.Monitor.ObjectNodeCount);
+        byte[] stateBeforeScripts = _saveData.Serialize();
+        int rngBeforeScripts = _random.Calls;
+        foreach (bool _ in scriptResources.Prepare())
+            FailIf(Performance.GetMonitor(Performance.Monitor.ObjectNodeCount) != nodesBefore ||
+                !stateBeforeScripts.SequenceEqual(_saveData.Serialize()) || _random.Calls != rngBeforeScripts,
+                "Preparing native script resources constructed nodes or changed live save/RNG state.");
+        var preparedScripts = (Dictionary<string, CSharpScript>)typeof(GameplayScriptResources)
+            .GetField("_scripts", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scriptResources)!;
+        const string shopScript = "res://src/Features/World/Interactions/LynnaShop/LynnaShopItem.cs";
+        FailIf(!preparedScripts.TryGetValue(shopScript, out CSharpScript? preparedShop) ||
+            !preparedShop.CanInstantiate(), "Boot preparation omitted the native $47 shop item script.");
+        FailIf(scriptResources.Prepare().Any() || !ReferenceEquals(preparedScripts[shopScript], preparedShop),
+            "Repeated boot script preparation discarded or reloaded retained script resources.");
+        scriptResources.Clear();
+        FailIf(preparedScripts.Count != 0, "Gameplay script owner retained resources after cleanup.");
         const string sourcePng = "res://assets/oracle/gfx/spr_nayru_1.png";
         FailIf(OracleAssetCache.ImageResourcePath(sourcePng + ".import") != sourcePng ||
             OracleAssetCache.ImageResourcePath(sourcePng + ".remap") != sourcePng ||
@@ -115,6 +132,15 @@ public sealed partial class ValidationRoot
         FailIf(GetWindow().ContentScaleSize != originalSize || GetWindow().ContentScaleAspect != originalAspect,
             "Removing the loading screen did not restore the original viewport.");
         typeof(GameRoot).GetMethod("OpenFileSelectFromFrontend", fields)!.Invoke(this, null);
+        var firstCatalog = RoomEntityResources.CreateSession(_rooms);
+        var secondCatalog = RoomEntityResources.CreateSession(_rooms);
+        FailIf(ReferenceEquals(firstCatalog, secondCatalog) ||
+            !ReferenceEquals(firstCatalog.DungeonMaps, _rooms.DungeonMaps) ||
+            !ReferenceEquals(firstCatalog.SmogProjectile, secondCatalog.SmogProjectile),
+            "Boot definitions did not populate separate session catalogs with current-world maps and shared immutable records.");
+        foreach (string graphicsField in new[] { "_swordBeamData", "_dimitriData", "_gashaSpotsData" })
+            FailIf(typeof(RoomEntityResources).GetField(graphicsField, fields)!.GetValue(firstCatalog) is not null,
+                $"Boot worker retained graphics-bearing definition {graphicsField} in its shared data.");
         var selectedSave = OracleSaveData.CreateStandardGame();
         OracleSaveData expectedSelected = OracleSaveData.CreateStandardGame();
         expectedSelected.WriteWramByte(0xc622, 1); // mainThread's initial dispatch

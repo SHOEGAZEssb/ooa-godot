@@ -4,7 +4,7 @@ namespace oracleofages;
 
 /// <summary>Dynamic $8a:$00/v$09 after CUTSCENE_TURN_TO_STONE returns to $2:$90.</summary>
 internal sealed class RemoteMakuSeventhEssenceEvent(RoomEventContext context)
-    : RemoteMakuEvent(context, new RemoteMakuSeventhEssenceDatabase())
+    : RemoteMakuEvent(context, RoomEventSourceData.Shared.MakuSeventh)
 {
     public override bool OwnsUpdatesOf(IRoomEvent other) => other is JabuExteriorEvent;
     internal void StartAfterStoneScene()

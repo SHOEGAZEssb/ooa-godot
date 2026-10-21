@@ -1697,14 +1697,16 @@ public sealed class RoomEntityManager : IDisposable
 
     private void ResolveSeedCollisions(bool preMovement)
     {
-        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        using var items = new RoomEntitySnapshot(_activeEntities);
+        foreach (IRoomEntity entity in items.Entities)
         {
             if (entity is not ISeedProjectileRoomEntity
                 { CollisionEnabled: true } seed)
             {
                 continue;
             }
-            foreach (IRoomEntity target in _activeEntities.ToArray())
+            using var targets = new RoomEntitySnapshot(_activeEntities);
+            foreach (IRoomEntity target in targets.Entities)
             {
                 if (target is ISeedCollisionTarget || target is not ISeedHittableRoomEntity hittable ||
                     (seed.SeedItem is ItemId.PegasusSeed or ItemId.GaleSeed || target is ISeedPreMovementCollisionTarget) != preMovement)
@@ -1771,7 +1773,8 @@ public sealed class RoomEntityManager : IDisposable
 
     private void ResolvePlayerProjectileCollisions(bool companionsOnly = false)
     {
-        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        using var items = new RoomEntitySnapshot(_activeEntities);
+        foreach (IRoomEntity entity in items.Entities)
         {
             bool companion = entity is RickyPunchAttackRoomEntity or RickyTornadoRoomEntity or MooshStompAttackRoomEntity or DimitriMouthRoomEntity;
             if (companion != companionsOnly) continue;
@@ -1780,7 +1783,8 @@ public sealed class RoomEntityManager : IDisposable
             {
                 continue;
             }
-            foreach (IRoomEntity target in _activeEntities.ToArray())
+            using var targets = new RoomEntitySnapshot(_activeEntities);
+            foreach (IRoomEntity target in targets.Entities)
             {
                 if (target is IPostObjectItemCollisionRoomEntity) continue;
                 if (companion && target is IObjectCollisionHeightRoomEntity height && !ObjectCollisionZOverlaps(height.CollisionZ, 0, 7)) continue;
@@ -1819,7 +1823,8 @@ public sealed class RoomEntityManager : IDisposable
 
     private void ResolveBombExplosionCollisions()
     {
-        foreach (IRoomEntity entity in _activeEntities.ToArray())
+        using var items = new RoomEntitySnapshot(_activeEntities);
+        foreach (IRoomEntity entity in items.Entities)
         {
             if (entity is BombchuRoomEntity) continue; // Source item/target order owns this post-object scan.
             if (entity is not IBombExplosionRoomEntity
@@ -1827,7 +1832,8 @@ public sealed class RoomEntityManager : IDisposable
             {
                 continue;
             }
-            foreach (IRoomEntity target in _activeEntities.ToArray())
+            using var targets = new RoomEntitySnapshot(_activeEntities);
+            foreach (IRoomEntity target in targets.Entities)
             {
                 if (target is IPostObjectItemCollisionRoomEntity or IBombCollisionRoomEntity { HasBombCollisionIdentity: true }) continue;
                 if (ReferenceEquals(entity, target) ||
@@ -1872,11 +1878,13 @@ public sealed class RoomEntityManager : IDisposable
 
     private void ResolveBossBombCatches()
     {
-        foreach (IRoomEntity target in _activeEntities.ToArray())
+        using var targets = new RoomEntitySnapshot(_activeEntities);
+        foreach (IRoomEntity target in targets.Entities)
         {
             if (target is not IBombCatchRoomEntity catcher)
                 continue;
-            foreach (IRoomEntity entity in _activeEntities.ToArray())
+            using var items = new RoomEntitySnapshot(_activeEntities);
+            foreach (IRoomEntity entity in items.Entities)
             {
                 if (entity is BombRoomEntity
                     {
@@ -2299,6 +2307,7 @@ public sealed class RoomEntityManager : IDisposable
         EnemyPlacementContext placementContext,
         bool notifyEntry = true)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("objects", group, room.Id);
         // parseObjectData clears wNumEnemies even when outgoing slots are
         // retained during a scroll. Failed allocation counts are room-local.
         // Its $cfc0 clear does not clear the later persistent scratch bytes.
@@ -2323,23 +2332,30 @@ public sealed class RoomEntityManager : IDisposable
         // parseObjectData clears wEnemyPlacement, then rebuilds w4RandomBuffer.
         // This consumes 256 values from the game-wide RNG on every room parse.
         _random.BeginRoomParse();
-        foreach (IRoomEntity entity in _factory.CreateRoomEntities(
-            group, room, placementContext))
+        diagnostics?.Mark("native-setup");
+        using (var streamDiagnostics = OracleRoomLoadDiagnostics.Begin("object-stream", group, room.Id))
         {
-            // objectDataOp1/2 skip their remaining interaction rows when
-            // getFreeInteractionSlot fails. These migrated direct placements
-            // must not borrow capacity retained by outgoing scroll objects.
-            if (entity is KeyholeControllerRoomEntity or SwitchTileTogglerRoomEntity or MinecartShutterRoomEntity or NuunBridgeRoomEntity or OrbBridgeControllerRoomEntity or DungeonOrbChestRoomEntity or
-                MovingPlatformRoomEntity or CircularSideScrollPlatformRoomEntity or HeadThwompRewardScript or SpiritsGraveMovingPlatformSpawner or
-                CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
-                CompanionTutorialRoomEntity { NativeAllocationEnabled: true } &&
-                !InteractionSlotAvailable)
+            foreach (IRoomEntity entity in _factory.CreateRoomEntities(
+                group, room, placementContext))
             {
-                FreeEntity(entity);
-                continue;
+                streamDiagnostics?.Mark(entity.GetType().Name);
+                // objectDataOp1/2 skip their remaining interaction rows when
+                // getFreeInteractionSlot fails. These migrated direct placements
+                // must not borrow capacity retained by outgoing scroll objects.
+                if (entity is KeyholeControllerRoomEntity or SwitchTileTogglerRoomEntity or MinecartShutterRoomEntity or NuunBridgeRoomEntity or OrbBridgeControllerRoomEntity or DungeonOrbChestRoomEntity or
+                    MovingPlatformRoomEntity or CircularSideScrollPlatformRoomEntity or HeadThwompRewardScript or SpiritsGraveMovingPlatformSpawner or
+                    CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
+                    CompanionTutorialRoomEntity { NativeAllocationEnabled: true } &&
+                    !InteractionSlotAvailable)
+                {
+                    FreeEntity(entity);
+                    continue;
+                }
+                AddEntity(entity);
+                streamDiagnostics?.Mark("attach");
             }
-            AddEntity(entity);
         }
+        diagnostics?.Mark("construction");
         foreach (var entity in _activeEntities)
         {
             InitializeCompanionRoomEntity(entity,room);
@@ -2353,7 +2369,9 @@ public sealed class RoomEntityManager : IDisposable
             AddEntity(scrub.AllocateBushSlot());
         }
         RefreshNpcState(_activeEntities);
+        diagnostics?.Mark("npc-state");
         if (notifyEntry) RoomEntitiesLoaded?.Invoke(group, room);
+        diagnostics?.Mark("events");
     }
 
     private void RefreshNpcState()
@@ -3268,31 +3286,43 @@ public sealed class RoomEntityManager : IDisposable
 
     private void PrepareIncomingEntitiesForScreenTransition(Player? player)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("state-zero", _roomForActiveEntities.Group, _roomForActiveEntities.Id);
         // updateEnemies/updateInteractions still dispatch source state 0 while
         // wScrollMode is active. Complete that work before the incoming room
         // is exposed, then freeze ordinary state-8+ updates. Native dispatch
         // order is ENEMY, PART, INTERACTION, each in slot order; object-stream
         // insertion order can place a controller before the enemy it observes.
-        var prepared = new HashSet<IRoomEntity>();
-        int Order(IRoomEntity entity, int phase) => phase switch
+        var prepared = new HashSet<IRoomEntity>(_activeEntities.Count);
+        while (true)
         {
-            0 => _enemySlots[entity],
-            1 => _partSlots.GetValueOrDefault(entity,16 + _activeEntities.IndexOf(entity)),
-            _ => entity is DungeonEssenceGlow ? -1 :
-                _interactionSlots.GetValueOrDefault(entity,16 + _activeEntities.IndexOf(entity))
-        };
-        while (_activeEntities.Any(entity => !prepared.Contains(entity)))
-        {
+            bool remaining = false;
+            foreach (var entity in _activeEntities)
+                if (!prepared.Contains(entity)) { remaining = true; break; }
+            if (!remaining) break;
             for (int phase = 0; phase < 3; phase++)
             {
                 int cursor = -1;
                 while (true)
                 {
-                    IRoomEntity? entity = _activeEntities.Where(candidate => !prepared.Contains(candidate) &&
-                        EntityPhase(candidate) == phase && Order(candidate,phase) >= cursor)
-                        .OrderBy(candidate => Order(candidate,phase)).FirstOrDefault();
+                    IRoomEntity? entity = null;
+                    int firstOrder = int.MaxValue;
+                    // Rescan the live list after each callback. State zero can
+                    // create/delete actors in any category, including slots
+                    // below the current cursor. Equal keys retain list order.
+                    for (int index = 0; index < _activeEntities.Count; index++)
+                    {
+                        IRoomEntity candidate = _activeEntities[index];
+                        if (prepared.Contains(candidate) || EntityPhase(candidate) != phase) continue;
+                        int order = phase == 0 ? _enemySlots[candidate] :
+                            phase == 1 ? _partSlots.GetValueOrDefault(candidate, 16 + index) :
+                            candidate is DungeonEssenceGlow ? -1 :
+                            _interactionSlots.GetValueOrDefault(candidate, 16 + index);
+                        if (order < cursor || order >= firstOrder) continue;
+                        firstOrder = order;
+                        entity = candidate;
+                    }
                     if (entity is null) break;
-                    cursor = Order(entity,phase) + 1;
+                    cursor = firstOrder + 1;
                     prepared.Add(entity);
                     PrepareIncomingEntityForScreenTransition(entity, player);
                 }

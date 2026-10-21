@@ -24,6 +24,7 @@ public sealed class OracleWorldData
     private readonly Dictionary<int, byte[]> _mappings = new();
     private readonly Dictionary<int, byte[]> _collisions = new();
     private readonly Dictionary<int, Color[,]> _palettes = new();
+    private readonly Dictionary<(int Group, int Room), bool> _roomAvailability = new();
     private readonly Image _hudGraphics;
     private readonly OracleAnimationData _animations;
     private OracleRoomData? _currentPaletteRoom;
@@ -62,13 +63,16 @@ public sealed class OracleWorldData
     {
         if (group < 0 || group > 7 || room < 0 || room > 0xff)
             return false;
+        if (_roomAvailability.TryGetValue((group, room), out bool available)) return available;
 
         int tileset = GetTilesetId(group, room);
         if (_tilesetMetadata[tileset * TilesetRecordSize + 3] == 0)
             return false;
 
         int layoutGroup = _tilesetMetadata[tileset * TilesetRecordSize + 1];
-        return Godot.FileAccess.FileExists(GetRoomPath(layoutGroup, room));
+        available = Godot.FileAccess.FileExists(GetRoomPath(layoutGroup, room));
+        _roomAvailability.Add((group, room), available);
+        return available;
     }
 
     public OracleRoomData LoadRoom(int group, int room)
@@ -101,6 +105,7 @@ public sealed class OracleWorldData
     public OracleRoomData LoadRoom(int group, int room, int dataGroup, int? animalCompanion = null,
         int? layoutGroupOverride = null, int? tilesetOverride = null)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("data", group, room);
         if (!HasRoom(dataGroup, room))
             throw new InvalidOperationException($"Room {group:x1}:{room:x2} is not available.");
 
@@ -120,8 +125,8 @@ public sealed class OracleWorldData
             if (cached.TilesetId == tileset)
             {
                 _loadingPaletteRoom = cached;
-                cached.SetLiveGraphics(null, false);
-                cached.LoadTilesetPalette();
+                cached.LoadTilesetPalette(resetLiveGraphics: true);
+                diagnostics?.Mark("cached");
                 return cached;
             }
             _rooms.Remove(key);
@@ -177,6 +182,7 @@ public sealed class OracleWorldData
         }
 
         byte[] layout = OracleAssetCache.ReadBytes(roomPath);
+        diagnostics?.Mark("sources");
         var result = new OracleRoomData(
             group, room, tileset, animationGroup, activeCollisions, tilesetFlags,
             layout, collisions,
@@ -187,9 +193,11 @@ public sealed class OracleWorldData
             TilesetPaletteId = _tilesetMetadata[metadataOffset + 2],
             LoadsUniqueGraphicsAfterScroll = (GetRoomTilesetByte(dataGroup, room) & 0x80) != 0
         };
+        diagnostics?.Mark("raster-textures");
         _rooms.Add(key, result);
         _loadingPaletteRoom = result;
         result.LoadTilesetPalette();
+        diagnostics?.Mark("palette");
         return result;
     }
 
@@ -221,7 +229,7 @@ public sealed class OracleWorldData
         ArgumentNullException.ThrowIfNull(room);
         _currentPaletteRoom = room;
         _loadingPaletteRoom = null;
-        room.RedrawForPaletteChange();
+        room.RefreshPaletteTextures();
     }
 
     public int GetDungeonIndex(int group, int room)
@@ -305,11 +313,11 @@ public sealed class OracleWorldData
 
     private void RedrawLivePaletteRooms()
     {
-        _currentPaletteRoom?.RedrawForPaletteChange();
+        _currentPaletteRoom?.RefreshPaletteTextures();
         if (_loadingPaletteRoom is not null &&
             _loadingPaletteRoom != _currentPaletteRoom)
         {
-            _loadingPaletteRoom.RedrawForPaletteChange();
+            _loadingPaletteRoom.RefreshPaletteTextures();
         }
     }
 

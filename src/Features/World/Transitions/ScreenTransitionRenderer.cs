@@ -90,8 +90,16 @@ internal sealed class ScreenTransitionRenderer
         if ((upload >= 0 && upload < _uploads.Count) ||
             _tick == _paletteCommit || (_smooth is not null && age is > 0 and < 32 && (age & 1) == 0))
         {
-            _source.RedrawForPaletteChange();
-            if (_source != _target && graphicsChanged) _target.RedrawForPaletteChange();
+            if (graphicsChanged)
+            {
+                _source.RedrawForPaletteChange();
+                if (_source != _target) _target.RedrawForPaletteChange();
+            }
+            else
+            {
+                _source.RefreshPaletteTextures();
+                if (_source != _target) _target.RefreshPaletteTextures();
+            }
         }
     }
 

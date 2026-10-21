@@ -43,7 +43,7 @@ internal sealed class RoomEntityFactory
         _treasures = owner.Treasures;
         _animationTick = owner.AnimationTick;
         _platformRiding = owner.PlatformRiding;
-        Resources = new(rooms);
+        Resources = RoomEntityResources.CreateSession(rooms);
         EnemyFactory = new(owner, enemies, Resources, rooms);
     }
 
@@ -93,6 +93,7 @@ internal sealed class RoomEntityFactory
         OracleRoomData room,
         EnemyPlacementContext placementContext)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("factory", group, room.Id);
         EnemyPlacementReservations.BeginRoomParse(_runtimeState);
         bool hasKeyholeController = Resources.KeyholeControllers.TryGet(group, room.Id, out var keyholeController)
             && _saveData is not null;
@@ -898,9 +899,11 @@ internal sealed class RoomEntityFactory
         // Rooms 2:ea/2:eb place only the $ac family spawner at this point in
         // their source object streams. Execute its state writes and expansion
         // here, before any of the spawned actors receive their first update.
+        diagnostics?.Mark("before-npcs");
         IReadOnlyList<NpcRecord> roomNpcs =
             _familyState.ResolveRoomNpcs(
                 group, room.Id, _saveData, _runtimeState);
+        diagnostics?.Mark("npc-resolution");
         if (group == 0 && roomNpcs.Any(record => record.Id == InteractionId.Carpenter))
         {
             if (room.Id == 0x25 && _saveData?.HasGlobalFlag(Resources.Carpenters.Constant("bridge-flag")) == true)
@@ -977,6 +980,7 @@ internal sealed class RoomEntityFactory
         else if (group == Resources.LynnaShop.Group &&
             (room.Id == Resources.LynnaShop.Room || room.Id == Resources.HiddenShop.Room) || group == 3 && room.Id == 0xfe)
         {
+            diagnostics?.Mark("shop-dispatch");
             foreach (IRoomEntity entity in CreateLynnaShop(room, roomNpcs))
                 yield return entity;
         }
@@ -995,11 +999,13 @@ internal sealed class RoomEntityFactory
                 yield return new SyrupShopActorRoomEntity(actor);
             }
             // syrupScript_spawnShopItems allocates after the two placed actors.
+            Texture2D[]? priceDigits = null;
             foreach (StockRecord stock in database.ResolveStock(_saveData))
             {
                 var item = new LynnaShopItem { Name = $"SyrupStock_{stock.Order}_{stock.Item.SubId:x2}",
                     ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex };
-                item.Initialize(stock, room);
+                priceDigits ??= LynnaShopItem.BuildPriceDigitTextures(room);
+                item.Initialize(stock, room, priceDigits);
                 yield return new LynnaShopItemRoomEntity(item);
             }
         }
@@ -4115,7 +4121,9 @@ internal sealed class RoomEntityFactory
         OracleRoomData room,
         IReadOnlyList<NpcRecord> records)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("shop-stock", room.Group, room.Id);
         LynnaShopDatabase database = room.Id == 0xfe ? new(advance: true) : room.Id == Resources.HiddenShop.Room ? Resources.HiddenShop : Resources.LynnaShop;
+        diagnostics?.Mark("database");
         if (records.Count != 1 || records[0].Id != InteractionId.Shopkeeper ||
             records[0].SubId != database.ShopkeeperSubId)
         {
@@ -4126,16 +4134,25 @@ internal sealed class RoomEntityFactory
         // The three $47 placements precede $46:$00 in mainData.s. Stock
         // replacement can delete a placement, but surviving objects retain
         // that source order.
-        foreach (StockRecord stock in
-            database.ResolveStock(_saveData))
+        Texture2D[]? priceDigits = null;
+        IReadOnlyList<StockRecord> stockRecords = database.ResolveStock(_saveData);
+        diagnostics?.Mark("stock-selection");
+        foreach (StockRecord stock in stockRecords)
         {
             var item = new LynnaShopItem
             {
                 Name = $"ShopItem_{stock.Order}_{stock.Item.SubId:x2}",
                 ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex
             };
-            item.Initialize(stock, room);
-            yield return new LynnaShopItemRoomEntity(item);
+            diagnostics?.Mark("node-construction");
+            priceDigits ??= LynnaShopItem.BuildPriceDigitTextures(room);
+            diagnostics?.Mark("digit-call");
+            item.Initialize(stock, room, priceDigits);
+            diagnostics?.Mark("initialize-call");
+            var entity = new LynnaShopItemRoomEntity(item);
+            diagnostics?.Mark("adapter-construction");
+            yield return entity;
+            diagnostics?.Mark("attachment");
         }
 
         NpcRecord record = records[0];

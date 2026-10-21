@@ -1,5 +1,12 @@
 # Runtime architecture
 
+Boot preparation retains the production assembly's concrete Godot node script
+resources, discovered from their generated script-path attributes. Loading
+these resources prepares native C# script metadata before room construction;
+it does not instantiate actors or run gameplay initialization. Preparation is
+staged on the main thread, and the application releases its retained references
+when it exits the tree.
+
 ## Composition and scenes
 
 `scenes/main.tscn` owns the application root and persistent sound engine.
@@ -32,6 +39,24 @@ disabled. Preparation reads the selected save but does not enter the room,
 create room objects, advance gameplay, or consume object RNG. The original
 intro completion commits room entry and enables the scene. An unfinished
 preparation is drained at that boundary; it never shortens the intro.
+
+Existing-file selection also prepares the hidden gameplay scene across host
+frames. Original gameplay, playtime and object RNG remain frozen until the
+single room-entry commit; audio output continues independently. The first
+gameplay update follows that commit. Cancelling preparation releases the
+partial session without writing it to disk. Imported Impa, remote Maku, Tokay
+and ocean event definitions and warp records are immutable shared sources,
+prepared by the boot worker. Event instances and command runners stay fresh
+for each session.
+The boot worker also prepares immutable entity definitions. Session factories
+receive a fresh source catalog populated from those definitions and bind its
+dungeon maps to the current room session. Later lazy cache assignments remain
+local to that catalog; it contains no save, RNG or actor state.
+Definitions that construct or retain Godot graphics (sword beams, Dimitri and
+Gasha trees) remain session-local and prepare on the main thread.
+The detached player's initial walking, shadow, terrain-effect and transformation
+graphics also prepare during boot, before any world/save/RNG binding. The first
+initialization consumes these resources; later initializations refresh them.
 
 The entity factory is a manager-owned construction helper. It uses named
 operations on that owner for allocation, signals, and events. Actor callbacks

@@ -15,6 +15,16 @@ mode. Treat cached images as read-only. Each application root retains the shared
 cache while it is in the scene tree. Clear retained Godot resources when the
 last root exits; a temporary frontend or validation root must not invalidate
 another live root's images, fonts or cache observer.
+Immutable source and composite sprite images also retain shared CPU pixel
+snapshots. Caller-owned and mutable VRAM images receive fresh snapshots per
+composition. Sprite builders compose in managed memory and dispose temporary
+upload images immediately.
+Room rasterization reuses its CPU buffers and retains the input identity of
+each composed background tile. Only tiles whose art, mapping, attributes or
+palette changed are recomposed; the complete image still uses a fresh backing
+upload. Mutable VRAM always receives a fresh snapshot and invalidates its tiles.
+Room availability checks are cached for the lifetime of the world data owner;
+generated room files are immutable during play.
 
 A newly generated PNG may not yet have a Godot `.import` sidecar in a clean
 checkout. The shared loader may decode that source once and cache it; feature
@@ -101,6 +111,11 @@ the index or overlap its high bits with palette fields in cache keys.
 rooms, dialogue, and palette effects. Source palette writes update those slots
 at their original boundary and rerender affected presentation without replacing
 logical room data.
+Room textures track the palette slots used by their current mappings, including
+live overrides and underwater padding. Palette notifications redraw only rooms
+using changed slots; repeated room activation does not repeat an unchanged
+upload. Explicit VRAM writes still force publication even when the shared image
+identity and palettes have not changed.
 
 Scrolling room tilemaps share one mutable BG tile buffer captured from the
 outgoing room, including its last animation and scripted tile uploads.
@@ -177,6 +192,9 @@ overrides at the same room/replacement boundary as the original.
 Gameplay UI, dialogue, and menu presentation use shared tile/OAM composition
 helpers with their imported layouts and palettes. A feature should provide
 source-specific data, not copy pixel-decoding loops.
+Dialogue composition captures each source texture once per redraw, releases
+the readback image immediately, and blends RGBA8 pixels in managed memory.
+Snapshots remain scoped to that redraw so palette-dependent glyphs stay current.
 
 UI graphics must come from the checked clean US ROM where the disassembly
 changes sheets or display modes. Restore shared sheets together with consumer
@@ -222,6 +240,9 @@ edges are band-limited before conversion to 44100 Hz PCM so ultrasonic pulse
 harmonics cannot fold back into audible noise. The APU keeps
 clocking while the driver is disabled. Its hardware clock serves audio synthesis
 and remains local to the sound system; it does not govern gameplay scheduling.
+The interpreter coalesces instruction clocks between APU register accesses,
+flushing them before every register read/write and before returning to its
+caller. Register edges, elapsed clocks and emitted PCM retain their original timing.
 The analog mixer recalculates after register writes, oscillator edges, and
 frame-sequencer events. Unchanged inputs reuse the current level; oscillator
 clocks, sample phase, resampling, and filter updates still advance normally.
@@ -230,6 +251,9 @@ independent audio mixer. Bound latency across both managed and native queues;
 buffer capacity is not the desired amount of queued audio. Only presentation
 may discard stale samples after a host stall, bridging the resulting sample
 join without resetting driver, oscillator, envelope, or filter state.
+The latency limiter allows two fixed updates of phase headroom above its target
+before trimming back to the target. Normal mixer block timing must not repeatedly
+discard small portions of otherwise continuous PCM.
 Gameplay requests the original sound ID at the original update. Preserve the
 ordering of simultaneous requests and sound-control operations. If the source
 selects a variation with the global game RNG, consume `OracleRandom`; a private
@@ -245,6 +269,11 @@ music assignments, and verify ordered requests through the sound owner.
 The production engine retains real sequencer and channel state, not last-call
 or request-count audit fields. Validation attaches an observer for ordered
 requests and inspects sequencer state when required.
+
+Debug device builds can opt into operational audio reports by creating
+`user://audio-diagnostics.enabled` before launch. Reports include generator
+underruns, queue sizes, discarded samples and maximum refill/tick durations,
+limited to once per second. This reporting does not alter audio scheduling.
 
 Driver regressions include independent clean-ROM execution fixtures, alongside
 source-derived register, hardware-clock and gameplay-update checks. This

@@ -31,8 +31,10 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
 
     public void Initialize(
         StockRecord stock,
-        OracleRoomData room)
+        OracleRoomData room,
+        Texture2D[] digitTextures)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("shop-item", room.Group, room.Id);
         Record = stock.Item;
         Order = stock.Order;
         _shelfPosition = new Vector2(stock.X, stock.Y);
@@ -43,6 +45,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
 
         Image source = OracleGraphicsCache.LoadImage(
             $"res://assets/oracle/gfx/{Record.Sprite}.png");
+        diagnostics?.Mark("source");
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(Record.Animation);
         foreach (AnimationFrameDefinition sourceFrame in
@@ -59,17 +62,27 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
         if (_frames.Count == 0)
             throw new InvalidOperationException(
                 $"Lynna shop item $47:${Record.SubId:x2} has no animation frames.");
+        diagnostics?.Mark("frames");
+        _digitTextures = digitTextures;
+        QueueRedraw();
+    }
+
+    internal static Texture2D[] BuildPriceDigitTextures(OracleRoomData room)
+    {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("shop-price-digits", room.Group, room.Id);
         // roomTileChangesAfterLoad04 loads TREE_GFXH_03
         // (gfx_inventory_hud_1) into the $9200 tree slot. Consequently the
         // source's price tile base $30 addresses this sheet's tile $10, not
         // gfx_hud tile $00.
         Image inventoryHud = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/inventory/gfx_inventory_hud_1.png");
-        _digitTextures = new Texture2D[10];
-        for (int digit = 0; digit < _digitTextures.Length; digit++)
-            _digitTextures[digit] = room.BuildBackgroundTileTexture(
+        diagnostics?.Mark("source");
+        var textures = new Texture2D[10];
+        for (int digit = 0; digit < textures.Length; digit++)
+            textures[digit] = room.BuildBackgroundTileTexture(
                 inventoryHud, 0x10 + digit, rawPalette: 6);
-        QueueRedraw();
+        diagnostics?.Mark("raster-upload");
+        return textures;
     }
 
     public void UpdateFrame(Player player)

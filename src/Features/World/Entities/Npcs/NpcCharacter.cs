@@ -168,6 +168,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
 
     public void Initialize(NpcRecord record)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("npc", record.Group, record.Room, record.SpriteName);
         _baseRecord = record;
         Record = record;
         _active = true;
@@ -1149,7 +1150,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         int loopMarker = encodedOam.LastIndexOf('~');
         if (loopMarker >= 0)
             encodedOam = encodedOam[..loopMarker];
-        Image output = Image.CreateEmpty(32, 32, false, Image.Format.Rgba8);
+        var output = new OracleImageCanvas(32, 32);
+        OracleImagePixels pixels = OracleGraphicsCache.GetImagePixels(source);
         string[] blocks = encodedOam.Split(';', StringSplitOptions.RemoveEmptyEntries);
         // Lower OAM indices win when sprites overlap. Compose in reverse so
         // the first block has the same priority as it does on the Game Boy.
@@ -1165,7 +1167,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
             int tile = int.Parse(fields[2]);
             int flags = int.Parse(fields[3]);
             int cell = SourceCell(sourceOffset, tileBase, tile);
-            int cellsPerRow = Math.Max(1, source.GetWidth() / 8);
+            int cellsPerRow = Math.Max(1, pixels.Width / 8);
             int sourceX = cell % cellsPerRow * 8;
             int sourceY = cell / cellsPerRow * 16;
             int destinationX = oamX + 8;
@@ -1185,18 +1187,19 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
                 int readY = sourceY + (flipY ? 15 - y : y);
                 int writeX = destinationX + x;
                 int writeY = destinationY + y;
-                if (readX < 0 || readX >= source.GetWidth() || readY < 0 || readY >= source.GetHeight() ||
-                    writeX < 0 || writeX >= output.GetWidth() || writeY < 0 || writeY >= output.GetHeight())
+                if (readX < 0 || readX >= pixels.Width || readY < 0 || readY >= pixels.Height ||
+                    writeX < 0 || writeX >= output.Width || writeY < 0 || writeY >= output.Height)
                     continue;
                 Color pixel = RecolorSpritePixel(
-                    source.GetPixel(readX, readY), palette, blockPalette,
+                    pixels.GetPixel(readX, readY), palette, blockPalette,
                     sourceGrayscaleInverted);
                 if (pixel.A > 0.1f)
                     output.SetPixel(writeX, writeY, pixel);
             }
         }
 
-        return ImageTexture.CreateFromImage(output);
+        using Image image = output.ToImage();
+        return ImageTexture.CreateFromImage(image);
     }
 
     internal static (Texture2D Texture, Vector2 Offset) BuildPositionedOamTexture(
@@ -1320,7 +1323,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
                 paletteOverrides, sourceGrayscaleInverted, sourceOffset),
                 new Vector2(-16, -16));
 
-        Image output = Image.CreateEmpty(maxX - minX, maxY - minY, false, Image.Format.Rgba8);
+        var output = new OracleImageCanvas(maxX - minX, maxY - minY);
+        OracleImagePixels pixels = OracleGraphicsCache.GetImagePixels(source);
         // Preserve Game Boy OAM priority: lower indices cover later entries.
         for (int blockIndex = blocks.Length - 1; blockIndex >= 0; blockIndex--)
         {
@@ -1332,7 +1336,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
             int tile = int.Parse(fields[2]);
             int flags = int.Parse(fields[3]);
             int cell = SourceCell(sourceOffset, tileBase, tile);
-            int cellsPerRow = Math.Max(1, source.GetWidth() / 8);
+            int cellsPerRow = Math.Max(1, pixels.Width / 8);
             int sourceX = cell % cellsPerRow * 8;
             int sourceY = cell / cellsPerRow * 16;
             int destinationX = oamX + 8 - minX;
@@ -1351,10 +1355,10 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
             {
                 int readX = sourceX + (flipX ? 7 - x : x);
                 int readY = sourceY + (flipY ? 15 - y : y);
-                if (readX < 0 || readX >= source.GetWidth() || readY < 0 || readY >= source.GetHeight())
+                if (readX < 0 || readX >= pixels.Width || readY < 0 || readY >= pixels.Height)
                     continue;
                 Color pixel = RecolorSpritePixel(
-                    source.GetPixel(readX, readY), palette, blockPalette,
+                    pixels.GetPixel(readX, readY), palette, blockPalette,
                     sourceGrayscaleInverted);
                 if (pixel.A > 0.1f)
                     output.SetPixel(destinationX + x, destinationY + y, pixel);
@@ -1364,7 +1368,8 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         // The legacy 32x32 compositor drew at (-16,-16). Keep that coordinate
         // system while allowing large actors such as the Maku Tree to extend
         // above and to either side of the interaction origin.
-        return (ImageTexture.CreateFromImage(output), new Vector2(minX - 16, minY - 16));
+        using Image image = output.ToImage();
+        return (ImageTexture.CreateFromImage(image), new Vector2(minX - 16, minY - 16));
     }
 
     private static int SourceCell(int sourceOffset, int tileBase, int tile)

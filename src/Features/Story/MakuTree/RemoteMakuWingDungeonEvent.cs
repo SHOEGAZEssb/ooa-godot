@@ -9,7 +9,7 @@ internal sealed class RemoteMakuWingDungeonEvent : RemoteMakuEvent
     private readonly RemoteMakuWingDungeonDatabase _database;
 
     internal RemoteMakuWingDungeonEvent(RoomEventContext context)
-        : this(context, new RemoteMakuWingDungeonDatabase())
+        : this(context, RoomEventSourceData.Shared.MakuWing)
     {
     }
 

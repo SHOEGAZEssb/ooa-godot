@@ -936,6 +936,24 @@ public partial class Player : Node2D
     public event Action? GameOverRequested;
     internal bool ApplicationUpdateOwned { get; set; }
 
+    private bool _initialPresentationPrepared;
+
+    internal System.Collections.Generic.IEnumerable<bool> PrepareInitialPresentation()
+    {
+        if (_initialPresentationPrepared) yield break;
+        Sprites.PrepareWalkTexture();
+        yield return false;
+        TerrainShadowDefinition terrainShadow = TerrainShadow.Load();
+        _terrainShadowTexture = terrainShadow.Texture;
+        _terrainShadowOffset = terrainShadow.Offset;
+        yield return false;
+        _terrainEffects = new LinkTerrainEffectDatabase();
+        yield return false;
+        _transformedLink = new TransformedLinkDatabase();
+        _initialPresentationPrepared = true;
+        yield return false;
+    }
+
     internal void Initialize(
         IPlayerWorld world,
         InventoryState inventory,
@@ -948,12 +966,9 @@ public partial class Player : Node2D
         _linkItems = LinkItemDatabase.Shared;
         _sideScrollPlayerData = SideScrollPlayerDatabase.Shared;
         _topDownSwimmingData = TopDownSwimmingDatabase.Shared;
-        Sprites.PrepareWalkTexture();
-        TerrainShadowDefinition terrainShadow = TerrainShadow.Load();
-        _terrainShadowTexture = terrainShadow.Texture;
-        _terrainShadowOffset = terrainShadow.Offset;
-        _terrainEffects = new LinkTerrainEffectDatabase();
-        _transformedLink = new TransformedLinkDatabase();
+        foreach (bool _ in PrepareInitialPresentation()) { }
+        // A later initialization still refreshes presentation as before.
+        _initialPresentationPrepared = false;
         EndNewGameSlowFall();
         EndRoomWarpFall();
         _precisePosition = spawn;

@@ -229,6 +229,7 @@ public sealed class RoomSession
 
     public OracleRoomData GetRoom(int group, int room)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("layout", group, room);
         int dataGroup = group is 0 or 1 &&
             _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap)
             ? group + 2
@@ -236,6 +237,7 @@ public sealed class RoomSession
         OracleRoomData loaded = World.LoadRoom(group, room, dataGroup, _saveData.ReadWramByte(WramAddress.wAnimalCompanion),
             World.ResolveLayoutOverride(group, room, _saveData),
             World.ResolveJabuTilesetOverride(group, room, _saveData, DungeonMaps));
+        diagnostics?.Mark("data");
         byte roomFlags = _saveData.GetRoomFlags(group, room);
         // loadTilesetAndRoomLayout reloads the source layout before any
         // substitutions; decoded rooms are cached, including montage writes.
@@ -254,6 +256,7 @@ public sealed class RoomSession
         _tileChanges.Apply(group, loaded, _saveData, World, _animationTick(), _runtimeState, floor);
         _gashaSpots.ApplyRoomState(
             group, loaded, _saveData, _animationTick());
+        diagnostics?.Mark("substitutions");
         return loaded;
     }
 

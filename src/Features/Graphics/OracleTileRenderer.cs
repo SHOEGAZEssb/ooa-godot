@@ -287,17 +287,18 @@ internal static class OracleTileRenderer
     {
         bool flipX = (flags & 0x20) != 0;
         bool flipY = (flags & 0x40) != 0;
-        int columns = source.GetWidth() / 8;
+        OracleImagePixels pixels = OracleGraphicsCache.GetImagePixels(source);
+        int columns = pixels.Width / 8;
         // The hardware OAM tile field is one byte, but callers may add an
         // imported source-sheet offset before reaching this renderer. Clear
         // only the 8x16 pairing bit so offsets such as spr_link+$1c00 retain
         // their high tile-address bits.
         int cell = (tile & ~1) / 2;
-        Image output = Image.CreateEmpty(8, 16, false, Image.Format.Rgba8);
+        var output = new OracleImageCanvas(8, 16);
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 8; x++)
         {
-            Color pixel = source.GetPixel(
+            Color pixel = pixels.GetPixel(
                 cell % columns * 8 + (flipX ? 7 - x : x),
                 cell / columns * 16 + (flipY ? 15 - y : y));
             int shade = OracleGraphicsData.TwoBitShade(pixel);
@@ -305,7 +306,8 @@ internal static class OracleTileRenderer
             if (pixel.A >= 0.1f && color != 0)
                 output.SetPixel(x, y, palette[color]);
         }
-        return ImageTexture.CreateFromImage(output);
+        using Image image = output.ToImage();
+        return ImageTexture.CreateFromImage(image);
     }
 
     internal static Vector2I SourceTileOrigin(

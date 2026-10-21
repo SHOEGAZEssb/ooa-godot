@@ -5,6 +5,6 @@ namespace oracleofages;
 /// room 1:83 after obtaining the second Essence.
 /// </summary>
 internal sealed class RemoteMakuSecondEssenceEvent(RoomEventContext context) :
-    RemoteMakuEntryEvent<RemoteMakuSecondEssenceDatabase>(context, new RemoteMakuSecondEssenceDatabase())
+    RemoteMakuEntryEvent<RemoteMakuSecondEssenceDatabase>(context, RoomEventSourceData.Shared.MakuSecond)
 {
 }

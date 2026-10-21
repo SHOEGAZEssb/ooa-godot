@@ -61,8 +61,8 @@ public sealed class RoomEventController
         if (_preparationStarted)
             throw new InvalidOperationException("Room event resources have already begun preparation.");
         _preparationStarted = true;
-        var tokayInteractions = new TokayInteractionDatabase();
-        var oceanInteractions = new OceanInteractionDatabase();
+        var tokayInteractions = RoomEventSourceData.Shared.Tokay;
+        var oceanInteractions = RoomEventSourceData.Shared.Ocean;
         yield return false;
         var impa = new ImpaIntroEvent(_context);
         yield return false;
@@ -141,8 +141,8 @@ public sealed class RoomEventController
             () => new TokayTheftEvent(_context),
             () => new TokayCookEvent(_context, tokayInteractions),
             () => new RosaShovelEvent(_context, tokayInteractions),
-            () => new TokayTradingEvent(_context, tokayInteractions, new TokayShopDatabase()),
-            () => new WildTokayGameEvent(_context, tokayInteractions, new WildTokayGameDatabase()),
+            () => new TokayTradingEvent(_context, tokayInteractions, RoomEventSourceData.Shared.TokayShop),
+            () => new WildTokayGameEvent(_context, tokayInteractions, RoomEventSourceData.Shared.WildTokay),
             () => new RaftonEvent(_context),
             () => new DepressedBoyEvent(_context),
             () => new ToiletHandEvent(_context),

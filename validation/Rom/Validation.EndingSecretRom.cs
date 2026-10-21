@@ -186,6 +186,7 @@ public sealed partial class ValidationRoot
             root.Step(1,batched,"inventory");root.Step(1,batched);
             FailIf(root._mainMenu?.CurrentPage!=Page.TextSpeed,"Ending reload did not select its completed file.");
             root.Step(1,batched,"inventory");root.Step(MainMenuController.WhiteFadeFrames,batched);
+            root.CompleteSavedGameLoading(batched);
             FailIf(root._mainMenu is not null||root._rooms.ActiveGroup!=0||root._rooms.CurrentRoom.Id!=0x38||
                 root._player.Position!=new Vector2(0x50,0x68)||root._player.FacingVector!=Vector2I.Down||!root._saveData.IsCompleted,
                 "Completed file must resume at preset $01: room 0:38, X=$50/Y=$68, facing down.");

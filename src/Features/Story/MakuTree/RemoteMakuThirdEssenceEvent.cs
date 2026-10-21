@@ -10,7 +10,7 @@ internal sealed class RemoteMakuThirdEssenceEvent : RemoteMakuEvent
     private bool _prepared;
 
     internal RemoteMakuThirdEssenceEvent(RoomEventContext context)
-        : this(context, new RemoteMakuThirdEssenceDatabase())
+        : this(context, RoomEventSourceData.Shared.MakuThird)
     {
     }
 

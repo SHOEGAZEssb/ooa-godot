@@ -40,6 +40,7 @@ public sealed class OracleRoomData
         // live wRoomLayout/wRoomCollisions, retaining imported room data.
         var layout=(byte[])Layout.Clone();var collisions=(byte[])Collisions.Clone();
         Array.Clear(Layout);Array.Clear(Collisions);
+        _roomTextureDirty = true;
         return ()=>{layout.CopyTo(Layout,0);collisions.CopyTo(Collisions,0);ReplaceRoomTexture(_activeAnimationHeaders);};
     }
     public Texture2D Texture { get; }
@@ -77,6 +78,19 @@ public sealed class OracleRoomData
     private int _animationSignature;
     private int[] _activeAnimationHeaders;
     private (Color, Color, Color, Color) _clearedTilemapPalette;
+    private readonly Color[,] _renderedBackgroundPalettes = new Color[8, 4];
+    private Image? _renderedLiveGraphics;
+    private bool _renderedFreezeGraphicsOverrides;
+    private int _renderedAnimationSignature;
+    private bool _roomTextureDirty;
+    private byte[]? _renderPixels, _underwaterRenderPixels;
+    private readonly byte[] _palettePixels = new byte[128];
+    private readonly Color[,] _capturedPalette = new Color[8, 4];
+    private bool _paletteCaptured;
+    private readonly Dictionary<Image, (OracleImagePixels Snapshot, byte[] Pixels, int Width)> _renderSources = new();
+    private readonly int[] _paletteRevisions = new int[8];
+    private RasterTile[]? _renderTiles, _underwaterRenderTiles;
+    private readonly record struct RasterTile(OracleImagePixels Pixels, int Tile, byte Attributes, int PaletteRevision);
 
     internal int CurrentAnimationSignature => _animationSignature;
     internal void CopyLayoutToUnderlying() => Array.Copy(Layout, _underlyingLayout, Layout.Length);
@@ -137,6 +151,7 @@ public sealed class OracleRoomData
         ClearedTilemapTexture = ImageTexture.CreateFromImage(cleared);
         _clearedTilemapPalette = ClearedTilemapPaletteKey();
         Texture = ImageTexture.CreateFromImage(rendered);
+        RememberRoomTextureInputs();
     }
 
     public bool UpdateAnimation(long tick)
@@ -188,7 +203,7 @@ public sealed class OracleRoomData
         {
             _backgroundPalettes.LoadTileset(_tilesetPalette);
         }
-        RedrawForPaletteChange();
+        RefreshPaletteTextures();
     }
 
     /// <summary>
@@ -231,20 +246,22 @@ public sealed class OracleRoomData
             throw new ArgumentOutOfRangeException(nameof(tile));
         int sourceX = tile % 16 * 8;
         int sourceY = tile / 16 * 8;
-        if (sourceX + 8 > source.GetWidth() || sourceY + 8 > source.GetHeight())
+        OracleImagePixels pixels = OracleGraphicsCache.GetImagePixels(source);
+        if (sourceX + 8 > pixels.Width || sourceY + 8 > pixels.Height)
             throw new ArgumentOutOfRangeException(nameof(tile));
 
-        Image output = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
+        var output = new OracleImageCanvas(8, 8);
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
         {
-            Color sourceColor = source.GetPixel(sourceX + x, sourceY + y);
+            Color sourceColor = pixels.GetPixel(sourceX + x, sourceY + y);
             int shade = Mathf.Clamp(
                 Mathf.RoundToInt((1.0f - sourceColor.R) * 3.0f), 0, 3);
             output.SetPixel(
                 x, y, _backgroundPalettes.Resolve(rawPalette, shade));
         }
-        return ImageTexture.CreateFromImage(output);
+        using Image image = output.ToImage();
+        return ImageTexture.CreateFromImage(image);
     }
 
     /// <summary>
@@ -333,7 +350,8 @@ public sealed class OracleRoomData
 
     public ulong GetAnimationChecksum(long tick)
     {
-        byte[] pixels = RenderRoom(_animations.GetActiveHeaders(AnimationGroup, tick)).GetData();
+        using Image rendered = RenderRoom(_animations.GetActiveHeaders(AnimationGroup, tick));
+        byte[] pixels = rendered.GetData();
         ulong hash = 14695981039346656037UL;
         foreach (byte value in pixels)
         {
@@ -347,7 +365,8 @@ public sealed class OracleRoomData
     {
         if (point.X < 0 || point.X >= Width || point.Y < 0 || point.Y >= Height)
             throw new ArgumentOutOfRangeException(nameof(point));
-        return RenderRoom(_activeAnimationHeaders).GetPixel(point.X, point.Y);
+        using Image rendered = RenderRoom(_activeAnimationHeaders);
+        return rendered.GetPixel(point.X, point.Y);
     }
 
     internal byte GetBackgroundSubtileForValidation(int tileX, int tileY)
@@ -603,6 +622,8 @@ public sealed class OracleRoomData
         // Preserve it even if no earlier queued setTile write was accepted.
         if (!_positionMappingOverrides.ContainsKey(position))
             _positionVisualOverrides[position] = GetRenderedMetatile(position);
+        if (position % _layoutStride >= WidthInTiles && Layout[position] != tile)
+            _roomTextureDirty = true;
         Layout[position] = tile;
     }
 
@@ -613,6 +634,7 @@ public sealed class OracleRoomData
                 preserveRenderedTile: true);
         else
         {
+            if (Layout[position] != tile) _roomTextureDirty = true;
             Layout[position] = tile;
             _positionCollisionOverrides[position] = collision;
         }
@@ -1253,16 +1275,24 @@ public sealed class OracleRoomData
         ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
         if (_underwaterBackgroundTexture is not null)
             ReplaceTextureImage(_underwaterBackgroundTexture, RenderRoom(activeHeaders, storageWidth: 256));
+        RememberRoomTextureInputs();
     }
 
     private Image RenderRoom(int[] activeHeaders, int storageWidth = 0)
     {
         int outputWidth = storageWidth == 0 ? Width : storageWidth;
-        byte[] output = new byte[outputWidth * Height * 4];
+        byte[] output = storageWidth == 0
+            ? _renderPixels ??= new byte[outputWidth * Height * 4]
+            : _underwaterRenderPixels ??= new byte[outputWidth * Height * 4];
         byte[] colors = CapturePalettePixels();
+        int tileCount = outputWidth / 16 * HeightInTiles * 4;
+        RasterTile[] tiles = storageWidth == 0
+            ? _renderTiles ??= new RasterTile[tileCount]
+            : _underwaterRenderTiles ??= new RasterTile[tileCount];
         // Read each source once per redraw, including the mutable shared VRAM.
         // A persistent image cache here would miss transition/scripted writes.
-        var sources = new Dictionary<Image, (byte[] Pixels, int Width)>();
+        var sources = _renderSources;
+        sources.Clear();
 
         for (int roomY = 0; roomY < HeightInTiles; roomY++)
         for (int roomX = 0; roomX < outputWidth / 16; roomX++)
@@ -1290,9 +1320,17 @@ public sealed class OracleRoomData
                 ResolveBackgroundGraphics(activeHeaders, sourceIndex, out Image tileSource, out int sourceTile);
                 if (!sources.TryGetValue(tileSource, out var sourcePixels))
                 {
-                    sourcePixels = (ReadRgbaPixels(tileSource), tileSource.GetWidth());
+                    OracleImagePixels pixels = OracleGraphicsCache.GetImagePixels(tileSource);
+                    sourcePixels = (pixels, pixels.RgbaPixels ?? ReadRgbaPixels(tileSource), pixels.Width);
                     sources.Add(tileSource, sourcePixels);
                 }
+                int rasterIndex = (roomY * (outputWidth / 16) + roomX) * 4 + quarter;
+                var rasterTile = new RasterTile(sourcePixels.Snapshot, sourceTile, attributes,
+                    _paletteRevisions[attributes & 7]);
+                // Immutable art keeps its snapshot identity. Mutable VRAM gets
+                // a fresh snapshot each redraw, preserving in-place uploads.
+                if (tiles[rasterIndex] == rasterTile) continue;
+                tiles[rasterIndex] = rasterTile;
                 int sourceColumns = sourcePixels.Width / 8;
                 int sourceX = (sourceTile % sourceColumns) * 8;
                 int sourceY = (sourceTile / sourceColumns) * 8;
@@ -1317,6 +1355,7 @@ public sealed class OracleRoomData
             }
         }
 
+        sources.Clear();
         return Image.CreateFromData(outputWidth, Height, false, Image.Format.Rgba8, output);
     }
 
@@ -1348,14 +1387,30 @@ public sealed class OracleRoomData
 
     private byte[] CapturePalettePixels()
     {
+        bool changed = !_paletteCaptured;
+        for (int palette = 0; palette < 8; palette++)
+        for (int shade = 0; shade < 4; shade++)
+            changed |= _capturedPalette[palette, shade] != _backgroundPalettes.Resolve(palette, shade);
+        if (!changed) return _palettePixels;
         // Let Godot quantize the 32 colors exactly as Image.SetPixel did.
         // Full-room composition then stays in managed memory instead of
         // making two native calls for every displayed pixel.
         using Image colors = Image.CreateEmpty(4, 8, false, Image.Format.Rgba8);
         for (int palette = 0; palette < 8; palette++)
-        for (int shade = 0; shade < 4; shade++)
-            colors.SetPixel(shade, palette, _backgroundPalettes.Resolve(palette, shade));
-        return colors.GetData();
+        {
+            bool paletteChanged = !_paletteCaptured;
+            for (int shade = 0; shade < 4; shade++)
+            {
+                Color color = _backgroundPalettes.Resolve(palette, shade);
+                paletteChanged |= _capturedPalette[palette, shade] != color;
+                colors.SetPixel(shade, palette, color);
+                _capturedPalette[palette, shade] = color;
+            }
+            if (paletteChanged) _paletteRevisions[palette]++;
+        }
+        colors.GetData().CopyTo(_palettePixels, 0);
+        _paletteCaptured = true;
+        return _palettePixels;
     }
 
     private static byte[] ReadRgbaPixels(Image source)
@@ -1366,13 +1421,18 @@ public sealed class OracleRoomData
         return converted.GetData();
     }
 
-    internal void LoadTilesetPalette()
+    internal void LoadTilesetPalette(bool resetLiveGraphics = false)
     {
         _temporaryBackgroundPaletteActive = false;
         _temporaryFullBackgroundPaletteBlend = 0.0f;
         _temporaryBackgroundPaletteOffset = null;
+        if (resetLiveGraphics)
+        {
+            _liveGraphics = null;
+            _freezeGraphicsOverrides = false;
+        }
         _backgroundPalettes.LoadTileset(_tilesetPalette);
-        RedrawForPaletteChange();
+        RefreshPaletteTextures();
     }
 
     internal void SetLiveGraphics(Image? graphics, bool freezeOverrides)
@@ -1416,7 +1476,62 @@ public sealed class OracleRoomData
 
     internal void RedrawForPaletteChange()
     {
+        // Explicit graphics publications (including writes into the shared
+        // scrolling VRAM Image) must redraw even when its identity is stable.
         ReplaceRoomTexture(_activeAnimationHeaders);
+        RefreshClearedTilemap();
+    }
+
+    internal void RefreshPaletteTextures()
+    {
+        int changedPalettes = 0;
+        for (int palette = 0; palette < 8; palette++)
+        for (int shade = 0; shade < 4; shade++)
+            if (_renderedBackgroundPalettes[palette, shade] != _backgroundPalettes.Resolve(palette, shade))
+                changedPalettes |= 1 << palette;
+        bool graphicsChanged = _roomTextureDirty || !ReferenceEquals(_renderedLiveGraphics, _liveGraphics) ||
+            _renderedFreezeGraphicsOverrides != _freezeGraphicsOverrides ||
+            _renderedAnimationSignature != _animationSignature;
+        if (graphicsChanged || UsesBackgroundPalettes(changedPalettes))
+            ReplaceRoomTexture(_activeAnimationHeaders);
+        else if (changedPalettes != 0)
+            RememberRoomTextureInputs();
+        RefreshClearedTilemap();
+    }
+
+    private bool UsesBackgroundPalettes(int palettes)
+    {
+        if (palettes == 0) return false;
+        int columns = _underwaterBackgroundTexture is null ? WidthInTiles : 16;
+        for (int y = 0; y < HeightInTiles; y++)
+        for (int x = 0; x < columns; x++)
+        {
+            int index = y * _layoutStride + x;
+            bool playable = x < WidthInTiles;
+            byte[]? mapping = playable && _positionMappingOverrides.TryGetValue(index, out var value) ? value : null;
+            int metatile = playable ? GetRenderedMetatile(index) : _layoutStride == 16 ? Layout[index] : 0;
+            for (int quarter = 0; quarter < 4; quarter++)
+            {
+                int attributes = mapping is null ? _mappings[metatile * 8 + 4 + quarter] : mapping[4 + quarter];
+                if ((palettes & (1 << (attributes & 7))) != 0) return true;
+            }
+        }
+        return false;
+    }
+
+    private void RememberRoomTextureInputs()
+    {
+        for (int palette = 0; palette < 8; palette++)
+        for (int shade = 0; shade < 4; shade++)
+            _renderedBackgroundPalettes[palette, shade] = _backgroundPalettes.Resolve(palette, shade);
+        _renderedLiveGraphics = _liveGraphics;
+        _renderedFreezeGraphicsOverrides = _freezeGraphicsOverrides;
+        _renderedAnimationSignature = _animationSignature;
+        _roomTextureDirty = false;
+    }
+
+    private void RefreshClearedTilemap()
+    {
         // The clear map repeats immutable gfx_hud tile $00 with BG palette 0.
         // Scrolling VRAM uploads and writes to BG1-7 cannot change its pixels.
         var palette = ClearedTilemapPaletteKey();

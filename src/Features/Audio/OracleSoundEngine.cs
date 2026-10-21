@@ -15,6 +15,9 @@ public partial class OracleSoundEngine : Node
     private const int OutputLeadFrames = 1024;
     private const int MaximumOutputLeadFrames = SampleRate / 10;
     private const int MaximumQueuedOutputFrames = SampleRate / 15;
+    // Allow two fixed updates of mixer/host phase variation before treating
+    // queued PCM as stale. Trim back to the target only beyond this high mark.
+    private const int OutputQueueHeadroomFrames = SampleRate / 30;
     private const int OutputBridgeFrames = 64;
 
     private readonly OracleSoundData _data;
@@ -24,7 +27,7 @@ public partial class OracleSoundEngine : Node
     private readonly byte[] _requests = new byte[16];
     private readonly Queue<Vector2> _samples = new();
     private readonly Vector2[] _outputBuffer = new Vector2[
-        MaximumQueuedOutputFrames + MaximumOutputLeadFrames - OutputLeadFrames];
+        MaximumQueuedOutputFrames + MaximumOutputLeadFrames - OutputLeadFrames + OutputQueueHeadroomFrames];
     private readonly bool _enableOutput;
     private readonly bool _allowHeadlessOutput;
     private readonly ApplicationFixedUpdateScheduler _updates = new();
@@ -39,6 +42,7 @@ public partial class OracleSoundEngine : Node
     private int _outputLeadFrames = OutputLeadFrames;
     private Vector2 _lastOutputSample, _bridgeStart;
     private bool _outputDiscontinuity;
+    private OracleAudioOutputDiagnostics? _outputDiagnostics;
     internal bool ApplicationUpdateOwned { get; set; }
 
     public int ActiveMusic { get; private set; }
@@ -85,6 +89,7 @@ public partial class OracleSoundEngine : Node
         AddChild(_player);
         _player.Play();
         _playback = _player.GetStreamPlayback() as AudioStreamGeneratorPlayback;
+        _outputDiagnostics = OracleAudioOutputDiagnostics.CreateIfEnabled();
     }
 
     public override void _ExitTree()
@@ -105,6 +110,7 @@ public partial class OracleSoundEngine : Node
         _lastOutputSample = _bridgeStart = Vector2.Zero;
         _outputDiscontinuity = false;
         _requestObserver = null;
+        _outputDiagnostics = null;
     }
 
     public override void _Process(double delta)
@@ -188,6 +194,7 @@ public partial class OracleSoundEngine : Node
 
     internal void Tick()
     {
+        long diagnosticStart = _outputDiagnostics is null ? 0 : System.Diagnostics.Stopwatch.GetTimestamp();
         if (_volumePending)
         {
             _driver.SetVolume(_requestedVolume);
@@ -203,6 +210,7 @@ public partial class OracleSoundEngine : Node
         // Hardware clocks are independent of driver enable/mute state.
         long target = _clockOrigin + ++_updateCount * OracleApu.ClockRate / UpdatesPerSecond;
         if (_apu.Clocks < target) _apu.AdvanceClocks(checked((int)(target - _apu.Clocks)));
+        if (_outputDiagnostics is not null) _outputDiagnostics.ObserveTick(diagnosticStart);
     }
 
     private void QueueSample(Vector2 sample)
@@ -249,9 +257,12 @@ public partial class OracleSoundEngine : Node
         // Flush only after the complete host-frame batch. Count BOTH queues
         // when bounding latency; retaining 250 ms behind a full native ring
         // delays every subsequent effect even after the host has recovered.
-        int keep = Math.Max(0,
-            MaximumQueuedOutputFrames + _outputLeadFrames - OutputLeadFrames - queued);
-        while (_samples.Count > keep)
+        int target = MaximumQueuedOutputFrames + _outputLeadFrames - OutputLeadFrames;
+        int keep = Math.Max(0, target - queued);
+        bool trim = _samples.Count > Math.Max(0, target + OutputQueueHeadroomFrames - queued);
+        _outputDiagnostics?.ObserveFill(skips, queued, _samples.Count, _outputLeadFrames,
+            trim ? Math.Max(0, _samples.Count - keep) : 0, _updateCount);
+        while (trim && _samples.Count > keep)
         {
             _samples.Dequeue();
             _outputDiscontinuity = true;

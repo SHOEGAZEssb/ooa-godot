@@ -1,3 +1,3 @@
 namespace oracleofages;
 internal sealed class RemoteMakuFifthEssenceEvent(RoomEventContext context)
-    :RemoteMakuEntryEvent<RemoteMakuFifthEssenceDatabase>(context,new());
+    :RemoteMakuEntryEvent<RemoteMakuFifthEssenceDatabase>(context,RoomEventSourceData.Shared.MakuFifth);

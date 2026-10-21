@@ -12,6 +12,8 @@ public sealed partial class ValidationRoot
     private bool _profileSelectedFile;
     private double _profileLongestStep;
     private double _profileLongestFileStep;
+    private Stopwatch? _profileFileLoad;
+    private bool _profileSavedGame;
     private readonly Dictionary<int, (int Frames, double WorkMs)> _profileStages = new();
     private long _profileLastFrame;
     private double _profileLongestFrame;
@@ -74,16 +76,31 @@ public sealed partial class ValidationRoot
                 foreach (var entry in _profileStages)
                     GD.Print($"STARTUP_STAGE stage={entry.Key} frames={entry.Value.Frames} work_ms={entry.Value.WorkMs:F2}");
                 typeof(GameRoot).GetMethod("OpenFileSelectFromFrontend", ProfileFields)!.Invoke(this, null);
+                OracleSaveData save = OracleSaveData.CreateStandardGame();
+                bool savedGame = _profileSavedGame = Array.IndexOf(OS.GetCmdlineUserArgs(), "--profile-startup-saved") >= 0;
+                if (savedGame) save.SetGlobalFlag(GlobalFlag.PregameIntroDone);
+                FieldInfo persist = typeof(GameRoot).GetField("_persistSaveData", ProfileFields)!;
+                bool previousPersistence = (bool)persist.GetValue(this)!;
                 step.Restart();
-                typeof(GameRoot).GetMethod("StartSelectedFile", ProfileFields)!.Invoke(this, [0, OracleSaveData.CreateStandardGame()]);
-                GD.Print($"STARTUP_FILE_SELECT ms={step.Elapsed.TotalMilliseconds:F2}");
+                _profileFileLoad = Stopwatch.StartNew();
+                try
+                {
+                    // Select the saved respawn path without reading or writing
+                    // real files. Restore persistence before the profile exits.
+                    if (savedGame) persist.SetValue(this, true);
+                    typeof(GameRoot).GetMethod("StartSelectedFile", ProfileFields)!.Invoke(this, [0, save]);
+                }
+                finally { persist.SetValue(this, previousPersistence); }
+                GD.Print($"STARTUP_FILE_SELECT saved={savedGame} ms={step.Elapsed.TotalMilliseconds:F2}");
                 FieldInfo preparation = typeof(GameRoot).GetField("_gameplayPreparation", ProfileFields)!;
                 preparation.SetValue(this, ProfilePreparation((IEnumerator<bool>)preparation.GetValue(this)!).GetEnumerator());
                 _profileSelectedFile = true;
             }
-            if (_profileSelectedFile && GameplayPrepared)
+            bool savedComplete = _profileSavedGame &&
+                !(bool)typeof(GameRoot).GetField("_loadingSavedGame", ProfileFields)!.GetValue(this)!;
+            if (_profileSelectedFile && (GameplayPrepared || savedComplete))
             {
-                GD.Print($"STARTUP_PROFILE_COMPLETE max_file_step_ms={_profileLongestFileStep:F2}");
+                GD.Print($"STARTUP_PROFILE_COMPLETE max_file_step_ms={_profileLongestFileStep:F2} load_elapsed_ms={_profileFileLoad!.Elapsed.TotalMilliseconds:F2}");
                 SetProcess(false);
                 GetTree().Quit(0);
             }

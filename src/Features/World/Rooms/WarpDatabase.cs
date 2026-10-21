@@ -6,6 +6,8 @@ namespace oracleofages;
 
 public sealed class WarpDatabase
 {
+    private static readonly Lazy<WarpDatabase> SharedSource = new(() => new WarpDatabase());
+    internal static WarpDatabase Shared => SharedSource.Value;
 
     private readonly Lookup<(int Group, int Room), Warp> _warps = new();
     private readonly Lookup<(int Group, int Room), DiveWarp> _diveWarps = new();

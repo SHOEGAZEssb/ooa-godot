@@ -24,6 +24,8 @@ public partial class GameSceneGraph : Node2D
         yield return false;
         foreach (bool step in Unique<SaveQuitScreen>("SaveQuitScreen").PrepareResources())
             yield return step;
+        foreach (bool step in Unique<Player>("Link").PrepareInitialPresentation())
+            yield return step;
     }
     public const string ScenePath = "res://scenes/gameplay.tscn";
 

@@ -796,6 +796,7 @@ public sealed class RoomTransitionController
 
     public void BeginScroll(Player player, Vector2I direction, int targetId)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("scroll", _rooms.ActiveGroup, targetId);
         OracleRoomData source = _rooms.CurrentRoom;
         if (_rooms.World.RequiresRoomPackFade(_rooms.ActiveGroup, source.Id, targetId))
         {
@@ -818,7 +819,9 @@ public sealed class RoomTransitionController
         }
         Image sourceGraphics = source.CaptureLiveGraphics();
         Color[,] sourceColors = source.BackgroundPalettes.Capture();
+        diagnostics?.Mark("source-snapshot");
         OracleRoomData target = _rooms.GetRoom(_rooms.ActiveGroup, targetId);
+        diagnostics?.Mark("destination-data");
         IPlayerScreenTransitionRoomEntity? transitionOwner =
             _entities.PlayerScreenTransitionOwner;
         UpdateCamera();
@@ -892,6 +895,7 @@ public sealed class RoomTransitionController
         _entities.BeginScreenTransition(
             _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction,
             target.GetPackedPosition(transitionEnd), player);
+        diagnostics?.Mark("destination-objects");
         int beforeGraphics = _scrollSetupFrames - 4;
         int uploadStart = target.LoadsUniqueGraphicsAfterScroll
             ? _scrollTotalFrames - entries + 1 : 2;
@@ -904,6 +908,7 @@ public sealed class RoomTransitionController
             uploadGraphics ? _scrollGraphics.Uploads(unique) : Array.Empty<ScreenGraphicsUpload>(),
             uploadStart, beforeGraphics > 0 && !paletteRoutePresent ? beforeGraphics + 1 : -1,
             _scrollSetupFrames - 2, smooth);
+        diagnostics?.Mark("transition-graphics");
         _scrollPlayerOwner = transitionOwner;
         _scrollPlayerOwner?.BeginScreenTransition(target);
         // State0 may change either coordinate (platform contact), not only

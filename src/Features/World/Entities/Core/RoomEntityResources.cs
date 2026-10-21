@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 
 namespace oracleofages;
 
@@ -6,6 +7,23 @@ namespace oracleofages;
 // here; placement and actor construction consume the same database instances.
 internal sealed class RoomEntityResources(RoomSession? rooms)
 {
+    private static readonly Lazy<RoomEntityResources> PreparedSource = new(() =>
+    {
+        var source = new RoomEntityResources(null);
+        foreach (bool _ in source.PrepareResources(includeGraphics: false)) { }
+        return source;
+    });
+    internal static void PrepareSources() => _ = PreparedSource.Value;
+    internal static RoomEntityResources CreateSession(RoomSession? rooms)
+    {
+        if (!PreparedSource.IsValueCreated) return new(rooms);
+        // This catalog contains imported definitions only. Clone the catalog
+        // so first-use cache assignments remain session-local; bind maps to
+        // the current world, without retaining any session in the source.
+        var session = (RoomEntityResources)PreparedSource.Value.MemberwiseClone();
+        session.DungeonMaps = rooms?.DungeonMaps ?? PreparedSource.Value.DungeonMaps;
+        return session;
+    }
     private PlacedPartDatabase? _placedParts;
     internal PlacedPartDatabase PlacedParts => _placedParts ??= new();
     private VeranFinalDatabase? _veranFinal;
@@ -245,10 +263,10 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
     internal CompanionBarrierDatabase CompanionBarriers => _companionBarriersData ??= new();
     private TingleDatabase? _tingleData;
     internal TingleDatabase Tingle => _tingleData ??= new();
-    internal readonly DungeonMapDatabase DungeonMaps =
+    internal DungeonMapDatabase DungeonMaps { get; private set; } =
         rooms?.DungeonMaps ?? new DungeonMapDatabase();
 
-    internal IEnumerable<bool> PrepareResources()
+    internal IEnumerable<bool> PrepareResources(bool includeGraphics = true)
     {
         _ = Volcano;
         yield return false;
@@ -404,13 +422,13 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         yield return false;
         _ = LedgeJumps;
         yield return false;
-        _ = SwordBeam;
+        if (includeGraphics) _ = SwordBeam;
         yield return false;
         _ = Bracelet;
         yield return false;
         _ = Bomb;
         yield return false;
-        _ = GashaSpots;
+        if (includeGraphics) _ = GashaSpots;
         yield return false;
         _ = DarkRooms;
         yield return false;
@@ -426,7 +444,7 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         yield return false;
         _ = MooshGoodbye;
         yield return false;
-        _ = Dimitri;
+        if (includeGraphics) _ = Dimitri;
         yield return false;
         _ = CompanionTutorials;
         yield return false;

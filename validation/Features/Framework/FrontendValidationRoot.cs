@@ -65,4 +65,17 @@ internal partial class FrontendValidationRoot : GameRoot
         Application.Step(updates, Vector2.Zero, pressed, pressed, batched);
 
     internal void AdvanceHost(double delta) => base._Process(delta);
+
+    internal void CompleteSavedGameLoading(bool batched)
+    {
+        var loading = typeof(GameRoot).GetField("_loadingSavedGame",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        for (int host = 0; (bool)loading.GetValue(this)! && host < 512; host++)
+        {
+            Step(batched ? 4 : 1, batched);
+            AdvanceGameplayPreparation();
+        }
+        if ((bool)loading.GetValue(this)!)
+            throw new InvalidOperationException("Saved-file resource preparation did not complete.");
+    }
 }
