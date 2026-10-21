@@ -2564,8 +2564,16 @@ public sealed class RoomEntityManager : IDisposable
         {
             tokaySlot.CreateShieldAccessory = parent =>
             {
-                if (parent.Accessory is not { } accessory) return;
-                if (!InteractionSlotAvailable) { parent.Accessory=null; return; }
+                var record = parent.Record;
+                // tokay.s @initSubid1d returns on flag $40 or failed
+                // getFreeInteractionSlot before constructing accessory $63.
+                if (_saveData is null || _inventory is null ||
+                    _saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag40) ||
+                    !InteractionSlotAvailable) return;
+                var accessory = new TokayAttachedVisualRoomEntity(parent,
+                    _factory.Resources.TokayNative.Visual(_inventory.ShieldLevel < 2 ? "shield1" : "shield2", record.Group, record.Room),
+                    new Vector2(0, -12));
+                parent.Accessory = accessory;
                 parent.SetScriptAnimation(_factory.Resources.TokayInteractions.Animation(6));
                 AddEntity(accessory);
             };

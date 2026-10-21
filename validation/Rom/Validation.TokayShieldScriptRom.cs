@@ -8,6 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateTokayShieldScriptRom()
     {
+        var initialOrphans = ValidationNodeLifetime.OrphanIds().ToHashSet();
         foreach(bool batched in new[]{false,true})
         foreach(int level in new[]{1,2})
         foreach(int initFree in new[]{0,1})
@@ -79,6 +80,10 @@ public sealed partial class ValidationRoot
             FailIf(_inventory.ShieldLevel!=expected||!_saveData.HasRoomFlag(5,0xe9,0x40)||_runtimeState.ReadWramByte(0xcc8a)!=0,
                 source+": failed treasure allocation must preserve the level while the script still sets flag$40 and releases input.");
             _entities.Clear();
+            FailIf(ValidationNodeLifetime.OrphanIds().Except(initialOrphans).Any(id =>
+                GodotObject.InstanceFromId(id) is TokayAttachedVisualRoomEntity visual &&
+                !visual.IsQueuedForDeletion()),
+                $"{source}: shield accessory $63 survived room cleanup without an owner or pending deletion.");
         }
         foreach(bool batched in new[]{false,true})
         {

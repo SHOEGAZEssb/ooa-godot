@@ -3587,10 +3587,6 @@ internal sealed class RoomEntityFactory
             {
                 bool returned = _saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag40);
                 if (returned) tokay.SetScriptAnimation(Resources.TokayInteractions.Animation(2));
-                if (!returned)
-                    tokay.Accessory = new TokayAttachedVisualRoomEntity(tokay,
-                        Resources.TokayNative.Visual(_inventory.ShieldLevel < 2 ? "shield1" : "shield2", record.Group, record.Room),
-                        new Vector2(0, -12));
             }
             return new TokayNpcRoomEntity(tokay);
         }
