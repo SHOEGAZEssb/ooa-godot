@@ -194,8 +194,8 @@ public sealed partial class ValidationRoot
         {
             var settings = new PresentationSettings();
             settings.Load(path);
-            FailIf(settings.HudBottom || !settings.RoomOverlayEnabled,
-                "Missing preferences must default to a top HUD and a visible room overlay.");
+            FailIf(settings.HudBottom || settings.RoomOverlayEnabled,
+                "Missing preferences must default to a top HUD and a hidden room overlay.");
             // Existing installations only have the HUD setting.
             using (var legacy = new ConfigFile())
             {
@@ -203,8 +203,8 @@ public sealed partial class ValidationRoot
                 FailIf(legacy.Save(path) != Error.Ok, "Could not create legacy presentation preferences.");
             }
             settings.Load(path);
-            FailIf(!settings.HudBottom || !settings.RoomOverlayEnabled,
-                "Legacy HUD preferences must retain their HUD placement and default room visibility.");
+            FailIf(!settings.HudBottom || settings.RoomOverlayEnabled,
+                "Legacy HUD preferences must retain their HUD placement and default to a hidden room overlay.");
             foreach (bool bottom in new[] { true, false })
             foreach (bool visible in new[] { false, true })
             {

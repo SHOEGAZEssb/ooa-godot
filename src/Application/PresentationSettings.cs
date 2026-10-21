@@ -7,7 +7,7 @@ internal sealed class PresentationSettings
 {
     private const string DefaultPath = "user://presentation.cfg";
     internal bool HudBottom { get; set; }
-    internal bool RoomOverlayEnabled { get; set; } = true;
+    internal bool RoomOverlayEnabled { get; set; }
 
     internal void Load(string path = DefaultPath)
     {
@@ -15,8 +15,8 @@ internal sealed class PresentationSettings
         bool loaded = config.Load(path) == Error.Ok;
         HudBottom = loaded &&
             config.GetValue("display", "hud_bottom", false).AsBool();
-        RoomOverlayEnabled = !loaded ||
-            config.GetValue("display", "room_overlay_enabled", true).AsBool();
+        RoomOverlayEnabled = loaded &&
+            config.GetValue("display", "room_overlay_enabled", false).AsBool();
     }
 
     internal Error Save(string path = DefaultPath)
