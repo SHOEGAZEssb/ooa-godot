@@ -143,7 +143,7 @@ owner.
 & .\tools\verify_oracle_import.ps1
 dotnet build -t:Rebuild -p:Optimize=true
 
-& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
+& .\tools\validate_parallel.ps1
 
 git diff --check
 git status --short
@@ -179,7 +179,7 @@ the required parallel run; use serial runs only for additional debugging.
 For a focused validation during development:
 
 ```powershell
-& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source -ValidateOnly ValidateMethodName
+& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
 ```
 
 Before a handoff involving changes to actual game source files, run

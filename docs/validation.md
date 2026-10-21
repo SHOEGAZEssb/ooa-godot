@@ -119,7 +119,7 @@ workers. Agents must use this build command for both focused and full validation
 
 ```powershell
 dotnet build -t:Rebuild -p:Optimize=true
-& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
+& .\tools\validate_parallel.ps1
 ```
 
 This preserves all scenarios and assertions and uses the same Debug output
@@ -133,7 +133,7 @@ the preceding build.
 Run one exact registered method while developing:
 
 ```powershell
-& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source -ValidateOnly ValidateMethodName
+& .\tools\validate_parallel.ps1 -ValidateOnly ValidateMethodName
 ```
 
 An unknown name fails. A focused run is a development aid; run the complete
@@ -211,7 +211,7 @@ Android frame times.
 For a serial run when debugging:
 
 ```powershell
-& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source -Workers 1
+& .\tools\validate_parallel.ps1 -Workers 1
 ```
 
 The launcher uses separate headless Godot processes; each keeps scene-tree,
@@ -308,7 +308,7 @@ Handoff checks:
 
 ```powershell
 dotnet build -t:Rebuild -p:Optimize=true
-& .\tools\validate_parallel.ps1 -Godot (Get-Command Godot_v4.7.1-stable_mono_win64_console.exe).Source
+& .\tools\validate_parallel.ps1
 git diff --check
 git status --short
 ```
