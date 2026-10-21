@@ -15,8 +15,7 @@ public sealed partial class ValidationRoot
         _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(216, 144)); _player.BeginCutsceneControl();
         // Declared clear geometry isolates capacity, rather than claiming a
         // natural retail route to a saturated object pool.
-        for (int y = 8; y < 176; y += 16)
-        for (int x = 8; x < 240; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0x0c, 0, 0);
+        FillValidationRoom(0x0c, width: 15, height: 11);
     }
 
     private void F8Fill(SomariaRom native, int free)
@@ -115,9 +114,8 @@ public sealed partial class ValidationRoot
                 // The real enemy walk also visits newly allocated higher slots.
                 // Lower slots retain state0 until the next walk.
                 foreach(int childSlot in nativeChildren.Where(slot=>slot>parentSlot))F8Parent(native,childSlot);
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    $"Giant Ghini's state0 and admitted higher-slot children must consume common RNG in original order: parent${parentSlot:x2}, free{free}, calls{rng.Calls-seed.Calls}/{native.RandomCalls}.");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    $"Giant Ghini's state0 and admitted higher-slot children must consume common RNG in original order: parent${parentSlot:x2}, free{free}, calls{_random.CaptureState().Calls-seed.Calls}/{native.RandomCalls}.");
                 FailIf(((GiantGhiniBoss)parent.Node).ChildrenAlive != native[at + 0x30], "Giant Ghini must count only successfully admitted children.");
                 for (int i = 0; i < expected; i++)
                     FailIf(children[i].Node.Name != $"GiantGhiniChild_{i}" || (native[0xd082 + nativeChildren[i] * 256] & 3) != 3 - i,

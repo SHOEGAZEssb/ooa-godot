@@ -46,8 +46,7 @@ public partial class ValidationRoot
                 if (part != null) FailIf(SomariaPrivate<bool>(part,"_initialized") != (rom[0xd1c4] != 0) ||
                     SomariaPrivate<int>(part,"_counter") != rom[0xd1c6] || SomariaPrivate<int>(part,"_remaining") != rom[0xd1c7],
                     "New bridge state0 must initialize and decrement once under text, then freeze in state1.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Bridge allocation attempts must preserve original global RNG consumption.");
             });
             try

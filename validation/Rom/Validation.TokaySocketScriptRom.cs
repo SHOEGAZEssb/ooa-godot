@@ -55,8 +55,7 @@ public sealed partial class ValidationRoot
                     $"Socket source cue order/boundary differs at age{age}.");
                 FailIf(_entities.ScreenShakeCounter != native[0xcd18] || _entities.HorizontalScreenShakeCounter != native[0xcd19],
                     "shakescreen must use the source horizontal counter only.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != native[0xff94] || random.Rng2 != native[0xff95] || random.Calls - seed.Calls != native.RandomCalls,
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
                     $"Socket horizontal shake must preserve source RNG at age{age}.");
                 foreach (int packed in new[] { 0x54, 0x55, 0x56 })
                     FailIf(_currentRoom.GetPackedStorageMetatile((byte)packed) != native[0xcf00 + packed],

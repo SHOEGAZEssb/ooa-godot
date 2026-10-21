@@ -70,8 +70,7 @@ public sealed partial class ValidationRoot
                             $"Stone panel collision${pos:x2} update{update} differs.");
                     }
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), $"Stone panel update{update}: ordered cues differ.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         $"Panel puzzle room${roomId:x2} update{update}: shake must preserve shared RNG draws.");
                     observe?.Invoke();
                 });

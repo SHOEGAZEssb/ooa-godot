@@ -42,10 +42,9 @@ public sealed partial class ValidationRoot
                 FailIf(!dead&&spider.GaleCaught&&(actor.Position!=new Vector2(rom[0xd08d],rom[0xd08b])||
                     actor.GaleDrawZ!=unchecked((sbyte)rom[0xd08f])),
                     $"Veran spider Gale XY/Z high bytes differ on update {update}.");
-                var random=_random.CaptureState();
-                FailIf(random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||random.Calls-initial.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(initial, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     _entities.RoomEnemyCount!=rom[0xcdd1]||!sounds.Requests.SequenceEqual(rom.Sounds),
-                    $"Veran spider seed ${spec.Collision:x2}, cfd0@{spec.Cutscene}, update{update}: RNG={random.Calls-initial.Calls}/{rom.RandomCalls}, " +
+                    $"Veran spider seed ${spec.Collision:x2}, cfd0@{spec.Cutscene}, update{update}: RNG={_random.CaptureState().Calls-initial.Calls}/{rom.RandomCalls}, " +
                     $"count={_entities.RoomEnemyCount}/{rom[0xcdd1]}, sounds={string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
                 foreach(var puff in _entities.EntityAdapters<DeathPuffRoomEntity>())
                 {

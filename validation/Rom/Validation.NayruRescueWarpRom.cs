@@ -34,9 +34,8 @@ public sealed partial class ValidationRoot
                 if(rom[0xc2ef]==0x0c)rom.AdvanceNayruRescueWarp();
                 rom.UpdateGameplay(nativePressed,nativeHeld,nativeAngle,++update);nativePressed=0;
                 camera.UpdateScreenShake();
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=rom[0xff94] || rng.Rng2!=rom[0xff95] || rng.Calls-random.Calls!=rom.RandomCalls,
-                    $"Nayru rescue shared RNG differs update={update}: port={rng.Calls-random.Calls}, ROM={rom.RandomCalls}.");
+                FailIf(RandomDiffers(random, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Nayru rescue shared RNG differs update={update}: port={_random.CaptureState().Calls-random.Calls}, ROM={rom.RandomCalls}.");
                 FailIf(_dialogue.IsOpen!=(rom[0xcba0]!=0),$"Nayru rescue textbox timing differs update={update}: port={_dialogue.IsOpen}, ROM={rom[0xcba0]}.");
                 FailIf(owner.State!=rom[0xcc03] || _rooms.ActiveGroup!=rom[0xcc2d] || _rooms.CurrentRoom.Id!=rom[0xcc30] ||
                     _entities.RuntimeState.ReadWramByte(0xcfd0)!=rom[0xcfd0],

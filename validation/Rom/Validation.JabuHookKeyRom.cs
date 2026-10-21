@@ -56,9 +56,7 @@ public sealed partial class ValidationRoot
                                 unchecked((ushort)key.ZFixed) != rom.Word(slot + 14),
                                 $"Jabu Hook key update{update}: source falling-key position/state/Z differs: XY={key.Position}/{rom[slot+13]},{rom[slot+11]}, state={key.State}/{rom[slot+4]}, Z={key.ZFixed}/{rom.Word(slot+14)}.");
                         }
-                        var random = _random.CaptureState();
-                        FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                            random.Calls - seed.Calls != rom.RandomCalls,
+                        FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                             $"Jabu Hook key update{update}: shared RNG differs.");
                     });
             }

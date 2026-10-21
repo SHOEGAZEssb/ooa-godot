@@ -92,9 +92,9 @@ public sealed partial class ValidationRoot
                     generation=rom.TextGeneration;texts++;hold=3;
                 }
                 if(hold>0&&--hold==0){_dialogue.Close();rom[0xcba0]=0;}
-                var random=_random.CaptureState();FailIf(random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||random.Calls-seed.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     !sounds.Requests.SequenceEqual(rom.Sounds),
-                    $"Ending outdoor RNG/SFX update{update}: calls={random.Calls-seed.Calls}/{rom.RandomCalls}, SFX={string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
+                    $"Ending outdoor RNG/SFX update{update}: calls={_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}, SFX={string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
                 sawInput|=rom[0xcbc3]!=0;
             }
             bool sawTerminalInput=false;

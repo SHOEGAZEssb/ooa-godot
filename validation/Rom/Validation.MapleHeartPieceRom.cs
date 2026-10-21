@@ -12,8 +12,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(40, 64));
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 10, height: 8);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, 40, 64)
                 { HostilePartsEnabled = true, PostObjectCollisionsEnabled = false };
             native.InitializeLinkGameplay();

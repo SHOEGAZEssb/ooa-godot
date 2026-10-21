@@ -131,8 +131,7 @@ public sealed partial class ValidationRoot
                         enemy.Position != new Vector2(rom.Word(address + 12) / 256f, rom.Word(address + 10) / 256f),
                         $"Lynel room1:${spec.Room:x2} gameplay update{update}, gate={gate}, batch={spec.Batched}: runtime={enemy.State}/{enemy.Counter}/{enemy.Angle}/{enemy.Speed}/{timer}/{enemy.Position}; ROM={rom[address + 4]}/{rom[address + 6]}/{rom[address + 9]}/{rom[address + 16]}/{rom[address + 0x20]}/${rom.Word(address + 12):x4},${rom.Word(address + 10):x4}.");
                 }
-                var actual = _random.CaptureState();
-                FailIf(actual.Rng1 != rom[0xff94] || actual.Rng2 != rom[0xff95] || actual.Calls - seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Lynel/Darknut shared RNG differs at gameplay update{update} in room1:${spec.Room:x2}.");
                 foreach (var pair in parts.Where(pair => pair.Key is LynelBeamRoomEntity))
                 {

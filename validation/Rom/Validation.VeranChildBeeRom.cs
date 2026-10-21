@@ -79,10 +79,9 @@ public sealed partial class ValidationRoot
                     actor.Position!=(bee.GaleCaught?new Vector2(rom[0xd08d],rom[0xd08b]):new Vector2(rom.Word(0xd08c)/256f,rom.Word(0xd08a)/256f))||
                     (bee.GaleCaught?actor.GaleDrawZ:actor.BurnZFixed>>8)!=unchecked((sbyte)rom[0xd08f])),
                     $"Child bee column${collision:x2} update{update}: port dead/HP/inv/stun/recoil/state/XY/Z={bee.Finished}/{actor.Health}/{actor.InvincibilityCounter}/{actor.StunCounter}/{actor.KnockbackCounter}/{actor.State}/{actor.Position}/{actor.BurnZFixed>>8}; ROM={dead}/{rom[0xd0a9]}/{rom[0xd0ab]}/{rom[0xd0ae]}/{rom[0xd0ad]}/{rom[0xd084]}/{rom.Word(0xd08c)/256f},{rom.Word(0xd08a)/256f}/{unchecked((sbyte)rom[0xd08f])}.");
-                var random=_random.CaptureState();
-                FailIf(random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||random.Calls-initial.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(initial, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     _entities.RoomEnemyCount!=rom[0xcdd1]||!sounds.Requests.SequenceEqual(rom.Sounds),
-                    $"Child bee column${collision:x2} update{update}: RNG/count/sounds differ: {random.Calls-initial.Calls}/{rom.RandomCalls}, {_entities.RoomEnemyCount}/{rom[0xcdd1]}, {string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
+                    $"Child bee column${collision:x2} update{update}: RNG/count/sounds differ: {_random.CaptureState().Calls-initial.Calls}/{rom.RandomCalls}, {_entities.RoomEnemyCount}/{rom[0xcdd1]}, {string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
             }
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:Compare);
             Step(1);

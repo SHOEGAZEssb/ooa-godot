@@ -18,9 +18,7 @@ public sealed partial class ValidationRoot
             _inventory.EquipB(primary ? 0 : TreasureId.Boomerang);
             _player.WarpTo(new(72.25f, 80.5f));
             _player.Face(Vector2I.Right);
-            for (int y = 8; y < 176; y += 16)
-            for (int x = 8; x < 240; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 15, height: 11);
         }
 
         foreach (bool primary in new[] { true, false })

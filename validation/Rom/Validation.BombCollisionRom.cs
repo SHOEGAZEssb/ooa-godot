@@ -12,9 +12,7 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         LoadValidationRoom(0, 0x33);
         _entities.Clear();
-        for (int y = 8; y < 128; y += 16)
-        for (int x = 8; x < 160; x += 16)
-            _currentRoom.SetPositionTileAndCollision(new(x, y), 0x3a, 0, 0);
+        FillValidationRoom(0x3a, width: 10, height: 8);
         var edges = new List<(int X, int Y, int Z)>();
         foreach (int edge in new[] { -13, -12, -11, 0, 11, 12, 13 })
         {
@@ -92,9 +90,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.Bombs, 0x10);
             _inventory.EquipA(TreasureId.Bombs);
             _inventory.EquipB(0);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x3a, 0, 0);
+            FillValidationRoom(0x3a, width: 10, height: 8);
             _player.WarpTo(new(72, 112));
             StepGameplayUpdates(39, Vector2.Up);
             FailIf(_player.Position != new Vector2(72, 73) || _collision.Collides(_player.Position),

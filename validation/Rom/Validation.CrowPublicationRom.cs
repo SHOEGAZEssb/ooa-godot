@@ -24,9 +24,7 @@ public sealed partial class ValidationRoot
         foreach(int direction in Enumerable.Range(0,5))
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(0,0x5d);
+            InitializeCompletedIntroRoom(0, 0x5d, clearEntities: false);
             var record=_entities.Entities<CrowCharacter>().Single().Record;_entities.Clear();
             var data=EnemyDatabase.Shared;var row=data.GetRoomObjects(0,0x5d).Single(r=>r.Id==0x41);
             var source=data.EnemyHandlers.ResolveHandler(row).CombatSource(row,0);
@@ -39,9 +37,8 @@ public sealed partial class ValidationRoot
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
             _entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
-            var after=new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var seed=_random.CaptureState() with {Rng1=(byte)randomByte};_random.RestoreState(seed);
             var native=new EnemyStatusRom(_currentRoom,_saveData,seed.Calls);
@@ -57,10 +54,10 @@ public sealed partial class ValidationRoot
                     actor.PrecisePosition!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     actor.Position!=new Vector2(native[at+13],native[at+11])||actor.Z!=unchecked((sbyte)native[at+15])||
                     actor.AnimationIndex!=native[at+0x31]||actor.Visible!=((native[at+0x1a]&128)!=0)||
-                    actor.CollisionEnabled!=((native[at+0x24]&128)!=0))||probes!=1||!observed.SequenceEqual(expected),
+                    actor.CollisionEnabled!=((native[at+0x24]&128)!=0))||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
                     $"Crow$41 seed${randomByte:x2}/target{direction}/update{updates}: original init/rise/charge/raw angle/animation/bounds or scratch differs: state{actor.State}/${native[at+4]:x2},angle${actor.Angle:x2}/${native[at+9]:x2},animation{actor.AnimationIndex}/{native[at+0x31]}.");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    "Crow must consume exactly the original common initialization and initial aim-offset RNG draws.");probes=0;
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    "Crow must consume exactly the original common initialization and initial aim-offset RNG draws.");observedCapture.Samples=0;
             });
             Step(3);
             Vector2 target=direction switch {0=>new(80,16),1=>new(104,64),2=>new(80,112),3=>new(56,64),_=>new(72,16)};

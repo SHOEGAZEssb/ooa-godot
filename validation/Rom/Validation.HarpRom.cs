@@ -80,8 +80,7 @@ public sealed partial class ValidationRoot
                 FailIf(frame.SourceOffset != 0 || !frame.Parts.SequenceEqual(rom.LinkParts),
                     $"{context}: Link retained graphic/OAM differs (runtime frame={_player.HarpPoseFrame}).");
             }
-            var rng = _random.CaptureState();
-            FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls,
+            FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                 $"{context}: ordered global RNG differs.");
             FailIf(!audit.Requests.SequenceEqual(rom.Sounds), $"{context}: sound requests differ: {string.Join(',', audit.Requests)} / {string.Join(',', rom.Sounds)}.");
             int[] slots = rom.Notes;

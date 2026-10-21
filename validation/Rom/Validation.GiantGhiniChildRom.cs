@@ -13,9 +13,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0x18);_entities.Clear();
+            InitializeCompletedIntroRoom(4, 0x18);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,88));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(WramAddress.wScrollMode,0);
@@ -33,9 +31,8 @@ public sealed partial class ValidationRoot
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
             _entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
-            byte[] observed=new byte[4];int probes=0,updates=0;
-            var after=new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var seed=_random.CaptureState();var native=new EnemyStatusRom(_currentRoom,_saveData,seed.Calls);
             native[0xff94]=seed.Rng1;native[0xff95]=seed.Rng2;native[0xcc08]=0xad;
@@ -58,10 +55,10 @@ public sealed partial class ValidationRoot
                     child.Visible!=((native[at+0x1a]&128)!=0)||child.AnimationParameter!=native[at+0x21]||
                     SomariaPrivate<int>(child.Animation,"_frameCounter")!=native[at+0x20]||child.ZHigh!=unchecked((sbyte)native[at+15]))||
                     _entities.PlayerSwordDisabled!=((native[0xccd8]&32)!=0)||_entities.PlayerMovementDisabled!=((native[0xcc61]&32)!=0)||
-                    SomariaPrivate<bool>(parent,"_childRequestsCharge")!=(native[0xd0b2]!=0)||probes!=1||!observed.SequenceEqual(expected),
-                    $"Giant Ghini child/index{index}/intro{intro}/fraction{fractional}/update{updates}: state{SourceState()}/{native[at+4]}, XY{child.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, C1{SomariaPrivate<int>(child,"_counter")}/{native[at+6]}, angle{SomariaPrivate<int>(child,"_angle")}/{native[at+9]}, clock{SomariaPrivate<int>(child.Animation,"_frameCounter")}/{native[at+0x20]}, restrictions{_entities.PlayerSwordDisabled}/{_entities.PlayerMovementDisabled}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    $"Giant Ghini child/update{updates}: common RNG calls{rng.Calls-seed.Calls}/{native.RandomCalls}.");probes=0;
+                    SomariaPrivate<bool>(parent,"_childRequestsCharge")!=(native[0xd0b2]!=0)||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Giant Ghini child/index{index}/intro{intro}/fraction{fractional}/update{updates}: state{SourceState()}/{native[at+4]}, XY{child.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, C1{SomariaPrivate<int>(child,"_counter")}/{native[at+6]}, angle{SomariaPrivate<int>(child,"_angle")}/{native[at+9]}, clock{SomariaPrivate<int>(child.Animation,"_frameCounter")}/{native[at+0x20]}, restrictions{_entities.PlayerSwordDisabled}/{_entities.PlayerMovementDisabled}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    $"Giant Ghini child/update{updates}: common RNG calls{_random.CaptureState().Calls-seed.Calls}/{native.RandomCalls}.");observedCapture.Samples=0;
             });
             try
             {

@@ -78,9 +78,7 @@ public sealed partial class ValidationRoot
                         BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_player)!;
                     FailIf((invincibility & 0xff) != rom[0xd02b],
                         $"{context}: post-Link invincibility differs: runtime=${invincibility & 0xff:x2}, native=${rom[0xd02b]:x2}.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": shared RNG differs.");
+                    FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared RNG differs.");
                 });
             }
             Step(6);

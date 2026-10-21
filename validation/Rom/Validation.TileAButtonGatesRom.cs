@@ -35,9 +35,7 @@ public sealed partial class ValidationRoot
                         _player.InvincibilityFrames != unchecked((sbyte)rom[0xd02b]) ||
                         _inventory.HealthQuarters != rom[0xc6aa],
                         context + ": tile modal/contact/air/recoil/health differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.Where(cue => cue is not (SoundId.SndText or SoundId.SndDamageLink))
                             .SequenceEqual(rom.Sounds.Where(cue => cue != SoundId.SndDamageLink)),
                         context + ": gameplay cues/shared RNG differ.");

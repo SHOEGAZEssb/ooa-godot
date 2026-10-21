@@ -38,12 +38,11 @@ public sealed partial class ValidationRoot
                 var actor=_entities.Entities<CuccoAttackerCharacter>().Single();
                 var adapter=_entities.EntityAdapters<CuccoAttackerRoomEntity>().Single();
                 int at=0xd0c0+F1Parts[adapter]*256;native[at]=1;native[at+1]=0x22;native[at+0x16]=0x80;native[at+0x17]=0xd0;
-                byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
+                var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;
                 var before=new PartMovementScratchProbe(()=>
                 {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
                 _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
-                _entities.AddEntity(new PartMovementScratchProbe(()=>
-                {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+                _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
                 void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
                 {
                     for(int i=0;i<4;i++)native[0xcec0+i]=(byte)(0xa5+i);
@@ -56,12 +55,12 @@ public sealed partial class ValidationRoot
                         actor.Position!=new Vector2(native[at+13],native[at+11])||
                         (int)actor.State!=native[at+4]||actor.Counter!=native[at+6]||actor.Speed!=native[at+16]||
                         SomariaPrivate<int>(actor,"_angle")!=native[at+9]||actor.AnimationParameter!=native[at+0x21]||
-                        actor.Visible!=((native[at+0x1a]&128)!=0))||probes!=1||
-                        Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
-                        $"PART$22 edge{edge}/hits${hits:x2}/camera${camera:x2}/fraction{fractional}/update{updates}: original flight differs: dead{actor.IsDead}/{native[at]==0}, XY{precise}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, state{(int)actor.State}/{native[at+4]}, counter{actor.Counter}/{native[at+6]}, animation{actor.AnimationParameter}/{native[at+0x21]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
+                        actor.Visible!=((native[at+0x1a]&128)!=0))||observedCapture.Samples!=1||
+                        Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
+                        $"PART$22 edge{edge}/hits${hits:x2}/camera${camera:x2}/fraction{fractional}/update{updates}: original flight differs: dead{actor.IsDead}/{native[at]==0}, XY{precise}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, state{(int)actor.State}/{native[at+4]}, counter{actor.Counter}/{native[at+6]}, animation{actor.AnimationParameter}/{native[at+0x21]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
                     var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||
                         rng.Calls-seed.Calls!=native.RandomCalls-nativeCalls||rng.Calls-seed.Calls!=1,
-                        "Cucco flight must retain the original success-only child RNG draw.");probes=0;
+                        "Cucco flight must retain the original success-only child RNG draw.");observedCapture.Samples=0;
                 });
                 Step(1);
                 if(fractional)

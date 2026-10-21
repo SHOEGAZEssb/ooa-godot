@@ -53,14 +53,14 @@ public sealed partial class ValidationRoot
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));native.Word(at+14,z);
             native.Word(at+0x18,0xd0c0); // Declared inactive shadow reference at the intro completion boundary.
             native.SetEnemyAnimation(1,form is 0 or 7?0:form==8?4:angle>>3);
-            byte[] observed=new byte[4];int probes=0,updates=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var before=new PartMovementScratchProbe(()=>
             {
                 for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));
                 if(form==6&&updates==0){_player.SetScriptedCoordinateHigh(horizontal:true,200);_player.SetScriptedCoordinateHigh(horizontal:false,88);}
             });
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
-            var after=new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
@@ -82,10 +82,10 @@ public sealed partial class ValidationRoot
                     actor.Position!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     (SomariaPrivate<int>(actor,"_zFixed")&65535)!=native.Word(at+14)||SomariaPrivate<int>(actor,"_angle")!=native[at+9]||
                     actor.AnimationParameter!=native[at+0x21]||SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20]||
-                    probes!=1||!observed.SequenceEqual(expected),
-                    $"Shadow Hag$7a/form{form}/variant{variant}/C2{count2}/fraction{fractional}/update{updates}: state{actor.State}/${native[at+4]:x2},{native[at+5]}, C{actor.Counter1},{actor.Counter2}/{native[at+6]},{native[at+7]}, XYZ{actor.Position}/{SomariaPrivate<int>(actor,"_zFixed")}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}/{unchecked((short)native.Word(at+14))}, param{actor.AnimationParameter}/{native[at+0x21]}, clock{SomariaPrivate<int>(actor.Animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
-                    !sounds.Requests.SequenceEqual(native.Sounds),"Shadow Hag motion must preserve native RNG and ordered cues.");probes=0;
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Shadow Hag$7a/form{form}/variant{variant}/C2{count2}/fraction{fractional}/update{updates}: state{actor.State}/${native[at+4]:x2},{native[at+5]}, C{actor.Counter1},{actor.Counter2}/{native[at+6]},{native[at+7]}, XYZ{actor.Position}/{SomariaPrivate<int>(actor,"_zFixed")}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}/{unchecked((short)native.Word(at+14))}, param{actor.AnimationParameter}/{native[at+0x21]}, clock{SomariaPrivate<int>(actor.Animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
+                    !sounds.Requests.SequenceEqual(native.Sounds),"Shadow Hag motion must preserve native RNG and ordered cues.");observedCapture.Samples=0;
             });
             Step(1);
             _dialogue.ShowMessage("Shadow Hag motion hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;

@@ -35,8 +35,7 @@ public sealed partial class ValidationRoot
                     $"Plasmarine Hook update{update}: runtime state/sub/c/HP/color/XYZ={boss.State}/{boss.Substate}/{boss.Counter1}/{boss.Health}/{boss.ColorIndex}/{boss.Position}/{boss.ZFixed}; ROM={rom[0xd084]}/{rom[0xd085]}/{rom[0xd086]}/{rom[0xd0a9]}/{rom[0xd0b2]}/{rom.Word(0xd08c)/256f},{rom.Word(0xd08a)/256f}/{(short)rom.Word(0xd08e)}.");
                 FailIf(_player.PrecisePosition!=new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f),
                     $"Plasmarine Hook update{update}: Link XY differs {_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}.");
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=rom[0xff94] || rng.Rng2!=rom[0xff95] || rng.Calls-seed.Calls!=rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Plasmarine Hook update{update}: shared RNG differs.");
             }
             for(int wait=0;boss.State!=10 && wait<160;wait++)StepGameplayUpdates(1,Vector2.Zero,batched:batch,afterUpdate:()=>Compare());

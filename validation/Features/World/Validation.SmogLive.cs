@@ -15,8 +15,7 @@ public partial class ValidationRoot
             void Reset()
             {
                 LoadValidationRoom(0, 0x60); _entities.Clear(); _player.WarpTo(new(8,8));
-                for (int y = 8; y < 128; y += 16)
-                    for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x,y), 0x0c, 0, 0);
+                FillValidationRoom(0x0c, width: 10, height: 8);
             }
             Reset();
             var cloud = _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(72,72),2,3));

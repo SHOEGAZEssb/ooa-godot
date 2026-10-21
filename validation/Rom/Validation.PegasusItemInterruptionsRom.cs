@@ -54,9 +54,8 @@ public sealed partial class ValidationRoot
                             context + ": instrument parent/publication differs.");
                     if (!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds))
                         FailIf(true, $"{context}: sounds runtime=[{string.Join(',', sounds.Requests.Where(cue => cue != SoundId.SndText).Select(cue => cue.ToString("x2")))}], native=[{string.Join(',', rom.Sounds.Select(cue => cue.ToString("x2")))}].");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
-                        $"{context}: shared RNG runtime=${random.Rng1:x2}/${random.Rng2:x2}/{random.Calls - seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls} differs.");
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                        $"{context}: shared RNG runtime=${_random.CaptureState().Rng1:x2}/${_random.CaptureState().Rng2:x2}/{_random.CaptureState().Calls - seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls} differs.");
                 });
             }
             void ReleaseParents()

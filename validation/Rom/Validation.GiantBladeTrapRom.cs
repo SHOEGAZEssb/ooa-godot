@@ -63,9 +63,7 @@ public sealed partial class ValidationRoot
                     if (enemy.State == 9 && angles[index] != enemy.Angle) turns++;
                     angles[index] = enemy.Angle;
                 }
-                var actual = _random.CaptureState();
-                FailIf(actual.Rng1 != rom[0xff94] || actual.Rng2 != rom[0xff95] ||
-                    actual.Calls - seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Giant Blade Trap $5:$28 update={update}: common RNG consumption differs from native dispatch.");
                 update++;
             }

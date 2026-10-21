@@ -12,9 +12,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0x18);_entities.Clear();
+            InitializeCompletedIntroRoom(4, 0x18);
             _inventory.SetScriptedEquippedItems(0,0);_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(WramAddress.wScrollMode,0);
@@ -41,9 +39,8 @@ public sealed partial class ValidationRoot
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
             _entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
-            byte[] observed=new byte[4];int probes=0,updates=0,zeroVisits=0;
-            var after=new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,zeroVisits=0;
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             for(int slot=2;slot<15;slot++)
             {var held=new EnemyAiSlotReservation();_entities.RegisterEnemySlot(held,slot);_entities.AddEntity(held);}
@@ -80,10 +77,10 @@ public sealed partial class ValidationRoot
                         SomariaPrivate<int>(actor,"_targetScreenY")!=native[at+0x34]||SomariaPrivate<int>(actor,"_targetPacked")!=native[at+0x35]||
                         SomariaPrivate<bool>(actor,"_childRequestsCharge")!=(native[at+0x32]!=0)||
                         SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20]||
-                        probes!=1||!observed.SequenceEqual(expected),
-                        $"Giant Ghini/scenario{scenario}/fraction{fractional}/update{updates}: original body differs: XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, state{state}/{native[at+4]}, angle{SomariaPrivate<int>(actor,"_angle")}/{native[at+9]}, C1{SomariaPrivate<int>(actor,"_nudgeCounter")}/{native[at+6]}, C2{c2}/{native[at+7]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                    var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                        $"Giant Ghini/scenario{scenario}/update{updates}: original live-child respawn RNG differs: calls{rng.Calls-seed.Calls}/{native.RandomCalls}.");probes=0;
+                        observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                        $"Giant Ghini/scenario{scenario}/fraction{fractional}/update{updates}: original body differs: XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, state{state}/{native[at+4]}, angle{SomariaPrivate<int>(actor,"_angle")}/{native[at+9]}, C1{SomariaPrivate<int>(actor,"_nudgeCounter")}/{native[at+6]}, C2{c2}/{native[at+7]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                    FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                        $"Giant Ghini/scenario{scenario}/update{updates}: original live-child respawn RNG differs: calls{_random.CaptureState().Calls-seed.Calls}/{native.RandomCalls}.");observedCapture.Samples=0;
                 });
                 Step(2);_dialogue.ShowMessage("Giant Ghini hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;
                 _runtimeState.SetWramByte(0xcc8a,4);native[0xcc8a]=4;Step(3);_runtimeState.SetWramByte(0xcc8a,0);native[0xcc8a]=0;

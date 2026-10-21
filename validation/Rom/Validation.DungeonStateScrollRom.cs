@@ -87,8 +87,7 @@ public sealed partial class ValidationRoot
                         _currentRoom.GetUnderlyingMetatile(point) != rom.Underlying(p),
                         $"Retained dungeon handler current-room buffers differ at${p:x2}.");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls-calls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls - calls),
                     "Retained dungeon state dispatch must preserve shared RNG.");
             });
             Input(0xad,0x80); Step(); Input(0xaf,0x82); Step();

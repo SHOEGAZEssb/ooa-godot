@@ -53,9 +53,7 @@ public sealed partial class ValidationRoot
                 other.InvincibilityCounter = 127;
             }
             foreach (var part in _entities.Entities<SpikedBallPart>()) part.ClearHealthAndCollision();
-            for (int y = 8; y < 176; y += 16)
-            for (int x = 8; x < 240; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 15, height: 11);
             if (id != 0x13) actor.Position = new(120, 88);
             actor.Health = 9;
             actor.InvincibilityCounter = 0;

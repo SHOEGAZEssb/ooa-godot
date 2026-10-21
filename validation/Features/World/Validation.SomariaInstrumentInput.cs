@@ -22,9 +22,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(instrument, 0);
             _inventory.EquipA(canePrimary ? TreasureId.CaneOfSomaria : instrument);
             _inventory.EquipB(canePrimary ? instrument : TreasureId.CaneOfSomaria);
-            for (int y = 8; y < 176; y += 16)
-            for (int x = 8; x < 240; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 15, height: 11);
             string caneButton = canePrimary ? "attack" : "item";
             string instrumentButton = canePrimary ? "item" : "attack";
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);

@@ -58,8 +58,7 @@ public sealed partial class ValidationRoot
                 rom.AdvanceTileGraphics();
                 string context=$"Mermaid Essence batch={batch}, update{++update}";
                 CompareSomariaMotionRom(rom,context);
-                var random=_random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     context+": energy PARTs must retain the shared native RNG sequence.");
                 var beads=_entities.Entities<BlueEnergyBeadRoomEntity>();
                 FailIf(beads.Count != Enumerable.Range(0,16).Count(slot => rom[0xd0c0+slot*256] != 0 && rom[0xd0c1+slot*256] == 0x53),

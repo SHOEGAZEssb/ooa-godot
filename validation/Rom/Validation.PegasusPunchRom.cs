@@ -34,8 +34,7 @@ public sealed partial class ValidationRoot
                         $"{context}: punch={_player.IsUsingPunch}/{punch}, frame={_player.PunchFrame}, parent clock=${rom[0xd220]:x2}/${rom[0xd221]:x2}, " +
                         $"timer=${_seedSatchel.Pegasus.RawCounter:x4}/${rom.Word(0xcc6c):x4}, ammo=${_inventory.PegasusSeeds:x2}/${rom[0xc6bb]:x2}.");
                     ComparePegasusDustRom(rom, false, context);
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.SequenceEqual(rom.Sounds), context + ": ordered cues/shared RNG differ.");
                 });
             }

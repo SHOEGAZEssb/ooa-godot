@@ -48,9 +48,7 @@ public sealed partial class ValidationRoot
                         FailIf(hook!.State != rom[0xd604] || hook.Substate != rom[0xd605] || hook.Counter != rom[0xd606] ||
                             hook.ZHigh != (sbyte)rom[0xd60f] || hook.PrecisePosition != new Vector2(rom.Word(0xd60c)/256f,rom.Word(0xd60a)/256f),
                             context+": live Hook state/counter/fixed XY/Z differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls-seed.Calls != rom.RandomCalls || !sounds.Requests.SequenceEqual(rom.Sounds),
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || !sounds.Requests.SequenceEqual(rom.Sounds),
                         context+": ordered Hook/solve/door cues or RNG differ.");
                 });
             Step(20); Step(press:true);

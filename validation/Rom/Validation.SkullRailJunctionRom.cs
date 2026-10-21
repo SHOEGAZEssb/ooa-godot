@@ -56,8 +56,7 @@ public partial class ValidationRoot
                     $"Skull rail junction room${c.Room:x2}, switch${switches:x2}, batch={batch}, update{update}: cart={cart.Position}/{rom.Word(0xd10c)/256f},{rom.Word(0xd10a)/256f}, direction={cart.Direction}/{rom[0xd108]}, Link={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}.");
                 if (update == 1) FailIf(cart.Direction != exit || cart.Position != center+(Vector2)directions[exit],
                     "Original switched junction must select its independent source exit before moving one pixel.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Original rail junction dispatch must preserve shared RNG consumption.");
             });
             Step(7);

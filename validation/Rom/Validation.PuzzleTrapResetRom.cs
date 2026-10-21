@@ -30,9 +30,7 @@ public sealed partial class ValidationRoot
                     _entities.PlayerMenusDisabled != (rom[0xcc02] != 0) ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"INTERAC$90:$1f: runtime state/counter={trap.State}/${trap.Counter:x2}, lock={_entities.PlayerUpdatesFrozen}/{_entities.PlayerMenusDisabled}; native={rom[slot + 4]}/${rom[slot + 6]:x2}, lock=${rom[0xcc8a]:x2}/${rom[0xcc02]:x2}.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                    random.Calls - seed.Calls != rom.RandomCalls, "Trap scan must preserve shared RNG.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls), "Trap scan must preserve shared RNG.");
             }
             void Step(int count = 1, int angle = 0xff) =>
                 StepSomariaMotionRom(rom, count, batched, angle, afterUpdate: Compare,

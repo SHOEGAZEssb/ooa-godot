@@ -59,8 +59,7 @@ public sealed partial class ValidationRoot
                     if (enemy.State == 8 && angles[index] != enemy.Angle) turns++;
                     angles[index] = enemy.Angle;
                 }
-                var actual = _random.CaptureState();
-                FailIf(actual.Rng1 != rom[0xff94] || actual.Rng2 != rom[0xff95] || actual.Calls - seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Bubble $5:$3e update={update}: shared RNG differs from native object dispatch.");
                 update++;
             }

@@ -91,9 +91,7 @@ public sealed partial class ValidationRoot
                         $"{context}: menu/parent/instrument/position/note ownership differs: runtime={_menuLifecycle.IsActive}/{_player.IsUsingHarp}/${_harp.PlayingInstrument:x2}, native=${rom[0xcbcb]:x2}/${rom[0xd500]:x2}/${rom[0xcc8d]:x2}.");
                     if (lowHealthWarning) FailIf(DialogueOpen != (rom[0xcba0] != 0),
                         context + ": instrument-owned text lifetime differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls, context + ": shared Harp/note RNG differs.");
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared Harp/note RNG differs.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
                         $"{context}: Harp/menu/error sound order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
                 });

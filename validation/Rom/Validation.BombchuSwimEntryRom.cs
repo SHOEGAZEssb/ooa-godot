@@ -55,8 +55,7 @@ public sealed partial class ValidationRoot
                         FailIf(runtime.ItemState != rom[child + 4] || runtime.Counter2 != rom[child + 7] ||
                             runtime.Position != new Vector2(rom[child + 0xd], rom[child + 0xb]) ||
                             (ushort)runtime.ZFixed != rom.Word(child + 0xe), context + ": initialized child state/fuse/position differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.SequenceEqual(rom.Sounds), context + ": ordered sound/RNG differs.");
                     FailIf(_currentRoom.IsSolid(_player.Position), context + ": shore approach entered solid geometry.");
                 });

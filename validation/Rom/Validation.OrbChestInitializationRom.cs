@@ -44,8 +44,7 @@ public partial class ValidationRoot
                     !chest.Finished && _entities.InteractionSlot(chest) != 2 ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"Collected orb chest$4:${room:x2}: deleted={chest.Finished}/{rom[0xd240]:x2}, state={rom[0xd244]}, clear={_runtimeState.ReadWramByte(0xcfc1):x2}/{rom[0xcfc1]:x2},{_runtimeState.ReadWramByte(0xcfc2):x2}/{rom[0xcfc2]:x2}.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Collected orb script must preserve original RNG order.");
             });
             _dialogue.ShowGameplayMessage("Collected orb script",120); rom[0xcba0] = text;

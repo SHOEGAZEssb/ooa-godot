@@ -45,8 +45,7 @@ public sealed partial class ValidationRoot
                     if (trap.State == BladeTrapState.Retracting) accelerated=true;
                     if (accelerated && trap.State == BladeTrapState.Waiting) stopped=true;
                 }
-                var actual=_random.CaptureState();
-                FailIf(actual.Rng1 != rom[0xff94] || actual.Rng2 != rom[0xff95] || actual.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Red-trap dispatch must preserve ordered shared initialization RNG.");
             });
             Step(3); frozen=false; Step(160);

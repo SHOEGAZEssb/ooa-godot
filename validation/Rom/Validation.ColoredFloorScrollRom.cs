@@ -75,9 +75,7 @@ public sealed partial class ValidationRoot
                     FailIf(SomariaPrivate<int>(actor,"_lastControlTile") != rom[address+3],"Retained floor controller must preserve its native color latch.");
                 if (alive && kind == 3)
                     FailIf(((FloorColorWorkerRoomEntity)actor).Index != rom[address+6],"Initialized floor worker must retain its counter throughout scrolling.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                    random.Calls-seed.Calls != rom.RandomCalls-nativeCalls,$"Floor scroll kind={kind}, initialized={initialized}, update{count}: RNG schedule differs.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls - nativeCalls),$"Floor scroll kind={kind}, initialized={initialized}, update{count}: RNG schedule differs.");
             });
             Step();
             if (kind == 1)

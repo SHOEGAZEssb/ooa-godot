@@ -47,9 +47,8 @@ public sealed partial class ValidationRoot
                         shot.Position!=new Vector2(rom.Word(p+12)/256f,rom.Word(p+10)/256f),
                         $"Plasmarine PART$43 slot${slot:x2} update{update}: runtime state/counters/angle/speed/XY={shot.State}/{shot.Counter1},{shot.Counter2}/{shot.Angle}/${shot.Speed:x2}/{shot.Position}; ROM={rom[p+4]}/{rom[p+6]},{rom[p+7]}/{rom[p+9]}/${rom[p+16]:x2}/{rom.Word(p+12)/256f},{rom.Word(p+10)/256f}.");
                 }
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=rom[0xff94] || rng.Rng2!=rom[0xff95] || rng.Calls-seed.Calls!=rom.RandomCalls,
-                    $"Plasmarine update{update}: global RNG differs {rng.Calls-seed.Calls}/{rom.RandomCalls}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Plasmarine update{update}: global RNG differs {_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}.");
             }
             StepGameplayUpdates(600,Vector2.Zero,batched:batch,afterUpdate:Compare);
             FailIf(!new[]{8,9,10,11,12,13,14,15}.All(states.Contains) || projectiles==0,

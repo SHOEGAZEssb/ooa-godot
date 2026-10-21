@@ -74,9 +74,7 @@ public sealed partial class ValidationRoot
                     }
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
                         $"{context}: jump/landing/raft sounds differ: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - randomStart.Calls != rom.RandomCalls, context + ": shared RNG differs.");
+                    FailIf(RandomDiffers(randomStart, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared RNG differs.");
                 });
             }
             Step(1, near ? 0xff : 0x10, true);

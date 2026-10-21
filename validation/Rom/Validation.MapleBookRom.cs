@@ -61,8 +61,7 @@ public sealed partial class ValidationRoot
             F1Set(maple, "_precisePosition", new Vector2(24.75f, 80.5f));
             F1Set(maple, "_zFixed", -0x1880); F1Set(maple, "_angle", 0xff);
             maple.Position = new(24, 80);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+            FillValidationRoom(0x2c, width: 10, height: 8);
             _player.WarpTo(new(80.25f, 80.5f)); _player.Face(Vector2I.Right);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 80, 80);
             native[0xd00a] = 0x80; native[0xd00c] = 0x40; native.InitializeLinkGameplay();

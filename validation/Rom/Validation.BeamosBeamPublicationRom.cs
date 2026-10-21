@@ -13,9 +13,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0xa1);_entities.Clear();
+            InitializeCompletedIntroRoom(4, 0xa1);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,40));
             _runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             Vector2 initial=fractional?new(248.25f,8.5f):new(80,72);
@@ -25,12 +23,11 @@ public sealed partial class ValidationRoot
             native.InitializeLinkGameplay(); // Install real right/bottom collision-buffer sentinels.
             int at=0xd0c0+F1Parts[adapter]*256;native[at]=1;native[at+1]=0x29;native[at+2]=(byte)sub;native[at+9]=(byte)angle;
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
                 var old=native.Word(at+12);for(int i=0;i<4;i++)native[0xcec0+i]=(byte)(0xa5+i);
@@ -41,9 +38,9 @@ public sealed partial class ValidationRoot
                     position.XFixed!=native.Word(at+12)||position.YFixed!=native.Word(at+10)||
                     actor.State!=native[at+4]||actor.Counter!=native[at+6]||actor.Visible!=((native[at+0x1a]&128)!=0)||
                     (ushort)velocity.YFixed!=native.Word(at+0x10)||(ushort)velocity.XFixed!=native.Word(at+0x12))||
-                    probes!=1||Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
-                    $"PART$29 angle${angle:x2}/sub${sub:x2}/fraction{fractional}/update{updates}: original cached components, motion/lifetime or phase-local scaled scratch differs: finished{actor.Finished}/{native[at]==0}, XY{position.XFixed:x4}/{position.YFixed:x4} vs {native.Word(at+12):x4}/{native.Word(at+10):x4}, scratch[{string.Join(',',observed)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
-                probes=0;
+                    observedCapture.Samples!=1||Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
+                    $"PART$29 angle${angle:x2}/sub${sub:x2}/fraction{fractional}/update{updates}: original cached components, motion/lifetime or phase-local scaled scratch differs: finished{actor.Finished}/{native[at]==0}, XY{position.XFixed:x4}/{position.YFixed:x4} vs {native.Word(at+12):x4}/{native.Word(at+10):x4}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
+                observedCapture.Samples=0;
             });
             int gate=angle&3;
             if(gate==0){_dialogue.ShowMessage("Beam state0 text.",104);native[0xcba0]=1;}

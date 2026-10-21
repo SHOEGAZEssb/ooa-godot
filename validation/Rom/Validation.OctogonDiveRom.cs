@@ -86,9 +86,8 @@ public sealed partial class ValidationRoot
                 for (int i = 0; i < shared.Length; i++)
                     FailIf(_runtimeState.ReadWramByte(0xcfd0+i) != rom[0xcfd0+i],
                         $"Octogon dive update{update}: shared encounter byte${0xcfd0+i:x4} differs.");
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls,
-                    $"Octogon dive update{update}: global RNG differs, runtime={rng.Calls-seed.Calls}, ROM={rom.RandomCalls}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Octogon dive update{update}: global RNG differs, runtime={_random.CaptureState().Calls-seed.Calls}, ROM={rom.RandomCalls}.");
             }
             void Step(int count = 1, int held = 0)
             {

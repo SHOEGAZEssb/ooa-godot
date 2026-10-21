@@ -81,8 +81,7 @@ public sealed partial class ValidationRoot
                     FailIf(puff.Position != new Vector2(rom[p + 13], rom[p + 11]) || puff.CurrentParameter != rom[p + 33] ||
                         puff.Visible != ((rom[p + 26] & 0x80) != 0), "PART$3a related puff animation/position/visibility differs.");
                 }
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "PART$3a movement, splitting and puffs must not consume RNG.");
                 update++;
             }

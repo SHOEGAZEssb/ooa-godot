@@ -106,9 +106,7 @@ public sealed partial class ValidationRoot
                         $"{context}: shared shutter count differs: runtime=${_entities.BossEntrySignal:x2}, native=${rom[0xcc93]:x2}.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
                         $"{context}: ordered cart/door sounds differ: runtime=[{string.Join(',', sounds.Requests)}], native=[{string.Join(',', rom.Sounds)}], controller={controller?.State}, native=${rom[0xd244]:x2}/${rom[0xd245]:x2}, sub=${rom[0xd242]:x2}, XY={rom[0xd24d]},{rom[0xd24b]}, radius={rom[0xd266]},{rom[0xd267]}, angle=${rom[0xd249]:x2}, index=${rom[0xcc2c]:x2}.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": shared RNG differs.");
+                    FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared RNG differs.");
                 });
             }
             Step(3);

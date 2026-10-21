@@ -17,9 +17,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(4, 0xa8); _entities.Clear();
             _inventory.GiveTreasure(bomb ? TreasureId.Bombs : TreasureId.Bracelet, bomb ? 0x10 : 1);
             _inventory.EquipA(bomb ? TreasureId.Bombs : TreasureId.Bracelet); _inventory.EquipB(0);
-            for (int y = 8; y < _currentRoom.Height; y += 16)
-            for (int x = 8; x < _currentRoom.Width; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0);
             Vector2 pot = new(120, 88);
             if (!bomb)
             {
@@ -94,8 +92,7 @@ public sealed partial class ValidationRoot
                         }
                         FailIf(!audit.Requests.Where(id => id is not (SoundId.SndText or SoundId.SndGainHeart or SoundId.SndHeartBeep)).SequenceEqual(rom.Sounds),
                             context + ": pickup/contact/throw/impact cue order differs.");
-                        var random = _random.CaptureState();
-                        FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                        FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                             context + ": shared RNG differs.");
                     });
             }

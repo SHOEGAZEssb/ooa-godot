@@ -233,8 +233,7 @@ public sealed partial class ValidationRoot
                     }
                     for (int address = 0xc6b9; address <= 0xc6bd; address++)
                         FailIf(_saveData.ReadWramByte(address) != rom[address], $"{context}: ammo ${address:x4} differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - randomSeed.Calls != rom.RandomCalls, context + ": RNG differs.");
+                    FailIf(RandomDiffers(randomSeed, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": RNG differs.");
                     FailIf(!sounds.Requests.Where(id => id is 0x52 or 0x90).SequenceEqual(rom.Sounds.Where(id => id is 0x52 or 0x90)), context + ": Gale sounds differ.");
                 });
             }

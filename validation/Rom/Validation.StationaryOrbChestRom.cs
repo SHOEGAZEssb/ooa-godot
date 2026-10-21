@@ -57,8 +57,7 @@ public partial class ValidationRoot
                     FailIf(!background.SequenceEqual(new[] { (20,12),(21,12),(20,13),(21,13) }
                         .Select(point => _currentRoom.GetBackgroundSubtileForValidation(point.Item1,point.Item2))),
                         "PART$03 must preserve its floor image while installing logical$0a and collision$0f.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         "Stationary orb and chest must preserve original global RNG order.");
                 });
             }

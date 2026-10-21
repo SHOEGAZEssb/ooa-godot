@@ -82,8 +82,7 @@ public sealed partial class ValidationRoot
                             rom[address+3] != expectedLast || puzzle.CubeColor != expectedColor || puzzle.CubePosition != expectedPosition,
                             "Cube color state0 must sample live dispatch data with byte subtraction; later updates freeze or accept only changed valid colors.");
                     if (test.Sub == 8) FailIf(puzzle.CubeColor != (input&0x7f),"Cube switch sensor must consume only the pending high bit.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         "Dungeon state consumers must preserve shared RNG.");
                 });
             }

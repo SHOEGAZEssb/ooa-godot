@@ -104,9 +104,7 @@ public sealed partial class ValidationRoot
                     if ((held != 0 || cliffCoast) && rom[0xd033] != 0 && rom[0xd009] < 0x80 && rom[0xd010] == 0) wallStops++;
                     FailIf(!sounds.Requests.Where(id => id == SoundId.SndSplash).SequenceEqual(rom.Sounds.Where(id => id == SoundId.SndSplash)),
                         context + ": direction-edge splash sound order differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": shared RNG differs.");
+                    FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared RNG differs.");
                 });
             }
             // Native room initialization starts with angle $00. Let the

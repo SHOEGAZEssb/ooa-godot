@@ -12,8 +12,7 @@ public partial class ValidationRoot
         foreach (bool batch in new[] { false,true })
         {
             LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(24,24));
-            for (int y = 8; y < 128; y += 16)
-                for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x,y),0x0c,0,0);
+            FillValidationRoom(0x0c, width: 10, height: 8);
             void Step(int count = 1) =>
                 StepGameplayUpdates(count, Vector2.Right, [], [], batched: batch);
             var cloud = _entities.Spawn<SmogCharacter>(new SmogEnemySpawn(new(104,88),2));

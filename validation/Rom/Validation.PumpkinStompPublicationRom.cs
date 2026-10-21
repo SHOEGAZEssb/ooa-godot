@@ -52,10 +52,10 @@ public sealed partial class ValidationRoot
             native.Word(at+0x16,0xd180);native.Word(at+0x18,0xd280);native[0xd28f]=0xf0;
             if(fractional)
             {native[0xd18c]=0xc0;native[0xd18a]=0x40;native[0xd28c]=0x80;native[0xd28a]=0xc0;native[0xd18e]=0x40;native[0xd28e]=0x80;}
-            byte[] observed=new byte[4];int probes=0,updates=0,stompMoves=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,stompMoves=0;
             var stage=new PartMovementScratchProbe(()=>{for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(stage,15);_entities.AddEntity(stage);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -80,10 +80,10 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<int>(boss,"_ghostZ")!=unchecked((sbyte)native[0xd18f])||boss.HeadZ!=unchecked((sbyte)native[0xd28f])||
                     (SomariaPrivate<int>(boss,"_stompGhostZFixed")&65535)!=native.Word(0xd18e)||
                     (SomariaPrivate<int>(boss,"_stompHeadZFixed")&65535)!=native.Word(0xd28e)||
-                    probes!=1||!observed.SequenceEqual(expected),
-                    $"Pumpkin stomp$78/angle${direction:x2}/fraction{fractional}/update{updates}: state{boss.State}/${native[at+4]:x2}, C{c}/{native[at+6]}, angle{boss.Angle}/{native[at+9]}, XY{SomariaPrivate<Vector2>(boss,"_precisePosition")}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{SomariaPrivate<int>(boss,"_bodyZFixed")}/{unchecked((short)native.Word(at+14))}, followers{boss.GhostPosition}/{boss.HeadPosition} Z{SomariaPrivate<int>(boss,"_ghostZ")},{boss.HeadZ}/{unchecked((sbyte)native[0xd18f])},{unchecked((sbyte)native[0xd28f])}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
-                    !sounds.Requests.SequenceEqual(native.Sounds),"Pumpkin repeated stomps must retain native decision/shake RNG and ordered cues.");probes=0;
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Pumpkin stomp$78/angle${direction:x2}/fraction{fractional}/update{updates}: state{boss.State}/${native[at+4]:x2}, C{c}/{native[at+6]}, angle{boss.Angle}/{native[at+9]}, XY{SomariaPrivate<Vector2>(boss,"_precisePosition")}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{SomariaPrivate<int>(boss,"_bodyZFixed")}/{unchecked((short)native.Word(at+14))}, followers{boss.GhostPosition}/{boss.HeadPosition} Z{SomariaPrivate<int>(boss,"_ghostZ")},{boss.HeadZ}/{unchecked((sbyte)native[0xd18f])},{unchecked((sbyte)native[0xd28f])}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
+                    !sounds.Requests.SequenceEqual(native.Sounds),"Pumpkin repeated stomps must retain native decision/shake RNG and ordered cues.");observedCapture.Samples=0;
             });
             Step(4);
             _dialogue.ShowMessage("Pumpkin stomp hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;

@@ -78,8 +78,7 @@ public sealed partial class ValidationRoot
                         $"ROM state{rom[p + 4]}/angle{rom[p + 9]}/counter{rom[p + 6]}/XY{xy}/Z{rom.Word(p + 14)}.");
                     if (priorArrows.Add(arrow)) shots++;
                 }
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Wall shooters and arrows must preserve RNG consumption.");
                 update++;
             }

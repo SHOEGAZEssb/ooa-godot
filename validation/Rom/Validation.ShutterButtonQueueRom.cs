@@ -49,9 +49,7 @@ public sealed partial class ValidationRoot
                         _entities.BossEntrySignal != rom[0xcc93] ||
                         _rooms.PendingTileGraphics != ((rom[0xcce0]-rom[0xccdf])&31),
                         context+": door/button lifetime/counter/shared trigger/queue differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls-seed.Calls != rom.RandomCalls || !sounds.Requests.SequenceEqual(rom.Sounds),
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || !sounds.Requests.SequenceEqual(rom.Sounds),
                         context+": ordered button/solve/door cues or RNG differ.");
                 });
             void FillQueue()

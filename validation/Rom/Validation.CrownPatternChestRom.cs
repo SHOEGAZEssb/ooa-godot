@@ -64,8 +64,7 @@ public sealed partial class ValidationRoot
                     (byte)_currentRoom.GetTerrainInfo(Point(test.Chest)).Collision != rom[0xce00 + test.Chest] ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"Crown pattern$21:${test.Sub:x2}, mode={mode}: deleted={chest.Finished}/{nativeFinished}, puffs={_entities.Entities<PuzzlePuffEffect>().Count}/{nativePuffs}, cues=[{string.Join(',',sounds.Requests.Select(cue => $"${cue:x2}"))}]/[{string.Join(',',rom.Sounds.Select(cue => $"${cue:x2}"))}].");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Crown chest predicate/allocation must preserve shared RNG.");
             });
             void Tile(int position, int tile)

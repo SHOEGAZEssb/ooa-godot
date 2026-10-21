@@ -47,8 +47,7 @@ public sealed partial class ValidationRoot
                     if(enemy.Record.SubId==1 && enemy.State==12 && enemy.Counter1==8)attacks++;
                     if(enemy.Record.SubId==1 && enemy.State==14 && enemy.Counter1==30)cooldowns++;
                 }
-                var actual=_random.CaptureState();
-                FailIf(actual.Rng1!=rom[0xff94] || actual.Rng2!=rom[0xff95] || actual.Calls-seed.Calls!=rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Pincer update{update} must preserve shared allocation RNG.");
                 FailIf(_player.PrecisePosition!=new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f),
                     $"Pincer update{update}: Link movement/contact differs {_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}.");

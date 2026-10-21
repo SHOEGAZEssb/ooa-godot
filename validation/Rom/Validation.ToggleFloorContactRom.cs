@@ -74,8 +74,7 @@ public partial class ValidationRoot
                             FailIf(pixel != shade,$"Toggle phase{phase} native header pixel differs at tile${0x4c+tile:x2}, ({x},{y}): {pixel}/{shade}.");
                         }
                     }
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         "Actual orb/toggle handoff must preserve original RNG order.");
                 });
             }

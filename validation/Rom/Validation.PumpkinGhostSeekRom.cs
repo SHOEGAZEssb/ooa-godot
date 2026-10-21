@@ -55,10 +55,10 @@ public sealed partial class ValidationRoot
             native[at+0x29]=8;native[at+0x1a]=0xc2;native[at+0x33]=(byte)target.Y;native[at+0x34]=(byte)target.X;native.SetEnemyAnimation(1,0x0a);
             native[0xd280]=1;native[0xd281]=0x78;native[0xd282]=3;native[0xd284]=(byte)(mode!=0?2:0x16);native[0xd285]=(byte)(mode==2?2:1);
             native[0xd28b]=(byte)target.Y;native[0xd28d]=(byte)target.X;native[0xd2a9]=8;native.Word(0xd296,0xd080);native.SetEnemyAnimation(2,4);
-            byte[] observed=new byte[4];int probes=0,updates=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var stage=new PartMovementScratchProbe(()=>{for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(stage,15);_entities.AddEntity(stage);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -71,10 +71,10 @@ public sealed partial class ValidationRoot
                 FailIf((boss.State==BossState.Regenerating)!=done||boss.GhostPosition!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     SomariaPrivate<int>(boss,"_ghostAngle")!=native[at+9]||SomariaPrivate<bool>(boss,"_ghostVisible")!=((native[at+0x1a]&128)!=0)||
                     animation.CurrentParameter!=native[at+0x21]||SomariaPrivate<int>(animation,"_frameCounter")!=native[at+0x20]||
-                    done&&SomariaPrivate<int>(boss,"_counter")!=native[0xd286]||probes!=1||!observed.SequenceEqual(expected),
-                    $"Pumpkin ghost$78/seek/wrap{wrapped}/offset{dx},{dy}/mode{mode}/fraction{fractional}/update{updates}: state{boss.State}/${native[at+4]:x2}, XY{boss.GhostPosition}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{SomariaPrivate<int>(boss,"_ghostAngle")}/{native[at+9]}, clock{SomariaPrivate<int>(animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
-                    !sounds.Requests.SequenceEqual(native.Sounds),"Pumpkin seek boundaries must preserve source RNG and cues.");probes=0;
+                    done&&SomariaPrivate<int>(boss,"_counter")!=native[0xd286]||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Pumpkin ghost$78/seek/wrap{wrapped}/offset{dx},{dy}/mode{mode}/fraction{fractional}/update{updates}: state{boss.State}/${native[at+4]:x2}, XY{boss.GhostPosition}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{SomariaPrivate<int>(boss,"_ghostAngle")}/{native[at+9]}, clock{SomariaPrivate<int>(animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
+                    !sounds.Requests.SequenceEqual(native.Sounds),"Pumpkin seek boundaries must preserve source RNG and cues.");observedCapture.Samples=0;
             });
             Step(3);
             _dialogue.ShowMessage("Pumpkin ghost seek hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;

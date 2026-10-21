@@ -22,9 +22,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(24, 24)); _player.BeginCutsceneControl();
             // Declared safe geometry isolates executed movement and its shared
             // scratch from unrelated room actors, terrain and Link input.
-            for (int y = 8; y < _currentRoom.Height; y += 16)
-            for (int x = 8; x < _currentRoom.Width; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0);
             var database = EnemyDatabase.Shared;
             var visuals = new DungeonInteractionVisualDatabase();
             IRoomEntity actor;

@@ -19,9 +19,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(0, 0x34); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.Sword, 1);
             _inventory.EquipA(TreasureId.Sword); _inventory.EquipB(0);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+            FillValidationRoom(0x2c, width: 10, height: 8);
             _player.WarpTo(new(6.75f, 64.25f));
             if (retainedSword)
             {

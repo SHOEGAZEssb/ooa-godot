@@ -50,9 +50,7 @@ public sealed partial class ValidationRoot
                         puff.Position != new Vector2(rom[nativePuffs[index] + 13], rom[nativePuffs[index] + 11]) ||
                         puff.Visible != ((rom[nativePuffs[index] + 0x1a] & 0x80) != 0)).Any(),
                         context + ": live puff order/position/visibility differs from clean ROM.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls || !sounds.Requests.SequenceEqual(rom.Sounds),
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || !sounds.Requests.SequenceEqual(rom.Sounds),
                         context + ": ordered sounds or shared RNG differ from clean ROM.");
                 });
             Step(); Step(10, 8); Step(13, 16);

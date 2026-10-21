@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
                     $"Pumpkin PART pool/CEC form{form}/variant{variant}/update{updates}: active{_entities.Entities<PumpkinHeadProjectile>().Count}/{active}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
                 if(form==0&&slot==5&&updates==1&&capacity!=0)
                 {lowerBirths++;FailIf(seen.Where(row=>row.Slot<5).Any(row=>row.Actor.State!=0),"Earlier-slot Pumpkin siblings must wait for the next physical PART pass.");}
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
                     !sounds.Requests.SequenceEqual(native.Sounds),"Pumpkin flight/allocation must preserve native RNG and cues.");probes=0;Seed();
             });
             int mask=gate==2?9:1;_runtimeState.SetWramByte(0xcc8a,(byte)mask);native[0xcc8a]=(byte)mask;

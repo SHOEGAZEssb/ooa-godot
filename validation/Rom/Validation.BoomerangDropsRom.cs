@@ -62,8 +62,7 @@ public sealed partial class ValidationRoot
                     }
                     foreach (int address in new[] { 0xc627, 0xc628, 0xc6ad, 0xc6ae })
                         FailIf(_saveData.ReadWramByte(address) != rom[address], $"{context}: rupee grant byte ${address:x4} differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": shared RNG differs.");
                     // Synthetic text supplies only the native freeze gate;
                     // text printing and the HUD's rupee display run separately.

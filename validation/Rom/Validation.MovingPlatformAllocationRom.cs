@@ -71,10 +71,8 @@ public partial class ValidationRoot
                     platform.CollisionRadii != new Vector2(rom[address+0x27],rom[address+0x26]),
                     "Incoming platform state0 must initialize its graphics/script/radii once without moving or claiming Link.");
             }
-            var parsedRandom = _random.CaptureState();
-            FailIf(parsedRandom.Rng1 != rom[0xff94] || parsedRandom.Rng2 != rom[0xff95] ||
-                parsedRandom.Calls-seed.Calls != rom.RandomCalls,
-                $"Failed interaction placements must preserve full native room-parse RNG consumption: room$4:${room:x2}, free={free}, runtime={parsedRandom.Calls-seed.Calls}/${parsedRandom.Rng1:x2}/${parsedRandom.Rng2:x2}, native={rom.RandomCalls}/${rom[0xff94]:x2}/${rom[0xff95]:x2}.");
+            FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                $"Failed interaction placements must preserve full native room-parse RNG consumption: room$4:${room:x2}, free={free}, runtime={_random.CaptureState().Calls-seed.Calls}/${_random.CaptureState().Rng1:x2}/${_random.CaptureState().Rng2:x2}, native={rom.RandomCalls}/${rom[0xff94]:x2}/${rom[0xff95]:x2}.");
             _entities.FinishScreenTransition(); rom.ClearOutgoingInteractions(); rom[0xcd00] = 4;
             var sounds = _sound.AttachPlayRequestAudit();
             StepGameplayUpdates(3,Vector2.Zero,batched:batch,afterUpdate:() => {

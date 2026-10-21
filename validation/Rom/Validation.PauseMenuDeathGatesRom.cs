@@ -62,9 +62,7 @@ public sealed partial class ValidationRoot
                             context + ": menu input changed native death animation/counter/loop boundaries.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
                         $"{context}: death/menu/IntroDone cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls, context + ": native death/menu RNG differs.");
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": native death/menu RNG differs.");
                 });
             }
             Step(1, keys, keys); Step(15, held: keys); Step();

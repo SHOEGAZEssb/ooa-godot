@@ -178,9 +178,7 @@ public sealed partial class ValidationRoot
                         $"ROM=${rom[address]:x2}/${rom[address + 0x1a]:x2}/${rom[address + 4]:x2}/${rom[address + 0x10]:x2}/{rom[address + 6]}/" +
                         $"({rom.Word(address + 12) / 256f},{rom.Word(address + 10) / 256f}).");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                    random.Calls - seed.Calls != rom.RandomCalls || _dialogue.IsOpen ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || _dialogue.IsOpen ||
                     _entities.EntityAdapters<VeranProjectileRoomEntity>().Any(),
                     $"Possessed Nayru scroll must retain source RNG and freeze fight effects, flag=${progress:x2}, batch={batch}.");
             }

@@ -44,8 +44,7 @@ public sealed partial class ValidationRoot
                         cane.Weapon!.State != rom[0xd604], context + ": Cane creation clock/state differs.");
                 FailIf(_inventory.Bombs != rom[0xc6b0] || _inventory.EmberSeeds != rom[0xc6b9],
                     context + ": BCD counts differ.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.SequenceEqual(rom.Sounds), context + ": ordered cues/shared RNG differ.");
             }
             void Step(int count = 1, int held = 0, int pressed = 0) =>

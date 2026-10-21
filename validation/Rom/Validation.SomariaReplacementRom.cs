@@ -25,8 +25,7 @@ public sealed partial class ValidationRoot
                 if(active)
                     FailIf(cane.Parent!.Parameter!=rom[0xd221] || SomariaPrivate<int>(cane.Parent,"_counter")!=rom[0xd220],
                         "Somaria replacement parent parameter differs.");
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=rom[0xff94] || rng.Rng2!=rom[0xff95] || rng.Calls-seed.Calls!=rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.SequenceEqual(rom.Sounds),"Somaria replacement cue/global RNG order differs.");
             }
             void Step(int count,int held=0,int edge=0,int angle=0xff) =>

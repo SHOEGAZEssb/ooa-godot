@@ -37,9 +37,8 @@ public sealed partial class ValidationRoot
             native[0xcc08]=0xa4;native[0xcc0a]=0x83;
             const int at=0xd0c0;native[at]=1;native[at+1]=0x39;
             native.Word(at+10,(int)(start.Y*256));native.Word(at+12,(int)(start.X*256));
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;var sounds=_sound.AttachPlayRequestAudit();
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;var sounds=_sound.AttachPlayRequestAudit();
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Seed(){for(int i=0;i<4;i++){byte value=(byte)(0xa5+i);_runtimeState.SetWramByte(0xcec0+i,value);native[0xcec0+i]=value;}}
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -57,11 +56,11 @@ public sealed partial class ValidationRoot
                     actor.Visible!=((native[at+0x1a]&128)!=0)||animation.CurrentParameter!=native[at+0x21]||
                     SomariaPrivate<int>(animation,"_frameCounter")!=native[at+0x20]||
                     actor.CollisionBounds.Size!=new Vector2(native[at+0x27]*2,native[at+0x26]*2))||
-                    probes!=1||Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
-                    $"Head fireball$39/route{test.Key}/start{origin}/fraction{fractional}/update{updates}: XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{actor.ZFixed}/{native.Word(at+14):x4}, state{sourceState}/{native[at+4]}, counter{SomariaPrivate<int>(actor,"_counter")}/{native[at+6]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||!sounds.Requests.SequenceEqual(native.Sounds),
+                    observedCapture.Samples!=1||Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
+                    $"Head fireball$39/route{test.Key}/start{origin}/fraction{fractional}/update{updates}: XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{actor.ZFixed}/{native.Word(at+14):x4}, state{sourceState}/{native[at+4]}, counter{SomariaPrivate<int>(actor,"_counter")}/{native[at+6]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||!sounds.Requests.SequenceEqual(native.Sounds),
                     "PART$39 must preserve two launch draws and ordered launch/impact cues through every hold and terminal visit.");
-                probes=0;Seed();
+                observedCapture.Samples=0;Seed();
             });
             int hold=test.Key&3;
             if(hold==0){_dialogue.ShowMessage("Head fireball state0.",104);native[0xcba0]=1;}

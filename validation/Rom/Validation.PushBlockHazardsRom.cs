@@ -59,9 +59,7 @@ public sealed partial class ValidationRoot
                                 fall.Visible != ((rom[slot+0x1a] & 0x80) != 0),
                                 $"{context}: fall$0f fixed XY/animation/visibility differs: runtime={fall.PrecisePosition}/{SomariaPrivate<int>(fall,"_animationCounter")}/${fall.CurrentParameter:x2}, native=${rom.Word(slot+0xc):x4},${rom.Word(slot+0xa):x4}/{rom[slot+0x20]}/${rom[slot+0x21]:x2}.");
                         }
-                        var random = _random.CaptureState();
-                        FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                            random.Calls-seed.Calls != rom.RandomCalls ||
+                        FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                             !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                             context + ": ordered cues/shared RNG differ.");
                     });

@@ -55,8 +55,7 @@ public sealed partial class ValidationRoot
                             $"text=${rom.Word(address + 0x32):x4}, Z/speed=${rom.Word(address + 0x0e):x4}/${rom.Word(address + 0x14):x4}, " +
                             $"runtime talk/signal={bird.Talking}/{bird.TalkingSignal}, direction={bird.Direction}, counter={bird.TurnCounter}, text=${bird.TextId:x4}, Z/speed={bird.ZFixed}/{bird.SpeedZ}.");
                     }
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         $"{context}: ordered shared RNG differs.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), $"{context}: sound request order differs: [{string.Join(',', sounds.Requests)}] / [{string.Join(',', rom.Sounds)}].");
                 });

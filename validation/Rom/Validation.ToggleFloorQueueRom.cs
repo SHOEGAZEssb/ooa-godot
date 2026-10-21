@@ -56,8 +56,7 @@ public partial class ValidationRoot
                         (debris[index].ElapsedUpdates > 0) != (rom[native[index]+4] != 0) ||
                         debris[index].CurrentParameter != rom[native[index]+0x21],
                         "Descending floor scan must allocate debris into ascending free slots with the source packed position.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Toggle floor scans and debris must preserve original RNG order.");
             });
             // Declare the orb publication; native cutscene01 selects the

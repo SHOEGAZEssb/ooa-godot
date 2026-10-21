@@ -13,9 +13,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(2,0xea);
+            InitializeCompletedIntroRoom(2, 0xea, clearEntities: false);
             var actor=_entities.EntityAdapters<RunningBipinRoomEntity>().Single();F1Retain(actor);
             _player.WarpTo(new(120,104));_player.BeginCutsceneControl(owner:actor);
             _runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
@@ -28,22 +26,21 @@ public sealed partial class ValidationRoot
             Vector2 initial=new(x+(fractional?255/256f:0),72+(fractional?.5f:0));
             F1Set(actor,"_precisePosition",initial);F1Set(actor,"_angle",angle);actor.Npc.Position=initial.Floor();
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));native[at+9]=(byte)angle;
-            byte[] observed=new byte[4];int visits=0,reversals=0,updates=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int reversals=0,updates=0;
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {visits++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
                 int previous=native[at+9];for(int i=0;i<4;i++)native[0xcec0+i]=(byte)(0xa5+i);
                 native.AdvanceInteractions(_entities.FrameCounter);updates++;if(previous!=native[at+9])reversals++;
                 FailIf(SomariaPrivate<Vector2>(actor,"_precisePosition")!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     actor.Npc.Position!=new Vector2(native[at+13],native[at+11])||SomariaPrivate<int>(actor,"_angle")!=native[at+9]||
-                    SomariaPrivate<int>(actor,"_animation")!=native[at+0x3a]||visits!=1||
-                    Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
+                    SomariaPrivate<int>(actor,"_animation")!=native[at+0x3a]||observedCapture.Samples!=1||
+                    Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
                     $"Bipin$28:$00 x${x:x2}/angle${angle:x2}/update{updates}: original patrol/reversal/publication differs.");
-                visits=0;
+                observedCapture.Samples=0;
             });
             Step(4);_dialogue.ShowMessage("Ordinary Bipin hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;
             _runtimeState.SetWramByte(0xcc8a,2);native[0xcc8a]=2;Step(3);_runtimeState.SetWramByte(0xcc8a,0);native[0xcc8a]=0;

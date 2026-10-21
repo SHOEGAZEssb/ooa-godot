@@ -70,9 +70,7 @@ public partial class ValidationRoot
                     FailIf(puff.Finished == (rom[slot] != 0 && rom[slot+1] == 5),context+": original puff deletion differs.");
                 FailIf(_currentRoom.Layout[0x35] != rom[0xcf35] ||
                     _currentRoom.GetTerrainInfo(new(88,56)).Collision != rom[0xce35],context+": door layout/collision differs.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                    random.Calls-seed.Calls != rom.RandomCalls || !sounds.Requests.SequenceEqual(rom.Sounds),
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || !sounds.Requests.SequenceEqual(rom.Sounds),
                     context+": ordered cues/shared RNG differs.");
                 opened |= rom[0xcf35] == 0x5e;
             });

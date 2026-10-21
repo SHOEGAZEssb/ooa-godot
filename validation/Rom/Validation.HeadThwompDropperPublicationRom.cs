@@ -36,9 +36,8 @@ public sealed partial class ValidationRoot
             native[0xd0c0]=1;native[0xd0c1]=1;native[0xd0c2]=4;native[0xd0cb]=72;native[0xd0cd]=120;
             const int at=0xd1c0;native[at]=1;native[at+1]=0x40;native.Word(at+10,fractional?0x4880:0x4800);native.Word(at+12,fractional?0x7840:0x7800);
             native.Word(at+0x16,0xd0c0);
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Seed(){for(int i=0;i<4;i++){byte value=(byte)(0xa5+i);_runtimeState.SetWramByte(0xcec0+i,value);native[0xcec0+i]=value;}}
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -51,11 +50,11 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<int>(helper,"_speed")!=native[at+16]||SomariaPrivate<int>(helper,"_angle")!=native[at+9]||
                     (SomariaPrivate<int>(helper,"_speedY")&65535)!=native.Word(at+0x14))||
                     pickup.Finished!=(native[0xd0c0]==0)||!pickup.Finished&&pickup.PrecisePosition!=new Vector2(native.Word(0xd0cc)/256f,native.Word(0xd0ca)/256f)||
-                    probes!=1||Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
-                    $"Head Thwomp$40/route{test.Key}/fraction{fractional}/update{updates}: helper words{position}/{native.Word(at+10):x4},{native.Word(at+12):x4}, pickup{pickup.PrecisePosition}/{native.Word(0xd0cc)/256f},{native.Word(0xd0ca)/256f}, finished{helper.Finished}/{native[at]==0}, scratch[{string.Join(',',observed)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
+                    observedCapture.Samples!=1||Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
+                    $"Head Thwomp$40/route{test.Key}/fraction{fractional}/update{updates}: helper words{position}/{native.Word(at+10):x4},{native.Word(at+12):x4}, pickup{pickup.PrecisePosition}/{native.Word(0xd0cc)/256f},{native.Word(0xd0ca)/256f}, finished{helper.Finished}/{native[at]==0}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
                     "Bomb carrier must consume its original single initialization draw and no repeated draw on holds or landing.");
-                probes=0;Seed();
+                observedCapture.Samples=0;Seed();
             });
             int hold=test.Key&3;
             if(hold==0){_dialogue.ShowMessage("Head helper state0.",104);native[0xcba0]=1;}

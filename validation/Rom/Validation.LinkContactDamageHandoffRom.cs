@@ -71,8 +71,7 @@ public sealed partial class ValidationRoot
                     // status bar/menu warning has its own ROM comparisons.
                     FailIf(!sounds.Requests.Where(id => id is not (SoundId.SndText or SoundId.SndGainHeart or SoundId.SndHeartBeep)).SequenceEqual(rom.Sounds),
                         $"{context}: cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": shared RNG differs.");
                 });
             }
@@ -150,9 +149,7 @@ public sealed partial class ValidationRoot
                 _inventory.GiveTreasure(TreasureId.RingBox, 1); _inventory.GrantAppraisedRingForDebug(ring);
                 FailIf(!_inventory.SetRingBoxSlotFromList(0, ring) || !_inventory.EquipRingAt(0), "Electric fixture could not equip its ring.");
             }
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+            FillValidationRoom(0x2c, width: 10, height: 8);
             _player.WarpTo(new(80, 64));
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 2, 80, 64);
@@ -189,8 +186,7 @@ public sealed partial class ValidationRoot
                     _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f),
                     $"{context}: health {_player.HealthQuarters}/{rom[0xc6aa]}, damage ${_player.PendingContactDamageRaw & 0xff:x2}/${rom[0xd025]:x2}, signal {_player.NativeContactSignal}/${rom[0xd02a]:x2}, inv {_player.InvincibilityFrames}/{unchecked((sbyte)rom[0xd02b])}, recoil {_player.KnockbackFrames}/{rom[0xd02d]}, shock {_player.ElectricShockCounter}/{rom[0xccdc]}, XY {_player.PrecisePosition}/{new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f)} differs.");
                 FailIf(!audit.Requests.Where(id => id is not (SoundId.SndGainHeart or SoundId.SndHeartBeep)).SequenceEqual(rom.Sounds), context + ": cue order differs.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     context + ": shared RNG differs.");
             });
             FailIf(_player.ElectricShockActive || _player.KnockbackFrames != 0 || _player.PendingContactDamageRaw != 0,

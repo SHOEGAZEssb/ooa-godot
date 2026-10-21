@@ -31,12 +31,11 @@ public sealed partial class ValidationRoot
                 rom[address] = 1; rom[address + 1] = 0x59; rom[address + 2] = (byte)index;
                 rom.Word(address + 10, (int)(flames[index].Position.Y*256)); rom.Word(address + 12, (int)(flames[index].Position.X*256));
             }
-            byte[] observed=new byte[4];int probes=0,movementVisits=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int movementVisits=0;
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds = _sound.AttachPlayRequestAudit();
             int update = 0;
             bool frozen = true;
@@ -49,8 +48,8 @@ public sealed partial class ValidationRoot
                     beforeParts:()=>{for(int i=0;i<4;i++)rom[0xcec0+i]=(byte)(0xa5+i);},
                     beforeInteractions:()=>{for(int i=0;i<4;i++)expected[i]=rom[0xcec0+i];});
                 if(expected[3]!=0xa8)movementVisits++;
-                FailIf(probes!=1||!observed.SequenceEqual(expected),
-                    $"PART$59 phase-local motion/publication differs update{update}/fraction{fractional}: [{string.Join(',',observed)}]/[{string.Join(',',expected)}].");probes=0;
+                FailIf(observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"PART$59 phase-local motion/publication differs update{update}/fraction{fractional}: [{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");observedCapture.Samples=0;
                 for (int index = 0; index < 4; index++)
                 {
                     int address = 0xd0c0 + index * 256; var flame = flames[index];
@@ -64,7 +63,7 @@ public sealed partial class ValidationRoot
                         $"ROM={rom[address + 4]}/{rom[address + 6]}/{rom[address + 7]}/{rom.Word(address + 12) / 256f},{rom.Word(address + 10) / 256f}/{rom[address + 9]}/{rom[address + 0x31]},{rom[address + 0x30]}.");
                 }
                 FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), $"PART $59 ignition/puff sound order differs update {update}: port={string.Join(',', sounds.Requests)}, ROM={string.Join(',', rom.Sounds)}.");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=rom[0xff94]||rng.Rng2!=rom[0xff95]||rng.Calls-seed.Calls!=rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Black Tower flame routes must retain native RNG consumption.");
             }
             void Step(int count) => StepGameplayUpdates(count, Vector2.Zero, batched: batched, afterUpdate: Compare);

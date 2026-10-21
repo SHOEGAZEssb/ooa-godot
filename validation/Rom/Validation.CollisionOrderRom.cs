@@ -19,9 +19,7 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             LoadValidationRoom(0, 0x60);
             _entities.Clear();
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x0c, 0, 0);
+            FillValidationRoom(0x0c, width: 10, height: 8);
             _player.WarpTo(new(72, 72));
             var shots = new[]
             {

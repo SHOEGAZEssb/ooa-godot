@@ -73,8 +73,8 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<int>(parent,"_angle")!=rom[bossAt+9]||SomariaPrivate<int>(parent,"_nudgeCounter")!=rom[bossAt+6]||
                     SomariaPrivate<bool>(parent,"_childRequestsCharge")!=(rom[bossAt+0x32]!=0)||parent.ChildrenAlive!=rom[bossAt+0x30],
                     $"Giant contact/update{update}: child{state}/{rom[at+4]}, C1{SomariaPrivate<int>(child,"_counter")}/{rom[at+6]}, XY{child.Position}/{rom.Word(at+12)/256f},{rom.Word(at+10)/256f}, parent{bossState}/{rom[bossAt+4]}, XY{parent.Position}/{rom.Word(bossAt+12)/256f},{rom.Word(bossAt+10)/256f}, angle{SomariaPrivate<int>(parent,"_angle")}/{rom[bossAt+9]}, C1{SomariaPrivate<int>(parent,"_nudgeCounter")}/{rom[bossAt+6]}, target{SomariaPrivate<int>(parent,"_targetScreenY")}/{rom[bossAt+0x34]}, camera{-_entities.ToScreen(Vector2.Zero)}/{rom[0xffac]},{rom[0xffaa]}.");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=rom[0xff94]||rng.Rng2!=rom[0xff95]||rng.Calls-seed.Calls!=rom.RandomCalls,
-                    $"Giant contact/update{update}: shared RNG differs {rng.Calls-seed.Calls}/{rom.RandomCalls}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Giant contact/update{update}: shared RNG differs {_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}.");
                 sawMove|=child.State==ChildState.Attached&&!_entities.PlayerMovementDisabled;sawStop|=_entities.PlayerMovementDisabled;pressed=0;
             }
             void Step(int count,Vector2 movement)=>StepGameplayUpdates(count,movement,MenuRomActions(held),MenuRomActions(pressed),batched,Compare);

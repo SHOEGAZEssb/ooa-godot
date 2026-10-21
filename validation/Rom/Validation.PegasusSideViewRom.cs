@@ -34,8 +34,7 @@ public sealed partial class ValidationRoot
                         _player.SideScrollSpeedRaw != rom[0xd010],
                         context + ": counter/ammo/parent or full air velocity differs.");
                     ComparePegasusDustRom(rom, true, context);
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.SequenceEqual(rom.Sounds), context + ": ordered cues/shared RNG differ.");
                 });
             }

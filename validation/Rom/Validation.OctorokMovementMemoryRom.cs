@@ -13,8 +13,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(24, 24)); _player.BeginCutsceneControl();
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 10, height: 8);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, 24, 24);
             const int part = 0xd0c0;
             var start = new Vector2(80.75f, 72.5f);

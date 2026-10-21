@@ -78,9 +78,7 @@ public sealed partial class ValidationRoot
                             _player.Position != new Vector2(rom[0xd00d],rom[0xd00b]) ||
                             _dialogue.IsOpen != (rom[0xcba0] != 0) || CompanionField<int>(actor,"_speed") != rom[0xd110],
                             $"{context}: native XY=${rom.Word(0xd10c):x4},${rom.Word(0xd10a):x4}, Link={rom[0xd00d]},{rom[0xd00b]}, speed=${rom[0xd110]:x2}; runtime={actor.BarrierPosition}, Link={_player.Position}, speed={CompanionField<int>(actor,"_speed")}, text={_dialogue.IsOpen}; Link/text/speed differ.");
-                        var random = _random.CaptureState();
-                        FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                            random.Calls-seed.Calls != rom.RandomCalls,context + ": RNG differs.");
+                        FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),context + ": RNG differs.");
                     });
             }
             Step();

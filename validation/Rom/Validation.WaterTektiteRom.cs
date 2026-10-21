@@ -66,10 +66,8 @@ public sealed partial class ValidationRoot
                         $"runtime=${enemy.State:x2}/${enemy.Counter:x2}/${enemy.Angle:x2}/${enemy.Speed:x2}, XY={enemy.Position}, animation={timer}, stun/inv={enemy.StunCounter}/{enemy.InvincibilityCounter}; native={rom[address + 0x2e]}/${rom[address + 0x2b]:x2}.");
                     if (enemy.State == 9 && !frozen) restUpdates++;
                 }
-                var actual = _random.CaptureState();
-                FailIf(actual.Rng1 != rom[0xff94] || actual.Rng2 != rom[0xff95] ||
-                    actual.Calls - seed.Calls != rom.RandomCalls,
-                    $"Water Tektite $5:$23 update={update}: shared RNG runtime=${actual.Rng2:x2}{actual.Rng1:x2}/{actual.Calls-seed.Calls}, ROM=${rom[0xff95]:x2}{rom[0xff94]:x2}/{rom.RandomCalls}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Water Tektite $5:$23 update={update}: shared RNG runtime=${_random.CaptureState().Rng2:x2}{_random.CaptureState().Rng1:x2}/{_random.CaptureState().Calls-seed.Calls}, ROM=${rom[0xff95]:x2}{rom[0xff94]:x2}/{rom.RandomCalls}.");
                 update++;
             }
             // State zero runs under text; subsequent updates freeze. Exercise

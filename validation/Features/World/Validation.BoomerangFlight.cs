@@ -33,9 +33,7 @@ public partial class ValidationRoot
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
             _player.WarpTo(new(40, 80));
-            for (int y = 8; y < 176; y += 16)
-            for (int x = 8; x < 240; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 15, height: 11);
         }
         foreach (bool batched in new[] { false, true })
         {

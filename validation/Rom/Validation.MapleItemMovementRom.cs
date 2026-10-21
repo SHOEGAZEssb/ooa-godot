@@ -9,8 +9,7 @@ public sealed partial class ValidationRoot
     {
         ReinitializeGameplayForValidation(); LoadValidationRoom(1, 2); _entities.Clear();
         _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(24, 112)); _player.BeginCutsceneControl();
-        for (int y = 8; y < 128; y += 16)
-        for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+        FillValidationRoom(0x2c, width: 10, height: 8);
     }
 
     private void ValidateMapleScatterMovementRom()
@@ -132,8 +131,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0, 0); _player.WarpTo(new(24, 112)); _player.BeginCutsceneControl();
             var maple = _entities.Entities<MapleEncounter>().Single();
             F1Retain(_entities.EntityAdapters<MapleEncounterRoomEntity>().Single());
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+            FillValidationRoom(0x2c, width: 10, height: 8);
             var encounter = SomariaPrivate<MapleEncounterState>(maple, "_encounter"); encounter.ObjectsDisabled = true;
             var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, new(79, 72), 0));
             F1Set(drop, "_state", MapleDroppedItemState.Grounded); drop.Visible = true;

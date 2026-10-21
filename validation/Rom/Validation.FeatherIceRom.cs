@@ -36,9 +36,7 @@ public sealed partial class ValidationRoot
             FeatherRom rom = PrepareFeatherRom(primary, 0.5f);
             // The fractional warp in PrepareFeatherRom clears velocity.
             // Both loops enter ice from rest and generate their own momentum.
-            for (int y = 8; y < _currentRoom.Height; y += 16)
-            for (int x = 8; x < _currentRoom.Width; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x8a, 0, 0);
+            FillValidationRoom(0x8a);
             rom.CopyRoom(_currentRoom);
             StepFeatherRom(rom, groundUpdates, batched, takeoff, primary: primary);
             int launchAngle = rom[0xd009];

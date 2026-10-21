@@ -28,8 +28,7 @@ public sealed partial class ValidationRoot
             void Compare()
             {
                 rom.AdvanceWarpPalette(); rom.UpdateGameplay(0,0,0xff,++update);
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=rom[0xff94] || rng.Rng2!=rom[0xff95] || rng.Calls-random.Calls!=rom.RandomCalls,
+                FailIf(RandomDiffers(random, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Possession shared RNG differs update={update}.");
                 foreach (var actor in _entities.EntityAdapters<PalacePossessionRoomEntity>())
                 {

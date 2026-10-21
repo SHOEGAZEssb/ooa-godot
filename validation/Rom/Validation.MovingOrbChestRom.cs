@@ -52,8 +52,7 @@ public partial class ValidationRoot
                         _rooms.PendingTileGraphics != ((rom[0xcce0]-rom[0xccdf])&31) ||
                         !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                         $"Moving orb/chest update{update}: orb={orb.State}/{rom[0xd0c4]}, XY={orb.Position}/{rom.Word(0xd0cc)/256f},{rom.Word(0xd0ca)/256f}, palette={orb.Palette}/{rom[0xd0db]}, pending={orb.PendingHit}/{rom[0xd0ea]:x2}, lock={orb.HitLockout}/{rom[0xd0eb]:x2}, toggle={_runtimeState.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress):x2}/{rom[0xcdd2]:x2}, chest={chest.Finished}:{chest.Counter}/{rom[0xd240]:x2}:{rom[0xd246]}, queue={_rooms.PendingTileGraphics}/{((rom[0xcce0]-rom[0xccdf])&31)}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         "Moving orb and chest must preserve original global RNG order.");
                 });
             }

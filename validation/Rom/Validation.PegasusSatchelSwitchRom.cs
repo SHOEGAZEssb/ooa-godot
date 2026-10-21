@@ -33,8 +33,7 @@ public sealed partial class ValidationRoot
                     int children = Enumerable.Range(0xd7, 5).Count(page => rom[page << 8] != 0 && rom[(page << 8) + 1] == 0x20);
                     FailIf(_entities.Entities<EmberSeedEffect>().Count != children, context + ": retained physical Ember differs.");
                     ComparePegasusDustRom(rom, false, context);
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.SequenceEqual(rom.Sounds), context + ": ordered cues/shared RNG differ.");
                 });
             }

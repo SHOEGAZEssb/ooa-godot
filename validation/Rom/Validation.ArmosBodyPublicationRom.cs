@@ -22,9 +22,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0x80);
+            InitializeCompletedIntroRoom(4, 0x80, clearEntities: false);
             var spawner=_entities.Entities<ArmosWarriorActor>().Single();
             var body=spawner.CreateChild(1);var shield=spawner.CreateChild(2);var sword=spawner.CreateChild(3);
             _entities.Clear();AddChild(shield);AddChild(sword);
@@ -36,9 +34,8 @@ public sealed partial class ValidationRoot
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
             var adapter=new ArmosWarriorRoomEntity(body,body.Entry);_entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
-            byte[] observed=new byte[4];int probes=0,updates=0;
-            var after=new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var native=new EnemyStatusRom(_currentRoom,_saveData,_random.Calls);
             var seed=_random.CaptureState();native[0xff94]=seed.Rng1;native[0xff95]=seed.Rng2;
@@ -63,9 +60,9 @@ public sealed partial class ValidationRoot
                 FailIf(body.Position!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||body.State!=native[at+4]||
                     body.Substate!=native[at+5]||body.Counter!=native[at+6]||body.Angle!=native[at+9]||body.Speed!=native[at+16]||
                     (ushort)body.ZFixed!=native.Word(at+14)||(ushort)SomariaPrivate<int>(body,"_speedZ")!=native.Word(at+20)||
-                    probes!=1||!observed.SequenceEqual(expected),
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
                     $"Armos$73:$01 state${spec.Item1:x2}/angle${spec.Item3:x2}/fraction{fractional}/update{updates}: original body movement/counter/air/scratch differs.");
-                probes=0;
+                observedCapture.Samples=0;
             });
             _dialogue.ShowMessage("Armos body hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;
             _runtimeState.SetWramByte(0xcc8a,4);native[0xcc8a]=4;Step(3);_runtimeState.SetWramByte(0xcc8a,0);native[0xcc8a]=0;

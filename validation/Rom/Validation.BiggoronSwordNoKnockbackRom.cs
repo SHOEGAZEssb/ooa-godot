@@ -48,9 +48,7 @@ public sealed partial class ValidationRoot
 
             // Declare flat contact geometry after the real water search. This
             // isolates collision/status behavior, not a natural bank approach.
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x0c, 0, 0);
+            FillValidationRoom(0x0c, width: 10, height: 8);
             native.CopyRoom(_currentRoom);
             _player.WarpTo(new(80, 64), recordSafe: false);
             _player.Face(Vector2I.Up);

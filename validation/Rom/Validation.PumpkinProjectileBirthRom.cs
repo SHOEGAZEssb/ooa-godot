@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
                     FailIf(shot.Position!=new Vector2(native.Word(p+12)/256f,native.Word(p+10)/256f)||shot.Angle!=native[p+9]||shot.Delay!=native[p+6],
                         "Pumpkin state0 must fold high Y/Z, apply the root mouth/child angle offsets, and initialize later slots in this same PART pass.");
                 }
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
                     !sounds.Requests.SequenceEqual(native.Sounds),"Pumpkin birth must preserve source failure behavior, RNG and ENEMY attack cue order.");
             });
             _entities.Clear();_runtimeState.SetWramByte(0xcc8a,0);StepGameplayUpdates(2,Vector2.Zero);

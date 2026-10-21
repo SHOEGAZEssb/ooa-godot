@@ -49,8 +49,7 @@ public partial class ValidationRoot
                         (SomariaPrivate<int>(bridge,"_state") != rom[0xd244] || SomariaPrivate<int>(bridge,"_counter") != rom[0xd246]) ||
                         _saveData.GetRoomFlags(0,0x54) != rom[0xc754] || !sounds.Requests.SequenceEqual(rom.Sounds),
                         $"Nuun full-pool/queue update{update}: allocation, script yields, flag$40 or sound order differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         "Failed Nuun switch allocation must preserve native RNG consumption.");
                 });
             }

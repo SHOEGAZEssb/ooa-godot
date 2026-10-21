@@ -13,9 +13,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(7,0x0a);_entities.Clear();
+            InitializeCompletedIntroRoom(7, 0x0a);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(24,104));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             Vector2 initial=new(4+(fractional?.25f:0),250+(fractional?.5f:0));
@@ -26,9 +24,8 @@ public sealed partial class ValidationRoot
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
             _entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0,reversals=0;
-            var after=new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0,reversals=0;
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var seed=_random.CaptureState();var native=new EnemyStatusRom(_currentRoom,_saveData,seed.Calls);
             native[0xff94]=seed.Rng1;native[0xff95]=seed.Rng2;native[0xcc08]=0xa4;
@@ -44,11 +41,11 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<int>(actor,"_travelCounter")!=native[at+3]||
                     SomariaPrivate<Vector2>(actor,"_precisePosition")!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     actor.Position!=new Vector2(native[at+13],native[at+11])||actor.AnimationIndex!=native[at+8]||
-                    probes!=1||!observed.SequenceEqual(expected),
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
                     $"Cheep$2c:${subid:x2}/var03${distance:x2}/fraction{fractional}/update{updates}: original patrol, bytes/counters, reversal or phase scratch differs.");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
                     "Cheep Cheep must consume the original common state0 draw, with no patrol RNG.");
-                probes=0;
+                observedCapture.Samples=0;
             });
             Step(1);
             // Fresh source allocation has zero low bytes. Declare retained

@@ -13,9 +13,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0x6b);_entities.Clear();
+            InitializeCompletedIntroRoom(4, 0x6b);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,104));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(WramAddress.wScrollMode,0);
@@ -33,9 +31,8 @@ public sealed partial class ValidationRoot
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
             _entities.RegisterEnemySlot(bodyAdapter,1);_entities.AddEntity(bodyAdapter);
             _entities.RegisterEnemySlot(adapter,2);_entities.AddEntity(adapter);
-            byte[] observed=new byte[4];int probes=0,updates=0;
-            var after=new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var seed=_random.CaptureState();var native=new EnemyStatusRom(_currentRoom,_saveData,seed.Calls);
             native[0xff94]=seed.Rng1;native[0xff95]=seed.Rng2;native[0xcc08]=0xc4;native[0xcc93]=1;
@@ -53,10 +50,10 @@ public sealed partial class ValidationRoot
                     actor.Distance!=native[at+0x30]||actor.TargetDistance!=native[at+0x31]||
                     actor.ZFixed!=unchecked((short)native.Word(at+14))||body.ReadyFlags!=native[parent+0x3a]||
                     actor.Visible!=((native[at+0x1a]&128)!=0)||actor.AnimationParameter!=native[at+0x21]||
-                    probes!=1||!observed.SequenceEqual(expected),
-                    $"Eyesoar child${sub:x2}/center{center}/fraction{fractional}/update{updates}: original child differs: XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, state{actor.State}/{native[at+4]}, radius{actor.Distance}/{native[at+0x30]}, angle{actor.Angle}/{native[at+9]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    "Declared Eyesoar body/child slots must retain original common initialization RNG order.");probes=0;
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Eyesoar child${sub:x2}/center{center}/fraction{fractional}/update{updates}: original child differs: XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, state{actor.State}/{native[at+4]}, radius{actor.Distance}/{native[at+0x30]}, angle{actor.Angle}/{native[at+9]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    "Declared Eyesoar body/child slots must retain original common initialization RNG order.");observedCapture.Samples=0;
             });
             void Set(object owner,string property,int value)=>F1Set(owner,"<"+property+">k__BackingField",value);
             void Flags(int value){Set(body,"Flags",value);native[parent+0x39]=(byte)value;}

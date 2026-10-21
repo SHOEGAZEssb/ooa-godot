@@ -165,9 +165,7 @@ public sealed partial class ValidationRoot
                             context + ": Link full Z/gravity/landing differs.");
                         FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
                             context + ": Feather/Boomerang sound order differs.");
-                        var random = _random.CaptureState();
-                        FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                            random.Calls - initialRandom.Calls != rom.RandomCalls,
+                        FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls),
                             context + ": shared RNG differs.");
                         FailIf(raft && (_player.RaftRideActive != (rom[0xcc2c] == 0xd1) ||
                             _player.TopDownSwimming || _player.IsDrowning), context + ": raft ownership/swimming differs.");

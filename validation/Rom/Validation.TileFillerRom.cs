@@ -78,8 +78,7 @@ public sealed partial class ValidationRoot
                     FailIf(_entities.InteractionSlot(puffs[index]) != (nativePuffs[index]>>8)-0xd0 ||
                         puffs[index].Position != new Vector2(rom[nativePuffs[index]+0xd],rom[nativePuffs[index]+0xb]),
                         context + ": physical puff allocation/position differs.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     context + ": shared RNG differs.");
             });
             Step(); Step(3);

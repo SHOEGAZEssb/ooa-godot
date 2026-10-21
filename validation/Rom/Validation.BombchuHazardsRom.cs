@@ -26,8 +26,7 @@ public sealed partial class ValidationRoot
                 if (item is not null)
                     FailIf(item.Position != new Vector2(rom[0xd70d], rom[0xd70b]) || (ushort)item.SpeedZ != rom.Word(0xd714) ||
                         item.VerticalFlags != rom[0xd73b] || item.Counter2 != rom[0xd707], context + ": water motion/flags/fuse differs.");
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.SequenceEqual(rom.Sounds), context + ": hazard cue/RNG order differs.");
                 CompareSomariaMotionRom(rom, context);
             }

@@ -46,8 +46,7 @@ public sealed partial class ValidationRoot
                         _entities.ActiveTriggers != rom[0xcca0] || _entities.ActiveTriggers != expected ||
                         !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                         $"Floor pattern$21:$0f, gate={gate}, batch={batched}: state0/whole-byte trigger/cues differ.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         "Floor pattern predicate must preserve shared RNG.");
                 });
             }

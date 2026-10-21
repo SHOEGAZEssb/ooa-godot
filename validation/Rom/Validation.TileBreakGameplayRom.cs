@@ -17,9 +17,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.Sword, 1);
             _inventory.EquipA(TreasureId.Sword); _inventory.EquipB(0);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x3a, 0, 0);
+            FillValidationRoom(0x3a, width: 10, height: 8);
             Vector2 point = new(72, 72);
             _currentRoom.SetPositionTileAndCollision(point, 0xc5, 0x0f, 0);
             _currentRoom.SetUnderlyingMetatile(point, 0xc5);

@@ -66,8 +66,7 @@ public sealed partial class ValidationRoot
                             new(2 * rom[0xd627], 2 * rom[0xd626])) || _player.SwordDamage != -unchecked((sbyte)rom[0xd628]),
                             context + ": Sword child geometry/damage differs.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds), context + ": cue order differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": shared RNG differs.");
                 });
             }

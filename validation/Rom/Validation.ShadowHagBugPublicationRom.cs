@@ -76,14 +76,14 @@ public sealed partial class ValidationRoot
             native[at+9]=(byte)(form==0?0:angle);native[at+16]=(byte)(form==0?0:15);native[at+0x29]=2;native[at+0x1a]=(byte)(form==0?0:0x82);
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));native.Word(at+14,z);native.Word(at+0x16,owner);
             if(form!=0)native.SetEnemyAnimation(10,0);
-            byte[] observed=new byte[4];int probes=0,updates=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var before=new PartMovementScratchProbe(()=>
             {
                 for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));
                 if(late&&updates==0){_player.SetScriptedCoordinateHigh(horizontal:true,200);_player.SetScriptedCoordinateHigh(horizontal:false,144);}
             });
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
-            var after=new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
@@ -100,16 +100,16 @@ public sealed partial class ValidationRoot
                     (actor.ZFixed&65535)!=native.Word(at+14)||(SomariaPrivate<int>(actor,"_speedZ")&65535)!=native.Word(at+0x14)||
                     SomariaPrivate<int>(actor,"_angle")!=native[at+9]||SomariaPrivate<int>(actor,"_counter1")!=native[at+6]||SomariaPrivate<int>(actor,"_counter2")!=native[at+7]||
                     actor.Visible!=((native[at+0x1a]&128)!=0)||actor.AnimationParameter!=native[at+0x21]||SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20])||
-                    parent.BugsAlive!=native[owner+0x30]||probes!=1||!observed.SequenceEqual(expected),
-                    $"Shadow Hag ENEMY$42/form{form}/angle${angle:x2}/late{late}/ownerCount{ownerCount}/fraction{fractional}/update{updates}: dead{actor.IsDead}/{native[at]==0}, state{state}/{native[at+4]}, C{SomariaPrivate<int>(actor,"_counter1")},{SomariaPrivate<int>(actor,"_counter2")}/{native[at+6]},{native[at+7]}, angle{SomariaPrivate<int>(actor,"_angle")}/{native[at+9]}, parentCount{parent.BugsAlive}/{native[owner+0x30]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
+                    parent.BugsAlive!=native[owner+0x30]||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Shadow Hag ENEMY$42/form{form}/angle${angle:x2}/late{late}/ownerCount{ownerCount}/fraction{fractional}/update{updates}: dead{actor.IsDead}/{native[at]==0}, state{state}/{native[at+4]}, C{SomariaPrivate<int>(actor,"_counter1")},{SomariaPrivate<int>(actor,"_counter2")}/{native[at+6]},{native[at+7]}, angle{SomariaPrivate<int>(actor,"_angle")}/{native[at+9]}, parentCount{parent.BugsAlive}/{native[owner+0x30]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
                 if(!actor.IsDead)
                 {
                     var offset=(Vector2)actor.GetType().GetProperty("AnimationDrawOffset",F1Hidden)!.GetValue(actor)!;
                     FailIf(offset-actor.Animation.CurrentOffset!=Vector2.Down*unchecked((sbyte)native[at+15]),
                         "Bug presentation must add the original integer high-Z byte, retaining fractional Z only in physics.");
                 }
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
-                    !sounds.Requests.SequenceEqual(native.Sounds),"Bug initialization/landing/steering must retain ordered common/AI RNG and cues.");probes=0;
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
+                    !sounds.Requests.SequenceEqual(native.Sounds),"Bug initialization/landing/steering must retain ordered common/AI RNG and cues.");observedCapture.Samples=0;
             });
             int mask=gate==2?5:1;_runtimeState.SetWramByte(0xcc8a,(byte)mask);native[0xcc8a]=(byte)mask;
             if(gate==1){_dialogue.ShowMessage("Bug common init hold.",104);native[0xcba0]=1;}

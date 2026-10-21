@@ -32,8 +32,7 @@ public sealed partial class ValidationRoot
                     rom.UpdateGameplay(0, approach ? 0x40 : 0, approach ? 0 : 0xff, _entities.FrameCounter);
                     rom.AdvanceTileGraphics(); update++;
                     CompareSomariaMotionRom(rom, $"Falling Star update{update}");
-                    var rng = _random.CaptureState();
-                    FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         _inventory.Essences != rom[WramAddress.wEssencesObtained] || _saveData.GetRoomFlags(5, 0x77) != rom[0xca77] ||
                         essence.EssenceIndex != rom[s + 3] || essence.Visible != ((rom[s + 26] & 0x80) != 0) ||
                         SomariaPrivate<Vector2>(essence, "_precisePosition") != new Vector2(rom.Word(s + 12) / 256f, rom.Word(s + 10) / 256f) ||

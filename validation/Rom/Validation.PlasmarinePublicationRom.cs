@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
             native[at+0x30]=(byte)targetPosition.Y;native[at+0x31]=(byte)targetPosition.X;
             native[at+0x29]=7;native[at+0x1a]=0x83;native[at+0x1b]=1;native[at+0x1c]=1;
             native[at+0x24]=(byte)(state==8?0x7e:0xfe);native[at+0x25]=0x4f;native.SetEnemyAnimation(1,0);
-            byte[] observed=new byte[4];int probes=0,updates=0;bool latePublished=false;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;bool latePublished=false;
             var stage=new PartMovementScratchProbe(()=>
             {
                 for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));
@@ -70,7 +70,7 @@ public sealed partial class ValidationRoot
                 {_player.SetScriptedCoordinateHigh(horizontal:true,200);latePublished=true;}
             });
             _entities.RegisterEnemySlot(stage,0);_entities.AddEntity(stage);
-            var after=new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var startRandom=_random.CaptureState();int nativeRandom=native.RandomCalls,nativeSounds=native.Sounds.Count;
             var sounds=_sound.AttachPlayRequestAudit();
@@ -92,10 +92,10 @@ public sealed partial class ValidationRoot
                     boss.Position!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||boss.Angle!=native[at+9]||boss.Speed!=native[at+16]||
                     boss.Target!=new Vector2(native[at+0x31],native[at+0x30])||boss.Palette!=native[at+0x1b]||boss.CurrentOamFlags!=native[at+0x1c]||
                     boss.CollisionMode!=native[at+0x25]||boss.ProjectileCount!=native[at+0x34]||boss.AnimationParameter!=native[at+0x21]||
-                    SomariaPrivate<int>(boss.Animation,"_frameCounter")!=native[at+0x20]||probes!=1||!observed.SequenceEqual(expected),
-                    $"Plasmarine$7e/form{form}/variant{variant}/fraction{fractional}/update{updates}: state{boss.State}/{native[at+4]}, C{boss.Counter1},{boss.Counter2}/{native[at+6]},{native[at+7]}, XY{boss.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle/speed{boss.Angle},{boss.Speed}/{native[at+9]},{native[at+16]}, target{boss.Target}/{native[at+0x31]},{native[at+0x30]}, clock{SomariaPrivate<int>(boss.Animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-startRandom.Calls!=native.RandomCalls-nativeRandom||
-                    !sounds.Requests.SequenceEqual(native.Sounds.Skip(nativeSounds)),"Plasmarine motion must preserve shared ITEM/AI RNG and ordered sound cues.");probes=0;
+                    SomariaPrivate<int>(boss.Animation,"_frameCounter")!=native[at+0x20]||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Plasmarine$7e/form{form}/variant{variant}/fraction{fractional}/update{updates}: state{boss.State}/{native[at+4]}, C{boss.Counter1},{boss.Counter2}/{native[at+6]},{native[at+7]}, XY{boss.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle/speed{boss.Angle},{boss.Speed}/{native[at+9]},{native[at+16]}, target{boss.Target}/{native[at+0x31]},{native[at+0x30]}, clock{SomariaPrivate<int>(boss.Animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(startRandom, native[0xff94], native[0xff95], native.RandomCalls - nativeRandom)||
+                    !sounds.Requests.SequenceEqual(native.Sounds.Skip(nativeSounds)),"Plasmarine motion must preserve shared ITEM/AI RNG and ordered sound cues.");observedCapture.Samples=0;
             });
             Step(1);
             _dialogue.ShowMessage("Plasmarine movement hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;

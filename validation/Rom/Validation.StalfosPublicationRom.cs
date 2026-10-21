@@ -75,13 +75,13 @@ public sealed partial class ValidationRoot
             native[0xcc08]=ValidationRom.LoadCleanUs().Span[0xfdd4b+0x31*4];native[0xcc0a]=0x9b;
             const int at=0xd180;native[at]=1;native[at+1]=0x31;native[at+2]=(byte)sub;
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));native.Word(at+14,z);
-            byte[] observed=new byte[4];int probes=0,updates=0,writerAt=form==2?1:0;bool attack=false;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,writerAt=form==2?1:0;bool attack=false;
             var before=new PartMovementScratchProbe(()=>
             {
                 for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));
                 if(late&&updates==writerAt){_player.SetScriptedCoordinateHigh(true,(int)lateLink.X);_player.SetScriptedCoordinateHigh(false,(int)lateLink.Y);}
             });_entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
-            var after=new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count,bool pressed=false)
@@ -104,10 +104,10 @@ public sealed partial class ValidationRoot
                         (actor.SpeedZ&65535)!=native.Word(at+0x14)||actor.CollisionEnabled!=((native[at+0x24]&128)!=0)||
                         actor.Animation.CurrentParameter!=native[at+0x21]||SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20]||
                         eligible&&_player.StartedItemAnimationThisUpdate!=((native[0xcc5f]&0xf0)!=0)||
-                        _player.PrecisePosition!=new Vector2(native.Word(0xd00c)/256f,native.Word(0xd00a)/256f)||probes!=1||!observed.SequenceEqual(expected),
-                        $"Stalfos/form{form}/variant{variant}/fraction{fractional}/host{batched}/update{updates}: state{actor.State}/{native[at+4]}, C{actor.Counter1}/{native[at+6]}, angle{actor.Angle}/{native[at+9]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{actor.ZFixed}/{native.Word(at+14)}, clock{SomariaPrivate<int>(actor.Animation,"_frameCounter")}/{native[at+0x20]}, start{_player.StartedItemAnimationThisUpdate}/${native[0xcc5f]:x2}, CEC[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                    var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
-                        !sounds.Requests.SequenceEqual(native.Sounds),$"Stalfos form{form}/update{updates}: RNG/cues differ.");probes=0;
+                        _player.PrecisePosition!=new Vector2(native.Word(0xd00c)/256f,native.Word(0xd00a)/256f)||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                        $"Stalfos/form{form}/variant{variant}/fraction{fractional}/host{batched}/update{updates}: state{actor.State}/{native[at+4]}, C{actor.Counter1}/{native[at+6]}, angle{actor.Angle}/{native[at+9]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{actor.ZFixed}/{native.Word(at+14)}, clock{SomariaPrivate<int>(actor.Animation,"_frameCounter")}/{native[at+0x20]}, start{_player.StartedItemAnimationThisUpdate}/${native[0xcc5f]:x2}, CEC[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                    FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
+                        !sounds.Requests.SequenceEqual(native.Sounds),$"Stalfos form{form}/update{updates}: RNG/cues differ.");observedCapture.Samples=0;
                 });
             }
             if(form==0)
@@ -159,6 +159,6 @@ public sealed partial class ValidationRoot
             Step(2);_entities.Clear();StepGameplayUpdates(2,Vector2.Zero);
         }
         FailIf(moves==0||forms.Contains(0)&&(turns==0||zeroWraps!=16||aims!=128)||forms.Contains(1)&&(jumps!=544||landings!=544||starts<544),
-            "Stalfos matrix must execute terrain turns, all zero/aim probes or both actual item-start/landing cycles.");
+            "Stalfos matrix must execute terrain turns, all zero/aim observedCapture.Samples or both actual item-start/landing cycles.");
     }
 }

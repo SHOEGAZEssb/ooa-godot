@@ -68,9 +68,7 @@ public sealed partial class ValidationRoot
                     for (int address = 0xcd80; address < 0xcdc0; address++)
                         FailIf(_runtimeState.ReadWramByte(address) != rom[address], $"{context}: static byte ${address:x4} differs.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds), context + ": sounds differ.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": RNG differs.");
+                    FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": RNG differs.");
                 });
             }
             Step(8, true);

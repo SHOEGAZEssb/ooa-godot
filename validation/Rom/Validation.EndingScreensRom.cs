@@ -92,7 +92,7 @@ public sealed partial class ValidationRoot
                     generation=rom.TextGeneration;texts++;hold=3;
                 }
                 if(hold>0&&--hold==0){_dialogue.Close();rom[0xcba0]=0;}
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=rom[0xff94]||rng.Rng2!=rom[0xff95]||rng.Calls-seed.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     !sounds.Requests.SequenceEqual(rom.Sounds),$"Ending fullscreen RNG/SFX update{update}: {string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
                 sawLeft|=owner.Stage==1&&owner.State==3;sawRight|=owner.Stage==1&&owner.State==5;sawFlash|=owner.Stage==1&&owner.State==8;
             }

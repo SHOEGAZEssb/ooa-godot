@@ -13,8 +13,7 @@ public sealed partial class ValidationRoot
         var maple = _entities.Entities<MapleEncounter>().Single();
         F1Retain(_entities.EntityAdapters<MapleEncounterRoomEntity>().Single());
         StepGameplayUpdates(1, Vector2.Zero); // Admit the runtime's source state0.
-        for (int y = 8; y < 128; y += 16)
-        for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+        FillValidationRoom(0x2c, width: 10, height: 8);
         var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, 24, 112)
             { CompanionDispatchEnabled = true, HostilePartsEnabled = true, PostObjectCollisionsEnabled = false };
         native.InitializeLinkGameplay(); native.InitializeLinkWalkingAnimation();

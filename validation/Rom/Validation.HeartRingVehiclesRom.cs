@@ -86,8 +86,7 @@ public sealed partial class ValidationRoot
                         _player.CompanionJumpActive != (rom[0xcc2c] == 0xd0 && rom[0xcc5c] != 0) ||
                         _player.PrecisePosition != new Vector2(rom.Word(0xd00c) / 256f, rom.Word(0xd00a) / 256f) ||
                         (ushort)(_player.CompanionRideActive ? _player.CompanionRideZFixed : _player.ItemCreationZFixed) != rom.Word(0xd00e), $"{context}: rider motion/air handoff differs: runtime={_player.CompanionRideActive}/{_player.CompanionJumpActive}/{_player.PrecisePosition}/z=${(ushort)_player.ItemCreationZFixed:x4}; native=${rom[0xcc2c]:x2}/${rom[0xcc5c]:x2}/{rom.Word(0xd00c) / 256f},{rom.Word(0xd00a) / 256f}/z=${rom.Word(0xd00e):x4}, companion XY={rom.Word(0xd10c) / 256f},{rom.Word(0xd10a) / 256f}.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.Where(cue => cue is not (SoundId.SndText or SoundId.SndGainHeart)).SequenceEqual(rom.Sounds),
                         context + ": movement cues/shared RNG differ (HUD interpolation excluded).");
                 });

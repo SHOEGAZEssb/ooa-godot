@@ -25,9 +25,8 @@ public sealed partial class ValidationRoot
             int at=0xd0c0+F1Parts[adapter]*256;
             var native=new SomariaRom(_saveData,seed,_currentRoom,0,24,104);
             native[0xcd00]=0;native[at]=1;native[at+1]=0x38;native[at+11]=8;native[at+13]=80;
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Seed(){for(int i=0;i<4;i++){byte value=(byte)(0xa5+i);native[0xcec0+i]=value;_runtimeState.SetWramByte(0xcec0+i,value);}}
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -37,13 +36,13 @@ public sealed partial class ValidationRoot
                 if(live&&native[at]!=0&&oldY!=native.Word(at+10))moves++;
                 FailIf(ball.Finished!=(native[at]==0)||!ball.Finished&&(
                     SomariaPrivate<Vector2>(ball,"_precisePosition")!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
-                    (int)ball.State!=native[at+4]||ball.Speed!=native[at+16])||probes!=1||
-                    Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
-                    $"Gallery PART$38 seed${seedByte:x2}/update{updates}: original incoming motion/admission/publication differs (XY={SomariaPrivate<Vector2>(ball,"_precisePosition")}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, scratch=[{string.Join(',',observed)}]).");
+                    (int)ball.State!=native[at+4]||ball.Speed!=native[at+16])||observedCapture.Samples!=1||
+                    Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
+                    $"Gallery PART$38 seed${seedByte:x2}/update{updates}: original incoming motion/admission/publication differs (XY={SomariaPrivate<Vector2>(ball,"_precisePosition")}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, scratch=[{string.Join(',',observedCapture.Bytes)}]).");
                 var rng=_random.CaptureState();
                 FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||!sounds.Requests.SequenceEqual(native.Sounds),
                     "Gallery ball must retain original RNG consumption and source sound order through initialized/frozen/terminal updates.");
-                probes=0;Seed();
+                observedCapture.Samples=0;Seed();
             });
             int initialHold=seedByte&3;
             if(initialHold==1){_dialogue.ShowMessage("Gallery state0 hold.",_player.Position.Y);native[0xcba0]=1;}

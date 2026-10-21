@@ -108,8 +108,7 @@ public sealed partial class ValidationRoot
                         key.Visible != ((rom[address+0x1a]&0x80) != 0),
                         $"Pattern key update{update}: slot/state={_entities.InteractionSlot(key)}/{key.State}:{key.SpawnSubstate}:{key.SpawnCounter}, native=${address>>8:x2}/{rom[address+4]}:{rom[address+5]}:{rom[address+6]}; z/vz={key.ZFixed}/{key.SpeedZ}, native={unchecked((short)rom.Word(address+0xe))}/{unchecked((short)rom.Word(address+0x14))}, visible={key.Visible}/{rom[address+0x1a]:x2}.");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Pattern key dispatch/falling must preserve shared RNG.");
             });
             for (int color = 0; color < 3; color++) foreach (byte packed in pattern[color]) Tile(packed,test.First+color);

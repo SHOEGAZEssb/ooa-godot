@@ -81,8 +81,7 @@ public sealed partial class ValidationRoot
                 }
                 FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),
                     $"Mermaid pattern room$5:${room:x2}, update{update}: solve/puff sound ordering differs, runtime={string.Join(',',sounds.Requests)}, ROM={string.Join(',',rom.Sounds)}.");
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Mermaid pattern room$5:${room:x2}, update{update}: global RNG differs.");
             });
             if (cubePads)

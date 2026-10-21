@@ -15,11 +15,8 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0x71);_entities.Clear();
-            for(int y=8;y<_currentRoom.Height;y+=16)for(int x=8;x<_currentRoom.Width;x+=16)
-                _currentRoom.SetPositionTileAndCollision(new(x,y),0xad,0,0);
+            InitializeCompletedIntroRoom(4, 0x71);
+            FillValidationRoom(0xad);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(24,24));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             var data=EnemyDatabase.Shared;var actor=new ColorChangingGelCharacter();
@@ -30,9 +27,8 @@ public sealed partial class ValidationRoot
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
             _entities.RegisterEnemySlot(adapter,1);_entities.AddEntity(adapter);
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
-            var after=new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var seed=_random.CaptureState();var native=new EnemyStatusRom(_currentRoom,_saveData,seed.Calls);
             native[0xff94]=seed.Rng1;native[0xff95]=seed.Rng2;native[0xcc08]=0x97;
@@ -46,10 +42,10 @@ public sealed partial class ValidationRoot
                     actor.Position!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     (ushort)SomariaPrivate<int>(actor,"_zFixed")!=native.Word(at+14)||(ushort)SomariaPrivate<int>(actor,"_speedZ")!=native.Word(at+20)||
                     actor.Color!=(native[at+0x1b]&7)||actor.CollisionMode!=native[at+0x25]||actor.StoredTile!=native[at+0x32]||
-                    probes!=1||!observed.SequenceEqual(expected),
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
                     $"Color Gel$47 target{offset}/fraction{fractional}/update{updates}: original air/near-target/landing/color state or scratch differs.");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    "Color Gel must preserve the common initialization draw and avoid new RNG during declared hopping.");probes=0;
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    "Color Gel must preserve the common initialization draw and avoid new RNG during declared hopping.");observedCapture.Samples=0;
             });
             Step(1);
             Vector2 initial=new(120+(fractional?.25f:0),88+(fractional?.5f:0));actor.Position=initial;

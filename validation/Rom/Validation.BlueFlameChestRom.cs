@@ -56,8 +56,7 @@ public sealed partial class ValidationRoot
                     _rooms.PendingTileGraphics != ((rom[0xcce0]-rom[0xccdf])&31) ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"Blue-flame chest$21:$12, mode={mode}, batch={batched}: lifetime/puff/queue/cues differ.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Blue-flame chest must preserve shared RNG.");
             });
             if (mode == 0 || mode == 4)
@@ -173,8 +172,7 @@ public sealed partial class ValidationRoot
                     FailIf(_currentRoom.GetMetatile(point) != rom[0xcf00+packed] || _currentRoom.GetTerrainInfo(point).Collision != rom[0xce00+packed] ||
                         _currentRoom.GetUnderlyingMetatile(point) != rom.Underlying(packed),$"Outgoing chest current-room buffers differ at${packed:x2}.");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls-calls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls - calls) ||
                     outgoingRoom.Layout[0x84] != oldTile || _saveData.HasRoomFlag(4,0x90,OracleSaveData.RoomFlagItem) ||
                     _saveData.HasRoomFlag(4,0x8b,OracleSaveData.RoomFlagItem) != collectedDestination,
                     "Outgoing chest must preserve old-room terrain, persistent item flags and shared RNG.");

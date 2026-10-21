@@ -62,8 +62,7 @@ public sealed partial class ValidationRoot
                     // separate fixtures. All ensuing jump/landing cues execute.
                     FailIf(!sounds.Requests.Where(id => id is not (SoundId.SndText or SoundId.SndGainHeart or SoundId.SndDamageLink))
                         .SequenceEqual(rom.Sounds.Where(id => id != SoundId.SndDamageLink)), context + ": movement/item cue order differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": shared RNG differs.");
                 });
             }

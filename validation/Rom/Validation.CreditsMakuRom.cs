@@ -137,8 +137,8 @@ public sealed partial class ValidationRoot
                 FailIf(flowerAt!=0xd440||rom[flowerAt+1]!=0x86,"The Maku flower must reuse the earlier freed $a8 slot and wait until the next object pass.");
                 sawSwirl|=nativeBeads>0;sawFlash|=impa.Substate==2;sawImpaJumps|=impa.ZFixed!=0;
                 sawLinkJump|=_player.CreditsLinkSubstate==3;sawCompleted|=owner.State==2;
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=rom[0xff94]||rng.Rng2!=rom[0xff95]||rng.Calls-seed.Calls!=rom.RandomCalls||
-                    !sounds.Requests.SequenceEqual(rom.Sounds),$"Credits Maku sound/RNG update{update}: port{rng.Calls-seed.Calls}/{string.Join(',',sounds.Requests)}, ROM{rom.RandomCalls}/{string.Join(',',rom.Sounds)}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls)||
+                    !sounds.Requests.SequenceEqual(rom.Sounds),$"Credits Maku sound/RNG update{update}: port{_random.CaptureState().Calls-seed.Calls}/{string.Join(',',sounds.Requests)}, ROM{rom.RandomCalls}/{string.Join(',',rom.Sounds)}.");
             }
             void CompareActor(NpcCharacter actor,int at)
             {

@@ -101,8 +101,7 @@ public sealed partial class ValidationRoot
                         SomariaPrivate<int>(part,"_counter") != rom[a+6] || SomariaPrivate<int>(part,"_remaining") != rom[a+7] ||
                         SomariaPrivate<int>(part,"_position") != rom[a+11],context+": ordered bridge half-step/clock differs.");
                 }
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),context+": RNG/ordered cues differ.");
                 });
             }
@@ -194,8 +193,7 @@ public sealed partial class ValidationRoot
                     int a=0xd0c0+slots[button]*256;
                     FailIf(button.Pressed != (rom[a+0x30] != 0) || button.ReleaseCounter != rom[a+6],context+": pressure/button release differs.");
                 }
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),context+": shared RNG/ordered cues differ.");
             });
             Step(); Step(cane:true); Step(26);

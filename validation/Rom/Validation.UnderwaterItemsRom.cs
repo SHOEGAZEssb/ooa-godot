@@ -129,9 +129,7 @@ public sealed partial class ValidationRoot
                         FailIf(SomariaPrivate<int>(_player, "_sideScrollBubbleCounter") != rom[0xd007],
                             context + ": swimming bubble timer must keep updating while a parent locks movement.");
                     FailIf(!sounds.Requests.SequenceEqual(rom.Sounds), context + ": sound order differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": shared RNG differs.");
+                    FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared RNG differs.");
                     FailIf(!Enumerable.Range(0xc6b0, 14).Select(_saveData.ReadWramByte).SequenceEqual(
                         Enumerable.Range(0xc6b0, 14).Select(address => rom[address])), context + ": item ammo differs.");
                 });

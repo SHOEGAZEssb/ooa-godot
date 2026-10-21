@@ -64,8 +64,7 @@ public partial class ValidationRoot
                             SomariaPrivate<int>(item,"_frameCounter") != rom[slot+0x20] || state == 3 && item.FlameCounter != rom[slot+6],
                             $"Nuun ITEM$20 state/full XY/Z/elevation/collision/animation differs at update{update}.");
                     }
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         "Nuun Shooter/switch/bridge must retain global RNG order.");
                 });
             }

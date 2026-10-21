@@ -86,8 +86,7 @@ public sealed partial class ValidationRoot
                 ComparePhysicalSplashesRom(rom,$"Link splash lava={lava}, full={fullPool}, pause={pause}, update{++update}");
                 FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     "Link splash cue must originate once in its physical state0, or remain absent after failed checked allocation.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Link splash allocation/lifetime must preserve shared RNG.");
             });
             try

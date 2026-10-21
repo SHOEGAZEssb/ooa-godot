@@ -123,9 +123,7 @@ public partial class ValidationRoot
                         button.Finished != (rom[0xd0c0] == 0) || _entities.ActiveTriggers != rom[0xcca0] ||
                         !button.Finished && (button.Pressed != (rom[0xd0f0] != 0) || button.ReleaseCounter != rom[0xd0c6]),
                         context + ": lifetime/trigger/pressure/release counter differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                         context + ": gameplay cues/shared RNG differs.");
                 });

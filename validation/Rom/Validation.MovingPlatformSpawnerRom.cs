@@ -82,8 +82,7 @@ public partial class ValidationRoot
                         platform.Counter != rom[address+6] || platform.Moving != (rom[address+5] != 0) || platform.Angle != rom[address+9],
                         context+": spawned platform must initialize in its physical slot and follow the dungeon1 script.");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     context+": shared RNG order differs.");
             });
             void Fill(int free)

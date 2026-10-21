@@ -53,9 +53,8 @@ public sealed partial class ValidationRoot
                 rom[0xffac] = (byte)OracleObjectPosition.HighByte(camera.X);
                 rom[0xcba0] = (byte)(text ? 1 : 0);
                 rom.Update(_entities.FrameCounter, _player.Position);
-                var actual = _random.CaptureState();
-                FailIf(actual.Rng1 != rom[0xff94] || actual.Rng2 != rom[0xff95] || actual.Calls - seed.Calls != rom.RandomCalls,
-                    $"Wizzrobe $5:${room:x2} update={update}, batch={batched}: RNG runtime=${actual.Rng2:x2}{actual.Rng1:x2}/{actual.Calls - seed.Calls}, ROM=${rom[0xff95]:x2}{rom[0xff94]:x2}/{rom.RandomCalls}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Wizzrobe $5:${room:x2} update={update}, batch={batched}: RNG runtime=${_random.CaptureState().Rng2:x2}{_random.CaptureState().Rng1:x2}/{_random.CaptureState().Calls - seed.Calls}, ROM=${rom[0xff95]:x2}{rom[0xff94]:x2}/{rom.RandomCalls}.");
                 foreach (var pair in slots)
                 {
                     var enemy = (WizzrobeCharacter)pair.Key.Node;

@@ -62,9 +62,7 @@ public sealed partial class ValidationRoot
                     FailIf(_entities.ScreenShakeCounter != rom[0xcd18] ||
                         _entities.HorizontalScreenShakeCounter != rom[0xcd19],
                         context + ": shock/menu screen-shake counters differ.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": protected shock/menu RNG differs from native execution.");
                 });
             }

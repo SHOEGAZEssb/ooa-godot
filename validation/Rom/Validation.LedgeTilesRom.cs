@@ -83,9 +83,7 @@ public sealed partial class ValidationRoot
                             context + ": planar/vertical ledge speed differs.");
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds),
                         context + ": jump/land sound order differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": shared RNG differs.");
+                    FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared RNG differs.");
                 });
             }
             for (int approach = 0; approach < 64 && rom[0xd004] != 0x12; approach++) Step(1, direction);

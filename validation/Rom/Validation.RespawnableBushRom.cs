@@ -68,9 +68,8 @@ public sealed partial class ValidationRoot
                                 $"{context}: PART$0f at${candidate.PackedPosition:x2} runtime={candidate.State}/{candidate.Counter}/{candidate.CollisionEnabled}, " +
                                 $"ROM=${rom[address+4]:x2}/${rom[address+6]:x2}/${rom[address+0x24]:x2}.");
                         }
-                        var rng = _random.CaptureState();
-                        FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls,
-                            $"{context}: shared RNG differs ({rng.Calls-seed.Calls}/{rom.RandomCalls}).");
+                        FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                            $"{context}: shared RNG differs ({_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}).");
                         int nativeDrops = Enumerable.Range(0, 16).Count(slot => rom[0xd0c0 + slot * 256] != 0 && rom[0xd0c1 + slot * 256] == 0x05);
                         FailIf(_entities.Entities<ItemDropEffect>().Count != nativeDrops,
                             context + ": PART$05 drop allocation/collection differs.");

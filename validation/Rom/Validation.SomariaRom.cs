@@ -99,8 +99,7 @@ public sealed partial class ValidationRoot
                     _currentRoom.GetUnderlyingStorageMetatile(packed) != rom.Underlying(packed),
                     $"{context}: tile/collision/shared underlying buffer differs at ${packed:x2}.");
             }
-            var random = _random.CaptureState();
-            FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+            FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                 $"{context}: ordered global RNG differs.");
             FailIf(!audit.Requests.SequenceEqual(rom.Sounds), $"{context}: sound order runtime={string.Join(',', audit.Requests)}, ROM={string.Join(',', rom.Sounds)}.");
             FailIf(!inventory.SequenceEqual(Enumerable.Range(0xc688, 0x38).Select(_saveData.ReadWramByte)),

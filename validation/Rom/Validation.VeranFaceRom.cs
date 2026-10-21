@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
                     texts++;generation=rom.TextGeneration;hold=5;
                 }
                 if(hold>0&&--hold==0){_dialogue.Close();rom[0xcba0]=0;}
-                var random=_random.CaptureState();FailIf(random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||random.Calls-seed.Calls!=rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "The face scene must preserve the native RNG stream.");
             }
             for(int bound=0;bound<180&&face.State!=2;bound+=2)StepGameplayUpdates(2,Vector2.Zero,batched:batched,afterUpdate:Compare);

@@ -23,12 +23,11 @@ public sealed partial class ValidationRoot
             var native=new SomariaRom(_saveData,seed,_currentRoom,0,40,56);
             int at=0xd040+_entities.InteractionSlot(actor)*256;
             native[at]=1;native[at+1]=0x91;native[at+11]=56;native[at+13]=40;
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
                 for(int i=0;i<4;i++)native[0xcec0+i]=(byte)(0xa5+i);
@@ -36,13 +35,12 @@ public sealed partial class ValidationRoot
                 FailIf(actor.Finished!=(native[at]==0)||!actor.Finished&&(
                     actor.PrecisePosition!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     actor.Angle!=native[at+9]||actor.TurnCounter!=native[at+6]||actor.TurnsRemaining!=native[at+0x31]||
-                    actor.Visible!=((native[at+0x1a]&128)!=0))||probes!=1||
-                    Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
+                    actor.Visible!=((native[at+0x1a]&128)!=0))||observedCapture.Samples!=1||
+                    Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
                     $"INTERAC$91 side bubble seed${randomByte:x2}/fraction{fractional}/dry{dry}/update{updates}: original XY, turns, admission, deletion or movement scratch differs.");
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
                     "Side bubble must consume only the original initialization RNG draw.");
-                probes=0;
+                observedCapture.Samples=0;
             });
             Step(1);turnSteps.Add(SomariaPrivate<int>(actor,"_turnStep"));
             if(fractional)

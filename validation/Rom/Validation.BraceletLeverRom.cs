@@ -74,9 +74,7 @@ public sealed partial class ValidationRoot
                             FailIf(true, $"{context}: lava tile ${packed:x2} runtime=${_currentRoom.Layout[packed]:x2}/${_currentRoom.GetUnderlyingStorageMetatile(packed):x2}, native=${rom[0xcf00 + packed]:x2}/${rom.Underlying(packed):x2}, state={lava.State}, cursor={lava.Cursor}.");
                     FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                         $"{context}: cue order runtime=[{string.Join(',', sounds.Requests.Where(cue => cue != SoundId.SndText).Select(cue => cue.ToString("x2")))}], native=[{string.Join(',', rom.Sounds.Select(cue => cue.ToString("x2")))}].");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls, context + ": shared RNG differs.");
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared RNG differs.");
                 });
             }
             Step(); Step(24, angle: direction * 8);

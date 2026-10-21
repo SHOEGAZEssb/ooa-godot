@@ -52,10 +52,10 @@ public sealed partial class ValidationRoot
                 if(index!=0)native.Word(slot+0x16,slot-256);
             }
             native[at+0x30]=0xd2;native[at+0x31]=0xd3;
-            byte[] observed=new byte[4];int probes=0,updates=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var stage=new PartMovementScratchProbe(()=>{for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(stage,0);_entities.AddEntity(stage);
-            var after=new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -70,8 +70,8 @@ public sealed partial class ValidationRoot
                 FailIf(head.State!=native[at+4]||precise!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     head.TurnCounter!=native[at+6]||head.Angle!=native[at+9]||head.State==9&&head.AngularSpeed!=unchecked((sbyte)native[at+0x33])||
                     head.AnimationParameter!=native[at+0x21]||SomariaPrivate<int>(head.Animation,"_frameCounter")!=native[at+0x20]||
-                    probes!=1||!observed.SequenceEqual(expected),
-                    $"Moldorm$4f:01/angle${angle:x2}/boundary{boundary}/fraction{fractional}/update{updates}: state{head.State}/{native[at+4]}, XY{precise}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{head.Angle}/{native[at+9]}, C{head.TurnCounter}/{native[at+6]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Moldorm$4f:01/angle${angle:x2}/boundary{boundary}/fraction{fractional}/update{updates}: state{head.State}/{native[at+4]}, XY{precise}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{head.Angle}/{native[at+9]}, C{head.TurnCounter}/{native[at+6]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
                 for(int index=0;index<2;index++)
                 {
                     var tail=tails[index];int slot=at+(index+1)*256;
@@ -80,8 +80,8 @@ public sealed partial class ValidationRoot
                         !SomariaPrivate<byte[]>(tail,"_offsets").SequenceEqual(Enumerable.Range(0,8).Select(i=>native[slot+0x33+i])),
                         $"Moldorm tail$4f:{index+2:x2}/angle${angle:x2}/fraction{fractional}/update{updates}: source delay buffer/retained coordinates differ: XY{tail.Position}/{native.Word(slot+12)/256f},{native.Word(slot+10)/256f}.");
                 }
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    "Moldorm common/head-angle/turn reversal RNG must preserve native ENEMY order.");probes=0;
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    "Moldorm common/head-angle/turn reversal RNG must preserve native ENEMY order.");observedCapture.Samples=0;
             });
             Step(2);
             F1Set(head,"_turnCounter",1);F1Set(head,"_angle",angle);F1Set(head,"_angularSpeed",2);

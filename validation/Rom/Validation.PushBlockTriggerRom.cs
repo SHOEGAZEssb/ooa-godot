@@ -50,9 +50,7 @@ public partial class ValidationRoot
                     SomariaPrivate<int>(door,"_counter") != rom[0xd346] ||
                     _entities.BossEntrySignal != rom[0xcc93] || !sounds.Requests.SequenceEqual(rom.Sounds),
                     $"{context}: trigger state/count runtime={SomariaPrivate<int>(trigger,"_state")}/{SomariaPrivate<int>(trigger,"_counter")}/{_entities.RoomEnemyCount}, native={rom[0xd244]}/{rom[0xd246]}/{rom[0xcdd1]}, saved=${SomariaPrivate<byte>(trigger,"_originalTile"):x2}/${rom[0xd259]:x2}; door={SomariaPrivate<DoorState>(door,"_state")}/{door.Finished}/{SomariaPrivate<int>(door,"_counter")}, native=${rom[0xd340]:x2}:${rom[0xd341]:x2}/${rom[0xd344]:x2}:{rom[0xd345]}/{rom[0xd346]}, signal={_entities.BossEntrySignal}/{rom[0xcc93]}, cues=[{string.Join(',',sounds.Requests)}]/[{string.Join(',',rom.Sounds)}].");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                    random.Calls-seed.Calls != rom.RandomCalls,context+": shared RNG differs.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),context+": shared RNG differs.");
             });
             _dialogue.ShowGameplayMessage("Pending push trigger",100); rom[0xcba0] = 1;
             Step(); Step(3);

@@ -24,9 +24,7 @@ public sealed partial class ValidationRoot
         foreach(bool batched in new[]{false,true})
         {
             if(link!=new Vector2(88,88)&&(angle&7)!=0)continue;
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(5,0xa7);_entities.Clear();
+            InitializeCompletedIntroRoom(5, 0xa7);
             FillValidationRoom(0, (byte)(blocked ? 15 : 0));
             _currentRoom.SetPositionTileAndCollision(link,0,0,0);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(link);_player.BeginCutsceneControl();
@@ -87,7 +85,7 @@ public sealed partial class ValidationRoot
                     actor.Visible!=((native[at+0x1a]&128)!=0)||parent.LastLinkPosition!=new Vector2(native[owner+0x32],native[owner+0x31])||
                     probes!=1||!observed.SequenceEqual(expected)||!actualWrites.SequenceEqual(expectedWrites),
                     $"Floormaster child${sub:x2}/angle${angle:x2}/link{link}/blocked{blocked}/fraction{fractional}/update{updates}: original placement differs: XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, state{actor.State}/{native[at+4]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
                     "Floormaster placement must consume exactly the original common and near-Link RNG draws.");probes=0;
             });
             Step(1);var current=_random.CaptureState();bool found=false;

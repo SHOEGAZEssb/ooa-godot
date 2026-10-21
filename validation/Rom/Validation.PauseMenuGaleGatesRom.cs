@@ -52,9 +52,7 @@ public sealed partial class ValidationRoot
                         _player.ObjectZHigh != rom[0xd00f], context + ": captured Link position/height differs.");
                     FailIf(!sounds.Requests.Where(Relevant).SequenceEqual(rom.Sounds.Where(Relevant)),
                         $"{context}: native error/warning/menu cue order differs: runtime={string.Join(',', sounds.Requests.Where(Relevant))}, native={string.Join(',', rom.Sounds.Where(Relevant))}.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - randomSeed.Calls != rom.RandomCalls, context + ": shared seed/capture RNG differs.");
+                    FailIf(RandomDiffers(randomSeed, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared seed/capture RNG differs.");
                 });
             }
             int button = primary ? 1 : 2;

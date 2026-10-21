@@ -49,9 +49,7 @@ public partial class ValidationRoot
                 context + ": descending source scan/allocation order differs.");
             CompareNativePushBlockRom(rom,blocks[index],native[index],context);
         }
-        var random = _random.CaptureState();
-        FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-            random.Calls - seed.Calls != rom.RandomCalls || !sounds.SequenceEqual(rom.Sounds),
+        FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || !sounds.SequenceEqual(rom.Sounds),
             context + ": ordered movement cues/shared RNG differs.");
     }
 

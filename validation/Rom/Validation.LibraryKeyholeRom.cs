@@ -67,8 +67,7 @@ public partial class ValidationRoot
                         (key.ZFixed & 0xffff) != rom.Word(slot+0xe) || (key.SpeedZ & 0xffff) != rom.Word(slot+0x14) ||
                         key.Visible != ((rom[slot+0x1a] & 0x80) != 0),context + ": key slot/state/clock/XYZ/speed/visibility differs.");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"{context}: gameplay cues/RNG differ: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}.");
             },contextPrefix:$"Library$1:$a5 ownership={ownership}, after={update}");

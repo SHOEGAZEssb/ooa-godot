@@ -83,11 +83,10 @@ public sealed partial class ValidationRoot
                     int native=Enumerable.Range(0,16).Count(slot=>rom[0xd040+slot*256]!=0&&rom[0xd041+slot*256]==id);
                     FailIf(port!=native,$"Escape INTERAC ${id:x2} count at update {update}: port={port}, ROM={native}.");
                 }
-                var random=_random.CaptureState();
-                FailIf(random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||random.Calls-seed.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     !sounds.Requests.SequenceEqual(rom.Sounds)||_transitions.NativePaletteFadeActive!=(rom[0xc4ab]!=0)||
                     _entities.ScreenShakeCounter!=rom[0xcd18]||_entities.HorizontalScreenShakeCounter!=rom[0xcd19],
-                    $"Escape $1f shared state update {update}: RNG={random.Calls-seed.Calls}/{rom.RandomCalls}, fade={_transitions.NativePaletteFadeActive}/{rom[0xc4ab]}, shake={_entities.ScreenShakeCounter},{_entities.HorizontalScreenShakeCounter}/{rom[0xcd18]},{rom[0xcd19]}, SFX={string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
+                    $"Escape $1f shared state update {update}: RNG={_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}, fade={_transitions.NativePaletteFadeActive}/{rom[0xc4ab]}, shake={_entities.ScreenShakeCounter},{_entities.HorizontalScreenShakeCounter}/{rom[0xcd18]},{rom[0xcd19]}, SFX={string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
                 if(generation!=rom.TextGeneration)
                 {
                     int[] expected=[0x2118,0x2e1f,0x2119,0x210e];

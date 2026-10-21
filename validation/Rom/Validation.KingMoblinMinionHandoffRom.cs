@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
             native[enemy+11]=8;native[enemy+13]=24;native[enemy+0x29]=1;native[enemy+0x1a]=0xc2;
             native.Word(enemy+0x16,0xd080);native.Word(enemy+0x18,at);native.SetEnemyAnimation(1,2);
             native[0xcc08]=0x90;native[0xcc0a]=0x78;native[at]=1;native[at+1]=0x47;native[at+11]=8;native[at+13]=24;native.Word(at+0x16,enemy);
-            byte[] observed=new byte[4];int probes=0,updates=0,beforeState=0,beforeZ=0,flight=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,beforeState=0,beforeZ=0,flight=0;
             var startRandom=_random.CaptureState();int nativeRandom=native.RandomCalls,nativeSounds=native.Sounds.Count;var sounds=_sound.AttachPlayRequestAudit();
             var stage=new PartMovementScratchProbe(()=>
             {
@@ -57,8 +57,7 @@ public sealed partial class ValidationRoot
             _entities.RegisterEnemySlot(stage,0);_entities.AddEntity(stage);
             var enemyProbe=new PartMovementScratchProbe(()=>{beforeState=bomb.State;beforeZ=bomb.ZFixed;});
             _entities.RegisterEnemySlot(enemyProbe,15);_entities.AddEntity(enemyProbe);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
                 for(int i=0;i<4;i++)native[0xcec0+i]=(byte)(0xa5+i);
@@ -76,11 +75,11 @@ public sealed partial class ValidationRoot
                     beforeState!=expectedState||beforeZ!=expectedZ||bomb.State!=native[at+4]||
                     bomb.Position!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     (bomb.ZFixed&65535)!=native.Word(at+14)||(motion.SpeedZ&65535)!=native.Word(at+0x14)||
-                    SomariaPrivate<int>(bomb,"_angle")!=native[at+9]||probes!=1||
-                    Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
-                    $"King minion/Scent{scent}/late{lateTarget}/gate{gate}/update{updates}: minion{minion.State}/{native[enemy+4]}, Z{minion.ZFixed}/{unchecked((short)native.Word(enemy+14))}, bomb{bomb.State}/{native[at+4]}, Z{bomb.ZFixed}/{unchecked((short)native.Word(at+14))}, angle{SomariaPrivate<int>(bomb,"_angle")}/{native[at+9]}, beforePART{beforeState}/{expectedState}, scratch[{string.Join(',',observed)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-startRandom.Calls!=native.RandomCalls-nativeRandom||!sounds.Requests.SequenceEqual(native.Sounds.Skip(nativeSounds)),
-                    "King minion handoff must retain shared item/AI RNG and ordered cues.");probes=0;
+                    SomariaPrivate<int>(bomb,"_angle")!=native[at+9]||observedCapture.Samples!=1||
+                    Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
+                    $"King minion/Scent{scent}/late{lateTarget}/gate{gate}/update{updates}: minion{minion.State}/{native[enemy+4]}, Z{minion.ZFixed}/{unchecked((short)native.Word(enemy+14))}, bomb{bomb.State}/{native[at+4]}, Z{bomb.ZFixed}/{unchecked((short)native.Word(at+14))}, angle{SomariaPrivate<int>(bomb,"_angle")}/{native[at+9]}, beforePART{beforeState}/{expectedState}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
+                FailIf(RandomDiffers(startRandom, native[0xff94], native[0xff95], native.RandomCalls - nativeRandom)||!sounds.Requests.SequenceEqual(native.Sounds.Skip(nativeSounds)),
+                    "King minion handoff must retain shared item/AI RNG and ordered cues.");observedCapture.Samples=0;
             });
             try
             {

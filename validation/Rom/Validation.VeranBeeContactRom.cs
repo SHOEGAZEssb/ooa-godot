@@ -82,7 +82,7 @@ public sealed partial class ValidationRoot
                         $"Bee attachment update {update}: port={shot.State}/{shot.Counter}/{shot.Position}, ROM={rom[at+4]}/{rom[at+6]}/{rom.Word(at+12)/256f},{rom.Word(at+10)/256f}.");
                     sawCaught|=shot.State==3;sawStop|=_entities.PlayerMovementDisabled;sawMove|=sawCaught&&!_entities.PlayerMovementDisabled;
                 }
-                var random=_random.CaptureState();FailIf(random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||random.Calls-seed.Calls!=rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Bee attachment must preserve shared gameplay RNG.");pressed=0;
             }
             StepGameplayUpdates(1,Vector2.Zero,afterUpdate:Compare);

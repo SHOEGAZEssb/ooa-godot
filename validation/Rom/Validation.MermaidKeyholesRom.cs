@@ -67,10 +67,8 @@ public partial class ValidationRoot
                         key.Position != new Vector2(rom[slot + 0xd],rom[slot + 0xb]) ||
                         key.Visible != ((rom[slot + 0x1a] & 0x80) != 0),context + ": key sprite state/clock/XYZ/speed/visibility differs.");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                    random.Calls - randomSeed.Calls != rom.RandomCalls ||
-                    !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),$"{context}: gameplay cue/RNG order differs: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}; RNG calls={random.Calls-randomSeed.Calls}/{rom.RandomCalls}.");
+                FailIf(RandomDiffers(randomSeed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
+                    !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),$"{context}: gameplay cue/RNG order differs: runtime={string.Join(',',sounds.Requests.Where(cue => cue != SoundId.SndText))}, ROM={string.Join(',',rom.Sounds)}; RNG calls={_random.CaptureState().Calls-randomSeed.Calls}/{rom.RandomCalls}.");
             },contextPrefix:$"Mermaid${entrance.Group:x1}:${entrance.Room:x2}, ownership={ownership}, after={update}");
             Step();
             for (int wait = 0; !controller.BlocksGameplay && !_dialogue.IsOpen &&

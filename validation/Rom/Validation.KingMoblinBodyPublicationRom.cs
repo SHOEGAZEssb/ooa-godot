@@ -52,13 +52,13 @@ public sealed partial class ValidationRoot
                 native.Word(part+10,(int)(bomb.Position.Y*256));native.Word(part+12,(int)(bomb.Position.X*256));native.Word(part+14,0x80);
                 native.Word(at+0x18,part);native.Word(part+0x16,at);
             }
-            byte[] observed=new byte[4];int probes=0,updates=0;bool lateWritten=false;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;bool lateWritten=false;
             var stage=new PartMovementScratchProbe(()=>
             {
                 for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));
                 if(scenario==7&&!lateWritten){lateWritten=true;_player.SetScriptedCoordinateHigh(horizontal:true,136);}
             });_entities.RegisterEnemySlot(stage,0);_entities.AddEntity(stage);
-            var after=new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
@@ -78,8 +78,8 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<int>(actor,"_angle")!=native[at+9]||(SomariaPrivate<int>(actor,"_z")&65535)!=native.Word(at+14)||
                     (SomariaPrivate<int>(actor,"_speedZ")&65535)!=native.Word(at+0x14)||
                     SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20]||actor.AnimationParameter!=native[at+0x21]||
-                    probes!=1||!observed.SequenceEqual(expected),
-                    $"King body/scenario{scenario}/fraction{fractional}/update{updates}: state{actor.State}/{native[at+4]}, C{actor.Counter}/{expectedCounter}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{SomariaPrivate<int>(actor,"_z")}/{unchecked((short)native.Word(at+14))}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"King body/scenario{scenario}/fraction{fractional}/update{updates}: state{actor.State}/{native[at+4]}, C{actor.Counter}/{expectedCounter}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{SomariaPrivate<int>(actor,"_z")}/{unchecked((short)native.Word(at+14))}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
                 if(actor.Bomb is { } bomb)
                 {
                     var motion=SomariaPrivate<CarriedObjectMotion>(bomb,"_motion");
@@ -90,9 +90,9 @@ public sealed partial class ValidationRoot
                         $"King body/scenario{scenario}/fraction{fractional}/update{updates}: related bomb state{bomb.State}/{native[part+4]}, XY{bomb.Position}/{native.Word(part+12)/256f},{native.Word(part+10)/256f}, Z{bomb.ZFixed}/{unchecked((short)native.Word(part+14))}, angle{SomariaPrivate<int>(bomb,"_angle")}/{native[part+9]}.");
                 }
                 else FailIf(native[part]!=0,"The source-born King bomb must appear in the actual PART pass.");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
                     !sounds.Requests.SequenceEqual(native.Sounds)||_entities.ScreenShakeCounter!=native[0xcd18]||_entities.HorizontalScreenShakeCounter!=native[0xcd19],
-                    $"King body/scenario{scenario}/update{updates}: source birth/shake RNG or ordered cues differ.");probes=0;
+                    $"King body/scenario{scenario}/update{updates}: source birth/shake RNG or ordered cues differ.");observedCapture.Samples=0;
             });
             Step(1);
             _dialogue.ShowMessage("King body hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;

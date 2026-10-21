@@ -97,9 +97,7 @@ public sealed partial class ValidationRoot
                     FailIf(!sounds.Requests.Where(id => id is not (SoundId.SndText or SoundId.SndGainHeart or SoundId.SndDamageLink))
                         .SequenceEqual(rom.Sounds.Where(id => id != SoundId.SndDamageLink)),
                         $"{context}: item cue order differs: runtime={string.Join(',', sounds.Requests)}, native={string.Join(',', rom.Sounds)}.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls, context + ": shared RNG differs.");
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": shared RNG differs.");
                 });
             }
             int threshold = (ring == (int)RingId.HeartL2 ? 3 : 2) << 16;

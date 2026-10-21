@@ -67,10 +67,10 @@ public sealed partial class ValidationRoot
             native[at+9]=(byte)(form is 3 or 4?variant:0);native[at+16]=(byte)speed;native[at+15]=unchecked((byte)z);native[at+0x29]=(byte)actor.Health;native[at+0x1a]=0xc1;
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));
             if(form!=0)native.SetEnemyAnimation(1,0);
-            byte[] observed=new byte[4];int probes=0,updates=0;bool speedPublished=form!=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;bool speedPublished=form!=0;
             var stage=new PartMovementScratchProbe(()=>{for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(stage,0);_entities.AddEntity(stage);
-            var after=new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -91,10 +91,10 @@ public sealed partial class ValidationRoot
                     actor.ZHigh!=unchecked((sbyte)native[at+15])||actor.CollisionMode!=native[at+0x25]||
                     SomariaPrivate<int>(actor,"_angle")!=native[at+9]||speedPublished&&SomariaPrivate<int>(actor,"_speedRaw")!=native[at+16]||
                     actor.AnimationParameter!=native[at+0x21]||SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20]||
-                    probes!=1||!observed.SequenceEqual(expected),
-                    $"Peahat$3e/form{form}/variant${variant:x2}/fraction{fractional}/update{updates}: state{actor.State}/{native[at+4]}, C{actor.Counter}/{native[at+6]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{SomariaPrivate<int>(actor,"_angle")}/{native[at+9]}, Z{actor.ZHigh}/{unchecked((sbyte)native[at+15])}, mode${actor.CollisionMode:x2}/${native[at+0x25]:x2}, speed{SomariaPrivate<int>(actor,"_speedRaw")}/{native[at+16]}, clock{SomariaPrivate<int>(actor.Animation,"_frameCounter")}/{native[at+0x20]}, probes{probes}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    "Peahat timing/terrain changes must retain original RNG order.");probes=0;
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Peahat$3e/form{form}/variant${variant:x2}/fraction{fractional}/update{updates}: state{actor.State}/{native[at+4]}, C{actor.Counter}/{native[at+6]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{SomariaPrivate<int>(actor,"_angle")}/{native[at+9]}, Z{actor.ZHigh}/{unchecked((sbyte)native[at+15])}, mode${actor.CollisionMode:x2}/${native[at+0x25]:x2}, speed{SomariaPrivate<int>(actor,"_speedRaw")}/{native[at+16]}, clock{SomariaPrivate<int>(actor.Animation,"_frameCounter")}/{native[at+0x20]}, observedCapture.Samples{observedCapture.Samples}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    "Peahat timing/terrain changes must retain original RNG order.");observedCapture.Samples=0;
             });
             Step(1);
             _dialogue.ShowMessage("Peahat terrain hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;

@@ -52,6 +52,10 @@ part of a large room. Ordinary gameplay writes and the native changed-tile queue
 retain their individual publication boundaries; do not batch across updates or
 skip intermediate pixel assertions.
 
+Per-update RNG comparisons can observe the live core bytes and call count
+without cloning the placement buffer. Keep full snapshots for restoration,
+placement-buffer checks, or comparisons that retain historical state.
+
 Interpolated `FailIf` diagnostics are formatted only on failure. Keep counters,
 reference stepping, state changes and other side effects outside diagnostic
 expressions. Non-interpolated strings retain ordinary eager evaluation. Sprite

@@ -106,9 +106,7 @@ public sealed partial class ValidationRoot
                         if (rom[0xc2ef] == 3)
                             FailIf(!Mathf.IsEqualApprox(_warpFade.Color.A, System.Math.Min((int)rom[0xc2ff], 31) / 31f),
                                 context + ": fade-out palette offset differs.");
-                        var random = _random.CaptureState();
-                        FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                            random.Calls - initialRandom.Calls != rom.RandomCalls, context + ": source RNG differs.");
+                        FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls), context + ": source RNG differs.");
                     }
                     else
                     {

@@ -47,8 +47,7 @@ public partial class ValidationRoot
                 if (nativeHook) FailIf(hook!.State != rom[0xd604] || hook.Counter != rom[0xd606] ||
                     hook.PrecisePosition != new Vector2(rom.Word(0xd60c)/256f,rom.Word(0xd60a)/256f),
                     context+": Switch Hook motion/counter differs while the platform carries Link.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.Where(cue=>cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     context+": native cue/RNG order differs.");
             });

@@ -59,8 +59,7 @@ public sealed partial class ValidationRoot
                         $"Mermaid cube update{update}: rolling cell${packed:x2} tile/solidity differs.");
                 }
                 FailIf(!sounds.Requests.SequenceEqual(rom.Sounds),$"Mermaid cube update{update}: native roll/pad sound order differs.");
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Mermaid cube update{update}: global RNG differs.");
             });
             _dialogue.ShowGameplayMessage("Pending cube initialization",120); rom[0xcba0] = 1;

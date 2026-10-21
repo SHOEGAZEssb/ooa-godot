@@ -70,8 +70,7 @@ public sealed partial class ValidationRoot
                     puzzle.CubeColor != rom[0xccad] || !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds) ||
                     OracleGraphicsCache.PixelHash(_currentRoom.BuildMimickedMetatileTexture(gatePoint).GetImage()) != background,
                     "Gate signals, ordered cues and original background rendering must agree with native raw layout/collision writes.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Gate dispatch must preserve shared RNG.");
             });
             try

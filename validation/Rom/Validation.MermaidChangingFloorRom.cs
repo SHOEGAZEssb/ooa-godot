@@ -75,8 +75,7 @@ public sealed partial class ValidationRoot
                     }
                     FailIf(orb.IsOn != (rom[0xcdd2] != 0) || orb.PendingHit != ((rom[o+0x2a]&0x80) != 0) ||
                         !sounds.Requests.SequenceEqual(rom.Sounds),context+": orb handoff or ordered cues differ.");
-                    var rng = _random.CaptureState();
-                    FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context+": global RNG differs.");
                 });
             }

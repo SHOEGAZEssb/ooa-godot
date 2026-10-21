@@ -24,9 +24,7 @@ public sealed partial class ValidationRoot
             _inventory.EquipB(primary ? TreasureId.Shield : TreasureId.SeedSatchel);
             // Controlled ground and scroll-setup boundary. Room parsing, enemy
             // consumers and room scripts have their own native comparisons.
-            for (int y = 8; y < _currentRoom.Height; y += 16)
-            for (int x = 8; x < _currentRoom.Width; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+            FillValidationRoom(0x2c);
             Vector2I vector = direction switch { 0 => Vector2I.Up, 1 => Vector2I.Right, 2 => Vector2I.Down, _ => Vector2I.Left };
             _player.WarpTo(new(vector.X < 0 ? 6.75f : vector.X > 0 ? _currentRoom.Width - 6.25f : 80.75f,
                 vector.Y < 0 ? 6.25f : vector.Y > 0 ? _currentRoom.Height - 7.75f : 64.25f));
@@ -64,9 +62,7 @@ public sealed partial class ValidationRoot
                         ((int)(_player.PrecisePosition.Y * 256) & 0xffff) / 256.0f);
                     FailIf(actual != new Vector2(rom.Word(0xd00c) / 256.0f, rom.Word(0xd00a) / 256.0f),
                         context + ": Link motion differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - randomStart.Calls != rom.RandomCalls - nativeRandomStart,
+                    FailIf(RandomDiffers(randomStart, rom[0xff94], rom[0xff95], rom.RandomCalls - nativeRandomStart),
                         context + ": item/shared RNG differs at the declared room-load boundary.");
                 });
             }

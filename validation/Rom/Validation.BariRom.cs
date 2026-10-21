@@ -35,9 +35,8 @@ public sealed partial class ValidationRoot
             {
                 rom[0xcba0] = (byte)(frozen ? 1 : 0);
                 rom.Update(_entities.FrameCounter, _player.Position);
-                var actual = _random.CaptureState();
-                FailIf(actual.Rng1 != rom[0xff94] || actual.Rng2 != rom[0xff95] || actual.Calls - seed.Calls != rom.RandomCalls,
-                    $"Bari $5:$35 update={update}, batch={batched}: shared RNG runtime=${actual.Rng2:x2}{actual.Rng1:x2}/{actual.Calls - seed.Calls}, native=${rom[0xff95]:x2}{rom[0xff94]:x2}/{rom.RandomCalls}, Link={_player.Position}, state/counter={parent.State}/{parent.Counter2}, native={rom[0xd084]}/{rom[0xd087]}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Bari $5:$35 update={update}, batch={batched}: shared RNG runtime=${_random.CaptureState().Rng2:x2}{_random.CaptureState().Rng1:x2}/{_random.CaptureState().Calls - seed.Calls}, native=${rom[0xff95]:x2}{rom[0xff94]:x2}/{rom.RandomCalls}, Link={_player.Position}, state/counter={parent.State}/{parent.Counter2}, native={rom[0xd084]}/{rom[0xd087]}.");
                 foreach (var (entity, slot) in slots.Where(pair => pair.Key.Node is BariCharacter))
                 {
                     var enemy = (BariCharacter)entity.Node;

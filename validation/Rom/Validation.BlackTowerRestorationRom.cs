@@ -54,7 +54,7 @@ public sealed partial class ValidationRoot
                         effect.Visible!=((rom[at+0x1a]&128)!=0)||effect.AnimationParameter!=rom[at+0x21],
                         $"Rabbit impact $07:$80 update{update}: port={effect.Position}/Z{effect.ZHigh}/param{effect.AnimationParameter}, ROM={rom[at+13]},{rom[at+11]}/Z{rom[at+15]}/param{rom[at+0x21]}.");sawClink=true;
                 }
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=rom[0xff94]||rng.Rng2!=rom[0xff95]||rng.Calls-seed.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     !sounds.Requests.SequenceEqual(rom.Sounds),$"Restored rabbits sound/RNG update{update}: {string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
             }
             while(update<800&&_runtimeState.ReadWramByte(0xcfdf)!=255)
@@ -145,7 +145,7 @@ public sealed partial class ValidationRoot
                 int NativeCount(int id)=>Enumerable.Range(0,16).Count(slot=>rom[0xd040+slot*256]!=0&&rom[0xd041+slot*256]==id);
                 FailIf(NativeCount(0x63)!=_entities.EntityAdapters<AccessoryRoomEntity>().Count()||NativeCount(0x95)!=_entities.EntityAdapters<NativeBallRoomEntity>().Count()||
                     NativeCount(0x9f)!=_entities.EntityAdapters<ExclamationMarkRoomEntity>().Count(),"Restored family must preserve checked accessory/ball/exclamation allocation and retirement.");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=rom[0xff94]||rng.Rng2!=rom[0xff95]||rng.Calls-seed.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     !sounds.Requests.SequenceEqual(rom.Sounds),$"Restored family sound/RNG update{update}: {string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
             }
             while(update<1000&&_runtimeState.ReadWramByte(0xcfdf)!=255)

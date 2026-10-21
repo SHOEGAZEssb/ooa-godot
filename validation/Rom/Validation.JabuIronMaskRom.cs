@@ -46,9 +46,8 @@ public sealed partial class ValidationRoot
                         $"Iron Mask$1c:$00 slot${slot:x2}, update{update}, batch={batch}: runtime state/counter/angle/mode={enemy.State}/{enemy.Counter1}/${enemy.Angle:x2}/${enemy.CollisionMode:x2}, XY={enemy.Position}, animation={SomariaPrivate<int>(enemy.Animation,"_frameCounter")}/{enemy.AnimationParameter}; ROM={rom[address+4]}/{rom[address+6]}/${rom[address+9]:x2}/${rom[address+0x25]:x2}, XY={rom.Word(address+12)/256f},{rom.Word(address+10)/256f}, animation={rom[address+0x20]}/{rom[address+0x21]}.");
                     if(enemy.State==8)turns++;
                 }
-                var actual=_random.CaptureState();
-                FailIf(actual.Rng1!=rom[0xff94] || actual.Rng2!=rom[0xff95] || actual.Calls-seed.Calls!=rom.RandomCalls,
-                    $"Iron Mask room$5:$6e update{update} must preserve shared route RNG: runtime=${actual.Rng2:x2}{actual.Rng1:x2}/{actual.Calls-seed.Calls}, ROM=${rom[0xff95]:x2}{rom[0xff94]:x2}/{rom.RandomCalls}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Iron Mask room$5:$6e update{update} must preserve shared route RNG: runtime=${_random.CaptureState().Rng2:x2}{_random.CaptureState().Rng1:x2}/{_random.CaptureState().Calls-seed.Calls}, ROM=${rom[0xff95]:x2}{rom[0xff94]:x2}/{rom.RandomCalls}.");
             }
             StepGameplayUpdates(3,Vector2.Zero,batched:batch,afterUpdate:Compare);frozen=false;
             StepGameplayUpdates(150,Vector2.Zero,batched:batch,afterUpdate:Compare);

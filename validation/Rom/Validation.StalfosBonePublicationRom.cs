@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
                 motion.Call(ObjectMotionRom.RelativeAngle,targetY:(int)p.Y,targetX:(int)p.X);
                 if(motion.Result!=angle)continue;link=p;found=true;break;
             }
-            // Edge probes can aim outwards only through declared initialized flight.
+            // Edge observedCapture.Samples can aim outwards only through declared initialized flight.
             if(form==3){link=floor.OrderBy(p=>p.DistanceSquaredTo(new(120,144))).First();found=true;}
             FailIf(!found,"Bone flight fixture requires a clear source-derived aim for every declared angle.");
             Vector2 lateLink=floor.OrderByDescending(p=>p.DistanceSquaredTo(link)).First();
@@ -45,14 +45,14 @@ public sealed partial class ValidationRoot
             Vector2 camera=-_entities.WorldToScreen(Vector2.Zero);native[0xffaa]=(byte)camera.Y;native[0xffac]=(byte)camera.X;
             const int at=0xd0c0;native[at]=1;native[at+1]=0x1c;
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));
-            byte[] observed=new byte[4];int probes=0,updates=0;bool scrollHeld=gate==3;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;bool scrollHeld=gate==3;
             var before=new PartMovementScratchProbe(()=>
             {
                 for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));
                 if(late&&updates==0){_player.SetScriptedCoordinateHigh(true,(int)lateLink.X);_player.SetScriptedCoordinateHigh(false,(int)lateLink.Y);}
             });
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -75,11 +75,11 @@ public sealed partial class ValidationRoot
                     actor.Position!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     (actor.ZFixed&65535)!=native.Word(at+14)||(SomariaPrivate<int>(actor,"_speedZ")&65535)!=native.Word(at+0x14)||
                     actor.CollisionEnabled!=((native[at+0x24]&128)!=0)||actor.Visible!=((native[at+0x1a]&128)!=0)||
-                    SomariaPrivate<int>(animation,"_frameCounter")!=native[at+0x20])||probes!=1||!observed.SequenceEqual(expected)||
+                    SomariaPrivate<int>(animation,"_frameCounter")!=native[at+0x20])||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected)||
                     camera!=new Vector2(native[0xffac],native[0xffaa]),
-                    $"Stalfos bone flight form{form}/variant{variant}/fraction{fractional}/host{batched}/update{updates}: dead{actor.Finished}/{native[at]==0}, state{state}/{native[at+4]}, C{actor.Counter}/{native[at+6]}, angle{actor.Angle}/{native[at+9]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, camera{camera}/{native[0xffac]},{native[0xffaa]}, clock{SomariaPrivate<int>(animation,"_frameCounter")}/{native[at+0x20]}, CEC[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
-                    !sounds.Requests.SequenceEqual(native.Sounds),"Bone flight must retain native RNG and cue consumption.");probes=0;
+                    $"Stalfos bone flight form{form}/variant{variant}/fraction{fractional}/host{batched}/update{updates}: dead{actor.Finished}/{native[at]==0}, state{state}/{native[at+4]}, C{actor.Counter}/{native[at+6]}, angle{actor.Angle}/{native[at+9]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, camera{camera}/{native[0xffac]},{native[0xffaa]}, clock{SomariaPrivate<int>(animation,"_frameCounter")}/{native[at+0x20]}, CEC[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
+                    !sounds.Requests.SequenceEqual(native.Sounds),"Bone flight must retain native RNG and cue consumption.");observedCapture.Samples=0;
             });
             if(gate==1){_dialogue.ShowMessage("Bone state0 hold.",104);native[0xcba0]=1;}
             if(gate==2){_runtimeState.SetWramByte(0xcc8a,9);native[0xcc8a]=9;}
@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
             FailIf(!actor.Finished,"Every bone flight must retire at its original screen/terrain/bounce boundary.");
             Step(2);_entities.Clear();_runtimeState.SetWramByte(0xcc8a,0);StepGameplayUpdates(2,Vector2.Zero);
         }
-        FailIf(finishes!=544||moves==0||bounces==0||lateTargets!=128,"Bone flight matrix must complete544 flows, all128 late-target probes, terrain bounces and movement.");
+        FailIf(finishes!=544||moves==0||bounces==0||lateTargets!=128,"Bone flight matrix must complete544 flows, all128 late-target observedCapture.Samples, terrain bounces and movement.");
     }
 
     private void ValidateStalfosBoneBouncePublicationRom()
@@ -115,10 +115,10 @@ public sealed partial class ValidationRoot
                 {HostilePartsEnabled=true,PostObjectCollisionsEnabled=false};
             native.InitializeLinkGameplay();native[0xcd00]=0;native[WramAddress.wWarpsDisabled]=1;native[0xcc08]=0x9b;
             const int at=0xd0c0;native[at]=1;native[at+1]=0x1c;native[at+11]=88;native[at+13]=120;
-            byte[] observed=new byte[4];int probes=0,updates=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var before=new PartMovementScratchProbe(()=>{for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -135,10 +135,10 @@ public sealed partial class ValidationRoot
                     (actor.ZFixed&65535)!=native.Word(at+14)||(SomariaPrivate<int>(actor,"_speedZ")&65535)!=native.Word(at+0x14)||
                     actor.CollisionEnabled!=((native[at+0x24]&128)!=0)||
                     actor.Visible!=((native[at+0x1a]&128)!=0)||SomariaPrivate<int>(animation,"_frameCounter")!=native[at+0x20])||
-                    probes!=1||!observed.SequenceEqual(expected),
-                    $"Stalfos bone bounce angle${angle:x2}/entry{entry}/fraction{fractional}/host{batched}/update{updates}: dead{actor.Finished}/{native[at]==0}, state{state}/{native[at+4]}, C{actor.Counter}/{native[at+6]}, angle{actor.Angle}/{native[at+9]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{actor.ZFixed}/{native.Word(at+14)}, speedZ{SomariaPrivate<int>(actor,"_speedZ")}/{native.Word(at+0x14)}, clock{SomariaPrivate<int>(animation,"_frameCounter")}/{native[at+0x20]}, CEC[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
-                    !sounds.Requests.SequenceEqual(native.Sounds),"Bone bounce must retain native RNG and cue consumption.");probes=0;
+                    observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Stalfos bone bounce angle${angle:x2}/entry{entry}/fraction{fractional}/host{batched}/update{updates}: dead{actor.Finished}/{native[at]==0}, state{state}/{native[at+4]}, C{actor.Counter}/{native[at+6]}, angle{actor.Angle}/{native[at+9]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{actor.ZFixed}/{native.Word(at+14)}, speedZ{SomariaPrivate<int>(actor,"_speedZ")}/{native.Word(at+0x14)}, clock{SomariaPrivate<int>(animation,"_frameCounter")}/{native[at+0x20]}, CEC[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
+                    !sounds.Requests.SequenceEqual(native.Sounds),"Bone bounce must retain native RNG and cue consumption.");observedCapture.Samples=0;
             });
             Step(1);
             // Declared post-initialization words; bounce ignores terrain/screen bounds.

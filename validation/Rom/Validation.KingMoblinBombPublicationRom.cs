@@ -45,9 +45,8 @@ public sealed partial class ValidationRoot
             const int at=0xd0c0;native[at]=1;native[at+1]=(byte)(form==0?0x3f:0x47);
             native.Word(at+10,(int)(actor.Position.Y*256));native.Word(at+12,(int)(actor.Position.X*256));native.Word(at+14,fractional?0x80:0);
             native.Word(at+0x16,form==0?0xd080:0xd180);
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;var sounds=_sound.AttachPlayRequestAudit();
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;var sounds=_sound.AttachPlayRequestAudit();
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Seed(){for(int i=0;i<4;i++){byte value=(byte)(0xa5+i);_runtimeState.SetWramByte(0xcec0+i,value);native[0xcec0+i]=value;}}
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -60,11 +59,11 @@ public sealed partial class ValidationRoot
                     (SomariaPrivate<CarriedObjectMotion>(actor,"_motion").SpeedZ&65535)!=native.Word(at+0x14)||
                     actor.AnimationParameter!=native[at+0x21]||SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20]||
                     form==0&&(actor.Fuse!=native[at+6]||actor.Flashes!=native[at+7]))||
-                    probes!=1||Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
-                    $"King bomb${(form==0?0x3f:0x47):x2}/form{form}/angle${angle:x2}/fast{shortFuse}/fraction{fractional}/update{updates}: state{actor.State}/{native[at+4]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{actor.ZFixed}/{unchecked((short)native.Word(at+14))}, fuse{actor.Fuse}/{native[at+6]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||!sounds.Requests.SequenceEqual(native.Sounds),
+                    observedCapture.Samples!=1||Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
+                    $"King bomb${(form==0?0x3f:0x47):x2}/form{form}/angle${angle:x2}/fast{shortFuse}/fraction{fractional}/update{updates}: state{actor.State}/{native[at+4]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, Z{actor.ZFixed}/{unchecked((short)native.Word(at+14))}, fuse{actor.Fuse}/{native[at+6]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||!sounds.Requests.SequenceEqual(native.Sounds),
                     $"King bomb/form{form}/update{updates}: original initialization RNG or fuse/bounce/explosion cues differ [{string.Join(',',sounds.Requests)}]/[{string.Join(',',native.Sounds)}].");
-                probes=0;Seed();
+                observedCapture.Samples=0;Seed();
             });
             try
             {

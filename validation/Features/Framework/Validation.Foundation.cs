@@ -319,6 +319,7 @@ public sealed partial class ValidationRoot
             !firstPlacements.SequenceEqual(new byte[]
                 { 0x7d, 0xe4, 0xf0, 0x49, 0x98, 0xd7, 0x5c, 0xfe }) ||
             firstNext != new OracleRandomResult(0xc6, 0x1a, 0x04) ||
+            ValidationRng1(firstParse) != 0xc6 || ValidationRng2(firstParse) != 0x1a ||
             !secondPlacements.SequenceEqual(new byte[]
                 { 0x07, 0x5d, 0x70, 0xde, 0xa8, 0x08, 0x6f, 0xb3 }) ||
             secondNext != new OracleRandomResult(0x59, 0xd0, 0x9b),

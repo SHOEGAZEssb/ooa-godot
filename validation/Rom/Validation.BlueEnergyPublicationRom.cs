@@ -14,9 +14,7 @@ public sealed partial class ValidationRoot
         foreach(bool expiry in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0xa1);_entities.Clear();
+            InitializeCompletedIntroRoom(4, 0xa1);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,40));
             _runtimeState.SetWramByte(WramAddress.wWarpsDisabled,1);
             byte duration=expiry?(byte)80:(byte)0xff;
@@ -27,12 +25,11 @@ public sealed partial class ValidationRoot
             int at=0xd0c0+F1Parts[actor]*256;
             native[at]=1;native[at+1]=0x53;native[at+3]=(byte)index;native[at+6]=duration;
             native[at+0x30]=(byte)center.Y;native[at+0x31]=(byte)center.X;native[at+0x32]=outgoing?(byte)1:(byte)0;
-            byte[] observed=new byte[4];int probes=0,updates=0,starts=0,moves=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,starts=0,moves=0;
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
                 bool oldLive=native[at]!=0,oldVisible=(native[at+0x1a]&128)!=0;
@@ -44,13 +41,12 @@ public sealed partial class ValidationRoot
                     actor.Initialized!=(native[at+4]!=0)||actor.Delay!=native[at+7]||actor.Duration!=native[at+6]||
                     actor.Visible!=((native[at+0x1a]&128)!=0)||
                     actor.PrecisePosition!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
-                    actor.Position!=new Vector2(native[at+13],native[at+11]))||probes!=1||
-                    Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
+                    actor.Position!=new Vector2(native[at+13],native[at+11]))||observedCapture.Samples!=1||
+                    Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
                     $"PART$53 index${index:x2}/out{outgoing}/fraction{fractional}/expiry{expiry}/update{updates}: native lifecycle, full XY or phase-local circle/flight scratch differs.");
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
                     "PART$53 must retain original RNG calls at initialization and each animation restart.");
-                probes=0;
+                observedCapture.Samples=0;
             });
             _runtimeState.SetWramByte(WramAddress.wDeleteEnergyBeads,1);native[0xcd2d]=1;
             Step(1);

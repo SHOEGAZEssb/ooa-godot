@@ -46,8 +46,7 @@ public sealed partial class ValidationRoot
                         item.Position != new Vector2(rom[0xd70d], rom[0xd70b]), $"{context}: state-zero admission or initialized freeze runtime={item.ItemState}/{item.Counter2}/{item.Position}, " +
                         $"native={rom[0xd704]}/{rom[0xd707]}/({rom[0xd70d]},{rom[0xd70b]}) differs.");
                 CompareSomariaMotionRom(rom, context);
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.SequenceEqual(rom.Sounds), context + ": cue/RNG order differs.");
             }
             void Step(int count = 1, bool press = false) =>

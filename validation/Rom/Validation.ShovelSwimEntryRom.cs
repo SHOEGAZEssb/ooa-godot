@@ -69,9 +69,7 @@ public sealed partial class ValidationRoot
                     FailIf(!sounds.Requests.Where(id => id is SoundId.SndDig or SoundId.SndClink)
                         .SequenceEqual(rom.Sounds.Where(id => id is SoundId.SndDig or SoundId.SndClink)),
                         context + ": silent swim rejection or resumed digging sound differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - initialRandom.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": shared RNG differs.");
                     FailIf(_currentRoom.IsSolid(_player.Position), context + ": basin approach entered solid room geometry.");
                 });

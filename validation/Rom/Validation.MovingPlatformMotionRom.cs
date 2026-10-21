@@ -53,8 +53,7 @@ public partial class ValidationRoot
                     !sounds.Requests.Where(cue=>cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                     $"Platform room${c.Room:x2}, sub${c.Sub:x2}, dungeon${c.Dungeon:x2}, batch={batch}, update{update + 1}: counter={platform.Counter}/{rom[0xd246]}, command={platform.Command}/${rom.Word(0xd258):x4}, support={_entities.PlayerRidingObject}/{rom[0xcc96]:x2}, XY={platform.PrecisePosition}/{rom.Word(0xd24c)/256f},{rom.Word(0xd24a)/256f}, Link={_player.PrecisePosition}/{rom.Word(0xd00c)/256f},{rom.Word(0xd00a)/256f}.");
                 update++;
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Native platform scripts must retain shared RNG order.");
             });
             _dialogue.ShowGameplayMessage("Pending platform",120); rom[0xcba0] = 1;

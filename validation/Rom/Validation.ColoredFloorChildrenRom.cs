@@ -61,8 +61,7 @@ public sealed partial class ValidationRoot
                     rom.AdvanceTileGraphics();
                     FailIf(!cancelled.Finished || rom[cancel] != 0 || rom.Sounds.Count != cueCount,
                         "Floor child must cancel on its takeoff tile without a repeat color write or cue.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         "Floor children must preserve shared RNG.");
                 });
             }

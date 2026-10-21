@@ -64,13 +64,13 @@ public sealed partial class ValidationRoot
             native[at+16]=0x14;native[at+0x24]=(byte)(scenario<3?0x8b:0x0b);native[at+0x29]=(byte)actor.Health;native[at+0x1a]=(byte)(scenario==4?0:0xc2);
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));
             if(scenario!=4)native.SetEnemyAnimation(1,1);
-            byte[] observed=new byte[4];int probes=0,updates=0;bool lateWritten=false;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;bool lateWritten=false;
             var stage=new PartMovementScratchProbe(()=>
             {
                 for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));
                 if(scenario==3&&!lateWritten){lateWritten=true;_player.SetScriptedCoordinateHigh(horizontal:true,136);}
             });_entities.RegisterEnemySlot(stage,0);_entities.AddEntity(stage);
-            var after=new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -91,10 +91,10 @@ public sealed partial class ValidationRoot
                 FailIf((int)actor.State!=native[at+4]||actor.Counter!=native[at+6]||actor.Position!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     SomariaPrivate<int>(actor,"_angle")!=native[at+9]||actor.Visible!=((native[at+0x1a]&128)!=0)||
                     actor.CollisionEnabled!=((native[at+0x24]&128)!=0)||actor.AnimationParameter!=native[at+0x21]||
-                    SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20]||probes!=1||!observed.SequenceEqual(expected),
-                    $"Leever$0b:${subid:x2}/angle${angle:x2}/scenario{scenario}/fraction{fractional}/update{updates}: state{actor.State}/{native[at+4]}, C{actor.Counter}/{native[at+6]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{SomariaPrivate<int>(actor,"_angle")}/{native[at+9]}, param{actor.AnimationParameter}/{native[at+0x21]}, clock{SomariaPrivate<int>(actor.Animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    $"Leever/subid{subid}/update{updates}: source retarget/sink/spawn RNG differs: {rng.Calls-seed.Calls}/{native.RandomCalls}.");probes=0;
+                    SomariaPrivate<int>(actor.Animation,"_frameCounter")!=native[at+0x20]||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Leever$0b:${subid:x2}/angle${angle:x2}/scenario{scenario}/fraction{fractional}/update{updates}: state{actor.State}/{native[at+4]}, C{actor.Counter}/{native[at+6]}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{SomariaPrivate<int>(actor,"_angle")}/{native[at+9]}, param{actor.AnimationParameter}/{native[at+0x21]}, clock{SomariaPrivate<int>(actor.Animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    $"Leever/subid{subid}/update{updates}: source retarget/sink/spawn RNG differs: {_random.CaptureState().Calls-seed.Calls}/{native.RandomCalls}.");observedCapture.Samples=0;
             });
             if(scenario==4&&angle!=24)
             {

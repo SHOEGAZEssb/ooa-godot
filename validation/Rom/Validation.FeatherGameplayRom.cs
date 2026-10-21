@@ -36,9 +36,7 @@ public sealed partial class ValidationRoot
             StepFeatherRom(rom, cancelAfter, batched, held: true, pressed: true, primary: primary);
             LoadValidationRoom(4, 0xa8);
             _entities.Clear();
-            for (int y = 8; y < _currentRoom.Height; y += 16)
-            for (int x = 8; x < _currentRoom.Width; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0);
             _player.WarpTo(new(120, 88));
             _player.Face(Vector2I.Up);
             rom.PutLinkOnGround();

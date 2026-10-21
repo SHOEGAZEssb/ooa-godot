@@ -16,9 +16,7 @@ public sealed partial class ValidationRoot
             _player.ApplicationUpdateOwned = true;
             _player.WarpTo(new(24, 24));
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
-            for (int y = 8; y < 176; y += 16)
-            for (int x = 8; x < 240; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 15, height: 11);
             for (int repeat = 0; repeat < 2; repeat++)
             {
                 _entities.Clear();

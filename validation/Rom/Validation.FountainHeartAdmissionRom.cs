@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close();
             var native = F1Native(0x38, 0, 0, fairy.Position); F1Enemy(native); native[0xd084] = 4;
             F1Fill(test.Free, native);
-            byte[] observed=new byte[4];int probes=0,heartVisits=0;Vector2 cachedTarget=_player.Position;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int heartVisits=0;Vector2 cachedTarget=_player.Position;
             var angles=new System.Collections.Generic.HashSet<int>();
             if(publication)
             {
@@ -36,8 +36,7 @@ public sealed partial class ValidationRoot
                     if(perturbTarget)_player.Position+=new Vector2(0,(_entities.FrameCounter&1)==0?1:-1);
                 });
                 _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
-                _entities.AddEntity(new PartMovementScratchProbe(()=>
-                {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+                _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             }
             int elapsed = 0;
             void Compare()
@@ -58,7 +57,7 @@ public sealed partial class ValidationRoot
                     $"Fairy must count only admitted PART$30 hearts through completion, free={test.Free}, release={test.Release}, update={elapsed}.");
                 if(publication)
                 {
-                    FailIf(probes!=1||Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
+                    FailIf(observedCapture.Samples!=1||Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
                         $"Fountain PART$30/free{test.Free}/release{test.Release}/update{elapsed}: original scaled circle scratch differs before interactions.");
                     foreach(var pair in F1Parts.Where(p=>p.Key is FountainFairyHeartRoomEntity))
                     {
@@ -68,7 +67,7 @@ public sealed partial class ValidationRoot
                             heart.Angle!=native[at+9]||SomariaPrivate<int>(heart,"_counter")!=native[at+6],
                             $"Fountain PART$30/slot${pair.Value:x2}/update{elapsed}/perturb{perturbTarget}: native target, high/low coordinates or angle counter differs: XY{heart.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, target{target}, currentLink{_player.Position}, angle{heart.Angle}/{native[at+9]}.");
                     }
-                    probes=0;
+                    observedCapture.Samples=0;
                 }
             }
             StepGameplayUpdates(15, Vector2.Zero, batched: batched, afterUpdate: Compare);

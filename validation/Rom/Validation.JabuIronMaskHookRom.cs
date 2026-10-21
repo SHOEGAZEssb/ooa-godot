@@ -54,8 +54,7 @@ public sealed partial class ValidationRoot
                     sawChild|=mask.Record.SubId==1;sawSwap|=mask.State==3 && mask.Substate==2;
                 }
                 sawExpiry|=original!.MaskExpired;
-                var random=_random.CaptureState();
-                FailIf(random.Rng1!=rom[0xff94] || random.Rng2!=rom[0xff95] || random.Calls-seed.Calls!=rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     $"Iron Mask Hook update{update}: shared allocation/route RNG differs.");
                 FailIf((int)SomariaPrivate<float>(_player,"_enemyKnockbackFrames")!=rom[0xd02d],
                     $"Iron Mask Hook update{update}: Link recoil runtime={SomariaPrivate<float>(_player,"_enemyKnockbackFrames")}, ROM={rom[0xd02d]}, inv={SomariaPrivate<float>(_player,"_enemyInvincibilityFrames")}/{rom[0xd02b]}, angle={rom[0xd02c]}.");

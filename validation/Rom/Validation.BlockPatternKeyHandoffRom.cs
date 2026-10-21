@@ -61,8 +61,7 @@ public sealed partial class ValidationRoot
                         key.Visible != ((rom[slot+0x1a]&0x80) != 0),
                         $"Block-key ${test.Source:x2}, update{update}: key slot={_entities.InteractionSlot(key)}/{(slot>>8)-0xd0}, XY={key.Position}, state={key.State}:{key.SpawnSubstate}:{key.SpawnCounter}/{rom[slot+4]}:{rom[slot+5]}:{rom[slot+6]}, z/vz={key.ZFixed}/{key.SpeedZ}:{rom.Word(slot+0xe)}/{unchecked((short)rom.Word(slot+0x14))}, visible={key.Visible}/{rom[slot+0x1a]:x2}.");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Actual block-key handoff must preserve shared RNG.");
             });
             Step(); Step(80,test.Angle);

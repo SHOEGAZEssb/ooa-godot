@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
                         $"Outgoing energy $53 index{bead.Index}, update{update}, batch={batched}: port={bead.PrecisePosition}/{bead.Delay}/{bead.Visible}, ROM={rom.Word(at+12)/256f},{rom.Word(at+10)/256f}/{rom[at+7]}/{rom[at+26]:x2}.");
                     if(bead.Visible)seen.Add(bead.Index);
                 }
-                var random=_random.CaptureState();FailIf(random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||random.Calls-seed.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     !sounds.Requests.SequenceEqual(rom.Sounds),"Outgoing energy must preserve native ordered SFX and RNG under the object mask.");
             }
             StepGameplayUpdates(1,Vector2.Zero,afterUpdate:Compare);

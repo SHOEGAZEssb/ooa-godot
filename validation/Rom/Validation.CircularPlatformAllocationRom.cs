@@ -51,9 +51,7 @@ public sealed partial class ValidationRoot
                         platform.PrecisePosition != new Vector2[] { new(120, 33), new(173, 86), new(120, 139) }[index - 1],
                         "Incoming INTERAC$a4 must complete state0 preload exactly once without moving.");
             }
-            var parsed = _random.CaptureState();
-            FailIf(parsed.Rng1 != rom[0xff94] || parsed.Rng2 != rom[0xff95] ||
-                parsed.Calls - seed.Calls != rom.RandomCalls,
+            FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                 "6:$2b failed interaction allocations must preserve original full room-parse RNG consumption.");
             _entities.FinishScreenTransition();
             FailIf(_entities.Entities<CircularSideScrollPlatformRoomEntity>().Count != Math.Max(0, free - 1),

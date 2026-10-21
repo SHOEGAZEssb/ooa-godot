@@ -44,8 +44,7 @@ public partial class ValidationRoot
                     puffs[0].Position != new Vector2(rom[native[0]+0xd],rom[native[0]+0xb]) ||
                     puffs[0].Initialized != (rom[native[0]+4] != 0) || puffs[0].CurrentParameter != rom[native[0]+0x21],
                     $"Chest puff update{update}: slot={_entities.InteractionSlot(puffs[0]):x2}/{(native[0]>>8)-0xd0:x2}, XY={puffs[0].Position}/{rom[native[0]+0xd]},{rom[native[0]+0xb]}, initialized={puffs[0].Initialized}/{rom[native[0]+4]}, param={puffs[0].CurrentParameter:x2}/{rom[native[0]+0x21]:x2}.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls,
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                     "Chest script must preserve original global RNG order.");
             });
             _entities.SetTrigger(7,branch != 4); _entities.SetTrigger(0,true); _entities.SetTrigger(1,true); _entities.SetTrigger(2,true);

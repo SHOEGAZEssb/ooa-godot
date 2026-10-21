@@ -47,8 +47,7 @@ public sealed partial class ValidationRoot
                     string context = $"Cane hazard ${tile:x2} update={++update}";
                     CompareSomariaMotionRom(rom, context);
                     FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds), context + ": cue order differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": shared RNG differs.");
                 });
             }
@@ -90,8 +89,7 @@ public sealed partial class ValidationRoot
             void Step(int count, int angle = 0xff, int held = 0, int pressed = 0) =>
                 StepSomariaMotionRom(rom, count, batched, angle, held, pressed, () =>
                 {
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                         $"Somaria throw hazard ${tile:x2}: sound or shared RNG order differs.");
                 });

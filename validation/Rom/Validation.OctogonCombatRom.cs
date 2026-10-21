@@ -81,9 +81,8 @@ public sealed partial class ValidationRoot
                 }
                 for (int index = 0; index < shared.Length; index++)
                     FailIf(_runtimeState.ReadWramByte(0xcfd0+index) != rom[0xcfd0+index],$"Octogon update{update}: shared byte${0xcfd0+index:x4} differs.");
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls-seed.Calls != rom.RandomCalls,
-                    $"Octogon update{update}: ordered global RNG differs, runtime={rng.Calls-seed.Calls}, ROM={rom.RandomCalls}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
+                    $"Octogon update{update}: ordered global RNG differs, runtime={_random.CaptureState().Calls-seed.Calls}, ROM={rom.RandomCalls}.");
                 changedLayer |= main.Depth != shared[1]; update++;
             }
             void Step(int count = 1) => StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:Compare);

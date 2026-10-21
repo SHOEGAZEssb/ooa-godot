@@ -76,8 +76,7 @@ public sealed partial class ValidationRoot
                     else FailIf(child.AnimationCounter != rom[slot + 0x20] || child.Damage != -(sbyte)rom[slot + 0x28],
                         context + ": shared explosion clock/damage differs.");
                 }
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.SequenceEqual(rom.Sounds), context + ": ordered sound/RNG differs.");
                 if (jumpUpdates != 0)
                     FailIf((sideview ? _player.SideScrollAirborne : _player.TopDownAirborne) != (rom[0xcc5c] != 0) ||

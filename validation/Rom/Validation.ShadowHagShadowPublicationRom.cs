@@ -21,9 +21,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0x4a);
+            InitializeCompletedIntroRoom(4, 0x4a, clearEntities: false);
             var boss=_entities.Entities<ShadowHagBoss>().Single();
             foreach(var entity in _entities.EntityAdapters<IRoomEntity>().Where(e=>!ReferenceEquals(e.Node,boss)).ToArray())_entities.RetireEntity(entity);
             // Keep the parent present but freeze only ENEMY updates. PARTs
@@ -53,12 +51,11 @@ public sealed partial class ValidationRoot
             native[parent+11]=88;native[parent+13]=120;
             int at=0xd0c0+F1Parts[adapter]*256;native[at]=1;native[at+1]=0x41;native[at+9]=(byte)index;
             native[at+11]=88;native[at+13]=120;native.Word(at+0x16,parent);
-            byte[] observed=new byte[4];int probes=0,updates=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var before=new PartMovementScratchProbe(()=>
             {for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));});
             _entities.RegisterEnemySlot(before,15);_entities.AddEntity(before);
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
                 for(int i=0;i<4;i++)native[0xcec0+i]=(byte)(0xa5+i);
@@ -68,9 +65,9 @@ public sealed partial class ValidationRoot
                     actor.Position!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||actor.Angle!=native[at+9]||
                     (int)actor.State+1!=native[at+4]||SomariaPrivate<int>(actor,"_counter1")!=native[at+6])||
                     boss.Counter2!=native[parent+7]||boss.Visible!=((native[parent+0x1a]&128)!=0)||
-                    probes!=1||Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
+                    observedCapture.Samples!=1||Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
                     $"PART$41 index${index:x2}/fraction{fractional}/update{updates}: original nudge/target/motion/return lifetime or scratch differs: angle${actor.Angle:x2}/${native[at+9]:x2}.");
-                probes=0;
+                observedCapture.Samples=0;
             });
             Step(1);
             if(fractional){actor.Position=new(120.25f,88.5f);native[at+10]=0x80;native[at+12]=0x40;}

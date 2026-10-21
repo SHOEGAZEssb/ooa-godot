@@ -61,8 +61,7 @@ public sealed partial class ValidationRoot
             FailIf(_runtimeState.ReadWramByte(WramAddress.wRotatingCubeColor) != rom[0xccad] ||
                 _runtimeState.ReadWramByte(WramAddress.wRotatingCubePos) != rom[0xccae],
                 $"Cube allocation item={collected}, free={free}: shared color/position=${_runtimeState.ReadWramByte(WramAddress.wRotatingCubeColor):x2}/${_runtimeState.ReadWramByte(WramAddress.wRotatingCubePos):x2}, native=${rom[0xccad]:x2}/${rom[0xccae]:x2}.");
-            var random = _random.CaptureState();
-            FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls || rom.Sounds.Any(),
+            FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || rom.Sounds.Any(),
                 "Cube/chest/flame allocation and pending scroll updates must preserve native parser RNG/cues.");
             _entities.FinishScreenTransition();
             FailIf(_entities.Entities<ColoredCubeFlameRoomEntity>().Count != (free > 3 ? free-3 : 0),

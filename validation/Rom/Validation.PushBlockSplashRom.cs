@@ -51,9 +51,7 @@ public sealed partial class ValidationRoot
                                 effects[i].Initialized && (effects[i].AnimationCounter != rom[slots[i]+0x20] ||
                                     effects[i].CurrentParameter != rom[slots[i]+0x21]),
                                 context + ": splash physical slot/position/kind/visibility/animation differs.");
-                        var random = _random.CaptureState();
-                        FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                            random.Calls-seed.Calls != rom.RandomCalls ||
+                        FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                             !sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds),
                             context + ": ordered cues/shared RNG differ.");
                     });

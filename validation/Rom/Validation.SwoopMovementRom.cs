@@ -20,9 +20,7 @@ public sealed partial class ValidationRoot
             F1Retain(owner); var boss = (SwoopBoss)owner.Node;
             // Already-active source state and clear floor are explicit inputs.
             // $a2 also suppresses unrelated stomp debris/tile mutation.
-            for (int y = 8; y < _currentRoom.Height; y += 16)
-            for (int x = 8; x < _currentRoom.Width; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa2, 0, 0);
+            FillValidationRoom(0xa2);
             Vector2 link = kind == 0 ? test switch { 0 => new(72, 72), 1 => new(96, 96), 2 => new(112, 64), _ => new(120, 80) }
                 : kind == 1 ? new(120, 80) : new(64, 112);
             _player.WarpTo(link); _player.BeginCutsceneControl();

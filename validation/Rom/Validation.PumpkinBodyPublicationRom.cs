@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
             native.Word(at+10,(int)(initial.Y*256));native.Word(at+12,(int)(initial.X*256));
             native[at+6]=(byte)counter;native[at+7]=(byte)timer;native[at+9]=(byte)angle;native[at+16]=0x14;
             native[at+0x30]=2;native.Word(at+0x16,0xd180);native.Word(at+0x18,0xd280);native[0xd28f]=0xf0;
-            byte[] observed=new byte[4];int probes=0,updates=0;
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0;
             var stage=new PartMovementScratchProbe(()=>
             {
                 for(int i=0;i<4;i++)_runtimeState.SetWramByte(0xcec0+i,(byte)(0xa5+i));
@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
             _entities.RegisterEnemySlot(stage,15);_entities.AddEntity(stage);
             // The production composite follows physical ENEMY slots and still
             // precedes PART. There are no projectiles in this bounded trace.
-            _entities.AddEntity(new PartMovementScratchProbe(()=>{probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             var sounds=_sound.AttachPlayRequestAudit();
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -78,10 +78,10 @@ public sealed partial class ValidationRoot
                 FailIf(state!=native[at+4]||c!=native[at+6]||SomariaPrivate<int>(boss,"_stompTimer")!=native[at+7]||
                     SomariaPrivate<Vector2>(boss,"_precisePosition")!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     boss.Position!=new Vector2(native[at+13],native[at+11])||boss.Angle!=native[at+9]||
-                    animation.CurrentParameter!=native[at+0x21]||SomariaPrivate<int>(animation,"_frameCounter")!=native[at+0x20]||probes!=1||!observed.SequenceEqual(expected),
-                    $"Pumpkin body$78/form{form}/angle${angle:x2}/fraction{fractional}/update{updates}: state{boss.State}/${native[at+4]:x2}, C{c}/{native[at+6]}, timer{SomariaPrivate<int>(boss,"_stompTimer")}/{native[at+7]}, XY{SomariaPrivate<Vector2>(boss,"_precisePosition")}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, clock{SomariaPrivate<int>(animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||
-                    !sounds.Requests.SequenceEqual(native.Sounds),"Pumpkin body walk decisions must preserve ordered native RNG and sound.");probes=0;
+                    animation.CurrentParameter!=native[at+0x21]||SomariaPrivate<int>(animation,"_frameCounter")!=native[at+0x20]||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Pumpkin body$78/form{form}/angle${angle:x2}/fraction{fractional}/update{updates}: state{boss.State}/${native[at+4]:x2}, C{c}/{native[at+6]}, timer{SomariaPrivate<int>(boss,"_stompTimer")}/{native[at+7]}, XY{SomariaPrivate<Vector2>(boss,"_precisePosition")}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, clock{SomariaPrivate<int>(animation,"_frameCounter")}/{native[at+0x20]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||
+                    !sounds.Requests.SequenceEqual(native.Sounds),"Pumpkin body walk decisions must preserve ordered native RNG and sound.");observedCapture.Samples=0;
             });
             Step(1);
             _dialogue.ShowMessage("Pumpkin walk hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;

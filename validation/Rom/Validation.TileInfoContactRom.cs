@@ -71,12 +71,10 @@ public sealed partial class ValidationRoot
                         _keyholes.RemainingPushFrames != rom[0xcc6a] ||
                         _rooms.InformativeTextsShown != rom[0xccd7] || _dialogue.IsOpen != (rom[0xcba0] != 0),
                         context + ": shared contact byte/hint mask/modal differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.Where(cue => cue is not (SoundId.SndText or SoundId.SndDamageLink))
                             .SequenceEqual(rom.Sounds.Where(cue => cue != SoundId.SndDamageLink)),
-                        $"{context}: gameplay cues/shared RNG differ: runtime cues={string.Join(',',sounds.Requests)}, native={string.Join(',',rom.Sounds)}, RNG=${random.Rng1:x2}/${random.Rng2:x2}/{random.Calls - seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls}.");
+                        $"{context}: gameplay cues/shared RNG differ: runtime cues={string.Join(',',sounds.Requests)}, native={string.Join(',',rom.Sounds)}, RNG=${_random.CaptureState().Rng1:x2}/${_random.CaptureState().Rng2:x2}/{_random.CaptureState().Calls - seed.Calls}, native=${rom[0xff94]:x2}/${rom[0xff95]:x2}/{rom.RandomCalls}.");
                 },contextPrefix:$"Info TX_{row.Text:x4}");
             Step();
             int direction = row.Direction * 8;

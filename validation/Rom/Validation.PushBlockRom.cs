@@ -86,8 +86,7 @@ public sealed partial class ValidationRoot
                             _pushBlocks.BlockZHigh != unchecked((sbyte)rom[0xd14f]) ||
                             _pushBlocks.ActiveMoveFrames - (int)SomariaPrivate<float>(_pushBlocks, "_moveFrame") != rom[0xd146],
                             context + ": INTERAC$14 full position/properties/Z/movement counter differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls ||
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                         !sounds.Requests.SequenceEqual(rom.Sounds), context + ": ordered movement cues/shared RNG differ.");
                 });
             int direction = wrongDirection ? 24 : 8;

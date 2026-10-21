@@ -12,8 +12,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.SetScriptedEquippedItems(0, 0);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 10, height: 8);
             _player.WarpTo(new(40, 64)); _player.Face(Vector2I.Right);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 40, 64) { HostilePartsEnabled = true };
             native.InitializeLinkGameplay(); native.InitializeLinkWalkingAnimation();
@@ -57,8 +56,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.SwitchHook, 1); _inventory.EquipA(TreasureId.SwitchHook); _inventory.EquipB(0);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 10, height: 8);
             _player.WarpTo(new(40, 64)); _player.Face(Vector2I.Right);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 40, 64) { HostilePartsEnabled = true };
             native.InitializeLinkGameplay();
@@ -105,8 +103,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.Boomerang, 0); _inventory.EquipA(TreasureId.Boomerang); _inventory.EquipB(0);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 10, height: 8);
             _player.WarpTo(new(40, 64)); _player.Face(Vector2I.Right);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 40, 64) { HostilePartsEnabled = true };
             native.InitializeLinkGameplay();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Godot;
 
 namespace oracleofages;
@@ -34,6 +35,30 @@ public sealed partial class ValidationRoot
         Application.ResetGameplay();
         DrainRetiredValidationNodes();
     }
+
+    private void InitializeCompletedIntroRoom(int group, int room, bool clearEntities = true)
+    {
+        var save = OracleSaveData.CreateStandardGame();
+        save.SetLinkName("Link");
+        save.SetGlobalFlag(GlobalFlag.PregameIntroDone);
+        save.SetGlobalFlag(GlobalFlag.IntroDone);
+        InitializeTransientSession(save);
+        LoadValidationRoom(group, room);
+        if (clearEntities) _entities.Clear();
+    }
+
+    // Observation only: CaptureState also clones the 256-byte placement buffer.
+    // These comparisons never inspect or restore that buffer. Keep reads tied
+    // to the authoritative RNG fields without a reflection lookup per update.
+    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_rng1")]
+    private static extern ref byte ValidationRng1(OracleRandom owner);
+    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_rng2")]
+    private static extern ref byte ValidationRng2(OracleRandom owner);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool RandomDiffers(in OracleRandomState initial, byte expectedRng1, byte expectedRng2, int expectedCalls) =>
+        ValidationRng1(_random) != expectedRng1 || ValidationRng2(_random) != expectedRng2 ||
+        _random.Calls - initial.Calls != expectedCalls;
 
     private void DrainRetiredValidationNodes()
     {

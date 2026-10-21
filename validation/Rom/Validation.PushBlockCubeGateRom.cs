@@ -45,9 +45,7 @@ public partial class ValidationRoot
                             new Vector2(rom.Word(0xd14c) / 256f,rom.Word(0xd14a) / 256f) ||
                             _pushBlocks.ActiveMoveFrames - (int)SomariaPrivate<float>(_pushBlocks,"_moveFrame") != rom[0xd146],
                             context + ": full fixed block position/movement counter differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - seed.Calls != rom.RandomCalls || !sounds.Requests.SequenceEqual(rom.Sounds),
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || !sounds.Requests.SequenceEqual(rom.Sounds),
                         context + ": ordered cues/shared RNG differ.");
                 });
             bool permitted = position == 0 || blue && color == 0x82;

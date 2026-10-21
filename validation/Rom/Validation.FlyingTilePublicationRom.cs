@@ -14,9 +14,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
-            save.SetGlobalFlag(GlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
-            InitializeTransientSession(save);LoadValidationRoom(4,0x5b);_entities.Clear();
+            InitializeCompletedIntroRoom(4, 0x5b);
             Vector2 target=start+(Vector2)direction*32;
             target=new(Math.Clamp(target.X,16,224),Math.Clamp(target.Y,16,160));
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(target);_player.BeginCutsceneControl();
@@ -27,9 +25,8 @@ public sealed partial class ValidationRoot
             _entities.RegisterEnemySlot(before,0);_entities.AddEntity(before);
             var data=EnemyDatabase.Shared;var actor=_entities.Spawn<FlyingTileCharacter>(
                 new FlyingTileSpawn(data.ImportedEnemy(0x52,0),start,true));
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;
-            var after=new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);});
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;
+            var after=new PartMovementScratchProbe(observedCapture.Capture);
             _entities.RegisterEnemySlot(after,15);_entities.AddEntity(after);
             var seed=_random.CaptureState();var native=new EnemyStatusRom(_currentRoom,_saveData,seed.Calls);
             native[0xff94]=seed.Rng1;native[0xff95]=seed.Rng2;
@@ -49,10 +46,10 @@ public sealed partial class ValidationRoot
                     NativeState()!=native[at+4]||precise!=new Vector2(native.Word(at+12)/256f,native.Word(at+10)/256f)||
                     actor.Counter!=native[at+6]||actor.Angle!=native[at+9]||actor.ZFixed!=unchecked((short)native.Word(at+14))||
                     actor.Visible!=((native[at+0x1a]&128)!=0)||actor.AnimationParameter!=native[at+0x21])||
-                    _currentRoom.GetMetatile(start)!=native[0xcf00+packed]||probes!=1||!observed.SequenceEqual(expected),
-                    $"Flying Tile/start{start}/direction{direction}/fraction{fractional}/update{updates}: original init/charge differs: state{NativeState()}/{native[at+4]}, XY{precise}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, scratch[{string.Join(',',observed)}]/[{string.Join(',',expected)}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
-                    $"Flying Tile/update{updates}: original common/debris RNG differs: calls{rng.Calls-seed.Calls}/{native.RandomCalls}.");probes=0;
+                    _currentRoom.GetMetatile(start)!=native[0xcf00+packed]||observedCapture.Samples!=1||!observedCapture.Bytes.SequenceEqual(expected),
+                    $"Flying Tile/start{start}/direction{direction}/fraction{fractional}/update{updates}: original init/charge differs: state{NativeState()}/{native[at+4]}, XY{precise}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',expected)}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
+                    $"Flying Tile/update{updates}: original common/debris RNG differs: calls{_random.CaptureState().Calls-seed.Calls}/{native.RandomCalls}.");observedCapture.Samples=0;
             });
             _dialogue.ShowMessage("Flying Tile common init hold.",104);native[0xcba0]=1;Step(3);_dialogue.Close();native[0xcba0]=0;
             Step(1);

@@ -58,9 +58,7 @@ public partial class ValidationRoot
                     _currentRoom.GetTerrainInfo(new(72,56)).Collision != rom[0xce34] ||
                     _currentRoom.GetUnderlyingMetatile(new(72,56)) != rom.Underlying(0x34) ||
                     !sounds.Requests.SequenceEqual(rom.Sounds),context+": pressure/trigger/height/Link/tile/cue differs.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                    random.Calls-seed.Calls != rom.RandomCalls,context+": shared RNG differs.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),context+": shared RNG differs.");
             });
             try
             {

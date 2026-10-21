@@ -56,9 +56,8 @@ public sealed partial class ValidationRoot
                 FailIf(_entities.InteractionSlot(chests.Single()) != (native[1]>>8)-0xd0 ||
                     rom[native[1]+1] != 0x21 || rom[native[1]+2] != 0x11 || chests.Single().Finished,
                     "The original no-blue chest must allocate after the filler and remain unsolved during preload.");
-            var random = _random.CaptureState();
-            FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls-seed.Calls != rom.RandomCalls || rom.Sounds.Any(),
-                $"Tile-filler parser$4:${room:x2}, free={free}: RNG=${random.Rng1:x2}:${random.Rng2:x2}/${rom[0xff94]:x2}:${rom[0xff95]:x2}, calls={random.Calls-seed.Calls}/{rom.RandomCalls}, cues=[{string.Join(',',rom.Sounds.Select(cue=>$"${cue:x2}"))}].");
+            FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || rom.Sounds.Any(),
+                $"Tile-filler parser$4:${room:x2}, free={free}: RNG=${_random.CaptureState().Rng1:x2}:${_random.CaptureState().Rng2:x2}/${rom[0xff94]:x2}:${rom[0xff95]:x2}, calls={_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}, cues=[{string.Join(',',rom.Sounds.Select(cue=>$"${cue:x2}"))}].");
             _entities.FinishScreenTransition();
             FailIf(_entities.Entities<TileFillerRoomEntity>().Count != fillers.Count ||
                 _entities.Entities<DungeonPuzzleChestRoomEntity>().Count != chests.Count,

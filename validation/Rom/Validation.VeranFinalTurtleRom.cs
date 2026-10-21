@@ -80,13 +80,12 @@ public sealed partial class ValidationRoot
                     if((packed&15)==15)continue;Vector2 point=new((packed&15)*16+8,(packed&0xf0)+8);
                     FailIf(_currentRoom.GetMetatile(point)!=rom[0xcf00+packed],$"Veran acid logical tile ${packed:x2} differs at update {update}: port=${_currentRoom.GetMetatile(point):x2}, ROM=${rom[0xcf00+packed]:x2}, collision={_currentRoom.GetTerrainInfo(point).Collision:x2}/{rom[0xce00+packed]:x2}; pools={string.Join(',',_entities.EntityAdapters<VeranAcidPoolRoomEntity>().Select(p=>$"{p.State}/{p.Counter}/{p.Packed:x2}"))}.");
                 }
-                var random=_random.CaptureState();
-                FailIf(random.Rng1!=rom[0xff94]||random.Rng2!=rom[0xff95]||random.Calls-seed.Calls!=rom.RandomCalls||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls)||
                     !sounds.Requests.SequenceEqual(rom.Sounds)||_entities.RoomEnemyCount!=rom[0xcdd1]||
                     _runtimeState.ReadWramByte(WramAddress.wDisabledObjects)!=rom[WramAddress.wDisabledObjects]||
                     _runtimeState.ReadWramByte(WramAddress.wMenuDisabled)!=rom[WramAddress.wMenuDisabled]||
                     _player.PrecisePosition!=new Vector2(rom.Word(0xd00c)/256f,rom.Word(0xd00a)/256f)||_player.HealthQuarters!=rom[0xc6aa],
-                    $"Final Veran shared state update {update}: RNG {random.Calls-seed.Calls}/{rom.RandomCalls}, count {_entities.RoomEnemyCount}/{rom[0xcdd1]}, SFX {string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
+                    $"Final Veran shared state update {update}: RNG {_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}, count {_entities.RoomEnemyCount}/{rom[0xcdd1]}, SFX {string.Join(',',sounds.Requests)}/{string.Join(',',rom.Sounds)}.");
                 if(generation!=rom.TextGeneration)
                 {FailIf(rom.Word(0xcba2)!=0x5a14||!_dialogue.IsOpen,"Final battle introduction must show source TX_5614.");generation=rom.TextGeneration;hold=3;}
                 if(hold>0&&--hold==0){_dialogue.Close();rom[0xcba0]=0;}

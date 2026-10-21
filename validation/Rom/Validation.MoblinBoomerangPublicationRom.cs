@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<int>(parent,"_counter")!=native[owner+6]||SomariaPrivate<int>(parent,"_angle")!=native[owner+9]||
                     parent.State==BoomerangMoblinCharacterMoblinState.WaitingForBoomerang&&SomariaPrivate<bool>(parent,"_boomerangReturned")!=(native.Word(owner+0x18)==0),
                     $"Moblin PART$21/scenario{scenario}/update{updates}: catch must publish to its owner for the next eligible ENEMY visit.");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls,
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls),
                     "Moblin boomerang catch/repeated owner route must retain original RNG order.");probes=enemyProbes=0;
             });
             if(scenario==0&&angle!=24)

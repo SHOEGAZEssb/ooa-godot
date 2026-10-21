@@ -63,9 +63,7 @@ public partial class ValidationRoot
                     _entities.SwitchHook!.ExchangeState != rom[0xccdd],
                     $"Minecart door queued={queued}, batch={batch}: runtime state={door.State}/finished={door.Finished}/counter={SomariaPrivate<int>(door,"_counter")}/queue={_rooms.PendingTileGraphics}/Hook={_entities.SwitchHook.ExchangeState}, " +
                     $"native slot=${slot:x4}/state={rom[slot+4]}/enabled={rom[slot]}/counter={rom[slot+6]}/queue={(rom[0xcce0]-rom[0xccdf])&31}/Hook={rom[0xccdd]}.");
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                    random.Calls-seed.Calls != rom.RandomCalls || !sounds.Requests.SequenceEqual(rom.Sounds),
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || !sounds.Requests.SequenceEqual(rom.Sounds),
                     "Minecart door eligibility/rejected publication must retain ordered cues and RNG.");
                 });
             }

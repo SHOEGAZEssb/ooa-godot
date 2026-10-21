@@ -95,8 +95,7 @@ public sealed partial class ValidationRoot
                         "Scrolling PART movement must publish native scratch in original slot order.");
                 }
                 Compare();
-                var random = _random.CaptureState();
-                FailIf(random.Rng1 != native[0xff94] || random.Rng2 != native[0xff95] || random.Calls - seed.Calls != native.RandomCalls - sourceCalls,
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls - sourceCalls),
                     "Scrolling PART dispatch must retain ordered shared RNG draws.");
             });
             Step(3);

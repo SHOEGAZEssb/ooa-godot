@@ -27,9 +27,8 @@ public sealed partial class ValidationRoot
             native.InitializeLinkGameplay();native[0xcd00]=0;native[0xcc08]=0x8e;
             const int at=0xd0c0;native[at]=1;native[at+1]=0x3c;native[at+2]=unchecked((byte)turnDelta);native[at+9]=(byte)angle;
             native.Word(at+10,(int)(start.Y*256));native.Word(at+12,(int)(start.X*256));
-            byte[] observed=new byte[4];int probes=0,updates=0,moves=0;var sounds=_sound.AttachPlayRequestAudit();
-            _entities.AddEntity(new PartMovementScratchProbe(()=>
-            {probes++;for(int i=0;i<4;i++)observed[i]=_runtimeState.ReadWramByte(0xcec0+i);}));
+            var observedCapture = new MovementScratchCapture(_runtimeState);int updates=0,moves=0;var sounds=_sound.AttachPlayRequestAudit();
+            _entities.AddEntity(new PartMovementScratchProbe(observedCapture.Capture));
             void Seed(){for(int i=0;i<4;i++){byte value=(byte)(0xa5+i);_runtimeState.SetWramByte(0xcec0+i,value);native[0xcec0+i]=value;}}
             void Step(int count)=>StepGameplayUpdates(count,Vector2.Zero,batched:batched,afterUpdate:()=>
             {
@@ -44,11 +43,11 @@ public sealed partial class ValidationRoot
                     SomariaPrivate<int>(actor,"_turnPeriod")!=native[at+7]||SomariaPrivate<int>(actor,"_alternateCounter")!=native[at+0x30]||
                     actor.Visible!=((native[at+0x1a]&128)!=0)||animation.CurrentParameter!=native[at+0x21]||
                     SomariaPrivate<int>(animation,"_frameCounter")!=native[at+0x20])||
-                    probes!=1||Enumerable.Range(0,4).Any(i=>observed[i]!=native[0xcec0+i]),
-                    $"Head circular$3c/angle${angle:x2}/turn{turnDelta}/start{origin}/fraction{fractional}/update{updates}: finished{actor.Finished}/{native[at]==0}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{actor.Angle}/{native[at+9]}, C1{SomariaPrivate<int>(actor,"_counter")}/{native[at+6]}, C2{SomariaPrivate<int>(actor,"_turnPeriod")}/{native[at+7]}, scratch[{string.Join(',',observed)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
-                var rng=_random.CaptureState();FailIf(rng.Rng1!=native[0xff94]||rng.Rng2!=native[0xff95]||rng.Calls-seed.Calls!=native.RandomCalls||!sounds.Requests.SequenceEqual(native.Sounds),
+                    observedCapture.Samples!=1||Enumerable.Range(0,4).Any(i=>observedCapture.Bytes[i]!=native[0xcec0+i]),
+                    $"Head circular$3c/angle${angle:x2}/turn{turnDelta}/start{origin}/fraction{fractional}/update{updates}: finished{actor.Finished}/{native[at]==0}, XY{actor.Position}/{native.Word(at+12)/256f},{native.Word(at+10)/256f}, angle{actor.Angle}/{native[at+9]}, C1{SomariaPrivate<int>(actor,"_counter")}/{native[at+6]}, C2{SomariaPrivate<int>(actor,"_turnPeriod")}/{native[at+7]}, scratch[{string.Join(',',observedCapture.Bytes)}]/[{string.Join(',',Enumerable.Range(0,4).Select(i=>native[0xcec0+i]))}].");
+                FailIf(RandomDiffers(seed, native[0xff94], native[0xff95], native.RandomCalls)||!sounds.Requests.SequenceEqual(native.Sounds),
                     "Circular source motion must preserve zero RNG and one admitted launch cue.");
-                probes=0;Seed();
+                observedCapture.Samples=0;Seed();
             });
             int hold=angle&3;
             if(hold==0){_dialogue.ShowMessage("Head circular state0.",104);native[0xcba0]=1;}
@@ -69,7 +68,7 @@ public sealed partial class ValidationRoot
             _runtimeState.SetWramByte(0xcc8a,8);native[0xcc8a]=8;Step(3);_runtimeState.SetWramByte(0xcc8a,0);native[0xcc8a]=0;
             _runtimeState.SetWramByte(0xcd00,8);native[0xcd00]=8;Step(3);_runtimeState.SetWramByte(0xcd00,0);native[0xcd00]=0;
             while(native[at]!=0&&updates<600)Step(1);
-            FailIf(!actor.Finished,"Circular native boundary probes must eventually complete the expanding flight.");
+            FailIf(!actor.Finished,"Circular native boundary observedCapture.Samples must eventually complete the expanding flight.");
             if(moves>8)flights++;
             Step(2);_entities.Clear();StepGameplayUpdates(2,Vector2.Zero);_entities.EnableLinkCollisionsAndMenu();_player.EndCutsceneControl();
             cases++;

@@ -50,8 +50,7 @@ public sealed partial class ValidationRoot
                     FailIf(rom[slot] == 0 || rom[slot + 1] != 0x19, context + ": Satchel must use the source-selected lower slot.");
                 }
                 CompareSomariaMotionRom(rom, context);
-                var rng = _random.CaptureState();
-                FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls ||
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) ||
                     !sounds.Requests.SequenceEqual(rom.Sounds), context + ": ordered cue/RNG differs.");
             }
             StepSomariaMotionRom(rom, 1, batched, 0xff, 3, 3, Compare);

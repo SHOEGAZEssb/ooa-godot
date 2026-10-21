@@ -18,8 +18,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.Feather, 1);
             _inventory.EquipA(primary ? TreasureId.Feather : 0); _inventory.EquipB(primary ? 0 : TreasureId.Feather);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16) _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+            FillValidationRoom(0x2c, width: 10, height: 8);
             _player.WarpTo(new(80, 64)); _player.Face(Vector2I.Right);
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 1, 80, 64) { HostilePartsEnabled = true };
@@ -47,8 +46,7 @@ public sealed partial class ValidationRoot
                             shot.Position != new Vector2(rom[0xd0cd], rom[0xd0cb])), context + ": PART lifetime/flight state differs.");
                     }
                     FailIf(!sounds.Requests.Where(id => id != SoundId.SndText).SequenceEqual(rom.Sounds), context + ": full cue order differs.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] || random.Calls - seed.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": shared RNG differs.");
                 });
             }

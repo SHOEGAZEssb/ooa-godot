@@ -13,9 +13,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(0, 0x33); _entities.Clear();
             // Bounded source-handler comparison: ordinary clear floor and
             // declared projectile births, with the real Satchel/ITEM phases.
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0xa0, 0, 0);
+            FillValidationRoom(0xa0, width: 10, height: 8);
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
             _inventory.GiveTreasure(TreasureId.ScentSeeds, 0x20);
             _inventory.SelectSatchelSeeds(1);
@@ -129,9 +127,7 @@ public sealed partial class ValidationRoot
             FailIf(!_inventory.SetRingBoxSlotFromList(0, (int)RingId.BlueHoly) || !_inventory.EquipRingAt(0),
                 "Fire collision comparison must equip Blue Holy Ring before contact.");
             _inventory.EquipA(0); _inventory.EquipB(0);
-            for (int y = 8; y < 128; y += 16)
-            for (int x = 8; x < 160; x += 16)
-                _currentRoom.SetPositionTileAndCollision(new(x, y), 0x2c, 0, 0);
+            FillValidationRoom(0x2c, width: 10, height: 8);
             _player.WarpTo(new(80, 64)); _player.Face(Vector2I.Right);
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 80, 64)
                 { HostilePartsEnabled = true };

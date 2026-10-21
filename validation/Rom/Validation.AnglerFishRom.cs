@@ -66,9 +66,8 @@ public sealed partial class ValidationRoot
                 foreach(var antenna in _entities.Entities<AnglerFishCharacter>().Where(actor=>actor.IsAntenna && actor.State==9))
                     ValidateAnglerAntennaPixels(antenna,checkedAntennaTextures);
                 states.Add(body.State);
-                var rng=_random.CaptureState();
-                FailIf(rng.Rng1!=rom[0xff94] || rng.Rng2!=rom[0xff95] || rng.Calls-seed.Calls!=rom.RandomCalls || _entities.RoomEnemyCount!=rom[0xcdd1],
-                    $"Angler update{update}: shared RNG/count differs {rng.Calls-seed.Calls}/{rom.RandomCalls}, {_entities.RoomEnemyCount}/{rom[0xcdd1]}.");
+                FailIf(RandomDiffers(seed, rom[0xff94], rom[0xff95], rom.RandomCalls) || _entities.RoomEnemyCount!=rom[0xcdd1],
+                    $"Angler update{update}: shared RNG/count differs {_random.CaptureState().Calls-seed.Calls}/{rom.RandomCalls}, {_entities.RoomEnemyCount}/{rom[0xcdd1]}.");
                 foreach(byte packed in new byte[]{0x80,0x90})FailIf(_currentRoom.GetPackedStorageMetatile(packed)!=rom[0xcf00+packed],
                     $"Angler update{update}: original entrance tile${packed:x2} differs: runtime=${_currentRoom.GetPackedStorageMetatile(packed):x2}, ROM=${rom[0xcf00+packed]:x2}.");
                 for(int row=0;row<10;row++)FailIf(_currentRoom.GetPackedStorageMetatile((byte)(row*16+13))!=rom[0xcf0d+row*16],

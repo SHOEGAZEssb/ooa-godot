@@ -53,9 +53,7 @@ public sealed partial class ValidationRoot
                     FailIf(sounds.Requests.Any(id => id is SoundId.SndDig or SoundId.SndClink) ||
                         rom.Sounds.Any(id => id is SoundId.SndDig or SoundId.SndClink),
                         context + ": rejected shovel emitted dig/clink sound.");
-                    var random = _random.CaptureState();
-                    FailIf(random.Rng1 != rom[0xff94] || random.Rng2 != rom[0xff95] ||
-                        random.Calls - initialRandom.Calls != rom.RandomCalls,
+                    FailIf(RandomDiffers(initialRandom, rom[0xff94], rom[0xff95], rom.RandomCalls),
                         context + ": rejected shovel changed shared RNG.");
                 });
             }
