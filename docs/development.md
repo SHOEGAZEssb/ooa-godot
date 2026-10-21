@@ -15,11 +15,11 @@
 Initialize the disassembly with `git submodule update --init --recursive`, or
 clone this repository with `--recurse-submodules`.
 
-The current environment uses:
+Run commands from the repository root. Paths below are relative to that root:
 
 ```text
-Repository:     E:\Stuff\Github\ooa-godot
-Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm
+Repository:     .
+Disassembly:    external/oracles-disasm
 ```
 
 Add the Godot executable's directory to `PATH`. The examples use the Windows
