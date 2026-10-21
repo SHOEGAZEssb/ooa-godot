@@ -26,8 +26,7 @@ matching helper name or implemented interface does not establish correct use.
 Local paths:
 
 ```text
-Repository:     E:\Stuff\Github\ooa-godot
-Disassembly:    E:\Stuff\Github\ooa-godot\external\oracles-disasm (pinned submodule)
+Disassembly:    .\external\oracles-disasm (pinned submodule)
 ```
 
 Add the Godot 4.7.1 .NET executable's directory to `PATH`. The examples use
