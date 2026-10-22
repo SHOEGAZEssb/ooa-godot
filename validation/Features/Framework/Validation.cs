@@ -1645,6 +1645,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateItemDropDrawPriority);
         RunIsolatedValidation(ValidateHiddenShopInteractions);
         RunIsolatedValidation(ValidateVasuShopInteractions);
+        RunIsolatedValidation(ValidateVasuHelpBooks);
         RunIsolatedValidation(ValidatePostD7Handoff);
         RunIsolatedValidation(ValidatePostD7HandoffRom, requiresRom: true);
         RunIsolatedValidation(ValidatePostD7StoneRom, requiresRom: true);

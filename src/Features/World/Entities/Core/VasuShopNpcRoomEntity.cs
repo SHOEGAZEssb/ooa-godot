@@ -28,6 +28,10 @@ internal sealed class VasuShopNpcRoomEntity
         _database = database;
         _vasu = npc.Record is { Id: InteractionId.Vasu, SubId: 0x00 };
         _snake = npc.Record.Id == InteractionId.Vasu && npc.Record.SubId != 0;
+        // vasu.s ends subid $00 with interactionPushLinkAwayAndUpdateDrawPriority.
+        // Snake subids and ringHelpBook.s use only the priority helper; their
+        // collision radii serve A-button selection, not Link blocking.
+        if (!_vasu) npc.SetBlocksLink(false);
         npc.SetDialogue(0, string.Empty, canFace: false, database.TextboxPosition);
         npc.SetScriptButtonSensitive(true);
         if (_vasu)
@@ -83,7 +87,7 @@ internal sealed class VasuShopNpcRoomEntity
         }
     }
 
-    public bool BlocksLink(Vector2 linkCenter) => Entity.BlocksLinkCenter(linkCenter);
+    public bool BlocksLink(Vector2 linkCenter) => _vasu && Entity.BlocksLinkCenter(linkCenter);
 
     public NpcCharacter? FindTalkTarget(Player player) =>
         Entity.CanScriptTalkTo(
