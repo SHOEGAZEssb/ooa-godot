@@ -204,7 +204,8 @@ public readonly record struct Warp(
     int DestinationTransition,
     bool SourceFallback = false,
     bool DirectFadeOut = false,
-    int SourceParameter = 0);
+    int SourceParameter = 0,
+    int NativeFadeDelay = 1);
 
 internal readonly record struct DiveWarp(
     int SourceGroup,

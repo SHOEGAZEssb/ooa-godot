@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 381 | Traced and covered by named NPC/event scenarios. |
+| **I** | 385 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 6 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 2 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -61,9 +61,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 89 | 0 | 89 |
-| Specialized native interaction | 164 | 72 | 236 |
+| Specialized native interaction | 168 | 72 | 240 |
 | Event-owned actor | 131 | 0 | 131 |
-| Deliberately unsupported | 6 | 0 | 6 |
+| Deliberately unsupported | 2 | 0 | 2 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -91,9 +91,9 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:3a` | [I] `$36:$13/v$00` nayru<br>[I] `$37:$11/v$00` ralph<br>[I] `$3c:$10/v$00` boy<br>[I] `$39:$07/v$01` monkey<br>[I] `$5d:$02/v$01` bear |
 | `0:45` | [I] `$3f:$01/v$00` boy2 |
 | `0:46` | [I] `$41:$02/v$00` miscMan<br>[I] `$41:$05/v$00` miscMan<br>[I] `$3d:$02/v$00` oldLady |
-| `0:48` | [I] `$3a:$03/v$00` villager<br>[D] `$54:$01/v$03` mamamuDog |
+| `0:48` | [I] `$3a:$03/v$00` villager<br>[I] `$54:$01/v$03` mamamuDog |
 | `0:50` | [I] `$83:$00/v$00` bombUpgradeFairy |
-| `0:55` | [D] `$54:$01/v$01` mamamuDog |
+| `0:55` | [I] `$54:$01/v$01` mamamuDog |
 | `0:56` | [I] `$3a:$04/v$00` villager<br>[I] `$65:$00/v$00` comedian |
 | `0:57` | [I] `$41:$01/v$00` miscMan |
 | `0:58` | [I] `$41:$04/v$00` miscMan |
@@ -117,8 +117,8 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:81` | [I] `$49:$0d/v$00` forestFairy |
 | `0:82` | [I] `$49:$05/v$00` forestFairy<br>[I] `$49:$08/v$00` forestFairy<br>[I] `$49:$09/v$00` forestFairy<br>[I] `$49:$0a/v$00` forestFairy<br>[I] `$49:$0e/v$00` forestFairy<br>[I] `$49:$0f/v$00` forestFairy<br>[I] `$49:$10/v$00` forestFairy |
 | `0:83` | [I] `$d5:$00/v$00` greatFairy |
-| `0:86` | [D] `$54:$01/v$00` mamamuDog |
-| `0:88` | [D] `$54:$01/v$02` mamamuDog |
+| `0:86` | [I] `$54:$01/v$00` mamamuDog |
+| `0:88` | [I] `$54:$01/v$02` mamamuDog |
 | `0:a0` | [I] `$cd:$00/v$00` masterDiver |
 | `0:a7` | [I] `$41:$06/v$00` miscMan |
 | `0:aa` | [I] `$48:$0f/v$00` tokay<br>[I] `$48:$10/v$00` tokay |

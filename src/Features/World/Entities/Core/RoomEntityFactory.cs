@@ -3806,6 +3806,14 @@ internal sealed class RoomEntityFactory
                 npc.SetActive(new NpcVisibilityRuleDatabase().ShouldShow(record, _saveData, _runtimeState));
             return new MamamuDogRoomEntity(npc, () => _random.Next().Value, owner.IsTextActive);
         }
+        if (record.Id == InteractionId.MamamuDog && record.SubId == 1)
+        {
+            if (_saveData is null)
+                throw new InvalidOperationException($"{NpcSource(record)} requires save data for roaming dog $54:$01.");
+            return new MamamuRoamingDogRoomEntity(npc,_saveData,_runtimeState,
+                () => _random.Next().Value,owner.OnRoomEntityDialogueRequested,
+                owner.OnSoundRequested,owner.OnRoomWarpRequested,owner.IsTextActive);
+        }
         if (record is { Id: InteractionId.OldManWithRupees, SubId: 0x01 })
             return new OldManRupeesRoomEntity(npc);
         if (Resources.StoneRabbit.Matches(record))

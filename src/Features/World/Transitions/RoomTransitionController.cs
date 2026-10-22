@@ -1013,7 +1013,9 @@ public sealed class RoomTransitionController
 
     public void ApplyWarp(Player player, Warp warp)
     {
-        BeginWarp(player, warp, false);
+        if (warp.NativeFadeDelay is not (1 or 4))
+            throw new InvalidOperationException($"Unsupported native warp fade delay {warp.NativeFadeDelay}.");
+        BeginWarp(player, warp, warp.NativeFadeDelay==4);
     }
 
     // setWarpDestVariables installs bytes only. A native cutscene may return

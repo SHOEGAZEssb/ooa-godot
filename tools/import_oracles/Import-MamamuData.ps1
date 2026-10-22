@@ -116,5 +116,15 @@ if (($counters -join ',') -ne '78,b4,f0,ff,b4,f0,ff,ff' -or
 $rows=[Collections.Generic.List[string]]::new(); $rows.Add("# key`tvalue")
 $rows.Add("counters`t$($counters -join ',')")
 foreach ($i in 0..3) { $rows.Add("animation-$i`t$(Resolve-NpcAnimation 0x54 $i)") }
+$roaming=[regex]::Match($native,'(?ms)^@map0:\s*(?<body>(?:\s*\.db[^\r\n]+\r?\n){7})')
+$positions=@([regex]::Matches($roaming.Groups['body'].Value,'\$([0-9a-f]{2})') | ForEach-Object { $_.Groups[1].Value })
+if ($positions.Count -ne 14 -or ($positions -join ',') -ne '68,68,48,48,68,18,68,48,48,28,68,58,48,00' -or
+    $native -notmatch '(?ms)^dog_subid01:.*?wPresentRoomFlags\+\$e7.*?wMamamuDogLocation.*?call dog_setTargetPositionIndex.*?call getRandomNumber\s+and \$03.*?cp \(hl\).*?ld \(hl\),a.*?^@state1:.*?call dog_moveTowardTargetPosition.*?call dog_checkCloseToTargetPosition.*?call c,dog_incTargetPositionIndex.*?call dog_moveTowardTargetPosition.*?call dog_updateDirection.*?call dog_checkCloseToTargetPosition.*?call c,dog_incTargetPositionIndex.*?mamamuDog_updateSpeedZ.*?objectAddToGrabbableObjectBuffer' -or
+    $native -notmatch 'm_HardcodedWarpA ROOM_AGES_2e7, \$00, \$25, \$83') {
+    throw 'mamamuDog.s:$54:$01 roaming path, RNG, waypoint list or warp changed.'
+}
+$rows.Add("roaming-map0`t$($positions -join ',')")
+if (!$allTexts.ContainsKey(0x007f)) { throw 'Missing roaming dog TX_007f.' }
+$rows.Add("roaming-text`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$allTexts[0x007f])))")
 Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\mamamu_dog.tsv'), $rows)
 }

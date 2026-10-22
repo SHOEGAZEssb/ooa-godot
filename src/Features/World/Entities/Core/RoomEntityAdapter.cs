@@ -39,7 +39,7 @@ internal abstract class NpcCharacterRoomEntityAdapter
             npc.ShowInitializedPresentation();
     }
 
-    public ScreenTransitionPresentation PrepareForScreenTransition(
+    public virtual ScreenTransitionPresentation PrepareForScreenTransition(
         ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.Record.Implementation != NpcImplementationClassification.EventOwned)

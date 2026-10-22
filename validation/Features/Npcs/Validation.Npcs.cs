@@ -566,9 +566,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 89,
-                [NpcImplementationClassification.SpecializedNative] = 236,
+                [NpcImplementationClassification.SpecializedNative] = 240,
                 [NpcImplementationClassification.EventOwned] = 131,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 6
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 2
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -581,7 +581,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "87 ordinary, 235 specialized, 130 event-owned, and 10 " +
+            "89 ordinary, 240 specialized, 131 event-owned, and 2 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -602,7 +602,7 @@ public sealed partial class ValidationRoot
         NpcRecord specialized = Find(0, 0x56, 0x65, 0x00, 0x00);
         NpcRecord eventOwned = Find(0, 0x39, 0x37, 0x0d, 0x00);
         NpcRecord libraryCarpenter = Find(5, 0xd0, 0x9a, 0x09, 0x00);
-        NpcRecord unsupported = Find(0, 0x48, 0x54, 0x01, 0x03);
+        NpcRecord unsupported = Find(5, 0xcf, 0x10, 0x00, 0x00);
         FailIf(
             ordinary.Implementation !=
                 NpcImplementationClassification.OrdinaryGeneric ||
@@ -662,9 +662,8 @@ public sealed partial class ValidationRoot
         LoadNpcValidationRoom();
         NpcCharacter? villager = _npcNodes.Find(npc => npc.Record.Id == 0x3a && npc.Record.SubId == 0x03);
         FailIf(
-            villager is null || _npcNodes.Count != 1,
-            "Room 0:48 did not retain its ordinary villager while " +
-            $"suppressing the unsupported dog (NPCs={_npcNodes.Count}).");
+            villager is null || _npcNodes.Count != 2,
+            $"Room 0:48 did not retain its villager and roaming dog (NPCs={_npcNodes.Count}).");
         ValidateNpcInteractionRouting(villager);
         FailIf(
             villager.TextId != 0x1420,
@@ -4316,13 +4315,13 @@ public sealed partial class ValidationRoot
             OracleRuntimeState.MamamuDogLocationAddress, 0x03);
         manager.LoadRoom(0, _world.LoadRoom(0, 0x48));
         FailIf(
-            manager.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x54),
-            "Room 0:48 instantiated its unsupported roaming-dog handler.");
+            manager.EntityAdapters<MamamuRoamingDogRoomEntity>().Count()!=1,
+            "Room 0:48 did not allocate roaming dog $54:$01 before state-zero visibility dispatch.");
 
         manager.LoadRoom(0, _world.LoadRoom(0, 0x55));
         FailIf(
-            manager.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x54),
-            "Room 0:55 instantiated its unsupported roaming-dog handler.");
+            manager.EntityAdapters<MamamuRoamingDogRoomEntity>().Count()!=1,
+            "Room 0:55 did not allocate roaming dog $54:$01 before state-zero visibility dispatch.");
         manager.RuntimeState.SetWramByte(
             OracleRuntimeState.MamamuDogLocationAddress, 0x00);
 
