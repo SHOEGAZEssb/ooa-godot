@@ -1415,6 +1415,7 @@ public partial class GameRoot : Node2D
             _ringMenuScreen, _dialogue, _menuLifecycle, _inventory, _saveData,
             _treasures, _roomEvents.Get<VasuShopEvent>().Database, _sound.PlaySound);
         _roomEvents.SetRingMenuOpener(_ringMenu.Open);
+        _roomEvents.Get<VasuShopEvent>().SetRingMenuCancellation(_ringMenu.CancelOwner);
         _secretEntry = new SecretEntryController(
             _scene.InterfaceLayer, _menuLifecycle, _saveData, _inventory, _sound.PlaySound);
         _roomEvents.SetSecretMenuOpener(_secretEntry.Open);

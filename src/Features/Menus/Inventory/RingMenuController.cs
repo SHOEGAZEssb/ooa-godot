@@ -550,6 +550,13 @@ internal sealed class RingMenuController : IOracleMenuLifecycleClient
         if (IsActive)
             _lifecycle.CloseImmediately(this);
     }
+
+    internal void CancelOwner()
+    {
+        if (!IsActive) return;
+        _completion = null;
+        _lifecycle.CloseImmediately(this);
+    }
 }
 
 internal enum AppraisalState

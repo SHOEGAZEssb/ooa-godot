@@ -1652,6 +1652,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateItemDropDrawPriority);
         RunIsolatedValidation(ValidateHiddenShopInteractions);
         RunIsolatedValidation(ValidateVasuShopInteractions);
+        RunIsolatedValidation(ValidateVasuComplete);
         RunIsolatedValidation(ValidateVasuRedSnakeRingSecret);
         RunIsolatedValidation(ValidateRoom196LinkedFemaleVillager);
         RunIsolatedValidation(ValidateRoom078LinkedOldLady);

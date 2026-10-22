@@ -22,6 +22,7 @@ internal sealed class VasuShopEvent : IRoomEvent
     private int _counter;
     private int _pendingRing = -1;
     private Func<RingMenuMode, Action, bool>? _openRingMenu;
+    private Action? _cancelRingMenu;
     private Func<Action<bool>, bool>? _openRingSecretMenu;
     private (string First, string Second) _ringSecret;
     private bool _ringSecretValid;
@@ -39,6 +40,9 @@ internal sealed class VasuShopEvent : IRoomEvent
         ArgumentNullException.ThrowIfNull(opener);
         _openRingMenu = opener;
     }
+
+    internal void SetRingMenuCancellation(Action cancel) =>
+        _cancelRingMenu = cancel ?? throw new ArgumentNullException(nameof(cancel));
 
     internal void SetRingSecretMenuOpener(Func<Action<bool>, bool> opener) =>
         _openRingSecretMenu = opener ?? throw new ArgumentNullException(nameof(opener));
@@ -404,6 +408,10 @@ internal sealed class VasuShopEvent : IRoomEvent
 
     public void Cancel()
     {
+        if (_stage is EventStage.VasuFirstAppraisalMenu or EventStage.VasuFirstListMenu or
+            EventStage.VasuNormalMenuActive)
+            (_cancelRingMenu ?? throw new InvalidOperationException(
+                "Vasu $89:$00 ring menu has no cancellation owner."))();
         RemoveReward();
         if (_npc is not null)
         {
