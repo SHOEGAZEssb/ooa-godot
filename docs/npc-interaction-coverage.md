@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 354 | Traced and covered by named NPC/event scenarios. |
-| **P** | 19 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 355 | Traced and covered by named NPC/event scenarios. |
+| **P** | 18 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -154,7 +154,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:73` | [I] `$40:$00/v$01` soldier |
 | `1:74` | [I] `$45:$00/v$00` pastOldLady |
 | `1:75` | [I] `$37:$0a/v$00` ralph<br>[I] `$31:$04/v$00` impaInCutscene<br>[I] `$31:$05/v$00` impaInCutscene<br>[I] `$36:$0a/v$00` nayru<br>[I] `$ad:$04/v$00` zelda<br>[I] `$58:$01/v$00` hardhatWorker<br>[I] `$58:$01/v$01` hardhatWorker |
-| `1:77` | [P] `$45:$01/v$00` pastOldLady |
+| `1:77` | [I] `$45:$01/v$00` pastOldLady |
 | `1:79` | [I] `$37:$10/v$00` ralph |
 | `1:81` | [I] `$ce:$03/v$00` businessScrub |
 | `1:82` | [I] `$44:$00/v$00` miscMan2<br>[I] `$3f:$00/v$00` boy2 |
