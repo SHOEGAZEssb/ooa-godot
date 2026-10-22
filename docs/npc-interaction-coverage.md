@@ -51,19 +51,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 370 | Traced and covered by named NPC/event scenarios. |
+| **I** | 371 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 16 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 81 | 0 | 81 |
+| Ordinary NPC adapter | 82 | 0 | 82 |
 | Specialized native interaction | 162 | 72 | 234 |
 | Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 17 | 0 | 17 |
+| Deliberately unsupported | 16 | 0 | 16 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -165,7 +165,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:92` | [I] `$43:$00/v$00` pastGuy |
 | `1:93` | [I] `$42:$00/v$00` mustacheMan<br>[I] `$40:$01/v$01` soldier |
 | `1:94` | [I] `$43:$00/v$01` pastGuy |
-| `1:96` | [D] `$3b:$06/v$00` femaleVillager |
+| `1:96` | [I] `$3b:$06/v$00` femaleVillager |
 | `1:97` | [I] `$37:$03/v$00` ralph |
 | `1:aa` | [I] `$48:$00/v$00` tokay<br>[I] `$48:$01/v$00` tokay<br>[I] `$48:$02/v$00` tokay<br>[I] `$48:$03/v$00` tokay<br>[I] `$48:$04/v$00` tokay<br>[I] `$48:$1f/v$00` tokay |
 | `1:ac` | [I] `$48:$11/v$00` tokay |

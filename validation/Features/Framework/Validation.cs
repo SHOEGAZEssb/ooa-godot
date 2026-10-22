@@ -1646,6 +1646,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateHiddenShopInteractions);
         RunIsolatedValidation(ValidateVasuShopInteractions);
         RunIsolatedValidation(ValidateVasuRedSnakeRingSecret);
+        RunIsolatedValidation(ValidateRoom196LinkedFemaleVillager);
         RunIsolatedValidation(ValidateVasuHelpBooks);
         RunIsolatedValidation(ValidatePostD7Handoff);
         RunIsolatedValidation(ValidatePostD7HandoffRom, requiresRom: true);

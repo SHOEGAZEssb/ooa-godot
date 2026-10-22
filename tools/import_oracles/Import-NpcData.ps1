@@ -235,6 +235,7 @@ if ($subrosianSource -notmatch '(?ms)^subrosian_subid03:.*?call checkInteraction
     throw 'Room 3:5e INTERAC_SUBROSIAN $4e:$03 linked-secret initialization or spawn gate changed.'
 }
 $npcTextBySubid["$([int]0x4e):3"] = 0x4d0a
+$npcTextBySubid["$([int]0x3b):6"] = 0x4d19
 
 # Parse the interaction graphics table, including pointer-backed subid data.
 $interactionDataPath = Join-Path $Disassembly "data\ages\interactionData.s"
@@ -741,6 +742,7 @@ $npcCanFaceBySubid = @{
     '49:4' = $true
     '49:5' = $true
     '88:1' = $true
+    '59:6' = $true # femaleVillager.s:@runSubid06: npcFaceLinkAndAnimate.
 }
 
 # femaleVillager.s:$08 selects TX_0f03 in assembly, then uses the complete
@@ -1150,6 +1152,7 @@ function Resolve-NpcImplementation(
     if (($id -eq 0x30 -and $subid -eq 1) -or ($id -eq 0x8b -and $subid -eq 2)) { return 'event-owned' }
     if ($id -eq 0xcc -and $subid -eq 0) { return 'event-owned' }
     if ($id -eq 0x3d -and $subid -eq 5) { return 'ordinary-generic' }
+    if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
     if ($id -eq 0xe3 -and $subid -lt 10) { return 'specialized-native' }
@@ -5300,10 +5303,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 81 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 82 -or
     $npcImplementationCounts['specialized-native'] -ne 162 -or
     $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 17 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 16 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5563,8 +5566,7 @@ Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
     $npcDialogueRows)
 
-# INTERAC_LINKED_GAME_GHINI `$cb and INTERAC_GREAT_FAIRY `$d5:$00 both
-# install linkedGameNpcScript. Export each complete five-text choice loop and
+# Ages linked-secret givers install linkedGameNpcScript. Export each complete five-text choice loop and
 # progression constants; the runtime substitutes the generated five-character
 # secret for the text engine's \secret1 command.
 $linkedGhiniSource = Read-ImportText (
@@ -5573,7 +5575,11 @@ $greatFairySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\greatFairy.s')
 $linkedNpcScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
+$linkedFemaleVillagerSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
 if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFlags\s+ld \(hl\),\$02.*?Interaction\.var3f\s+ld \(hl\),GRAVEYARD_SECRET & \$0f.*?mainScripts\.linkedGameNpcScript' -or
+    $linkedFemaleVillagerSource -notmatch '(?ms)^@initSubid06:\s+ld a,\$05\s+ld e,Interaction\.var3f\s+ld \(de\),a\s+ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript' -or
+    $linkedFemaleVillagerSource -notmatch '(?ms)^@runSubid06:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp npcFaceLinkAndAnimate' -or
     $linkedGhiniSource -notmatch '(?ms)^@initialize:.*?interactionInitGraphics.*?objectMarkSolidPosition.*?interactionIncState' -or
     $greatFairySource -notmatch '(?ms)^greatFairy_subid0:.*?greatFairy_initialize.*?interactionSetAlwaysUpdateBit.*?Interaction\.zh\s+ld \(hl\),\$f0.*?Interaction\.var3f\s+ld \(hl\),TEMPLE_SECRET & \$0f' -or
     $greatFairySource -notmatch '(?ms)^@state1:.*?returnIfScrollMode01Unset.*?interactionRunScript.*?Interaction\.var3e.*?interactionAnimateAsNpc.*?wFrameCounter.*?and \$07.*?and \$38.*?@zPositions:\s+\.db \$ff \$fe \$ff \$00 \$01 \$02 \$01 \$00' -or
@@ -5587,6 +5593,16 @@ if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFla
     $musicIdSource -notmatch '(?m)^\s*SND_KILLENEMY\s+db\s+; \$73' -or
     $musicIdSource -notmatch '(?m)^\s*SND_POOF\s+db\s+; \$98') {
     throw 'Linked-game Ghini or room 0:83 Great Fairy behavior changed in the disassembly.'
+}
+$linkedNpcExtraMatch = [regex]::Match($linkedNpcScriptHelperSource,
+    '(?ms)^linkedNpc_checkHasExtraTextBox:.*?^@data:\s+\.db (?<values>[^\r\n]+)')
+$linkedNpcExtraFlags = @([regex]::Matches($linkedNpcExtraMatch.Groups['values'].Value,
+    '\$(?<value>[0-9a-f]{2})') | ForEach-Object {
+        [Convert]::ToInt32($_.Groups['value'].Value, 16)
+    })
+if (-not $linkedNpcExtraMatch.Success -or $linkedNpcExtraFlags.Count -ne 10 -or
+    @($linkedNpcExtraFlags | Where-Object { $_ -notin @(0, 1) }).Count -ne 0) {
+    throw 'scriptHelper.s:linkedNpc_checkHasExtraTextBox has incomplete extra-text flags.'
 }
 
 # linkedNpc_generateSecret indexes the active non-Japanese XOR and display
@@ -5689,6 +5705,11 @@ foreach ($linkedNpc in @(
         Group = 0x03; Room = 0xf8; Id = 0x3d; SubId = 0x05
         SecretIndex = 0x09; BeganFlag = 'GLOBALFLAG_BEGAN_RUUL_SECRET'
         Source = 'oldLady.s:@initSubid5;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
+    },
+    @{
+        Group = 0x01; Room = 0x96; Id = 0x3b; SubId = 0x06
+        SecretIndex = 0x05; BeganFlag = 'GLOBALFLAG_BEGAN_PIRATE_SECRET'
+        Source = 'femaleVillager.s:@initSubid06;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
     }
 )) {
     $textIds = 0..4 | ForEach-Object {
@@ -5710,7 +5731,7 @@ foreach ($linkedNpc in @(
         ([int]$linkedNpc.SecretIndex).ToString('x2'),
         (0x20 + [int]$linkedNpc.SecretIndex).ToString('x2'),
         $globalFlagValues[$linkedNpc.BeganFlag].ToString('x2'),
-        $(if ($linkedNpc.SecretIndex -eq 8) { '0' } else { '1' })
+        [string]$linkedNpcExtraFlags[[int]$linkedNpc.SecretIndex]
     ) + @($textIds | ForEach-Object { $_.ToString('x4') }) +
         @($textIds | ForEach-Object {
             [Convert]::ToBase64String(
@@ -6681,6 +6702,7 @@ Add-NpcEssenceVisibility 0x3d 0x05 -1 0 0x02 $true 'scriptHelper.s:@checkd2_2' '
 Add-NpcLinkedVisibility 0xcb 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcLinkedVisibility 0x66 0x0f -1 0 $true 'goron.s:goronSubid0f;scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcLinkedVisibility 0x4e 0x03 -1 0 $true 'subrosian.s:subrosian_subid03;scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcLinkedVisibility 0x3b 0x06 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcEssenceVisibility 0xcb 0x00 -1 0 0x01 $true 'scriptHelper.s:@checkd1' '@checkd1'
 
 # Room 0:83's Great Fairy is secret index `$06: linked files only, after D2.
@@ -6869,8 +6891,8 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 foreach ($subid in @(6,7,8,9)) {
     Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
 }
-if ($npcVisibilityRows.Count -ne 391) {
-    throw "Expected 390 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 392) {
+    throw "Expected 391 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

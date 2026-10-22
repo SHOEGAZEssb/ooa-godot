@@ -97,7 +97,7 @@ public sealed partial class LinkedGameNpcDatabase
             }
         }
 
-        if (_records.Count != 5 ||
+        if (_records.Count != 6 ||
             Get(3, 0x5e, InteractionId.Subrosian, 0x03) is not
                 {
                     SecretIndex: 0x02,
@@ -127,7 +127,10 @@ public sealed partial class LinkedGameNpcDatabase
                     FinalTextId: 0x4d22,
                     HasExtraText: true
                 } || Get(2,0xf6,InteractionId.Goron,0x0f) is not {SecretIndex:8,ShortSecretIndex:0x28,BeganFlag:0x58,
-                    OfferTextId:0x4d28,FinalTextId:0x4d2c,HasExtraText:false})
+                    OfferTextId:0x4d28,FinalTextId:0x4d2c,HasExtraText:false} ||
+            Get(1,0x96,InteractionId.FemaleVillager,0x06) is not
+                {SecretIndex:0x05,ShortSecretIndex:0x25,BeganFlag:0x55,
+                    OfferTextId:0x4d19,FinalTextId:0x4d1d,HasExtraText:false})
         {
             throw new InvalidOperationException(
                 "Linked-game NPC source records are incomplete.");
