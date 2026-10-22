@@ -464,7 +464,10 @@ public sealed partial class ValidationRoot
             ["objects/tokay_interaction_texts.tsv|\\secret1"] = 1,
             ["cutscenes/wild_tokay_present_commands.tsv|\\secret1"] = 1,
             ["objects/troy_house.tsv|\\call(0xff)"] = 16,
-            ["objects/vasu_shop_texts.tsv|\\call(0xfd)"] = 1
+            ["objects/vasu_shop_texts.tsv|\\call(0xfd)"] = 1,
+            // Red Snake substitutes both generated ring-secret lines in TX_301d.
+            ["objects/vasu_shop_texts.tsv|\\secret1"] = 1,
+            ["objects/vasu_shop_texts.tsv|\\secret2"] = 1
         };
         var actualUnresolved = new Dictionary<string, int>(StringComparer.Ordinal);
         var strictUtf8 = new System.Text.UTF8Encoding(false, true);

@@ -53,15 +53,28 @@ public partial class MainMenuScreen : Node2D
     private bool _actorFrame;
     private string _notice = "";
     private readonly char[] _enteredName = new char[5];
+    private readonly char[] _enteredSecret = new char[20];
+    private int _secretLength = 5;
     private int _nameEntryPosition;
     private int _nameLowerChoice;
     private SecretEntryDatabase? _secretData;
     private Texture2D? _secretEntryMenu;
     private bool _secretError;
     internal bool EnteringSecret => CurrentPage == Page.SecretEntry;
-    internal byte[] EnteredSecret => Array.ConvertAll(_enteredName,
-        character => character is ' ' or '\0' ? (byte)0xff :
-            (byte)Array.IndexOf(_secretData!.Glyphs, (byte)character));
+    internal byte[] EnteredSecret
+    {
+        get
+        {
+            byte[] result = new byte[_secretLength];
+            for (int index = 0; index < result.Length; index++)
+            {
+                char character = _enteredSecret[index];
+                result[index] = character is ' ' or '\0' ? (byte)0xff :
+                    (byte)Array.IndexOf(_secretData!.Glyphs, (byte)character);
+            }
+            return result;
+        }
+    }
 
     public Page CurrentPage { get; private set; }
     public int Cursor { get; private set; }
@@ -225,9 +238,12 @@ public partial class MainMenuScreen : Node2D
         NameCursor = 0;
         QueueRedraw();
     }
-    internal void ShowSecretEntry()
+    internal void ShowSecretEntry(int length = 5)
     {
+        if (length is not (5 or 15 or 20)) throw new ArgumentOutOfRangeException(nameof(length));
         ShowNameEntry(0, string.Empty);
+        Array.Clear(_enteredSecret);
+        _secretLength = length;
         _secretData ??= new SecretEntryDatabase();
         CurrentPage = Page.SecretEntry;
         ShowSecretError(false);
@@ -279,14 +295,16 @@ public partial class MainMenuScreen : Node2D
 
     public void AppendNameCharacter(char character)
     {
-        _enteredName[_nameEntryPosition] = character;
-        _nameEntryPosition = Math.Min(4, _nameEntryPosition + 1);
+        char[] buffer = EnteringSecret ? _enteredSecret : _enteredName;
+        int length = EnteringSecret ? _secretLength : buffer.Length;
+        buffer[_nameEntryPosition] = character;
+        _nameEntryPosition = Math.Min(length - 1, _nameEntryPosition + 1);
         QueueRedraw();
     }
 
     public void DeleteNameCharacter()
     {
-        _enteredName[_nameEntryPosition] = ' ';
+        (EnteringSecret ? _enteredSecret : _enteredName)[_nameEntryPosition] = ' ';
         _nameEntryPosition = Math.Max(0, _nameEntryPosition - 1);
         QueueRedraw();
     }
@@ -329,7 +347,8 @@ public partial class MainMenuScreen : Node2D
 
     public void MoveNameEntryPosition(int delta)
     {
-        _nameEntryPosition = Math.Clamp(_nameEntryPosition + delta, 0, 4);
+        _nameEntryPosition = Math.Clamp(_nameEntryPosition + delta, 0,
+            EnteringSecret ? _secretLength - 1 : 4);
         QueueRedraw();
     }
 
@@ -514,7 +533,16 @@ public partial class MainMenuScreen : Node2D
 
     private void DrawNameEntry()
     {
-        DrawText(RawEnteredName.Replace('\0', ' '), EnteringSecret ? new Vector2(48, 0) : new Vector2(80, 8), _nameEntryFont);
+        if (EnteringSecret)
+        {
+            for (int index = 0; index < _secretLength; index += 5)
+            {
+                int group = index / 5;
+                DrawText(new string(_enteredSecret, index, 5).Replace('\0', ' '),
+                    new Vector2(group % 2 == 0 ? 48 : 96, group / 2 * 16), _nameEntryFont);
+            }
+        }
+        else DrawText(RawEnteredName.Replace('\0', ' '), new Vector2(80, 8), _nameEntryFont);
         if (_secretError && EnteringSecret) return;
 
         if (NameCursor < 0x50)
@@ -557,7 +585,10 @@ public partial class MainMenuScreen : Node2D
 
         DrawFileOamPart(
             MenuPresentationDatabase.Shared.FileOam(EnteringSecret ? "secret-entry-cursor" : "name-entry-cursor")[0],
-            new Vector2(_nameEntryPosition * 8, 0));
+            EnteringSecret
+                ? new Vector2((_nameEntryPosition % 10 + (_nameEntryPosition % 10 >= 5 ? 1 : 0)) * 8,
+                    _nameEntryPosition >= 10 ? 16 : 0)
+                : new Vector2(_nameEntryPosition * 8, 0));
     }
 
     private void DrawTextSpeed()

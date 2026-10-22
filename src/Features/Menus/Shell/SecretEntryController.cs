@@ -6,12 +6,13 @@ namespace oracleofages;
 /// <summary>MENU_SECRET input and validation; the shared lifecycle owns fades and pause.</summary>
 internal sealed class SecretEntryController(
     Node interfaceLayer, OracleMenuLifecycle lifecycle,
-    OracleSaveData save, Action<int> playSound) : IOracleMenuLifecycleClient
+    OracleSaveData save, InventoryState inventory, Action<int> playSound) : IOracleMenuLifecycleClient
 {
     private readonly LinkedGameNpcDatabase _secrets = new();
     private MainMenuScreen? _screen;
     private Action<bool>? _completion;
     private int _expectedIndex;
+    private bool _ringMode;
     private bool _result;
     private bool _error;
     private int _errorDelay;
@@ -27,8 +28,17 @@ internal sealed class SecretEntryController(
     internal bool Open(int expectedIndex, Action<bool> completion)
     {
         if ((uint)expectedIndex >= 64) throw new ArgumentOutOfRangeException(nameof(expectedIndex));
+        return Begin(expectedIndex, ringMode: false, completion);
+    }
+
+    internal bool OpenRingSecret(Action<bool> completion) =>
+        Begin(-1, ringMode: true, completion);
+
+    private bool Begin(int expectedIndex, bool ringMode, Action<bool> completion)
+    {
         if (!lifecycle.TryBeginOpening(this)) return false;
         _expectedIndex = expectedIndex;
+        _ringMode = ringMode;
         _completion = completion;
         _result = false;
         _error = false;
@@ -104,7 +114,11 @@ internal sealed class SecretEntryController(
     internal void Submit(ReadOnlySpan<byte> symbols)
     {
         if (!lifecycle.IsOpenFor(this)) throw new InvalidOperationException("Secret input is not open.");
-        if (!_secrets.ValidateSecret(symbols, _expectedIndex, save))
+        byte[] rings = [];
+        bool valid = _ringMode
+            ? _secrets.TryDecodeRingSecret(symbols, save, out rings)
+            : _secrets.ValidateSecret(symbols, _expectedIndex, save);
+        if (!valid)
         {
             _error = true;
             _errorDelay = 0x10;
@@ -112,6 +126,7 @@ internal sealed class SecretEntryController(
             playSound(SoundId.SndError);
             return;
         }
+        if (_ringMode) inventory.MergeRingSecret(rings);
         _result = true;
         playSound(SoundId.SndSolvePuzzle);
         lifecycle.BeginClosing(this);
@@ -121,7 +136,7 @@ internal sealed class SecretEntryController(
     {
         _screen = new MainMenuScreen { Name = "SecretEntry", ZIndex = ScreenDrawPriority.NameEntryZIndex };
         interfaceLayer.AddChild(_screen);
-        _screen.ShowSecretEntry();
+        _screen.ShowSecretEntry(_ringMode ? 15 : 5);
     }
 
     public void CloseAtWhite()

@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 369 | Traced and covered by named NPC/event scenarios. |
-| **P** | 4 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 370 | Traced and covered by named NPC/event scenarios. |
+| **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -201,7 +201,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `2:e8` | [I] `$51:$00/v$00` dumbellMan |
 | `2:e9` | [I] `$30:$00/v$00` shootingGallery |
 | `2:ed` | [I] `$66:$00/v$00` goron |
-| `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[P] `$89:$06/v$00` vasu<br>[I] `$e5:$00/v$00` ringHelpBook<br>[I] `$e5:$01/v$00` ringHelpBook |
+| `2:ee` | [P] `$89:$00/v$00` vasu<br>[P] `$89:$01/v$00` vasu<br>[I] `$89:$06/v$00` vasu<br>[I] `$e5:$00/v$00` ringHelpBook<br>[I] `$e5:$01/v$00` ringHelpBook |
 | `2:ef` | [I] `$66:$00/v$00` goron |
 | `2:f3` | [I] `$3c:$07/v$00` boy |
 | `2:f5` | [I] `$5a:$00/v$00` oldZora |

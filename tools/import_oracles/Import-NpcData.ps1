@@ -3957,8 +3957,8 @@ $vasuShopTextIds = @(
     0x3000, 0x3002, 0x3003, 0x3004, 0x3005, 0x3006, 0x3007, 0x3008,
     0x3009, 0x300a, 0x300b, 0x300c,
     0x300e, 0x300f, 0x3010, 0x3014, 0x3015, 0x3016, 0x3018,
-    0x3011, 0x3012, 0x3013, 0x3017, 0x3019, 0x301a, 0x301c,
-    0x301f, 0x3020, 0x3024, 0x3025, 0x3026,
+    0x3011, 0x3012, 0x3013, 0x3017, 0x3019, 0x301a, 0x301c, 0x301d, 0x301e,
+    0x301f, 0x3020, 0x3024, 0x3025, 0x3026, 0x3027,
     0x3028, 0x302e, 0x3033, 0x3036, 0x3037, 0x3039, 0x303a, 0x303b,
     0x3038, 0x303c, 0x303d, 0x303e, 0x303f
 )
@@ -5751,6 +5751,26 @@ foreach($spec in @(@('header','@header',4),@('body','@entry1',17))) {
     }
 }
 Write-GeneratedTable((Join-Path $destination 'objects/linked_secret_transfer_fields.tsv'),$secretRows)
+$ringStart=@($secretLabels|Where-Object Name -eq '@entry2')
+if($ringStart.Count -ne 1){throw 'bank3.s:secretDataToEncodeTable: missing ring-secret @entry2.'}
+$ringEnd=@($secretLabels|Where-Object {$_.Line -gt $ringStart[0].Line}|Sort-Object Line)[0].Line
+$ringNodes=@($secretNodes|Where-Object {$_.Line -gt $ringStart[0].Line -and $_.Line -lt $ringEnd})
+if($ringNodes.Count -ne 10 -or (Convert-AssemblyInteger $ringNodes[0].Operands[0]) -ne 9){
+    throw 'bank3.s:secretDataToEncodeTable@entry2: expected nine ring-secret fields.'
+}
+$ringRows=[Collections.Generic.List[string]]::new();$ringRows.Add("# index`taddress`tbits`tsource")
+for($index=0;$index -lt 9;$index++) {
+    $node=$ringNodes[$index+1]
+    if($node.Operands.Count -ne 2 -or $node.Operands[0] -notmatch '^<(?<symbol>\w+)(?:\+(?<offset>\d+))?$'){
+        throw "bank3.s:secretDataToEncodeTable@entry2: unsupported field '$($node.OperandText)'."
+    }
+    $symbol=$Matches['symbol'];$offset=if($Matches['offset']){[int]$Matches['offset']}else{0}
+    $match=[regex]::Match($secretWram,'(?m)^'+[regex]::Escape($symbol)+':\s*;\s*\$(?<address>c6[0-9a-f]{2})\b')
+    if(-not $match.Success){throw "include/wram.s: cannot resolve ring-secret field $symbol."}
+    $address=[Convert]::ToInt32($match.Groups['address'].Value,16)+$offset
+    $ringRows.Add("$index`t$($address.ToString('x4'))`t$(Convert-AssemblyInteger $node.Operands[1])`tcode/bank3.s:secretDataToEncodeTable@entry2 / include/wram.s:$symbol")
+}
+Write-GeneratedTable((Join-Path $destination 'objects/linked_secret_ring_fields.tsv'),$ringRows)
 $secretSpacing=@(Read-AssemblyDataDirectives $secretPath '' '.db'|Where-Object {
     $_.EnclosingGlobalLabel -eq 'convertSecretBufferToText' -and $_.OperandText -match '^\$25\s+\$05\s+\$25\s+\$05\s+\$00$'})
 if($secretSpacing.Count -ne 1){throw 'bank3.s:convertSecretBufferToText: missing game-transfer spacing stream.'}
@@ -5759,6 +5779,14 @@ for($index=0;$index -lt $secretSpacing[0].Operands.Count;$index++) {
     $secretRows.Add("$index`t$((Convert-AssemblyInteger $secretSpacing[0].Operands[$index]).ToString('x2'))`tcode/bank3.s:convertSecretBufferToText@entry1")
 }
 Write-GeneratedTable((Join-Path $destination 'objects/linked_secret_transfer_spacing.tsv'),$secretRows)
+$ringSpacing=@(Read-AssemblyDataDirectives $secretPath '' '.db'|Where-Object {
+    $_.EnclosingGlobalLabel -eq 'convertSecretBufferToText' -and $_.OperandText -match '^\$25\s+\$05\s+\$25\s+\$00$'})
+if($ringSpacing.Count -ne 1){throw 'bank3.s:convertSecretBufferToText: missing ring-secret spacing stream.'}
+$secretRows=[Collections.Generic.List[string]]::new();$secretRows.Add("# index`tvalue`tsource")
+for($index=0;$index -lt $ringSpacing[0].Operands.Count;$index++) {
+    $secretRows.Add("$index`t$((Convert-AssemblyInteger $ringSpacing[0].Operands[$index]).ToString('x2'))`tcode/bank3.s:convertSecretBufferToText@entry2")
+}
+Write-GeneratedTable((Join-Path $destination 'objects/linked_secret_ring_spacing.tsv'),$secretRows)
 
 # State-selected position overrides remain separate from visibility and text.
 # INTERAC_MISC_MAN_2 $44:$04 moves only in getGameProgress_2 state $06;

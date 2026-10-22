@@ -1416,8 +1416,9 @@ public partial class GameRoot : Node2D
             _treasures, _roomEvents.Get<VasuShopEvent>().Database, _sound.PlaySound);
         _roomEvents.SetRingMenuOpener(_ringMenu.Open);
         _secretEntry = new SecretEntryController(
-            _scene.InterfaceLayer, _menuLifecycle, _saveData, _sound.PlaySound);
+            _scene.InterfaceLayer, _menuLifecycle, _saveData, _inventory, _sound.PlaySound);
         _roomEvents.SetSecretMenuOpener(_secretEntry.Open);
+        _roomEvents.Get<VasuShopEvent>().SetRingSecretMenuOpener(_secretEntry.OpenRingSecret);
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _gameplayPause,
             () => !IsTransitioning && !DialogueOpen && !MapMenuOpen &&

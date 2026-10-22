@@ -187,6 +187,15 @@ public sealed class InventoryState
         ring is >= 0 and < 0x40 &&
         (_ringsObtained[ring >> 3] & (1 << (ring & 7))) != 0;
 
+    internal void MergeRingSecret(ReadOnlySpan<byte> rings)
+    {
+        if (rings.Length != RingsObtainedByteCount)
+            throw new ArgumentException("A ring secret must contain all eight $c616-$c61d bytes.", nameof(rings));
+        for (int index = 0; index < rings.Length; index++)
+            _ringsObtained[index] |= rings[index];
+        NotifyChanged();
+    }
+
     internal void GrantAppraisedRingForDebug(int ring)
     {
         if (ring is < 0 or >= 0x40)

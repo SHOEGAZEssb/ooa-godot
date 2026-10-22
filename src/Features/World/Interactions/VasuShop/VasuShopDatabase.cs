@@ -134,7 +134,7 @@ internal sealed class VasuShopDatabase
 
     private void Validate()
     {
-        if (_constants.Count != 35 || _texts.Count != 44 || _animations.Count != 11 ||
+        if (_constants.Count != 35 || _texts.Count != 47 || _animations.Count != 11 ||
             Group != 2 || Room != 0xee || TextboxPosition != 2 ||
             SnakeProximityRadius != 0x18 || RedSnakeWait != 30 ||
             BlueSnakeCableTimeout != 0x200 || VasuRadiusY != 0x12 ||
@@ -154,7 +154,9 @@ internal sealed class VasuShopDatabase
             !_texts[0x3000].Contains("Understood?", StringComparison.Ordinal) ||
             _texts[0x3000].Contains("\\jump", StringComparison.Ordinal) ||
             _texts[0x3036].Contains("\\call", StringComparison.Ordinal) ||
-            _texts[0x300b].Contains("\\jump", StringComparison.Ordinal))
+            _texts[0x300b].Contains("\\jump", StringComparison.Ordinal) ||
+            !_texts[0x301d].Contains("\\secret1", StringComparison.Ordinal) ||
+            !_texts[0x301d].Contains("\\secret2", StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
                 "Vasu Jewelers data does not match the imported room $2:$ee contract.");

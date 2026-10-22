@@ -6,8 +6,8 @@ namespace oracleofages;
 /// <summary>
 /// Native interaction controller for the five actors in Vasu Jewelers. The
 /// ordinary tutorials, rewards, exact linked-script predicate, appraisal/list
-/// menus, and no-cable serial timeout are supported. The linked-secret menu
-/// remains an explicit Game Link subsystem boundary.
+/// menus, ring-secret exchange, and no-cable serial timeout are supported.
+/// The cable transfer remains an explicit Game Link subsystem boundary.
 /// </summary>
 internal sealed class VasuShopEvent : IRoomEvent
 {
@@ -22,6 +22,9 @@ internal sealed class VasuShopEvent : IRoomEvent
     private int _counter;
     private int _pendingRing = -1;
     private Func<RingMenuMode, Action, bool>? _openRingMenu;
+    private Func<Action<bool>, bool>? _openRingSecretMenu;
+    private (string First, string Second) _ringSecret;
+    private bool _ringSecretValid;
 
     public VasuShopEvent(RoomEventContext context) => _context = context;
 
@@ -36,6 +39,9 @@ internal sealed class VasuShopEvent : IRoomEvent
         ArgumentNullException.ThrowIfNull(opener);
         _openRingMenu = opener;
     }
+
+    internal void SetRingSecretMenuOpener(Func<Action<bool>, bool> opener) =>
+        _openRingSecretMenu = opener ?? throw new ArgumentNullException(nameof(opener));
 
     public bool TryInteractNpc(NpcCharacter npc)
     {
@@ -261,10 +267,28 @@ internal sealed class VasuShopEvent : IRoomEvent
                     }
                     else
                     {
-                        DeferredMenu(choice == 0
-                            ? "redSnake_openSecretInputMenu"
-                            : "redSnake_generateRingSecret");
-                        BeginSnakeRetreat();
+                        if (choice == 0) OpenRingSecretMenu();
+                        else GenerateRingSecret();
+                    }
+                }
+                break;
+            case EventStage.RedSecretInputMenu:
+                break;
+            case EventStage.RedSecretInputWait:
+                if (--_counter <= 0)
+                {
+                    ShowText(_ringSecretValid ? 0x3027 : 0x301e);
+                    _stage = EventStage.SnakeFinalText;
+                }
+                break;
+            case EventStage.RedSecretListen:
+                if (DialogueClosed())
+                {
+                    if (TakeChoice() == 0) ShowRingSecret();
+                    else
+                    {
+                        ShowText(0x3010);
+                        _stage = EventStage.SnakeFinalText;
                     }
                 }
                 break;
@@ -391,6 +415,8 @@ internal sealed class VasuShopEvent : IRoomEvent
         _stage = EventStage.Inactive;
         _counter = 0;
         _pendingRing = -1;
+        _ringSecret = default;
+        _ringSecretValid = false;
     }
 
     private void BeginVasu(NpcCharacter npc)
@@ -434,6 +460,38 @@ internal sealed class VasuShopEvent : IRoomEvent
             ShowChoice(0x3009);
             _stage = EventStage.RedInitial;
         }
+    }
+
+    private void OpenRingSecretMenu()
+    {
+        Func<Action<bool>, bool> opener = _openRingSecretMenu ??
+            throw new InvalidOperationException("scriptHelper.s:redSnake_openSecretInputMenu has no MENU_SECRET owner.");
+        _stage = EventStage.RedSecretInputMenu;
+        if (!opener(valid =>
+            {
+                if (_stage != EventStage.RedSecretInputMenu) return;
+                _ringSecretValid = valid;
+                _counter = 1;
+                _stage = EventStage.RedSecretInputWait;
+            }))
+            throw new InvalidOperationException("scriptHelper.s:redSnake_openSecretInputMenu could not acquire MENU_SECRET.");
+    }
+
+    private void GenerateRingSecret()
+    {
+        OracleSaveData save = _context.Rooms.SaveData;
+        save.SetGlobalFlag(GlobalFlag.RingSecretGenerated);
+        _ringSecret = new LinkedGameNpcDatabase().GenerateRingSecretText(save);
+        ShowRingSecret();
+    }
+
+    private void ShowRingSecret()
+    {
+        string message = _database.Text(0x301d)
+            .Replace("\\secret1", _ringSecret.First, StringComparison.Ordinal)
+            .Replace("\\secret2", _ringSecret.Second, StringComparison.Ordinal);
+        _context.ShowChoiceDialogue(message, textboxPosition: _database.TextboxPosition);
+        _stage = EventStage.RedSecretListen;
     }
 
     private void BeginBlueSnake(NpcCharacter npc)
@@ -778,6 +836,9 @@ internal enum EventStage
     RedTopic,
     RedMore,
     RedLinkedMenu,
+    RedSecretInputMenu,
+    RedSecretInputWait,
+    RedSecretListen,
     BlueInitial,
     BlueLinkedMenu,
     BlueFortuneSetup,
