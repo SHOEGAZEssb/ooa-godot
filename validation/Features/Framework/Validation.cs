@@ -1134,6 +1134,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGoronBigBangPartLifetime);
         RunIsolatedValidation(ValidateGoronBigBangExplosion);
         RunIsolatedValidation(ValidateGoronTargetCarts);
+        RunIsolatedValidation(ValidateTroySecret);
         RunIsolatedValidation(ValidateGoronTunnel);
         RunIsolatedValidation(ValidateGoronHints);
         RunIsolatedValidation(ValidateRoom2e8DumbbellMan);

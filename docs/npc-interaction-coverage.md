@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 380 | Traced and covered by named NPC/event scenarios. |
+| **I** | 381 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 7 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 6 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -62,8 +62,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 89 | 0 | 89 |
 | Specialized native interaction | 164 | 72 | 236 |
-| Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 7 | 0 | 7 |
+| Event-owned actor | 131 | 0 | 131 |
+| Deliberately unsupported | 6 | 0 | 6 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -282,7 +282,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:d4` | [I] `$40:$0d/v$07` soldier |
 | `5:d5` | [I] `$40:$0d/v$0f` soldier |
 | `5:d7` | [I] `$2d:$00/v$00` veranCutsceneFace |
-| `5:d8` | [D] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron |
+| `5:d8` | [I] `$ca:$00/v$00` troy<br>[I] `$66:$09/v$00` goron<br>[I] `$66:$09/v$01` goron |
 | `5:dc` | [I] `$66:$0e/v$05` goron<br>[I] `$66:$0c/v$06` goron |
 | `5:dd` | [I] `$66:$0c/v$07` goron |
 | `5:de` | [I] `$8b:$01/v$00` goronElder<br>[I] `$66:$05/v$05` goron |

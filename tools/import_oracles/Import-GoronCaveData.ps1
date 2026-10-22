@@ -29,6 +29,7 @@ foreach ($range in @(
     @('scripts/ages/scripts.s', 'goron_subid09Script_A', 'goron_subid0cScript'),
     @('scripts/ages/scripts.s', 'goron_subid0cScript', 'rosa_subid00Script'),
     @('scripts/ages/scriptHelper.s', 'goron_subid08_pressedAScript', 'rafton_subid01Script'),
+    @('scripts/ages/scriptHelper.s', 'troySubid0Script', 'troySubid1Script'),
     @('scripts/ages/scriptHelper.s', 'goronElderScript_subid00_body', 'cloakedTwinrova_subid00Script_body'))) {
     $path = Join-Path $Disassembly $range[0]
     $nodes = @(Read-AssemblyNodes $path)
@@ -102,8 +103,8 @@ foreach ($c in $goronCommands) {
         'scriptend' { }
         'resetmusic' { $op='nativeyield'; $payload='ResetMusic' }
         'enableallobjects' { $op='nativeyield'; $payload='EnableAllObjects' }
-        'askforsecret' { if($c.Args -ne 'ELDER_SECRET'){throw "Unexpected Goron secret $($c.Args)."}; $op='nativeyield'; $payload='AskElderSecret' }
-        'generatesecret' { if($c.Args -ne 'ELDER_RETURN_SECRET'){throw "Unexpected Goron return secret $($c.Args)."}; $op='nativeyield'; $payload='GenerateElderSecret' }
+        'askforsecret' { $op='nativeyield'; $payload=switch($c.Args) { 'ELDER_SECRET' {'AskElderSecret'} 'TROY_SECRET' {'AskTroySecret'} default {throw "Unexpected Goron cave secret $($c.Args)."} } }
+        'generatesecret' { $op='nativeyield'; $payload=switch($c.Args) { 'ELDER_RETURN_SECRET' {'GenerateElderSecret'} 'TROY_RETURN_SECRET' {'GenerateTroySecret'} default {throw "Unexpected Goron cave return secret $($c.Args)."} } }
         'jumpiftextoptioneq' { $a=$p[0].Substring(1); $b=(Resolve-GoronTarget $c $p[1]).ToString() }
         'showtext' {
             $a=$p[0].Substring(3); $id=[Convert]::ToInt32($a,16)
@@ -136,7 +137,7 @@ foreach ($c in $goronCommands) {
             if ($p.Count -eq 1) { $reward=$treasureObjectRecords[$p[0]]; $a=$reward.Treasure.ToString('x2'); $b=$reward.SubId.ToString('x2') }
             else { $a=Resolve-GoronByte $p[0]; $b=Resolve-GoronByte $p[1] }
         }
-        'setglobalflag' { $a=switch($p[0]) { 'GLOBALFLAG_SAVED_GORON_ELDER' {'2f'} 'GLOBALFLAG_BEGAN_ELDER_SECRET' {'6c'} 'GLOBALFLAG_DONE_ELDER_SECRET' {'76'} default {throw "Unknown Goron flag $($c.Args)."} } }
+        'setglobalflag' { $a=switch($p[0]) { 'GLOBALFLAG_SAVED_GORON_ELDER' {'2f'} 'GLOBALFLAG_BEGAN_TROY_SECRET' {'66'} 'GLOBALFLAG_BEGAN_ELDER_SECRET' {'6c'} 'GLOBALFLAG_DONE_TROY_SECRET' {'70'} 'GLOBALFLAG_DONE_ELDER_SECRET' {'76'} default {throw "Unknown Goron flag $($c.Args)."} } }
         'orroomflag' { $a=$p[0].Substring(1) }
         { $_ -in @('disableinput','enableinput','showloadedtext') } { }
         default { throw "Goron $($c.Scope):$($c.Line): unsupported opcode $op." }
@@ -155,11 +156,11 @@ foreach ($label in @('shootingGalleryScript_goronNpc','shootingGalleryScript_gor
     $index=Resolve-GoronTarget ([pscustomobject]@{Scope='';Line=0;Copied=$false}) $label
     $rows.Add("entry`t$label`t$index`t0")
 }
-foreach ($label in @('goron_subid09Script_A','goron_subid09Script_B','goron_subid0bScript')) {
+foreach ($label in @('goron_subid09Script_A','goron_subid09Script_B','goron_subid0bScript','troySubid0Script')) {
     $entry=@($goronLabels | Where-Object Name -eq $label)[0]
     $rows.Add("entry`t$label`t$($entry.Index)`t0")
 }
-foreach ($id in @(0x2400..0x24e5)+@(0x3100..0x3127)+@(0x3130..0x3159)) {
+foreach ($id in @(0x2400..0x24e5)+@(0x3100..0x3127)+@(0x3130..0x3159)+@(0x2c06..0x2c10)) {
     if (!$allTexts.ContainsKey($id)) { throw "Missing Goron text $id." }
     $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((Resolve-GoronText $id ([Collections.Generic.HashSet[int]]::new()))))
     $position=0; if ($allTextPositions.ContainsKey($id)) { $position=$allTextPositions[$id] }
@@ -263,7 +264,7 @@ foreach ($level in @('platinum','gold','silver','bronze')) {
     if($values.Count -ne 160){throw "Goron dance $level must contain ten 16-byte patterns."}
     $rows.Add("bytes`tdance-$level`t$($values -join ',')`t0")
 }
-foreach ($rewardName in @('TREASURE_OBJECT_BROTHER_EMBLEM_00','TREASURE_OBJECT_MERMAID_KEY_00','TREASURE_OBJECT_GASHA_SEED_00','TREASURE_OBJECT_LAVA_JUICE_00','TREASURE_OBJECT_BOOMERANG_02','TREASURE_OBJECT_BOMBS_05','TREASURE_OBJECT_BIGGORON_SWORD_00')) {
+foreach ($rewardName in @('TREASURE_OBJECT_BROTHER_EMBLEM_00','TREASURE_OBJECT_MERMAID_KEY_00','TREASURE_OBJECT_GASHA_SEED_00','TREASURE_OBJECT_LAVA_JUICE_00','TREASURE_OBJECT_BOOMERANG_02','TREASURE_OBJECT_BOMBS_05','TREASURE_OBJECT_BIGGORON_SWORD_00','TREASURE_OBJECT_BOMBCHUS_02')) {
     $reward=$treasureObjectRecords[$rewardName]
     $rows.Add("reward`t$($reward.Treasure.ToString('x2')):$($reward.SubId.ToString('x2'))`t$rewardName`t0")
 }

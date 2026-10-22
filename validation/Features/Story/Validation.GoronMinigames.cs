@@ -257,14 +257,34 @@ public sealed partial class ValidationRoot
     }
     private void ValidateGoronTargetCarts()
     {
+        _saveData.SetGlobalFlag(GlobalFlag.FinishedGame);
         _inventory.GiveTreasure(TreasureId.Shooter,0); _inventory.AddRupees(100);
         LoadValidationRoom(5,0xd8); StepGameplayUpdates(4,Vector2.Zero);
         // Exercise the same debug-state entry boundary as the reported ride.
         RestoreDebugSavestate(CaptureDebugSavestate());
         StepGameplayUpdates(4,Vector2.Zero);
         var cave=_roomEvents.Get<GoronCaveEvent>();
-        var left=cave.Actors.Single(a=>a.Actor.Record.Var03==0);
-        var right=cave.Actors.Single(a=>a.Actor.Record.Var03==1);
+        var troy=cave.Actors.Single(a=>a.Actor.Record.Id==InteractionId.Troy);
+        FailIf(!troy.Actor.Active||troy.Actor.Position!=new Vector2(0xb8,0x98),
+            "Postgame Troy $ca:$00 did not initialize at source YX $98,$b8.");
+        int secretRequests=0;
+        cave.OpenSecretMenu=(index,complete)=>
+        { FailIf(index!=2,"Troy requested a secret other than TROY_SECRET $02."); secretRequests++; complete(true); return true; };
+        ApproachGoronFromFloor(troy);
+        StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+        var troyTexts=new HashSet<string>();
+        for(int i=0;i<500&&_runtimeState.ReadWramByte(0xcfd5)==0;i++)
+        {
+            if(_dialogue.IsOpen) troyTexts.Add(_dialogue.CurrentMessage);
+            AdvanceGoronDialogue(1);
+        }
+        FailIf(_runtimeState.ReadWramByte(0xcfd5)!=1||secretRequests!=1||
+            !_saveData.HasGlobalFlag(GlobalFlag.BeganTroySecret)||
+            !troyTexts.Any(t=>t.Contains("dedicated"))||!troyTexts.Any(t=>t.Contains("Target Carts")),
+            "Troy's postgame introduction did not accept the $02 secret, explain target carts, and arm his shared game byte.");
+        AdvanceGoronDialogue(40);
+        var left=cave.Actors.Single(a=>a.Actor.Record.Id==InteractionId.Goron&&a.Actor.Record.Var03==0);
+        var right=cave.Actors.Single(a=>a.Actor.Record.Id==InteractionId.Goron&&a.Actor.Record.Var03==1);
         TalkGoronFromFloor(right);
         int b=_inventory.EquippedB,a=_inventory.EquippedA,seeds=_inventory.ScentSeeds;
         ApproachGoronFromFloor(left); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
@@ -308,7 +328,9 @@ public sealed partial class ValidationRoot
         // The source route crosses $5:d9 and returns before the right-hand script scores it.
         FailIf(!_dialogue.IsOpen||_rooms.ActiveGroup!=5||_rooms.CurrentRoom.Id!=0xd8,
             $"Target-cart ride did not return to its scoring attendant: {_rooms.ActiveGroup}:{_rooms.CurrentRoom.Id:x2}, Link {_player.Position}.");
-        left=cave.Actors.Single(h=>h.Actor.Record.Var03==0);
+        FailIf(_runtimeState.ReadWramByte(0xccd5)!=1||_runtimeState.ReadWramByte(0xcfd5)!=1,
+            "Target-cart attendant did not publish $ccd5=1 while Troy retained beganGameWithTroy $cfd5 across the ride.");
+        left=cave.Actors.Single(h=>h.Actor.Record.Id==InteractionId.Goron&&h.Actor.Record.Var03==0);
         for(int i=0;i<600&&!_dialogue.ChoiceActive;i++) AdvanceGoronDialogue(1);
         FailIf(_inventory.EquippedB!=b||_inventory.EquippedA!=a||_inventory.ScentSeeds!=seeds||_saveData.HasRoomFlag(5,0xd8,0x80)||
             _inventory.HasTreasure(TreasureId.RockBrisket)||!_dialogue.ChoiceActive,
@@ -350,15 +372,30 @@ public sealed partial class ValidationRoot
         FailIf(!_inventory.HasTreasure(TreasureId.RockBrisket)||_inventory.EquippedB!=b||_inventory.EquippedA!=a||
             _inventory.ScentSeeds!=seeds||_saveData.HasRoomFlag(5,0xd8,0x80),
             "Twelve target hits did not award Rock Brisket and restore the pre-game inventory.");
-        right=cave.Actors.Single(h=>h.Actor.Record.Var03==1); TalkGoronFromFloor(right);
-        left=cave.Actors.Single(h=>h.Actor.Record.Var03==0);
+        troy=cave.Actors.Single(h=>h.Actor.Record.Id==InteractionId.Troy);
+        ApproachGoronFromFloor(troy); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+        for(int i=0;i<250&&!_saveData.HasGlobalFlag(GlobalFlag.DoneTroySecret);i++) AdvanceGoronDialogue(1);
+        FailIf(!_saveData.HasGlobalFlag(GlobalFlag.DoneTroySecret)||
+            !_inventory.HasTreasure(TreasureId.Bombchus)||_runtimeState.ReadWramByte(0xccd5)!=0,
+            "Troy did not consume the completed twelve-target run and grant BOMBCHUS $0d:$02.");
+        AdvanceGoronDialogue(40);
+        ApproachGoronFromFloor(troy); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
+        for(int i=0;i<90&&!_dialogue.IsOpen;i++) StepGameplayUpdates(1,Vector2.Zero);
+        FailIf(!_dialogue.IsOpen||!_dialogue.CurrentMessage.Contains("secret")||secretRequests!=1,
+            "Completed Troy secret did not display the return secret on repeat interaction.");
+        _dialogue.Close(); AdvanceGoronDialogue(3);
+        // The Bombchu grant equips slot A; the later cancellation restores
+        // the equipment present when that later game started.
+        a=_inventory.EquippedA;
+        right=cave.Actors.Single(h=>h.Actor.Record.Id==InteractionId.Goron&&h.Actor.Record.Var03==1); TalkGoronFromFloor(right);
+        left=cave.Actors.Single(h=>h.Actor.Record.Id==InteractionId.Goron&&h.Actor.Record.Var03==0);
         ApproachGoronFromFloor(left); StepGameplayUpdates(1,Vector2.Zero,["attack"],["attack"]);
         for(int i=0;i<1300&&!_saveData.HasRoomFlag(5,0xd8,0x80);i++) AdvanceGoronDialogue(1);
         FailIf(!_saveData.HasRoomFlag(5,0xd8,0x80),"Cancellation fixture never started target carts.");
         LoadValidationRoom(2,0xed);
         FailIf(_saveData.HasRoomFlag(5,0xd8,0x80)||_inventory.ScentSeeds!=seeds||
             _inventory.EquippedA!=a||_inventory.EquippedB!=b,
-            "Cancelling outside the target-cart course leaked its temporary inventory or active flag.");
+            $"Cancelling outside the target-cart course leaked its temporary inventory or active flag: flag={_saveData.HasRoomFlag(5,0xd8,0x80)}, seeds={_inventory.ScentSeeds:x2}/{seeds:x2}, A={_inventory.EquippedA:x2}/{a:x2}, B={_inventory.EquippedB:x2}/{b:x2}.");
         ValidateTargetCartCrystalPreload();
     }
     private void ValidateOnlyArrivingTargetCart(MinecartRoomEntity arrivingCart)

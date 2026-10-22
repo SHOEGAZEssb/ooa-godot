@@ -1184,6 +1184,7 @@ function Resolve-NpcImplementation(
     }
     if (($id -eq 0x30 -and $subid -eq 1) -or ($id -eq 0x8b -and $subid -eq 2)) { return 'event-owned' }
     if ($id -eq 0xcc -and $subid -eq 0) { return 'event-owned' }
+    if ($key -eq '5:d8:ca:00:00') { return 'event-owned' }
     if ($id -eq 0x3d -and $subid -eq 5) { return 'ordinary-generic' }
     if ($id -eq 0x3d -and $subid -eq 4) { return 'ordinary-generic' }
     if ($id -eq 0xcd -and $subid -eq 0) { return 'ordinary-generic' }
@@ -5347,8 +5348,8 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 89 -or
     $npcImplementationCounts['specialized-native'] -ne 164 -or
-    $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 7 -or
+    $npcImplementationCounts['event-owned'] -ne 131 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 6 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

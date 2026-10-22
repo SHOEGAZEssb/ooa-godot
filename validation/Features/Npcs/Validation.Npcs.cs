@@ -452,13 +452,13 @@ public sealed partial class ValidationRoot
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
             ["objects/linked_game_npcs.tsv|\\secret1"] = 15,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
-            ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
+            ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 3,
             ["cutscenes/forest_fairy_secret_commands.tsv|\\secret1"] = 2,
             // King Zora's owner inserts the generated return secret before presentation.
             ["cutscenes/king_zora_present_commands.tsv|\\secret1"] = 2,
             ["cutscenes/library_secret_commands.tsv|\\secret1"] = 2,
             ["cutscenes/goron_cave_data.tsv|\\num1"] = 4,
-            ["cutscenes/goron_cave_data.tsv|\\secret1"] = 2,
+            ["cutscenes/goron_cave_data.tsv|\\secret1"] = 3,
             ["objects/lynna_shop_texts.tsv|\\num1"] = 10,
             ["objects/npcs.tsv|\\call(TX_270b)"] = 1,
             ["objects/tingle_texts.tsv|\\secret1"] = 1,
@@ -567,8 +567,8 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 89,
                 [NpcImplementationClassification.SpecializedNative] = 236,
-                [NpcImplementationClassification.EventOwned] = 130,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 7
+                [NpcImplementationClassification.EventOwned] = 131,
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 6
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records

@@ -31,12 +31,12 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
     public bool MenusDisabled => BlocksGameplay||_actors.Any(actor=>actor.MenusDisabled);
     public bool ScreenTransitionsDisabled => BlocksGameplay;
     public bool Matches(int group, OracleRoomData room) => context.Entities.Entities<NpcCharacter>().Any(n =>
-        n.Record.Implementation == NpcImplementationClassification.EventOwned && (n.Record.Id is InteractionId.Goron or InteractionId.GoronElder||n.Record is {Id:InteractionId.ShootingGallery,SubId:1}));
+        n.Record.Implementation == NpcImplementationClassification.EventOwned && (n.Record.Id is InteractionId.Goron or InteractionId.GoronElder||n.Record is {Id:InteractionId.ShootingGallery,SubId:1} or {Id:InteractionId.Troy,SubId:0}));
     public void Start(OracleRoomData room)
     {
         _resources = new(context, this);
         foreach (var actor in context.Entities.Entities<NpcCharacter>().Where(n =>
-            n.Record.Implementation == NpcImplementationClassification.EventOwned && (n.Record.Id is InteractionId.Goron or InteractionId.GoronElder||n.Record is {Id:InteractionId.ShootingGallery,SubId:1})).ToArray())
+            n.Record.Implementation == NpcImplementationClassification.EventOwned && (n.Record.Id is InteractionId.Goron or InteractionId.GoronElder||n.Record is {Id:InteractionId.ShootingGallery,SubId:1} or {Id:InteractionId.Troy,SubId:0})).ToArray())
         {
             var host = new GoronCaveScriptHost(this, actor);
             _actors.Add(host);

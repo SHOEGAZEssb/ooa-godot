@@ -54,6 +54,13 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         if(_initialized || !Actor.Active) return;
         _initialized = true;
         Actor.SetAnimationRate(0);
+        if (Actor.Record is {Id:InteractionId.Troy,SubId:0})
+        {
+            // troy.s clears the session byte only on a direct room entry.
+            if (!Context.Entities.ScreenTransitionActive) Wram.SetWramByte(0xcfd5,0);
+            StartScript("troySubid0Script");
+            AdvanceScript(); Animate(); return;
+        }
         if(Actor.Record is {Id:InteractionId.Goron,SubId:0x0b}) BigBang=new(this);
         if(Actor.Record is {Id:InteractionId.Goron,SubId:9}) { Carts=new(this); Carts.Initialize(); }
         if(Actor.Record.Id==InteractionId.ShootingGallery||Actor.Record is {Id:InteractionId.GoronElder,SubId:2})
@@ -149,7 +156,7 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         if (!Actor.Active) return;
         if(BigBang is not null&&_var3e!=0) return;
         if(Dance is not null) { if(Dance.State==1) Actor.FaceLinkAndAnimateOneUpdate(Context.Player); return; }
-        if (_fixedAnimation || Actor.Record.SubId is 3 or 4 && Actor.Record.Id == InteractionId.Goron)
+        if (_fixedAnimation || Actor.Record.Id==InteractionId.Troy || Actor.Record.SubId is 3 or 4 && Actor.Record.Id == InteractionId.Goron)
             Actor.AnimateAsNpcOneUpdate(Context.Player);
         else Actor.FaceLinkAndAnimateOneUpdate(Context.Player);
     }
@@ -229,6 +236,10 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         "GLOBALFLAG_FINISHEDGAME" => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.FinishedGame) ? 1 : 0,
         "GLOBALFLAG_BEGAN_ELDER_SECRET" => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.BeganElderSecret) ? 1 : 0,
         "GLOBALFLAG_DONE_ELDER_SECRET" => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.DoneElderSecret) ? 1 : 0,
+        "GLOBALFLAG_BEGAN_TROY_SECRET" => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.BeganTroySecret) ? 1 : 0,
+        "GLOBALFLAG_DONE_TROY_SECRET" => Context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.DoneTroySecret) ? 1 : 0,
+        "wTmpcfc0.targetCarts.beganGameWithTroy" => Wram.ReadWramByte(0xcfd5),
+        "wShootingGalleryccd5" => Wram.ReadWramByte(0xccd5),
         "wTmpcfc0.shootingGallery.disableGoronNpcs" => Wram.ReadWramByte(0xcfdc),
         "FinalRound" => Gallery?.FinalRound==true?1:0,
         "wTextInputResult" => _secretResult,
@@ -261,6 +272,8 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
             "wTmpcfc0.genericCutscene.cfdf" => 0xcfdf,
             "wTmpcfc0.bigBangGame.gameStatus" => 0xcfc0,
             "wTmpcfc0.targetCarts.beginGameTrigger" => 0xcfdb,
+            "wTmpcfc0.targetCarts.beganGameWithTroy" => 0xcfd5,
+            "wShootingGalleryccd5" => 0xccd5,
             "wShopHaveEnoughRupees" => 0xccd5,
             _ => throw UnsupportedCommand($"write Goron binding {binding}")
         };
@@ -292,7 +305,8 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
         Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, id, parameter,
         id switch { 0x43 => "TREASURE_OBJECT_CROWN_KEY_00", 0x59 => "TREASURE_OBJECT_GORON_LETTER_00",
             0x5c => "TREASURE_OBJECT_GORON_VASE_00", 0x5d => "TREASURE_OBJECT_GORONADE_00",
-            _ => Data.Reward(id,parameter) }, "goron.s");
+            _ => Data.Reward(id,parameter) }, Actor.Record.Id==InteractionId.Troy?"scriptHelper.s:troySubid0Script":"goron.s",
+        objectParameter: id==TreasureId.Bombchus&&parameter==2?0x10:null);
     public override bool UpdateNativeHandler(string handler, CutsceneActorId? actor, int commandUpdate, int frames, string payload)
     {
         if(handler is "MoveLeft" or "MoveRight")
@@ -363,6 +377,13 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
                     throw UnsupportedCommand("open ELDER_SECRET $08 menu");
                 return;
             case "GenerateElderSecret": _secret=new LinkedGameNpcDatabase().GenerateSecret(0x18,Context.Rooms.SaveData); return;
+            case "AskTroySecret":
+                _secretPending=true; int troyGeneration=_generation;
+                if(_owner.OpenSecretMenu is null||!_owner.OpenSecretMenu(2,valid=>
+                    { if(troyGeneration!=_generation) return; _secretResult=valid?0:1; _secretPending=false; }))
+                    throw UnsupportedCommand("open TROY_SECRET $02 menu");
+                return;
+            case "GenerateTroySecret": _secret=new LinkedGameNpcDatabase().GenerateSecret(0x12,Context.Rooms.SaveData); return;
             case "shootingGallery_equipSword": Gallery!.Equip(false); return;
             case "shootingGallery_equipBiggoronSword": Gallery!.Equip(true); return;
             case "shootingGallery_restoreEquips": Gallery!.RestoreEquips(); return;
