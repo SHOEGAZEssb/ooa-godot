@@ -19,8 +19,8 @@ internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce =
     {
         // Link sets pressedAButton in its earlier update. Most ordinary
         // handlers run the generic script before facing and animation;
-        // Ambi $4d:$0a runs npcFaceLinkAndAnimate first. Text freezes the
-        // interaction on the next pass.
+        // Ambi $4d:$0a and Ralph $37:$12 run npcFaceLinkAndAnimate
+        // first. Text freezes the interaction on the next pass.
         if (animateBeforeDialogue) AdvanceNpc(frame);
         if (_pendingDialogue?.Invoke() == true) _pendingDialogue = null;
         if (!animateBeforeDialogue) AdvanceNpc(frame);

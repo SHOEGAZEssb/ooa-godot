@@ -1036,10 +1036,12 @@ internal sealed class RoomEntityFactory
                                     or { Id: InteractionId.FemaleVillager, SubId: 3 }
                                     or { Id: InteractionId.FemaleVillager, SubId: 4 }
                                     or { Id: InteractionId.Ambi, SubId: 0x0a }
+                                    or { Id: InteractionId.Ralph, SubId: 0x12 }
                                     or { Id: InteractionId.Nayru, SubId: 0x0c },
-                                // ambi.s:ambi_runSubid0a calls npcFaceLinkAndAnimate
+                                // Both postgame actors call npcFaceLinkAndAnimate
                                 // before interactionRunScript consumes the A-button.
-                                animateBeforeDialogue: record is { Id: InteractionId.Ambi, SubId: 0x0a });
+                                animateBeforeDialogue: record is { Id: InteractionId.Ambi, SubId: 0x0a }
+                                    or { Id: InteractionId.Ralph, SubId: 0x12 });
                         break;
                     case NpcImplementationClassification.SpecializedNative:
                         IRoomEntity specialized = CreateSpecializedNpc(record, room);
