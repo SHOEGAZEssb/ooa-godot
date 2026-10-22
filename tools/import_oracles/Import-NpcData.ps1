@@ -238,6 +238,7 @@ $npcTextBySubid["$([int]0x4e):3"] = 0x4d0a
 $npcTextBySubid["$([int]0x4e):4"] = 0x4d14
 $npcTextBySubid["$([int]0x4e):0"] = 0x1c05
 $npcTextBySubid["$([int]0xad):8"] = 0x060b
+$npcTextBySubid["$([int]0xd6):0"] = 0x4d23
 $npcTextBySubid["$([int]0x3b):6"] = 0x4d19
 $npcTextBySubid["$([int]0xcd):0"] = 0x4d0f
 
@@ -1171,6 +1172,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0x4e -and $subid -eq 4) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0) { return 'ordinary-generic' }
     if ($id -eq 0xad -and $subid -eq 8) { return 'ordinary-generic' }
+    if ($id -eq 0xd6 -and $subid -eq 0) { return 'specialized-native' }
     if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
@@ -5323,9 +5325,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 87 -or
-    $npcImplementationCounts['specialized-native'] -ne 162 -or
+    $npcImplementationCounts['specialized-native'] -ne 163 -or
     $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 11 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 10 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5612,6 +5614,25 @@ $linkedFemaleVillagerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
 $linkedMasterDiverSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\masterDiver.s')
+$dekuScrubSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\dekuScrub.s')
+if ($dekuScrubSource -notmatch '(?ms)^interactionCoded6:\s+call checkInteractionState\s+jr nz,@state1\s+@state0:\s+call @initialize\s+call interactionSetAlwaysUpdateBit\s+ld l,Interaction\.var3f\s+ld \(hl\),DEKU_SECRET & \$0f\s+ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript\s+@state1:\s+call interactionRunScript\s+jp c,interactionDeleteAndUnmarkSolidPosition.*?call interactionAnimateAsNpc\s+ld c,\$20\s+call objectCheckLinkWithinDistance' -or
+    $dekuScrubSource -notmatch '(?ms)^@state1:.*?ld c,\$20\s+call objectCheckLinkWithinDistance.*?Interaction\.var3e.*?ld a,\$03\s+jp interactionSetAnimation\s+@linkIsClose:.*?inc \(hl\).*?ld a,\$01\s+jp interactionSetAnimation' -or
+    $dekuScrubSource -notmatch '(?ms)^@initialize:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+jp interactionIncState') {
+    throw 'Room 1:90 Deku Scrub $d6:$00 linked script, $20 proximity, or native animation state changed.'
+}
+$dekuScrubAnimationRows = [Collections.Generic.List[string]]::new()
+$dekuScrubAnimationRows.Add("# animation`tencoded-animation")
+foreach ($animation in @(0, 1, 3)) {
+    $encodedAnimation = Resolve-NpcAnimation 0xd6 $animation
+    if ([string]::IsNullOrWhiteSpace($encodedAnimation)) {
+        throw "Room 1:90 Deku Scrub animation `$$($animation.ToString('x2')) is missing."
+    }
+    $dekuScrubAnimationRows.Add("$($animation.ToString('x2'))`t$encodedAnimation")
+}
+Write-GeneratedTable(
+    (Join-Path $destination 'objects\deku_scrub_animations.tsv'),
+    $dekuScrubAnimationRows)
 if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFlags\s+ld \(hl\),\$02.*?Interaction\.var3f\s+ld \(hl\),GRAVEYARD_SECRET & \$0f.*?mainScripts\.linkedGameNpcScript' -or
     $linkedMasterDiverSource -notmatch '(?ms)^interactionCodecd:\s+call checkInteractionState\s+jr nz,@state1\s+@state0:\s+call @initialize\s+ld l,Interaction\.var3f\s+ld \(hl\),DIVER_SECRET & \$0f\s+ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript\s+@state1:\s+call interactionRunScript\s+jp c,interactionDeleteAndUnmarkSolidPosition\s+jp interactionAnimateAsNpc' -or
     $linkedMasterDiverSource -notmatch '(?ms)^@initialize:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+jp interactionIncState' -or
@@ -5765,6 +5786,11 @@ foreach ($linkedNpc in @(
         Group = 0x01; Room = 0x2d; Id = 0x4e; SubId = 0x04
         SecretIndex = 0x04; BeganFlag = 'GLOBALFLAG_BEGAN_SMITH_SECRET'
         Source = 'subrosian.s:subrosian_subid04;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
+    },
+    @{
+        Group = 0x01; Room = 0x90; Id = 0xd6; SubId = 0x00
+        SecretIndex = 0x07; BeganFlag = 'GLOBALFLAG_BEGAN_DEKU_SECRET'
+        Source = 'dekuScrub.s:interactionCoded6;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
     }
 )) {
     $textIds = 0..4 | ForEach-Object {
@@ -6760,6 +6786,7 @@ Add-NpcLinkedVisibility 0x4e 0x03 -1 0 $true 'subrosian.s:subrosian_subid03;scri
 Add-NpcLinkedVisibility 0x3b 0x06 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcLinkedVisibility 0xcd 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcLinkedVisibility 0x4e 0x04 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcLinkedVisibility 0xd6 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcEssenceVisibility 0xcb 0x00 -1 0 0x01 $true 'scriptHelper.s:@checkd1' '@checkd1'
 
 # Room 0:83's Great Fairy is secret index `$06: linked files only, after D2.
@@ -6948,8 +6975,8 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 foreach ($subid in @(6,7,8,9)) {
     Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
 }
-if ($npcVisibilityRows.Count -ne 394) {
-    throw "Expected 393 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 395) {
+    throw "Expected 394 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

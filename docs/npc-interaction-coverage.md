@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 376 | Traced and covered by named NPC/event scenarios. |
+| **I** | 377 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 11 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 10 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -61,9 +61,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 87 | 0 | 87 |
-| Specialized native interaction | 162 | 72 | 234 |
+| Specialized native interaction | 163 | 72 | 235 |
 | Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 11 | 0 | 11 |
+| Deliberately unsupported | 10 | 0 | 10 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -161,7 +161,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:83` | [I] `$41:$00/v$00` miscMan |
 | `1:84` | [I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$40:$01/v$00` soldier |
 | `1:86` | [I] `$58:$02/v$00` hardhatWorker |
-| `1:90` | [D] `$d6:$00/v$00` dekuScrub<br>[I] `$ce:$00/v$00` businessScrub |
+| `1:90` | [I] `$d6:$00/v$00` dekuScrub<br>[I] `$ce:$00/v$00` businessScrub |
 | `1:92` | [I] `$43:$00/v$00` pastGuy |
 | `1:93` | [I] `$42:$00/v$00` mustacheMan<br>[I] `$40:$01/v$01` soldier |
 | `1:94` | [I] `$43:$00/v$01` pastGuy |

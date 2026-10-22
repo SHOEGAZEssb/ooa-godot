@@ -3456,6 +3456,10 @@ internal sealed class RoomEntityFactory
         RequireNpcImplementation(
             record, NpcImplementationClassification.SpecializedNative);
 
+        if (record is { Group: 1, Room: 0x90, Id: 0xd6, SubId: 0 })
+            return new DekuScrubRoomEntity(
+                NpcCharacter.CreateFromRecord(record), Resources.DekuScrub);
+
         if (record is { Id: InteractionId.Pirate, SubId: <= 3 })
             return new PirateCrewRoomEntity(NpcCharacter.CreateFromRecord(record), owner);
 

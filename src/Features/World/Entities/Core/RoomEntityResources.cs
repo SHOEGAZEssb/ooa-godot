@@ -172,6 +172,8 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
     private SharedNpcDatabase? _sharedNpcData;
     internal SharedNpcDatabase SharedNpcs => _sharedNpcData ??= new();
     internal BusinessScrubDatabase BusinessScrub => _businessScrubData ??= new();
+    private DekuScrubDatabase? _dekuScrubData;
+    internal DekuScrubDatabase DekuScrub => _dekuScrubData ??= new();
     private NayruHouseDatabase? _nayruHouseData;
     internal NayruHouseDatabase NayruHouse => _nayruHouseData ??= new();
     private VasuShopDatabase? _vasuShopData;
@@ -370,6 +372,8 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         _ = StoneRabbit;
         yield return false;
         _ = BusinessScrub;
+        yield return false;
+        _ = DekuScrub;
         yield return false;
         _ = NayruHouse;
         yield return false;
