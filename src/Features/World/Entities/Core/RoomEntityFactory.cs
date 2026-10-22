@@ -4241,7 +4241,10 @@ internal sealed class RoomEntityFactory
         NpcRecord record = npc.Record;
         if (record.Id == InteractionId.Rosa)
         {
-            bool visible = _saveData.IsLinkedGame && (_inventory.Essences & 0x04) == 0;
+            // rosa.s:@@state0 reads wEssencesObtained directly after the
+            // linked-game check; the inventory view may not have refreshed yet.
+            bool visible = _saveData.IsLinkedGame &&
+                (_saveData.ReadWramByte(WramAddress.wEssencesObtained) & 0x04) == 0;
             npc.SetActive(visible);
             return;
         }

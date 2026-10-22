@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 362 | Traced and covered by named NPC/event scenarios. |
-| **P** | 11 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 363 | Traced and covered by named NPC/event scenarios. |
+| **P** | 10 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -174,7 +174,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:bb` | [I] `$48:$0a/v$00` tokay<br>[I] `$48:$0b/v$00` tokay |
 | `1:bc` | [I] `$ce:$00/v$00` businessScrub |
 | `1:bd` | [I] `$48:$16/v$00` tokay |
-| `1:cb` | [I] `$48:$07/v$00` tokay<br>[P] `$68:$00/v$00` rosa |
+| `1:cb` | [I] `$48:$07/v$00` tokay<br>[I] `$68:$00/v$00` rosa |
 | `1:cd` | [I] `$48:$17/v$00` tokay |
 | `1:da` | [I] `$48:$08/v$00` tokay |
 | `1:dd` | [I] `$48:$18/v$00` tokay |
