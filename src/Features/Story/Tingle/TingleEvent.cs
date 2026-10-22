@@ -4,10 +4,7 @@ using System.Linq;
 namespace oracleofages;
 
 /// <summary>
-/// tingleScript's normal-game chart and Seed Satchel paths. The linked-game
-/// password-entry opcode remains outside this event until the shared secret
-/// input UI exists; choosing that branch follows the script's invalid-secret
-/// result without inventing clone-only password state.
+/// tingleScript's chart, Seed Satchel, and linked-game secret paths.
 /// </summary>
 internal sealed class TingleEvent : IRoomEvent
 {
@@ -22,6 +19,11 @@ internal sealed class TingleEvent : IRoomEvent
     private TingleEventStage _stage;
     private TingleAfterKooloo _afterKooloo;
     private int _counter;
+    private int _secretGeneration;
+    private bool _secretPending;
+    private bool _secretValid;
+
+    internal Func<int, Action<bool>, bool>? OpenSecretMenu { get; set; }
 
     internal TingleEvent(RoomEventContext context)
     {
@@ -150,11 +152,22 @@ internal sealed class TingleEvent : IRoomEvent
             case TingleEventStage.PostgamePrompt:
                 ResolvePostgameChoice(TakeChoice());
                 break;
+            case TingleEventStage.SecretEntry:
+                if (_secretPending) break;
+                _counter = 30;
+                _stage = TingleEventStage.SecretWait;
+                break;
+            case TingleEventStage.SecretWait:
+                if (--_counter == 0)
+                    ResolveSecretResult();
+                break;
         }
     }
 
     public void Cancel()
     {
+        _secretGeneration++;
+        _secretPending = false;
         if (Godot.GodotObject.IsInstanceValid(_upgradeGlow))
             _upgradeGlow!.Cancel();
         _upgradeGlow = null;
@@ -178,12 +191,14 @@ internal sealed class TingleEvent : IRoomEvent
         int level = _context.Inventory.SeedSatchelLevel;
         if (level >= 3)
         {
-            // The non-postgame branch is exactly @alreadyGotSatchelUpgrade.
-            // Return-secret generation shares the unresolved secret subsystem.
-            ShowEndText(0x1e08);
+            if (_context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.FinishedGame))
+                ShowReturnSecret();
+            else
+                ShowEndText(0x1e08);
             return;
         }
-        if (level == 2 && _context.Rooms.SaveData.IsCompleted)
+        if (level == 2 &&
+            _context.Rooms.SaveData.HasGlobalFlag(GlobalFlag.FinishedGame))
         {
             ShowChoice(0x1e09);
             _stage = TingleEventStage.PostgamePrompt;
@@ -272,10 +287,41 @@ internal sealed class TingleEvent : IRoomEvent
             return;
         }
 
-        // askforsecret TINGLE_SECRET cannot be represented until the shared
-        // text-input mode is implemented. Preserve the original invalid-input
-        // result instead of accepting or mutating a fabricated secret.
-        ShowEndText(0x1e0d);
+        _secretPending = true;
+        _secretValid = false;
+        int generation = _secretGeneration;
+        if (OpenSecretMenu is null ||
+            !OpenSecretMenu(_record.SecretIndex, valid =>
+            {
+                if (generation != _secretGeneration) return;
+                _secretValid = valid;
+                _secretPending = false;
+            }))
+            throw new InvalidOperationException(
+                "scripts/ages/scripts.s:tingleScript could not acquire MENU_SECRET for TINGLE_SECRET $07.");
+        _stage = TingleEventStage.SecretEntry;
+    }
+
+    private void ResolveSecretResult()
+    {
+        if (!_secretValid)
+        {
+            ShowEndText(0x1e0d);
+            return;
+        }
+        Show(0x1e0e);
+        _context.Rooms.SaveData.SetGlobalFlag(_record.BeganSecretFlag);
+        _stage = TingleEventStage.UpgradeAcceptedText;
+    }
+
+    private void ShowReturnSecret()
+    {
+        string secret = new LinkedGameNpcDatabase().GenerateSecret(
+            _record.ReturnSecretIndex, _context.Rooms.SaveData);
+        _context.Rooms.SaveData.SetGlobalFlag(_record.DoneSecretFlag);
+        _context.ShowDialogue(_database.Text(0x1e0f).Replace(
+            "\\secret1", secret, StringComparison.Ordinal));
+        _stage = TingleEventStage.EndText;
     }
 
     private void BeginKooloo(TingleAfterKooloo after)
@@ -328,6 +374,8 @@ internal sealed class TingleEvent : IRoomEvent
     private void Finish()
     {
         _actor?.SetInteractionEnabled(true);
+        _secretGeneration++;
+        _secretPending = false;
         _stage = TingleEventStage.Inactive;
         _counter = 0;
     }
@@ -350,7 +398,9 @@ internal enum TingleEventStage
     UpgradeAnimation,
     UpgradeGlowWait,
     UpgradeReward,
-    PostgamePrompt
+    PostgamePrompt,
+    SecretEntry,
+    SecretWait
 }
 
 internal enum TingleAfterKooloo

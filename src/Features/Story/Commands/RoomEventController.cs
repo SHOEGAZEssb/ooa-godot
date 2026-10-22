@@ -370,6 +370,7 @@ public sealed class RoomEventController
         Get<GoronCaveEvent>().OpenSecretMenu = opener;
         Get<KingZoraEvent>().OpenSecretMenu = opener;
         Get<LibraryEvent>().OpenSecretMenu = opener;
+        Get<TingleEvent>().OpenSecretMenu = opener;
     }
     internal bool SupportsOverworldKeyhole(int group, int room) =>
         Get<GraveyardGateEvent>().CanTrigger(group, room) ||

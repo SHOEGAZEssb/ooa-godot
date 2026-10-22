@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 363 | Traced and covered by named NPC/event scenarios. |
-| **P** | 10 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 365 | Traced and covered by named NPC/event scenarios. |
+| **P** | 8 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -110,7 +110,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:72` | [I] `$49:$0c/v$00` forestFairy |
 | `0:77` | [I] `$44:$03/v$00` miscMan2 |
 | `0:78` | [D] `$3d:$04/v$00` oldLady |
-| `0:79` | [P] `$c8:$00/v$00` tingle |
+| `0:79` | [I] `$c8:$00/v$00` tingle |
 | `0:7b` | [I] `$3c:$03/v$00` boy<br>[I] `$3c:$04/v$00` boy<br>[I] `$3f:$02/v$00` boy2 |
 | `0:7c` | [I] `$59:$00/v$00` poe<br>[I] `$59:$00/v$02` poe |
 | `0:80` | [I] `$49:$06/v$00` forestFairy |
@@ -208,7 +208,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `2:f6` | [I] `$66:$0f/v$00` goron |
 | `2:f7` | [I] `$66:$07/v$00` goron |
 | `2:fb` | [I] `$66:$0e/v$03` goron |
-| `2:fd` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$03` goron<br>[P] `$68:$01/v$00` rosa |
+| `2:fd` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$03` goron<br>[I] `$68:$01/v$00` rosa |
 | `2:ff` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$04` goron<br>[I] `$66:$0c/v$05` goron<br>[D] `$4e:$02/v$00` subrosian<br>[D] `$4e:$02/v$01` subrosian |
 | `3:1f` | [I] `$66:$0a/v$00` goron |
 | `3:2e` | [I] `$66:$0e/v$04` goron |

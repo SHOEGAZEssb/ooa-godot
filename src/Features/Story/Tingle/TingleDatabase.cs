@@ -52,7 +52,8 @@ internal sealed class TingleDatabase
                     "explosion-sprite", "explosion-tile-base",
                     "explosion-palette", "explosion-y-offset",
                     "explosion-x-offset",
-                    "balloon-active-collisions", "source"
+                    "balloon-active-collisions", "secret-index",
+                    "return-secret-index", "source"
                 ],
                 headerRequired: true)).SingleRow();
         Record = new TingleRecord(
@@ -73,7 +74,7 @@ internal sealed class TingleDatabase
             row.RequiredString(33), row.UnsignedDecimal(34),
             row.UnsignedDecimal(35), row.Decimal(36, -128, 127),
             row.Decimal(37, -128, 127), row.RequiredString(38),
-            row.RequiredString(39));
+            row.HexByte(39), row.HexByte(40), row.RequiredString(41));
 
         GeneratedTable animations = GeneratedTable.Load(
             "res://assets/oracle/objects/tingle_animations.tsv",
@@ -128,7 +129,8 @@ internal sealed class TingleDatabase
                 ExplosionSprite: "spr_common_sprites",
                 ExplosionTileBase: 0x0c, ExplosionPalette: 2,
                 ExplosionYOffset: -16, ExplosionXOffset: 0,
-                BalloonActiveCollisions: "00001111111101100000000100000000"
+                BalloonActiveCollisions: "00001111111101100000000100000000",
+                SecretIndex: 0x07, ReturnSecretIndex: 0x17
             } || Record.KoolooSparkleOffsets is not
             [
                 { X: 0, Y: -24 },
@@ -212,6 +214,8 @@ internal readonly record struct TingleRecord(
     int ExplosionYOffset,
     int ExplosionXOffset,
     string BalloonActiveCollisions,
+    int SecretIndex,
+    int ReturnSecretIndex,
     string Source)
 {
     internal bool BalloonAcceptsItemCollision(int sourceCollision)

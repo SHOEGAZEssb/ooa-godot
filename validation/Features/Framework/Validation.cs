@@ -957,6 +957,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom165Woman);
         RunIsolatedValidation(ValidateIslandBusinessScrubs);
         RunIsolatedValidation(ValidateRoom1cbRosa);
+        RunIsolatedValidation(ValidateRoom2fdRosa);
+        RunIsolatedValidation(ValidateTingleSecret);
         RunIsolatedValidation(ValidateRooms182And192NpcInteractions);
         RunIsolatedValidation(ValidateRoom183MiscManAndDrops);
         RunIsolatedValidation(ValidateRoom184StoneRabbitsAndSoldier);
