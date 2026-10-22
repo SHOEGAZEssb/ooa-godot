@@ -229,6 +229,9 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-mamamu' 'Import-MamamuData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'globalFlagValues', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics') `
         -functionInputs @('Read-AssemblyCutsceneCommands', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+    New-ImportStageContract 'cutscene-forest-fairy-secret' 'Import-ForestFairySecretData.ps1' `
+        -inputs @('allTexts', 'allTextPositions', 'cutsceneCommandHeader', 'globalFlagValues') `
+        -functionInputs @('Read-AssemblyCutsceneCommands', 'New-CutsceneCommandRow', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-plen' 'Import-PlenData.ps1' `
         -inputs @('allTexts', 'globalFlagValues') `
         -functionInputs @('New-CutsceneCommandRow', 'Write-CutsceneGeneratedTable')

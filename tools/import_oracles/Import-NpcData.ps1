@@ -654,6 +654,7 @@ $npcPaletteBySubid = @{
     '203:0' = 2
     '64:4' = 3 # soldierSubid04: reward guard.
     '64:11' = 2 # soldierSubid0b: red escort guard.
+    '73:11' = 1 # forestFairy.s:$0b writes oamFlagsBackup/oamFlags $01.
 }
 $palaceSoldierSource = Read-ImportText (Join-Path $Disassembly 'object_code\ages\interactions\soldier.s')
 if ($palaceSoldierSource -notmatch '(?ms)^soldierSubid04:.*?Interaction\.oamFlags\s+ld a,\$03' -or
@@ -1194,6 +1195,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
+    if ($id -eq 0x49 -and $subid -eq 0x0b) { return 'specialized-native' }
     if ($id -eq 0xe3 -and $subid -lt 10) { return 'specialized-native' }
     if ($id -eq 0x6b -and $subid -in @(0x13, 0x14)) { return 'specialized-native' }
     if ($id -eq 0x52 -and $subid -le 6) { return 'specialized-native' }
@@ -5344,9 +5346,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
         1 + [int]$npcImplementationCounts[$implementation]
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 89 -or
-    $npcImplementationCounts['specialized-native'] -ne 163 -or
+    $npcImplementationCounts['specialized-native'] -ne 164 -or
     $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 8 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 7 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }

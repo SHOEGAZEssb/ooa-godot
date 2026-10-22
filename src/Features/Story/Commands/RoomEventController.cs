@@ -96,6 +96,7 @@ public sealed class RoomEventController
             () => remoteMakuThirdEssence,
             () => new CompanionForestEvent(_context),
             () => new FairiesWoodsEvent(_context),
+            () => new ForestFairySecretEvent(_context),
             () => new WingDungeonCollapseEvent(
                 _context, () => Get<RemoteMakuWingDungeonEvent>().StartWarning()),
             () => new NayruIntroEvent(_context, impa),
@@ -190,6 +191,8 @@ public sealed class RoomEventController
                 Get<CarpenterEvent>().TryInteractNpc),
             Npc("forestFairy.s:forestFairy_discovered",
                 Get<FairiesWoodsEvent>().TryInteractNpc),
+            Npc("forestFairy.s:$49:$0b; scripts.s:forestFairyScript_heartContainerSecret",
+                Get<ForestFairySecretEvent>().TryInteractNpc),
             Npc("shopkeeper.s:lynnaShop:npc",
                 Get<LynnaShopEvent>().TryInteractNpc),
             Npc("syrup.s:interactionCode5f", Get<SyrupShopEvent>().TryInteractNpc),
@@ -371,6 +374,7 @@ public sealed class RoomEventController
         Get<KingZoraEvent>().OpenSecretMenu = opener;
         Get<LibraryEvent>().OpenSecretMenu = opener;
         Get<TingleEvent>().OpenSecretMenu = opener;
+        Get<ForestFairySecretEvent>().OpenSecretMenu = opener;
     }
     internal bool SupportsOverworldKeyhole(int group, int room) =>
         Get<GraveyardGateEvent>().CanTrigger(group, room) ||

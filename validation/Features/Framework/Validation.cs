@@ -1109,6 +1109,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDimitriForestQuest);
         RunIsolatedValidation(ValidateDimitriForestQuestLinked);
         RunIsolatedValidation(ValidateForestHintFairies);
+        RunIsolatedValidation(ValidateRoom070ForestFairySecret);
         RunIsolatedValidation(ValidateTokayIslandWorldObjects);
         RunIsolatedValidation(ValidateTalusPeaksVines);
         RunIsolatedValidation(ValidateRoom2e6MaskSalesman);

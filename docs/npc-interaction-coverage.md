@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 379 | Traced and covered by named NPC/event scenarios. |
+| **I** | 380 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 8 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 7 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -61,9 +61,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 89 | 0 | 89 |
-| Specialized native interaction | 163 | 72 | 235 |
+| Specialized native interaction | 164 | 72 | 236 |
 | Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 8 | 0 | 8 |
+| Deliberately unsupported | 7 | 0 | 7 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -105,7 +105,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:68` | [I] `$44:$02/v$00` miscMan2<br>[I] `$3a:$05/v$00` villager<br>[I] `$3b:$02/v$00` femaleVillager<br>[I] `$3c:$02/v$00` boy |
 | `0:6a` | [I] `$31:$00/v$00` impaInCutscene |
 | `0:6c` | [I] `$73:$00/v$00` ghiniHarassingMoosh<br>[I] `$73:$01/v$00` ghiniHarassingMoosh<br>[I] `$73:$02/v$00` ghiniHarassingMoosh |
-| `0:70` | [D] `$49:$0b/v$00` forestFairy |
+| `0:70` | [I] `$49:$0b/v$00` forestFairy |
 | `0:71` | [I] `$49:$07/v$00` forestFairy |
 | `0:72` | [I] `$49:$0c/v$00` forestFairy |
 | `0:77` | [I] `$44:$03/v$00` miscMan2 |

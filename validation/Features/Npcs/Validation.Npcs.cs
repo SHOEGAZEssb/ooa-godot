@@ -453,6 +453,7 @@ public sealed partial class ValidationRoot
             ["objects/linked_game_npcs.tsv|\\secret1"] = 15,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
             ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
+            ["cutscenes/forest_fairy_secret_commands.tsv|\\secret1"] = 2,
             // King Zora's owner inserts the generated return secret before presentation.
             ["cutscenes/king_zora_present_commands.tsv|\\secret1"] = 2,
             ["cutscenes/library_secret_commands.tsv|\\secret1"] = 2,
@@ -565,9 +566,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 89,
-                [NpcImplementationClassification.SpecializedNative] = 235,
+                [NpcImplementationClassification.SpecializedNative] = 236,
                 [NpcImplementationClassification.EventOwned] = 130,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 8
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 7
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -830,6 +831,7 @@ public sealed partial class ValidationRoot
             "patch.s:interactionCode94",
             "carpenter.s:room025Scripts",
             "forestFairy.s:forestFairy_discovered",
+            "forestFairy.s:$49:$0b; scripts.s:forestFairyScript_heartContainerSecret",
             "shopkeeper.s:lynnaShop:npc",
             "syrup.s:interactionCode5f",
             "businessScrub.s:interactionCodece",

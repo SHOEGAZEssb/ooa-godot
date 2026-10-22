@@ -102,12 +102,16 @@ public static class GlobalFlag
     public const int BeganBiggoronSecret = 0x58;
     // constants/common/globalFlags.s: GLOBALFLAG_BEGAN_RUUL_SECRET
     public const int BeganRuulSecret = 0x59;
+    // constants/common/globalFlags.s: GLOBALFLAG_BEGAN_FAIRY_SECRET
+    public const int BeganFairySecret = 0x65;
     // constants/common/globalFlags.s: GLOBALFLAG_BEGAN_PLEN_SECRET
     public const int BeganPlenSecret = 0x67;
     // constants/common/globalFlags.s: GLOBALFLAG_BEGAN_ELDER_SECRET
     public const int BeganElderSecret = 0x6c;
     // constants/common/globalFlags.s: GLOBALFLAG_BEGAN_SYMMETRY_SECRET
     public const int BeganSymmetrySecret = 0x6d;
+    // constants/common/globalFlags.s: GLOBALFLAG_DONE_FAIRY_SECRET
+    public const int DoneFairySecret = 0x6f;
     // constants/common/globalFlags.s: GLOBALFLAG_DONE_PLEN_SECRET
     public const int DonePlenSecret = 0x71;
     // constants/common/globalFlags.s: GLOBALFLAG_DONE_ELDER_SECRET
