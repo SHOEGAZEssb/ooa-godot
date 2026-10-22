@@ -3913,10 +3913,10 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 382 ||
-            new NpcDialogueRuleDatabase().RuleCount != 178 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 389 ||
+            new NpcDialogueRuleDatabase().RuleCount != 186 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
-            "Expected 382 NPC visibility, 178 NPC dialogue, and two NPC " +
+            "Expected 389 NPC visibility, 186 NPC dialogue, and two NPC " +
             "position state predicates.");
 
         // rosa_subid01Script branches to stubScript on CPU_ZFLAG from

@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 358 | Traced and covered by named NPC/event scenarios. |
-| **P** | 15 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 359 | Traced and covered by named NPC/event scenarios. |
+| **P** | 14 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -148,7 +148,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:58` | [I] `$44:$04/v$00` miscMan2<br>[I] `$4f:$02/v$00` impaNpc<br>[I] `$36:$0d/v$00` nayru |
 | `1:65` | [P] `$3b:$04/v$00` femaleVillager<br>[P] `$4d:$0a/v$00` ambi<br>[P] `$37:$12/v$00` ralph |
 | `1:66` | [I] `$3a:$08/v$00` villager |
-| `1:68` | [P] `$3b:$03/v$00` femaleVillager<br>[I] `$43:$02/v$00` pastGuy<br>[D] `$4e:$00/v$00` subrosian<br>[I] `$36:$0c/v$00` nayru |
+| `1:68` | [I] `$3b:$03/v$00` femaleVillager<br>[I] `$43:$02/v$00` pastGuy<br>[D] `$4e:$00/v$00` subrosian<br>[I] `$36:$0c/v$00` nayru |
 | `1:70` | [I] `$ce:$06/v$00` businessScrub |
 | `1:72` | [I] `$40:$00/v$00` soldier |
 | `1:73` | [I] `$40:$00/v$01` soldier |

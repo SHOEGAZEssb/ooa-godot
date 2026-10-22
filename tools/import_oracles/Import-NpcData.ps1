@@ -1690,6 +1690,13 @@ $pastOldLadyScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
 $room166VillagerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\villager.s')
+$room168WomanSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
+if ($mainObjectSource -notmatch '(?ms)^group1Map68ObjectData:\s+obj_Interaction \$3b \$03 \$68 \$68\s+obj_Interaction \$43 \$02 \$68 \$28\s+obj_Interaction \$4e \$00 \$48 \$38\s+obj_Interaction \$36 \$0c \$58 \$58\s+obj_End' -or
+    $room168WomanSource -notmatch '(?ms)^@initSubid03:\s*^@initSubid04:\s+callab agesInteractionsBank09\.getGameProgress_2\s+ld c,\$03\s+ld a,\$01\s+call checkNpcShouldExistAtGameStage\s+jp nz,interactionDelete\s+ld a,b\s+ld hl,@subid3And4ScriptTable\s+rst_addDoubleIndex.*?call interactionSetScript\s+jp objectSetVisible82' -or
+    $room168WomanSource -notmatch '(?ms)^@runScriptAndAnimateFacingLink:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate') {
+    throw 'Room 1:68 woman $3b:$03 placement, progress gate, script table, or update path changed.'
+}
 if ($mainObjectSource -notmatch '(?ms)^group1Map66ObjectData:\s+obj_Interaction \$3a \$08 \$68 \$58\s+obj_End' -or
     $room166VillagerSource -notmatch '(?ms)^@initSubid08:\s+ld a,\$03\s+ld e,Interaction\.oamFlags\s+ld \(de\),a\s+;[^\r\n]*\s+callab agesInteractionsBank09\.getGameProgress_2\s+ld a,b\s+cp \$04\s+jp c,interactionDelete\s+sub \$04\s+ld hl,@subid08ScriptTable\s+rst_addDoubleIndex.*?jp interactionSetScript' -or
     $room166VillagerSource -notmatch '(?ms)^@runScriptAndFaceLink:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate') {
@@ -5431,6 +5438,7 @@ Add-NpcGameProgress1DialogueTable 0x41 @(0x01, 0x02, 0x03, 0x04, 0x05, 0x06) -1 
 Add-NpcGameProgress2DialogueTable 0x3a @(0x06, 0x07) -1 'villager.s' '@subid6And7ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x38 @(0x00) -1 'pastGirl.s' '@scriptTable'
 Add-NpcGameProgress2DialogueTable 0x3b @(0x05) -1 'femaleVillager.s' '@subid5ScriptTable'
+Add-NpcGameProgress2DialogueTable 0x3b @(0x03) -1 'femaleVillager.s' '@subid3And4ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
 Add-NpcGameProgress2DialogueTable 0x43 @(0x01, 0x02) -1 'pastGuy.s' '@subid1And2ScriptTable'
 $room166ScriptEntries = @(
@@ -5534,8 +5542,8 @@ for ($subid=0x13; $subid -le 0x1b; $subid++) {
         $npcDialogueRows.Add("ab`t$($subid.ToString('x2'))`t*`twater-pollution`t$($state.ToString('x2'))`t*`t$($textId.ToString('x4'))`tzora.s:@textTable`t$encoded")
     }
 }
-if ($npcDialogueRows.Count -ne 179) {
-    throw "Expected 178 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 187) {
+    throw "Expected 186 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -6615,6 +6623,7 @@ Add-NpcGlobalVisibility 0x45 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'pastOld
 Add-NpcGameProgress2SetVisibility 0x45 0x01 -1 @(0, 1, 2, 3) 'pastOldLady.s:@subid1'
 Add-NpcGameProgress1Visibility 0x3d 0x02 -1 0 0x02 $true 'oldLady.s:@initSubid2'
 Add-NpcGameProgress2SetVisibility 0x3a 0x08 -1 @(4, 5, 6, 7) 'villager.s:@initSubid08'
+Add-NpcGameProgress2SetVisibility 0x3b 0x03 -1 @(0, 2, 3, 4, 5, 6, 7) 'femaleVillager.s:@initSubid03'
 
 # The linked-secret old ladies share linkedNpc_checkShouldSpawn. Secret index
 # $00 appears after D4; index $09 appears after D2.
@@ -6640,6 +6649,7 @@ Add-NpcEssenceVisibility 0xd5 0x00 -1 0 0x02 $true 'scriptHelper.s:@checkd2' '@c
 # subid, including the three actors placed together in room 0:68.
 $npcStageSelectionSource = $npcVisibilitySources['miscMan2.s']
 foreach ($expectedTable in @(
+    '(?ms)^@data1:.*?^@@subid3:\s*\r?\n\s*\.db \$00 \$02 \$03 \$04 \$05 \$06 \$07 \$ff\s*\r?\n^@@subid4:\s*\r?\n\s*\.db \$01 \$ff',
     '(?ms)^@data0:.*?^@@subid1:\s*\r?\n\s*\.db \$00 \$01 \$02 \$ff\s*\r?\n^@@subid2:\s*\r?\n\s*\.db \$03 \$04 \$05 \$ff',
     '(?ms)^@data3:.*?^@@subid4:\s*\r?\n\s*\.db \$00 \$01 \$05 \$ff\s*\r?\n^@@subid5:\s*\r?\n\s*\.db \$04 \$ff',
     '(?ms)^@data5:.*?^@@subid1:\s*\r?\n\s*\.db \$01 \$02 \$ff\s*\r?\n^@@subid2:\s*\r?\n\s*\.db \$03 \$04 \$07 \$ff',
@@ -6816,8 +6826,8 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 foreach ($subid in @(6,7,8,9)) {
     Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
 }
-if ($npcVisibilityRows.Count -ne 383) {
-    throw "Expected 382 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 390) {
+    throw "Expected 389 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
