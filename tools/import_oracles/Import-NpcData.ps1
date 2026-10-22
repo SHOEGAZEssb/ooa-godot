@@ -236,6 +236,7 @@ if ($subrosianSource -notmatch '(?ms)^subrosian_subid03:.*?call checkInteraction
 }
 $npcTextBySubid["$([int]0x4e):3"] = 0x4d0a
 $npcTextBySubid["$([int]0x4e):4"] = 0x4d14
+$npcTextBySubid["$([int]0x4e):0"] = 0x1c05
 $npcTextBySubid["$([int]0x3b):6"] = 0x4d19
 $npcTextBySubid["$([int]0xcd):0"] = 0x4d0f
 
@@ -746,6 +747,7 @@ $npcCanFaceBySubid = @{
     '88:1' = $true
     '59:6' = $true # femaleVillager.s:@runSubid06: npcFaceLinkAndAnimate.
     '78:4' = $true # subrosian.s:subrosian_subid04@state1: npcFaceLinkAndAnimate.
+    '78:0' = $true # subrosian.s:subrosian_subid00@state1: npcFaceLinkAndAnimate.
 }
 
 # femaleVillager.s:$08 selects TX_0f03 in assembly, then uses the complete
@@ -1158,6 +1160,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0x3d -and $subid -eq 4) { return 'ordinary-generic' }
     if ($id -eq 0xcd -and $subid -eq 0) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 4) { return 'ordinary-generic' }
+    if ($id -eq 0x4e -and $subid -eq 0) { return 'ordinary-generic' }
     if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
@@ -5309,10 +5312,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 85 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 86 -or
     $npcImplementationCounts['specialized-native'] -ne 162 -or
     $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 13 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 12 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5464,6 +5467,20 @@ Add-NpcGameProgress2DialogueTable 0x3b @(0x05) -1 'femaleVillager.s' '@subid5Scr
 Add-NpcGameProgress2DialogueTable 0x3b @(0x03, 0x04) -1 'femaleVillager.s' '@subid3And4ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
 Add-NpcGameProgress2DialogueTable 0x43 @(0x01, 0x02) -1 'pastGuy.s' '@subid1And2ScriptTable'
+
+# The linked Lynna Subrosian installs one of two generic scripts at state zero.
+# getGameProgress_2 state $05 selects TX_1c05, state $07 selects TX_1c07.
+if ($subrosianSource -notmatch '(?ms)^subrosian_subid00:\s+call checkInteractionState\s+jr nz,@state1\s+@state0:\s+call interactionIncState\s+call interactionInitGraphics\s+call objectSetVisiblec2\s+ld a,>TX_1c00\s+call interactionSetHighTextIndex\s+call checkIsLinkedGame\s+jp z,interactionDeleteAndUnmarkSolidPosition\s+callab getGameProgress_2\s+ld a,b\s+cp \$05\s+ld hl,mainScripts\.subrosianInVillageScript_afterGotMakuSeed\s+jr z,@setScript\s+cp \$07\s+jp nz,interactionDeleteAndUnmarkSolidPosition\s+ld hl,mainScripts\.subrosianInVillageScript_postGame\s+@setScript:\s+call interactionSetScript\s+@state1:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    $agesMainScriptSource -notmatch '(?ms)^subrosianInVillageScript_afterGotMakuSeed:\s+rungenericnpclowindex <TX_1c05.*?^subrosianInVillageScript_postGame:\s+rungenericnpclowindex <TX_1c07') {
+    throw 'Room 1:68 $4e:$00 linked spawn, state-zero script selection, or TX_1c05/TX_1c07 loop changed.'
+}
+if (-not $allTexts.ContainsKey(0x1c05) -or -not $allTexts.ContainsKey(0x1c07)) {
+    throw 'Room 1:68 $4e:$00 TX_1c05/TX_1c07 source text is missing.'
+}
+$subrosianPostgameText = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes($allTexts[0x1c07]))
+$npcDialogueRows.Add(
+    "4e`t00`t*`tgame-progress-2`t07`t1`t1c07`tsubrosian.s:subrosian_subid00;scripts.s:subrosianInVillageScript_postGame`t$subrosianPostgameText")
 $room166ScriptEntries = @(
     Get-NpcDialogueTableEntries 'villager.s' '@subid08ScriptTable' 'getGameProgress_2' 4)
 foreach ($state in 4..7) {
@@ -5565,8 +5582,8 @@ for ($subid=0x13; $subid -le 0x1b; $subid++) {
         $npcDialogueRows.Add("ab`t$($subid.ToString('x2'))`t*`twater-pollution`t$($state.ToString('x2'))`t*`t$($textId.ToString('x4'))`tzora.s:@textTable`t$encoded")
     }
 }
-if ($npcDialogueRows.Count -ne 195) {
-    throw "Expected 194 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 196) {
+    throw "Expected 195 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -6668,11 +6685,11 @@ Add-NpcSpecificRoomVisibility 0x58 0x01 1 0 0 0xba 0x40 $true 'bank0.s:getBlackT
 Add-NpcEssenceVisibility 0x58 0x02 -1 0 0x08 $false 'hardhatWorker.s:@@state0' 'wEssencesObtained'
 
 # The linked Lynna subrosian exists only for getGameProgress_2 states $05 or
-# $07: after seeing Twinrova or after finishing the game.
+# $07. Checking the individual global flags would also admit state $06.
 Add-NpcLinkedVisibility 0x4e 0x00 -1 0 $true 'subrosian.s:subrosian_subid00'
-Add-NpcGlobalVisibility 0x4e 0x00 -1 0 'GLOBALFLAG_SAW_TWINROVA_BEFORE_ENDGAME' $true 'miscMan2.s:getGameProgress_2'
+Add-NpcGameProgress2Visibility 0x4e 0x00 -1 0 0x05 $true 'subrosian.s:subrosian_subid00'
 Add-NpcLinkedVisibility 0x4e 0x00 -1 1 $true 'subrosian.s:subrosian_subid00'
-Add-NpcGlobalVisibility 0x4e 0x00 -1 1 'GLOBALFLAG_FINISHEDGAME' $true 'miscMan2.s:getGameProgress_2'
+Add-NpcGameProgress2Visibility 0x4e 0x00 -1 1 0x07 $true 'subrosian.s:subrosian_subid00'
 
 # The fourteen search/bridge carpenter records share one initializer. In an
 # unlinked game they exist until the bridge is built; in a linked game Zelda

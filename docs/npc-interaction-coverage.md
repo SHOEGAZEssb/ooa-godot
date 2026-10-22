@@ -51,19 +51,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 374 | Traced and covered by named NPC/event scenarios. |
+| **I** | 375 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 13 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 12 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 85 | 0 | 85 |
+| Ordinary NPC adapter | 86 | 0 | 86 |
 | Specialized native interaction | 162 | 72 | 234 |
 | Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 13 | 0 | 13 |
+| Deliberately unsupported | 12 | 0 | 12 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -148,7 +148,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:58` | [I] `$44:$04/v$00` miscMan2<br>[I] `$4f:$02/v$00` impaNpc<br>[I] `$36:$0d/v$00` nayru |
 | `1:65` | [I] `$3b:$04/v$00` femaleVillager<br>[I] `$4d:$0a/v$00` ambi<br>[I] `$37:$12/v$00` ralph |
 | `1:66` | [I] `$3a:$08/v$00` villager |
-| `1:68` | [I] `$3b:$03/v$00` femaleVillager<br>[I] `$43:$02/v$00` pastGuy<br>[D] `$4e:$00/v$00` subrosian<br>[I] `$36:$0c/v$00` nayru |
+| `1:68` | [I] `$3b:$03/v$00` femaleVillager<br>[I] `$43:$02/v$00` pastGuy<br>[I] `$4e:$00/v$00` subrosian<br>[I] `$36:$0c/v$00` nayru |
 | `1:70` | [I] `$ce:$06/v$00` businessScrub |
 | `1:72` | [I] `$40:$00/v$00` soldier |
 | `1:73` | [I] `$40:$00/v$01` soldier |

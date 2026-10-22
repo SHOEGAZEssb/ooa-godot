@@ -564,10 +564,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 85,
+                [NpcImplementationClassification.OrdinaryGeneric] = 86,
                 [NpcImplementationClassification.SpecializedNative] = 234,
                 [NpcImplementationClassification.EventOwned] = 130,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 13
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 12
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -580,7 +580,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "85 ordinary, 234 specialized, 130 event-owned, and 13 " +
+            "86 ordinary, 234 specialized, 130 event-owned, and 12 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -3917,9 +3917,9 @@ public sealed partial class ValidationRoot
 
         FailIf(
             new NpcVisibilityRuleDatabase().RuleCount != 393 ||
-            new NpcDialogueRuleDatabase().RuleCount != 194 ||
+            new NpcDialogueRuleDatabase().RuleCount != 195 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
-            "Expected 393 NPC visibility, 194 NPC dialogue, and two NPC " +
+            "Expected 393 NPC visibility, 195 NPC dialogue, and two NPC " +
             "position state predicates.");
 
         // rosa_subid01Script branches to stubScript on CPU_ZFLAG from
