@@ -1692,6 +1692,9 @@ $room166VillagerSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\villager.s')
 $room168WomanSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\femaleVillager.s')
+if ($mainObjectSource -notmatch '(?ms)^group1Map65ObjectData:\s+obj_Interaction \$3b \$04 \$38 \$28\s+obj_Interaction \$4d \$0a \$38 \$38\s+obj_Interaction \$37 \$12 \$38 \$58\s+obj_Interaction \$dc \$08 \$51 \$08\s+obj_Interaction \$dc \$08 \$61 \$02\s+obj_End') {
+    throw 'Room 1:65 woman $3b:$04 or her neighboring source object order changed.'
+}
 if ($mainObjectSource -notmatch '(?ms)^group1Map68ObjectData:\s+obj_Interaction \$3b \$03 \$68 \$68\s+obj_Interaction \$43 \$02 \$68 \$28\s+obj_Interaction \$4e \$00 \$48 \$38\s+obj_Interaction \$36 \$0c \$58 \$58\s+obj_End' -or
     $room168WomanSource -notmatch '(?ms)^@initSubid03:\s*^@initSubid04:\s+callab agesInteractionsBank09\.getGameProgress_2\s+ld c,\$03\s+ld a,\$01\s+call checkNpcShouldExistAtGameStage\s+jp nz,interactionDelete\s+ld a,b\s+ld hl,@subid3And4ScriptTable\s+rst_addDoubleIndex.*?call interactionSetScript\s+jp objectSetVisible82' -or
     $room168WomanSource -notmatch '(?ms)^@runScriptAndAnimateFacingLink:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate') {
@@ -5438,7 +5441,7 @@ Add-NpcGameProgress1DialogueTable 0x41 @(0x01, 0x02, 0x03, 0x04, 0x05, 0x06) -1 
 Add-NpcGameProgress2DialogueTable 0x3a @(0x06, 0x07) -1 'villager.s' '@subid6And7ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x38 @(0x00) -1 'pastGirl.s' '@scriptTable'
 Add-NpcGameProgress2DialogueTable 0x3b @(0x05) -1 'femaleVillager.s' '@subid5ScriptTable'
-Add-NpcGameProgress2DialogueTable 0x3b @(0x03) -1 'femaleVillager.s' '@subid3And4ScriptTable'
+Add-NpcGameProgress2DialogueTable 0x3b @(0x03, 0x04) -1 'femaleVillager.s' '@subid3And4ScriptTable'
 Add-NpcGameProgress2DialogueTable 0x44 @(0x04) -1 'miscMan2.s' 'pastHoboScriptTable'
 Add-NpcGameProgress2DialogueTable 0x43 @(0x01, 0x02) -1 'pastGuy.s' '@subid1And2ScriptTable'
 $room166ScriptEntries = @(
@@ -5542,8 +5545,8 @@ for ($subid=0x13; $subid -le 0x1b; $subid++) {
         $npcDialogueRows.Add("ab`t$($subid.ToString('x2'))`t*`twater-pollution`t$($state.ToString('x2'))`t*`t$($textId.ToString('x4'))`tzora.s:@textTable`t$encoded")
     }
 }
-if ($npcDialogueRows.Count -ne 187) {
-    throw "Expected 186 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
+if ($npcDialogueRows.Count -ne 195) {
+    throw "Expected 194 imported NPC dialogue predicates, got $($npcDialogueRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_dialogue.tsv'),
@@ -6624,6 +6627,7 @@ Add-NpcGameProgress2SetVisibility 0x45 0x01 -1 @(0, 1, 2, 3) 'pastOldLady.s:@sub
 Add-NpcGameProgress1Visibility 0x3d 0x02 -1 0 0x02 $true 'oldLady.s:@initSubid2'
 Add-NpcGameProgress2SetVisibility 0x3a 0x08 -1 @(4, 5, 6, 7) 'villager.s:@initSubid08'
 Add-NpcGameProgress2SetVisibility 0x3b 0x03 -1 @(0, 2, 3, 4, 5, 6, 7) 'femaleVillager.s:@initSubid03'
+Add-NpcGameProgress2Visibility 0x3b 0x04 -1 0 0x01 $true 'femaleVillager.s:@initSubid04'
 
 # The linked-secret old ladies share linkedNpc_checkShouldSpawn. Secret index
 # $00 appears after D4; index $09 appears after D2.
@@ -6826,8 +6830,8 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 foreach ($subid in @(6,7,8,9)) {
     Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
 }
-if ($npcVisibilityRows.Count -ne 390) {
-    throw "Expected 389 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 391) {
+    throw "Expected 390 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
