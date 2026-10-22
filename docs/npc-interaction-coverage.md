@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 355 | Traced and covered by named NPC/event scenarios. |
-| **P** | 18 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 356 | Traced and covered by named NPC/event scenarios. |
+| **P** | 17 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -90,7 +90,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:39` | [I] `$37:$0d/v$00` ralph<br>[I] `$5d:$02/v$00` bear |
 | `0:3a` | [I] `$36:$13/v$00` nayru<br>[I] `$37:$11/v$00` ralph<br>[I] `$3c:$10/v$00` boy<br>[I] `$39:$07/v$01` monkey<br>[I] `$5d:$02/v$01` bear |
 | `0:45` | [I] `$3f:$01/v$00` boy2 |
-| `0:46` | [I] `$41:$02/v$00` miscMan<br>[I] `$41:$05/v$00` miscMan<br>[P] `$3d:$02/v$00` oldLady |
+| `0:46` | [I] `$41:$02/v$00` miscMan<br>[I] `$41:$05/v$00` miscMan<br>[I] `$3d:$02/v$00` oldLady |
 | `0:48` | [I] `$3a:$03/v$00` villager<br>[D] `$54:$01/v$03` mamamuDog |
 | `0:50` | [I] `$83:$00/v$00` bombUpgradeFairy |
 | `0:55` | [D] `$54:$01/v$01` mamamuDog |

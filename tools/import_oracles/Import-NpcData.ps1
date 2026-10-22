@@ -1688,6 +1688,13 @@ $pastOldLadySource = Read-ImportText (
     Join-Path $Disassembly 'object_code\ages\interactions\pastOldLady.s')
 $pastOldLadyScriptSource = Read-ImportText (
     Join-Path $Disassembly 'scripts\ages\scripts.s')
+if ($oldLadyInteractionSource -notmatch '(?ms)^@initSubid2:\s+;[^\r\n]*\s+callab agesInteractionsBank09\.getGameProgress_1\s+ld e,Interaction\.subid\s+ld a,\(de\)\s+cp b\s+jp nz,interactionDelete\s+jr @loadScript' -or
+    $oldLadyInteractionSource -notmatch '(?ms)^@runSubid2:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    $oldLadyInteractionSource -notmatch '(?ms)^oldLadyScriptTable:.*?\.dw mainScripts\.oldLadySubid2Script' -or
+    $pastOldLadyScriptSource -notmatch '(?ms)^oldLadySubid2Script:\s+rungenericnpc TX_1809' -or
+    $mainObjectSource -notmatch '(?ms)^group0Map46ObjectData:\s+obj_Interaction \$41 \$02 \$38 \$28\s+obj_Interaction \$41 \$05 \$38 \$28\s+obj_Interaction \$3d \$02 \$38 \$68\s+obj_End') {
+    throw 'Room 0:46 old lady $3d:$02 placement, progress gate, TX_1809, or update path changed.'
+}
 if ($mainObjectSource -notmatch '(?ms)^group1Map77ObjectData:\s+obj_Interaction \$45 \$01 \$48 \$58\s+obj_End' -or
     $pastOldLadySource -notmatch '(?ms)^@subid0:\s+call checkInteractionState\s+jr nz,@@initialized\s+ld a,GLOBALFLAG_FINISHEDGAME\s+call checkGlobalFlag\s+jp nz,interactionDelete\s+call @initGraphicsTextAndScript\s+^@@initialized:\s+call interactionRunScript\s+jp interactionAnimateAsNpc\s+^@subid1:' -or
     $pastOldLadySource -notmatch '(?ms)^@initGraphicsTextAndScript:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+ld a,>TX_1800\s+call interactionSetHighTextIndex.*?ld hl,@scriptTable.*?call interactionSetScript\s+jp interactionIncState\s+^@scriptTable:\s+\.dw mainScripts\.pastOldLadySubid0Script\s+\.dw mainScripts\.stubScript' -or
@@ -6586,6 +6593,7 @@ Add-NpcGlobalVisibility 0x42 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'mustach
 Add-NpcGlobalVisibility 0x52 0x02 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'oldMan.s:@@state0'
 Add-NpcGlobalVisibility 0x45 0x00 -1 0 'GLOBALFLAG_FINISHEDGAME' $false 'pastOldLady.s:@subid0'
 Add-NpcGameProgress2SetVisibility 0x45 0x01 -1 @(0, 1, 2, 3) 'pastOldLady.s:@subid1'
+Add-NpcGameProgress1Visibility 0x3d 0x02 -1 0 0x02 $true 'oldLady.s:@initSubid2'
 
 # The linked-secret old ladies share linkedNpc_checkShouldSpawn. Secret index
 # $00 appears after D4; index $09 appears after D2.
@@ -6787,8 +6795,8 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 foreach ($subid in @(6,7,8,9)) {
     Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
 }
-if ($npcVisibilityRows.Count -ne 378) {
-    throw "Expected 377 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 379) {
+    throw "Expected 378 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

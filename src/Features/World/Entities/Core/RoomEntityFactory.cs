@@ -1030,6 +1030,7 @@ internal sealed class RoomEntityFactory
                                 initializeStoryOnce: record is { Id: InteractionId.MiscMan, SubId: 2 or 3 or 5 or 6 }
                                     or { Id: InteractionId.MiscMan2, SubId: 3 }
                                     or { Id: InteractionId.PastOldLady, SubId: 1 }
+                                    or { Id: InteractionId.OldLady, SubId: 2 }
                                     or { Id: InteractionId.Nayru, SubId: 0x0c });
                         break;
                     case NpcImplementationClassification.SpecializedNative:
