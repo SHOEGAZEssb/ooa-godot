@@ -70,8 +70,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Room | Coverage |
 | --- | --- |
-| `2:ea` | **[P] 38 generated variants:** Bipin `$28`, Blossom `$2b`, and child `$35`. |
-| `2:eb` | **[P] 34 generated variants:** Bipin `$28`, Blossom `$2b`, and child `$35`. |
+| `2:ea` | **[I] 38 generated variants:** Bipin `$28`, Blossom `$2b`, and child `$35`. |
+| `2:eb` | **[I] 34 generated variants:** Bipin `$28`, Blossom `$2b`, and child `$35`. |
 
 These are mutually selected alternatives, not 72 simultaneous actors.
 

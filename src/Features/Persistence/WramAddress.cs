@@ -201,6 +201,8 @@ public static class WramAddress
     public const int wNextChildStage = 0xc6e1;
     // include/wram.s: wc6e2
     public const int wc6e2 = 0xc6e2;
+    // include/wram.s: wChildStage8Response (Ages)
+    public const int wChildStage8Response = 0xc6e3;
     // include/wram.s: wChildPersonality
     public const int wChildPersonality = 0xc6e4;
     // include/wram.s: wMakuMapTextPresent

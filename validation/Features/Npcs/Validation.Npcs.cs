@@ -449,6 +449,7 @@ public sealed partial class ValidationRoot
             // conditional map text verifies their content and control flow.
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
+            ["cutscenes/family_npc_texts.tsv|\\Child"] = 34,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
             ["objects/linked_game_npcs.tsv|\\secret1"] = 15,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
@@ -870,6 +871,7 @@ public sealed partial class ValidationRoot
             "hardhatWorkerSubid03Script",
             "linkedGameNpcScript",
             "bipinScript3",
+            "bipin/blossom/child family scripts",
             "hardhatWorkerSubid00Script",
             "postmanScript",
             "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",

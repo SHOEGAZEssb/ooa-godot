@@ -1006,6 +1006,13 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRunningBipinPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateGraveyardGhostKidsCutscene);
         RunIsolatedValidation(ValidateBipinBlossomNaming);
+        RunIsolatedValidation(ValidateFamilyNpcScripts);
+        RunIsolatedValidation(ValidateFamilyChildSlackerReward);
+        RunIsolatedValidation(ValidateFamilyChildArboristSeed);
+        RunIsolatedValidation(ValidateFamilyChildNativeMotion);
+        RunIsolatedValidation(ValidateFamilyBlossomStage6Advice);
+        RunIsolatedValidation(ValidateFamilyChildWarriorReward);
+        RunIsolatedValidation(ValidateFamilyChildSingerSong);
         RunIsolatedValidation(ValidateImpaIntroEncounter);
         RunIsolatedValidation(ValidateInitialNayruBearReplay);
         RunIsolatedValidation(ValidateInitialNayruObjectArithmetic);

@@ -18,6 +18,7 @@ internal sealed class RoomEntityFactory
     internal RoomEnemyFactory EnemyFactory { get; }
 
     private readonly BipinBlossomFamilyStateResolver _familyState;
+    private FamilyChildMotionDatabase? _childMotion;
     private readonly ItemDropDatabase _itemDrops;
     private readonly OracleRandom _random;
     private readonly OracleSaveData? _saveData;
@@ -3877,7 +3878,10 @@ internal sealed class RoomEntityFactory
             record.Room is 0xea or 0xeb &&
             record.Id is InteractionId.Bipin or InteractionId.Blossom or InteractionId.Child)
         {
-            return new SpecializedNpcRoomEntity(npc);
+            if (record.Id == InteractionId.Child)
+                return new FamilyChildRoomEntity(npc,
+                    _childMotion ??= new FamilyChildMotionDatabase(), owner);
+            return new FamilyNpcRoomEntity(npc);
         }
 
         throw new InvalidOperationException(

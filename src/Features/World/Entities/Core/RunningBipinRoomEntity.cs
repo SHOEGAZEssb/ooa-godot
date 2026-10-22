@@ -27,6 +27,7 @@ internal sealed class RunningBipinRoomEntity
     }
 
     public NpcCharacter Npc => Entity;
+    internal FamilyNpcScriptHost? Script { get; set; }
 
     public void Update(double delta, Player player) =>
         Entity.UpdateNpc(delta, player.Position);
@@ -49,6 +50,7 @@ internal sealed class RunningBipinRoomEntity
                     : _data.AlternateAnimationData);
         }
 
+        Script?.Advance(frame.Player);
         // bipin.s calls objectPreventLinkFromPassing after objectApplySpeed,
         // so Bipin pushes Link to the nearest collision edge when his own
         // movement creates the overlap.

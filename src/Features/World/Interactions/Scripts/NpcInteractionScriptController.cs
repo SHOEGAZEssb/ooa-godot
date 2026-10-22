@@ -24,6 +24,8 @@ internal sealed class NpcInteractionScriptController
     private readonly List<BlackTowerBlockerScriptHost> _blockers = new();
     private readonly List<BlackTowerPatrolScriptHost> _patrollers = new();
     private readonly SharedNpcDatabase _sharedData = new();
+    private readonly FamilyNpcScriptDatabase _familyData = new();
+    private readonly List<FamilyNpcScriptHost> _familyHosts = new();
 
     public NpcInteractionScriptController(
         RoomSession rooms,
@@ -106,6 +108,12 @@ internal sealed class NpcInteractionScriptController
             NpcInteractionHandler.ForNpc(
                 "bipinScript3",
                 _pastBipin.TryInteract),
+            NpcInteractionHandler.ForNpc("bipin/blossom/child family scripts", (target, player) =>
+            {
+                foreach (FamilyNpcScriptHost host in _familyHosts)
+                    if (host.TryInteract(target, player)) return true;
+                return false;
+            }),
             NpcInteractionHandler.ForNpc(
                 "hardhatWorkerSubid00Script",
                 _hardhat.TryInteract),
@@ -116,6 +124,32 @@ internal sealed class NpcInteractionScriptController
         rooms.RoomChanged += OnRoomChanged;
         entities.RoomEntitiesLoaded += (_, _) =>
         {
+            foreach (FamilyNpcScriptHost host in _familyHosts) host.Cancel();
+            _familyHosts.Clear();
+            foreach (FamilyNpcRoomEntity slot in entities.EntityAdapters<FamilyNpcRoomEntity>())
+            {
+                if (!_familyData.HasScript(slot.Npc.Record)) continue;
+                var host = new FamilyNpcScriptHost(slot.Npc, _familyData, rooms,
+                    entities, dialogue, inventory, treasures);
+                slot.Script = host;
+                _familyHosts.Add(host);
+            }
+            foreach (FamilyChildRoomEntity slot in entities.EntityAdapters<FamilyChildRoomEntity>())
+            {
+                if (!_familyData.HasScript(slot.Npc.Record)) continue;
+                var host = new FamilyNpcScriptHost(slot.Npc, _familyData, rooms,
+                    entities, dialogue, inventory, treasures);
+                slot.Script = host;
+                _familyHosts.Add(host);
+            }
+            foreach (RunningBipinRoomEntity slot in entities.EntityAdapters<RunningBipinRoomEntity>())
+            {
+                if (slot.Npc.Record.Group != 2 || slot.Npc.Record.Room != 0xea) continue;
+                var host = new FamilyNpcScriptHost(slot.Npc, _familyData, rooms,
+                    entities, dialogue, inventory, treasures);
+                slot.Script = host;
+                _familyHosts.Add(host);
+            }
             foreach(var host in _dimitriRescue)host.Cancel();_dimitriRescue.Clear();
             foreach(var slot in entities.EntityAdapters<DimitriRescueScriptRoomEntity>())
             {
@@ -173,6 +207,8 @@ internal sealed class NpcInteractionScriptController
             }
             foreach (var host in _shared)
                 if (host.BlocksGameplay) return true;
+            foreach (var host in _familyHosts)
+                if (host.BlocksGameplay) return true;
             return false;
         }
     }
@@ -194,6 +230,7 @@ internal sealed class NpcInteractionScriptController
             foreach (var host in _blockers) host.SetTraceSink(value);
             foreach (var host in _patrollers) host.SetTraceSink(value);
             foreach (var host in _tokays) host.SetTraceSink(value);
+            foreach (var host in _familyHosts) host.SetTraceSink(value);
         }
     }
 
@@ -210,6 +247,8 @@ internal sealed class NpcInteractionScriptController
 
     private void OnRoomChanged(int group, OracleRoomData room)
     {
+        foreach (FamilyNpcScriptHost host in _familyHosts) host.Cancel();
+        _familyHosts.Clear();
         foreach(var host in _dimitriRescue)host.Cancel();_dimitriRescue.Clear();
         _birdTalk?.Cancel();
         _birdTalk = null;

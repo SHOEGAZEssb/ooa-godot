@@ -3386,6 +3386,17 @@ public partial class Player : Node2D
         SetCoordinateHigh(horizontal, coordinate);
     }
 
+    // bank0.objectPushLinkAwayOnCollision uses SPEED_100 in the angle from
+    // the interaction to Link, retaining Link's ordinary terrain response.
+    internal void ApplyNpcLightPush(Vector2 objectPosition)
+    {
+        if (PassesNpcs) return;
+        int angle = OracleObjectMovement.Shared.RelativeAngle(
+            objectPosition, Position);
+        ApplyTopDownObjectSpeed(ObjectSpeed.Speed100, angle,
+            allowWallSlide: true);
+    }
+
     internal byte ScriptedZHigh => unchecked((byte)(_topDownAirZFixed >> 8));
 
     internal void SetScriptedZHigh(byte coordinate)
