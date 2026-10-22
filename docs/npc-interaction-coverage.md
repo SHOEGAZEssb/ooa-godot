@@ -51,19 +51,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 371 | Traced and covered by named NPC/event scenarios. |
+| **I** | 372 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 16 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 15 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 82 | 0 | 82 |
+| Ordinary NPC adapter | 83 | 0 | 83 |
 | Specialized native interaction | 162 | 72 | 234 |
 | Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 16 | 0 | 16 |
+| Deliberately unsupported | 15 | 0 | 15 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -109,7 +109,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:71` | [I] `$49:$07/v$00` forestFairy |
 | `0:72` | [I] `$49:$0c/v$00` forestFairy |
 | `0:77` | [I] `$44:$03/v$00` miscMan2 |
-| `0:78` | [D] `$3d:$04/v$00` oldLady |
+| `0:78` | [I] `$3d:$04/v$00` oldLady |
 | `0:79` | [I] `$c8:$00/v$00` tingle |
 | `0:7b` | [I] `$3c:$03/v$00` boy<br>[I] `$3c:$04/v$00` boy<br>[I] `$3f:$02/v$00` boy2 |
 | `0:7c` | [I] `$59:$00/v$00` poe<br>[I] `$59:$00/v$02` poe |

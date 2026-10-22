@@ -450,7 +450,7 @@ public sealed partial class ValidationRoot
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
-            ["objects/linked_game_npcs.tsv|\\secret1"] = 8,
+            ["objects/linked_game_npcs.tsv|\\secret1"] = 9,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
             ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
             // King Zora's owner inserts the generated return secret before presentation.
@@ -564,10 +564,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 82,
+                [NpcImplementationClassification.OrdinaryGeneric] = 83,
                 [NpcImplementationClassification.SpecializedNative] = 234,
                 [NpcImplementationClassification.EventOwned] = 130,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 16
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 15
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -580,7 +580,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "82 ordinary, 234 specialized, 130 event-owned, and 16 " +
+            "83 ordinary, 234 specialized, 130 event-owned, and 15 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 

@@ -1152,6 +1152,7 @@ function Resolve-NpcImplementation(
     if (($id -eq 0x30 -and $subid -eq 1) -or ($id -eq 0x8b -and $subid -eq 2)) { return 'event-owned' }
     if ($id -eq 0xcc -and $subid -eq 0) { return 'event-owned' }
     if ($id -eq 0x3d -and $subid -eq 5) { return 'ordinary-generic' }
+    if ($id -eq 0x3d -and $subid -eq 4) { return 'ordinary-generic' }
     if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
@@ -5303,10 +5304,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 82 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 83 -or
     $npcImplementationCounts['specialized-native'] -ne 162 -or
     $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 16 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 15 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5580,6 +5581,8 @@ $linkedFemaleVillagerSource = Read-ImportText (
 if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFlags\s+ld \(hl\),\$02.*?Interaction\.var3f\s+ld \(hl\),GRAVEYARD_SECRET & \$0f.*?mainScripts\.linkedGameNpcScript' -or
     $linkedFemaleVillagerSource -notmatch '(?ms)^@initSubid06:\s+ld a,\$05\s+ld e,Interaction\.var3f\s+ld \(de\),a\s+ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript' -or
     $linkedFemaleVillagerSource -notmatch '(?ms)^@runSubid06:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp npcFaceLinkAndAnimate' -or
+    $oldLadyInteractionSource -notmatch '(?ms)^@initSubid4:\s+ld a,\$00\s+jr \+\+.*?ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript\s+jr @state1' -or
+    $oldLadyInteractionSource -notmatch '(?ms)^@runSubid4:\s+@runSubid5:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp npcFaceLinkAndAnimate' -or
     $linkedGhiniSource -notmatch '(?ms)^@initialize:.*?interactionInitGraphics.*?objectMarkSolidPosition.*?interactionIncState' -or
     $greatFairySource -notmatch '(?ms)^greatFairy_subid0:.*?greatFairy_initialize.*?interactionSetAlwaysUpdateBit.*?Interaction\.zh\s+ld \(hl\),\$f0.*?Interaction\.var3f\s+ld \(hl\),TEMPLE_SECRET & \$0f' -or
     $greatFairySource -notmatch '(?ms)^@state1:.*?returnIfScrollMode01Unset.*?interactionRunScript.*?Interaction\.var3e.*?interactionAnimateAsNpc.*?wFrameCounter.*?and \$07.*?and \$38.*?@zPositions:\s+\.db \$ff \$fe \$ff \$00 \$01 \$02 \$01 \$00' -or
@@ -5710,6 +5713,11 @@ foreach ($linkedNpc in @(
         Group = 0x01; Room = 0x96; Id = 0x3b; SubId = 0x06
         SecretIndex = 0x05; BeganFlag = 'GLOBALFLAG_BEGAN_PIRATE_SECRET'
         Source = 'femaleVillager.s:@initSubid06;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
+    },
+    @{
+        Group = 0x00; Room = 0x78; Id = 0x3d; SubId = 0x04
+        SecretIndex = 0x00; BeganFlag = 'GLOBALFLAG_BEGAN_CLOCK_SHOP_SECRET'
+        Source = 'oldLady.s:@initSubid4;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
     }
 )) {
     $textIds = 0..4 | ForEach-Object {
