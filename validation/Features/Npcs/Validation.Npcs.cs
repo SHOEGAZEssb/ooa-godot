@@ -1616,8 +1616,14 @@ public sealed partial class ValidationRoot
             "Villager $3a:$07 did not use unlinked state-$03 TX_1403.");
         state3Save.SetLinkedGame(linked: true);
         FailIf(
+            !state3Villager.Active || state3Villager.TextId != 0x1403,
+            "Villager $3a:$07 repeated its state-zero linked script choice during the visit.");
+        state3Manager.LoadRoom(1, _world.LoadRoom(1, 0x47));
+        state3Villager = state3Manager.Entities<NpcCharacter>().Single(
+            npc => npc.Record is { Id: InteractionId.MaleVillager, SubId: 0x07 });
+        FailIf(
             !state3Villager.Active || state3Villager.TextId != 0x1408,
-            "Villager $3a:$07 did not switch live to linked state-$03 TX_1408.");
+            "Villager $3a:$07 did not select linked state-$03 TX_1408 on re-entry.");
         state3Manager.Clear();
 
         manager.LoadRoom(1, room148);

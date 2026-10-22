@@ -1032,6 +1032,7 @@ internal sealed class RoomEntityFactory
                                     or { Id: InteractionId.PastOldLady, SubId: 1 }
                                     or { Id: InteractionId.OldLady, SubId: 2 }
                                     or { Id: InteractionId.MaleVillager, SubId: 8 }
+                                    or { Id: InteractionId.MaleVillager, SubId: 7 }
                                     or { Id: InteractionId.Nayru, SubId: 0x0c });
                         break;
                     case NpcImplementationClassification.SpecializedNative:

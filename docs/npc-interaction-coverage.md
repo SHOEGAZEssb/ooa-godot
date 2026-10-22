@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 357 | Traced and covered by named NPC/event scenarios. |
-| **P** | 16 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 358 | Traced and covered by named NPC/event scenarios. |
+| **P** | 15 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -141,7 +141,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:39` | [I] `$3a:$0d/v$00` villager |
 | `1:45` | [I] `$43:$01/v$00` pastGuy |
 | `1:46` | [I] `$40:$02/v$00` soldier<br>[I] `$40:$09/v$00` soldier<br>[I] `$37:$09/v$00` ralph<br>[I] `$40:$0b/v$00` soldier |
-| `1:47` | [P] `$3a:$07/v$00` villager<br>[I] `$4f:$01/v$00` impaNpc<br>[D] `$ad:$08/v$00` zelda |
+| `1:47` | [I] `$3a:$07/v$00` villager<br>[I] `$4f:$01/v$00` impaNpc<br>[D] `$ad:$08/v$00` zelda |
 | `1:48` | [I] `$57:$00/v$00` pickaxeWorker<br>[I] `$3a:$06/v$00` villager<br>[I] `$38:$00/v$00` pastGirl |
 | `1:49` | [I] `$3c:$0e/v$00` boy<br>[I] `$3a:$0c/v$00` villager<br>[I] `$43:$06/v$00` pastGuy |
 | `1:57` | [I] `$3b:$05/v$00` femaleVillager |
