@@ -450,7 +450,7 @@ public sealed partial class ValidationRoot
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
-            ["objects/linked_game_npcs.tsv|\\secret1"] = 9,
+            ["objects/linked_game_npcs.tsv|\\secret1"] = 11,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
             ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 2,
             // King Zora's owner inserts the generated return secret before presentation.
@@ -564,10 +564,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 83,
+                [NpcImplementationClassification.OrdinaryGeneric] = 84,
                 [NpcImplementationClassification.SpecializedNative] = 234,
                 [NpcImplementationClassification.EventOwned] = 130,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 15
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 14
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -580,7 +580,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "83 ordinary, 234 specialized, 130 event-owned, and 15 " +
+            "84 ordinary, 234 specialized, 130 event-owned, and 14 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -3916,10 +3916,10 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 391 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 392 ||
             new NpcDialogueRuleDatabase().RuleCount != 194 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
-            "Expected 391 NPC visibility, 194 NPC dialogue, and two NPC " +
+            "Expected 392 NPC visibility, 194 NPC dialogue, and two NPC " +
             "position state predicates.");
 
         // rosa_subid01Script branches to stubScript on CPU_ZFLAG from

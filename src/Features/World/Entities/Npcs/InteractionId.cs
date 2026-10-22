@@ -214,6 +214,8 @@ public static class InteractionId
     public const int LinkedGameGhini = 0xcb;
     // constants/ages/interactions.s: INTERAC_PLEN
     public const int Plen = 0xcc;
+    // constants/ages/interactions.s: INTERAC_MASTER_DIVER
+    public const int MasterDiver = 0xcd;
     // constants/common/interactions.s: INTERAC_BUSINESS_SCRUB
     public const int BusinessScrub = 0xce;
     // constants/ages/interactions.s: INTERAC_GREAT_FAIRY

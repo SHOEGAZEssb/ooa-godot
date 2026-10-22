@@ -51,19 +51,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 372 | Traced and covered by named NPC/event scenarios. |
+| **I** | 373 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 15 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 14 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 83 | 0 | 83 |
+| Ordinary NPC adapter | 84 | 0 | 84 |
 | Specialized native interaction | 162 | 72 | 234 |
 | Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 15 | 0 | 15 |
+| Deliberately unsupported | 14 | 0 | 14 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -119,7 +119,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `0:83` | [I] `$d5:$00/v$00` greatFairy |
 | `0:86` | [D] `$54:$01/v$00` mamamuDog |
 | `0:88` | [D] `$54:$01/v$02` mamamuDog |
-| `0:a0` | [D] `$cd:$00/v$00` masterDiver |
+| `0:a0` | [I] `$cd:$00/v$00` masterDiver |
 | `0:a7` | [I] `$41:$06/v$00` miscMan |
 | `0:aa` | [I] `$48:$0f/v$00` tokay<br>[I] `$48:$10/v$00` tokay |
 | `0:bb` | [I] `$48:$1e/v$00` tokay |
