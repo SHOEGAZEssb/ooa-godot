@@ -84,6 +84,8 @@ public static class InteractionId
     public const int PastGuy = 0x43;
     // constants/ages/interactions.s: INTERAC_MISC_MAN_2
     public const int MiscMan2 = 0x44;
+    // constants/ages/interactions.s: INTERAC_AMBI
+    public const int Ambi = 0x4d;
     // constants/ages/interactions.s: INTERAC_PAST_OLD_LADY
     public const int PastOldLady = 0x45;
     // constants/common/interactions.s: INTERAC_SHOPKEEPER

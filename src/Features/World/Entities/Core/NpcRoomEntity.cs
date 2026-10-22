@@ -4,7 +4,8 @@ using System.Collections.Generic;
 
 namespace oracleofages;
 
-internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce = false)
+internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce = false,
+    bool animateBeforeDialogue = false)
     : NpcCharacterRoomEntityAdapter(
         RequireOrdinaryGeneric(npc), npc.SetTransitionDrawOffset),
     IFixedRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
@@ -16,11 +17,16 @@ internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce =
     public NpcCharacter Npc => Entity;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        // Link sets pressedAButton in its earlier update. The generic script
-        // consumes it and calls showText in this interaction's own slot,
-        // before its final animation update. The next pass freezes for text.
-        if (_pendingDialogue?.Invoke() == true)
-            _pendingDialogue = null;
+        // Link sets pressedAButton in its earlier update. Most ordinary
+        // handlers run the generic script before facing and animation;
+        // Ambi $4d:$0a runs npcFaceLinkAndAnimate first. Text freezes the
+        // interaction on the next pass.
+        if (animateBeforeDialogue) AdvanceNpc(frame);
+        if (_pendingDialogue?.Invoke() == true) _pendingDialogue = null;
+        if (!animateBeforeDialogue) AdvanceNpc(frame);
+    }
+    private void AdvanceNpc(RoomEntityFrame frame)
+    {
         if (initializeStoryOnce && !Entity.Record.CanFace)
             Entity.AnimateAsNpcOneUpdate(frame.Player);
         else Entity.FaceLinkAndAnimateOneUpdate(frame.Player, preventPassing: false);
