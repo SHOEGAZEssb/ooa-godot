@@ -51,19 +51,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 373 | Traced and covered by named NPC/event scenarios. |
+| **I** | 374 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 14 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 13 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 84 | 0 | 84 |
+| Ordinary NPC adapter | 85 | 0 | 85 |
 | Specialized native interaction | 162 | 72 | 234 |
 | Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 14 | 0 | 14 |
+| Deliberately unsupported | 13 | 0 | 13 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -135,7 +135,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:25` | [I] `$40:$0d/v$00` soldier |
 | `1:26` | [I] `$40:$05/v$00` soldier |
 | `1:27` | [I] `$40:$0d/v$06` soldier |
-| `1:2d` | [D] `$4e:$04/v$00` subrosian |
+| `1:2d` | [I] `$4e:$04/v$00` subrosian |
 | `1:36` | [I] `$40:$05/v$00` soldier<br>[I] `$40:$03/v$00` soldier<br>[I] `$40:$03/v$00` soldier<br>[I] `$40:$03/v$00` soldier<br>[I] `$40:$03/v$00` soldier |
 | `1:38` | [I] `$88:$00/v$00` makuSprout |
 | `1:39` | [I] `$3a:$0d/v$00` villager |

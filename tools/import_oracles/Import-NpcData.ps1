@@ -235,6 +235,7 @@ if ($subrosianSource -notmatch '(?ms)^subrosian_subid03:.*?call checkInteraction
     throw 'Room 3:5e INTERAC_SUBROSIAN $4e:$03 linked-secret initialization or spawn gate changed.'
 }
 $npcTextBySubid["$([int]0x4e):3"] = 0x4d0a
+$npcTextBySubid["$([int]0x4e):4"] = 0x4d14
 $npcTextBySubid["$([int]0x3b):6"] = 0x4d19
 $npcTextBySubid["$([int]0xcd):0"] = 0x4d0f
 
@@ -744,6 +745,7 @@ $npcCanFaceBySubid = @{
     '49:5' = $true
     '88:1' = $true
     '59:6' = $true # femaleVillager.s:@runSubid06: npcFaceLinkAndAnimate.
+    '78:4' = $true # subrosian.s:subrosian_subid04@state1: npcFaceLinkAndAnimate.
 }
 
 # femaleVillager.s:$08 selects TX_0f03 in assembly, then uses the complete
@@ -1155,6 +1157,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0x3d -and $subid -eq 5) { return 'ordinary-generic' }
     if ($id -eq 0x3d -and $subid -eq 4) { return 'ordinary-generic' }
     if ($id -eq 0xcd -and $subid -eq 0) { return 'ordinary-generic' }
+    if ($id -eq 0x4e -and $subid -eq 4) { return 'ordinary-generic' }
     if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
@@ -5306,10 +5309,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 84 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 85 -or
     $npcImplementationCounts['specialized-native'] -ne 162 -or
     $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 14 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 13 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -5585,6 +5588,7 @@ $linkedMasterDiverSource = Read-ImportText (
 if ($linkedGhiniSource -notmatch '(?ms)^interactionCodecb:.*?Interaction\.oamFlags\s+ld \(hl\),\$02.*?Interaction\.var3f\s+ld \(hl\),GRAVEYARD_SECRET & \$0f.*?mainScripts\.linkedGameNpcScript' -or
     $linkedMasterDiverSource -notmatch '(?ms)^interactionCodecd:\s+call checkInteractionState\s+jr nz,@state1\s+@state0:\s+call @initialize\s+ld l,Interaction\.var3f\s+ld \(hl\),DIVER_SECRET & \$0f\s+ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript\s+@state1:\s+call interactionRunScript\s+jp c,interactionDeleteAndUnmarkSolidPosition\s+jp interactionAnimateAsNpc' -or
     $linkedMasterDiverSource -notmatch '(?ms)^@initialize:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+jp interactionIncState' -or
+    $subrosianSource -notmatch '(?ms)^subrosian_subid04:\s+call checkInteractionState\s+jr nz,@state1\s+@state0:\s+call subrosian_initGraphicsAndIncState\s+ld a,\$04\s+@initSecretTellingNpc:\s+ld e,Interaction\.var3f\s+ld \(de\),a\s+ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript\s+@state1:\s+call interactionRunScript\s+jp c,interactionDeleteAndUnmarkSolidPosition\s+jp npcFaceLinkAndAnimate' -or
     $linkedFemaleVillagerSource -notmatch '(?ms)^@initSubid06:\s+ld a,\$05\s+ld e,Interaction\.var3f\s+ld \(de\),a\s+ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript' -or
     $linkedFemaleVillagerSource -notmatch '(?ms)^@runSubid06:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp npcFaceLinkAndAnimate' -or
     $oldLadyInteractionSource -notmatch '(?ms)^@initSubid4:\s+ld a,\$00\s+jr \+\+.*?ld hl,mainScripts\.linkedGameNpcScript\s+call interactionSetScript\s+call interactionRunScript\s+jr @state1' -or
@@ -5729,6 +5733,11 @@ foreach ($linkedNpc in @(
         Group = 0x00; Room = 0xa0; Id = 0xcd; SubId = 0x00
         SecretIndex = 0x03; BeganFlag = 'GLOBALFLAG_BEGAN_DIVER_SECRET'
         Source = 'masterDiver.s:interactionCodecd;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
+    },
+    @{
+        Group = 0x01; Room = 0x2d; Id = 0x4e; SubId = 0x04
+        SecretIndex = 0x04; BeganFlag = 'GLOBALFLAG_BEGAN_SMITH_SECRET'
+        Source = 'subrosian.s:subrosian_subid04;linkedGameNpcScript;scriptHelper.s:linkedNpc_generateSecret'
     }
 )) {
     $textIds = 0..4 | ForEach-Object {
@@ -6723,6 +6732,7 @@ Add-NpcLinkedVisibility 0x66 0x0f -1 0 $true 'goron.s:goronSubid0f;scriptHelper.
 Add-NpcLinkedVisibility 0x4e 0x03 -1 0 $true 'subrosian.s:subrosian_subid03;scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcLinkedVisibility 0x3b 0x06 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcLinkedVisibility 0xcd 0x00 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
+Add-NpcLinkedVisibility 0x4e 0x04 -1 0 $true 'scriptHelper.s:linkedNpc_checkShouldSpawn'
 Add-NpcEssenceVisibility 0xcb 0x00 -1 0 0x01 $true 'scriptHelper.s:@checkd1' '@checkd1'
 
 # Room 0:83's Great Fairy is secret index `$06: linked files only, after D2.
@@ -6911,8 +6921,8 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 foreach ($subid in @(6,7,8,9)) {
     Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
 }
-if ($npcVisibilityRows.Count -ne 393) {
-    throw "Expected 392 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 394) {
+    throw "Expected 393 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),
