@@ -237,6 +237,7 @@ if ($subrosianSource -notmatch '(?ms)^subrosian_subid03:.*?call checkInteraction
 $npcTextBySubid["$([int]0x4e):3"] = 0x4d0a
 $npcTextBySubid["$([int]0x4e):4"] = 0x4d14
 $npcTextBySubid["$([int]0x4e):0"] = 0x1c05
+$npcTextBySubid["$([int]0xad):8"] = 0x060b
 $npcTextBySubid["$([int]0x3b):6"] = 0x4d19
 $npcTextBySubid["$([int]0xcd):0"] = 0x4d0f
 
@@ -700,6 +701,13 @@ $npcTextBySubid['79:2'] = 0x012f
 $npcTextBySubid['54:13'] = 0x1d17
 $npcTextBySubid['54:11'] = 0x1d14
 $npcTextBySubid['173:7'] = 0x0605
+if ($room39eZeldaSource -notmatch '(?ms)^zelda_state0:.*?\.dw @initSubid08' -or
+    $room39eZeldaSource -notmatch '(?ms)^@initSubid08:\s+call checkIsLinkedGame\s+jp z,interactionDeleteAndUnmarkSolidPosition\s+ld a,GLOBALFLAG_PRE_BLACK_TOWER_CUTSCENE_DONE\s+call checkGlobalFlag\s+jp z,interactionDeleteAndUnmarkSolidPosition\s+ld a,GLOBALFLAG_FLAME_OF_DESPAIR_LIT\s+call checkGlobalFlag\s+jp nz,interactionDeleteAndUnmarkSolidPosition\s+ld a,<TX_060b\s+jr @actAsGenericNpc' -or
+    $room39eZeldaSource -notmatch '(?ms)^@actAsGenericNpc:\s+ld e,Interaction\.textID\s+ld \(de\),a\s+inc e\s+ld a,>TX_0600\s+ld \(de\),a\s+ld hl,mainScripts\.genericNpcScript\s+jp interactionSetScript' -or
+    $room39eZeldaSource -notmatch '(?ms)^@faceLinkAndRunScript:\s+call interactionRunScript\s+jp npcFaceLinkAndAnimate' -or
+    -not $allTexts.ContainsKey(0x060b)) {
+    throw 'Room 1:47 Zelda $ad:$08 linked gates, TX_060b script, or native facing changed.'
+}
 $npcTextBySubid['203:0'] = 0x4d05
 $npcTextBySubid['213:0'] = 0x4d1e
 $mustacheManBaseText = Resolve-ScriptTextId `
@@ -748,6 +756,7 @@ $npcCanFaceBySubid = @{
     '59:6' = $true # femaleVillager.s:@runSubid06: npcFaceLinkAndAnimate.
     '78:4' = $true # subrosian.s:subrosian_subid04@state1: npcFaceLinkAndAnimate.
     '78:0' = $true # subrosian.s:subrosian_subid00@state1: npcFaceLinkAndAnimate.
+    '173:8' = $true # zelda.s:@faceLinkAndRunScript: npcFaceLinkAndAnimate.
 }
 
 # femaleVillager.s:$08 selects TX_0f03 in assembly, then uses the complete
@@ -1161,6 +1170,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0xcd -and $subid -eq 0) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 4) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0) { return 'ordinary-generic' }
+    if ($id -eq 0xad -and $subid -eq 8) { return 'ordinary-generic' }
     if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0x03) { return 'ordinary-generic' }
@@ -5312,10 +5322,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 86 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 87 -or
     $npcImplementationCounts['specialized-native'] -ne 162 -or
     $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 12 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 11 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
