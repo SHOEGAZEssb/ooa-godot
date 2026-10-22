@@ -564,10 +564,10 @@ public sealed partial class ValidationRoot
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
             {
-                [NpcImplementationClassification.OrdinaryGeneric] = 87,
+                [NpcImplementationClassification.OrdinaryGeneric] = 89,
                 [NpcImplementationClassification.SpecializedNative] = 235,
                 [NpcImplementationClassification.EventOwned] = 130,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 10
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 8
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -3916,7 +3916,7 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 394 ||
+            new NpcVisibilityRuleDatabase().RuleCount != 395 ||
             new NpcDialogueRuleDatabase().RuleCount != 195 ||
             new NpcPositionRuleDatabase().RuleCount != 2,
             "Expected 394 NPC visibility, 195 NPC dialogue, and two NPC " +

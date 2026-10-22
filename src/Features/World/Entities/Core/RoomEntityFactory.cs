@@ -1036,6 +1036,7 @@ internal sealed class RoomEntityFactory
                                     or { Id: InteractionId.FemaleVillager, SubId: 3 }
                                     or { Id: InteractionId.FemaleVillager, SubId: 4 }
                                     or { Id: InteractionId.Subrosian, SubId: 0 }
+                                    or { Id: InteractionId.Subrosian, SubId: 2 }
                                     or { Id: InteractionId.Zelda, SubId: 8 }
                                     or { Id: InteractionId.Ambi, SubId: 0x0a }
                                     or { Id: InteractionId.Ralph, SubId: 0x12 }

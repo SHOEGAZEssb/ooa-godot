@@ -744,6 +744,22 @@ $npcTextByVariant = @{
     '88:1:0' = 0x1007
     '88:1:1' = 0x1008
 }
+# subrosian.s:$02 indexes this script table with var03. Both scripts
+# perform their linked check before entering the generic NPC loop.
+$danceSubrosianSource = Read-ImportText (
+    Join-Path $Disassembly 'object_code\ages\interactions\subrosian.s')
+$danceSubrosianScripts = Read-ImportText (
+    Join-Path $Disassembly 'scripts\ages\scripts.s')
+if ($danceSubrosianSource -notmatch '(?ms)^subrosian_subid02:\s+call checkInteractionState\s+jr nz,@state1\s+^@state0:\s+call subrosian_initSubid02\s+call interactionRunScript\s+^@state1:\s+call interactionRunScript\s+jp c,interactionDelete\s+jp npcFaceLinkAndAnimate' -or
+    $danceSubrosianSource -notmatch '(?ms)^subrosian_initSubid02:\s+call interactionInitGraphics\s+call objectMarkSolidPosition\s+jr subrosian_loadScriptIndex.*?^subrosian_loadScriptIndex:\s+call subrosian_getScriptPtr\s+inc e\s+ld a,\(de\)\s+rst_addDoubleIndex.*?^subrosian_getScriptPtr:.*?ld e,Interaction\.subid\s+ld a,\(de\)' -or
+    $danceSubrosianSource -notmatch '(?ms)^@subid02Scripts:\s+\.dw mainScripts\.subrosianAtGoronDanceScript_greenNpc\s+\.dw mainScripts\.subrosianAtGoronDanceScript_redNpc' -or
+    $danceSubrosianScripts -notmatch '(?ms)^subrosianAtGoronDanceScript_greenNpc:\s+asm15 scriptHelp\.checkIsLinkedGameForScript\s+jumpifmemoryset wcddb, \$80, stubScript\s+rungenericnpclowindex <TX_1c14' -or
+    $danceSubrosianScripts -notmatch '(?ms)^subrosianAtGoronDanceScript_redNpc:\s+asm15 scriptHelp\.checkIsLinkedGameForScript\s+jumpifmemoryset wcddb, \$80, stubScript\s+writeobjectbyte Interaction\.oamFlags, \$02\s+rungenericnpclowindex <TX_1c15' -or
+    -not $allTexts.ContainsKey(0x1c14) -or -not $allTexts.ContainsKey(0x1c15)) {
+    throw 'Room 2:ff Subrosian $4e:$02/v$00-$01 linked script, dialogue, or red palette changed.'
+}
+$npcTextByVariant['78:2:0'] = 0x1c14
+$npcTextByVariant['78:2:1'] = 0x1c15
 $npcCanFaceBySubid = @{
     '64:13' = $true # soldierSubid0d: stationary facing and patrol dialogue.
     '157:0' = $true # interactionCode9d state 1: npcFaceLinkAndAnimate.
@@ -757,6 +773,7 @@ $npcCanFaceBySubid = @{
     '59:6' = $true # femaleVillager.s:@runSubid06: npcFaceLinkAndAnimate.
     '78:4' = $true # subrosian.s:subrosian_subid04@state1: npcFaceLinkAndAnimate.
     '78:0' = $true # subrosian.s:subrosian_subid00@state1: npcFaceLinkAndAnimate.
+    '78:2' = $true # subrosian.s:subrosian_subid02@state1: npcFaceLinkAndAnimate.
     '173:8' = $true # zelda.s:@faceLinkAndRunScript: npcFaceLinkAndAnimate.
 }
 
@@ -1171,6 +1188,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0xcd -and $subid -eq 0) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 4) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 0) { return 'ordinary-generic' }
+    if ($id -eq 0x4e -and $subid -eq 2) { return 'ordinary-generic' }
     if ($id -eq 0xad -and $subid -eq 8) { return 'ordinary-generic' }
     if ($id -eq 0xd6 -and $subid -eq 0) { return 'specialized-native' }
     if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
@@ -1279,6 +1297,7 @@ function New-NpcDataRow(
         [int]$graphic.Palette
     }
     if ($id -eq 0xe3) { $palette = $birdPalettes[$subid] }
+    if ($id -eq 0x4e -and $subid -eq 2 -and $var03 -eq 1) { $palette = 2 }
     $canFace = if ($canFaceOverride -ge 0) {
         $canFaceOverride -ne 0
     } elseif ($npcCanFaceBySubid.ContainsKey("$id`:$subid")) {
@@ -5324,10 +5343,10 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
     $npcImplementationCounts[$implementation] =
         1 + [int]$npcImplementationCounts[$implementation]
 }
-if ($npcImplementationCounts['ordinary-generic'] -ne 87 -or
+if ($npcImplementationCounts['ordinary-generic'] -ne 89 -or
     $npcImplementationCounts['specialized-native'] -ne 163 -or
     $npcImplementationCounts['event-owned'] -ne 130 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 10 -or
+    $npcImplementationCounts['deliberately-unsupported'] -ne 8 -or
     $npcImplementationCounts.Count -ne 4) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
@@ -6723,6 +6742,7 @@ Add-NpcEssenceVisibility 0x58 0x02 -1 0 0x08 $false 'hardhatWorker.s:@@state0' '
 # The linked Lynna subrosian exists only for getGameProgress_2 states $05 or
 # $07. Checking the individual global flags would also admit state $06.
 Add-NpcLinkedVisibility 0x4e 0x00 -1 0 $true 'subrosian.s:subrosian_subid00'
+Add-NpcLinkedVisibility 0x4e 0x02 -1 0 $true 'scripts.s:subrosianAtGoronDanceScript_greenNpc'
 Add-NpcGameProgress2Visibility 0x4e 0x00 -1 0 0x05 $true 'subrosian.s:subrosian_subid00'
 Add-NpcLinkedVisibility 0x4e 0x00 -1 1 $true 'subrosian.s:subrosian_subid00'
 Add-NpcGameProgress2Visibility 0x4e 0x00 -1 1 0x07 $true 'subrosian.s:subrosian_subid00'
@@ -6975,8 +6995,8 @@ Add-NpcGlobalVisibility 0xbf 0x0c -1 0 'GLOBALFLAG_TUNI_NUT_PLACED' $true 'symme
 foreach ($subid in @(6,7,8,9)) {
     Add-NpcGlobalVisibility 0xab $subid -1 0 'GLOBALFLAG_KING_ZORA_CURED' $true 'zora.s:@state0'
 }
-if ($npcVisibilityRows.Count -ne 395) {
-    throw "Expected 394 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
+if ($npcVisibilityRows.Count -ne 396) {
+    throw "Expected 395 imported NPC visibility predicates, got $($npcVisibilityRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'objects\npc_visibility.tsv'),

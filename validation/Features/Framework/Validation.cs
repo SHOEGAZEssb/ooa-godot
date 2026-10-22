@@ -1120,6 +1120,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom5c3GoronEntry);
         RunIsolatedValidation(ValidateGoronDanceScrollEntry);
         RunIsolatedValidation(ValidateGoronFileLoad);
+        RunIsolatedValidation(ValidateRoom2ffDanceSubrosians);
         RunIsolatedValidation(ValidateNpcInitializationVisibility);
         RunIsolatedValidation(ValidateEventNpcArrivalVisibility);
         RunIsolatedValidation(ValidateDeferredEventArrivalVisibility);

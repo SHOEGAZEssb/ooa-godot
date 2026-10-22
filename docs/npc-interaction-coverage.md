@@ -51,19 +51,19 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 377 | Traced and covered by named NPC/event scenarios. |
+| **I** | 379 | Traced and covered by named NPC/event scenarios. |
 | **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 10 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 8 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
 
 | Classification | Positioned/state-derived rows | Family variants | Total |
 | --- | ---: | ---: | ---: |
-| Ordinary NPC adapter | 87 | 0 | 87 |
+| Ordinary NPC adapter | 89 | 0 | 89 |
 | Specialized native interaction | 163 | 72 | 235 |
 | Event-owned actor | 130 | 0 | 130 |
-| Deliberately unsupported | 10 | 0 | 10 |
+| Deliberately unsupported | 8 | 0 | 8 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -209,7 +209,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `2:f7` | [I] `$66:$07/v$00` goron |
 | `2:fb` | [I] `$66:$0e/v$03` goron |
 | `2:fd` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$03` goron<br>[I] `$68:$01/v$00` rosa |
-| `2:ff` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$04` goron<br>[I] `$66:$0c/v$05` goron<br>[D] `$4e:$02/v$00` subrosian<br>[D] `$4e:$02/v$01` subrosian |
+| `2:ff` | [I] `$66:$08/v$00` goron<br>[I] `$66:$10/v$00` goron<br>[I] `$66:$0c/v$04` goron<br>[I] `$66:$0c/v$05` goron<br>[I] `$4e:$02/v$00` subrosian<br>[I] `$4e:$02/v$01` subrosian |
 | `3:1f` | [I] `$66:$0a/v$00` goron |
 | `3:2e` | [I] `$66:$0e/v$04` goron |
 | `3:3e` | [I] `$66:$0b/v$00` goron |
