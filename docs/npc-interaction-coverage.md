@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 361 | Traced and covered by named NPC/event scenarios. |
-| **P** | 12 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 362 | Traced and covered by named NPC/event scenarios. |
+| **P** | 11 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 17 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -161,7 +161,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `1:83` | [I] `$41:$00/v$00` miscMan |
 | `1:84` | [I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$4b:$06/v$00` rabbit<br>[I] `$40:$01/v$00` soldier |
 | `1:86` | [I] `$58:$02/v$00` hardhatWorker |
-| `1:90` | [D] `$d6:$00/v$00` dekuScrub<br>[P] `$ce:$00/v$00` businessScrub |
+| `1:90` | [D] `$d6:$00/v$00` dekuScrub<br>[I] `$ce:$00/v$00` businessScrub |
 | `1:92` | [I] `$43:$00/v$00` pastGuy |
 | `1:93` | [I] `$42:$00/v$00` mustacheMan<br>[I] `$40:$01/v$01` soldier |
 | `1:94` | [I] `$43:$00/v$01` pastGuy |
