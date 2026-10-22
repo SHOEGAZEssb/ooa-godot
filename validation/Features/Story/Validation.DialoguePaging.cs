@@ -1,11 +1,33 @@
 using Godot;
+using System;
+using System.Threading.Tasks;
 
 namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
-    private void ValidateDialoguePaging()
+    private async Task ValidateDialoguePaging()
     {
+        if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--profile-first-dialogue") >= 0)
+        {
+            string message = new LynnaShopDatabase().Text(0x0e00);
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                GD.Print($"DIALOGUE_PROFILE attempt={attempt} fixture=initialized text=TX_0e00 renderer={DisplayServer.GetName()}");
+                _dialogue.ShowMessage(message, DialogueScreenContext.Gameplay(88), sourceTextId: 0x0e00);
+                if (DisplayServer.GetName() != "headless")
+                {
+                    await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                    await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                }
+                else
+                {
+                    using Image image = _dialogue.ComposeImage();
+                }
+                _dialogue.Close();
+            }
+            return;
+        }
         foreach (bool batched in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
@@ -14,6 +36,10 @@ public sealed partial class ValidationRoot
             {
                 _dialogue.MessageSpeed = 3;
                 _dialogue.ShowMessage("A\nBB\nCCC\nDDDD\\stop()EE", _player.Position.Y);
+                // Resource preparation may be requested again after a session
+                // handoff; it must not reset or advance an active source textbox.
+                DialogueBox.PrepareTextProcessing();
+                DialogueBox.PrepareTextProcessing();
                 Vector2 start = _player.Position;
                 int sounds = _sound.PlayRequestsFor(SoundId.SndText2);
                 // Source states 0,1,2,3,4,5 -> 6,7,8,9,a,b,c,d,e,3,4.

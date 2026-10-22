@@ -479,22 +479,7 @@ internal sealed class RoomEntityFactory
             Resources.WingDungeon.GetRoomRecords(group, room.Id);
         IReadOnlyList<DungeonObjectRecord> moonlitGrottoRecords =
             Resources.MoonlitGrotto.GetRoomRecords(group, room.Id);
-        IReadOnlyList<DungeonObjectRecord> laterDungeonRecords =
-            Resources.SkullDungeon.GetRoomRecords(group, room.Id).Concat(Resources.CrownDungeon.GetRoomRecords(group, room.Id))
-                .Concat(Resources.MermaidDungeon.GetRoomRecords(group,room.Id))
-                .Concat(Resources.JabuDungeon.GetRoomRecords(group,room.Id))
-                .Concat(Resources.AncientTomb.GetRoomRecords(group,room.Id))
-                .Concat(Resources.TrapResets.GetRoomRecords(group,room.Id).Select(record => new DungeonObjectRecord(
-                    group,room.Id,record.Order,DungeonObjectKind.PuzzleTrapReset,InteractionId.MiscPuzzles,0x1f,0,0,
-                    DungeonObjectCondition.Always,record.Source)))
-                .Concat(Resources.PushSynchronizers.GetRoomRecords(group,room.Id).Select(record => new DungeonObjectRecord(
-                    group,room.Id,record.Order,DungeonObjectKind.PushBlockSynchronizer,InteractionId.PushBlockSynchronizer,0,0,0,
-                    DungeonObjectCondition.Always,record.Source)))
-                .Concat(Resources.EyeStatues.GetRoomRecords(group,room.Id).Select(record => new DungeonObjectRecord(
-                    group,room.Id,record.Order,DungeonObjectKind.SeedShooterEyeStatue,InteractionId.Shopkeeper,record.Subid,
-                    (record.PackedPosition >> 4) * 16 + 8,(record.PackedPosition & 15) * 16 + 8,
-                    DungeonObjectCondition.Always,record.Source)))
-                .OrderBy(record => record.Order).ToArray();
+        IReadOnlyList<DungeonObjectRecord> laterDungeonRecords = Resources.LaterDungeonRecords(group, room.Id);
         if (laterDungeonRecords.Any(record => record.Kind == DungeonObjectKind.MermaidTorchOrder))
             lightableTorchState ??= new LightableTorchState();
         IReadOnlyList<MovingSideScrollPlatformPlacement> sidePlatformRecords =

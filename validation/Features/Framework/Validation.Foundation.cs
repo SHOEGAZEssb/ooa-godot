@@ -1173,7 +1173,18 @@ public sealed partial class ValidationRoot
                 resourceImage.GetHeight() != rawImage.GetHeight() ||
                 resourceImage.GetFormat() != rawImage.GetFormat() ||
                 !resourceImage.GetData().AsSpan().SequenceEqual(rawImage.GetData()),
-                $"ResourceLoader changed imported PNG pixels for {path}.");
+                $"CPU graphics packaging changed imported PNG pixels for {path}.");
+            if (DisplayServer.GetName() != "headless")
+            {
+                // Own comparison textures explicitly; don't leave hundreds of
+                // native releases to the managed finalizer during shutdown.
+                using Texture2D original = ResourceLoader.Load<Texture2D>(path,
+                    cacheMode: ResourceLoader.CacheMode.Ignore);
+                using Image originalPixels = original.GetImage();
+                if (originalPixels.GetFormat() != Image.Format.Rgba8) originalPixels.Convert(Image.Format.Rgba8);
+                FailIf(!resourceImage.GetData().AsSpan().SequenceEqual(originalPixels.GetData()),
+                    $"CPU source differs from the imported GPU texture for {path}.");
+            }
         }
 
         const string sourcePath = "res://assets/oracle/gfx/spr_impa.png";

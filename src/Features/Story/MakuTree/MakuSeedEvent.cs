@@ -191,7 +191,7 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
             "scriptHelper.s:makuTree_subid06Script_part1_body", nativeDispatch: true);
         _reward = treasure;
         treasure.SetSpritePaletteOverrides(new Dictionary<int, Color[]> { [7] = _data.SeedPalette });
-        _ownedEntities.Add(Context.Entities.EntityAdapters<IRoomEntity>().Single(entity => ReferenceEquals(entity.Node, treasure)));
+        _ownedEntities.Add(Context.Entities.EntityAdapters<IRoomEntity>().Single(entity => ReferenceEquals(entity.PresentationNode, treasure)));
         _runner.WaitForNativeCounter(3);
     }
     public override void SetInputEnabled(bool enabled)

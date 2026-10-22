@@ -212,7 +212,7 @@ public partial class RoomView : Node2D
         Texture2D texture,
         Texture2D clearedTilemap)
     {
-        DrawTexture(clearedTilemap, Vector2.Zero);
+        DrawTextureRect(clearedTilemap, new Rect2(Vector2.Zero, texture.GetSize()), tile: true);
         (int left, int right) =
             RoomTransitionController.RoomLoadRevealBounds(
                 _roomLoadRevealLoadedColumns);

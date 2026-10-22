@@ -81,6 +81,13 @@ through `RoomSession` before preload, and reapply live persistent substitutions
 when loading cached data. Keep logical layout, underlying terrain, collision,
 and displayed tile mappings distinct.
 
+Imported room-object recipes may be merged and stably sorted during resource
+preparation. Cache only immutable operands; save-dependent eligibility, native
+allocation, state-zero work and RNG remain at the original dispatch boundary.
+An entity's presentation node is optional. Invisible logical controllers still
+occupy native slots and participate in the same ordered update, preload and
+retirement paths. Scene-tree membership must not determine their lifetime.
+
 Legacy collision passes retain a separate membership snapshot for the item
 scan and each item's target scan. Callbacks may change live membership;
 changes reach the next snapshot without invalidating one already in progress.
@@ -93,6 +100,9 @@ Debug device builds can opt into room-loading timings with
 `user://room-load-diagnostics.enabled` (or `--room-load-diagnostics` for desktop
 profiling). Reports identify the original room and separate data/raster work,
 live substitutions, actor construction, entry events and transition state zero.
+Scope totals include managed allocation bytes and process-wide GC collection
+counts. These CPU diagnostics do not measure the first displayed frame or GPU
+completion; compare cold and repeated entries separately on the target device.
 These CPU timings help distinguish first-use work from repeated entry; they do
 not measure deferred GPU execution and do not change gameplay scheduling.
 

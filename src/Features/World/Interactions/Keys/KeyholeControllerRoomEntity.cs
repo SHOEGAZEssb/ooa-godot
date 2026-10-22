@@ -7,7 +7,7 @@ namespace oracleofages;
 // miscPuzzles_subid11/12/13 and interactiondc_subid01 retain their slot after scriptend (the
 // caller ignores interactionRunScript's carry). Script/modal state belongs
 // to the room event; this entity owns only source initialization and lifetime.
-internal sealed class KeyholeControllerRoomEntity : RoomEntityAdapter<Node2D>,
+internal sealed class KeyholeControllerRoomEntity : IRoomEntity,
     IFixedRoomEntity, IRoomEntityLifetime, IScreenTransitionPreloadRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     IAlwaysUpdateDuringScreenTransitionRoomEntity
@@ -17,10 +17,10 @@ internal sealed class KeyholeControllerRoomEntity : RoomEntityAdapter<Node2D>,
     private readonly RoomSession? _rooms;
     internal bool Initialized { get; private set; }
     public bool Finished { get; private set; }
+    public Node2D? PresentationNode => null;
+    public void SetTransitionDrawOffset(Vector2 offset) { }
 
     internal KeyholeControllerRoomEntity(KeyholeControllerRecord record, OracleSaveData save, RoomSession? rooms)
-        : base(new Node2D { Name = $"KeyholeController_{record.Id:x2}_{record.SubId:x2}", Position = record.Position,
-            Visible = false }, static _ => { })
     {
         _record = record;
         _save = save;

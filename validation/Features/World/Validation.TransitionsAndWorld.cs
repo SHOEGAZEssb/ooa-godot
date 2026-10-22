@@ -667,8 +667,7 @@ public sealed partial class ValidationRoot
         FailIf(
             clearedTilemap.GetPixel(0, 0) != clearedColor ||
             clearedTilemap.GetPixel(7, 7) != clearedColor ||
-            clearedTilemap.GetPixel(8, 0) != clearedColor ||
-            clearedTilemap.GetPixel(159, 127) != clearedColor,
+            clearedTilemap.GetWidth() != 8 || clearedTilemap.GetHeight() != 8,
             "initializeVramMaps tile $00/attribute $80 did not repeat " +
             "GFXH_HUD tile 0's solid shade 2 through PALH_0f BG palette 0.");
 

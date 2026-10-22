@@ -23,12 +23,22 @@ Room rasterization reuses its CPU buffers and retains the input identity of
 each composed background tile. Only tiles whose art, mapping, attributes or
 palette changed are recomposed; the complete image still uses a fresh backing
 upload. Mutable VRAM always receives a fresh snapshot and invalidates its tiles.
+A newly decoded room prepares logical state without rasterizing or allocating
+room or cleared-tilemap textures. Each texture is first published when a presenter
+requests it, using the palette, layout, animation and live VRAM at that boundary.
+After acquisition, its identity remains stable. Synchronous room loading and
+scrolling setup coalesce room-texture refreshes until their preparation scope ends. Logical
+palette, VRAM, layout and object initialization retain their original order;
+textures reflect the resulting state before setup returns. This scope never
+spans an original update or host frame. Subsequent scrolling uploads and
+ordinary room mutations continue to publish immediately.
 Room availability checks are cached for the lifetime of the world data owner;
 generated room files are immutable during play.
 
-A newly generated PNG may not yet have a Godot `.import` sidecar in a clean
-checkout. The shared loader may decode that source once and cache it; feature
-code must not introduce another fallback path.
+The importer packages each generated PNG stream beside its texture source as
+`.png.bin`. CPU composition decodes this binary asset directly, including in
+exports, without creating a GPU texture and reading it back. Missing binary
+sources are packaging errors; do not introduce texture-resource fallbacks.
 
 Validation observes cache operations through an attached observer. Production
 cache classes retain current content, not audit history or hit counters.
@@ -124,7 +134,8 @@ and compose pixels in managed memory before uploading the complete image.
 These reads are scoped to one redraw: retaining a snapshot of the mutable
 transition buffer would hide later graphics uploads. Temporary raster images
 are disposed after their texture upload.
-The cleared-room reveal texture depends only on immutable HUD tile $00 and
+The world shares one 8-by-8 cleared-room reveal tile, repeated by room and
+screen-space reveal presenters. It depends only on immutable HUD tile $00 and
 BG palette slot 0. Reuse it across other palette and graphics changes; rebuild
 it when slot 0 changes while retaining the texture object used by reveal views.
 Overworld room-pack changes first apply the original fade-bit gate. Those

@@ -34,8 +34,10 @@ public sealed partial class ValidationRoot
         GD.Print($"STARTUP_SETUP ms={setup.Elapsed.TotalMilliseconds:F2}");
         var tasks = (Queue<Func<IEnumerator<bool>?>>)typeof(GameRoot).GetField("_bootTasks", ProfileFields)!.GetValue(this)!;
         var originalTasks = tasks.ToArray();
+        string[] names = ["Sources", "GameplayScripts", "GameplayScene", "GameplayUI", "Frontend", "FileMenu", "NewGameIntro"];
+        if (originalTasks.Length != names.Length)
+            throw new InvalidOperationException($"Startup profile has {names.Length} labels for {originalTasks.Length} boot tasks.");
         tasks.Clear();
-        string[] names = ["Sources", "GameplayScene", "GameplayUI", "Frontend", "FileMenu", "NewGameIntro"];
         for (int index = 0; index < originalTasks.Length; index++)
         {
             var prepare = originalTasks[index];

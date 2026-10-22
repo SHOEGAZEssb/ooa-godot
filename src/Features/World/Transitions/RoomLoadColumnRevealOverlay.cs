@@ -53,13 +53,11 @@ public partial class RoomLoadColumnRevealOverlay : Control
 
         (int left, int right) =
             RoomTransitionController.RoomLoadRevealBounds(_loadedColumns);
-        int height = Mathf.Min(
-            Mathf.RoundToInt(Size.Y),
-            _clearedTilemap.GetHeight());
+        int height = Mathf.RoundToInt(Size.Y);
         if (left > 0)
         {
             var region = new Rect2(0, 0, left, height);
-            DrawTextureRectRegion(_clearedTilemap, region, region);
+            DrawTextureRect(_clearedTilemap, region, tile: true);
         }
         if (right < OracleRoomData.ViewportWidth)
         {
@@ -68,7 +66,7 @@ public partial class RoomLoadColumnRevealOverlay : Control
                 0,
                 OracleRoomData.ViewportWidth - right,
                 height);
-            DrawTextureRectRegion(_clearedTilemap, region, region);
+            DrawTextureRect(_clearedTilemap, region, tile: true);
         }
     }
 }

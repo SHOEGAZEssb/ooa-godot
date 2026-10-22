@@ -63,25 +63,21 @@ internal static class OracleGraphicsCache
             return cached;
         }
 
-        Image image;
-        if (ResourceLoader.Exists(path))
+        // Imported .png.bin streams bypass texture creation and GPU readback.
+        // Never fall back to a remapped GPU resource when packaging is incomplete.
+        byte[] encoded = OracleAssetCache.ReadBytes(path + ".bin");
+        Image image = new();
+        Error error = image.LoadPngFromBuffer(encoded);
+        if (error != Error.Ok)
         {
-            Texture2D texture = ResourceLoader.Load<Texture2D>(
-                path, string.Empty, ResourceLoader.CacheMode.Reuse) ??
-                throw new InvalidOperationException(
-                    $"Could not load graphics resource {path}.");
-            image = texture.GetImage();
-        }
-        else
-        {
-            // The stable importer can add a PNG that has not yet received a
-            // Godot .import sidecar. Decode that generated source directly so
-            // the documented importer -> headless-validation workflow works
-            // in a clean checkout without an intervening editor launch.
-            image = Image.LoadFromFile(ProjectSettings.GlobalizePath(path));
+            image.Dispose();
+            throw new InvalidOperationException($"CPU graphics {path}.bin failed PNG decoding: {error}.");
         }
         if (image.IsEmpty())
+        {
+            image.Dispose();
             throw new InvalidOperationException($"Graphics resource {path} produced an empty image.");
+        }
         if (image.GetFormat() != Image.Format.Rgba8)
             image.Convert(Image.Format.Rgba8);
 

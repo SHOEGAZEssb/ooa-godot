@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -14,6 +15,56 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         return source;
     });
     internal static void PrepareSources() => _ = PreparedSource.Value;
+    private static readonly Lazy<IReadOnlyList<DungeonObjectRecord>[]> LaterDungeonRecipes = new(() =>
+    {
+        var source = new RoomEntityResources(null);
+        var recipes = new IReadOnlyList<DungeonObjectRecord>[8 * 256];
+        for (int group = 0; group < 8; group++)
+        for (int room = 0; room < 256; room++)
+            recipes[group * 256 + room] = source.BuildLaterDungeonRecords(group, room);
+        return recipes;
+    });
+
+    // Only immutable imported operands are compiled here. Save gates, native
+    // allocation and RNG remain in the factory's original ordered dispatch.
+    internal IReadOnlyList<DungeonObjectRecord> LaterDungeonRecords(int group, int room) =>
+        LaterDungeonRecipes.Value[group * 256 + room];
+
+    private IReadOnlyList<DungeonObjectRecord> BuildLaterDungeonRecords(int group, int room)
+    {
+        var skull = SkullDungeon.GetRoomRecords(group, room);
+        var crown = CrownDungeon.GetRoomRecords(group, room);
+        var mermaid = MermaidDungeon.GetRoomRecords(group, room);
+        var jabu = JabuDungeon.GetRoomRecords(group, room);
+        var tomb = AncientTomb.GetRoomRecords(group, room);
+        var traps = TrapResets.GetRoomRecords(group, room);
+        var pushes = PushSynchronizers.GetRoomRecords(group, room);
+        var eyes = EyeStatues.GetRoomRecords(group, room);
+        int count = skull.Count + crown.Count + mermaid.Count + jabu.Count + tomb.Count +
+            traps.Count + pushes.Count + eyes.Count;
+        // Most rooms have no rows. Avoid allocating an iterator/closure chain
+        // for every empty room while preparing the immutable catalog.
+        if (count == 0) return Array.Empty<DungeonObjectRecord>();
+        var records = new List<DungeonObjectRecord>(count);
+        records.AddRange(skull);
+        records.AddRange(crown);
+        records.AddRange(mermaid);
+        records.AddRange(jabu);
+        records.AddRange(tomb);
+        foreach (var record in traps)
+            records.Add(new(group, room, record.Order, DungeonObjectKind.PuzzleTrapReset,
+                InteractionId.MiscPuzzles, 0x1f, 0, 0, DungeonObjectCondition.Always, record.Source));
+        foreach (var record in pushes)
+            records.Add(new(group, room, record.Order, DungeonObjectKind.PushBlockSynchronizer,
+                InteractionId.PushBlockSynchronizer, 0, 0, 0, DungeonObjectCondition.Always, record.Source));
+        foreach (var record in eyes)
+            records.Add(new(group, room, record.Order, DungeonObjectKind.SeedShooterEyeStatue,
+                InteractionId.Shopkeeper, record.Subid,
+                (record.PackedPosition >> 4) * 16 + 8, (record.PackedPosition & 15) * 16 + 8,
+                DungeonObjectCondition.Always, record.Source));
+        // OrderBy is stable: equal orders retain the original catalog order.
+        return records.OrderBy(record => record.Order).ToArray();
+    }
     internal static RoomEntityResources CreateSession(RoomSession? rooms)
     {
         if (!PreparedSource.IsValueCreated) return new(rooms);
@@ -451,6 +502,8 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         _ = CompanionBarriers;
         yield return false;
         _ = Tingle;
+        yield return false;
+        _ = LaterDungeonRecipes.Value;
         yield return false;
     }
 

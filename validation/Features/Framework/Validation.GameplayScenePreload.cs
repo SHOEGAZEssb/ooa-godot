@@ -151,6 +151,23 @@ public sealed partial class ValidationRoot
         FailIf(GameplayPrepared || Read<NewGameIntroController>("_newGameIntro") is not null ||
             !SamePayloadExceptPlaytime(cancelledBytes, cancelled) || cancelled.ReadWramByte(0xc622) != 1,
             "Cancelling partial preparation retained the intro or committed its save state.");
+
+        // Deterministically stop between the new entity manager and event
+        // controller. A time-budgeted host can also end at this boundary;
+        // its old event context belongs to the scene we have already freed.
+        var retiredEntities = _entities;
+        var retiredEvents = _roomEvents;
+        ValidateRoomEventsBeforeReset();
+        Invoke("ReleaseGameplayScene", true);
+        _scene = null!;
+        Invoke("StartSelectedFile", 0, OracleSaveData.CreateStandardGame());
+        var partial = Read<System.Collections.Generic.IEnumerator<bool>>("_gameplayPreparation")!;
+        int preparationSteps = 0;
+        while (ReferenceEquals(_entities, retiredEntities) && preparationSteps++ < 256 && partial.MoveNext()) { }
+        FailIf(ReferenceEquals(_entities, retiredEntities) || _entities.IsDisposed ||
+            !ReferenceEquals(_roomEvents, retiredEvents) || !retiredEntities.IsDisposed,
+            "Partial-preparation cleanup fixture missed the new-entities/old-events boundary.");
+        ReinitializeGameplayForValidation();
         GD.Print("Validated staged intro preparation and original handoff through individual and batched host updates.");
         ValidatePreparedSavedGameHandoff();
     }

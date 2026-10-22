@@ -26,12 +26,15 @@ public sealed class OracleWorldData
     private readonly Dictionary<int, Color[,]> _palettes = new();
     private readonly Dictionary<(int Group, int Room), bool> _roomAvailability = new();
     private readonly Image _hudGraphics;
+    private readonly RoomClearTile _clearTile;
     private readonly OracleAnimationData _animations;
     private OracleRoomData? _currentPaletteRoom;
     private OracleRoomData? _loadingPaletteRoom;
     private readonly (int Group, int Room, int FlagGroup, int FlagRoom, int Mask, int LayoutGroup) _makuLayout;
 
     internal BackgroundPaletteState BackgroundPalettes { get; }
+    private readonly RoomTexturePublication _texturePublication = new();
+    internal RoomTexturePublicationScope DeferTexturePublication() => _texturePublication.Defer();
 
     public OracleWorldData()
     {
@@ -56,6 +59,7 @@ public sealed class OracleWorldData
         BackgroundPalettes.Changed += RedrawLivePaletteRooms;
         _hudGraphics = OracleGraphicsCache.LoadImage(
             "res://assets/oracle/gfx/gfx_hud.png");
+        _clearTile = new RoomClearTile(_hudGraphics, BackgroundPalettes);
         _animations = new OracleAnimationData();
     }
 
@@ -187,13 +191,13 @@ public sealed class OracleWorldData
             group, room, tileset, animationGroup, activeCollisions, tilesetFlags,
             layout, collisions,
             graphics, _hudGraphics, mappings, palette, BackgroundPalettes,
-            _animations)
+            _animations, _texturePublication, _clearTile)
         {
             IsCompanionRegion = group == 0 && _presentRoomPacks[room] == 0x7f,
             TilesetPaletteId = _tilesetMetadata[metadataOffset + 2],
             LoadsUniqueGraphicsAfterScroll = (GetRoomTilesetByte(dataGroup, room) & 0x80) != 0
         };
-        diagnostics?.Mark("raster-textures");
+        diagnostics?.Mark("logical-room");
         _rooms.Add(key, result);
         _loadingPaletteRoom = result;
         result.LoadTilesetPalette();

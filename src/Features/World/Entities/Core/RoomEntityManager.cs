@@ -96,10 +96,10 @@ public sealed class RoomEntityManager : IDisposable
         SomariaBlockRoomEntity => 0x18,
         BoomerangRoomEntity => 0x06,
         BombchuRoomEntity => 0x0d,
-        _ when entity.Node is BombEffect => 0x03,
+        _ when entity.PresentationNode is BombEffect => 0x03,
         _ => -1
     };
-    private static bool ItemSetupPending(IRoomEntity entity) => entity.Node switch
+    private static bool ItemSetupPending(IRoomEntity entity) => entity.PresentationNode switch
     {
         RickyPunchAttackRoomEntity punch => punch.InitializationPending,
         MooshStompAttackRoomEntity stomp => stomp.InitializationPending,
@@ -158,7 +158,7 @@ public sealed class RoomEntityManager : IDisposable
         // Scan checks visibility before reading the ID/health/radii. Invisible
         // ENEMY$59 producers never require a target projection for capture.
         // Retained relatedObj2 reads still follow the current slot occupant.
-        if (requireVisible && !entity.Node.Visible) return null;
+        if (requireVisible && entity.PresentationNode?.Visible != true) return null;
         return entity is IBombchuTargetRoomEntity target ? target.BombchuTarget :
             throw new NotSupportedException($"bombchuCheckForEnemyTarget: ENEMY slot $d{slot:x1}:80 in room " +
                 $"${_roomForActiveEntities.Group:x1}:${_roomForActiveEntities.Id:x2} ({entity.GetType().Name}) has no native ID/health/radius owner.");
@@ -383,11 +383,11 @@ public sealed class RoomEntityManager : IDisposable
 
     private void ApplyObjectPaletteOverride(IRoomEntity entity)
     {
-        if (entity.Node is EnemyCharacter enemy)
+        if (entity.PresentationNode is EnemyCharacter enemy)
             enemy.Animation.SetPaletteOverride(_activeObjectPaletteOverride);
-        else if (entity.Node is ZoraFireProjectile fire)
+        else if (entity.PresentationNode is ZoraFireProjectile fire)
             fire.SetPaletteOverride(_activeObjectPaletteOverride);
-        else if (entity.Node is RamrockPart part)
+        else if (entity.PresentationNode is RamrockPart part)
             part.Animation.SetPaletteOverride(_activeObjectPaletteOverride);
     }
 
@@ -575,7 +575,7 @@ public sealed class RoomEntityManager : IDisposable
         if (owner is SwitchHookItem hook) return new(0x0b, hook.ChainPosition, hook.ChainZHigh);
         if (owner is not IRoomEntity entity)
             throw new InvalidOperationException($"PART_ITEM_DROP relatedObj1 ITEM${slot:x2} has no position owner.");
-        int z = entity.Node switch
+        int z = entity.PresentationNode switch
         {
             BoomerangItem boomerang => boomerang.ZHigh,
             BombEffect bomb => bomb.CollisionZ,
@@ -584,7 +584,7 @@ public sealed class RoomEntityManager : IDisposable
             _ when entity is ISeedProjectileRoomEntity seed => seed.CollisionZ,
             _ => throw new InvalidOperationException($"PART_ITEM_DROP relatedObj1 ITEM${slot:x2} has no Z owner.")
         };
-        return new(DynamicItemId(entity), ((Node2D)entity.Node).Position, z);
+        return new(DynamicItemId(entity), entity.Node.Position, z);
     }
     // Dependency references shared with the manager-owned entity factory.
     internal ItemDropDatabase ItemDrops => _itemDrops;
@@ -889,7 +889,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         _roomForActiveEntities=room;
         foreach(var entity in _activeEntities)
-            if(entity.Node is TransitionOffsetNode2D drawable)
+            if(entity.PresentationNode is TransitionOffsetNode2D drawable)
                 drawable.BindTerrainShadow(room,()=>_enemyFrameCounter,()=>NativeDrawOrder(entity)??0,()=>_screenTransitionActive,RuntimeState);
     }
 
@@ -1053,7 +1053,7 @@ public sealed class RoomEntityManager : IDisposable
             .Where(entity => EntityPhase(entity) == phase)
             .OrderBy(entity => _enemySlots.GetValueOrDefault(entity, 16)).ToArray())
         {
-            if (phase == 0 && entity.Node is EnemyCharacter statusEnemy)
+            if (phase == 0 && entity.PresentationNode is EnemyCharacter statusEnemy)
                 statusEnemy.SetStatusPaletteSuppressed(enemiesDisabled);
             if (_updatedEntitiesThisFrame.Contains(entity) ||
                 entity is IRoomEntityLifetime { Finished: true } ||
@@ -1180,7 +1180,7 @@ public sealed class RoomEntityManager : IDisposable
                 }
                 fixedItem.UpdateFrame(frame, _pendingSpawns);
                 _updatedEntitiesThisFrame.Add(entity);
-                if (entity.Node is EmberSeedEffect { GaleMenuRequested: true })
+                if (entity.PresentationNode is EmberSeedEffect { GaleMenuRequested: true })
                     GaleMenuRequested?.Invoke();
                 ProcessSpawns(frame);
             }
@@ -1267,7 +1267,7 @@ public sealed class RoomEntityManager : IDisposable
                     push.Advance(1.0 / 60.0,player);
                 foreach (IRoomEntity entity in EntitiesForUpdatePhase(phase))
                 {
-                    if (phase == 0 && entity.Node is EnemyCharacter statusEnemy)
+                    if (phase == 0 && entity.PresentationNode is EnemyCharacter statusEnemy)
                         statusEnemy.SetStatusPaletteSuppressed(enemyPassDisabled || textActive || roomEntityFreezeActive);
                     if (enemyPassDisabled && !UpdatesDuringDialogue(entity))
                         continue;
@@ -1415,7 +1415,7 @@ public sealed class RoomEntityManager : IDisposable
         // objectMarkSolidPosition reserves the whole short-position metatile,
         // independently of an NPC's collision radius or facing.
         foreach (IRoomEntity entity in _activeEntities)
-            if (entity.Node is NpcCharacter { Active: true, TimeWarpSolidMarked: true } npc &&
+            if (entity.PresentationNode is NpcCharacter { Active: true, TimeWarpSolidMarked: true } npc &&
                 database.MarksSolidPosition(npc.BaseRecord) &&
                 _roomForActiveEntities.GetPackedPosition(npc.TimeWarpSolidPosition) == packedPosition)
                 return true;
@@ -2029,7 +2029,7 @@ public sealed class RoomEntityManager : IDisposable
         return (T)Spawn(spawn);
     }
 
-    internal Node2D? TryCreateInteraction(RoomEntitySpawn spawn) => TryCreateInteractionEntity(spawn)?.Node;
+    internal Node2D? TryCreateInteraction(RoomEntitySpawn spawn) => TryCreateInteractionEntity(spawn)?.PresentationNode;
 
     private IRoomEntity? TryCreateInteractionEntity(RoomEntitySpawn spawn)
     {
@@ -2041,8 +2041,8 @@ public sealed class RoomEntityManager : IDisposable
 
     internal void ReplaceEventOwnedNpc(NpcCharacter actor, IRoomEntity replacement)
     {
-        IRoomEntity original = _activeEntities.Single(entity => ReferenceEquals(entity.Node, actor));
-        if (original is not EventOwnedNpcRoomEntity || !ReferenceEquals(replacement.Node, actor))
+        IRoomEntity original = _activeEntities.Single(entity => ReferenceEquals(entity.PresentationNode, actor));
+        if (original is not EventOwnedNpcRoomEntity || !ReferenceEquals(replacement.PresentationNode, actor))
             throw new InvalidOperationException($"NPC ${actor.Record.Id:x2}:${actor.Record.SubId:x2}: only an event-owned slot can transfer its native dispatch.");
         int index = _activeEntities.IndexOf(original);
         int slot = _interactionSlots[original];
@@ -2602,15 +2602,15 @@ public sealed class RoomEntityManager : IDisposable
                 return true;
             };
         }
-        if (entity.Node is EnemyCharacter enemy)
+        if (entity.PresentationNode is EnemyCharacter enemy)
         {
             enemy.TryCreateKnockbackDust = TryCreateKnockbackDust;
             enemy.BindMovementMemory(_runtimeState);
             enemy.BindNativePartAllocation(TryCreateQueuedPart, CanAllocateParts);
             enemy.BindNativeEnemyAllocation(TryCreateEnemy);
         }
-        if (entity.Node is ItemDropProducer producer) producer.BindPartCreation(TryCreatePart);
-        if (entity.Node is MapleEncounter maple)
+        if (entity.PresentationNode is ItemDropProducer producer) producer.BindPartCreation(TryCreatePart);
+        if (entity.PresentationNode is MapleEncounter maple)
         {
             maple.BindNativeMemory(_runtimeState);
             maple.BindBombPull(() => ResolveMapleBombPulling(maple));
@@ -2618,53 +2618,53 @@ public sealed class RoomEntityManager : IDisposable
                 ? TryCreatePart(spawn) : TryCreateQueuedPart(spawn));
             maple.BindBookCreation(spawn => TryCreateInteraction(spawn) as MapleTouchingBookRoomEntity);
         }
-        if (entity.Node is PumpkinHeadBoss pumpkin) pumpkin.BindNativePartAllocation(TryCreateQueuedPart);
-        if (entity.Node is SmogProjectilePart smogProjectile)
+        if (entity.PresentationNode is PumpkinHeadBoss pumpkin) pumpkin.BindNativePartAllocation(TryCreateQueuedPart);
+        if (entity.PresentationNode is SmogProjectilePart smogProjectile)
             smogProjectile.BindMovementMemory(_runtimeState);
-        if (entity.Node is EnemyArrowProjectile arrowProjectile)
+        if (entity.PresentationNode is EnemyArrowProjectile arrowProjectile)
             arrowProjectile.BindMovementMemory(_runtimeState);
-        if (entity.Node is OctorokRockProjectile rockProjectile)
+        if (entity.PresentationNode is OctorokRockProjectile rockProjectile)
             rockProjectile.BindMovementMemory(_runtimeState);
-        if (entity.Node is StalfosBoneProjectile stalfosBone)
+        if (entity.PresentationNode is StalfosBoneProjectile stalfosBone)
             stalfosBone.BindMovementMemory(_runtimeState);
-        if (entity.Node is SwordBeamEffect swordBeam)
+        if (entity.PresentationNode is SwordBeamEffect swordBeam)
             swordBeam.BindMovementMemory(_runtimeState);
-        if (entity.Node is BombEffect bomb)
+        if (entity.PresentationNode is BombEffect bomb)
             bomb.BindMovementMemory(_runtimeState);
-        if (entity.Node is EmberSeedEffect seed)
+        if (entity.PresentationNode is EmberSeedEffect seed)
             seed.BindMovementMemory(_runtimeState);
-        if (entity.Node is ItemDropEffect drop)
+        if (entity.PresentationNode is ItemDropEffect drop)
             drop.BindMovementMemory(_runtimeState);
-        if (entity.Node is BoomerangItem boomerang)
+        if (entity.PresentationNode is BoomerangItem boomerang)
             boomerang.BindMovementMemory(_runtimeState);
-        if (entity.Node is SomariaBlock somariaBlock)
+        if (entity.PresentationNode is SomariaBlock somariaBlock)
             somariaBlock.BindMovementMemory(_runtimeState);
-        if (entity.Node is WildTokayMeat meat)
+        if (entity.PresentationNode is WildTokayMeat meat)
             meat.BindWorld(this);
-        if (entity.Node is FallingDownHoleEffect fallingHole)
+        if (entity.PresentationNode is FallingDownHoleEffect fallingHole)
             fallingHole.BindMovementMemory(_runtimeState);
-        if (entity.Node is FallingBoulder fallingBoulder)
+        if (entity.PresentationNode is FallingBoulder fallingBoulder)
             fallingBoulder.BindMovementMemory(_runtimeState);
-        if (entity.Node is GashaSpotInteraction gashaSpot)
+        if (entity.PresentationNode is GashaSpotInteraction gashaSpot)
             gashaSpot.BindMovementMemory(_runtimeState);
-        if (entity.Node is GroundTreasurePickup groundTreasure)
+        if (entity.PresentationNode is GroundTreasurePickup groundTreasure)
             groundTreasure.BindMovementMemory(_runtimeState);
-        if (entity.Node is WaterPushblockRoomEntity waterPushblock)
+        if (entity.PresentationNode is WaterPushblockRoomEntity waterPushblock)
             waterPushblock.BindMovementMemory(_runtimeState);
-        if (entity.Node is SeedOnTree seedOnTree)
+        if (entity.PresentationNode is SeedOnTree seedOnTree)
             seedOnTree.BindMovementMemory(_runtimeState);
-        if (entity.Node is Room148PickaxeDebris pickaxeDebris)
+        if (entity.PresentationNode is Room148PickaxeDebris pickaxeDebris)
             pickaxeDebris.BindMovementMemory(_runtimeState);
-        if (entity.Node is ShovelDebrisEffect shovelDebris)
+        if (entity.PresentationNode is ShovelDebrisEffect shovelDebris)
             shovelDebris.BindMovementMemory(_runtimeState);
-        if (entity.Node is MovingSideScrollPlatformRoomEntity sidePlatform)
+        if (entity.PresentationNode is MovingSideScrollPlatformRoomEntity sidePlatform)
         {
             sidePlatform.BindMovementMemory(_runtimeState);
             sidePlatform.BindRidingState(_platformRiding);
         }
-        if (entity.Node is MovingPlatformRoomEntity movingPlatform)
+        if (entity.PresentationNode is MovingPlatformRoomEntity movingPlatform)
             movingPlatform.BindMovementMemory(_runtimeState);
-        if (entity.Node is CircularSideScrollPlatformRoomEntity circularPlatform)
+        if (entity.PresentationNode is CircularSideScrollPlatformRoomEntity circularPlatform)
         {
             circularPlatform.BindMovementMemory(_runtimeState);
             circularPlatform.BindRidingState(_platformRiding);
@@ -2694,9 +2694,9 @@ public sealed class RoomEntityManager : IDisposable
             essence.BindEnergySwirl(center => CreateEnergySwirl(center), () => _runtimeState.SetWramByte(BlueEnergyBeadDatabase.Shared.DeleteAddress, 1));
             essence.BindChildren(CreateEssenceChildren);
         }
-        if (UsesInteractionSlot(entity) && entity is NpcCharacterRoomEntityAdapter && entity.Node is NpcCharacter npcActor)
+        if (UsesInteractionSlot(entity) && entity is NpcCharacterRoomEntityAdapter && entity.PresentationNode is NpcCharacter npcActor)
             npcActor.NativeActivationChanged = active => SetNpcInteractionActive(entity, active);
-        if (UsesInteractionSlot(entity) && (entity.Node is not NpcCharacter { Active: false }||entity is TokayNpcRoomEntity{ReservesInitializationSlot:true}))
+        if (UsesInteractionSlot(entity) && (entity.PresentationNode is not NpcCharacter { Active: false }||entity is TokayNpcRoomEntity{ReservesInitializationSlot:true}))
         {
             int slot = entity is PirateShipRoomEntity { Reserved: true } ? 1 : FindFreeInteractionSlot();
             if (slot < 0) throw new InvalidOperationException($"{entity.GetType().Name}: native dynamic INTERACTION pool is full ($d2-$df).");
@@ -2706,9 +2706,9 @@ public sealed class RoomEntityManager : IDisposable
                 WriteSmogInteractionCounter(slot, _inactiveInteractionCounter2[slot]);
                 _inactiveInteractionCounter2[slot] = 0;
             }
-            if (entity.Node is PuzzlePuffEffect puff)
+            if (entity.PresentationNode is PuzzlePuffEffect puff)
                 puff.BindNativeTiming(slot, () => _enemyFrameCounter);
-            if (entity.Node is ClinkEffect clink)
+            if (entity.PresentationNode is ClinkEffect clink)
                 clink.BindNativeTiming(slot, () => _enemyFrameCounter);
         }
         if (EntityPhase(entity) == 1 && !_partSlots.ContainsKey(entity))
@@ -2716,24 +2716,24 @@ public sealed class RoomEntityManager : IDisposable
             int slot = FindFreePartSlot();
             if (slot < 0)
             {
-                entity.Node.Free();
+                entity.PresentationNode?.Free();
                 throw new InvalidOperationException($"getFreePartSlot: {entity.GetType().Name} bypassed checked allocation with all $10 native PART slots occupied ($d0c0-$dfc0).");
             }
             _partSlots.Add(entity, slot);
-            if (entity.Node is VolcanoRock rock) rock.SetPartSlot(slot);
-            if (entity.Node is FallingBoulder boulder) boulder.SetPartSlot(slot);
+            if (entity.PresentationNode is VolcanoRock rock) rock.SetPartSlot(slot);
+            if (entity.PresentationNode is FallingBoulder boulder) boulder.SetPartSlot(slot);
             if (entity is FallingFireRoomEntity fire) fire.Slot = slot;
-            if (entity.Node is RamrockPart ramrockPart) ramrockPart.Slot = slot;
+            if (entity.PresentationNode is RamrockPart ramrockPart) ramrockPart.Slot = slot;
             if (entity is VeranSpiderwebRoomEntity web) web.Slot=slot;
         }
-        if (entity.Node is ItemDropEffect partDrop && _partSlots.TryGetValue(entity, out int dropSlot))
+        if (entity.PresentationNode is ItemDropEffect partDrop && _partSlots.TryGetValue(entity, out int dropSlot))
             partDrop.SetPartSlot(dropSlot);
-        if (entity.Node is MapleDroppedItem mapleDrop && _partSlots.TryGetValue(entity, out int mapleSlot))
+        if (entity.PresentationNode is MapleDroppedItem mapleDrop && _partSlots.TryGetValue(entity, out int mapleSlot))
             mapleDrop.SetPartSlot(mapleSlot);
         if (_activeObjectPaletteOverride is not null) ApplyObjectPaletteOverride(entity);
         // Children created by enemy handlers also occupy the shared pool.
         // Placed entities and itemDrop_spawnEnemy already registered their slot.
-        if ((entity.Node is EnemyCharacter || entity is ArmosSpawnerRoomEntity or FireballShooterRoomEntity) && entity is IRoomEnemyCounterEntity &&
+        if ((entity.PresentationNode is EnemyCharacter || entity is ArmosSpawnerRoomEntity or FireballShooterRoomEntity) && entity is IRoomEnemyCounterEntity &&
             !_enemySlots.ContainsKey(entity))
         {
             for (int slot = 0; slot < 16; slot++)
@@ -2756,7 +2756,7 @@ public sealed class RoomEntityManager : IDisposable
                 $"lifecycle ownership for NPC ${lifecycle.TalkNpc.Record.Id:x2}:" +
                 $"${lifecycle.TalkNpc.Record.SubId:x2}.");
         }
-        if (entity.Node is TransitionOffsetNode2D drawable)
+        if (entity.PresentationNode is TransitionOffsetNode2D drawable)
         {
             drawable.SetWorldToScreen(position => WorldToScreen(position));
             drawable.BindTerrainShadow(_roomForActiveEntities, () => _enemyFrameCounter,
@@ -2786,14 +2786,15 @@ public sealed class RoomEntityManager : IDisposable
                 }
             }
         }
-        _worldRoot.AddChild(entity.Node);
+        if (entity.PresentationNode is not { } presentationNode) return entity;
+        _worldRoot.AddChild(presentationNode);
         ApplyNativeDrawOrder(entity);
         if (entity is IFixedRoomEntity)
         {
             // Entering the tree can enable an overridden _PhysicsProcess
             // callback. Fixed room entities are advanced only by this manager
             // and must never race that owner.
-            entity.Node.SetPhysicsProcess(false);
+            presentationNode.SetPhysicsProcess(false);
         }
         return entity;
     }
@@ -2814,21 +2815,22 @@ public sealed class RoomEntityManager : IDisposable
 
     private void ApplyNativeDrawOrder(IRoomEntity entity)
     {
+        if (entity.PresentationNode is null) return;
         if (NativeDrawOrder(entity) is not int order) return;
         // Godot paints equal-Z siblings last-to-front; Game Boy OAM gives
         // earlier slots precedence. This changes presentation, never dispatch.
         IRoomEntity? preceding = _activeEntities.Concat(_outgoingEntities)
-            .Where(other => other != entity && other.Node.GetParent() == _worldRoot &&
+            .Where(other => other != entity && other.PresentationNode?.GetParent() == _worldRoot &&
                 NativeDrawOrder(other) is int otherOrder && otherOrder < order)
             .OrderByDescending(other => NativeDrawOrder(other)).FirstOrDefault();
         if (preceding is not null)
         {
-            int index = preceding.Node.GetIndex();
-            if (entity.Node.GetIndex() < index) index--;
-            _worldRoot.MoveChild(entity.Node, index);
+            int index = preceding.PresentationNode!.GetIndex();
+            if (entity.PresentationNode.GetIndex() < index) index--;
+            _worldRoot.MoveChild(entity.PresentationNode, index);
         }
         else
-            _worldRoot.MoveChild(entity.Node, _worldRoot.GetChildCount() - 1);
+            _worldRoot.MoveChild(entity.PresentationNode, _worldRoot.GetChildCount() - 1);
     }
 
     private void SetNpcInteractionActive(IRoomEntity entity, bool active)
@@ -2838,9 +2840,9 @@ public sealed class RoomEntityManager : IDisposable
         if (!active) { _interactionSlots.Remove(entity); return; }
         if (_interactionSlots.ContainsKey(entity)) return;
         int slot = FindFreeInteractionSlot();
-        if (slot < 0) throw new InvalidOperationException($"{entity.Node.Name}: native INTERACTION pool full while reactivating actor.");
+        if (slot < 0) throw new InvalidOperationException($"{entity.GetType().Name}: native INTERACTION pool full while reactivating actor.");
         _interactionSlots.Add(entity, slot);
-        if (entity.Node.GetParent() == _worldRoot) ApplyNativeDrawOrder(entity);
+        if (entity.PresentationNode?.GetParent() == _worldRoot) ApplyNativeDrawOrder(entity);
     }
 
     private void ProcessSpawns(RoomEntityFrame? frame = null)
@@ -2901,7 +2903,7 @@ public sealed class RoomEntityManager : IDisposable
                 // stack RAM, and the last CP$04 still returns Z to state0.
                 if (ball.Part.SubId != 0)
                 {
-                    var head = _partSlots.FirstOrDefault(pair => ReferenceEquals(pair.Key.Node, ball.Part.Head));
+                    var head = _partSlots.FirstOrDefault(pair => ReferenceEquals(pair.Key.PresentationNode, ball.Part.Head));
                     _runtimeState.SetWramByte(0xc0c0, 0x2a);
                     _runtimeState.SetWramByte(0xc0c1, (byte)ball.Part.SubId);
                     _runtimeState.SetWramByte(0xc0d6, 0xc0);
@@ -3027,7 +3029,7 @@ public sealed class RoomEntityManager : IDisposable
             or OwlStatueRoomEntity or RotatableSeedThingRoomEntity or SeedReflectorChildRoomEntity or LightableTorchRoomEntity or DarkRoomHandlerRoomEntity or RespawnableBushRoomEntity
             or CuccoAttackerRoomEntity or MoblinBoomerangRoomEntity or SeedOnTreeRoomEntity or ShootingGalleryBallRoomEntity
             or HeadThwompBombDropRoomEntity or PumpkinHeadProjectileRoomEntity or ShadowHagShadowRoomEntity or MapleDroppedItemRoomEntity ||
-        entity.Node is OctorokRockProjectile or EnemyArrowProjectile or HeadThwompProjectile or HeadThwompBoulder or SubterrorDirtEffect ? 1 : 2;
+        entity.PresentationNode is OctorokRockProjectile or EnemyArrowProjectile or HeadThwompProjectile or HeadThwompBoulder or SubterrorDirtEffect ? 1 : 2;
 
     internal IReadOnlyList<BlueEnergyBeadRoomEntity> CreateEnergySwirl(Vector2 center, byte duration = 0xff,bool outgoing=false)
     {
@@ -3157,7 +3159,7 @@ public sealed class RoomEntityManager : IDisposable
         LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
         TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         AncientTombEntranceRoomEntity or RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
-        entity.Node is PuzzlePuffEffect or EyesoarSpawnEffect or InteractionSparkleEffect or InteractionExplosionEffect or DungeonKeyUseEffect
+        entity.PresentationNode is PuzzlePuffEffect or EyesoarSpawnEffect or InteractionSparkleEffect or InteractionExplosionEffect or DungeonKeyUseEffect
             or GrassDebrisEffect or RockDebrisEffect or ShovelDebrisEffect or SplashEffect or OverworldKeyUseEffect or Room148PickaxeDebris || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or NuunBridgeRoomEntity or OrbBridgeControllerRoomEntity or DungeonOrbChestRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
             or DungeonStateController or ColoredCubeFloorSensorRoomEntity or MermaidChangingFloorRoomEntity or MermaidChangingFloorWorkerRoomEntity or MermaidBossKeyRoomEntity or MermaidTorchOrderRoomEntity or DungeonRoomFlagMirrorRoomEntity or MinecartGateRoomEntity or SwitchTileTogglerRoomEntity or MinecartShutterRoomEntity or DungeonSignalScriptRoomEntity
@@ -3272,8 +3274,10 @@ public sealed class RoomEntityManager : IDisposable
         return true;
     }
     internal bool EnemySlotAvailable => _reservedEnemySlots.Count<16;
+    internal int NativeInteractionSlot(IRoomEntity entity) => _interactionSlots[entity];
+
     internal int InteractionSlot(Node2D actor) =>
-        _interactionSlots.Single(pair => ReferenceEquals(pair.Key.Node, actor)).Value;
+        _interactionSlots.Single(pair => ReferenceEquals(pair.Key.PresentationNode, actor)).Value;
 
     private int FindFreeInteractionSlot()
     {
@@ -3354,11 +3358,11 @@ public sealed class RoomEntityManager : IDisposable
             return;
         }
 
-        if (!entity.Node.Visible)
+        if (entity.PresentationNode?.Visible != true)
         {
             throw new InvalidOperationException(
                 $"Incoming room entity {entity.GetType().Name} " +
-                $"('{entity.Node.Name}') is hidden after creation and " +
+                $"('{entity.PresentationNode?.Name}') is hidden after creation and " +
                 $"does not implement " +
                 $"{nameof(IScreenTransitionPreloadRoomEntity)}. Source " +
                 $"state 0 must resolve its transition presentation " +
@@ -3378,14 +3382,14 @@ public sealed class RoomEntityManager : IDisposable
                 nameof(presentation), presentation,
                 "Unknown screen-transition presentation result.")
         };
-        if (entity.Node.Visible == expectedVisible)
+        if ((entity.PresentationNode?.Visible ?? false) == expectedVisible)
             return;
 
         throw new InvalidOperationException(
             $"Incoming room entity {entity.GetType().Name} " +
-            $"('{entity.Node.Name}') reported transition presentation " +
+            $"('{entity.PresentationNode?.Name}') reported transition presentation " +
             $"{presentation} but its root visibility is " +
-            $"{entity.Node.Visible}.");
+            $"{entity.PresentationNode?.Visible ?? false}.");
     }
 
     private void ProcessScreenTransitionPreloadSpawns()
@@ -3411,12 +3415,12 @@ public sealed class RoomEntityManager : IDisposable
         IRoomEntity entity,
         int frameCounter)
     {
-        if (entity.Node is EnemyCharacter enemy)
+        if (entity.PresentationNode is EnemyCharacter enemy)
             enemy.SetGlobalFrameCounter(frameCounter);
     }
 
     private static bool UpdatesDuringDialogue(IRoomEntity entity) =>
-        entity.Node is EnemyCharacter enemy ? enemy.InitializationPending :
+        entity.PresentationNode is EnemyCharacter enemy ? enemy.InitializationPending :
         entity is IUpdatesDuringDialogueRoomEntity
         {
             UpdatesDuringDialogue: true
@@ -3442,7 +3446,7 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     internal bool TryMergeSmogClouds(int phase) => SmogCloudMerge.TryMerge(
-        _enemySlots.OrderBy(pair => pair.Value).Select(pair => pair.Key.Node).OfType<SmogCharacter>(),
+        _enemySlots.OrderBy(pair => pair.Value).Select(pair => pair.Key.PresentationNode).OfType<SmogCharacter>(),
         phase, spawn =>
         {
             if (TryAllocateEnemy(_ => _factory.Create(spawn,_roomForActiveEntities)) is null)
@@ -3582,7 +3586,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         IRoomEntity? owner = _interactionSlots.FirstOrDefault(pair => pair.Value == slot).Key;
         if (owner is null or IRoomEntityLifetime { Finished: true }) return 0;
-        return owner.Node switch
+        return owner.PresentationNode switch
         {
             PuzzlePuffEffect puff => puff.Initialized ? puff.CurrentParameter : 0,
             GreenPoofRoomEntity poof => poof.Parameter,
@@ -3603,7 +3607,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         if (!PartSlotAvailable) return false;
         AddEntity(new CandleFlameRoomEntity(new CandleFlame(visual,
-            () => parent.ResolveSlot(parent.Slot)?.Node as CandleCharacter)));
+            () => parent.ResolveSlot(parent.Slot)?.PresentationNode as CandleCharacter)));
         return true;
     }
     internal int TryCreateCandleExplosion(Vector2 position)
@@ -3618,7 +3622,7 @@ public sealed class RoomEntityManager : IDisposable
     internal void ConsumeCandleExplosionSignal(int slot, int radius)
     {
         var entity = _interactionSlots.FirstOrDefault(pair => pair.Value == slot).Key;
-        if (entity?.Node is not InteractionExplosionEffect explosion)
+        if (entity?.PresentationNode is not InteractionExplosionEffect explosion)
             throw new NotSupportedException($"candle_stateE relatedObj1 INTERACTION$d{slot:x1} was reused by " +
                 $"{entity?.GetType().Name ?? "deleted interaction"}; clearing its native animParameter is not represented.");
         explosion.ConsumeParameter();
@@ -3626,7 +3630,7 @@ public sealed class RoomEntityManager : IDisposable
         // offsets $a6/$a7 alias the ENEMY on that same page; this is a ROM
         // quirk, including when a different live enemy occupies that slot.
         IRoomEntity? aliased = ResolveEnemySlot(slot);
-        if (aliased?.Node is EnemyCharacter enemy) enemy.SetNativeCollisionRadii(radius, radius);
+        if (aliased?.PresentationNode is EnemyCharacter enemy) enemy.SetNativeCollisionRadii(radius, radius);
         else if (aliased is not null)
             throw new NotSupportedException($"candle_stateE radius write aliases live ENEMY$d{slot:x1}: {aliased.GetType().Name} has no native collision-radius owner.");
         // If the ENEMY page is free, these bytes have no reader before
@@ -3708,7 +3712,7 @@ public sealed class RoomEntityManager : IDisposable
     // Rideable INTERACTIONs retain their category under enemy/item-only masks;
     // rideable SPECIALOBJECTs and ITEMs still freeze with their own passes.
     private bool UpdatesDuringRoomEntityFreeze(IRoomEntity entity,bool? interactionsDisabled = null) =>
-        entity.Node is EnemyCharacter { InitializationPending: true } ||
+        entity.PresentationNode is EnemyCharacter { InitializationPending: true } ||
         entity is IUpdatesDuringRoomEntityFreeze { UpdatesDuringRoomEntityFreeze: true } ||
         entity is IRoomEntityUpdateFreeze { FreezesRoomEntities: true } ||
         EntityPhase(entity) == 2 &&
@@ -3777,7 +3781,7 @@ public sealed class RoomEntityManager : IDisposable
             AdvanceFrozenRoomFrame();
             var frame = new RoomEntityFrame(player, _enemyFrameCounter, false, null);
             foreach (IRoomEntity entity in _outgoingEntities.Concat(_activeEntities))
-                if (entity.Node is EnemyCharacter statusEnemy)
+                if (entity.PresentationNode is EnemyCharacter statusEnemy)
                     statusEnemy.SetStatusPaletteSuppressed(true);
             // companionRetIfInactive admits state $00 during scrolling;
             // ordinary companion movement remains frozen after initialization.
@@ -3854,7 +3858,7 @@ public sealed class RoomEntityManager : IDisposable
         if (entity is AncientTombEntranceRoomEntity entrance) entrance.Cancel();
         if (entity is VeranFaceRoomEntity face) face.Cancel();
         if (entity is PirateShipRoomEntity ship) ship.Dispose();
-        if (entity.Node is NpcCharacter npc)
+        if (entity.PresentationNode is NpcCharacter npc)
         {
             npc.NativeActivationChanged = null;
             npc.NotifyRetired();
@@ -3874,7 +3878,7 @@ public sealed class RoomEntityManager : IDisposable
         {
             _npcTalkLifecycles.Remove(lifecycle.TalkNpc);
         }
-        Node2D node = entity.Node;
+        if (entity.PresentationNode is not { } node) return;
         if (!GodotObject.IsInstanceValid(node) ||
             node.IsQueuedForDeletion())
         {
@@ -4054,7 +4058,7 @@ public sealed class RoomEntityManager : IDisposable
         var result = new List<T>();
         foreach (IRoomEntity entity in entities)
         {
-            if (entity.Node is T node)
+            if (entity.PresentationNode is T node)
                 result.Add(node);
         }
         return result;

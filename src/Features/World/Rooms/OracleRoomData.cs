@@ -43,7 +43,21 @@ public sealed class OracleRoomData
         _roomTextureDirty = true;
         return ()=>{layout.CopyTo(Layout,0);collisions.CopyTo(Collisions,0);ReplaceRoomTexture(_activeAnimationHeaders);};
     }
-    public Texture2D Texture { get; }
+    private Texture2D? _texture;
+    public Texture2D Texture
+    {
+        get
+        {
+            if (_texture is null)
+            {
+                using var diagnostics = OracleRoomLoadDiagnostics.Begin("publish-room", Group, Id);
+                using Image image = RenderRoom(_activeAnimationHeaders);
+                _texture = ImageTexture.CreateFromImage(image);
+                RememberRoomTextureInputs();
+            }
+            return _texture;
+        }
+    }
     private Texture2D? _underwaterBackgroundTexture;
     internal Texture2D UnderwaterBackgroundTexture
     {
@@ -53,19 +67,33 @@ public sealed class OracleRoomData
             {
                 using Image image = RenderUnderwaterBackground();
                 _underwaterBackgroundTexture = ImageTexture.CreateFromImage(image);
+                RememberRoomTextureInputs();
             }
             return _underwaterBackgroundTexture;
         }
     }
-    public Texture2D ClearedTilemapTexture { get; }
+    private Texture2D? _clearedTilemapTexture;
+    public Texture2D ClearedTilemapTexture
+    {
+        get
+        {
+            if (_clearedTilemapTexture is null)
+            {
+                using var diagnostics = OracleRoomLoadDiagnostics.Begin("publish-clear", Group, Id);
+                _clearedTilemapTexture = _clearTile.Texture;
+            }
+            return _clearedTilemapTexture;
+        }
+    }
 
     private readonly Image _source;
-    private readonly Image _hudGraphics;
+    private readonly RoomClearTile _clearTile;
     private readonly byte[] _originalLayout;
     private readonly byte[] _underlyingLayout;
     private readonly byte[] _mappings;
     private readonly Color[,] _tilesetPalette;
     private readonly BackgroundPaletteState _backgroundPalettes;
+    private readonly RoomTexturePublication? _texturePublication;
     private bool _temporaryBackgroundPaletteActive;
     private float _temporaryFullBackgroundPaletteBlend;
     private int? _temporaryBackgroundPaletteOffset;
@@ -77,7 +105,6 @@ public sealed class OracleRoomData
     private readonly Dictionary<int, DynamicBackgroundTile> _dynamicBackgroundTiles = new();
     private int _animationSignature;
     private int[] _activeAnimationHeaders;
-    private (Color, Color, Color, Color) _clearedTilemapPalette;
     private readonly Color[,] _renderedBackgroundPalettes = new Color[8, 4];
     private Image? _renderedLiveGraphics;
     private bool _renderedFreezeGraphicsOverrides;
@@ -112,8 +139,11 @@ public sealed class OracleRoomData
         byte[] mappings,
         Color[,] palette,
         BackgroundPaletteState backgroundPalettes,
-        OracleAnimationData animations)
+        OracleAnimationData animations,
+        RoomTexturePublication? texturePublication = null,
+        RoomClearTile? clearTile = null)
     {
+        using var diagnostics = OracleRoomLoadDiagnostics.Begin("logical-room", group, id);
         Group = group;
         Id = id;
         TilesetId = tilesetId;
@@ -126,11 +156,13 @@ public sealed class OracleRoomData
         _underlyingLayout = (byte[])layout.Clone();
         Collisions = collisions;
         _source = source;
-        _hudGraphics = hudGraphics;
+        _clearTile = clearTile ?? new RoomClearTile(hudGraphics, backgroundPalettes);
         _mappings = mappings;
         _tilesetPalette = palette;
         _backgroundPalettes = backgroundPalettes;
+        _texturePublication = texturePublication;
         _animations = animations;
+        diagnostics?.Mark("state");
 
         (WidthInTiles, HeightInTiles, _layoutStride) = layout.Length switch
         {
@@ -144,14 +176,13 @@ public sealed class OracleRoomData
                 $"Room {group:x1}:{id:x2} has unsupported layout size {layout.Length}.")
         };
         int[] activeHeaders = _animations.GetActiveHeaders(AnimationGroup, 0);
+        diagnostics?.Mark("initial-animation");
         _activeAnimationHeaders = activeHeaders;
         _animationSignature = GetAnimationSignature(activeHeaders);
-        using Image cleared = RenderClearedTilemap();
-        using Image rendered = RenderRoom(activeHeaders);
-        ClearedTilemapTexture = ImageTexture.CreateFromImage(cleared);
-        _clearedTilemapPalette = ClearedTilemapPaletteKey();
-        Texture = ImageTexture.CreateFromImage(rendered);
-        RememberRoomTextureInputs();
+        // Loading logical room state must not publish an image under the
+        // previous room's palette. Presenters acquire textures after palette,
+        // persistent-layout and live VRAM preparation at their normal boundary.
+        // Once acquired, texture identity and per-update publication stay stable.
     }
 
     public bool UpdateAnimation(long tick)
@@ -1272,7 +1303,15 @@ public sealed class OracleRoomData
 
     private void ReplaceRoomTexture(int[] activeHeaders)
     {
-        ReplaceTextureImage(Texture, RenderRoom(activeHeaders));
+        // Explicit VRAM writes must remain dirty even when the Image identity
+        // and palette return to their previous values during preparation.
+        if (_texturePublication?.TryDefer(this) == true)
+        {
+            _roomTextureDirty = true;
+            return;
+        }
+        if (_texture is not null)
+            ReplaceTextureImage(_texture, RenderRoom(activeHeaders));
         if (_underwaterBackgroundTexture is not null)
             ReplaceTextureImage(_underwaterBackgroundTexture, RenderRoom(activeHeaders, storageWidth: 256));
         RememberRoomTextureInputs();
@@ -1361,29 +1400,6 @@ public sealed class OracleRoomData
 
     internal Image RenderUnderwaterBackground() =>
         RenderRoom(_activeAnimationHeaders, storageWidth: 256);
-
-    private Image RenderClearedTilemap()
-    {
-        byte[] output = new byte[Width * Height * 4];
-        byte[] colors = CapturePalettePixels();
-        byte[] hud = ReadRgbaPixels(_hudGraphics);
-        int hudWidth = _hudGraphics.GetWidth();
-
-        // initializeVramMaps fills the BG map with tile $00 and attribute $80.
-        // Gfx register state $02 selects signed BG tile addressing, so tile $00
-        // reads VRAM $9000 in bank 0. loadCommonGraphics has just loaded
-        // GFXH_HUD there; consequently this is gfx_hud tile 0, not tileset
-        // source index $80. That HUD tile is the solid shade-2 clear tile.
-        for (int y = 0; y < Height; y++)
-        for (int x = 0; x < Width; x++)
-        {
-            int red = hud[((y & 7) * hudWidth + (x & 7)) * 4];
-            int shade = (255 - red + 42) / 85;
-            colors.AsSpan(shade * 4, 4).CopyTo(output.AsSpan((y * Width + x) * 4, 4));
-        }
-
-        return Image.CreateFromData(Width, Height, false, Image.Format.Rgba8, output);
-    }
 
     private byte[] CapturePalettePixels()
     {
@@ -1484,6 +1500,12 @@ public sealed class OracleRoomData
 
     internal void RefreshPaletteTextures()
     {
+        if (_texturePublication?.TryDefer(this) == true) return;
+        if (_texture is null && _underwaterBackgroundTexture is null)
+        {
+            RefreshClearedTilemap();
+            return;
+        }
         int changedPalettes = 0;
         for (int palette = 0; palette < 8; palette++)
         for (int shade = 0; shade < 4; shade++)
@@ -1532,19 +1554,12 @@ public sealed class OracleRoomData
 
     private void RefreshClearedTilemap()
     {
+        if (_clearedTilemapTexture is null) return;
+        if (_texturePublication?.TryDefer(this) == true) return;
         // The clear map repeats immutable gfx_hud tile $00 with BG palette 0.
         // Scrolling VRAM uploads and writes to BG1-7 cannot change its pixels.
-        var palette = ClearedTilemapPaletteKey();
-        if (palette != _clearedTilemapPalette)
-        {
-            ReplaceTextureImage(ClearedTilemapTexture, RenderClearedTilemap());
-            _clearedTilemapPalette = palette;
-        }
+        _clearTile.Refresh();
     }
-
-    private (Color, Color, Color, Color) ClearedTilemapPaletteKey() =>
-        (_backgroundPalettes.Resolve(0, 0), _backgroundPalettes.Resolve(0, 1),
-            _backgroundPalettes.Resolve(0, 2), _backgroundPalettes.Resolve(0, 3));
 
     private byte GetRenderedMetatile(int layoutIndex) =>
         _positionVisualOverrides.TryGetValue(layoutIndex, out byte visualOverride)

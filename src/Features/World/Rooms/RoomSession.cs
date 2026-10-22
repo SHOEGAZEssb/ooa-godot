@@ -230,6 +230,7 @@ public sealed class RoomSession
     public OracleRoomData GetRoom(int group, int room)
     {
         using var diagnostics = OracleRoomLoadDiagnostics.Begin("layout", group, room);
+        using var publication = World.DeferTexturePublication();
         int dataGroup = group is 0 or 1 &&
             _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap)
             ? group + 2

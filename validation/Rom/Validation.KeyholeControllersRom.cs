@@ -20,7 +20,7 @@ public partial class ValidationRoot
             entities.Remove(entity);
             release.Invoke(_entities,[entity]);
         }
-        FailIf(_entities.InteractionSlot(controller.Node) != expectedSlot,
+        FailIf(controller.PresentationNode is not null || _entities.NativeInteractionSlot(controller) != expectedSlot,
             $"mainData.s keyhole controller must retain original INTERACTION${0xd0+expectedSlot:x2}.");
         return controller;
     }

@@ -16,9 +16,17 @@ public sealed partial class ValidationRoot
     [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_eventsByType")]
     private static extern ref Dictionary<Type, IRoomEvent> RegisteredRoomEvents(RoomEventController controller);
 
+    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_context")]
+    private static extern ref RoomEventContext RegisteredRoomEventContext(RoomEventController controller);
+
     private void ValidateRoomEventsBeforeReset()
     {
         if (_roomEvents is null || _entities is null || _entities.IsDisposed || !GodotObject.IsInstanceValid(_scene)) return;
+        // Staged preparation can replace the scene/entity manager before it
+        // constructs the new event controller. The old controller still refers
+        // to its already-disposed graph; current _scene validity does not make
+        // those old HUD/player nodes eligible for another cancellation audit.
+        if (RegisteredRoomEventContext(_roomEvents).Entities.IsDisposed) return;
         CancelAndCheckRoomEvents(RegisteredRoomEvents(_roomEvents).Values.ToArray(),
             $"{_executingValidationName ?? "scenario setup"}, before session replacement");
     }
@@ -80,7 +88,7 @@ public sealed partial class ValidationRoot
         IRoomEvent[] events = RegisteredRoomEvents(_roomEvents).Values.ToArray();
         FailIf(events.Length == 0 || events.Select(owner => owner.GetType()).Distinct().Count() != events.Length,
             $"{scenario}: room-event cleanup requires the complete unique runtime registration.");
-        Node[] actors = _entities.EntityAdapters<IRoomEntity>().Select(entity => (Node)entity.Node).ToArray();
+        Node[] actors = _entities.EntityAdapters<IRoomEntity>().Select(entity => entity.PresentationNode).OfType<Node>().ToArray();
         var mode = _scene.ProcessMode;
         _scene.ProcessMode = ProcessModeEnum.Disabled;
         try

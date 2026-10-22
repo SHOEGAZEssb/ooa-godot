@@ -2,10 +2,20 @@
 
 Boot preparation retains the production assembly's concrete Godot node script
 resources, discovered from their generated script-path attributes. Loading
-these resources prepares native C# script metadata before room construction;
-it does not instantiate actors or run gameplay initialization. Preparation is
+these resources prepares native C# script metadata before room construction.
+For two explicitly audited presenter types, boot also constructs and immediately
+frees a detached node to prepare the native constructor binding. These constructors
+contain only local defaults; they never enter the tree, initialize an actor,
+allocate an original object slot, or access save/RNG state. Extending this list
+requires auditing the constructor and its base classes against those boundaries.
+Preparation is
 staged on the main thread, and the application releases its retained references
 when it exits the tree.
+
+Dialogue resource preparation executes the pure command parser and text
+conversion once on local sample text. Outputs are discarded; it never opens a
+textbox, invokes save-name providers or changes palette, audio or input state.
+Live messages still resolve names and create fresh segments when they open.
 
 ## Composition and scenes
 

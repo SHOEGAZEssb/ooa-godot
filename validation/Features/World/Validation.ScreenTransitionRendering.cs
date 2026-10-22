@@ -71,6 +71,10 @@ public sealed partial class ValidationRoot
 
     private void ValidateScreenTransitionRendering()
     {
+        MeasureScrollPreparationPublications();
+        // The cached-publication probe must not turn the first destination
+        // in the fidelity checks below into an already-published room.
+        ReinitializeGameplayForValidation();
         if (System.Environment.GetEnvironmentVariable("OOA_BENCHMARK_PALETTE_RESTORE") == "1")
             BenchmarkTransitionPaletteRestore();
         var routes = new ScreenTransitionPaletteDatabase();
@@ -200,6 +204,44 @@ public sealed partial class ValidationRoot
         UpdateScrollingTransition(_transitions.ScrollTotalFrames / 60.0);
         FailIf(_transitions.ScrollActive || _currentRoom.TilesetPaletteId != 0x63,
             "Room 5:78 did not execute uniqueGfxHeader14's terminal PALH_63 upload.");
+    }
+
+    private void MeasureScrollPreparationPublications()
+    {
+        // Retain both textures so counts include outgoing and cached incoming
+        // publications. This is CPU setup work, not presented-frame latency.
+        LoadValidationRoom(0, 0x6b);
+        OracleRoomData east = _currentRoom;
+        LoadValidationRoom(0, 0x6a);
+        OracleRoomData west = _currentRoom;
+        int uploads = 0;
+        void Count() => uploads++;
+        west.Texture.Changed += Count;
+        east.Texture.Changed += Count;
+        double elapsed = 0;
+        int setupUploads = 0;
+        try
+        {
+            for (int pass = 0; pass < 16; pass++)
+            {
+                bool entering = (pass & 1) == 0;
+                int before = uploads;
+                long start = System.Diagnostics.Stopwatch.GetTimestamp();
+                _transitions.BeginScroll(_player, entering ? Vector2I.Right : Vector2I.Left,
+                    entering ? 0x6b : 0x6a);
+                elapsed += System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+                setupUploads += uploads - before;
+                UpdateScrollingTransition(_transitions.ScrollTotalFrames / 60.0);
+            }
+        }
+        finally
+        {
+            west.Texture.Changed -= Count;
+            east.Texture.Changed -= Count;
+        }
+        GD.Print(FormattableString.Invariant($"SCROLL_PREPARATION setups=16 published_rooms=2 uploads={setupUploads} cpu_ms={elapsed:F3}"));
+        FailIf(setupUploads != 32,
+            $"Sixteen Yoll scroll preparations published {setupUploads} images instead of one per room per setup.");
     }
 
     private void BenchmarkTransitionPaletteRestore()

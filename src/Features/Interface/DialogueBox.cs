@@ -7,6 +7,22 @@ namespace oracleofages;
 
 public partial class DialogueBox : Node2D
 {
+    // Immutable grammar is prepared with the dialogue type during UI loading,
+    // rather than parsed through Regex's shared, evictable cache on first talk.
+    private static readonly Regex InitialPositionPattern = new(@"^\\pos\(([0-3])\)");
+    private static readonly Regex LinkPattern = new(@"\\link", RegexOptions.IgnoreCase);
+    private static readonly Regex HeartPattern = new(@"\\heart(?![A-Za-z])");
+    private static readonly Regex PromisedHeartPattern = new(@"\\heart(?=promised)", RegexOptions.IgnoreCase);
+    private static readonly Regex HeartPiecePattern = new(@"\\heartpiece", RegexOptions.IgnoreCase);
+    private static readonly Regex HexCharacterPattern = new(@"\\x(?<hex>[0-9a-f]{2})", RegexOptions.IgnoreCase);
+    private static readonly Regex FormattingPattern = new(
+        @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\)|" +
+        @"item\([^)]*\)|sfx\([^)]*\)|charsfx\([^)]*\)|" +
+        @"slow\([^)]*\)|speed\([^)]*\)|wait\([^)]*\))", RegexOptions.IgnoreCase);
+    // Suppress beforefieldinit: both CoreCLR and Android Mono must prepare the
+    // grammar before boot constructs its dormant dialogue nodes, not first talk.
+    static DialogueBox() { }
+
     private Func<float> _gameplayCameraY = () => 0;
     private bool _gameplayPresentation;
     private int _presentationOffsetY;
@@ -185,11 +201,14 @@ public partial class DialogueBox : Node2D
         CurrentLine(0).Glyphs.Count + CurrentLine(1).Glyphs.Count;
 
     private bool _resourcesPrepared;
+    private static bool _textProcessingPrepared;
+    private bool _diagnoseFirstDraw;
     public override void _Ready() => PrepareResources();
 
     internal void PrepareResources()
     {
         if (_resourcesPrepared) return;
+        PrepareTextProcessing();
         _resourcesPrepared = true;
         _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font.png");
         _symbolTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font_jp.png");
@@ -198,6 +217,24 @@ public partial class DialogueBox : Node2D
         _continueMarkerTexture = BuildHudMarkerTexture(0x03, 1);
         _choiceCursorTexture = BuildHudMarkerTexture(ChoiceCursorTile, 2);
         _heartPieceTextures = BuildHeartPieceTextures();
+    }
+
+    internal static void PrepareTextProcessing()
+    {
+        if (_textProcessingPrepared) return;
+        // Regex construction alone does not execute its runner or the managed
+        // parser on Android. Prepare only pure text conversion with local input:
+        // no ShowMessage, name provider, palette, audio, input or live text state.
+        // Discard all output; real messages still resolve save-owned names and
+        // produce fresh segments at their original opening boundary.
+        using var diagnostics = DialogueLoadDiagnostics.Begin("prepare-text", null);
+        const string sample = "\\pos(0)\\col(0)A\\x20B\\heart\\stop()\n\\opt()Yes\\n\\opt()No";
+        _ = InitialPositionPattern.Match(sample).Groups[1].Value;
+        _ = UnresolvedCommandsForValidation(sample);
+        _ = LinkPattern.Replace("\\Link", static _ => "Link");
+        _ = ParseMessage(sample, 0, out _);
+        _ = PlainText(sample + "\\heartpromised\\heartpiece");
+        _textProcessingPrepared = true;
     }
 
     internal void SetSoundPlayer(Action<int> playSound)
@@ -293,9 +330,11 @@ public partial class DialogueBox : Node2D
         _scrollStartPresentation?.Dispose();
         _scrollStartPresentation = null;
         SourceTextId = sourceTextId;
+        using var diagnostics = DialogueLoadDiagnostics.Begin("open", sourceTextId);
+        _diagnoseFirstDraw = OracleRoomLoadDiagnostics.IsEnabled;
         // checkInitialTextCommands recognizes $0c:$20-$23 only at the
         // beginning of the resolved text, after initTextbox's automatic side.
-        Match initialPosition = Regex.Match(message, @"^\\pos\(([0-3])\)");
+        Match initialPosition = InitialPositionPattern.Match(message);
         int? textCommandPosition = initialPosition.Success
             ? initialPosition.Groups[1].Value[0] - '0' : null;
         IReadOnlyList<string> unresolved = UnresolvedCommandsForValidation(message);
@@ -309,16 +348,14 @@ public partial class DialogueBox : Node2D
         // Text control $0a:$00 reads wLinkName when the original textbox
         // reaches it. Resolve from the provider for each newly opened message
         // so OracleSaveData remains the sole owner of the entered name.
-        message = Regex.Replace(
-            message,
-            @"\\link",
-            _ => _linkName(),
-            RegexOptions.IgnoreCase);
+        message = LinkPattern.Replace(message, _ => _linkName());
         _segments.Clear();
         _segments.AddRange(ParseMessage(message, textboxFlags, out bool slowdownRequested));
+        diagnostics?.Mark("parse");
         if (ContainsTradeItemGlyph())
             _tradeItemTexture = BuildTradeItemTexture();
         _currentMessage = PlainText(message);
+        diagnostics?.Mark("plain-text-and-glyphs");
         _segmentIndex = 0;
         _firstLineIndex = 0;
         _visibleGlyphs = 0;
@@ -335,6 +372,7 @@ public partial class DialogueBox : Node2D
         _textboxFlags = textboxFlags;
         _backgroundPaletteState?.LoadTextboxPalette(textboxFlags);
         _alternatePalettePriorityChanged(UsesAlternatePalette1);
+        diagnostics?.Mark("palette-and-state");
         // Textbox position $04 starts at w4TileMap row 11. The ring-list LCD
         // interrupt replaces its fifth screen row with source row 1, keeping
         // the menu's bottom border visible; only four rows of the textbox are
@@ -706,10 +744,15 @@ public partial class DialogueBox : Node2D
         if (!_open && _retainedPresentation is null)
             return;
 
+        using var diagnostics = _diagnoseFirstDraw ? DialogueLoadDiagnostics.Begin("first-draw", SourceTextId) : null;
+        _diagnoseFirstDraw = false;
         using Image output = ComposeImage();
+        diagnostics?.Mark("compose");
         if (_composedTexture is null) _composedTexture = ImageTexture.CreateFromImage(output);
         else _composedTexture.Update(output);
+        diagnostics?.Mark("texture");
         DrawTexture(_composedTexture, Vector2.Zero);
+        diagnostics?.Mark("submit");
     }
 
     internal Image ComposeImage()
@@ -878,36 +921,21 @@ public partial class DialogueBox : Node2D
         ArgumentNullException.ThrowIfNull(message);
         ArgumentNullException.ThrowIfNull(linkName);
         string text = message.Replace("\r", string.Empty);
-        text = Regex.Replace(
-            text,
-            @"\\link",
-            _ => linkName,
-            RegexOptions.IgnoreCase);
+        text = LinkPattern.Replace(text, _ => linkName);
         text = text.Replace("\\sym(0x1c)", "♪", StringComparison.OrdinalIgnoreCase);
         text = text.Replace("\\sym(0x57)", "▲", StringComparison.OrdinalIgnoreCase);
         text = text.Replace("\\left", "←", StringComparison.Ordinal);
         text = text.Replace("\\right", "→", StringComparison.Ordinal);
         text = text.Replace("\\up", "↑", StringComparison.Ordinal);
         text = text.Replace("\\down", "↓", StringComparison.Ordinal);
-        text = Regex.Replace(text, @"\\heart(?![A-Za-z])", "♥");
-        text = Regex.Replace(
-            text, @"\\heart(?=promised)", "\u2665", RegexOptions.IgnoreCase);
-        text = Regex.Replace(text, @"\\heartpiece", string.Empty,
-            RegexOptions.IgnoreCase);
-        text = Regex.Replace(
-            text,
-            @"\\x(?<hex>[0-9a-f]{2})",
+        text = HeartPattern.Replace(text, "♥");
+        text = PromisedHeartPattern.Replace(text, "\u2665");
+        text = HeartPiecePattern.Replace(text, string.Empty);
+        text = HexCharacterPattern.Replace(text,
             match => ((char)Convert.ToInt32(
-                match.Groups["hex"].Value, 16)).ToString(),
-            RegexOptions.IgnoreCase);
+                match.Groups["hex"].Value, 16)).ToString());
         text = text.Replace("\\n", "\n", StringComparison.Ordinal);
-        return Regex.Replace(
-            text,
-            @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\)|" +
-            @"item\([^)]*\)|sfx\([^)]*\)|charsfx\([^)]*\)|" +
-            @"slow\([^)]*\)|speed\([^)]*\)|wait\([^)]*\))",
-            string.Empty,
-            RegexOptions.IgnoreCase);
+        return FormattingPattern.Replace(text, string.Empty);
     }
 
     private void SubmitChoice()

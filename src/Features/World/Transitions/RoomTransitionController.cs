@@ -817,6 +817,10 @@ public sealed class RoomTransitionController
             _scrollDirection = direction;
             return;
         }
+        // Coalesce only the synchronous setup's texture publications; the
+        // screenTransitionState3-5 graphics schedule remains in UpdateScroll.
+        // palette/VRAM writes, native initialization and RNG keep their order.
+        using var texturePublication = _rooms.World.DeferTexturePublication();
         Image sourceGraphics = source.CaptureLiveGraphics();
         Color[,] sourceColors = source.BackgroundPalettes.Capture();
         diagnostics?.Mark("source-snapshot");
@@ -1605,6 +1609,7 @@ public sealed class RoomTransitionController
 
     private void LoadWarpDestination()
     {
+        using var publication = _rooms.World.DeferTexturePublication();
         _roomView.ClearHorizontalWave();
         if (_timeWarp)
         {

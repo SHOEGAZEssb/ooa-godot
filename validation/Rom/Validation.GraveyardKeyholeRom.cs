@@ -21,7 +21,7 @@ public partial class ValidationRoot
             LoadValidationRoom(0,0x5c);
             var barrier = _entities.Entities<CompanionBarrierRoomEntity>().Single();
             var controller = RetainKeyholeControllerRom(expectedSlot:3,retainCompanionPlacements:true);
-            FailIf(_entities.InteractionSlot(barrier) != 2 || _entities.InteractionSlot(controller.Node) != 3,
+            FailIf(_entities.InteractionSlot(barrier) != 2 || _entities.NativeInteractionSlot(controller) != 3,
                 "mainData.s room$0:$5c allocates barrier$71:$05 in$d2, then gate$dc:$01 in$d3.");
             var gate = _roomEvents.Get<GraveyardGateEvent>();
             _player.WarpTo(new(72,104)); _player.Face(Vector2I.Up);
@@ -137,7 +137,7 @@ public partial class ValidationRoot
             LoadValidationRoom(0,0x5c);
             barrier = _entities.Entities<CompanionBarrierRoomEntity>().Single();
             controller = RetainKeyholeControllerRom(expectedSlot:3,retainCompanionPlacements:true);
-            FailIf(_entities.InteractionSlot(barrier) != 2 || _entities.InteractionSlot(controller.Node) != 3,
+            FailIf(_entities.InteractionSlot(barrier) != 2 || _entities.NativeInteractionSlot(controller) != 3,
                 "Opened Graveyard re-entry must allocate the original stream before state0 deletion.");
             _player.WarpTo(new(72,104)); _player.Face(Vector2I.Up);
             var reentrySeed = _random.CaptureState();

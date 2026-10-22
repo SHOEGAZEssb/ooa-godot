@@ -68,7 +68,7 @@ public sealed partial class ValidationRoot
                 }
                 foreach (var actor in _entities.EntityAdapters<KeyholeControllerRoomEntity>())
                 {
-                    int slot = 0xd000+_entities.InteractionSlot(actor.Node)*256+0x40;
+                    int slot = 0xd000+_entities.NativeInteractionSlot(actor)*256+0x40;
                     FailIf(gameplay[slot] != 0x81 || gameplay[slot+1] != 0xdc || !actor.Initialized || gameplay[slot+4] != 1,
                         $"Graveyard controller must follow its real barrier even through nonadjacent free slots: free={free}, slot=${slot:x4}, native=${gameplay[slot]:x2}/${gameplay[slot+1]:x2}/${gameplay[slot+4]:x2}, runtime={actor.Initialized}/{actor.Finished}.");
                 }

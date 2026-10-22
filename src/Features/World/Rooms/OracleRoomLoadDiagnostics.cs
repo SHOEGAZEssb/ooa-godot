@@ -15,6 +15,7 @@ internal sealed class OracleRoomLoadDiagnostics : IDisposable
     private readonly int _group, _room;
     private readonly long _started = Stopwatch.GetTimestamp();
     private readonly long _allocated = GC.GetAllocatedBytesForCurrentThread();
+    private readonly int _gen0 = GC.CollectionCount(0), _gen1 = GC.CollectionCount(1), _gen2 = GC.CollectionCount(2);
     private long _previous;
 
     private OracleRoomLoadDiagnostics(string operation, int group, int room)
@@ -35,5 +36,5 @@ internal sealed class OracleRoomLoadDiagnostics : IDisposable
     }
 
     public void Dispose() => GD.Print(FormattableString.Invariant(
-        $"ROOM_LOAD operation={_operation} room={_group:x1}:{_room:x2} stage=total ms={Stopwatch.GetElapsedTime(_started).TotalMilliseconds:F3} allocated_bytes={GC.GetAllocatedBytesForCurrentThread() - _allocated}"));
+        $"ROOM_LOAD operation={_operation} room={_group:x1}:{_room:x2} stage=total ms={Stopwatch.GetElapsedTime(_started).TotalMilliseconds:F3} allocated_bytes={GC.GetAllocatedBytesForCurrentThread() - _allocated} gc0={GC.CollectionCount(0) - _gen0} gc1={GC.CollectionCount(1) - _gen1} gc2={GC.CollectionCount(2) - _gen2}"));
 }

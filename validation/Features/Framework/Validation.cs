@@ -119,6 +119,7 @@ public sealed partial class ValidationRoot : GameRoot
             // this once per worker, outside scenario execution and timing.
             _scriptResources?.Dispose();
             _scriptResources = null;
+            _sound.ReleaseOutput();
             GC.Collect();
             GC.WaitForPendingFinalizers();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);

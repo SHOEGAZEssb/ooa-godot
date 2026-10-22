@@ -87,9 +87,11 @@ engine frame. `-ProfileMemory` on the launcher logs managed heap, process memory
 and collection counts every sixteen resets without forcing collection.
 
 The runner checks cancellation for every registered room-event owner before a
-fixture session is replaced. After each scenario it retires the remaining room
-entities, suspends automatic gameplay, and awaits two real engine frames before
-checking cleanup against disposed native nodes. Both boundaries check repeated
+fixture session is replaced. During partial startup, eligibility follows the
+event controller's own entity manager; a newly created scene does not revive
+the previous controller's disposed graph. After each scenario it retires the
+remaining room entities, suspends automatic gameplay, and awaits two real engine
+frames before checking cleanup against disposed native nodes. Both boundaries check repeated
 cancellation, released event state and restrictions, and preservation of a
 successor's player control. Registration supplies the owner inventory, so new
 events automatically join these checks. Do not bypass cleanup by replacing a

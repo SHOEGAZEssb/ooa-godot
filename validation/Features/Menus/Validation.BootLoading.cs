@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         foreach (bool _ in scriptResources.Prepare())
             FailIf(Performance.GetMonitor(Performance.Monitor.ObjectNodeCount) != nodesBefore ||
                 !stateBeforeScripts.SequenceEqual(_saveData.Serialize()) || _random.Calls != rngBeforeScripts,
-                "Preparing native script resources constructed nodes or changed live save/RNG state.");
+                "Preparing native script resources retained a node or changed live save/RNG state.");
         var preparedScripts = (Dictionary<string, CSharpScript>)typeof(GameplayScriptResources)
             .GetField("_scripts", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scriptResources)!;
         const string shopScript = "res://src/Features/World/Interactions/LynnaShop/LynnaShopItem.cs";
@@ -25,8 +25,13 @@ public sealed partial class ValidationRoot
             !preparedShop.CanInstantiate(), "Boot preparation omitted the native $47 shop item script.");
         FailIf(scriptResources.Prepare().Any() || !ReferenceEquals(preparedScripts[shopScript], preparedShop),
             "Repeated boot script preparation discarded or reloaded retained script resources.");
+        var constructors = (HashSet<System.Type>)typeof(GameplayScriptResources)
+            .GetField("_preparedConstructors", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scriptResources)!;
+        FailIf(!constructors.SetEquals(new[] { typeof(LynnaShopItem), typeof(TimePortal) }),
+            "Constructor preparation must be limited to the two audited detached presenter types.");
         scriptResources.Clear();
-        FailIf(preparedScripts.Count != 0, "Gameplay script owner retained resources after cleanup.");
+        FailIf(preparedScripts.Count != 0 || constructors.Count != 0,
+            "Gameplay script owner retained resources after cleanup.");
         const string sourcePng = "res://assets/oracle/gfx/spr_nayru_1.png";
         FailIf(OracleAssetCache.ImageResourcePath(sourcePng + ".import") != sourcePng ||
             OracleAssetCache.ImageResourcePath(sourcePng + ".remap") != sourcePng ||

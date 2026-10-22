@@ -94,6 +94,14 @@ public partial class OracleSoundEngine : Node
 
     public override void _ExitTree()
     {
+        ReleaseOutput();
+        _requestObserver = null;
+    }
+
+    // Explicit shutdown may precede tree destruction so the AudioServer can
+    // drain its mixer-owned playback reference while engine phases still run.
+    internal void ReleaseOutput()
+    {
         _player?.Stop();
         if (_playback is not null)
         {
@@ -109,7 +117,6 @@ public partial class OracleSoundEngine : Node
         _outputLeadFrames = OutputLeadFrames;
         _lastOutputSample = _bridgeStart = Vector2.Zero;
         _outputDiscontinuity = false;
-        _requestObserver = null;
         _outputDiagnostics = null;
     }
 

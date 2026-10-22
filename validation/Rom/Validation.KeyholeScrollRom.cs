@@ -43,7 +43,7 @@ public partial class ValidationRoot
                 if (!_transitions.ScrollActive) rom.ClearOutgoingInteractions();
                 bool alive = rom[0xd240] != 0;
                 update++;
-                FailIf(_entities.OutgoingEntities<Node2D>().Contains(controller.Node) != alive ||
+                FailIf(_entities.IsOutgoingEntity(controller) != alive ||
                     _transitions.ScrollActive && (controller.Finished == alive ||
                         alive && controller.Initialized != (rom[0xd244] != 0)) || sounds.Requests.Any() || rom.Sounds.Any(),
                     $"Keyhole${source.Id:x2}:${source.SubId:x2} scroll completed={completed}, batch={batch}, update{update}: pending initialization/deletion/slot/cues differ.");
@@ -53,7 +53,7 @@ public partial class ValidationRoot
             FailIf(controller.Initialized != (!crown && !completed) || controller.Finished != (!crown && completed),
                 "Only Crown waits at scroll mode$08; other pending keyhole controllers read the destination flag$80 before setting their always-update bit.");
             Step(_transitions.ScrollTotalFrames-1);
-            FailIf(_transitions.ScrollActive || _entities.OutgoingEntities<Node2D>().Contains(controller.Node),
+            FailIf(_transitions.ScrollActive || _entities.IsOutgoingEntity(controller),
                 "Scroll completion must release every outgoing keyhole allocation.");
         }
     }
