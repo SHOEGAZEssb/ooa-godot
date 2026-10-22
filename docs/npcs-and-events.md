@@ -213,6 +213,24 @@ Shared helpers must preserve each caller's native update slot,
 initialization update, counter boundary, and cancellation order. Command hosts
 remain default-deny; composing resources does not expose script operations.
 
+Cancellation is safe before initialization, during a sequence, after completion,
+after actor retirement and native disposal, and on repeated calls. Clear the
+owner's runners, actor references, pending callbacks and restrictions even when
+its nodes no longer exist. Native validity checks protect presentation cleanup;
+they must not bypass input or fade release. Cleanup must not commit source
+completion flags or release a successor's control. Never suppress exceptions
+around the controller's cancellation loop or replace ownership with a blanket
+unlock.
+
+The entity manager publishes NPC retirement once, before native disposal.
+Shared script bindings detach their actor and pending button at that boundary;
+an event retaining native hosts can also detach them through the notification.
+Retirement listeners only remove references and subscriptions, without mutating
+the entity manager or releasing event-wide control. Hiding an actor or moving
+it into the outgoing scroll set is not retirement: outgoing bindings and
+presentation survive until actual deletion at scroll completion. A retired
+actor cannot be rebound as a live script actor.
+
 An original destination initializer that replaces the arrival palette fade
 may take ownership on the first object update after a stationary warp load.
 The transition owner completes Link's arrival before the event starts its fade;

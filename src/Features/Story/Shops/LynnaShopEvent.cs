@@ -209,7 +209,7 @@ internal sealed partial class LynnaShopEvent : IRoomEntryEvent, IUpdatesDuringDi
         }
         if (_item?.Held == true)
             _item.ReturnToShelf(_context.Player);
-        if (_shopkeeper is not null)
+        if (_shopkeeper is not null && GodotObject.IsInstanceValid(_shopkeeper))
         {
             _shopkeeper.SetCollisionRadii(
                 _database.ShopkeeperRadiusY, _database.ShopkeeperRadiusX);

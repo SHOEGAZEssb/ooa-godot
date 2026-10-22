@@ -128,7 +128,7 @@ internal sealed class PoeEvent :
 
     public void Cancel()
     {
-        if (_poe is not null)
+        if (_poe is not null && GodotObject.IsInstanceValid(_poe))
         {
             _poe.SetScriptButtonSensitive(false);
             _poe.SetActive(false);

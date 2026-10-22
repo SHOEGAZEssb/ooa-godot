@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
                         actor.CurrentAnimationCounter!=native[at+0x20]||actor.CurrentAnimationParameter!=native[at+0x21]||
                         SomariaPrivate<int>(script,"_escapeZ")!=(short)native.Word(at+14)||
                         SomariaPrivate<int>(script,"_escapeSpeedZ")!=(short)native.Word(at+0x14))||!observed.SequenceEqual(expected),
-                    source+$" update{updates}: movement/gravity/admission/counter differs (cmd{script.CurrentCommandIndex}, counter{script.NativeCounter1}/{native[at+6]}, move{script.MovementCounter}/{native[at+7]}).");
+                    $"{source} update{updates}: movement/gravity/admission/counter differs (cmd{script.CurrentCommandIndex}, counter{script.NativeCounter1}/{native[at+6]}, move{script.MovementCounter}/{native[at+7]}).");
                 FailIf(_saveData.GetRoomFlags(1,0xbb)!=native[0xc8bb]||
                     _runtimeState.ReadWramByte(0xcc8a)!=native[0xcc8a]||_runtimeState.ReadWramByte(0xcc02)!=native[0xcc02]||
                     _runtimeState.ReadWramByte(0xccde)!=native[0xccde],

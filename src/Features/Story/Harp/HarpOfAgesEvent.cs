@@ -201,10 +201,10 @@ internal sealed class HarpOfAgesEvent :
         _context.Hud.ShowStatusBar();
         _context.RoomView.ClearBackgroundFade();
         RestoreFadePresentation();
-        _sparkle?.SetActive(false);
-        _nayru?.SetActive(false);
+        if (GodotObject.IsInstanceValid(_sparkle)) _sparkle!.SetActive(false);
+        if (GodotObject.IsInstanceValid(_nayru)) _nayru!.SetActive(false);
         foreach (HarpMusicNoteState note in _notes)
-            note.Actor.SetActive(false);
+            if (GodotObject.IsInstanceValid(note.Actor)) note.Actor.SetActive(false);
         _notes.Clear();
         _harp = null;
         _echoReward = null;

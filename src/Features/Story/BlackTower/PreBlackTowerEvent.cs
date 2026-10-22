@@ -152,7 +152,7 @@ internal sealed class PreBlackTowerEvent :
         _nayruRunner.Clear();
         _zeldaRunner.Clear();
         foreach (TimedEffect effect in _effects)
-            effect.Actor.SetActive(false);
+            if (GodotObject.IsInstanceValid(effect.Actor)) effect.Actor.SetActive(false);
         _effects.Clear();
         _actors.Clear();
         _precisePositions.Clear();

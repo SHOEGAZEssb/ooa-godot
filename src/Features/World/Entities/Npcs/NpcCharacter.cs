@@ -6,6 +6,20 @@ namespace oracleofages;
 
 public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
 {
+    internal event Action<NpcCharacter>? Retired;
+    internal bool IsRetired { get; private set; }
+
+    // The entity owner publishes actual deletion, not visibility changes or
+    // transfer into the outgoing scroll set. Subscribers only detach references;
+    // script completion and input/fade release remain with their event owners.
+    internal void NotifyRetired()
+    {
+        if (IsRetired) return;
+        IsRetired = true;
+        Retired?.Invoke(this);
+        Retired = null;
+    }
+
     private readonly List<NpcCharacterAnimationFrame>[] _facingAnimations =
     {
         new(), new(), new(), new()

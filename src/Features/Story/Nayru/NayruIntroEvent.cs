@@ -1909,7 +1909,7 @@ internal sealed class NayruIntroEvent :
         if (deactivateActors)
         {
             foreach (TimedNayruEffect effect in _nayruEffects)
-                effect.Actor.SetActive(false);
+                if (GodotObject.IsInstanceValid(effect.Actor)) effect.Actor.SetActive(false);
         }
         _nayruEffects.Clear();
     }

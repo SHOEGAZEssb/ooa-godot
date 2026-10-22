@@ -22,6 +22,36 @@ public sealed partial class ValidationRoot
         }
         foreach (bool batched in new[] { false, true })
         {
+            // impaInCutscene.s:@init7 and bird.s:@initSubid04 delete both
+            // slots in an unlinked game. Flush their queued frees explicitly:
+            // synchronous validation otherwise never reaches Godot's end-frame
+            // deletion before the next room load cancels the retained hosts.
+            ReinitializeGameplayForValidation();
+            LoadValidationRoom(0, 0x65);
+            StepGameplayUpdates(3, Vector2.Zero, batched: batched);
+            DrainRetiredValidationNodes();
+            _player.WarpTo(new(0x9a, 0x70));
+            _transitions.BeginScroll(_player, Vector2I.Right, 0x66);
+            StepGameplayUpdates(_transitions.ScrollTotalFrames, Vector2.Zero, batched: batched);
+            FailIf(_activeGroup != 0 || _currentRoom.Id != 0x66 || _transitions.IsTransitioning ||
+                _roomEvents.Get<ZeldaRescueEvent>().HasState || _roomEvents.MenusDisabled,
+                "Entering $0:$66 from the left retained deleted $0:$65 rescue actors or event control.");
+
+            // Approach the actual house doorway from the walkable tile below.
+            int door = Enumerable.Range(0, 80).Select(index => (index / 10) * 16 + index % 10).Single(position =>
+                WarpDatabase.IsWarpTile(_currentRoom.ActiveCollisions,
+                    _currentRoom.GetMetatile(new Vector2((position & 15) * 16 + 8, (position >> 4) * 16 + 8))));
+            _player.WarpTo(new((door & 15) * 16 + 8, (door >> 4) * 16 + 24));
+            StepGameplayUpdates(24, Vector2.Up, batched: batched);
+            StepGameplayUpdates(160, Vector2.Zero, batched: batched);
+            FailIf(_activeGroup != 2 || _currentRoom.Id != 0xe7 || _transitions.IsTransitioning ||
+                _roomEvents.MenusDisabled || _entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0,
+                $"$0:$66 house warp must reach $2:$e7 and release arrival control after rescue cancellation; actual ${_activeGroup:x}:${_currentRoom.Id:x2}, Link={_player.Position}, door=${door:x2}.");
+            Vector2 arrival = _player.Position;
+            StepGameplayUpdates(8, Vector2.Up, batched: batched);
+            FailIf(_player.Position == arrival,
+                "$2:$e7 house arrival left Link unable to move after entering $0:$66 from the left.");
+
             ReinitializeGameplayForValidation(); _saveData.SetLinkedGame(true);
             _inventory.GiveTreasure(TreasureId.Essence, 2);
             LoadValidationRoom(0, 0x66);

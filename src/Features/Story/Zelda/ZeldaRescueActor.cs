@@ -31,6 +31,7 @@ internal sealed class ZeldaRescueActor : RoomCutsceneCommandHost, IRoomEntity, I
         if (_name == "Zelda") _actor.TimeWarpSolidMarked = false;
         _actor.SetAnimationRate(0);
         _binding = new(_name); _binding.Bind(_actor);
+        _actor.Retired += _ => _owner.ReleaseRetiredActor(this);
         _runner = new(this);
         _precise = _actor.Position;
     }
@@ -42,7 +43,13 @@ internal sealed class ZeldaRescueActor : RoomCutsceneCommandHost, IRoomEntity, I
     public NpcCharacter? FindTalkTarget(Player player) => !Finished && _actor.CanScriptTalkTo(player, 6, 6, 10) ? _actor : null;
     internal bool QueueButton(NpcCharacter actor) => !Finished && _binding.QueueButton(actor);
     internal void Cancel() { _runner.Clear(); _binding.Clear(); Finish(); }
-    private void Finish() { Finished = true; _actor.SetActive(false); }
+    private void Finish()
+    {
+        Finished = true;
+        // State-zero interactionDelete may have retired this node before the
+        // room-entry owner cancels its retained script hosts on the next load.
+        if (GodotObject.IsInstanceValid(_actor)) _actor.SetActive(false);
+    }
     private void SetAnimation(int animation) => _actor.SetScriptAnimation(_data.Animation(_name, animation));
     private void Initialize()
     {

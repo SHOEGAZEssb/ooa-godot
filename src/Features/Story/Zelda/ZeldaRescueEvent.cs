@@ -14,6 +14,7 @@ internal sealed class ZeldaRescueEvent(RoomEventContext context) : IRoomEntryEve
     public bool MenusDisabled => _ownsInput;
     public bool Matches(int group, OracleRoomData room) => group == 0 && room.Id == 0x65;
     internal ZeldaRescueActor CreatePlaced(NpcRecord record) => new(context, this, _data, record);
+    internal void ReleaseRetiredActor(ZeldaRescueActor actor) => _actors.Remove(actor);
     public void Start(OracleRoomData room)
     {
         _actors.Clear();

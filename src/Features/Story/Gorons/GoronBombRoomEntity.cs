@@ -120,6 +120,6 @@ internal sealed class GoronBombRoomEntity : RoomEntityAdapter<NpcCharacter>,
         // here too, before the manager frees its actor; clearParts must only
         // visit parts that are still live when the room layout is restored.
         _owner.Parts.Remove(this);
-        Entity.SetActive(false);
+        if (GodotObject.IsInstanceValid(Entity)) Entity.SetActive(false);
     }
 }

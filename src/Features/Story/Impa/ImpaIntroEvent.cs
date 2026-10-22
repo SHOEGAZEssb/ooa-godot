@@ -395,7 +395,7 @@ internal sealed class ImpaIntroEvent :
         _initialization?.Dispose();
         _initialization = null;
         foreach (FakeOctorokState state in _fakeOctoroks)
-            state.Actor.SetActive(false);
+            if (GodotObject.IsInstanceValid(state.Actor)) state.Actor.SetActive(false);
         _fakeOctoroks.Clear();
         Actor = null;
         StoneActor = null;

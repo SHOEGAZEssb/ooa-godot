@@ -126,6 +126,7 @@ internal sealed class GoronCaveEvent(RoomEventContext context) : IRoomEvent, IRo
             _exclamationCounter = 0;
         }
         _resources?.ReleaseFullScreenFade();
+        context.Player.EndCutsceneControl(this);
         _fadeDirection=0; MovingLink=false; _falling=false;
     }
     internal void SpawnElder()

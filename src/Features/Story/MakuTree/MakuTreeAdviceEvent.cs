@@ -92,7 +92,7 @@ internal sealed class MakuTreeAdviceEvent : InteractiveInfiniteScriptHost<NpcCha
 
     protected override void ResetEventState()
     {
-        _flower?.SetActive(false);
+        if (Godot.GodotObject.IsInstanceValid(_flower)) _flower!.SetActive(false);
         _flower = null;
     }
 }

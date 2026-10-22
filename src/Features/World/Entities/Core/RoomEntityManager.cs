@@ -3854,7 +3854,11 @@ public sealed class RoomEntityManager : IDisposable
         if (entity is AncientTombEntranceRoomEntity entrance) entrance.Cancel();
         if (entity is VeranFaceRoomEntity face) face.Cancel();
         if (entity is PirateShipRoomEntity ship) ship.Dispose();
-        if (entity.Node is NpcCharacter npc) npc.NativeActivationChanged = null;
+        if (entity.Node is NpcCharacter npc)
+        {
+            npc.NativeActivationChanged = null;
+            npc.NotifyRetired();
+        }
         _interactionSlots.Remove(entity);
         _partSlots.Remove(entity);
         if (_enemySlots.Remove(entity, out int enemySlot))

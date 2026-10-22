@@ -27,5 +27,9 @@ internal interface IRoomEvent
     bool OwnsUpdatesOf(IRoomEvent other) => false;
     void ReleaseOutgoingActors(int group, OracleRoomData room) { }
     void UpdateFrame();
+    // Safe before initialization, after entity retirement/native disposal and
+    // after prior completion/cancellation. Detach scripts and actor references;
+    // release only this owner's input, fade, registrations and restrictions.
+    // Do not run source completion writes or unlock a successor's control.
     void Cancel();
 }

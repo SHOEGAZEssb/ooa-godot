@@ -281,6 +281,9 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
             player.EndGetItemOneHandPose();
         Held = false;
         Finished = true;
+        // A room/event owner may finish its retained grant after the entity
+        // manager has retired and freed the presentation node.
+        if (!GodotObject.IsInstanceValid(this)) return;
         Visible = false;
         QueueRedraw();
     }

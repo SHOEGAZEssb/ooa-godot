@@ -86,6 +86,22 @@ supports `Node.GetOrphanNodeIds`. Production retirement still follows the normal
 engine frame. `-ProfileMemory` on the launcher logs managed heap, process memory,
 and collection counts every sixteen resets without forcing collection.
 
+The runner checks cancellation for every registered room-event owner before a
+fixture session is replaced. After each scenario it retires the remaining room
+entities, suspends automatic gameplay, and awaits two real engine frames before
+checking cleanup against disposed native nodes. Both boundaries check repeated
+cancellation, released event state and restrictions, and preservation of a
+successor's player control. Registration supplies the owner inventory, so new
+events automatically join these checks. Do not bypass cleanup by replacing a
+fixture's dispatch list or reduce it to the events whose `HasState` is true.
+
+These automatic checks cover the sequence states exercised or left behind by
+the scenarios; they do not prove every source branch is reached. Feature
+regressions still arrange meaningful dialogue, effects, rewards, completion,
+cancellation and re-entry boundaries, and verify raw input-mask ownership and
+subsequent gameplay. Shared script-binding regressions must distinguish outgoing
+scroll retention from actual retirement and observe real native disposal.
+
 Each worker retains immutable C# Script resources across resets to avoid
 repeated class registration. Scenes, nodes, controllers, save bytes, RNG and
 runtime state are still recreated; script retention must preserve collection

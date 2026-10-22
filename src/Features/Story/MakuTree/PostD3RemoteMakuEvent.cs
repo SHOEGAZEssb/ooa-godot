@@ -203,8 +203,8 @@ internal sealed class PostD3RemoteMakuEvent :
     {
         bool controlled = HasState;
         RemoveTowerScreen();
-        _ambi?.SetActive(false);
-        _nayru?.SetActive(false);
+        if (GodotObject.IsInstanceValid(_ambi)) _ambi!.SetActive(false);
+        if (GodotObject.IsInstanceValid(_nayru)) _nayru!.SetActive(false);
         _ambi = null;
         _nayru = null;
         _context.Player.Visible = true;

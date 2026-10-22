@@ -140,6 +140,7 @@ internal sealed class NayruActorRegistry : IReadOnlyDictionary<string, NpcCharac
         {
             foreach (NpcCharacter actor in _actors.Values)
             {
+                if (!GodotObject.IsInstanceValid(actor)) continue;
                 actor.SetScriptDrawOffset(Vector2.Zero);
                 actor.SetActive(false);
             }

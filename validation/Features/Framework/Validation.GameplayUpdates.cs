@@ -30,6 +30,7 @@ public sealed partial class ValidationRoot
 
     private void ReinitializeGameplayForValidation()
     {
+        ValidateRoomEventsBeforeReset();
         if (_profileValidationMemory && (_validationMemoryResetCount++ & 15) == 0)
             TraceValidationMemory();
         Application.ResetGameplay();

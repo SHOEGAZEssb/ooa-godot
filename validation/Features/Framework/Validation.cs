@@ -104,6 +104,7 @@ public sealed partial class ValidationRoot : GameRoot
                     "--validate-shard cannot be combined with --validate-only.");
             }
             await ValidateAll();
+            ReportRoomEventCleanup();
             // AudioStreamPlayer.Stop queues its native playback for the
             // AudioServer mixer/update handoff. Let those engine phases run
             // before quitting a suite that creates and tears down output.
@@ -236,6 +237,7 @@ public sealed partial class ValidationRoot : GameRoot
                 await asynchronous();
             else
                 ((Action)validation)();
+            await ValidateScenarioRoomEventCleanup(name);
             GD.Print(FormattableString.Invariant(
                 $"VALIDATION_TIMING name={name} setup_ms={setupMs:F3} total_ms={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F3}"));
         }
@@ -828,6 +830,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateZeldaRescueRom, requiresRom: true);
         RunIsolatedValidation(ValidateZeldaKidnappedRom, requiresRom: true);
         RunIsolatedValidation(ValidateZeldaRescueLifecycle);
+        RunIsolatedValidation(ValidateRoomEventRetirement);
+        RunIsolatedValidation(ValidateScriptActorRetirement);
         RunIsolatedValidation(ValidatePalaceFriendlySoldiersRom, requiresRom: true);
         RunIsolatedValidation(ValidateAmbiGuardsRom, requiresRom: true);
         RunIsolatedValidation(ValidateGuardSomariaRemovalRom, requiresRom: true);

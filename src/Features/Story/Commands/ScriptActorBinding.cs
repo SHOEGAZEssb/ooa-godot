@@ -16,9 +16,14 @@ internal sealed class ScriptActorBinding<TActor>(string name) where TActor : Npc
     public void Bind(TActor actor)
     {
         Clear();
+        if (actor.IsRetired)
+            throw new InvalidOperationException($"Cannot bind retired actor '{name}' (${actor.Record.Id:x2}:${actor.Record.SubId:x2}).");
         Actor = actor;
+        actor.Retired += OnActorRetired;
         actor.SetScriptButtonSensitive(false);
     }
+
+    private void OnActorRetired(NpcCharacter actor) => Clear();
 
     public TActor Require(string actor) => actor == name && Actor is not null
         ? Actor
@@ -48,7 +53,11 @@ internal sealed class ScriptActorBinding<TActor>(string name) where TActor : Npc
 
     public void Clear()
     {
-        Actor?.SetScriptButtonSensitive(false);
+        if (Actor is { } actor)
+        {
+            actor.Retired -= OnActorRetired;
+            actor.SetScriptButtonSensitive(false);
+        }
         Actor = null;
         ClearPendingButton();
     }

@@ -43,7 +43,7 @@ public sealed partial class ValidationRoot
                     FailIf(slot.Npc.Active!=(native[at]!=0)||slot.Npc.Active&&
                         (slot.Script!.NativeCounter1!=native[at+6]||slot.Script.MovementCounter!=native[at+7]||
                             slot.Npc.Position!=new Vector2(native[at+13],native[at+11])||slot.Npc.NativeAngle!=native[at+9]),
-                        source+$" update{updates}/Tokay${slot.Npc.Record.SubId:x2}: native counters, position, angle or lifetime differs (cmd{slot.Script!.CurrentCommandIndex}, c1{slot.Script.NativeCounter1}/{native[at+6]}, c2{slot.Script.MovementCounter}/{native[at+7]}, angle{slot.Npc.NativeAngle:x2}/{native[at+9]:x2}).");
+                        $"{source} update{updates}/Tokay${slot.Npc.Record.SubId:x2}: native counters, position, angle or lifetime differs (cmd{slot.Script!.CurrentCommandIndex}, c1{slot.Script.NativeCounter1}/{native[at+6]}, c2{slot.Script.MovementCounter}/{native[at+7]}, angle{slot.Npc.NativeAngle:x2}/{native[at+9]:x2}).");
                 }
                 FailIf(CompanionRuntimeState.ReadScriptSignals(_runtimeState)!=native[0xd13e]||_saveData.ReadWramByte(WramAddress.wDimitriState)!=native[WramAddress.wDimitriState]||
                     _runtimeState.ReadWramByte(0xcc8a)!=native[0xcc8a]||_runtimeState.ReadWramByte(0xcc02)!=native[0xcc02]||_inventory.EmberSeeds!=native[0xc6b9],source+$" update{updates}: source signals, masks, state or BCD seed count differs.");
