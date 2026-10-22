@@ -22,15 +22,25 @@ public sealed partial class ValidationRoot
         Input.BeginOriginalUpdate(snapshot);
         try
         {
-            for (int i = 0; i < 100; i++) ReadInput();
             var timer = new Stopwatch();
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            timer.Start();
-            for (int i = 0; i < 10000; i++) ReadInput();
-            timer.Stop();
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            GD.Print($"Input query batches: {timer.Elapsed.TotalMilliseconds:F3} ms, {allocated} managed bytes for 10000 iterations.");
-            FailIf(allocated != 0, "Reading an immutable application input snapshot must not allocate.");
+            var allocations = new List<long>(4);
+            int zeroAllocationRounds = 0;
+            for (int round = 0; round < 4 && zeroAllocationRounds < 2; round++)
+            {
+                // Tiered JIT compilation or lazy runtime setup can allocate once
+                // after a short warmup. Repeated query allocations persist here.
+                timer.Restart();
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                for (int i = 0; i < 10000; i++) ReadInput();
+                long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+                timer.Stop();
+                allocations.Add(allocated);
+                zeroAllocationRounds = allocated == 0 ? zeroAllocationRounds + 1 : 0;
+            }
+            GD.Print($"Input query batches: {timer.Elapsed.TotalMilliseconds:F3} ms in final 10000 iterations; " +
+                $"managed bytes by round: {string.Join(", ", allocations)}.");
+            FailIf(zeroAllocationRounds < 2,
+                "Reading an immutable application input snapshot must not allocate after warmup.");
         }
         finally { Input.EndOriginalUpdate(); }
 
