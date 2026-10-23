@@ -41,9 +41,11 @@ internal sealed class OracleSoundDriver
     private static void CheckNativeAllocationAlias(int address)
     {
         // include/wram.s: wChannelSweep, wChannelVibratoActive and
-        // wChannelVibratos are three consecutive six-channel byte arrays.
-        if (address is < 0xc03f or >= 0xc051)
-            throw new ArgumentOutOfRangeException(nameof(address), $"Allocation failure sound alias ${address:x4} is outside the traced channel arrays ($c03f-$c050).");
+        // wChannelVibratos, wChannelVibratoCounters and wChannelDutyCycles
+        // are consecutive six-channel byte arrays. Farore's unchecked
+        // relatedObj1 write also reaches $c056/$c057.
+        if (address is < 0xc03f or >= 0xc05d)
+            throw new ArgumentOutOfRangeException(nameof(address), $"Allocation failure sound alias ${address:x4} is outside the traced channel arrays ($c03f-$c05c).");
     }
     internal void SetChannelPitchSlideByte(int channel, byte value)
     {

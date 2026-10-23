@@ -184,8 +184,8 @@ $stageContracts = @(
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds') `
         -functionInputs @('Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation')
     New-ImportStageContract 'farore' 'Import-FaroreData.ps1' `
-        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds') `
-        -functionInputs @('Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText')
+        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'interactionGraphics', 'gfxNames') `
+        -functionInputs @('Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation', 'Find-ImportSpriteSource', 'Resolve-InteractionGraphics')
     New-ImportStageContract 'shared-npcs' 'Import-SharedNpcData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader') `
         -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')

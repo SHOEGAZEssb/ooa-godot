@@ -1014,6 +1014,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateFamilyChildWarriorReward);
         RunIsolatedValidation(ValidateFamilyChildSingerSong);
         RunIsolatedValidation(ValidateFaroreScript);
+        RunIsolatedValidation(ValidateFaroreDialogueInput);
+        RunIsolatedValidation(ValidateFaroreChestPresentation);
+        RunIsolatedValidation(ValidateFaroreUpgradePresentation);
+        RunIsolatedValidation(ValidateFaroreChestAllocationFailure);
         RunIsolatedValidation(ValidateFaroreSecretResponses);
         RunIsolatedValidation(ValidateFaroreRewards);
         RunIsolatedValidation(ValidateFaroreUnlinkedSecrets);

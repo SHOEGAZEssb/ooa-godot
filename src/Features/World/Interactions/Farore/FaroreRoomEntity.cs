@@ -12,7 +12,7 @@ internal sealed class FaroreRoomEntity(NpcCharacter npc)
     private bool _initialized;
     internal FaroreScriptHost? Script { get; set; }
     public NpcCharacter Npc => Entity;
-    public bool UpdatesDuringDialogue => true;
+    public bool UpdatesDuringDialogue => !_initialized;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

@@ -160,17 +160,29 @@ public sealed class RoomTransitionController
     private int _nativePaletteDirection, _nativePaletteOffset, _nativePaletteDelay = 1, _nativePaletteCounter = 1;
     private Color _nativePaletteColor = Colors.White;
     private int _nativePaletteSpeed = 1;
-    internal bool NativePaletteFadeActive => _nativePaletteDirection != 0;
-    internal int NativePaletteThreadMode=>_nativePaletteDirection==0?0:
+    private OracleRoomData? _nativeDarkeningRoom;
+    private int _nativeDarkeningOffset;
+    internal Vector2? NativeCameraFocus { get; set; }
+    internal bool NativePaletteFadeActive => _nativePaletteDirection != 0 || _nativeDarkeningRoom is not null;
+    internal int NativePaletteThreadMode=>_nativeDarkeningRoom is not null ? 5 : _nativePaletteDirection==0?0:
         (_nativePaletteColor==Colors.Black?(_nativePaletteDirection>0?3:4):(_nativePaletteDirection>0?1:2))|(_nativePaletteDelay>1?8:0);
     internal void BeginNativeWhiteFade(bool fadeOut, int delay = 1, int speed = 1)
         => BeginNativePaletteFade(Colors.White, fadeOut, delay, speed);
+    internal void BeginNativeLightRoomDarkening()
+    {
+        // Ages bank0.darkenRoomLightly: BG 2-7 only, target $f7, speed $01.
+        _nativePaletteDirection = 0;
+        _nativeDarkeningRoom = _rooms.CurrentRoom;
+        _nativeDarkeningOffset = 0;
+        _nativeDarkeningRoom.SetTemporaryBackgroundPaletteOffset(0);
+    }
     internal void BeginNativeBlackFade(bool fadeOut, int speed = 1,int delay=1)
         => BeginNativePaletteFade(Colors.Black, fadeOut,delay:delay,speed: speed);
     private void BeginNativePaletteFade(Color color, bool fadeOut, int delay = 1, int speed = 1)
     {
         if (delay < 1) throw new ArgumentOutOfRangeException(nameof(delay));
         if (speed < 1) throw new ArgumentOutOfRangeException(nameof(speed));
+        _nativeDarkeningRoom = null;
         _nativePaletteColor = color;
         _nativePaletteSpeed = speed;
         _nativePaletteDirection = fadeOut ? 1 : -1;
@@ -180,6 +192,12 @@ public sealed class RoomTransitionController
     }
     internal void AdvanceNativeWhiteFade()
     {
+        if (_nativeDarkeningRoom is { } room)
+        {
+            if (_nativeDarkeningOffset == -9) { _nativeDarkeningRoom = null; return; }
+            room.SetTemporaryBackgroundPaletteOffset(--_nativeDarkeningOffset);
+            return;
+        }
         if (_nativePaletteDirection == 0) return;
         if (--_nativePaletteCounter != 0) return;
         _nativePaletteCounter = _nativePaletteDelay;
@@ -192,7 +210,12 @@ public sealed class RoomTransitionController
         if (finished) { _nativePaletteDirection = 0; return; }
         _warpFade.Color = new Color(_nativePaletteColor, Math.Min(_nativePaletteOffset, 31) / 31f);
     }
-    internal void CancelNativeWhiteFade() => _nativePaletteDirection = 0;
+    internal void CancelNativeWhiteFade(bool clearPresentation = false)
+    {
+        _nativePaletteDirection = 0;
+        _nativeDarkeningRoom = null;
+        if (clearPresentation) SetFade(0);
+    }
     internal bool PaletteFadeActive => NativePaletteFadeActive || _warpActive && (_warpPhase switch
     {
         WarpPhase.FadeOut => _warpFrame < _warpFadeOutFrames,
@@ -2072,6 +2095,7 @@ void fragment() {
         if (_scrollActive || _entities.CameraUpdatesDisabledSource())
             return;
         Vector2 focusPosition =
+            NativeCameraFocus ??
             _entities.SwitchHook?.CameraFocus ??
             _entities.PlayerScreenTransitionOwner?.ScreenTransitionPosition ??
             _player.Position;
@@ -2101,6 +2125,7 @@ void fragment() {
     public void ResetCamera()
     {
         Vector2 focusPosition =
+            NativeCameraFocus ??
             _entities.SwitchHook?.CameraFocus ??
             _entities.PlayerScreenTransitionOwner?.ScreenTransitionPosition ??
             _player.Position;

@@ -65,6 +65,8 @@ public sealed class InteractionController
         _npcScripts;
     internal void SetFaroreSecretMenuOpener(Func<Action<int?>, bool> opener) =>
         _npcScripts.OpenFaroreSecretMenu = opener;
+    internal void BindFaroreTransitions(RoomTransitionController transitions) => _npcScripts.FaroreTransitions = transitions;
+    internal void AdvanceFarorePaletteBeforeObjects() => _npcScripts.AdvanceFarorePaletteBeforeObjects();
 
     internal InteractionController(
         RoomSession rooms,
@@ -251,9 +253,6 @@ public sealed class InteractionController
         _chestTreasure = null;
         _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,0);
         _entities.RuntimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,0);
-        if (_rooms.ActiveGroup == 5 && _rooms.CurrentRoom.Id == 0xcf &&
-            _npcScripts.FaroreChestPending)
-            _npcScripts.FaroreChestRewardCompleted();
     }
 
     private void OnHeartPieceSetFilled()
@@ -553,6 +552,10 @@ public sealed class InteractionController
         }
         if (!room.ReplaceMetatile(tilePoint, 0xf1, 0xf0, _animationTick()))
             return true;
+
+        // nextToChestTile publishes the packed position before creating the
+        // reserved treasure. Native reward controllers consume this same byte.
+        runtime.SetWramByte(WramAddress.wcca2, (byte)position);
 
         _rooms.SaveData.SetRoomFlag(
             _rooms.ActiveGroup, room.Id, OracleSaveData.RoomFlagItem);

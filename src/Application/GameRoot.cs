@@ -937,6 +937,7 @@ public partial class GameRoot : Node2D
         // Retain the caller's eligibility even when its handler selects a new
         // native stage or an interaction suspends this object pass.
         bool statusBarUpdatesDisabled=_roomEvents.StatusBarUpdatesDisabled;
+        _interactions.AdvanceFarorePaletteBeforeObjects();
         bool nativeCutsceneOwnedUpdate = _roomEvents.AdvanceNativeCutscenesBeforeObjects();
         if(_nativeResetRequested)return;
         if (_roomEvents.SkipsObjectUpdate)
@@ -1420,6 +1421,7 @@ public partial class GameRoot : Node2D
             _scene.InterfaceLayer, _menuLifecycle, _saveData, _inventory, _sound.PlaySound);
         _roomEvents.SetSecretMenuOpener(_secretEntry.Open);
         _interactions.SetFaroreSecretMenuOpener(_secretEntry.OpenAnyShortSecret);
+        _interactions.BindFaroreTransitions(_transitions);
         _roomEvents.Get<VasuShopEvent>().SetRingSecretMenuOpener(_secretEntry.OpenRingSecret);
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _gameplayPause,

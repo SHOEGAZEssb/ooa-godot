@@ -51,8 +51,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 386 | Traced and covered by named NPC/event scenarios. |
-| **P** | 3 | A production path exists with a documented incomplete or unverified boundary. |
+| **I** | 387 | Traced and covered by named NPC/event scenarios. |
+| **P** | 2 | A production path exists with a documented incomplete or unverified boundary. |
 | **D** | 1 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
@@ -274,7 +274,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:ca` | [I] `$48:$06/v$00` tokay |
 | `5:cc` | [I] `$48:$09/v$00` tokay |
 | `5:ce` | [I] `$6d:$00/v$00` possessedNayru<br>[I] `$40:$0d/v$0e` soldier |
-| `5:cf` | [P] `$10:$00/v$00` farore |
+| `5:cf` | [I] `$10:$00/v$00` farore |
 | `5:d0` | [I] `$3b:$07/v$00` femaleVillager<br>[I] `$ab:$0e/v$00` zora<br>[I] `$3c:$0b/v$00` boy<br>[I] `$2a:$00/v$00` librarian<br>[I] `$9a:$09/v$00` carpenter |
 | `5:d1` | [I] `$40:$0d/v$08` soldier<br>[I] `$40:$0d/v$09` soldier |
 | `5:d2` | [I] `$40:$0d/v$0a` soldier<br>[I] `$40:$0d/v$0b` soldier |

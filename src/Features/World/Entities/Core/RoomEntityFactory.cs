@@ -2923,6 +2923,7 @@ internal sealed class RoomEntityFactory
         TimedSparkleSpawn sparkle => new TimedSparkleRoomEntity(sparkle),
         FaroreRewardSpawn faroreReward => new FaroreRewardRoomEntity(faroreReward.Parent),
         FaroreMakeChestSpawn faroreChest => new FaroreMakeChestRoomEntity(faroreChest.Parent, owner),
+        FaroreSparkleSpawn faroreSparkle => new FaroreSparkleRoomEntity(faroreSparkle, owner),
         BridgeSpawnerSpawn bridge => new BridgeSpawnerRoomEntity(bridge, room,
             Resources.DungeonMechanics, owner.OnRoomTileChanged, owner.OnSoundRequested,(position,tile) => {
                 if (rooms is null || !ReferenceEquals(rooms.CurrentRoom,room))
@@ -3012,6 +3013,7 @@ internal sealed class RoomEntityFactory
         EmberSeedSpawn seed => CreateEmberSeed(seed, room),
         BombSpawn bomb => CreateBomb(bomb, room),
         BombchuSpawn bombchu => CreateBombchu(bombchu, room),
+        InteractionSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, sparkle.SourceAngle, sparkle.Visual),
         OwlStatueSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, 0, sparkle.Visual),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         GreenPoofSpawn poof => new GreenPoofRoomEntity(Resources.DungeonVisuals.Visual("green-poof"), poof.Position, poof.Z),

@@ -29,8 +29,8 @@ internal sealed class NpcInteractionScriptController
     private readonly FaroreScriptDatabase _faroreData = new();
     private FaroreScriptHost? _farore;
     internal Func<Action<int?>, bool>? OpenFaroreSecretMenu { get; set; }
-    internal bool FaroreChestPending => _farore?.HasPendingChest == true;
-    internal void FaroreChestRewardCompleted() => _farore?.ChestRewardCompleted();
+    internal RoomTransitionController? FaroreTransitions { get; set; }
+    internal void AdvanceFarorePaletteBeforeObjects() => _farore?.AdvancePaletteBeforeObjects();
 
     public NpcInteractionScriptController(
         RoomSession rooms,
@@ -139,7 +139,7 @@ internal sealed class NpcInteractionScriptController
                 _farore = new FaroreScriptHost(slot.Npc, _faroreData,
                     rooms, entities, dialogue, inventory, treasures,
                     callback => OpenFaroreSecretMenu?.Invoke(callback) == true,
-                    redrawRoom);
+                    redrawRoom, FaroreTransitions ?? throw new InvalidOperationException("Farore requires the shared palette/camera owner."));
                 slot.Script = _farore;
             }
             foreach (FamilyNpcScriptHost host in _familyHosts) host.Cancel();

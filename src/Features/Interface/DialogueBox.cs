@@ -456,9 +456,10 @@ public partial class DialogueBox : Node2D
         string message,
         float linkY,
         int initialChoice = 0,
-        int? textPosition = null)
+        int? textPosition = null,
+        int textboxFlags = 0)
     {
-        ShowChoiceMessage(message, GameplayScreen(linkY), initialChoice, textPosition);
+        ShowChoiceMessage(message, GameplayScreen(linkY), initialChoice, textPosition, textboxFlags);
     }
 
     /// <summary>

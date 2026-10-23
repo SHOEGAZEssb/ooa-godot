@@ -20,6 +20,8 @@ public static class InteractionId
     public const int Id0b = 0x0b;
     // constants/common/interactions.s: INTERAC_FARORE
     public const int Farore = 0x10;
+    // constants/common/interactions.s: INTERAC_FARORE_MAKECHEST
+    public const int FaroreMakeChest = 0x11;
     // constants/common/interactions.s: INTERAC_ROCKDEBRIS2
     public const int RockDebris2 = 0x0c;
     // constants/common/interactions.s: INTERAC_DUNGEON_STUFF

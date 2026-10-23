@@ -8,14 +8,15 @@ internal sealed partial class FaroreRewardRoomEntity(FaroreScriptHost parent) : 
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    private bool _initialized;
     public Node2D Node => this;
     public bool Finished => parent.RewardFinished;
-    public bool UpdatesDuringDialogue => true;
-    public bool UpdatesDuringRoomEntityFreeze => true;
+    public bool UpdatesDuringDialogue => !_initialized;
+    public bool UpdatesDuringRoomEntityFreeze => !_initialized;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (!Finished) parent.AdvanceReward(frame.Player);
+        if (!Finished) { parent.AdvanceReward(frame.Player); _initialized = true; }
     }
 
     public void SetTransitionDrawOffset(Vector2 offset) { }

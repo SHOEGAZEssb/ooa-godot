@@ -80,3 +80,46 @@ foreach ($line in ($contents.Groups['body'].Value -split '\r?\n')) {
 }
 if ($rewardRows.Count -ne 11) { throw "$rewardPath`: expected 10 Farore rewards." }
 Write-GeneratedTable((Join-Path $destination 'cutscenes\farore_rewards.tsv'), $rewardRows)
+
+# Preserve the actual eight-object stream and the native angle table, rather
+# than inferring construction from a visual circle.
+$chestPath = Join-Path $Disassembly 'object_code/common/interactions/faroreMakeChest.s'
+$chestSource = Read-ImportText $chestPath
+$angles = @(Read-AssemblyDataDirectives $chestPath '@initialAngles' '.db' | ForEach-Object { $_.Operands } | ForEach-Object { Convert-AssemblyInteger $_ })
+$objects = @(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'objects/ages/extraData1.s') 'objectData_faroreSparkle')
+if ($angles.Count -ne 8 -or $objects.Count -ne 9 -or
+    $chestSource -notmatch '(?ms)^@interac11_00_state0:.*?\$30.*?\$cfd8.*?\$cfd9.*?setCameraFocusedObject.*?\$5a.*?darkenRoomLightly' -or
+    $chestSource -notmatch '(?ms)^@interac11_00_stateA:.*?wPaletteThread_mode.*?\$cfc0.*?wPaletteThread_parameter.*?setCameraFocusedObjectToLink' ) {
+    throw "$chestPath`: Farore sparkle construction or palette completion changed (angles=$($angles.Count), objects=$($objects.Count))."
+}
+$rows = [Collections.Generic.List[string]]::new()
+$rows.Add("# subid`ty`tx`tangle`tsource")
+for ($index = 0; $index -lt 8; $index++) {
+    $object = $objects[$index]
+    $values = @($object.Operands | ForEach-Object { Convert-AssemblyInteger $_ })
+    if ($object.Name -ne 'obj_Interaction' -or $values.Count -ne 4 -or $values[0] -ne 0x11 -or $values[1] -ne ($index * 16 + 1)) {
+        throw "$chestPath`: invalid Farore sparkle object $index."
+    }
+    $rows.Add("$($values[1].ToString('x2'))`t$($values[2].ToString('x2'))`t$($values[3].ToString('x2'))`t$($angles[$index].ToString('x2'))`tobjects/ages/extraData1.s:objectData_faroreSparkle;faroreMakeChest.s:@initialAngles")
+}
+Write-GeneratedTable((Join-Path $destination 'cutscenes/farore_sparkles.tsv'), $rows)
+$rows.Clear()
+$rows.Add("# id`tsubid`tsprite`ttile-base`tpalette`tanimation`tsource-offset`tsource")
+foreach ($spec in @(@(0x11,1), @(0x84,0), @(0x84,0x0c))) {
+    $id=$spec[0]; $subid=$spec[1]; $graphic=Resolve-InteractionGraphics $id $subid
+    if ($null -eq $graphic) { throw "$chestPath`: missing graphics `$${id}:`$${subid}." }
+    $sprite=$gfxNames[$graphic.Gfx]
+    $spriteSource = Find-ImportSpriteSource $sprite
+    Copy-Item -LiteralPath $spriteSource.FullName -Destination (Join-Path $destination "gfx/$sprite.png") -Force
+    $offset=0
+    if ($graphic.Gfx -eq 0x3a) {
+        $header=Read-ImportText (Join-Path $Disassembly 'data/ages/objectGfxHeaders.s')
+        $match=[regex]::Match($header,'(?m)/\* \$3a \*/ m_ObjectGfxHeader spr_link, \$00, \$(?<offset>[0-9a-f]{4})')
+        if (-not $match.Success) { throw "$chestPath`: missing sparkle graphics slice `$3a." }
+        $offset=[Convert]::ToInt32($match.Groups['offset'].Value,16)
+    }
+    $animation=Resolve-NpcAnimation $id $graphic.DefaultAnimation
+    if (-not $animation) { throw "$chestPath`: missing animation `$${id}:`$${subid}." }
+    $rows.Add("$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$sprite`t$($graphic.TileBase)`t$($graphic.Palette)`t$animation`t$($offset.ToString('x4'))`tdata/ages/interactionData.s;data/ages/objectGfxHeaders.s")
+}
+Write-GeneratedTable((Join-Path $destination 'cutscenes/farore_visuals.tsv'), $rows)

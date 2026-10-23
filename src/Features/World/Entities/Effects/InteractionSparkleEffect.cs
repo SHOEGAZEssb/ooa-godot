@@ -79,3 +79,6 @@ internal readonly record struct InteractionSparkleVisual(
     int Palette,
     string Animation);
 
+internal sealed record InteractionSparkleSpawn(
+    Vector2 Position, int SourceAngle, InteractionSparkleVisual Visual) : RoomEntitySpawn;
+

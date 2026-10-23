@@ -304,7 +304,7 @@ public sealed class RoomEntityManager : IDisposable
     internal event Action<int, byte>? NativeSoundAllocationAliasWritten;
     internal Func<int, byte> NativeSoundAllocationAliasSource { get; set; } = address =>
         throw new InvalidOperationException($"Allocation failure alias ${address:x4} has no authoritative sound owner.");
-    private void WriteSoundAllocationAlias(int address, byte value)
+    internal void WriteSoundAllocationAlias(int address, byte value)
     {
         if (NativeSoundAllocationAliasWritten is null)
             throw new InvalidOperationException($"Allocation failure alias ${address:x4} has no authoritative sound owner.");
@@ -3144,7 +3144,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        FaroreRewardRoomEntity or FaroreMakeChestRoomEntity or ZeldaRescueActor or
+        FaroreRewardRoomEntity or FaroreMakeChestRoomEntity or FaroreSparkleRoomEntity or ZeldaRescueActor or
         PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or MapleTouchingBookRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
         TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or TokaySeedlingDecorationRoomEntity or TokayHeldAccessoryRoomEntity or TokayShopItemRoomEntity or
