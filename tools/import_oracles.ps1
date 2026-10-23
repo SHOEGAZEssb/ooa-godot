@@ -330,7 +330,7 @@ $stageContracts = @(
         -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-InteractionGraphics', 'Resolve-PalaceText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows')
     New-ImportStageContract 'maku-seed' 'Import-MakuSeedData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'soundIds') `
-        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-PalaceText', 'Read-PaletteBytes', `
+        -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Resolve-InteractionGraphics', 'Resolve-PalaceText', 'Read-PaletteBytes', `
             'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionInputs @('Expand-TransitionGraphics')

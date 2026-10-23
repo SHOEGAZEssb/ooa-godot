@@ -14,6 +14,8 @@ internal sealed class MakuSeedDatabase
     private readonly Dictionary<string, IReadOnlyList<CutsceneCommand>> _commands = [];
     private readonly Dictionary<int, string> _texts = [];
     private readonly Dictionary<string, int[]> _tables = [];
+    private readonly Dictionary<int, (int Group, int Room, string Scene)> _rooms = [];
+    private readonly Dictionary<string, List<(int Id, int SubId, Vector2 Position)>> _placements = [];
     internal MakuTreeAdviceDatabase Maku { get; } = new();
     internal Color[] SeedPalette { get; }
 
@@ -36,7 +38,8 @@ internal sealed class MakuSeedDatabase
             new("Maku Seed animations", GeneratedTableKeySemantics.Unique,
                 ["id", "index", "animation", "source"], ["id", "index"], headerRequired: true)).Rows)
             _animations.Add((row.HexByte(0), row.HexByte(1)), row.RequiredString(2));
-        foreach (string script in new[] { "tree-seed", "tree-return", "tree-repeat", "cloaked", "twinrova" })
+        foreach (string script in new[] { "tree-seed", "tree-return", "tree-repeat", "cloaked", "twinrova",
+            "twinrova-linked", "twinrova-return", "zelda", "impa", "boy" })
             _commands.Add(script, CutsceneCommandCatalog.Load(Root + $"maku_seed_{script}_commands.tsv"));
         foreach (var row in GeneratedTable.Load(Root + "maku_seed_texts.tsv",
             new("Maku Seed dialogue", GeneratedTableKeySemantics.Unique,
@@ -48,6 +51,19 @@ internal sealed class MakuSeedDatabase
             _tables.Add(row.RequiredString(0), Array.ConvertAll(row.SplitRequired(1, ','), value => Convert.ToInt32(value, 16)));
         var palette = OracleGraphicsData.LoadPalette(Root + "maku_seed_palette.bin", 1, 7);
         SeedPalette = [palette[7, 0], palette[7, 1], palette[7, 2], palette[7, 3]];
+        foreach (var row in GeneratedTable.Load(Root + "maku_seed_rooms.tsv",
+            new("Maku reveal rooms", GeneratedTableKeySemantics.Unique,
+                ["index", "group", "room", "scene", "source"], ["index"], headerRequired: true)).Rows)
+            _rooms.Add(row.HexByte(0), (row.HexByte(1), row.HexByte(2), row.RequiredString(3)));
+        foreach (var row in GeneratedTable.Load(Root + "maku_seed_placements.tsv",
+            new("Maku reveal placements", GeneratedTableKeySemantics.Ordered,
+                ["scene", "order", "id", "subid", "y", "x", "source"], headerRequired: true)).Rows)
+        {
+            string scene = row.RequiredString(0);
+            if (!_placements.TryGetValue(scene, out var placements)) _placements.Add(scene, placements = []);
+            if (row.Decimal(1) != placements.Count) throw row.Invalid(1, "contiguous original object order");
+            placements.Add((row.HexByte(2), row.HexByte(3), new(row.HexByte(5), row.HexByte(4))));
+        }
     }
 
     internal NpcCharacter CreateActor(int id, int subid, Vector2 position)
@@ -64,4 +80,6 @@ internal sealed class MakuSeedDatabase
     internal IReadOnlyList<CutsceneCommand> Commands(string script) => _commands[script];
     internal string Text(int id) => _texts[id];
     internal int[] Table(string name) => _tables[name];
+    internal (int Group, int Room, string Scene) Room(int index) => _rooms[index];
+    internal IReadOnlyList<(int Id, int SubId, Vector2 Position)> Placements(string scene) => _placements[scene];
 }

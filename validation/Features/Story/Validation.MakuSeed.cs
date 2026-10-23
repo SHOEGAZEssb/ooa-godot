@@ -9,12 +9,16 @@ public sealed partial class ValidationRoot
 {
     private void ValidateMakuSeedSequence()
     {
+        foreach (bool linked in new[] { false, true })
         foreach (bool batched in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
+            _saveData.SetLinkedGame(linked);
             _saveData.SetMakuTreeState(0x0e);
             _saveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
             _saveData.SetGlobalFlag(GlobalFlag.MakuTreeSaved);
+            // scriptHelper.s:interaction6b_layoutSwapMakuTreeRooms, before the late-game scene.
+            _saveData.SetRoomFlag(1, 0x48, 0x01);
             for (int essence = 0; essence < 8; essence++) _inventory.GiveTreasure(TreasureId.Essence, essence);
             LoadValidationRoom(0, 0x38);
             _player.WarpTo(new(0x50, 0x68));
@@ -78,9 +82,37 @@ public sealed partial class ValidationRoot
             FailIf(_runtimeState.ReadWramByte(0xcfc0) != 1,
                 "INTERAC$a6 must publish cfc0=$01 on the following interaction dispatch.");
             var texts = new List<int>();
+            bool sawLinkedScene = false, sawLinkedReturn = false;
             for (int update = 0; update < 2400 && _saveData.MakuTreeState != 0x0f; update++)
             {
                 Step();
+                if (seed.NativeState is 3 or 4 or 7 or 8)
+                    FailIf(!_hud.Visible || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black,
+                        $"Maku reveal state ${seed.NativeState:x2} must extend the black room BG across the status strip, linked={linked}.");
+                else if (seed.NativeState is 5 or 6 or 9)
+                    FailIf(_hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0,
+                        $"Maku reveal state ${seed.NativeState:x2} must restore the normal HUD without the black strip, linked={linked}.");
+                if (linked && seed.NativeState == 5 && !sawLinkedScene)
+                {
+                    sawLinkedScene = true;
+                    var actors = _entities.EntityAdapters<MakuRevealSceneActor>().ToArray();
+                    FailIf(_rooms.ActiveGroup != 1 || _currentRoom.Id != 0x49 || _player.Visible ||
+                        !actors.Select(actor => actor.Id).SequenceEqual(new[] { 0x3c, 0x3a, 0x43, 0xad, 0x31 }) ||
+                        !_entities.Entities<NpcCharacter>().Select(npc => _entities.InteractionSlot(npc)).SequenceEqual(new[] { 2, 3, 4, 5, 6 }) ||
+                        actors[3].Node.Position != new Vector2(0x58, 0xe8) || actors[4].Node.Position != new Vector2(0x68, 0xe8) ||
+                        _runtimeState.ReadWramByte(0xcfd1) != 0 || _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0,
+                        "Linked reveal room-set $12 must load 1:49 and initialize the five source slots in order without entering the room as Link.");
+                }
+                if (linked && seed.NativeState == 7 && !sawLinkedReturn)
+                {
+                    sawLinkedReturn = true;
+                    FailIf(_rooms.ActiveGroup != 0 || _currentRoom.Id != 0x38 || !_player.Visible ||
+                        _player.Position != new Vector2(0x50, 0x68) ||
+                        _entities.EntityAdapters<MakuRevealSceneActor>().Any() ||
+                        _entities.Entities<NpcCharacter>().Count(npc => npc.Record.Id == 0x93) != 2 ||
+                        _saveData.HasGlobalFlag(GlobalFlag.GotMakuSeed),
+                        "Linked reveal room-set $13 must restore Link and both Twinrova halves before committing the reveal flag.");
+                }
                 if (!_dialogue.IsOpen) continue;
                 if (_dialogue.SourceTextId is null)
                     FailIf(!_dialogue.CurrentMessage.Contains("Maku Seed", StringComparison.Ordinal),
@@ -91,10 +123,14 @@ public sealed partial class ValidationRoot
             FailIf(_saveData.MakuTreeState != 0x0f || !_inventory.HasTreasure(TreasureId.MakuSeed) ||
                 !_saveData.HasGlobalFlag(GlobalFlag.GotMakuSeed) ||
                 !_saveData.HasGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame) ||
-                !texts.SequenceEqual(new[] { -1, 0x2810, 0x2811, 0x2812, 0x2813, 0x2814, 0x055b, 0x055c }),
+                !texts.SequenceEqual(linked
+                    ? new[] { -1, 0x2815, 0x2816, 0x2817, 0x251b, 0x0600, 0x2818, 0x2819, 0x055f, 0x0560 }
+                    : new[] { -1, 0x2810, 0x2811, 0x2812, 0x2813, 0x2814, 0x055b, 0x055c }) ||
+                linked && (!sawLinkedScene || !sawLinkedReturn),
                 $"Maku Seed/Twinrova sequence failed its reward, flags, dialogue sequence or $0e->$0f handoff: state=${_saveData.MakuTreeState:x2}, texts={string.Join(',', texts.Select(id => $"${id:x4}"))}, native={seed.NativeState}, command={seed.CurrentCommandIndex}.");
             Step(4);
             FailIf(seed.OwnsGameLogic || _player.CutsceneControlled || _entities.PlayerMenusDisabled ||
+                _hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0 ||
                 _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 || _saveData.MakuMapTextPresent != 0x60,
                 "Maku Seed completion must restore gameplay and map advice $60.");
             LoadValidationRoom(0, 0x48);
@@ -104,11 +140,11 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(40, Vector2.Up, batched: batched);
             StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
             Step(2);
-            FailIf(!_dialogue.IsOpen || _saveData.MakuMapTextPresent != 0x18 || seed.HasState,
-                "Re-entering Maku state $0f must give TX_0518 Black Tower advice through real A-button interaction.");
+            FailIf(!_dialogue.IsOpen || _saveData.MakuMapTextPresent != (linked ? 0x38 : 0x18) || seed.HasState,
+                $"Re-entering Maku state $0f must give TX_0518 Black Tower advice through real A-button interaction: linked={linked}, batched={batched}, state=${_saveData.MakuTreeState:x2}, text={_dialogue.SourceTextId}, map=${_saveData.MakuMapTextPresent:x2}, seed={seed.HasState}, position={_player.Position}, mask=${_runtimeState.ReadWramByte(WramAddress.wDisabledObjects):x2}.");
             _dialogue.Close();
         }
-        GD.Print("Validated Maku $0e seed acknowledgement, source wait/descent boundaries, unlinked Twinrova handoff, reward/flags/map state, actual repeat conversation, and batched updates.");
+        GD.Print("Validated Maku $0e source wait/descent boundaries, linked/unlinked Twinrova scenes, ordered room sets $12/$13, reward/flags/map state, actual repeat conversation, and batched updates.");
     }
 
     private void ValidateMakuSeedReturnAndCancellation()
@@ -119,6 +155,7 @@ public sealed partial class ValidationRoot
             _saveData.SetLinkedGame(linked);
             _saveData.SetMakuTreeState(0x0e);
             _saveData.SetGlobalFlag(GlobalFlag.GotMakuSeed);
+            _saveData.SetRoomFlag(1, 0x48, 0x01);
             _inventory.GiveTreasure(TreasureId.MakuSeed, 0);
             LoadValidationRoom(0, 0x38);
             var seed = _roomEvents.Get<MakuSeedEvent>();
@@ -163,6 +200,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             _saveData.SetMakuTreeState(0x0e);
+            _saveData.SetRoomFlag(1, 0x48, 0x01);
             LoadValidationRoom(0, 0x38);
             var seed = _roomEvents.Get<MakuSeedEvent>();
             StepGameplayUpdates(cancelAt, Vector2.Zero, batched: true, afterUpdate: () =>
@@ -173,6 +211,7 @@ public sealed partial class ValidationRoot
             seed.Cancel();
             StepGameplayUpdates(4, Vector2.Zero, batched: true);
             FailIf(seed.HasState || _player.CutsceneControlled || _entities.PlayerMenusDisabled ||
+                _hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0 ||
                 _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 ||
                 _entities.EntityAdapters<MakuSeedTreeRoomEntity>().Any() ||
                 _entities.EntityAdapters<MakuSeedFallingRoomEntity>().Any() ||
@@ -181,15 +220,26 @@ public sealed partial class ValidationRoot
                 _saveData.HasGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame),
                 $"Canceling Maku Seed at update {cancelAt} retained a native actor/mask or completed the reveal.");
         }
-        ReinitializeGameplayForValidation();
-        _saveData.SetLinkedGame(true);
-        _saveData.SetMakuTreeState(0x0e);
-        bool rejected = false;
-        try { LoadValidationRoom(0, 0x38); }
-        catch (NotSupportedException exception)
-        { rejected = exception.Message.Contains("CUTSCENE_TWINROVA_REVEAL", StringComparison.Ordinal); }
-        FailIf(!rejected || _inventory.HasTreasure(TreasureId.MakuSeed),
-            "The unsupported linked Maku Seed reveal must fail explicitly before granting $36 or substituting the normal-game scene.");
+        foreach (int nativeState in new[] { 5, 7 })
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.SetLinkedGame(true); _saveData.SetMakuTreeState(0x0e);
+            _saveData.SetRoomFlag(1, 0x48, 0x01);
+            LoadValidationRoom(0, 0x38);
+            var seed = _roomEvents.Get<MakuSeedEvent>();
+            for (int update = 0; update < 2400 && seed.NativeState != nativeState; update++)
+                StepGameplayUpdates(1, Vector2.Zero, afterUpdate: () => { if (_dialogue.IsOpen) _dialogue.Close(); });
+            FailIf(seed.NativeState != nativeState, $"Linked cancellation fixture did not reach reveal state ${nativeState:x2}.");
+            seed.Cancel(); seed.Cancel();
+            StepGameplayUpdates(4, Vector2.Zero, batched: true);
+            FailIf(seed.HasState || !_player.Visible || _player.CutsceneControlled || _entities.PlayerMenusDisabled ||
+                _hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0 ||
+                _runtimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 ||
+                _entities.EntityAdapters<MakuRevealSceneActor>().Any() ||
+                _entities.EntityAdapters<TwinrovaRevealRoomEntity>().Any() ||
+                _saveData.HasGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame),
+                $"Canceling linked reveal state ${nativeState:x2} retained scene actors/control or ran completion writes.");
+        }
         GD.Print("Validated both Maku Seed return branches, reachable repeated conversation, and cancellation before/during descent and reveal.");
     }
 
@@ -199,6 +249,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             _saveData.SetMakuTreeState(0x0c);
+            _saveData.SetRoomFlag(1, 0x48, 0x01);
             _saveData.SetGlobalFlag(GlobalFlag.MakuTreeDisappeared);
             _saveData.SetGlobalFlag(GlobalFlag.MakuTreeSaved);
             for (int essence = 0; essence < 8; essence++) _inventory.GiveTreasure(TreasureId.Essence, essence);

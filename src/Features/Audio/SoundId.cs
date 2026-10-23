@@ -76,6 +76,8 @@ public static class SoundId
     public const int MusCrazyDance = 0x31;
     // constants/common/music.s: MUS_RALPH
     public const int MusRalph = 0x35;
+    // constants/common/music.s: MUS_ZELDA_SAVED
+    public const int MusZeldaSaved = 0x38;
     // constants/common/music.s: MUS_INTRO_1
     public const int MusIntro1 = 0x3f;
     // constants/common/music.s: MUS_INTRO_2

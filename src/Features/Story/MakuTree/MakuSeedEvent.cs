@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace oracleofages;
 
-// makuTree.s:@state0e -> subid $06; unlinked CUTSCENE_TWINROVA_REVEAL.
+// makuTree.s:@state0e -> subid $06; CUTSCENE_TWINROVA_REVEAL.
 internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
 {
     private readonly MakuSeedDatabase _data = new();
@@ -35,8 +35,6 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
     public void Start(OracleRoomData room)
     {
         OracleSaveData save = Context.Rooms.SaveData;
-        if (save.IsLinkedGame && !save.HasGlobalFlag(GlobalFlag.GotMakuSeed) && !save.HasGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame))
-            throw new NotSupportedException("makuTree.s:@state0e / CUTSCENE_TWINROVA_REVEAL: the linked Zelda kidnapping scene is not implemented.");
         _active = true;
         NpcCharacter tree = Context.RequireNpc(0, room.Id, 0x87, 0, "INTERAC_MAKU_TREE");
         InitializeTree(tree);
@@ -101,34 +99,68 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
                 _returnMusic = Context.Sound.ActiveMusic;
                 Context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
                 _counter = 60; Write(0xcfc0, 2);
-                Context.ShowDialogue(_data.Text(0x2810), sourceTextId: 0x2810);
+                int text = IsLinkedGame ? 0x2815 : 0x2810;
+                Context.ShowDialogue(_data.Text(text), sourceTextId: text);
                 _nativeState = 1; return;
             case 1:
                 if (Context.DialogueOpen || --_counter != 0) return;
                 Context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
                 _flashFrame = 0; _nativeState = 2; return;
             case 2:
-                int[] flashes = _data.Table("reveal-flashes");
-                _flashFrame++;
-                int index = 0;
-                while (flashes[index] < _flashFrame) index++;
-                if (flashes[index] != 0xff)
-                {
-                    Context.Fade.Color = new Color(Colors.White, (index & 1) == 0 ? 1 : 0);
-                    return;
-                }
+                if (!Flash("reveal-flashes")) return;
                 // func_6fb0 clears BG palettes, then the handler replaces only
                 // dynamic interactions. objectData77a5 keeps PART $27 first.
                 Context.Fade.Color = new Color(Colors.White, 0);
                 Context.RoomView.SetBackgroundFade(Colors.Black, 1);
                 Context.Hud.HideStatusBar();
+                // func_6fb0 sets LYC/SCY=$00: the black room BG covers the status strip.
+                Context.Hud.SetHiddenStatusBarFade(Colors.Black, 1);
+                Write(WramAddress.wScrollMode, 0);
                 Write(WramAddress.wDisabledObjects, 1);
                 _tree = null; _runner.Clear(); _treeEnded = true;
                 Context.Entities.ClearDynamicInteractions();
-                if (Context.Entities.PartSlotAvailable)
-                    AddOwnedEntity(new LightningRoomEntity(Context, new(0x50, 0x24), signalCutscene: false));
-                if (Context.Entities.InteractionSlotAvailable)
-                    AddOwnedEntity(new TwinrovaRevealRoomEntity(Context, _data, 0x8d, 2, AddOwnedEntity));
+                if (IsLinkedGame)
+                {
+                    Context.Player.Visible = false;
+                    if (Context.Entities.InteractionSlotAvailable)
+                        AddOwnedEntity(new TwinrovaRevealRoomEntity(Context, _data, 0x93, 4, AddOwnedEntity));
+                    _nativeState = 3;
+                }
+                else
+                {
+                    if (Context.Entities.PartSlotAvailable)
+                        AddOwnedEntity(new LightningRoomEntity(Context, new(0x50, 0x24), signalCutscene: false));
+                    if (Context.Entities.InteractionSlotAvailable)
+                        AddOwnedEntity(new TwinrovaRevealRoomEntity(Context, _data, 0x8d, 2, AddOwnedEntity));
+                    _nativeState = 7;
+                }
+                return;
+            case 3:
+                if (Read(0xcfc0) != 3) return;
+                Context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
+                Context.Sound.PlaySound(SoundId.SndLightning);
+                _flashFrame = 0; _nativeState = 4; return;
+            case 4:
+                if (!Flash("linked-flashes")) return;
+                Write(0xcfde, 0x12); LoadRevealRoom(0x12);
+                Context.Hud.ShowStatusBar();
+                Context.Sound.PlaySound(SoundId.MusZeldaSaved);
+                _nativeState = 5; return;
+            case 5:
+                if (Read(0xcfdf) != 0xff) return;
+                Context.Sound.PlaySound(SoundId.SndLightning);
+                Context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
+                _flashFrame = 0; _nativeState = 6; return;
+            case 6:
+                if (!Flash("reveal-flashes")) return;
+                Write(0xcfde, Read(0xcfde) + 1); LoadRevealRoom(Read(0xcfde));
+                Context.Player.SetNativeCutsceneCoordinates(0x68, 0x50);
+                Context.Player.Face(Vector2I.Up); Context.Player.Visible = true;
+                Context.Transitions.CancelNativeWhiteFade();
+                Write(WramAddress.wDisabledObjects, 1); Write(WramAddress.wMenuDisabled, 1);
+                Context.Hud.HideStatusBar(); Context.RoomView.SetBackgroundFade(Colors.Black, 1);
+                Context.Hud.SetHiddenStatusBarFade(Colors.Black, 1);
+                Write(WramAddress.wScrollMode, 0);
                 _nativeState = 7; return;
             case 7:
                 if (Read(0xcfd0) != 9) return;
@@ -139,6 +171,7 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
                 if (Context.Transitions.NativePaletteFadeActive) return;
                 Context.Hud.ShowStatusBar();
                 Context.RoomView.ClearBackgroundFade();
+                Write(WramAddress.wScrollMode, 1);
                 Context.Rooms.SaveData.SetGlobalFlag(GlobalFlag.GotMakuSeed);
                 Context.Transitions.BeginNativeBlackFade(false);
                 NpcCharacter returned = _data.CreateActor(0x87, 6, new(0x50, 0x40));
@@ -155,6 +188,37 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
                 if (Read(0xcfc0) != 4) return;
                 _nativeState = -1; EventResources.ReleaseFullScreenFade(); return;
         }
+    }
+    private bool Flash(string profile)
+    {
+        int[] flashes = _data.Table(profile);
+        _flashFrame++;
+        int index = 0;
+        while (flashes[index] < _flashFrame) index++;
+        if (flashes[index] == 0xff) return true;
+        Context.Fade.Color = new Color(Colors.White, (index & 1) == 0 ? 1 : 0);
+        return false;
+    }
+    private void LoadRevealRoom(int index)
+    {
+        var row = _data.Room(index);
+        _ownedEntities.Clear();
+        var room = Context.Rooms.LoadCutsceneRoom(row.Group, row.Room);
+        Context.Entities.LoadCutsceneRoom(row.Group, room, includeTimePortals: false);
+        Context.RoomView.SetRoom(room.Texture); Context.RoomView.ClearBackgroundFade();
+        Context.Transitions.ResetCamera();
+        _reward = null;
+        // disableLcdAndLoadRoom clears the object/menu mask before parsing the set.
+        Write(WramAddress.wDisabledObjects, 0); Write(WramAddress.wMenuDisabled, 0);
+        foreach (var actor in _data.Placements(row.Scene))
+        {
+            if (!Context.Entities.InteractionSlotAvailable) continue;
+            AddOwnedEntity(actor.Id == 0x93
+                ? new TwinrovaRevealRoomEntity(Context, _data, actor.Id, actor.SubId, AddOwnedEntity)
+                : new MakuRevealSceneActor(Context, _data, actor.Id, actor.SubId, actor.Position));
+        }
+        Write(0xcfd1, 0);
+        Context.Transitions.BeginNativeWhiteFade(false);
     }
     private byte Read(int address) => Context.Entities.RuntimeState.ReadWramByte(address);
     private void Write(int address, int value) => Context.Entities.RuntimeState.SetWramByte(address, (byte)value);
@@ -228,6 +292,7 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
         if (_reward is not null && GodotObject.IsInstanceValid(_reward)) _reward.Finish(Context.Player);
         _reward = null;
         Context.Player.CancelGetItemState();
+        if (native) Context.Player.Visible = true;
         if (_tree is not null && GodotObject.IsInstanceValid(_tree)) _tree.SetActive(false);
         _tree = null;
         foreach (IRoomEntity entity in _ownedEntities) Context.Entities.RetireEntity(entity);

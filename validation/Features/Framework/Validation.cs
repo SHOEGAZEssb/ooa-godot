@@ -1070,6 +1070,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateMakuTreeAdviceAndLayout);
         RunIsolatedValidation(ValidateMakuTreeFlowerTransitionPresentation);
         RunIsolatedValidation(ValidateMakuSeedSequence);
+        RunIsolatedValidation(ValidateMakuLinkedRevealActorsRom, requiresRom: true);
         RunIsolatedValidation(ValidateMakuSeedReturnAndCancellation);
         RunIsolatedValidation(ValidateMakuLateAdviceProgression);
         RunIsolatedValidation(ValidateRoom056Comedian);
