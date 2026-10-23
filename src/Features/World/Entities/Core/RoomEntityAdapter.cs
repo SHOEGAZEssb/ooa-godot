@@ -33,6 +33,11 @@ internal abstract class NpcCharacterRoomEntityAdapter
     protected NpcCharacterRoomEntityAdapter(NpcCharacter npc, Action<Vector2> setTransitionDrawOffset)
         : base(npc, setTransitionDrawOffset)
     {
+        InitializePresentation(npc);
+    }
+
+    internal static void InitializePresentation(NpcCharacter npc)
+    {
         // Native adapters compose their resolved state-zero pose in their
         // constructor. Deferred event scripts retain the default hidden slot.
         if (npc.Record.Implementation == NpcImplementationClassification.SpecializedNative)
@@ -40,11 +45,13 @@ internal abstract class NpcCharacterRoomEntityAdapter
     }
 
     public virtual ScreenTransitionPresentation PrepareForScreenTransition(
-        ICollection<RoomEntitySpawn> spawns)
+        ICollection<RoomEntitySpawn> spawns) => PreparePresentation(Entity);
+
+    internal static ScreenTransitionPresentation PreparePresentation(NpcCharacter npc)
     {
-        if (Entity.Record.Implementation != NpcImplementationClassification.EventOwned)
-            Entity.ShowInitializedPresentation();
-        return Entity.Visible
+        if (npc.Record.Implementation != NpcImplementationClassification.EventOwned)
+            npc.ShowInitializedPresentation();
+        return npc.Visible
             ? ScreenTransitionPresentation.Visible
             : ScreenTransitionPresentation.Hidden;
     }

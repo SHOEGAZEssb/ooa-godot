@@ -3643,7 +3643,7 @@ internal sealed class RoomEntityFactory
                 ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             comedian.InitializeComedian(record, Resources.Comedian.Record);
-            return new ComedianRoomEntity(comedian);
+            return new NpcTalkRoomEntity(comedian, scriptSensitive: true);
         }
         if (record.Id == InteractionId.Tokkey && record.SubId == 0)
             return new TokkeyRoomEntity(NpcCharacter.CreateFromRecord(record));
@@ -3658,7 +3658,7 @@ internal sealed class RoomEntityFactory
                 ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             man.InitializeDumbbellMan(record, Resources.DumbbellMan.Record);
-            return new DumbbellManRoomEntity(man);
+            return new NpcTalkRoomEntity(man);
         }
         if (record.Id == InteractionId.OldZora && record.SubId == 0)
         {
@@ -3681,7 +3681,7 @@ internal sealed class RoomEntityFactory
                 ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             salesman.InitializeMaskSalesman(record, Resources.MaskSalesman.Record);
-            return new MaskSalesmanRoomEntity(salesman);
+            return new NpcTalkRoomEntity(salesman);
         }
         if (Resources.Cheval.Matches(record))
         {
@@ -3734,7 +3734,7 @@ internal sealed class RoomEntityFactory
                 ZIndex = ObjectDrawPriority.BehindLinkZIndex
             };
             boy.InitializeDepressedBoy(record);
-            return new DepressedBoyRoomEntity(boy);
+            return new NpcTalkRoomEntity(boy, scriptSensitive: true);
         }
 
         bool isOverworldPoe =

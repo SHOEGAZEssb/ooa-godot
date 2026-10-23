@@ -47,23 +47,3 @@ internal sealed partial class ComedianCharacter : NpcCharacter
         UpdateDrawPriority(player.Position);
     }
 }
-
-internal sealed class ComedianRoomEntity(ComedianCharacter comedian)
-    : RoomEntityAdapter<ComedianCharacter>(
-        comedian, comedian.SetTransitionDrawOffset),
-        IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
-{
-    public NpcCharacter Npc => Entity;
-
-    public bool BlocksLink(Vector2 linkCenter) =>
-        Entity.BlocksLinkCenter(linkCenter);
-
-    public NpcCharacter? FindTalkTarget(Player player) =>
-        Entity.CanScriptTalkTo(
-            player,
-            NpcCharacter.CollisionRadius,
-            NpcCharacter.CollisionRadius,
-            NpcCharacter.AButtonPointOffset)
-            ? Entity
-            : null;
-}

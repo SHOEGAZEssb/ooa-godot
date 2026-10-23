@@ -2694,7 +2694,7 @@ public sealed class RoomEntityManager : IDisposable
             essence.BindEnergySwirl(center => CreateEnergySwirl(center), () => _runtimeState.SetWramByte(BlueEnergyBeadDatabase.Shared.DeleteAddress, 1));
             essence.BindChildren(CreateEssenceChildren);
         }
-        if (UsesInteractionSlot(entity) && entity is NpcCharacterRoomEntityAdapter && entity.PresentationNode is NpcCharacter npcActor)
+        if (UsesInteractionSlot(entity) && entity is NpcCharacterRoomEntityAdapter or RaftonRoomEntity && entity.PresentationNode is NpcCharacter npcActor)
             npcActor.NativeActivationChanged = active => SetNpcInteractionActive(entity, active);
         if (UsesInteractionSlot(entity) && (entity.PresentationNode is not NpcCharacter { Active: false }||entity is TokayNpcRoomEntity{ReservesInitializationSlot:true}))
         {
@@ -3155,7 +3155,7 @@ public sealed class RoomEntityManager : IDisposable
         MakuSeedTreeRoomEntity or MakuSeedFallingRoomEntity or MakuSeedSparkleRoomEntity or TwinrovaRevealRoomEntity or MakuSeedFlowerRoomEntity or
         PirateShipRoomEntity or PostD7ActorRoomEntity or PostD7BallRoomEntity or NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or AccessoryRoomEntity or RestoredFamilyRoomEntity or NativeBallRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
         CompanionTutorialRoomEntity { NativeAllocationEnabled: true } or
-        KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or CleanSeasZoraRoomEntity or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
+        KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or RaftonRoomEntity or CleanSeasZoraRoomEntity or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
         LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
         TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
         AncientTombEntranceRoomEntity or RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
