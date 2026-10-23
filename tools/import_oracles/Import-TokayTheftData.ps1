@@ -284,12 +284,14 @@ if (-not $forestFairyAnimation0 -or -not $forestFairyAnimation1 -or
 
 $fairyTextRows = [Collections.Generic.List[string]]::new()
 $fairyTextRows.Add("# text-id`ttext-base64")
+$fairyTexts = @{}
 foreach ($textId in 0x1100..0x110c) {
     if (-not $allTexts.ContainsKey($textId)) {
         throw "Could not resolve Fairies' Woods text TX_$($textId.ToString('x4'))."
     }
+    $fairyTexts[$textId] = Resolve-OceanText $textId ([Collections.Generic.HashSet[int]]::new())
     $fairyTextRows.Add(
-        "$($textId.ToString('x4'))`t$(ConvertTo-CutsceneCommandPayload $allTexts[$textId])")
+        "$($textId.ToString('x4'))`t$(ConvertTo-CutsceneCommandPayload $fairyTexts[$textId])")
 }
 Write-CutsceneGeneratedTable(
     (Join-Path $destination 'cutscenes\fairies_woods_text.tsv'),
@@ -354,7 +356,7 @@ foreach ($textId in 0x1100..0x1103) {
     Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' `
         $introIndex 'fairyHidingMinigame_subid00Script' `
         "^\s*showtext TX_$($textId.ToString('x4'))\s*$" `
-        'showtext' '' $textId.ToString('x4') '' $allTexts[$textId]
+        'showtext' '' $textId.ToString('x4') '' $fairyTexts[$textId]
     $introIndex++
     if ($textId -ne 0x1103) {
         Add-FairyCommand $fairyIntroRows 'fairyHidingMinigame_subid00Script' `
@@ -428,7 +430,7 @@ $exitCommands = @(
         '^\s*makeabuttonsensitive\s*$'),
     @('@checkLinkLeaving', 'nativeblock', 'FairyExit', '1', '', 'WaitForExitCollision',
         '^\s*checkcollidedwithlink_ignorez\s*$'),
-    @('@checkLinkLeaving', 'showtext', '', '110c', '', $allTexts[0x110c],
+    @('@checkLinkLeaving', 'showtext', '', '110c', '', $fairyTexts[0x110c],
         '^\s*showtext TX_110c\s*$'),
     @('@checkLinkLeaving', 'jumpiftextoptioneq', '', '00', '8', '',
         '^\s*jumpiftextoptioneq \$00, @leave\s*$'),

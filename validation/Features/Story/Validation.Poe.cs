@@ -107,6 +107,8 @@ public sealed partial class ValidationRoot
                 !_dialogue.IsOpen ||
                 _dialogue.CurrentMessage != DialogueBox.PlainText(text.Message),
                 $"Room 0:7c {phase} did not show TX_{textId:x4}.");
+            FailIf(_dialogue.Position.Y != 24,
+                $"Room 0:7c TX_{textId:x4} must retain its source top position, got Y={_dialogue.Position.Y}.");
         }
 
         void PositionForTalk()

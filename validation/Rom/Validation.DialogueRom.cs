@@ -125,6 +125,38 @@ public sealed partial class ValidationRoot
 
     private void ValidateDialogueFormattingRom()
     {
+        var postD7 = new PostD7EventDatabase();
+        var fairies = new FairiesWoodsDatabase();
+        var texts = postD7.Commands("linked").Concat(postD7.Commands("ascent"))
+            .Concat(postD7.Commands("ambi"))
+            .Concat(new PoeEventDatabase().Commands)
+            .Concat(new DepressedBoyEventDatabase().Commands)
+            .OfType<CutsceneShowTextCommand>().ToArray();
+        // These initial $0c:$20/$22 commands come from the clean US text,
+        // independently of the import's optional showtext position argument.
+        (int Id, int Position)[] forced =
+        [
+            (0x130b, 0), (0x130c, 0), (0x130d, 0),
+            (0x2809, 0), (0x280a, 0), (0x0b00, 0), (0x0b02, 0),
+            (0x1105, 2), (0x1107, 2), (0x110b, 2), (0x2516, 2)
+        ];
+        foreach (var text in forced)
+        foreach (int linkY in new[] { 0x20, 0x68 })
+        {
+            string message = text.Id is 0x1105 or 0x1107 or 0x110b
+                ? fairies.Text(text.Id).Message
+                : texts.Single(command => command.TextId == text.Id).Message;
+            var rom = new DialogueRom(_saveData);
+            rom.Open(text.Id, 2, linkY);
+            rom.AdvanceText(0, 0);
+            _dialogue.ShowMessage(message, DialogueScreenContext.Gameplay(linkY));
+            int expectedY = text.Position == 0 ? 24 : 96;
+            FailIf(rom[0xcbac] != text.Position || _dialogue.Position.Y != expectedY,
+                $"TX_{text.Id:x4}, Link Y=${linkY:x2}: source/ROM position=${rom[0xcbac]:x2}, " +
+                $"runtime Y={_dialogue.Position.Y}, expected position=${text.Position:x2}/Y={expectedY}.");
+            _dialogue.Close();
+        }
+
         var impa = new ImpaIntroEventDatabase().Record;
         var birds = new KnowItAllBirdDatabase();
         var forest = new CompanionForestDatabase();

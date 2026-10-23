@@ -169,17 +169,17 @@ $stageContracts = @(
         -functionInputs @('ConvertTo-CutsceneCommandPayload', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-post-d7' 'Import-PostD7Data.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'gfxNames', 'interactionGraphics', 'cutsceneCommandHeader') `
-        -functionInputs @('ConvertTo-CutsceneCommandRows', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Read-AssemblyCutsceneCommands', 'New-CutsceneCommandRow', 'Write-CutsceneGeneratedTable')
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Read-AssemblyCutsceneCommands', 'New-CutsceneCommandRow', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-harp-story' 'Import-HarpStoryData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'objectGfxSource', 'treasureObjectRecords') `
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-trade-dialogue' 'Import-TradeDialogueData.ps1' `
         -inputs @('allTexts', 'cutsceneCommandHeader', 'mainObjectSource', 'treasureObjectRecords') `
         -outputs @('musicSource', 'roomFlagSource', 'tradeItemSource') `
-        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
+        -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-npc-scripts' 'Import-NpcScriptData.ps1' `
         -inputs @('allTexts', 'cutsceneCommandHeader', 'mainObjectSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
-        -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
+        -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'family-scripts' 'Import-FamilyScriptData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'treasureIds') `
         -functionInputs @('ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable', 'Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation')
@@ -213,7 +213,7 @@ $stageContracts = @(
         -functionInputs @('New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-tokay-theft' 'Import-TokayTheftData.ps1' `
         -inputs @('allTexts', 'cutsceneCommandHeader', 'gfxNames', 'interactionGraphics', 'mainObjectSource', 'raftObjectSource') `
-        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'Read-AssemblyCutsceneCommands', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
+        -functionInputs @('ConvertTo-CutsceneCommandPayload', 'ConvertTo-CutsceneCommandRows', 'Read-AssemblyCutsceneCommands', 'Find-CutsceneCommandSourceLine', 'New-CutsceneCommandRow', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'cutscene-tokay-cook' 'Import-TokayCookData.ps1' `
         -inputs @('allTexts', 'allTextPositions') `
         -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Write-CutsceneGeneratedTable')

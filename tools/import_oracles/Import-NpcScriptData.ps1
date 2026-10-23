@@ -1031,10 +1031,12 @@ foreach ($animation in 0..3) {
         throw "Could not resolve INTERAC_POE animation `$$($animation.ToString('x2'))."
     }
 }
+$poeTexts = @{}
 foreach ($textId in 0x0b00..0x0b02) {
     if (-not $allTexts.ContainsKey($textId)) {
         throw "Could not resolve Poe text TX_$($textId.ToString('x4'))."
     }
+    $poeTexts[$textId] = Resolve-OceanText $textId ([Collections.Generic.HashSet[int]]::new())
 }
 $poeTreasure = $treasureObjectRecords['TREASURE_OBJECT_TRADEITEM_00']
 if ($null -eq $poeTreasure -or
@@ -1063,7 +1065,7 @@ $poeCommandSpecs = @(
     @($poeCommands[1],  'checkabutton', 'Poe', '', '', ''),
     @($poeCommands[2],  'disableinput', '', '', '', ''),
     @($poeCommands[3],  'jumptablememory', '', '', '', 'PoeVariant|4,12,24'),
-    @($poeCommands[4],  'showtext', '', '0b00', '', $allTexts[0x0b00]),
+    @($poeCommands[4],  'showtext', '', '0b00', '', $poeTexts[0x0b00]),
     @($poeCommands[5],  'orroomflag', '', '40', '', ''),
     @($poeCommands[6],  'wait', '', '40', '', ''),
     @($poeCommands[7],  'playsound', '', '98', '', ''),
@@ -1071,7 +1073,7 @@ $poeCommandSpecs = @(
     @($poeCommands[9],  'flicker', 'Poe', '3e', '02', ''),
     @($poeCommands[12], 'enableinput', '', '', '', ''),
     @($poeCommands[13], 'scriptend', '', '', '', ''),
-    @($poeCommands[14], 'showtext', '', '0b01', '', $allTexts[0x0b01]),
+    @($poeCommands[14], 'showtext', '', '0b01', '', $poeTexts[0x0b01]),
     @($poeCommands[15], 'orroomflag', '', '40', '', ''),
     @($poeCommands[16], 'wait', '', '30', '', ''),
     @($poeCommands[17], 'writeobjectbyte', 'Poe', '3f', '01', ''),
@@ -1083,7 +1085,7 @@ $poeCommandSpecs = @(
     @($poeCommands[23], 'setangle', 'Poe', '08', '', ''),
     @($poeCommands[24], 'applyspeed', 'Poe', '39', '', ''),
     @($poeCommands[25], 'scriptjump', '', '6', '', ''),
-    @($poeCommands[26], 'showtext', '', '0b02', '', $allTexts[0x0b02]),
+    @($poeCommands[26], 'showtext', '', '0b02', '', $poeTexts[0x0b02]),
     @($poeCommands[27], 'wait', '', '30', '', ''),
     @($poeCommands[28], 'giveitem', '', '41', '00', ''),
     @($poeCommands[29], 'scriptjump', '', '6', '', '')

@@ -53,6 +53,8 @@ public sealed partial class ValidationRoot
                 !_dialogue.IsOpen ||
                 _dialogue.CurrentMessage != DialogueBox.PlainText(text.Message),
                 $"Room 2:f3 {phase} did not show TX_{textId:x4}.");
+            FailIf(_dialogue.Position.Y != 96,
+                $"Room 2:f3 TX_{textId:x4} must retain its source bottom position, got Y={_dialogue.Position.Y}.");
         }
 
         DepressedBoyCharacter Boy() =>

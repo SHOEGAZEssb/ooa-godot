@@ -122,17 +122,17 @@
     )) {
         $commands=@(Read-AssemblyCutsceneCommands (Join-Path $Disassembly "scripts/ages/$($spec[1])") $spec[2] $ops $spec[3])
         $animations=@{}; foreach($index in 0..10){$a=Resolve-NpcAnimation $spec[4] $index;if($a){$animations[$index]=$a}}
-        $bindings=@{}
+        $bindings=@{}; $texts=@{}
         foreach($command in $commands){
             $key="$($command.Opcode)|$($command.Operands)"
+            if($command.Opcode -in @('showtext','showtextlowindex')) {
+                if($command.Operands -notmatch '^<?TX_(?<id>[0-9a-f]{4})$'){throw "post-D7: unsupported text at $($command.Path):$($command.Line)."}
+                $id=[Convert]::ToInt32($Matches.id,16)
+                $texts[$id]=Resolve-OceanText $id ([Collections.Generic.HashSet[int]]::new())
+            }
             switch($command.Opcode){
                 'checkpalettefadedone' { $bindings[$key]=@{Opcode='gate';Payload='PaletteDone'} }
                 'orroomflag' { $bindings[$key]=@{Opcode='orroomflag';Arg0=(Convert-AssemblyInteger $command.Operands).ToString('x2')} }
-                'showtextlowindex' {
-                    if($command.Operands -notmatch '^<TX_(?<id>[0-9a-f]{4})$'){throw 'post-D7: unsupported high text index.'}
-                    $id=[Convert]::ToInt32($Matches.id,16)
-                    $bindings[$key]=@{Opcode='showtext';Arg0=$Matches.id;Payload=$allTexts[$id]}
-                }
                 'writememory' { if($command.Operands -eq 'wCutsceneTrigger, CUTSCENE_TURN_TO_STONE'){$bindings[$key]=@{Opcode='nativeyield';Payload='TurnToStone'}} }
                 'jumpifobjectbyteeq' {
                     if($command.Operands -ne 'Interaction.var38, $00, @stopPlayingCatch'){throw 'post-D7: unsupported object branch.'}
@@ -158,6 +158,6 @@
         }
         $symbols=@{'SPEED_080'=(Resolve-ObjectSpeed '80');'SPEED_040'=(Resolve-ObjectSpeed '40');'SPEED_180'=(Resolve-ObjectSpeed '180');'wTmpcfc0.genericCutscene.state'='SharedState';'wTmpcfc0.genericCutscene.cfd1'='StoneSignal';'wTmpcfc0.genericCutscene.cfdf'='SceneDone';'Interaction.oamFlags'=0x5b}
         Write-GeneratedTable((Join-Path $destination "cutscenes/post_d7_$($spec[0])_commands.tsv"),
-            (ConvertTo-CutsceneCommandRows $commands 'Actor' -symbols $symbols -texts $allTexts -positions $allTextPositions -animations $animations -bindings $bindings -yieldOnJump ($spec[0] -eq 'linked')))
+            (ConvertTo-CutsceneCommandRows $commands 'Actor' -symbols $symbols -texts $texts -positions $allTextPositions -animations $animations -bindings $bindings -yieldOnJump ($spec[0] -eq 'linked')))
     }
 }

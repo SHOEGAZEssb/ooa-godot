@@ -72,7 +72,13 @@ public sealed partial class ValidationRoot
                     FailIf(_sound.ActiveMusic != 0x21 || _sound.NativeActiveMusic != 0,
                         $"Post-D7 {owner.Stage}/${owner.State:x2} must retain MUS_DISASTER $21 and the cleared room-music gate.");
                 if (_dialogue.IsOpen && hold == 0)
-                { texts.Add(_dialogue.SourceTextId ?? -1); hold = 3; }
+                {
+                    int id = _dialogue.SourceTextId ?? -1;
+                    if (id is 0x2809 or 0x280a or 0x130b or 0x130c or 0x130d)
+                        FailIf(_dialogue.Position.Y != 24,
+                            $"Post-D7 TX_{id:x4} must retain its source top position, got Y={_dialogue.Position.Y}.");
+                    texts.Add(id); hold = 3;
+                }
                 if (hold > 0 && --hold == 0) _dialogue.Close();
             }
             for (int i = 0; i < 6000 && (owner.HasState || remote.HasState || i < 2); i += 2)

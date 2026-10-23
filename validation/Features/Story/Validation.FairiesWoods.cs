@@ -645,7 +645,11 @@ public sealed partial class ValidationRoot
              frame++)
         {
             if (_dialogue.IsOpen)
+            {
+                FailIf(_dialogue.Position.Y != 96,
+                    $"Fairy ${fairyIndex:x2} discovery must retain the source bottom position, got Y={_dialogue.Position.Y}.");
                 _dialogue.Close();
+            }
             AdvanceFairiesWoodsFrame();
         }
         int expectedFound = (1 << (fairyIndex - 2)) - 1;
@@ -811,6 +815,8 @@ public sealed partial class ValidationRoot
             _saveData.HasGlobalFlag(record.CompletionFlag) ||
             _saveData.HasGlobalFlag(record.UnscrambledFlag),
             "TX_110b or the final flag boundary diverged after the delayed fade.");
+        FailIf(_dialogue.Position.Y != 96,
+            $"Fairies' Woods TX_110b must retain its source bottom position, got Y={_dialogue.Position.Y}.");
         AdvanceFairiesWoodsFrame();
         FailIf(
             fairies.Stage != FairiesWoodsStage.Inactive ||

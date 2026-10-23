@@ -413,7 +413,7 @@ foreach ($command in $depressedBoyCommands) {
             }
             $textId = [Convert]::ToInt32($Matches['id'], 16)
             $arg0 = $Matches['id']
-            $payload = $allTexts[$textId]
+            $payload = Resolve-OceanText $textId ([Collections.Generic.HashSet[int]]::new())
         }
         'scriptjump' {
             if (-not $depressedBoyTargets.ContainsKey($command.Operands)) {
