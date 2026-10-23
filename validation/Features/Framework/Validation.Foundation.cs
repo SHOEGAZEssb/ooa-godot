@@ -1266,6 +1266,12 @@ public sealed partial class ValidationRoot
         (Texture2D positioned, Vector2 positionedOffset) =
             NpcCharacter.BuildPositionedOamTexture(
                 source, encodedOam, 0, 1, null, true);
+        using (Image fixedCrop = cachedImage.GetRegion(new Rect2I(8, 8, 16, 16)))
+        using (Image positionedPixels = positioned.GetImage())
+            FailIf(positionedOffset != new Vector2(-8, -8) ||
+                positionedPixels.GetSize() != new Vector2I(16, 16) ||
+                !fixedCrop.GetData().AsSpan().SequenceEqual(positionedPixels.GetData()),
+                "OAM cells at (8,0)/(8,8) lost their fixed-canvas crop or positioned origin.");
         (Texture2D uncachedPositioned, Vector2 uncachedPositionedOffset) =
             NpcCharacter.BuildPositionedOamTextureUncachedForValidation(
                 source, encodedOam, 0, 1, null, true);
