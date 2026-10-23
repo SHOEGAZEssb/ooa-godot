@@ -121,21 +121,18 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
             case 2:
                 if (faded) return;
                 context.Hud.HideStatusBar();
+                // blackTowerComplete state2 clears BG palettes and sets LYC/SCY=$00 before the linked gate.
+                context.Hud.SetHiddenStatusBarFade(Colors.Black, 1);
+                context.RoomView.SetBackgroundFade(Colors.Black, 1);
+                context.Player.Visible = false;
                 context.RoomView.SuspendUnderwaterWave(true);
                 context.Transitions.ResetCamera();
                 if (context.Rooms.SaveData.IsLinkedGame)
                 { Write(0xcbb3, _data.Table("linked")[4]); State = 3; }
                 else
                 {
-                    // blackTowerComplete state2 writes GfxRegs1.LYC=$00
-                    // and GfxRegs2.SCY=$00: the black room BG replaces the
-                    // status strip during cloaked Twinrova's speech. Keep a
-                    // black strip covering the viewport's otherwise clear margin.
-                    context.Hud.SetHiddenStatusBarFade(Colors.Black, 1);
                     context.Entities.LoadCutsceneRoom(context.Rooms.ActiveGroup, context.Rooms.CurrentRoom, false);
-                    context.Player.Visible = false;
                     context.Fade.Color = Colors.Black;
-                    context.RoomView.SetBackgroundFade(Colors.Black, 1);
                     Actor(0x8d, 1, Vector2.Zero);
                     State = 5;
                 }
@@ -310,6 +307,7 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
         var loaded = context.Rooms.LoadCutsceneRoom(group, room);
         context.Entities.LoadCutsceneRoom(group, loaded, false);
         context.RoomView.SetRoom(loaded.Texture); context.Transitions.ResetCamera();
+        context.RoomView.ClearBackgroundFade();
         context.Player.WarpTo(Vector2.Zero, recordSafe: false); context.Player.Visible = false;
         if (scene is null) return;
         foreach (var placement in _data.Placements(scene))

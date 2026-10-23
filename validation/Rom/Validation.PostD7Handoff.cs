@@ -85,7 +85,8 @@ public sealed partial class ValidationRoot
             FailIf(_rooms.ActiveGroup != 2 || _rooms.CurrentRoom.Id != 0x90 ||
                 !_saveData.HasRoomFlag(4, 0xf6, 0x40) || !_saveData.HasRoomFlag(2, 0x90, 0x40) ||
                 _saveData.MakuTreeState != 7 || _saveData.MakuMapTextPresent != (linked ? 0xc9 : 0xb9) ||
-                !_player.Visible || !_hud.Visible || _hud.StatusBarHidden || _player.CutsceneControlled ||
+                !_player.Visible || !_hud.Visible || _hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0 ||
+                _roomView.BackgroundFadeAlpha != 0 || _player.CutsceneControlled ||
                 _entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 ||
                 _entities.RuntimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0,
                 "Post-D7 must persist the tower and remote-Maku flags and return control to Link in $2:$90.");
@@ -94,6 +95,26 @@ public sealed partial class ValidationRoot
         }
         foreach (bool batch in new[] { false, true })
         {
+            foreach (int blackState in new[] { 3, 4 })
+            {
+                ReinitializeGameplayForValidation(); _saveData.SetLinkedGame(true);
+                _inventory.GiveTreasure(TreasureId.Essence, 6); LoadValidationRoom(2, 0x90);
+                var blackOwner = _roomEvents.Get<PostD7Event>();
+                for (int wait = 0; wait < 300 && !(blackOwner.Stage == PostD7Stage.Complete && blackOwner.State == blackState &&
+                    (blackState != 4 || _entities.RuntimeState.ReadWramByte(0xcbb3) >= 3)); wait += 2)
+                    StepGameplayUpdates(2, Vector2.Zero, batched: batch);
+                FailIf(blackOwner.Stage != PostD7Stage.Complete || blackOwner.State != blackState ||
+                    !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
+                    _roomView.BackgroundFadeColorForValidation != Colors.Black,
+                    $"Linked post-D7 cancellation must reach black state ${blackState:x2}, including an uncovered flash gap in state $04.");
+                LoadValidationRoom(1, 0x36); StepGameplayUpdates(4, Vector2.Zero, batched: batch);
+                FailIf(blackOwner.HasState || !_player.Visible || !_hud.Visible || _hud.StatusBarHidden ||
+                    _hud.HiddenStatusBarFadeAlphaForValidation != 0 || _roomView.BackgroundFadeAlpha != 0 ||
+                    _warpFade.Color.A != 0 || _player.CutsceneControlled ||
+                    _entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects) != 0 ||
+                    _entities.RuntimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0,
+                    $"Cancelling linked post-D7 state ${blackState:x2} must release the black room/HUD backdrop and control.");
+            }
             ReinitializeGameplayForValidation();
             _inventory.GiveTreasure(TreasureId.Essence, 6);
             LoadValidationRoom(2, 0x90);

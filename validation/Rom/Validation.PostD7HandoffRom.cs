@@ -23,10 +23,13 @@ public sealed partial class ValidationRoot
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 2, 72, 72)
                 { HostilePartsEnabled = true };
+            var palettes = rom.CreateMenuView();
+            // State2 must clear actual nonblack source bytes before flashScreen restores them.
+            for (int palette = 2; palette < 8; palette++) palettes.SeedBackgroundPalette(palette, [0x7fff, 0x7fff, 0x7fff, 0x7fff]);
             rom.InitializeLinkGameplay(); rom[0xcc01] = (byte)(linked ? 1 : 0);
             rom[0xcc35] = 0; // essence.s state7, retained throughout this native sequence.
             rom[0xc2ef] = 0x21; rom[0xcc03] = 0; rom[0xcc8a] = rom[0xcc02] = 1;
-            int hold = 0, generation = 0, update = 1;
+            int hold = 0, generation = 0, update = 1, flashGaps = 0;
             void Compare()
             {
                 update++;
@@ -53,10 +56,25 @@ public sealed partial class ValidationRoot
                     rom.UpdateGameplay(0, 0, 0xff, _entities.FrameCounter);
                 }
                 var rng = _random.CaptureState();
-                if (!linked && owner.Stage == PostD7Stage.Complete && owner.State == 5)
-                    FailIf(!_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
-                        _player.Visible || rom[0xc48a] != 0 || rom[0xc48c] != 0,
-                        $"Post-D7 update{update}: cloaked Twinrova must use the black room BG, with native LYC=$00/SCY=$00 and no HUD strip.");
+                if (owner.Stage == PostD7Stage.Complete && (linked ? owner.State is 3 or 4 : owner.State == 5))
+                {
+                    FailIf(!_hud.Visible || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
+                        _roomView.BackgroundFadeColorForValidation != Colors.Black || _player.Visible ||
+                        rom[0xc48a] != 0 || rom[0xc48c] != 0 || rom[0xd000] != 0 && (rom[0xd01a] & 0x80) != 0,
+                        $"Post-D7 update{update}: linked={linked} black backdrop must cover the HUD strip; HUD={_hud.Visible}/{_hud.StatusBarHidden}/{_hud.HiddenStatusBarColorForValidation}, BG={_roomView.BackgroundFadeColorForValidation}, Link={_player.Visible}/${rom[0xd000]:x2}:${rom[0xd01a]:x2}, native LYC=${rom[0xc48a]:x2}/SCY=${rom[0xc48c]:x2}.");
+                    if (linked && owner.State == 4 && rom[0xcbba] == 1)
+                    {
+                        flashGaps++;
+                        FailIf(_warpFade.Color.A != 0, "Linked post-D7 flash gaps must expose the black backdrop without a fullscreen white cover.");
+                        for (int offset = 0; offset < 0x30; offset++)
+                            FailIf(rom.BankByte(2, 0xde90 + offset) != 0,
+                                $"Linked post-D7 flash gap must retain black native BG palette byte ${0xde90 + offset:x4}.");
+                    }
+                }
+                if (linked && owner.Stage == PostD7Stage.Complete && owner.State == 5)
+                    FailIf(_hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0 ||
+                        _roomView.BackgroundFadeAlpha != 0 || rom[0xc48a] != 0x0f || rom[0xc48c] != 0xf0,
+                        "Linked post-D7 village cutaway must restore the HUD split and release the black backdrop.");
                 FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds) ||
                     _sound.NativeActiveMusic != rom[0xcc35],
                     $"Post-D7 update{update}, linked={linked}: cues={string.Join(',', sounds.Requests)}/{string.Join(',', rom.Sounds)}, room-music gate=${_sound.NativeActiveMusic:x2}/${rom[0xcc35]:x2}.");
@@ -101,6 +119,7 @@ public sealed partial class ValidationRoot
                 rom[0xcc49] != 0x0f || rom[0xcc4a] != 0x47 ||
                 !(rom[0xcc4b] == 3 || rom[0xc2ef] == 3),
                 $"The native completed-tower scroll must publish invisible transition $0f to room $4:$f6/$47, parameter $03: stage={owner.Stage}, warp=${rom[0xcc47]:x2}/${rom[0xcc48]:x2}/${rom[0xcc49]:x2}/${rom[0xcc4a]:x2}/${rom[0xcc4b]:x2}.");
+            FailIf(linked && flashGaps != 6, $"Linked post-D7 must compare all six uncovered lightning-flash updates; observed {flashGaps}.");
         }
     }
 
