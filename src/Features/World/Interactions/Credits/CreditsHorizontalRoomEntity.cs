@@ -18,7 +18,6 @@ internal sealed class CreditsHorizontalRoomEntity : IRoomEntity,IFixedRoomEntity
     internal int MaskState {get;private set;}
     internal int Counter {get;private set;}
     internal int NextAnimation=>_animation;
-    internal int ScriptOffset=>_pointer;
     internal int Wait=>_word;
     internal int Travel=>_travel;
     internal bool Child {get;}

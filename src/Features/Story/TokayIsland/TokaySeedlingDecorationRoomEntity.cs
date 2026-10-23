@@ -14,9 +14,6 @@ internal sealed partial class TokaySeedlingDecorationRoomEntity :
 
     public Node2D Node => this;
     internal TokaySeedlingPlotRecord Record { get; }
-    internal int OpaquePixels => _animation.HasFrames
-        ? CountOpaquePixels(_animation.CurrentTexture.GetImage())
-        : 0;
 
     internal TokaySeedlingDecorationRoomEntity(
         TokaySeedlingPlotRecord record)
@@ -63,18 +60,6 @@ internal sealed partial class TokaySeedlingDecorationRoomEntity :
                 -_animation.CurrentTexture.GetSize() / 2.0f +
                     TransitionDrawOffset);
         }
-    }
-
-    private static int CountOpaquePixels(Image image)
-    {
-        int count = 0;
-        for (int y = 0; y < image.GetHeight(); y++)
-        for (int x = 0; x < image.GetWidth(); x++)
-        {
-            if (image.GetPixel(x, y).A > 0.1f)
-                count++;
-        }
-        return count;
     }
 }
 

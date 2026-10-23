@@ -49,7 +49,6 @@ public partial class PushBlockController : Node2D
     internal bool LinkMovementDisabled => _active && _linkMovementDisabled;
     internal int RemainingPushFrames => _pushCounter;
     internal int ActiveMoveFrames => _activeMoveFrames;
-    internal float ActiveMoveSpeedPerFrame => _activeMoveSpeedPerFrame;
     internal Vector2 BlockTopLeft => _sourceTopLeft + (Vector2)_moveDirection *
         (_moveFrame * _activeMoveSpeedPerFrame);
     internal Texture2D? BlockTexture => _blockTexture;

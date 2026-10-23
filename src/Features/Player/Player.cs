@@ -513,10 +513,7 @@ public partial class Player : Node2D
     internal bool DeathAnimationActive => _deathAnimationActive;
     internal int DeathAnimationFrame => _deathAnimationFrame;
     internal int DeathAnimationCounter => _deathAnimationCounter;
-    internal int DeathAnimationSequenceIndex => _deathSequenceIndex;
     internal int DeathSpinLoopsRemaining => _deathSpinLoopsRemaining;
-    internal ulong DeathAtlasPixelHash =>
-        OracleGraphicsCache.PixelHash(Sprites.DeathTexture.GetImage());
     internal ulong LinkAtlasPixelHash =>
         OracleGraphicsCache.PixelHash(Sprites.WalkTexture.GetImage());
     internal ulong DamageLinkAtlasPixelHash =>

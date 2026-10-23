@@ -23,7 +23,6 @@ public partial class OverworldKeyholeController : Node
 
     internal OverworldKeyholeDatabase Database => _database;
     internal int RemainingPushFrames => _pushCounter;
-    internal bool InformativeTextShown => _rooms.TileInfoTextShown(0x5109);
 
     internal OverworldKeyholeController(
         RoomSession rooms,

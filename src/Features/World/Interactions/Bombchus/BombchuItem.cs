@@ -26,7 +26,6 @@ internal partial class BombchuItem : BombEffect
     internal int TargetSlot => _targetSlot;
     internal int SpeedTmp => _speedTmp;
     internal BombchuSteering? Steering => _steering;
-    internal int WalkingFrame => _walking.FrameIndex;
     internal int WalkingParameter => _walking.CurrentParameter;
     internal int VerticalFlags => _verticalFlags;
     private bool Sideview => (_room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0;

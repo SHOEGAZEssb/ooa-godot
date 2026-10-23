@@ -75,12 +75,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
     internal int WaitCounter => _waitCounter;
     internal int ExitCounter => _exitCounter;
     internal int ExitDirection => _exitDirection;
-    internal int SpinnerAnimationIndex => _spinnerAnimation.AnimationIndex;
-    internal int SpinnerAnimationFrame => _spinnerAnimation.FrameIndex;
     internal DungeonSpinnerArrowRoomEntity? Arrow { get; private set; }
-    internal Vector2 LinkOffset => _linkOffset;
-    internal Texture2D SpinnerTexture =>
-        _spinnerAnimation.CurrentTextureForPalette(_red ? 5 : 4);
 
     internal DungeonSpinnerRoomEntity(
         DungeonSpinnerPlacement placement,

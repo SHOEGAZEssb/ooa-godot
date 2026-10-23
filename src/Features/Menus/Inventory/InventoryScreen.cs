@@ -132,14 +132,6 @@ public partial class InventoryScreen : Node2D
         _submenuMasksSubmitted = false;
     }
     internal void SubmitCursorForUpdate() => _cursorSubmitted = true;
-    internal string VisibleTextForValidation => string.Create(
-        InventoryTextColumns,
-        _inventoryTextWindow,
-        static (characters, glyphs) =>
-        {
-            for (int index = 0; index < glyphs.Length; index++)
-                characters[index] = CharacterForInventoryGlyph(glyphs[index]);
-        });
     internal (int SymbolTile, int DigitTile, int Attributes, Vector2 Offset)?
         LevelOverlayForValidation(int item)
     {
@@ -156,10 +148,6 @@ public partial class InventoryScreen : Node2D
             return null;
         return (symbol, digit, 0x07, new Vector2(8, 8));
     }
-    internal ulong StoredItemIconSheet1HashForValidation =>
-        OracleGraphicsCache.PixelHash(_itemIcons1);
-    internal ulong EquippedItemIconSheet1HashForValidation =>
-        OracleGraphicsCache.PixelHash(_equippedItemIcons1);
     internal ulong EquippedItemIconShadeHashForValidation(int sprite)
     {
         if (!ItemIconAtlas.Select(
@@ -246,8 +234,6 @@ public partial class InventoryScreen : Node2D
         }
         return OracleGraphicsCache.PixelHash(output);
     }
-    internal Color EquippedLevelSymbolBackgroundColorForValidation =>
-        HudBackgroundTileColor(0x1a, 0, 0);
     internal (int NormalAttributes, int FlippedAttributes, Color Shade2, Color Shade3)
         HeartPieceDisplayForValidation
     {
@@ -1123,16 +1109,6 @@ public partial class InventoryScreen : Node2D
         }
         return result;
     }
-
-    private static char CharacterForInventoryGlyph(int glyph) => glyph switch
-    {
-        0x14 => '♥',
-        0x15 => '↑',
-        0x16 => '↓',
-        0x17 => '←',
-        0x18 => '→',
-        _ => (char)glyph
-    };
 
     private void DrawRings(Image output, Vector2 drawOffset, bool drawEquippedMarker)
     {

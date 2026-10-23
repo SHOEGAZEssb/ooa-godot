@@ -37,7 +37,6 @@ internal sealed class WildTokayGameDatabase
     internal int GameReturnPosition => Constant("game-return-position");
     internal int WildCycleCount(int level) =>
         Constant($"wild-cycle-count-level-{level}");
-    internal int GameSpawnDelay => Constant("game-spawn-delay");
     internal int GameStartDelay => Constant("game-start-delay");
     internal int GameFadeInDelay => Constant("game-fade-in-delay");
     internal int SoundWhistle => Constant("sound-whistle");

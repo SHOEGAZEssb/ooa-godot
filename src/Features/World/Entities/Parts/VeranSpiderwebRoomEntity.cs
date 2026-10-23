@@ -23,7 +23,6 @@ internal sealed partial class VeranSpiderwebRoomEntity : EnemyCharacter,IRoomEnt
     internal int Speed {get;private set;}
     internal Vector2I Target {get;private set;}
     internal int ZFixed=>_z;
-    internal bool Caught=>_caught;
     internal override bool InitializationPending=>State==0;
     internal override bool CollisionEnabled=>!IsDead&&_collision;
     protected override Vector2 AnimationDrawOffset=>base.AnimationDrawOffset+Vector2.Down*(_z>>8);

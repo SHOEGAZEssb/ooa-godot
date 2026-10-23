@@ -27,5 +27,4 @@ internal sealed record FloormasterBehaviorProfile(
     internal int GrabZ => State[14].Value;
     internal int ReturnPosition => LinkReturn[4].Value;
     internal int ReturnTransition => LinkReturn[3].Value;
-    internal int ReturnParameter => LinkReturn[5].Value;
 }

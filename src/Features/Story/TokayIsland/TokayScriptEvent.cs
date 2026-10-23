@@ -20,9 +20,4 @@ internal abstract class TokayScriptEvent(
     protected bool CurrentRoomFlag(byte flag) =>
         Context.Rooms.SaveData.HasRoomFlag(
             Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, flag);
-
-    protected void SetCurrentRoomFlag(byte flag) =>
-        Context.Rooms.SaveData.SetRoomFlag(
-            Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, flag);
-
 }

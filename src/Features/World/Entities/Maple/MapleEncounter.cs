@@ -91,10 +91,6 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     internal bool MenusDisabled => (_nativeMemory?.ReadWramByte(WramAddress.wMenuDisabled) ?? 0) != 0;
     internal bool ObjectsDisabled => _encounter.ObjectsDisabled;
     internal bool Finished { get; private set; }
-    internal bool CanPullBomb =>
-        !Finished &&
-        _vehicle == 1 &&
-        (Stage == MapleEncounterStage.Collecting || _bombPullActive);
 
     internal void Initialize(
         int group,
