@@ -46,10 +46,10 @@ public sealed partial class ValidationRoot
     {
         int hostCase1 = 0;
         foreach (bool primary in new[] { false, true })
-        foreach (int ring in new[] { 0xff, 0x16, 0x2f, 0x31 })
+        foreach ((int level, int ring) in new[] { (2, 0xff), (2, 0x16), (2, 0x2f), (2, 0x31), (3, 0xff) })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            SwordRom rom = PrepareSwordGameplayRom(2, ring);
+            SwordRom rom = PrepareSwordGameplayRom(level, ring);
             if (!primary) { _inventory.EquipA(0); _inventory.EquipB(TreasureId.Sword); }
             string button = primary ? "attack" : "item";
             var audit = _sound.AttachPlayRequestAudit();
@@ -69,6 +69,8 @@ public sealed partial class ValidationRoot
                         int beams = Enumerable.Range(0xd7, 5).Count(page => rom[page * 256] != 0 && rom[page * 256 + 1] == 0x27);
                         FailIf(_entities.Entities<SwordBeamEffect>().Count != beams,
                             $"Gameplay sword beam $27 allocation/lifetime differs at update={updates}, ring=${ring:x2}: native={beams}, runtime={_entities.Entities<SwordBeamEffect>().Count}, camera={camera}.");
+                        FailIf(_entities.Entities<SwordBeamEffect>().Any(beam => beam.Initialized && !beam.Visible),
+                            $"Level {level} sword beam $27 must remain visible after initialization at update={updates}.");
                     });
             }
             Step(1, true, true);

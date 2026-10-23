@@ -87,7 +87,7 @@ internal sealed class SwordBeamDatabase
         if (record.Direction is < 0 or > 3 ||
             new Vector2I(record.OffsetX, record.OffsetY) !=
                 expectedOffsets[record.Direction] ||
-            record.Sprite != "spr_common_items" || record.TileBase != 0x38 ||
+            record.Sprite != "spr_common_sprites" || record.TileBase != 0x38 ||
             record.Palette != 4 || record.RadiusY != 2 || record.RadiusX != 2 ||
             record.Damage != 2 || record.SpeedRaw != ObjectSpeed.Speed300 ||
             record.Sound != SoundId.SndSwordBeam || record.Oam.Length == 0)

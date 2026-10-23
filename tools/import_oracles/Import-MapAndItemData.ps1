@@ -2289,8 +2289,15 @@ function Convert-SignedItemByte([string]$value) {
 }
 $swordBeamTileBase = [Convert]::ToInt32(
     $swordBeamData.Groups['tile'].Value, 16)
-$swordBeamPalette = [Convert]::ToInt32(
-    $swordBeamData.Groups['palette'].Value, 16) -band 7
+$swordBeamFlags = [Convert]::ToInt32(
+    $swordBeamData.Groups['palette'].Value, 16)
+# itemLoadGraphics leaves gfx $00 in the fixed bank selected by oamFlags bit 3.
+if ($swordBeamData.Groups['gfx'].Value -ne '00' -or
+    ($swordBeamFlags -band 0x08) -eq 0 -or
+    $gfxHeadersSource -notmatch '(?ms)^m_GfxHeaderStart \$83, GFXH_COMMON_SPRITES\s+m_GfxHeader spr_common_sprites, \$8001\s+m_GfxHeaderEnd') {
+    throw 'ITEM_SWORD_BEAM $27 must use GFXH_COMMON_SPRITES in fixed VRAM bank 1 (itemData.s/loadGraphics.s).'
+}
+$swordBeamPalette = $swordBeamFlags -band 7
 $swordBeamRadius = [Convert]::ToInt32(
     $swordBeamAttributes.Groups['radius'].Value, 16)
 $swordBeamDamage = -(Convert-SignedItemByte $swordBeamAttributes.Groups['damage'].Value)
@@ -2306,7 +2313,7 @@ for ($direction = 0; $direction -lt 4; $direction++) {
     $offsetY = Convert-SignedItemByte $swordBeamOffsets.Groups["${prefix}y"].Value
     $offsetX = Convert-SignedItemByte $swordBeamOffsets.Groups["${prefix}x"].Value
     $swordBeamRows.Add(
-        "$direction`t$offsetY`t$offsetX`tspr_common_items`t$swordBeamTileBase`t$swordBeamPalette`t$(($swordBeamRadius -shr 4) -band 0x0f)`t$($swordBeamRadius -band 0x0f)`t$swordBeamDamage`t78`t$($soundIds['SND_SWORDBEAM'].ToString('x2'))`t$(Read-ItemOamComposition $swordBeamOamLabels[$direction])")
+        "$direction`t$offsetY`t$offsetX`tspr_common_sprites`t$swordBeamTileBase`t$swordBeamPalette`t$(($swordBeamRadius -shr 4) -band 0x0f)`t$($swordBeamRadius -band 0x0f)`t$swordBeamDamage`t78`t$($soundIds['SND_SWORDBEAM'].ToString('x2'))`t$(Read-ItemOamComposition $swordBeamOamLabels[$direction])")
 }
 Write-GeneratedTable(
     (Join-Path $destination 'metadata\sword_beam.tsv'),

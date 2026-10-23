@@ -1812,13 +1812,22 @@ public sealed partial class ValidationRoot
 
         var swordBeamData = new SwordBeamDatabase();
         FailIf(swordBeamData.Records.Count != 4, "ITEM_SWORD_BEAM did not import four directions.");
+        // itemData.s $27: gfx $00, tile $38, flags $0c; GFXH_COMMON_SPRITES
+        // supplies fixed VRAM bank 1, not the dynamically loaded item sheet.
+        FailIf(swordBeamData.Records.Any(record => record.Sprite != "spr_common_sprites" ||
+            record.TileBase != 0x38 || record.Palette != 4),
+            "ITEM_SWORD_BEAM $27 must render fixed-bank tiles $38/$3a with OBJ palettes 4/5.");
         for (int direction = 0; direction < 4; direction++)
         for (int palettePhase = 0; palettePhase < 2; palettePhase++)
         {
             Image image = swordBeamData.Texture(direction, palettePhase).GetImage();
+            bool hasOpaquePixel = false;
+            for (int y = 0; y < image.GetHeight() && !hasOpaquePixel; y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+                hasOpaquePixel |= image.GetPixel(x, y).A > 0.1f;
             FailIf(
                 image.GetSize() != new Vector2I(32, 32) ||
-                OracleGraphicsCache.PixelHash(image) == 0,
+                !hasOpaquePixel,
                 $"Sword-beam direction {direction}/palette {palettePhase} did not render.");
         }
         OracleRoomData beamRoom = _world.LoadRoom(0, 0x00);
