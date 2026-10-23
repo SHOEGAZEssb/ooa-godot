@@ -1,3 +1,81 @@
+function ConvertTo-NpcProgramRows {
+    param([string[]]$sourceRows, [string]$actor, [hashtable]$texts, [hashtable]$animations = @{}, [hashtable]$symbols = @{})
+    $programs = [ordered]@{}
+    foreach ($row in $sourceRows | Select-Object -Skip 1) {
+        $fields = $row.Split([char]9)
+        $name = $fields[0]
+        if (-not $programs.Contains($name)) { $programs[$name] = [Collections.Generic.List[object]]::new() }
+        $programs[$name].Add([pscustomobject]@{ Path=$name; Script=$name; Label=$fields[1]; Line=[int]$fields[3]
+            Opcode=$fields[4]; Operands=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($fields[5])); JumpTargets=$fields[6] })
+    }
+    $result = [Collections.Generic.List[string]]::new()
+    $result.Add($cutsceneCommandHeader)
+    foreach ($program in $programs.Values) {
+        $expanded = [Collections.Generic.List[object]]::new()
+        foreach ($command in $program) {
+            if ($command.Opcode -eq 'rungenericnpclowindex') {
+                # Both native macros retain the check/show/jump loop after collision initialization.
+                $loop = '__generic_' + $expanded.Count
+                foreach ($entry in @(@('initcollisions','',$command.Label), @('checkabutton','',$loop),
+                    @('showtextlowindex',$command.Operands,$loop), @('scriptjump',$loop,$loop))) {
+                    $expanded.Add([pscustomobject]@{ Path=$command.Path; Script=$command.Script; Label=$entry[2]
+                        Line=$command.Line; Index=$expanded.Count; Opcode=$entry[0]; Operands=$entry[1]; JumpTargets='' })
+                }
+            } else {
+                $command | Add-Member Index $expanded.Count
+                $expanded.Add($command)
+            }
+        }
+        $targets = @{}
+        foreach ($c in $expanded) { if (-not $targets.ContainsKey($c.Label)) { $targets[$c.Label]=$c.Index } }
+        $bindings = @{}
+        foreach ($c in $expanded) {
+            $parts = @($c.Operands -split ',\s*')
+            $binding = $null
+            switch ($c.Opcode) {
+                'setdisabledobjectsto91' { $binding=@{Opcode='setdisabledobjects';Arg0='91'} }
+                'enableallobjects' { $binding=@{Opcode='setdisabledobjects';Arg0='00'} }
+                { $_ -in @('jumpifmemoryeq','jumpifobjectbyteeq','jumpifglobalflagset') } {
+                    $value = if ($c.Opcode -eq 'jumpifglobalflagset') { '01' } else { $parts[1].TrimStart('$') }
+                    $target = $parts[-1]
+                    if (-not $targets.ContainsKey($target)) { throw "$($c.Path):$($c.Line): unresolved target $target." }
+                    $binding=@{Opcode='jumpifmemoryeq';Arg0=$value;Arg1=[string]$targets[$target];Payload=$parts[0]}
+                }
+                { $_ -in @('jumptable_memoryaddress','jumptable_objectbyte') } {
+                    $indices = foreach ($target in $c.JumpTargets.Split(',')) {
+                        if (-not $targets.ContainsKey($target)) { throw "$($c.Path):$($c.Line): unresolved table target $target." }
+                        $targets[$target]
+                    }
+                    $binding=@{Opcode='jumptablememory';Payload=($parts[0]+'|'+($indices -join ','))}
+                }
+                { $_ -in @('asm15','writeobjectbyte','getrandombits','addobjectbyte') } {
+                    $payload = if ($actor -eq 'Family') { $c.Opcode+' '+$c.Operands } else { $c.Operands }
+                    $binding=@{Opcode='native';Payload=$payload}
+                }
+                'askforsecret' {
+                    if ($c.Operands -ne '$ff') { throw "$($c.Path):$($c.Line): expected askforsecret `$ff." }
+                    $binding=@{Opcode='nativeyield';Payload='AskAnySecret'}
+                }
+                'checkcfc0bit' {
+                    if ($c.Operands -ne '1') { throw "$($c.Path):$($c.Line): unsupported cfc0 bit." }
+                    $binding=@{Opcode='checkmemoryeq';Arg0='01';Payload='cfc0bit1'}
+                }
+                'xorcfc0bit' {
+                    if ($c.Operands -ne '1') { throw "$($c.Path):$($c.Line): unsupported cfc0 bit." }
+                    $binding=@{Opcode='native';Payload='ClearCfc0Bit1'}
+                }
+            }
+            if ($null -ne $binding) { $bindings[$c.Index.ToString()+'|'+$c.Opcode+'|'+$c.Operands]=$binding }
+        }
+        $positions = @{}
+        if ($actor -eq 'Farore') { foreach ($id in $texts.Keys) { $positions[$id]=2 } }
+        $rows = @(ConvertTo-CutsceneCommandRows @($expanded) $actor -texts $texts -animations $animations `
+            -symbols $symbols -bindings $bindings -positions $positions)
+        foreach ($row in $rows | Select-Object -Skip 1) { $result.Add($row) }
+    }
+    return $result
+}
+
 function ConvertTo-CutsceneCommandRows {
     param(
         [object[]]$commands,
@@ -45,6 +123,8 @@ function ConvertTo-CutsceneCommandRows {
         $opcode = $command.Opcode
         $commandActor = ''; $arg0 = ''; $arg1 = ''; $payload = ''
         $bindingKey = "$opcode|$($command.Operands)"
+        $instructionKey = "$($command.Index)|$bindingKey"
+        if ($bindings.ContainsKey($instructionKey)) { $bindingKey = $instructionKey }
         if ($bindings.ContainsKey($bindingKey)) {
             $binding = $bindings[$bindingKey]
             foreach ($key in $binding.Keys) {

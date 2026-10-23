@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Threading;
+using System.Linq;
 
 namespace oracleofages;
 
@@ -43,6 +44,12 @@ internal static class CutsceneCommandCatalog
             throw new InvalidOperationException($"Cutscene command stream is empty: {path}");
         return commands.AsReadOnly();
     }
+
+    internal static Dictionary<string, IReadOnlyList<CutsceneCommand>> LoadPrograms(string path) =>
+        Load(path).GroupBy(command => command.Source.Script, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key,
+                group => (IReadOnlyList<CutsceneCommand>)Array.AsReadOnly(group.ToArray()),
+                StringComparer.Ordinal);
 
     private static CutsceneCommand ParseCommand(GeneratedTableRow row)
     {

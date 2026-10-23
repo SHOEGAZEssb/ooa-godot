@@ -450,6 +450,7 @@ public sealed partial class ValidationRoot
             ["objects/bipin_blossom_family.tsv|\\Child"] = 41,
             ["objects/bipin_blossom_family_texts.tsv|\\Child"] = 3,
             ["cutscenes/family_npc_texts.tsv|\\Child"] = 34,
+            ["cutscenes/family_npc_scripts.tsv|\\Child"] = 31,
             ["objects/business_scrub_texts.tsv|\\num1"] = 1,
             ["objects/linked_game_npcs.tsv|\\secret1"] = 15,
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
@@ -457,6 +458,8 @@ public sealed partial class ValidationRoot
             ["cutscenes/forest_fairy_secret_commands.tsv|\\secret1"] = 2,
             ["cutscenes/farore_texts.tsv|\\secret1"] = 1,
             ["cutscenes/farore_texts.tsv|\\secret2"] = 1,
+            ["cutscenes/farore_scripts.tsv|\\secret1"] = 1,
+            ["cutscenes/farore_scripts.tsv|\\secret2"] = 1,
             // King Zora's owner inserts the generated return secret before presentation.
             ["cutscenes/king_zora_present_commands.tsv|\\secret1"] = 2,
             ["cutscenes/library_secret_commands.tsv|\\secret1"] = 2,

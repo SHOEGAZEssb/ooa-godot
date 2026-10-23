@@ -116,7 +116,7 @@ $stageContracts = @(
     New-ImportStageContract 'cutscene-normalization' 'Convert-CutsceneCommands.ps1' `
         -inputs @('cutsceneCommandHeader') `
         -functionInputs @('New-CutsceneCommandRow') `
-        -functionOutputs @('ConvertTo-CutsceneCommandRows')
+        -functionOutputs @('ConvertTo-CutsceneCommandRows', 'ConvertTo-NpcProgramRows')
     New-ImportStageContract 'cutscene-portals' 'Import-TimePortalData.ps1' `
         -inputs @('allTexts', 'gfxNames', 'interactionAnimationSource', 'interactionGraphics', 'mainObjectLines', 'npcAnimationTables', 'soundIds', 'treasureIds') `
         -functionInputs @('Read-PaletteBytes', 'Resolve-NpcAnimation', 'Write-CutsceneGeneratedTable')
@@ -181,11 +181,11 @@ $stageContracts = @(
         -inputs @('allTexts', 'cutsceneCommandHeader', 'mainObjectSource', 'roomFlagSource', 'tradeItemSource', 'treasureObjectRecords') `
         -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-ObjectSpeed', 'Write-CutsceneGeneratedTable')
     New-ImportStageContract 'family-scripts' 'Import-FamilyScriptData.ps1' `
-        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds') `
-        -functionInputs @('Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation')
+        -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'treasureIds') `
+        -functionInputs @('ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable', 'Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation')
     New-ImportStageContract 'farore' 'Import-FaroreData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'interactionGraphics', 'gfxNames') `
-        -functionInputs @('Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation', 'Find-ImportSpriteSource', 'Resolve-InteractionGraphics')
+        -functionInputs @('ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable', 'Read-AssemblyCutsceneCommands', 'Read-ImportText', 'Resolve-OceanText', 'Resolve-NpcAnimation', 'Find-ImportSpriteSource', 'Resolve-InteractionGraphics')
     New-ImportStageContract 'shared-npcs' 'Import-SharedNpcData.ps1' `
         -inputs @('allTexts', 'allTextPositions', 'allTextFallthroughIds', 'cutsceneCommandHeader') `
         -functionInputs @('ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow', 'Read-AssemblyCutsceneCommands', 'Resolve-NpcAnimation', 'Resolve-OceanText', 'Resolve-ObjectSpeed', 'Resolve-SoundConstant', 'Write-CutsceneGeneratedTable')

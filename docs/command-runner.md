@@ -35,6 +35,10 @@ instruction positions, counters, call stacks, actor bindings, and other live
 execution state belong to each runner. Generated assets remain fixed for the
 process lifetime, as with the underlying generated-table cache.
 
+Multi-program tables use script-local command indices and branch targets.
+The catalog groups their normalized records by script; macro expansion and
+label relocation belong to the importer, including Farore and family programs.
+
 Cutscene family import stages share assembly reading, operand normalization,
 and table validation. Standard operations use the common normalizer with
 explicit symbol, animation, text-position, and native bindings. Unsupported

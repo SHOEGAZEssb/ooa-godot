@@ -78,3 +78,30 @@ foreach ($repeat in 1..2) {
 }
 Assert-Normalization ($script:scalarRequestCount -eq 2) 'Repeated positive/negative scalar results were not reused.'
 Write-Host 'Scalar-cache fixtures passed (case-sensitive keys and retained positive/negative results).'
+
+# The generic macro occupies four commands; later labels must target the expanded stream.
+$tables = @(
+    "# script`tlabel`tindex`tsource-line`topcode`toperands-base64`tjump-targets",
+    "fixture`tfirst`t0`t10`tjumptable_objectbyte`tSW50ZXJhY3Rpb24udmFyM2E=`tfirst,second",
+    "fixture`tsecond`t1`t11`tjumptable_objectbyte`tSW50ZXJhY3Rpb24udmFyM2E=`tsecond,first")
+$tableRows = @(ConvertTo-NpcProgramRows $tables 'Family' @{})
+foreach ($index in 1..2) {
+    $payload = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($tableRows[$index].Split([char]9)[8]))
+    $expected = if ($index -eq 1) { 'Interaction.var3a|0,1' } else { 'Interaction.var3a|1,0' }
+    Assert-Normalization ($payload -eq $expected) 'Distinct jump tables sharing an operand were conflated.'
+}
+$program = @("# script`tlabel`tindex`tsource-line`topcode`toperands-base64`tjump-targets")
+foreach ($entry in @(@('start','rungenericnpclowindex','<TX_5501'), @('tail','scriptjump','start'))) {
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($entry[2]))
+    $program += "fixture`t$($entry[0])`t0`t12`t$($entry[1])`t$encoded`t"
+}
+foreach ($actor in 'Family','Farore') {
+    $rows = @(ConvertTo-NpcProgramRows $program $actor @{ 0x5501='fixture text' })
+    Assert-Normalization ($rows.Count -eq 6) 'NPC macro expansion changed command count.'
+    $show = $rows[3].Split([char]9)
+    Assert-Normalization ($show[4] -eq 'showtext' -and $show[6] -eq '5501') 'NPC macro lost text ID.'
+    $position = if ($actor -eq 'Farore') { '2' } else { '' }
+    Assert-Normalization ($show[7] -eq $position) 'NPC macro changed textbox position.'
+    Assert-Normalization ($rows[4].Split([char]9)[6] -eq '1' -and
+        $rows[5].Split([char]9)[6] -eq '0') 'NPC macro lost internal or external branch targets.'
+}

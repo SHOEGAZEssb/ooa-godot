@@ -47,7 +47,6 @@ foreach ($script in @('faroreUnlinked','faroreLinked')) {
     $rows.Add("$script`t$($command.Label)`t$($command.Index)`t$($command.Line)`t$($command.Opcode)`t$encoded`t$($targets -join ',')")
     }
 }
-Write-GeneratedTable((Join-Path $destination 'cutscenes\farore_scripts.tsv'), $rows)
 
 $texts = [Collections.Generic.List[string]]::new()
 $texts.Add("# text-id`tutf8-base64")
@@ -58,6 +57,10 @@ foreach ($id in 0x5501..0x551c) {
     $texts.Add("$($id.ToString('x4'))`t$encoded")
 }
 Write-GeneratedTable((Join-Path $destination 'cutscenes\farore_texts.tsv'), $texts)
+$programTexts = @{}
+foreach ($id in 0x5501..0x551c) { $programTexts[$id] = Resolve-OceanText $id ([Collections.Generic.HashSet[int]]::new()) }
+$normalized = @(ConvertTo-NpcProgramRows @($rows) 'Farore' $programTexts)
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\farore_scripts.tsv'), $normalized)
 
 $rewardPath = Join-Path $Disassembly 'object_code\common\interactions\faroreGiveItem.s'
 $rewardSource = Read-ImportText $rewardPath

@@ -113,7 +113,6 @@ foreach ($textId in @($referencedTexts | Sort-Object)) {
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($resolved))
     $familyTextRows.Add("$($textId.ToString('x4'))`t$encoded")
 }
-Write-GeneratedTable((Join-Path $destination 'cutscenes\family_npc_scripts.tsv'), $familyRows)
 Write-GeneratedTable((Join-Path $destination 'cutscenes\family_npc_texts.tsv'), $familyTextRows)
 $animationRows = [Collections.Generic.List[string]]::new()
 $animationRows.Add("# animation`tencoded-data")
@@ -123,6 +122,11 @@ foreach ($animation in @(2, 3)) {
     $animationRows.Add("$($animation.ToString('x2'))`t$encoded")
 }
 Write-GeneratedTable((Join-Path $destination 'cutscenes\family_npc_animations.tsv'), $animationRows)
+$programTexts = @{}
+foreach ($id in $referencedTexts) { $programTexts[$id] = Resolve-OceanText $id ([Collections.Generic.HashSet[int]]::new()) }
+$programAnimations = @{ 2=(Resolve-NpcAnimation 0x28 2); 3=(Resolve-NpcAnimation 0x28 3) }
+$normalized = @(ConvertTo-NpcProgramRows @($familyRows) 'Family' $programTexts $programAnimations $treasureIds)
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes\family_npc_scripts.tsv'), $normalized)
 
 # child.s supplies the moving child's animation bases, patrol waypoints and
 # four-direction hyperactive turn cycle. Preserve their source order.
