@@ -287,6 +287,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateSpritePixelSnapshots);
         RunIsolatedValidation(ValidateHotPaths);
         RunIsolatedValidation(ValidateControllerMovement);
+        RunIsolatedValidation(ValidateControllerDirectionCombinations);
         RunIsolatedValidation(ValidateGeneratedTableReader);
         RunIsolatedValidation(ValidateMenuLifecycleFoundation);
         RunIsolatedValidation(ValidateRepresentativeRooms);

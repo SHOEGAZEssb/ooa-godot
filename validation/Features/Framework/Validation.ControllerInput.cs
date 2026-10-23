@@ -4,6 +4,95 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void ValidateControllerDirectionCombinations()
+    {
+        // specialObjects.s:updateGameKeysPressed @directionButtonToAngle:
+        // $ff $08 $18 $ff $00 $04 $1c $ff $10 $0c $14 $ff $ff $ff $ff.
+        // Opposing buttons have no movement direction, including three-button chords.
+        Vector2[] expected =
+        [
+            Vector2.Zero, Vector2.Right, Vector2.Left, Vector2.Zero,
+            Vector2.Up, new(1, -1), new(-1, -1), Vector2.Zero,
+            Vector2.Down, new(1, 1), new(-1, 1), Vector2.Zero,
+            Vector2.Zero, Vector2.Zero, Vector2.Zero, Vector2.Zero
+        ];
+        string[] actions = ["move_right", "move_left", "move_up", "move_down"];
+        for (int mask = 0; mask < 16; mask++)
+        {
+            Vector2? splitResult = null;
+            foreach (bool batched in new[] { false, true })
+            {
+                ReinitializeGameplayForValidation();
+                ResetValidationInput();
+                LoadValidationRoom(0, 0x11);
+                Vector2? origin = null;
+                for (int y = 24; y < 104 && origin is null; y += 8)
+                for (int x = 24; x < 136 && origin is null; x += 8)
+                {
+                    Vector2 point = new(x, y);
+                    bool clear = true;
+                    for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        clear &= !_collision.Collides(point + new Vector2(dx, dy) * 8);
+                    if (clear) origin = point;
+                }
+                FailIf(origin is null, "Room 0:$11 has no clear direction-combination fixture.");
+                _player.WarpTo(origin.Value);
+                void PressMask()
+                {
+                    for (int bit = 0; bit < actions.Length; bit++)
+                        if ((mask & (1 << bit)) != 0) Input.ActionPress(actions[bit]);
+                }
+                void Advance()
+                {
+                    if (batched) base._Process(3.0 / 60);
+                    else for (int i = 0; i < 3; i++) base._Process(1.0 / 60);
+                }
+                try
+                {
+                    PressMask();
+                    Vector2 direction = expected[mask].Normalized();
+                    FailIf(!Input.ReadMovement().IsEqualApprox(direction),
+                        $"Physical direction bits ${mask:x1} did not match the source angle table.");
+                    var buffer = new ApplicationInputBuffer();
+                    buffer.CaptureHostFrame();
+                    Input.BeginOriginalUpdate(buffer.ConsumeOriginalUpdate());
+                    try
+                    {
+                        FailIf(!Input.GetVector(actions[1], actions[0], actions[2], actions[3]).IsEqualApprox(direction),
+                            $"Buffered direction bits ${mask:x1} changed the source direction.");
+                        Input.OverrideGameKeys(mask << 4);
+                        FailIf(!Input.GetVector(actions[1], actions[0], actions[2], actions[3]).IsEqualApprox(direction),
+                            $"Simulated direction bits ${mask:x1} disagreed with physical input.");
+                        for (int bit = 0; bit < actions.Length; bit++)
+                            FailIf(Input.IsActionPressed(actions[bit]) != ((mask & (1 << bit)) != 0) ||
+                                Input.IsPhysicalActionPressed(actions[bit]) != ((mask & (1 << bit)) != 0),
+                                $"Direction bits ${mask:x1} lost raw held buttons while resolving movement.");
+                    }
+                    finally { Input.EndOriginalUpdate(); }
+                    Advance();
+                    Vector2 displacement = _player.PrecisePosition - origin.Value;
+                    FailIf(direction == Vector2.Zero ? displacement != Vector2.Zero :
+                        displacement.Dot(direction) <= 0 || !Mathf.IsZeroApprox(displacement.Cross(direction)),
+                        $"Direction bits ${mask:x1} moved Link incorrectly in room 0:$11: {displacement}.");
+                    if (splitResult is not null)
+                        FailIf(displacement != splitResult.Value, $"Direction bits ${mask:x1} changed with host batching.");
+                    splitResult = displacement;
+                    ResetValidationInput();
+                    Vector2 stopped = _player.PrecisePosition;
+                    base._Process(1.0 / 60);
+                    FailIf(_player.PrecisePosition != stopped, $"Releasing direction bits ${mask:x1} did not stop Link.");
+                    PressMask();
+                    Advance();
+                    FailIf(_player.PrecisePosition - stopped != displacement,
+                        $"Direction bits ${mask:x1} changed after release and repeat.");
+                }
+                finally { ResetValidationInput(); }
+            }
+        }
+        GD.Print("Validated all $10 direction combinations through physical, buffered and simulated input, gameplay movement, release/repeat and split/batched updates.");
+    }
+
     private void ValidateControllerMovement()
     {
         (string action, JoyButton button, JoyAxis axis, float sign, Vector2 direction)[] directions =

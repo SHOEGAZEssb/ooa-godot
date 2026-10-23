@@ -95,9 +95,7 @@ internal static class Input
             negativeY == "move_up" &&
             positiveY == "move_down")
         {
-            if(_nativeGameKeys is int keys)return ((keys>>4) switch
-                {1=>Vector2.Right,2=>Vector2.Left,4=>Vector2.Up,5=>new Vector2(1,-1),6=>new Vector2(-1,-1),8=>Vector2.Down,
-                    9=>new Vector2(1,1),10=>new Vector2(-1,1),_=>Vector2.Zero}).LimitLength();
+            if (_nativeGameKeys is int keys) return DirectionForButtons(keys >> 4);
             return _current?.Movement ?? ReadMovement();
         }
         return Godot.Input.GetVector(
@@ -106,16 +104,27 @@ internal static class Input
 
     internal static Vector2 ReadMovement()
     {
-        // specialObjects.s:updateGameKeysPressed derives wLinkAngle from D-pad bits.
-        // Godot.GetVector uses a circular deadzone and retains tiny off-axis
-        // values once the other axis is held. Quantize the per-action pressed
-        // state so player, collision, companions and menus agree.
-        return new Vector2(
-            (Godot.Input.IsActionPressed(MoveRight) ? 1 : 0) -
-            (Godot.Input.IsActionPressed(MoveLeft) ? 1 : 0),
-            (Godot.Input.IsActionPressed(MoveDown) ? 1 : 0) -
-            (Godot.Input.IsActionPressed(MoveUp) ? 1 : 0)).LimitLength();
+        int buttons = (Godot.Input.IsActionPressed(MoveRight) ? 1 : 0) |
+            (Godot.Input.IsActionPressed(MoveLeft) ? 2 : 0) |
+            (Godot.Input.IsActionPressed(MoveUp) ? 4 : 0) |
+            (Godot.Input.IsActionPressed(MoveDown) ? 8 : 0);
+        return DirectionForButtons(buttons);
     }
+
+    // specialObjects.s:updateGameKeysPressed @directionButtonToAngle rejects
+    // opposing D-pad buttons, including chords with a third direction held.
+    private static Vector2 DirectionForButtons(int buttons) => (buttons switch
+    {
+        1 => Vector2.Right,
+        2 => Vector2.Left,
+        4 => Vector2.Up,
+        5 => new Vector2(1, -1),
+        6 => new Vector2(-1, -1),
+        8 => Vector2.Down,
+        9 => new Vector2(1, 1),
+        10 => new Vector2(-1, 1),
+        _ => Vector2.Zero
+    }).LimitLength();
 
     internal static void ActionPress(StringName action, float strength = 1.0f) =>
         Godot.Input.ActionPress(action, strength);
