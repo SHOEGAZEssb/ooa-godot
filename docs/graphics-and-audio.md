@@ -19,6 +19,9 @@ Immutable source and composite sprite images also retain shared CPU pixel
 snapshots. Caller-owned and mutable VRAM images receive fresh snapshots per
 composition. Sprite builders compose in managed memory and dispose temporary
 upload images immediately.
+Shared background-tile blits clip to the destination image while retaining
+the original source coordinates, flip flags, and palette selection.
+
 Room rasterization reuses its CPU buffers and retains the input identity of
 each composed background tile. Only tiles whose art, mapping, attributes or
 palette changed are recomposed; the complete image still uses a fresh backing

@@ -222,8 +222,10 @@ internal static class OracleTileRenderer
         bool flipX = (flags & 0x20) != 0;
         bool flipY = (flags & 0x40) != 0;
         int paletteIndex = flags & 7;
-        for (int y = 0; y < 8; y++)
-        for (int x = 0; x < 8; x++)
+        int right = Math.Min(8, output.GetWidth() - destinationX);
+        int bottom = Math.Min(8, output.GetHeight() - destinationY);
+        for (int y = Math.Max(0, -destinationY); y < bottom; y++)
+        for (int x = Math.Max(0, -destinationX); x < right; x++)
         {
             Color pixel = source.GetPixel(
                 origin.X + (flipX ? 7 - x : x),

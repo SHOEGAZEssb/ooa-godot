@@ -25,6 +25,25 @@ public sealed partial class ValidationRoot
                     $"Bulk shade conversion changed float thresholds or clamping at {reds[index]} (sprite={sprite}).");
         }
 
+        using Image tile = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
+        tile.Fill(Colors.White);
+        tile.SetPixel(0, 0, Colors.Black);
+        Color[,] palette = { { Colors.Black, Colors.Red, Colors.Green, Colors.Blue } };
+        using Image target = Image.CreateEmpty(4, 4, false, Image.Format.Rgba8);
+        target.Fill(Colors.Transparent);
+        OracleTileRenderer.DrawTileToImage(target, tile, 0, 0x60, palette, -4, -4);
+        for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++)
+            FailIf(target.GetPixel(x, y) != (x == 3 && y == 3 ? Colors.Blue : Colors.Black),
+                "Flipped tile lost its source corner or left/top clipping.");
+        target.Fill(Colors.Transparent);
+        OracleTileRenderer.DrawTileToImage(target, tile, 0, 0, palette, 2, 2);
+        for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++)
+            FailIf(target.GetPixel(x, y) != (x < 2 || y < 2 ? Colors.Transparent
+                    : x == 2 && y == 2 ? Colors.Blue : Colors.Black),
+                "Tile drawing lost its palette or right/bottom clipping.");
+
         void Check()
         {
             foreach (bool sprite in new[] { false, true })

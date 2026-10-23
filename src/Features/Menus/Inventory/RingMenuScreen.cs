@@ -686,22 +686,9 @@ public partial class RingMenuScreen : Node2D
         }
     }
 
-    private void DrawVramBackgroundTile(Image output, int bank, int tile, int flags, Vector2 position)
-    {
-        bool flipX = (flags & 0x20) != 0;
-        bool flipY = (flags & 0x40) != 0;
-        int palette = flags & 7;
-        if (!TrySelectVramTile(bank, tile, out Image source, out int sourceTile,
-            out bool interleaved, out bool spriteEncoding, signedAddressing: false)) return;
-        Vector2I origin = SourceTileOrigin(source, sourceTile, interleaved);
-        for (int y = 0; y < 8; y++)
-        for (int x = 0; x < 8; x++)
-        {
-            Color pixel = source.GetPixel(origin.X + (flipX ? 7 - x : x), origin.Y + (flipY ? 7 - y : y));
-            SetMenuPixel(output, position + new Vector2(x, y),
-                _bgPalette[palette, PaletteShade(pixel, spriteEncoding)]);
-        }
-    }
+    private void DrawVramBackgroundTile(Image output, int bank, int tile, int flags, Vector2 position) =>
+        DrawVramTileToImage(output, bank, (byte)tile, (byte)flags,
+            (int)position.X, (int)position.Y, signedAddressing: false);
 
     private static void SetMenuPixel(Image output, Vector2 position, Color color)
     {
