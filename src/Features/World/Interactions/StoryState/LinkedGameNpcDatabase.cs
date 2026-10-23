@@ -230,7 +230,14 @@ public sealed partial class LinkedGameNpcDatabase
     }
 
     internal bool ValidateSecret(ReadOnlySpan<byte> symbols, int expectedIndex, OracleSaveData save)
+        => TryDecodeShortSecret(symbols, save, out int index) && index == expectedIndex;
+
+    // MENU_SECRET with wSecretInputType=$ff accepts any valid short secret and
+    // returns its six-bit wShortSecretIndex to Farore for game/quest dispatch.
+    internal bool TryDecodeShortSecret(ReadOnlySpan<byte> symbols,
+        OracleSaveData save, out int shortSecretIndex)
     {
+        shortSecretIndex = -1;
         if (symbols.Length != 5) return false;
         byte[] buffer = symbols.ToArray();
         foreach (byte symbol in buffer) if (symbol >= 64) return false;
@@ -253,10 +260,13 @@ public sealed partial class LinkedGameNpcDatabase
         _ = ReadBits(3);
         if (ReadBits(2) != SecretType) return false;
         int low = ReadBits(8), high = ReadBits(7);
-        if (ReadBits(6) != expectedIndex) return false;
+        int decodedIndex = ReadBits(6);
         // bank3.s:verifyUnpackedSecretGameID explicitly accepts GameID $0000.
-        return (low == 0 && high == 0) ||
-            (low == save.ReadWramByte(GameIdAddress) && high == save.ReadWramByte(GameIdAddress + 1));
+        if (!((low == 0 && high == 0) ||
+            (low == save.ReadWramByte(GameIdAddress) &&
+             high == save.ReadWramByte(GameIdAddress + 1)))) return false;
+        shortSecretIndex = decodedIndex;
+        return true;
     }
 
     private static void InsertBits(byte[] buffer, int value, int bitCount)

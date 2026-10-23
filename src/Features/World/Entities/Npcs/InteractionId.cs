@@ -18,6 +18,8 @@ public static class InteractionId
     public const int SnowDebris = 0x09;
     // constants/common/interactions.s: INTERAC_0b
     public const int Id0b = 0x0b;
+    // constants/common/interactions.s: INTERAC_FARORE
+    public const int Farore = 0x10;
     // constants/common/interactions.s: INTERAC_ROCKDEBRIS2
     public const int RockDebris2 = 0x0c;
     // constants/common/interactions.s: INTERAC_DUNGEON_STUFF

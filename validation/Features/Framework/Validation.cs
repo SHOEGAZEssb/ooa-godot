@@ -1013,6 +1013,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateFamilyBlossomStage6Advice);
         RunIsolatedValidation(ValidateFamilyChildWarriorReward);
         RunIsolatedValidation(ValidateFamilyChildSingerSong);
+        RunIsolatedValidation(ValidateFaroreScript);
+        RunIsolatedValidation(ValidateFaroreSecretResponses);
+        RunIsolatedValidation(ValidateFaroreRewards);
+        RunIsolatedValidation(ValidateFaroreUnlinkedSecrets);
+        RunIsolatedValidation(ValidateFaroreUpgradeVariants);
         RunIsolatedValidation(ValidateImpaIntroEncounter);
         RunIsolatedValidation(ValidateInitialNayruBearReplay);
         RunIsolatedValidation(ValidateInitialNayruObjectArithmetic);

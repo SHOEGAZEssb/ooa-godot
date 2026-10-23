@@ -11,8 +11,10 @@ internal sealed class SecretEntryController(
     private readonly LinkedGameNpcDatabase _secrets = new();
     private MainMenuScreen? _screen;
     private Action<bool>? _completion;
+    private Action<int?>? _anyShortSecretCompletion;
     private int _expectedIndex;
     private bool _ringMode;
+    private bool _anyShortSecret;
     private bool _result;
     private bool _error;
     private int _errorDelay;
@@ -34,11 +36,27 @@ internal sealed class SecretEntryController(
     internal bool OpenRingSecret(Action<bool> completion) =>
         Begin(-1, ringMode: true, completion);
 
+    internal bool OpenAnyShortSecret(Action<int?> completion)
+    {
+        if (!lifecycle.TryBeginOpening(this)) return false;
+        _expectedIndex = -1;
+        _ringMode = false;
+        _anyShortSecret = true;
+        _completion = null;
+        _anyShortSecretCompletion = completion;
+        _result = false;
+        _error = false;
+        _errorDelay = _repeatKeys = _repeatCounter = 0;
+        return true;
+    }
+
     private bool Begin(int expectedIndex, bool ringMode, Action<bool> completion)
     {
         if (!lifecycle.TryBeginOpening(this)) return false;
         _expectedIndex = expectedIndex;
         _ringMode = ringMode;
+        _anyShortSecret = false;
+        _anyShortSecretCompletion = null;
         _completion = completion;
         _result = false;
         _error = false;
@@ -115,9 +133,12 @@ internal sealed class SecretEntryController(
     {
         if (!lifecycle.IsOpenFor(this)) throw new InvalidOperationException("Secret input is not open.");
         byte[] rings = [];
+        int shortSecretIndex = -1;
         bool valid = _ringMode
             ? _secrets.TryDecodeRingSecret(symbols, save, out rings)
-            : _secrets.ValidateSecret(symbols, _expectedIndex, save);
+            : _anyShortSecret
+                ? _secrets.TryDecodeShortSecret(symbols, save, out shortSecretIndex)
+                : _secrets.ValidateSecret(symbols, _expectedIndex, save);
         if (!valid)
         {
             _error = true;
@@ -127,6 +148,7 @@ internal sealed class SecretEntryController(
             return;
         }
         if (_ringMode) inventory.MergeRingSecret(rings);
+        if (_anyShortSecret) _expectedIndex = shortSecretIndex;
         _result = true;
         playSound(SoundId.SndSolvePuzzle);
         lifecycle.BeginClosing(this);
@@ -150,7 +172,10 @@ internal sealed class SecretEntryController(
     public void LifecycleClosed()
     {
         Action<bool>? completion = _completion;
+        Action<int?>? anyCompletion = _anyShortSecretCompletion;
         _completion = null;
+        _anyShortSecretCompletion = null;
         completion?.Invoke(_result);
+        anyCompletion?.Invoke(_result ? _expectedIndex : null);
     }
 }

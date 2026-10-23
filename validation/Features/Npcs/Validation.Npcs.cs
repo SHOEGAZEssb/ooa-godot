@@ -455,6 +455,8 @@ public sealed partial class ValidationRoot
             ["cutscenes/goron_cave_commands.tsv|\\num1"] = 1,
             ["cutscenes/goron_cave_commands.tsv|\\secret1"] = 3,
             ["cutscenes/forest_fairy_secret_commands.tsv|\\secret1"] = 2,
+            ["cutscenes/farore_texts.tsv|\\secret1"] = 1,
+            ["cutscenes/farore_texts.tsv|\\secret2"] = 1,
             // King Zora's owner inserts the generated return secret before presentation.
             ["cutscenes/king_zora_present_commands.tsv|\\secret1"] = 2,
             ["cutscenes/library_secret_commands.tsv|\\secret1"] = 2,
@@ -531,9 +533,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            slowControls != 14 || adjacentHeartControls != 2 || byteEscapes != 6,
+            slowControls != 24 || adjacentHeartControls != 2 || byteEscapes != 6,
             "The generated dialogue inventory no longer contains the expected " +
-            $"eight \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), and the possession taunt (TX_2f2a), two adjacent-heart, and six \\x20 source controls including library TX_3313/TX_3314 (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
+            $"eight \\slow() Essence introductions, five Vire messages (TX_2f14..TX_2f18), the possession taunt (TX_2f2a), and ten Farore hints (TX_550f..TX_5518), two adjacent-heart, and six \\x20 source controls including library TX_3313/TX_3314 (actual {slowControls}/{adjacentHeartControls}/{byteEscapes}).");
         FailIf(
             actualUnresolved.Count != expectedUnresolved.Count ||
             expectedUnresolved.Any(expected =>
@@ -567,9 +569,9 @@ public sealed partial class ValidationRoot
             new Dictionary<NpcImplementationClassification, int>
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 89,
-                [NpcImplementationClassification.SpecializedNative] = 240,
+                [NpcImplementationClassification.SpecializedNative] = 241,
                 [NpcImplementationClassification.EventOwned] = 131,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 2
+                [NpcImplementationClassification.DeliberatelyUnsupported] = 1
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -582,7 +584,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "89 ordinary, 240 specialized, 131 event-owned, and 2 " +
+            "89 ordinary, 241 specialized, 131 event-owned, and 1 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -603,13 +605,16 @@ public sealed partial class ValidationRoot
         NpcRecord specialized = Find(0, 0x56, 0x65, 0x00, 0x00);
         NpcRecord eventOwned = Find(0, 0x39, 0x37, 0x0d, 0x00);
         NpcRecord libraryCarpenter = Find(5, 0xd0, 0x9a, 0x09, 0x00);
-        NpcRecord unsupported = Find(5, 0xcf, 0x10, 0x00, 0x00);
+        NpcRecord farore = Find(5, 0xcf, 0x10, 0x00, 0x00);
+        NpcRecord unsupported = Find(5, 0xf1, 0xad, 0x00, 0x00);
         FailIf(
             ordinary.Implementation !=
                 NpcImplementationClassification.OrdinaryGeneric ||
             specialized.Implementation !=
                 NpcImplementationClassification.SpecializedNative ||
             libraryCarpenter.Implementation !=
+                NpcImplementationClassification.SpecializedNative ||
+            farore.Implementation !=
                 NpcImplementationClassification.SpecializedNative ||
             eventOwned.Implementation !=
                 NpcImplementationClassification.EventOwned ||
@@ -872,6 +877,7 @@ public sealed partial class ValidationRoot
             "linkedGameNpcScript",
             "bipinScript3",
             "bipin/blossom/child family scripts",
+            "commonScripts.s:faroreScript",
             "hardhatWorkerSubid00Script",
             "postmanScript",
             "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
@@ -3643,7 +3649,8 @@ public sealed partial class ValidationRoot
         // entity-owned script lanes now required by its patrolling workers.
         _ = new NpcInteractionScriptController(entranceRooms, entranceManager,
             _dialogue, _treasures, new BipinBlossomFamilyStateResolver(new NpcDatabase()),
-            new InventoryState(_treasures, entranceSave), static () => false);
+            new InventoryState(_treasures, entranceSave), static () => false,
+            static () => { });
         var respawn = new DeathRespawnPointController(entranceRooms, _player);
         int entranceText = 0;
         string entranceMessage = string.Empty;

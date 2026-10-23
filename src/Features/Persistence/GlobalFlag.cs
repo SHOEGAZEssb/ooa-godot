@@ -54,6 +54,8 @@ public static class GlobalFlag
     public const int RaftonChangedRooms = 0x26;
     // constants/common/globalFlags.s (Ages): GLOBALFLAG_RING_SECRET_GENERATED
     public const int RingSecretGenerated = 0x28;
+    // constants/common/globalFlags.s: GLOBALFLAG_SECRET_CHEST_WAITING
+    public const int SecretChestWaiting = 0x2c;
     // constants/common/globalFlags.s: GLOBALFLAG_TUNI_NUT_PLACED
     public const int TuniNutPlaced = 0x29;
     // constants/common/globalFlags.s: GLOBALFLAG_FOREST_UNSCRAMBLED

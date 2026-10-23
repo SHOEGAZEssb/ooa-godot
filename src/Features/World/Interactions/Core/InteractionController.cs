@@ -63,6 +63,8 @@ public sealed class InteractionController
         _npcScripts.PostmanTreasure;
     internal NpcInteractionScriptController NpcScriptsForValidation =>
         _npcScripts;
+    internal void SetFaroreSecretMenuOpener(Func<Action<int?>, bool> opener) =>
+        _npcScripts.OpenFaroreSecretMenu = opener;
 
     internal InteractionController(
         RoomSession rooms,
@@ -106,7 +108,8 @@ public sealed class InteractionController
             _familyState,
             inventory,
             rupeeDisplayUpdated ?? (static () => throw new InvalidOperationException(
-                "oldManScript_takesRupees requires the status bar rupee counter.")));
+                "oldManScript_takesRupees requires the status bar rupee counter.")),
+            () => _roomView.QueueRedraw());
         var interactionHandlers = new List<NpcInteractionHandler>
         {
             NpcInteractionHandler.ForNpc(
@@ -248,6 +251,9 @@ public sealed class InteractionController
         _chestTreasure = null;
         _entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,0);
         _entities.RuntimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,0);
+        if (_rooms.ActiveGroup == 5 && _rooms.CurrentRoom.Id == 0xcf &&
+            _npcScripts.FaroreChestPending)
+            _npcScripts.FaroreChestRewardCompleted();
     }
 
     private void OnHeartPieceSetFilled()

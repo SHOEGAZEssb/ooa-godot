@@ -2921,6 +2921,8 @@ internal sealed class RoomEntityFactory
         SmogEnemySpawn smog => CreateSmogEnemy(smog,room),
         DungeonSwitchSpawn switchPart => CreateDungeonSwitch(switchPart.Record,room),
         TimedSparkleSpawn sparkle => new TimedSparkleRoomEntity(sparkle),
+        FaroreRewardSpawn faroreReward => new FaroreRewardRoomEntity(faroreReward.Parent),
+        FaroreMakeChestSpawn faroreChest => new FaroreMakeChestRoomEntity(faroreChest.Parent, owner),
         BridgeSpawnerSpawn bridge => new BridgeSpawnerRoomEntity(bridge, room,
             Resources.DungeonMechanics, owner.OnRoomTileChanged, owner.OnSoundRequested,(position,tile) => {
                 if (rooms is null || !ReferenceEquals(rooms.CurrentRoom,room))
@@ -3852,6 +3854,8 @@ internal sealed class RoomEntityFactory
                 npc, _familyState.RunningBipin, _runtimeState);
         if (record is { Id: InteractionId.Bipin, SubId: 0x0a })
             return new PastBipinRoomEntity(npc);
+        if (record is { Group: 5, Room: 0xcf, Id: InteractionId.Farore, SubId: 0 })
+            return new FaroreRoomEntity(npc);
         if (record is
             {
                 Group: 0,

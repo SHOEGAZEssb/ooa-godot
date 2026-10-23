@@ -1419,6 +1419,7 @@ public partial class GameRoot : Node2D
         _secretEntry = new SecretEntryController(
             _scene.InterfaceLayer, _menuLifecycle, _saveData, _inventory, _sound.PlaySound);
         _roomEvents.SetSecretMenuOpener(_secretEntry.Open);
+        _interactions.SetFaroreSecretMenuOpener(_secretEntry.OpenAnyShortSecret);
         _roomEvents.Get<VasuShopEvent>().SetRingSecretMenuOpener(_secretEntry.OpenRingSecret);
         _debugFlagMenu = new DebugFlagMenuController(
             _debugFlagScreen, _rooms, _gameplayPause,

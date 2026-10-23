@@ -26,6 +26,11 @@ internal sealed class NpcInteractionScriptController
     private readonly SharedNpcDatabase _sharedData = new();
     private readonly FamilyNpcScriptDatabase _familyData = new();
     private readonly List<FamilyNpcScriptHost> _familyHosts = new();
+    private readonly FaroreScriptDatabase _faroreData = new();
+    private FaroreScriptHost? _farore;
+    internal Func<Action<int?>, bool>? OpenFaroreSecretMenu { get; set; }
+    internal bool FaroreChestPending => _farore?.HasPendingChest == true;
+    internal void FaroreChestRewardCompleted() => _farore?.ChestRewardCompleted();
 
     public NpcInteractionScriptController(
         RoomSession rooms,
@@ -34,7 +39,8 @@ internal sealed class NpcInteractionScriptController
         TreasureDatabase treasures,
         BipinBlossomFamilyStateResolver family,
         InventoryState inventory,
-        Func<bool> rupeeDisplayUpdated)
+        Func<bool> rupeeDisplayUpdated,
+        Action redrawRoom)
     {
         var scripts = new NpcInteractionScriptDatabase();
         _linked = new LinkedGameNpcScriptHost(
@@ -114,6 +120,8 @@ internal sealed class NpcInteractionScriptController
                     if (host.TryInteract(target, player)) return true;
                 return false;
             }),
+            NpcInteractionHandler.ForNpc("commonScripts.s:faroreScript", (target, player) =>
+                _farore?.TryInteract(target, player) == true),
             NpcInteractionHandler.ForNpc(
                 "hardhatWorkerSubid00Script",
                 _hardhat.TryInteract),
@@ -124,6 +132,16 @@ internal sealed class NpcInteractionScriptController
         rooms.RoomChanged += OnRoomChanged;
         entities.RoomEntitiesLoaded += (_, _) =>
         {
+            _farore?.Cancel();
+            _farore = null;
+            foreach (FaroreRoomEntity slot in entities.EntityAdapters<FaroreRoomEntity>())
+            {
+                _farore = new FaroreScriptHost(slot.Npc, _faroreData,
+                    rooms, entities, dialogue, inventory, treasures,
+                    callback => OpenFaroreSecretMenu?.Invoke(callback) == true,
+                    redrawRoom);
+                slot.Script = _farore;
+            }
             foreach (FamilyNpcScriptHost host in _familyHosts) host.Cancel();
             _familyHosts.Clear();
             foreach (FamilyNpcRoomEntity slot in entities.EntityAdapters<FamilyNpcRoomEntity>())
@@ -209,6 +227,7 @@ internal sealed class NpcInteractionScriptController
                 if (host.BlocksGameplay) return true;
             foreach (var host in _familyHosts)
                 if (host.BlocksGameplay) return true;
+            if (_farore?.BlocksGameplay == true) return true;
             return false;
         }
     }
@@ -231,6 +250,7 @@ internal sealed class NpcInteractionScriptController
             foreach (var host in _patrollers) host.SetTraceSink(value);
             foreach (var host in _tokays) host.SetTraceSink(value);
             foreach (var host in _familyHosts) host.SetTraceSink(value);
+            _farore?.SetTraceSink(value);
         }
     }
 
@@ -247,6 +267,8 @@ internal sealed class NpcInteractionScriptController
 
     private void OnRoomChanged(int group, OracleRoomData room)
     {
+        _farore?.Cancel();
+        _farore = null;
         foreach (FamilyNpcScriptHost host in _familyHosts) host.Cancel();
         _familyHosts.Clear();
         foreach(var host in _dimitriRescue)host.Cancel();_dimitriRescue.Clear();
