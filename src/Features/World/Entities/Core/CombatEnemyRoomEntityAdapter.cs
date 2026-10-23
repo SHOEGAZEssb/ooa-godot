@@ -298,7 +298,35 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         Entity.Swallow();
         return true;
     }
-    public virtual void HandleLinkContact(Player player)
+    protected void HandleNativeLinkContact(Player player, int damageQuarters)
+    {
+        if (GaleCaught || Entity.NativeHitPending || !Entity.CollisionEnabled || !player.EnemyContactHeightOverlaps(CollisionZ)) return;
+        if (player.IsUsingShield && RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, player.ShieldCollisionBounds))
+        {
+            int before = Entity.InvincibilityCounter;
+            HandleLinkContactCore(player);
+            if (before != Entity.InvincibilityCounter) Entity.DeferNativeHitStatus();
+            return;
+        }
+        if (!Stunned && player.OverlapsEnemyCollision(Entity.CollisionBounds, CollisionZ) &&
+            player.ApplyEnemyContactDamage(Entity.Position, damageQuarters)) OnNativeLinkHit();
+    }
+    protected virtual void OnNativeLinkHit() => Entity.DeferNativeHitStatus();
+
+    protected bool ApplyNativeItemCollision(RoomEntityItemCollision collision, Rect2 bounds, Vector2 origin,
+        int damage, ICollection<RoomEntitySpawn> spawns,
+        IReadOnlyList<EnemyBehaviorValue> activeCollisions, IReadOnlyList<EnemyBehaviorValue> effects)
+    {
+        if (!NativeCollisionEligible((int)collision, bounds, activeCollisions, Entity.NativeHitPending)) return false;
+        int effect = effects[(int)collision].Value;
+        if (effect is CollisionEffect.None or CollisionEffect.Effect20) return true;
+        var strength = CollisionKnockback((int)collision, effect);
+        return ApplySwordHit(bounds, origin, damage, strength, spawns);
+    }
+
+    public virtual void HandleLinkContact(Player player) => HandleLinkContactCore(player);
+
+    private void HandleLinkContactCore(Player player)
     {
         if (!player.EnemyContactHeightOverlaps(CollisionZ))
             return;

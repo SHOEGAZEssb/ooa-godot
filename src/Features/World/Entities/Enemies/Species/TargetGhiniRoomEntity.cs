@@ -34,19 +34,7 @@ internal sealed class TargetGhiniRoomEntity : CombatEnemyRoomEntityAdapter<Targe
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     { Entity.PrepareForScreenTransition(); return ScreenTransitionPresentation.Visible; }
 
-    public override void HandleLinkContact(Player player)
-    {
-        if (GaleCaught || Entity.NativeHitPending || !Entity.CollisionEnabled || !player.EnemyContactHeightOverlaps(CollisionZ)) return;
-        if (player.IsUsingShield && RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, player.ShieldCollisionBounds))
-        {
-            int before = Entity.InvincibilityCounter;
-            base.HandleLinkContact(player);
-            if (before != Entity.InvincibilityCounter) Entity.DeferNativeHitStatus();
-            return;
-        }
-        if (!Stunned && player.OverlapsEnemyCollision(Entity.CollisionBounds, CollisionZ) &&
-            player.ApplyEnemyContactDamage(Entity.Position, Entity.Record.DamageQuarters)) Entity.MarkLinkHit();
-    }
+    public override void HandleLinkContact(Player player) => HandleNativeLinkContact(player, Entity.Record.DamageQuarters);
     public override bool ApplySwordHit(Rect2 bounds, Vector2 origin, int damage,
         EnemyKnockbackStrength strength, ICollection<RoomEntitySpawn> spawns) =>
         !GaleCaught && !Entity.NativeHitPending && base.ApplySwordHit(bounds, origin, damage, strength, spawns);
@@ -55,14 +43,8 @@ internal sealed class TargetGhiniRoomEntity : CombatEnemyRoomEntityAdapter<Targe
     protected override void BeginSeedStatus(bool ember, int damage) => Entity.BeginSeedStatus(ember, damage);
     protected override bool SeedStatusAcceptsStrongKnockback => true;
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 bounds, Vector2 origin,
-        int damage, ICollection<RoomEntitySpawn> spawns)
-    {
-        if (!Eligible((int)collision, bounds)) return false;
-        int effect = _data.Effects[(int)collision].Value;
-        if (effect is CollisionEffect.None or CollisionEffect.Effect20) return true;
-        var strength = CollisionKnockback((int)collision, effect);
-        return ApplySwordHit(bounds, origin, damage, strength, spawns);
-    }
+        int damage, ICollection<RoomEntitySpawn> spawns) =>
+        ApplyNativeItemCollision(collision, bounds, origin, damage, spawns, _data.ActiveCollisions, _data.Effects);
     protected override bool TryApplySwitchHookEffect(int effect, SwitchHookItem hook, Vector2 linkPosition)
     {
         if (effect != CollisionEffect.SwordLowKnockback || Entity.NativeHitPending ||
