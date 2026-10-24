@@ -45,7 +45,7 @@ rather than a separate inventory of all combat and item behavior.
 | Distinct literal object-data ID/subid pairs | 740 |
 | Room-specific code bindings | 14 |
 | Room-specific tile-change bindings | 58 |
-| Open implementation checklist items | 3 |
+| Open implementation checklist items | 2 |
 
 These inventories overlap. A cutscene can create several interaction IDs;
 a checklist item can affect several dispatch entries. Do not sum their counts.
@@ -112,7 +112,7 @@ Visual-only import or a directly stepped helper does not close an item.
 
 ### Linked-game entry flows
 
-- [ ] **MENU-01** — New-file Secrets option: Game-transfer / Hero's Secret file creation through the actual file menu.
+- [x] **MENU-01** — New-file Secrets option: Game-transfer / Hero's Secret file creation through the actual file menu.
 - [ ] **MENU-02** — New-file Game Link option: Cable-based linked-file creation through the actual file menu.
 
 ## Interaction dispatch inventory
