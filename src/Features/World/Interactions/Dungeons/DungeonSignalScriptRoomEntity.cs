@@ -44,7 +44,7 @@ internal sealed partial class DungeonSignalScriptRoomEntity(DungeonSignalScriptP
         }
         if (deathTriggered || scriptSuspended()) return;
         if (_scriptStopped) { Finished=true; return; }
-        if (profile.Kind == DungeonSignalScriptKind.Bridge)
+        if (profile.Kind is DungeonSignalScriptKind.Bridge or DungeonSignalScriptKind.TriggerBridge)
         {
             if (!_flagChecked)
             {
@@ -53,7 +53,9 @@ internal sealed partial class DungeonSignalScriptRoomEntity(DungeonSignalScriptP
             }
             // checkflagset advances with carry set, so ASM15 and scriptend
             // execute in the SAME eligible update, unlike checkmemoryeq.
-            if ((runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress)&profile.TestMask) != profile.TestMask) return;
+            int signal = profile.Kind == DungeonSignalScriptKind.TriggerBridge ? triggers()
+                : runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress);
+            if ((signal & profile.TestMask) != profile.TestMask) return;
             setRoomFlag(); sound(SoundId.SndSolvePuzzle);
             _=createBridge(new(profile.Position,profile.HalfSteps,profile.Angle));
             _scriptStopped=true; Finished=!initializing;

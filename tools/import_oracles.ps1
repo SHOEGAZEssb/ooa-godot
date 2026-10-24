@@ -306,6 +306,7 @@ $stageContracts = @(
         -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'ancient-tomb' 'Import-AncientTomb.ps1' `
         -inputs @('allTexts', 'allTextPositions')
+    New-ImportStageContract 'heros-cave' 'Import-HerosCave.ps1'
     New-ImportStageContract 'octogon-effects' 'Import-OctogonEffects.ps1' `
         -inputs @('gfxNames','interactionGraphics') `
         -functionInputs @('Resolve-NpcAnimation','Copy-EnemySprite','Get-EnemySpriteSourceGrayscaleInverted')

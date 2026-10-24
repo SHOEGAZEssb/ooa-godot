@@ -8,7 +8,7 @@ namespace oracleofages;
 internal sealed class MinibossPortalRoomEntity :
     RoomEntityAdapter<MinibossPortal>, IFixedRoomEntity, IRoomEntityLifetime,
     IScreenTransitionPreloadRoomEntity, IPlayerRestriction, IUpdatesDuringDialogueRoomEntity,
-    IUpdatesDuringRoomEntityFreeze
+    IUpdatesDuringRoomEntityFreeze, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
 
     private readonly PlacementRecord _placement;
@@ -16,9 +16,13 @@ internal sealed class MinibossPortalRoomEntity :
     private readonly OracleSaveData? _save;
     private readonly Action<Warp> _warpRequested;
     private readonly Action<int> _soundRequested;
+    private readonly Func<IRoomEntity, bool> _isOutgoing;
     private PortalState _state;
     private int _counter;
     private Player? _controlledPlayer;
+    private readonly Warp? _caveWarp;
+    private readonly bool _requiresItem;
+    private readonly OracleRuntimeState? _caveRuntime;
 
     internal MinibossPortalRoomEntity(
         MinibossPortal portal,
@@ -26,7 +30,10 @@ internal sealed class MinibossPortalRoomEntity :
         DungeonEntranceInteractionDatabase data,
         OracleSaveData? save,
         Action<Warp> warpRequested,
-        Action<int> soundRequested)
+        Action<int> soundRequested,
+        Func<IRoomEntity, bool> isOutgoing,
+        Warp? caveWarp = null,
+        OracleRuntimeState? caveRuntime = null)
         : base(portal, portal.SetTransitionDrawOffset)
     {
         _placement = placement;
@@ -34,6 +41,10 @@ internal sealed class MinibossPortalRoomEntity :
         _save = save;
         _warpRequested = warpRequested;
         _soundRequested = soundRequested;
+        _isOutgoing = isOutgoing;
+        _caveWarp = caveWarp;
+        _requiresItem = (placement.X & 0x80) != 0;
+        _caveRuntime = caveRuntime;
         portal.TreeExiting += ReleaseControl;
     }
 
@@ -77,7 +88,7 @@ internal sealed class MinibossPortalRoomEntity :
             return;
         }
 
-        frame.Player.CopyPortalPosition(Entity.Position);
+        if (_caveWarp is null) frame.Player.CopyPortalPosition(Entity.Position);
         frame.Player.ResetPortalDamageState();
         if (frame.Player.IsDying) return;
         if ((frame.Counter & 0x03) == 0)
@@ -86,6 +97,12 @@ internal sealed class MinibossPortalRoomEntity :
         if (_counter != 0)
             return;
 
+        if (_caveWarp is { } caveWarp)
+        {
+            _state = PortalState.WarpRequested;
+            _warpRequested(caveWarp);
+            return;
+        }
         PortalPair destination =
             _data.PortalPairFor(_placement.Dungeon);
         int destinationRoom = _placement.Room == destination.MinibossRoom
@@ -114,13 +131,23 @@ internal sealed class MinibossPortalRoomEntity :
             ? ScreenTransitionPresentation.Visible
             : ScreenTransitionPresentation.Hidden;
 
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
+    {
+        // interactionDeleteAndRetIfEnabled02 deletes only outgoing slots;
+        // incoming portals waiting for ROOMFLAG_ITEM remain in state $00.
+        if (_caveWarp is not null && _state == PortalState.Initialize && _isOutgoing(this)) Finished = true;
+    }
+
     private bool PreparePresentation()
     {
         if (Finished)
             return false;
-        PortalPair pair = _data.PortalPairFor(_placement.Dungeon);
-        if (_save?.HasRoomFlag(
-                _placement.Group, pair.MinibossRoom,
+        if (_caveWarp is not null)
+        {
+            if (_requiresItem && _save?.HasRoomFlag(_placement.Group, _placement.Room, OracleSaveData.RoomFlagItem) != true)
+                return false;
+        }
+        else if (_save?.HasRoomFlag(_placement.Group, _data.PortalPairFor(_placement.Dungeon).MinibossRoom,
                 OracleSaveData.RoomFlag80) != true)
         {
             Finished = true;
@@ -140,6 +167,7 @@ internal sealed class MinibossPortalRoomEntity :
         _controlledPlayer = player;
         _state = PortalState.Spinning;
         _counter = _data.PortalSpinUpdates;
+        _caveRuntime?.SetWramByte(WramAddress.wDisabledObjects, 1);
         _soundRequested(_data.PortalSound);
     }
 
@@ -152,6 +180,8 @@ internal sealed class MinibossPortalRoomEntity :
         {
             _controlledPlayer.SetScriptedLinkAnimationMode(null);
             _controlledPlayer.EndCutsceneControl(this);
+            if (_caveRuntime?.ReadWramByte(WramAddress.wDisabledObjects) == 1)
+                _caveRuntime.SetWramByte(WramAddress.wDisabledObjects, 0);
         }
         _controlledPlayer = null;
     }

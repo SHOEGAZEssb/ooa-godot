@@ -1266,6 +1266,11 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateTokayIslandEnemies);
         RunIsolatedValidation(ValidateArrowMoblins);
         RunIsolatedValidation(ValidateCrownDungeonArrowMoblins);
+        RunIsolatedValidation(ValidateHerosCavePuzzles);
+        RunIsolatedValidation(ValidateHerosCaveSignals);
+        RunIsolatedValidation(ValidateHerosCavePortals);
+        RunIsolatedValidation(ValidateHerosCavePortalScroll);
+        RunIsolatedValidation(ValidateHerosCaveRewards);
         RunIsolatedValidation(ValidateCrownDungeonBeamosSourceData);
         RunIsolatedValidation(ValidateCrownDungeonBeamosTiming);
         RunIsolatedValidation(ValidateCrownDungeonBeamosBeam);

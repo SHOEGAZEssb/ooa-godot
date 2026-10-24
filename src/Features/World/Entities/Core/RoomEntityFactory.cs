@@ -532,6 +532,8 @@ internal sealed class RoomEntityFactory
             {
                 var record = laterDungeonRecords[laterDungeonIndex++];
                 if (!DungeonObjectConditionMet(record)) continue;
+                if (record.Kind is DungeonObjectKind.CavePortal or DungeonObjectKind.CavePuzzle or DungeonObjectKind.Lever or DungeonObjectKind.LeverLavaFiller && !owner.InteractionSlotAvailable)
+                    continue;
                 if (record.Kind == DungeonObjectKind.Twinrova)
                 {
                     foreach (var entity in ParseRandomEnemies(Resources.Twinrova.EntrySource(record), room, placementContext, reservations)) yield return entity;
@@ -572,6 +574,13 @@ internal sealed class RoomEntityFactory
                 }
                 yield return record.Kind switch
                 {
+                    DungeonObjectKind.CavePortal => CreateHerosCavePortal(record),
+                    DungeonObjectKind.CavePuzzle => new HerosCavePuzzleRoomEntity(record, Resources.HerosCave,
+                        owner, _saveData!, _runtimeState, skullDungeonPuzzle, (position, tile) => {
+                            if (rooms!.TrySetTile(position, tile)) owner.OnRoomTileChanged();
+                        }, record.SubId == 0x18 ? CreateFallingSmallKeyRequest(record)
+                            : new GroundTreasureGrantRequest(record.Group, record.Room, record.Order, record.Y, record.X,
+                                "TREASURE_OBJECT_RUPEES_16", record.Source) { SpawnMode = TreasureSpawnMode.Instant }),
                     DungeonObjectKind.Zelda => owner.RoomOfRitesZeldaFactory?.Invoke(NpcDatabase.Shared.AllRecords.Single(n =>
                         n.Group == record.Group && n.Room == record.Room && n.Id == record.Id && n.SubId == record.SubId &&
                         n.X == record.X && n.Y == record.Y)) ??
@@ -664,7 +673,8 @@ internal sealed class RoomEntityFactory
                         () => Resources.ChestPatterns.Matches(record.Id,record.SubId,room),DungeonChestItemFlagSet,Resources.DungeonMechanics.ChestTile,
                         owner.OnSoundRequested,owner.OnRoomTileChanged,_animationTick,owner.TryCreatePuzzlePuff,owner.IsOutgoingEntity,() => WriteDungeonChest(record)),
                     DungeonObjectKind.TriggerChestScript => new DungeonTriggerChestScriptRoomEntity(
-                        record.Position,_runtimeState,Resources.CrownDungeon.TriggerChestValue,Resources.CrownDungeon.TriggerChestWait,
+                        record.Position,_runtimeState,record.SubId == 1 ? 0x0f : Resources.CrownDungeon.TriggerChestValue,
+                        record.SubId == 1 ? Resources.HerosCave.Constant("chest-wait") : Resources.CrownDungeon.TriggerChestWait,
                         () => owner.ActiveTriggers,() => _saveData?.HasRoomFlag(record.Group,record.Room,OracleSaveData.RoomFlagItem) == true,
                         owner.IsScriptTextActive,owner.OnSoundRequested,() => WriteDungeonChest(record)),
                     DungeonObjectKind.SeedShooterEyeStatue => new SeedShooterEyeStatueRoomEntity(
@@ -1626,7 +1636,11 @@ internal sealed class RoomEntityFactory
     private DungeonTileScriptRoomEntity CreateDungeonTileScript(DungeonObjectRecord record, LightableTorchState? torches)
     {
         if (rooms is null || _saveData is null) throw new InvalidOperationException($"{record.Source}: tile script requires room/save owners.");
-        var profile = Resources.AncientTomb.Script(record.SubId);
+        var profile = rooms.World.GetDungeonIndex(record.Group, record.Room) is 9 or 10 or 11 && record.SubId == 3
+            ? new DungeonTileScriptProfile(DungeonTileScriptKind.NorthEnemyStairs, 0,
+                (byte)Resources.HerosCave.Constant("north-stairs"), OracleSaveData.RoomFlagItem, 0,
+                "scripts/ages/dungeonScripts.s:herosCaveScript_spawnNorthStairsWhenEnemiesKilled")
+            : Resources.AncientTomb.Script(record.SubId);
         return new(record, profile, _runtimeState, () => owner.ActiveTriggers, () => torches?.LitCount ?? 0,
             () => owner.RoomEnemyCount, () => owner.ActiveRoomHasFlag(_saveData, profile.Flag),
             () => _saveData.SetRoomFlag(owner.ActiveRoom.Group, owner.ActiveRoom.Id, profile.Flag),
@@ -2747,6 +2761,21 @@ internal sealed class RoomEntityFactory
         $"Room {record.Group:x1}:{record.Room:x2} ${record.Id:x2}:" +
         $"${record.SubId:x2} is missing its room-local torch state.");
 
+    private IRoomEntity CreateHerosCavePortal(DungeonObjectRecord record)
+    {
+        var destination = Resources.HerosCave.Portal(record.X & 15);
+        var portal = new MinibossPortal();
+        portal.Initialize(Resources.DungeonEntrances);
+        portal.Position = PointForPackedPosition(record.Y);
+        var placement = new PlacementRecord(record.Group, record.Room, record.Order,
+            DungeonEntranceInteractionDatabaseObjectKind.MinibossPortal, record.Id, record.SubId,
+            record.Y, record.X, 0x0b, record.Source);
+        return new MinibossPortalRoomEntity(portal, placement, Resources.DungeonEntrances, _saveData,
+            owner.OnRoomWarpRequested, owner.OnSoundRequested, owner.IsOutgoingEntity,
+            new Warp(record.Group, record.Room, record.Y, 0, 3, 4, destination.Room,
+                destination.Position, 0, 0, DirectFadeOut: true), _runtimeState);
+    }
+
     private IRoomEntity CreateSharedDungeonInteraction(
         PlacementRecord record,
         OracleRoomData room,
@@ -2776,7 +2805,7 @@ internal sealed class RoomEntityFactory
                 portal.Initialize(Resources.DungeonEntrances);
                 return new MinibossPortalRoomEntity(
                     portal, record, Resources.DungeonEntrances, _saveData,
-                    owner.OnRoomWarpRequested, owner.OnSoundRequested);
+                    owner.OnRoomWarpRequested, owner.OnSoundRequested, owner.IsOutgoingEntity);
 
             default:
                 throw new InvalidOperationException(

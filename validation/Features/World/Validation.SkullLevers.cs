@@ -18,7 +18,9 @@ public sealed partial class ValidationRoot
             (Room: 0x84, Subid: 1, X: 0xc8, Y: 0xa0, Sign: -1, Interval: 6, Source: 0x86, SourceCount: 5,
                 Groups: "77,78,79/7a,69,68,67,66,76/6a,65,75/64,74/84,85/94,95/83,93/82,92/81,91/71,72/61,62/51,52/41,42/31,32/21,22/11,12/13,23/14,24/34/44/35,45/36/46/47,26/16,27,48/28,38,49/29,39"),
             (Room: 0x7f, Subid: 2, X: 0xa8, Y: 0x10, Sign: 1, Interval: 6, Source: 0x27, SourceCount: 3,
-                Groups: "37,38,39/47,48,49/58,59/68/67/77/87/96/85/75/55,64/56/73,45/83,35/25/92,15/81/71/61/51/42/33/13,22/21") };
+                Groups: "37,38,39/47,48,49/58,59/68/67/77/87/96/85/75/55,64/56/73,45/83,35/25/92,15/81/71/61/51/42/33/13,22/21"),
+            (Room: 0xc2, Subid: 5, X: 0x98, Y: 0x10, Sign: 1, Interval: 6, Source: 0x16, SourceCount: 3,
+                Groups: "26,28,27/25/35/34/44,54,43/42,64/52,74/84/93,94,95/92,96/82,91,97/81,87/77,88/78,89/8a/7a,8b/6a,7b,8c/5a,8d,9c/5b,9d/5c/4c,5d,6c/6d/3c/3d/2b,2d/1b,1d") };
         var placements = new SkullDungeonDatabase();
         var scripts = new LeverLavaDatabase();
         var profiles = new LeverDatabase();
@@ -31,10 +33,12 @@ public sealed partial class ValidationRoot
         {
             byte[][] groups = c.Groups.Split('/').Select(group => group.Split(',').Select(value => Convert.ToByte(value, 16)).ToArray()).ToArray();
             byte[] expectedScript = groups.SelectMany(group => group.Append((byte)0)).Append((byte)0).ToArray();
-            var records = placements.GetRoomRecords(4, c.Room);
+            var records = c.Room == 0xc2 ? new HerosCaveDatabase().GetRoomRecords(4, c.Room)
+                .Where(record => record.Kind is DungeonObjectKind.Lever or DungeonObjectKind.LeverLavaFiller).ToArray()
+                : placements.GetRoomRecords(4, c.Room);
             FailIf(records.Count != 2 || records[0].Id != 0x61 || records[0].SubId != (c.Sign > 0 ? 0x30 : 0x31) ||
                 records[0].X != c.X || records[0].Y != c.Y || records[0].Order != 0 ||
-                records[1].Id != 0xd8 || records[1].SubId != c.Subid || records[1].Order != 1 ||
+                records[1].Id != 0xd8 || records[1].SubId != c.Subid || records[1].Order != (c.Room == 0xc2 ? 6 : 1) ||
                 !scripts.Script(c.Subid).Bytes.SequenceEqual(expectedScript) || scripts.Script(c.Subid).Interval != c.Interval,
                 $"4:{c.Room:x2} lost native lever/lava order, coordinates, script bytes, duplicate positions, or group boundaries.");
             var profile = profiles.Profile(records[0].SubId);

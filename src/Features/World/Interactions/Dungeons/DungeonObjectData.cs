@@ -48,6 +48,8 @@ internal enum DungeonObjectCondition
 
 internal enum DungeonObjectKind
 {
+    CavePortal,
+    CavePuzzle,
     Twinrova,
     TwinrovaFlame,
     ZeldaApproach,

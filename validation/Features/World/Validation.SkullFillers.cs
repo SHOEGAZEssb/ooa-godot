@@ -8,9 +8,9 @@ public sealed partial class ValidationRoot
     private void ValidateSkullDungeonFillers()
     {
         var data = new SkullDungeonDatabase();
-        foreach (var (room, y, x, cy, cx) in new[] { (0x6f, 0x58, 0xd8, 0x68, 0x78), (0x87, 0x98, 0x28, 0x68, 0x58) })
+        foreach (var (room, y, x, cy, cx) in new[] { (0x6f, 0x58, 0xd8, 0x68, 0x78), (0x87, 0x98, 0x28, 0x68, 0x58), (0xc8, 0x58, 0xd8, 0x48, 0x78) })
         {
-            var records = data.GetRoomRecords(4, room);
+            var records = room == 0xc8 ? new HerosCaveDatabase().GetRoomRecords(4, room) : data.GetRoomRecords(4, room);
             FailIf(records.Count != 2 || records[0] is not { Order: 0, Id: InteractionId.TileFiller, SubId: 0 } || records[0].X != x || records[0].Y != y ||
                 records[1] is not { Order: 1, Id: InteractionId.DungeonEvents, SubId: 0x11, Predicate: DungeonObjectCondition.Always } || records[1].X != cx || records[1].Y != cy,
                 $"4:${room:x2} lost source tile-filler/chest placements or order.");
@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
         CompareTileFillerRom();
         CompareTileFillerAllocationRom();
         static Vector2 Point(int packed) => new((packed & 15)*16+8, (packed >> 4)*16+8);
-        foreach (var (room, count, chest) in new[] { (0x6f, 105, 0x67), (0x87, 54, 0x65) })
+        foreach (var (room, count, chest) in new[] { (0x6f, 105, 0x67), (0x87, 54, 0x65), (0xc8, 112, 0x47) })
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, room);
             FailIf(_currentRoom.Layout.Count(tile => tile == 0x9f) != count,

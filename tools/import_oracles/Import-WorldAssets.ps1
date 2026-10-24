@@ -295,6 +295,11 @@ Add-RoomTileChangeRule 'tileReplacement_group4Map1b' `
 # Current-room flag changes.
 Add-RoomTileChangeRule 'tileReplacement_group4Mapc9' 'current_room_set:40' `
     'fill:27:01:04:6d'
+if ($roomTileChangeSource -notmatch '(?ms)^tileReplacement_group4Mapc7:\s*ld hl,wSwitchState\s*bit 0,\(hl\)\s*ret nz\s*ld hl,wRoomLayout \+ \$27\s*ld a,\$6d\s*call set4Bytes\s*ld a,\$f4\s*ld l,\$3d\s*ld \(hl\),a\s*ld l,\$4d\s*ld \(hl\),a\s*ld l,\$5d\s*ld \(hl\),a\s*ld l,\$6d\s*ld \(hl\),a\s*ret') {
+    throw 'tileReplacement_group4Mapc7: Hero''s Cave switch bit0/bridge layout changed.'
+}
+Add-RoomTileChangeRule 'tileReplacement_group4Mapc7' 'runtime_mask_eq:cdd3:01:00' `
+    'fill:27:01:04:6d|set:3d:f4,4d:f4,5d:f4,6d:f4'
 # replaceTiles source pairs are new/old; generated operations are old/new.
 foreach ($torchRoom in @('tileReplacement_group4Map59','tileReplacement_group5Map43')) {
     $torchBody = [regex]::Match($roomTileChangeSource,"(?ms)^${torchRoom}:(?<body>.*?)(?=^tileReplacement_|\z)").Groups['body'].Value
@@ -690,8 +695,8 @@ foreach ($block in $flagTileChangeBlocks) {
         throw "Flag-backed room tile-change routine $label was not imported."
     }
 }
-if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 49) {
-    throw "Expected 34 flag-backed and 49 total supported tile-change routines; " +
+if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 50) {
+    throw "Expected 34 flag-backed and 50 total supported tile-change routines; " +
         "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
 }
 $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'

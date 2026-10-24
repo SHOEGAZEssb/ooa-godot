@@ -60,6 +60,12 @@ internal sealed partial class DungeonTileScriptRoomEntity : Node2D,
         }
         switch (_profile.Kind)
         {
+            case DungeonTileScriptKind.NorthEnemyStairs:
+                if (Step == 1) { if (_enemies() == 0) Step = 2; return; }
+                // checknoenemies yields. settilehere returns carry set,
+                // so playsound runs with the tile; scriptend follows later.
+                if (Step == 2) { _tile(_profile.Tile); _sound(SoundId.SndSolvePuzzle); Step = 3; return; }
+                break;
             case DungeonTileScriptKind.TriggerStairs:
                 if (Step == 1) { if (_triggers() == _profile.GateValue) Step = 2; return; }
                 if (Step == 2) { _tile(_profile.Tile); _complete(); Step = 3; return; }
@@ -103,6 +109,6 @@ internal sealed partial class DungeonTileScriptRoomEntity : Node2D,
     public void SetTransitionDrawOffset(Vector2 offset) { }
 }
 
-internal enum DungeonTileScriptKind { TriggerStairs, WallRetraction, EnemyStairs, TorchBridge }
+internal enum DungeonTileScriptKind { TriggerStairs, WallRetraction, EnemyStairs, NorthEnemyStairs, TorchBridge }
 internal readonly record struct DungeonTileScriptProfile(DungeonTileScriptKind Kind, int GateValue,
     byte Tile, byte Flag, int Wait, string Source);
