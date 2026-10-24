@@ -33,15 +33,22 @@ public sealed partial class ValidationRoot
                 _runtimeState.ReadWramByte(0xcc0a) != 0x8f || impa.FakeOctoroks.Count != 3 ||
                 impa.FakeOctoroks[0].Visible || !impa.Actor.Visible,
                 "Resuming Impa must install Link's override before yielding for the first fake Octorok.");
+            AssertOctorokProjection(new Vector2(0, -128));
             StepGameplayUpdates(1, Vector2.Right, batched: batched);
             FailIf(impa.ObjectUpdateSuspended || _saveData.ReadWramByte(0xc622) != objectTime ||
                 _runtimeState.ReadWramByte(0xcc0c) != 0 ||
                 !impa.FakeOctoroks[0].Visible || !impa.FakeOctoroks[1].Visible || !impa.FakeOctoroks[2].Visible,
                 "Shared fake Octorok graphics were loaded repeatedly or advanced the main thread.");
+            AssertOctorokProjection(new Vector2(0, -128));
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
             FailIf(_saveData.ReadWramByte(0xc622) != unchecked((byte)(objectTime + 2)) ||
                 impa.Counter != 0x76 || !_transitions.ScrollActive,
                 "Link's $78 counter must decrement in its first update and continue during scrolling.");
+            for (int limit = 0; _transitions.ScrollActive && limit < 80; limit += 4)
+                StepGameplayUpdates(4, Vector2.Zero, batched: batched,
+                    afterUpdate: () => AssertOctorokProjection(impa.Actor!.TransitionDrawOffset));
+            FailIf(_transitions.IsTransitioning, "Impa $31:$00 entry scroll did not finish.");
+            AssertOctorokProjection(Vector2.Zero);
 
             // Cancel a suspended load, then return. Native graphics residency
             // survives room placement; a cached header must not yield again.
@@ -61,6 +68,22 @@ public sealed partial class ValidationRoot
                 "Returning to a cached Impa header did not proceed directly to the missing Octorok header.");
             StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             FailIf(impa.ObjectUpdateSuspended, "The cached return retained a redundant graphics continuation.");
+            AssertOctorokProjection(new Vector2(0, -128));
+
+            void AssertOctorokProjection(Vector2 expectedOffset)
+            {
+                // bank0.s:_getObjectPositionOnScreen_duringScreenTransition
+                // applies the incoming projection on the first draw, including
+                // slots born after placement and during a graphics continuation.
+                Vector2[] positions = [new(0x48, 0x18), new(0x38, 0x38), new(0x58, 0x38)];
+                for (int index = 0; index < 3; index++)
+                {
+                    NpcCharacter actor = impa.FakeOctoroks[index];
+                    FailIf(actor.Position != positions[index] || actor.TransitionDrawOffset != expectedOffset,
+                        $"Room $00:$6a fake Octorok $32:$00/{index}: position={actor.Position}, " +
+                        $"draw offset={actor.TransitionDrawOffset}, expected {positions[index]} + {expectedOffset}.");
+                }
+            }
 
             void EnterRoom()
             {
@@ -73,6 +96,6 @@ public sealed partial class ValidationRoot
                     $"Link={_player.Position}, controlled={_player.NativeCutsceneControlled}, fakes={impa.FakeOctoroks.Count}.");
             }
         }
-        GD.Print("Validated Impa graphics continuations, shared header reuse, playtime, cancellation and batched updates.");
+        GD.Print("Validated Impa graphics continuations, Octorok scroll projection, shared header reuse, playtime, cancellation and batched updates.");
     }
 }

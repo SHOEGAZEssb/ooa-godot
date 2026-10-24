@@ -379,6 +379,7 @@ public sealed class RoomEntityManager : IDisposable
     private Warp? _pendingRoomWarp;
     private OracleRoomData _roomForActiveEntities = null!;
     private bool _screenTransitionActive;
+    private Vector2 _incomingTransitionDrawOffset;
     private double _enemyFrameAccumulator;
     private double _screenTransitionFrameAccumulator;
     private int _enemyFrameCounter;
@@ -986,6 +987,7 @@ public sealed class RoomEntityManager : IDisposable
         // or clearObjectsWithEnabled2 at scroll completion. Incoming objects
         // allocate from these same pools, including any holes already freed.
         _screenTransitionActive = true;
+        _incomingTransitionDrawOffset = incomingOffset;
         _screenTransitionFrameAccumulator = 0.0;
         _roomForActiveEntities = room;
         AddRoomEntities(group, room, placementContext);
@@ -997,6 +999,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         if (!_screenTransitionActive)
             return;
+        _incomingTransitionDrawOffset = incomingOffset;
         ReservedPushBlock?.SetScreenTransitionOffset(outgoingOffset);
         foreach (IRoomEntity entity in _outgoingEntities)
             entity.SetTransitionDrawOffset(outgoingOffset);
@@ -1032,6 +1035,7 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _activeEntities)
             entity.SetTransitionDrawOffset(Vector2.Zero);
         _screenTransitionActive = false;
+        _incomingTransitionDrawOffset = Vector2.Zero;
         _reservedEnemySlots.ExceptWith(_unownedOutgoingEnemySlots);
         _unownedOutgoingEnemySlots.Clear();
         _screenTransitionFrameAccumulator = 0.0;
@@ -2368,6 +2372,7 @@ public sealed class RoomEntityManager : IDisposable
         _pendingSpawns.Clear();
         _pendingRoomWarp = null;
         _screenTransitionActive = false;
+        _incomingTransitionDrawOffset = Vector2.Zero;
         _enemyFrameAccumulator = 0.0;
         _screenTransitionFrameAccumulator = 0.0;
         _screenShakeCounter = 0;
@@ -2844,6 +2849,12 @@ public sealed class RoomEntityManager : IDisposable
                 () => NativeDrawOrder(entity) ?? 0, () => _screenTransitionActive, RuntimeState);
         }
         _activeEntities.Add(entity);
+        // bank0.s:_getObjectPositionOnScreen_duringScreenTransition applies
+        // the incoming projection on every draw, including newly created slots.
+        // State-0 children can be shown while scrolling is still in setup or
+        // suspended for graphics, before the next offset publication.
+        if (_screenTransitionActive)
+            entity.SetTransitionDrawOffset(_incomingTransitionDrawOffset);
         // The source collision pass scans objects created during the earlier
         // enemy/part passes too. Retain the weapon request for these targets.
         if (_postObjectMeleeHitFactory?.Invoke(entity) is { } melee)
