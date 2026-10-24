@@ -8,6 +8,13 @@ public partial class RoomView : Node2D
     private bool _nativeTilemap;
     private int _nativeScrollY;
     private Vector2 _nativeBackgroundOffset;
+    private Vector2 _nativePresentationOffset;
+    internal void SetNativeFullScreenPresentation(bool fullScreen)
+    {
+        Vector2 offset=fullScreen?new(0,-OracleRoomData.GameplayScreenTop):Vector2.Zero;
+        if(_nativePresentationOffset==offset)return;
+        _nativePresentationOffset=offset;QueueRedraw();
+    }
     internal void SetNativeScrollOffset(Vector2 offset){_nativeBackgroundOffset=-offset;QueueRedraw();}
     internal void SetNativeScrollY(int value){_nativeScrollY=value&255;QueueRedraw();}
     private Texture2D? _previous;
@@ -205,7 +212,7 @@ public partial class RoomView : Node2D
             else if (_underwaterWaveActive && _underwaterBackground is not null)
                 DrawWavedTexture(_underwaterBackground, 0x02, _underwaterWavePhase);
             else
-                DrawTexture(_current, _nativeBackgroundOffset);
+                DrawTexture(_current, _nativeBackgroundOffset+_nativePresentationOffset);
             DrawBackgroundFade();
             return;
         }
@@ -244,7 +251,8 @@ public partial class RoomView : Node2D
         if (_backgroundFade.A <= 0.0f || _current is null)
             return;
         DrawRect(
-            new Rect2(Vector2.Zero, new Vector2(_current.GetWidth(), _current.GetHeight())),
+            new Rect2(_nativePresentationOffset, new Vector2(_current.GetWidth(),
+                Mathf.Max(_current.GetHeight(), OracleRoomData.ViewportHeight - _nativePresentationOffset.Y))),
             _backgroundFade);
     }
 

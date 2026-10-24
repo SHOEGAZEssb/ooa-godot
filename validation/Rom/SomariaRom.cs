@@ -88,6 +88,16 @@ internal sealed class SomariaRom
     }
     internal void AdvanceScreenShake() => _rom.Call(0x427d,1); // Original post-object Y/X shake and RNG draws.
     internal void AdvanceCameraPosition() => _rom.Call(0x4201, 1); // bank1.updateCameraPosition, after objects.
+    internal Godot.Vector2 ObjectSpriteScreenOrigin(int slot)
+    {
+        // Execute the original draw projection. Suppress the independent
+        // terrain-effects publication while querying an actor's screen point.
+        byte visible=this[slot+0x1a];this[slot+0x1a]=(byte)(visible&~0x40);
+        byte[] caller=[0x21,(byte)(slot+11),(byte)(slot>>8),0xcd,0x82,0x0f,0xc9];
+        for(int index=0;index<caller.Length;index++)this[0xc100+index]=caller[index];
+        _rom.Call(0xc100,0);this[slot+0x1a]=visible;
+        return new(this[0xff8d]-8,this[0xff8c]-16);
+    }
     internal void AdvanceNayruRescueWarp() => _rom.Call(0x6785,3); // CUTSCENE$0c @runStates, before objects.
     internal void AdvanceBlackTowerEscapeAttempt()=>_rom.Call(0x7cb7,3); // CUTSCENE$1f, before status bar / objects.
     internal void AdvanceRoomOfRitesCollapse()=>_rom.Call(this[0xcbc1]==0?0x5b76:0x5cc7,3); // CUTSCENE$0f native substate body, before updateAllObjects.

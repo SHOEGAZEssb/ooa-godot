@@ -123,6 +123,8 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
                 context.Hud.HideStatusBar();
                 // blackTowerComplete state2 clears BG palettes and sets LYC/SCY=$00 before the linked gate.
                 context.Hud.SetHiddenStatusBarFade(Colors.Black, 1);
+                context.Transitions.NativeRoomUsesFullScreen = true;
+                context.Hud.Visible = false;
                 context.RoomView.SetBackgroundFade(Colors.Black, 1);
                 context.Player.Visible = false;
                 context.RoomView.SuspendUnderwaterWave(true);
@@ -143,6 +145,7 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
             case 4:
                 if (!Flash(2)) return;
                 Load(5, 0xf1, "linked");
+                context.Transitions.NativeRoomUsesFullScreen = false;
                 context.Hud.ShowStatusBar();
                 // Native playSound retains essence.s state7's wActiveMusic=$00.
                 context.Sound.PlayNativeSound(SoundId.MusDisaster);
@@ -168,6 +171,7 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
             // Gfx-register state $09 uses the tower BG on all 144 lines.
             // The cleared room HUD strip must not cover the panorama.
             context.Hud.Visible = false;
+            context.Transitions.NativeRoomUsesFullScreen = false;
             Write(0xcbb3, _data.Table("tower")[1]);
             Write(0xcbb9, 0);
             context.Transitions.BeginNativeWhiteFade(false);
@@ -343,6 +347,7 @@ internal sealed class PostD7Event(RoomEventContext context, RemoteMakuSeventhEss
         _pendingTower = _pendingStone = false; _scrollY = 0x70; _topLoaded = false;
         SkipsObjectUpdate = false;
         if (!owned) return;
+        context.Transitions.NativeRoomUsesFullScreen = false;
         context.Transitions.CancelNativeWhiteFade();
         _resources.ReleaseFullScreenFade();
         context.Player.Visible = true; context.Hud.ShowStatusBar();

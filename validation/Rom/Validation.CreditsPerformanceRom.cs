@@ -26,6 +26,7 @@ public sealed partial class ValidationRoot
             var screen=_scene.EndingScreen;var sounds=_sound.AttachPlayRequestAudit();int update=0,maxNotes=0,maxLap=0;
             void CompareActor(NpcCharacter actor,int state,int at)
             {
+                CompareFullscreenActorPositionRom(rom,actor,at,"Credits performance");
                 FailIf(state!=rom[at+4]||actor.CurrentAnimationCounter!=rom[at+0x20]||actor.CurrentAnimationParameter!=rom[at+0x21]||
                     actor.Position.Floor()!=new Vector2(rom[at+13],rom[at+11])||actor.ZIndex!=ObjectDrawPriority.FromVisible(rom[at+0x1a])||actor.Visible!=((rom[at+0x1a]&128)!=0),
                     $"Performance actor${rom[at+1]:x2}:${rom[at+2]:x2} update{update} slot${at:x4}: port {state}/anim{actor.CurrentAnimationCounter},{actor.CurrentAnimationParameter}/pos{actor.Position}/priority{actor.ZIndex}; ROM {rom[at+4]}/anim{rom[at+0x20]},{rom[at+0x21]}/pos{rom[at+13]},{rom[at+11]}/visible${rom[at+0x1a]:x2}.");
@@ -96,7 +97,7 @@ public sealed partial class ValidationRoot
             owner.Cancel();
             FailIf(_entities.EntityAdapters<MapleCreditsRoomEntity>().Any()||_entities.EntityAdapters<NayruRescueMusicNoteRoomEntity>().Any()||
                 _entities.EntityAdapters<NayruRescueActorRoomEntity>().Any()||_entities.EntityAdapters<ForestAudienceRoomEntity>().Any()||
-                !_hud.Visible||!before.Cast<Color>().SequenceEqual(_world.BackgroundPalettes.Capture().Cast<Color>()),"Credits performance cancellation must retire all scene actors/notes/companion and restore shared palettes.");
+                !_hud.Visible||_transitions.NativeRoomUsesFullScreen||!before.Cast<Color>().SequenceEqual(_world.BackgroundPalettes.Capture().Cast<Color>()),"Credits performance cancellation must retire all scene actors/notes/companion and restore shared palettes.");
         }
     }
 }

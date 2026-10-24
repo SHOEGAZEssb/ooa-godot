@@ -193,7 +193,7 @@ public sealed class RoomTransitionController
     internal Vector2? NativeCameraFocus { get; set; }
     internal bool CutsceneCameraFrozen {get;set;}
     // Native graphics states with the status window off-screen render the
-    // room at display y=0, independently of the user's HUD placement.
+    // room BG at display y=0 while retaining the original OBJ draw origin.
     internal bool NativeRoomUsesFullScreen {get;set;}
     internal bool NativePaletteFadeActive => _nativePaletteDirection != 0 || _nativeDarkeningRoom is not null;
     internal int NativePaletteThreadMode=>_nativeDarkeningRoom is not null ? 5 : _nativePaletteDirection==0?0:

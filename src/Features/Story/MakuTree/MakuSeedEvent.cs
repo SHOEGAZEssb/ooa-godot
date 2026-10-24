@@ -115,6 +115,8 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
                 Context.Hud.HideStatusBar();
                 // func_6fb0 sets LYC/SCY=$00: the black room BG covers the status strip.
                 Context.Hud.SetHiddenStatusBarFade(Colors.Black, 1);
+                Context.Transitions.NativeRoomUsesFullScreen = true;
+                Context.Hud.Visible = false;
                 Write(WramAddress.wScrollMode, 0);
                 Write(WramAddress.wDisabledObjects, 1);
                 _tree = null; _runner.Clear(); _treeEnded = true;
@@ -143,6 +145,7 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
             case 4:
                 if (!Flash("linked-flashes")) return;
                 Write(0xcfde, 0x12); LoadRevealRoom(0x12);
+                Context.Transitions.NativeRoomUsesFullScreen = false;
                 Context.Hud.ShowStatusBar();
                 Context.Sound.PlaySound(SoundId.MusZeldaSaved);
                 _nativeState = 5; return;
@@ -160,6 +163,8 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
                 Write(WramAddress.wDisabledObjects, 1); Write(WramAddress.wMenuDisabled, 1);
                 Context.Hud.HideStatusBar(); Context.RoomView.SetBackgroundFade(Colors.Black, 1);
                 Context.Hud.SetHiddenStatusBarFade(Colors.Black, 1);
+                Context.Transitions.NativeRoomUsesFullScreen = true;
+                Context.Hud.Visible = false;
                 Write(WramAddress.wScrollMode, 0);
                 _nativeState = 7; return;
             case 7:
@@ -169,6 +174,7 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
                 _nativeState = 8; return;
             case 8:
                 if (Context.Transitions.NativePaletteFadeActive) return;
+                Context.Transitions.NativeRoomUsesFullScreen = false;
                 Context.Hud.ShowStatusBar();
                 Context.RoomView.ClearBackgroundFade();
                 Write(WramAddress.wScrollMode, 1);
@@ -299,6 +305,7 @@ internal sealed class MakuSeedEvent : RoomCutsceneCommandHost, IRoomEntryEvent
         _ownedEntities.Clear();
         if (EventResources.InputLocked) SetInputEnabled(true);
         Context.Transitions.CancelNativeWhiteFade();
+        Context.Transitions.NativeRoomUsesFullScreen = false;
         Context.Hud.ShowStatusBar(); Context.RoomView.ClearBackgroundFade();
         EventResources.ReleaseFullScreenFade();
         if (native) Context.Sound.PlayRoomMusic(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, Context.Rooms.SaveData);

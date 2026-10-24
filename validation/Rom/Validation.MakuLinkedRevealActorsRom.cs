@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
                 {
                     updates++;
                     if (seed.NativeState is 3 or 4 or 7 or 8)
-                        FailIf(!_hud.Visible || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black,
+                        FailIf(_hud.Visible || !_transitions.NativeRoomUsesFullScreen || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black,
                             $"Linked Maku reveal update{updates} must present the native black room BG across the status strip.");
                     int selected = seed.NativeState switch { 3 => 1, 5 => 2, 7 => 3, _ => scene };
                     bool initializedScene = selected != scene;
@@ -70,6 +70,8 @@ public sealed partial class ValidationRoot
                         foreach (var actor in _entities.Entities<NpcCharacter>().Where(actor => actor.Record.Id is 0x93 or 0x3c or 0x3a or 0x43 or 0xad or 0x31))
                         {
                             int at = 0xd040 + _entities.InteractionSlot(actor) * 256;
+                            if (_transitions.NativeRoomUsesFullScreen)
+                                CompareFullscreenActorPositionRom(native, actor, at, $"Linked Maku reveal scene{scene} update{updates}");
                             FailIf(native[at] == 0 || actor.Position != new Vector2(native[at + 13], native[at + 11]) ||
                                 actor.ScriptDrawOffset.Y != unchecked((sbyte)native[at + 15]) ||
                                 actor.CurrentAnimationCounter != native[at + 0x20] ||

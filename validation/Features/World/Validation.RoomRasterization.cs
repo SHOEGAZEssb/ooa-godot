@@ -15,7 +15,11 @@ public sealed partial class ValidationRoot
             return;
         }
         // Independent, pixel-by-pixel GBC BG reference: signed tile addressing,
-        if (DisplayServer.GetName() != "headless") await ValidateClearTilePresentation();
+        if (DisplayServer.GetName() != "headless")
+        {
+            await ValidateClearTilePresentation();
+            await ValidateNativeFullscreenPresentation();
+        }
         // attribute palette/flips, and the live VRAM bytes at this boundary.
         void Verify(OracleRoomData room, bool firstPublication = false)
         {

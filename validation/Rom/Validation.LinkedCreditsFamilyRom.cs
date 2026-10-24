@@ -82,6 +82,7 @@ public sealed partial class ValidationRoot
             }
             void Actor(NpcCharacter actor,Vector2 precise)
             {
+                CompareFullscreenActorPositionRom(rom,actor,0xd040+_entities.InteractionSlot(actor)*256,"Linked family credits");
                 int at=0xd040+_entities.InteractionSlot(actor)*256;
                 CompareInteractionOamRom(rom,actor,at,$"Family update{update}");
                 FailIf(actor.CurrentAnimationCounter!=rom[at+0x20]||actor.CurrentAnimationParameter!=rom[at+0x21]||

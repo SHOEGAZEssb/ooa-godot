@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
                 var rng = _random.CaptureState();
                 if (owner.Stage == PostD7Stage.Complete && (linked ? owner.State is 3 or 4 : owner.State == 5))
                 {
-                    FailIf(!_hud.Visible || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
+                    FailIf(_hud.Visible || !_transitions.NativeRoomUsesFullScreen || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black ||
                         _roomView.BackgroundFadeColorForValidation != Colors.Black || _player.Visible ||
                         rom[0xc48a] != 0 || rom[0xc48c] != 0 || rom[0xd000] != 0 && (rom[0xd01a] & 0x80) != 0,
                         $"Post-D7 update{update}: linked={linked} black backdrop must cover the HUD strip; HUD={_hud.Visible}/{_hud.StatusBarHidden}/{_hud.HiddenStatusBarColorForValidation}, BG={_roomView.BackgroundFadeColorForValidation}, Link={_player.Visible}/${rom[0xd000]:x2}:${rom[0xd01a]:x2}, native LYC=${rom[0xc48a]:x2}/SCY=${rom[0xc48c]:x2}.");
@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
                     }
                 }
                 if (linked && owner.Stage == PostD7Stage.Complete && owner.State == 5)
-                    FailIf(_hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0 ||
+                    FailIf(!_hud.Visible || _transitions.NativeRoomUsesFullScreen || _hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0 ||
                         _roomView.BackgroundFadeAlpha != 0 || rom[0xc48a] != 0x0f || rom[0xc48c] != 0xf0,
                         "Linked post-D7 village cutaway must restore the HUD split and release the black backdrop.");
                 FailIf(!sounds.Requests.Where(cue => cue != SoundId.SndText).SequenceEqual(rom.Sounds) ||
@@ -101,6 +101,8 @@ public sealed partial class ValidationRoot
                     FailIf(rom[s + 1] != actor.Id || rom[s + 2] != actor.SubId || rom[s + 4] != actor.State || rom[s + 5] != actor.Substate,
                         $"Post-D7 update{update} slot${slots[actor]:x2}: port=${actor.Id:x2}:${actor.SubId:x2}/{actor.State}/{actor.Substate}, ROM=${rom[s + 1]:x2}:${rom[s + 2]:x2}/{rom[s + 4]}/{rom[s + 5]}.");
                     ComparePostD7AnimationRom(rom, actor, s, $"Post-D7 update{update}");
+                    if (_transitions.NativeRoomUsesFullScreen)
+                        CompareFullscreenActorPositionRom(rom, (NpcCharacter)actor.Node, s, $"Post-D7 update{update}");
                 }
                 if (generation != rom.TextGeneration)
                 {

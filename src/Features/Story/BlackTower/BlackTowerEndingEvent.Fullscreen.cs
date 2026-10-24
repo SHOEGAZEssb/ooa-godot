@@ -23,7 +23,7 @@ internal sealed partial class BlackTowerEndingEvent
     private void BeginScreen()
     {
         _hudWasVisible=context.Hud.Visible;_oldBackground=context.Rooms.World.BackgroundPalettes.Capture();_oldSprites=context.Entities.NativeObjectPalettes;
-        _screenActive=true;context.Hud.Visible=false;Screen.Bind(Screens,context.Rooms.World.BackgroundPalettes,context.Entities);
+        _screenActive=true;context.Hud.Visible=false;context.Transitions.NativeRoomUsesFullScreen=true;Screen.Bind(Screens,context.Rooms.World.BackgroundPalettes,context.Entities);
         context.Entities.ClearDynamicInteractions();context.Player.EndCutsceneControl();context.Player.WarpTo(Vector2.Zero,recordSafe:false);
         context.Player.Visible=false;_linkEnabled=false;
     }
@@ -95,7 +95,7 @@ internal sealed partial class BlackTowerEndingEvent
     private void ReleaseScreen()
     {
         if(!_screenActive)return;
-        Screen.Release();context.Hud.Visible=_hudWasVisible;
+        Screen.Release();context.Hud.Visible=_hudWasVisible;context.Transitions.NativeRoomUsesFullScreen=false;
         context.RoomView.SetRoom(context.Rooms.CurrentRoom.Texture);
         context.Rooms.World.BackgroundPalettes.Restore(_oldBackground!);context.Entities.SetNativeObjectPalette(_oldSprites);
         _restoreTerrain?.Invoke();_restoreTerrain=null;_oldBackground=null;_oldSprites=null;_screenActive=false;

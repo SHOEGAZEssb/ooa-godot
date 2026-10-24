@@ -87,10 +87,10 @@ public sealed partial class ValidationRoot
             {
                 Step();
                 if (seed.NativeState is 3 or 4 or 7 or 8)
-                    FailIf(!_hud.Visible || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black,
+                    FailIf(_hud.Visible || !_transitions.NativeRoomUsesFullScreen || !_hud.StatusBarHidden || _hud.HiddenStatusBarColorForValidation != Colors.Black,
                         $"Maku reveal state ${seed.NativeState:x2} must extend the black room BG across the status strip, linked={linked}.");
                 else if (seed.NativeState is 5 or 6 or 9)
-                    FailIf(_hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0,
+                    FailIf(!_hud.Visible || _transitions.NativeRoomUsesFullScreen || _hud.StatusBarHidden || _hud.HiddenStatusBarFadeAlphaForValidation != 0,
                         $"Maku reveal state ${seed.NativeState:x2} must restore the normal HUD without the black strip, linked={linked}.");
                 if (linked && seed.NativeState == 5 && !sawLinkedScene)
                 {

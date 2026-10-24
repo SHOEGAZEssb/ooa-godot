@@ -7,6 +7,25 @@ namespace oracleofages;
 
 public sealed partial class ValidationRoot
 {
+    private void CompareFullscreenActorPositionRom(SomariaRom rom,NpcCharacter actor,int slot,string context)
+    {
+        if(!actor.Visible)return;
+        // Compare the physical sprite anchor. Texture bounds may include
+        // transparent padding; the source projection precedes OAM cell offsets
+        // and the hardware subtracts $08/$10 from their final coordinates.
+        Vector2 expected=rom.ObjectSpriteScreenOrigin(slot)+new Vector2(8,16);
+        if(expected.X<0||expected.X>144||expected.Y<0||expected.Y>128)return;
+        foreach(bool bottom in new[]{false,true})
+        {
+            _scene.ApplyHudPlacement(bottom,_transitions);
+            Vector2 local=actor.ScriptDrawOffset+actor.TransitionDrawOffset+actor.SourceOamWrapOffset;
+            // Validation suppresses engine processing. Compose the live node
+            // and camera transforms without waiting for a rendered host frame.
+            Vector2 drawn=(actor.GlobalTransform*local-_roomCamera.GlobalPosition)*_roomCamera.Zoom+new Vector2(80,72);
+            FailIf(!drawn.IsEqualApprox(expected),$"{context}: HUD bottom={bottom} actor${actor.Record.Id:x2}:${actor.Record.SubId:x2} rendered anchor at{drawn}, native OAM anchor at{expected}.");
+        }
+        _scene.ApplyHudPlacement(_presentationSettings.HudBottom,_transitions);
+    }
     private void CompareInteractionSpritePixelsRom(SomariaRom rom, NpcCharacter actor,
         int slot, int expectedCells, string context)
     {

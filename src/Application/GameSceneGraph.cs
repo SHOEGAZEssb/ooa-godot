@@ -93,15 +93,18 @@ public partial class GameSceneGraph : Node2D
         // Keep their imported layouts intact; only rearrange the gameplay field.
         bottom &= !MapScreen.Visible && !InventoryScreen.Visible &&
             !SaveQuitScreen.Visible && !RingMenuScreen.Visible;
-        int fieldTop = bottom || transitions.NativeRoomUsesFullScreen ? 0 : OracleRoomData.GameplayScreenTop;
+        // Native sprite projection retains its $10 origin even when the BG
+        // uses all 144 lines. Only the room BG loses the HUD-row displacement.
+        int fieldTop = bottom && !transitions.NativeRoomUsesFullScreen ? 0 : OracleRoomData.GameplayScreenTop;
         transitions.SetGameplayScreenTop(fieldTop);
+        RoomView.SetNativeFullScreenPresentation(transitions.NativeRoomUsesFullScreen);
         Hud.Position = new Vector2(0, bottom ? 128 : 0);
         // Native events can temporarily own this rectangle as a full-screen
         // fade. Its captured size/position belong to that owner until release.
         if (WarpFade.Size.Y == OracleRoomData.ViewportHeight)
             WarpFade.Position = new Vector2(0, fieldTop);
         RoomLoadReveal.Position = new Vector2(0, fieldTop);
-        RoomDebug.Position = new Vector2(2, fieldTop);
+        RoomDebug.Position = new Vector2(2, transitions.NativeRoomUsesFullScreen ? 0 : fieldTop);
         DebugObjectSpawnerScreen.Position = new Vector2(0, fieldTop);
         Dialogue.SetGameplayPresentationOffset(fieldTop - OracleRoomData.GameplayScreenTop);
     }

@@ -102,9 +102,10 @@ public sealed partial class ValidationRoot
                     bool fullScreen=rom[0xc488]>=144;
                     FailIf(_transitions.NativeRoomUsesFullScreen!=fullScreen||_hud.Visible==fullScreen,
                         $"Linked${cutscene:x2} update{update}: HUD aperture differs from native WINY=${rom[0xc488]:x2}.");
-                    int fieldTop=fullScreen||_presentationSettings.HudBottom?0:16;
-                    FailIf(_roomDebug.Position.Y!=fieldTop,
-                        $"Linked${cutscene:x2} update{update}: room display origin must be y={fieldTop}, got{_roomDebug.Position.Y}.");
+                    int fieldTop=fullScreen||!_presentationSettings.HudBottom?16:0;
+                    int debugTop=fullScreen?0:fieldTop;
+                    FailIf(_roomDebug.Position.Y!=debugTop,
+                        $"Linked${cutscene:x2} update{update}: room display origin must be y={debugTop}, got{_roomDebug.Position.Y}.");
                     FailIf(_scene.RoomCamera.Position.Y!=rom[0xffaa]+72-fieldTop,
                         $"Linked${cutscene:x2} update{update}: camera presentation must render native y=${rom[0xffaa]:x2} at field top {fieldTop}.");
                 }
@@ -135,6 +136,7 @@ public sealed partial class ValidationRoot
                     actor.CurrentAnimationParameter!=rom[at+0x21],
                     $"Linked${cutscene:x2} update{update} actor${actor.Record.Id:x2}:{actor.Record.SubId:x2},slot${at:x4}: position/animation differs ({actor.Position}/{rom[at+13]},{rom[at+11]}), counter{actor.CurrentAnimationCounter}/{rom[at+0x20]}.");
                 int pointer=rom.Word(at+0x1e)&0x3fff;
+                if(_transitions.NativeRoomUsesFullScreen)CompareFullscreenActorPositionRom(rom,actor,at,$"Linked${cutscene:x2} actor${actor.Record.Id:x2}:{actor.Record.SubId:x2}");
                 if(rom[0xc4ab]==0&&rom[WramAddress.wLoadedTreeGfxIndex]==0&&checkedSprites.Add((actor.Record.Id,actor.Record.SubId,pointer,rom[0xcbc1])))
                 {
                     var frames=SomariaPrivate<System.Collections.Generic.List<NpcCharacterAnimationFrame>>(actor,"_scriptAnimation");
