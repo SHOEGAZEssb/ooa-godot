@@ -286,6 +286,11 @@ order, and the handoff to file select. File-menu substates own their button
 priorities and repeat timing; animated display copies never rewrite saved
 health or other persistent fields.
 
+New-file secret entry uses the file-menu dispatcher and slot-store boundary.
+It accepts twenty symbols, retains the entry buffer across reopening, and
+preserves the original error wait and two-step OK/Back selection. Accepted
+secrets initialize the selected file before returning to file selection.
+
 The save screen's experimental Options entry is a port extension. Noclip uses
 the F2 owner; room-overlay visibility edits the pause lease's restoration state.
 These options do not write save bytes. Game over retains its original actions.

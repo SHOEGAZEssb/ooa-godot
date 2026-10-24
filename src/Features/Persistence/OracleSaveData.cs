@@ -92,44 +92,56 @@ public sealed class OracleSaveData
         _data = data;
     }
 
-    public static OracleSaveData CreateStandardGame()
+    public static OracleSaveData CreateStandardGame() => CreateNewGame([]);
+
+    internal static OracleSaveData CreateNewGame(ReadOnlySpan<(int Address, byte Value)> transferred)
     {
         var save = new OracleSaveData(new byte[FileSize]);
-
-        // fileManagement.initializeFile fills these separately from the
-        // standard-game overrides in initialFileVariables_standardGame.
+        foreach (var field in transferred) save.WriteWramByte(field.Address, field.Value);
+        save.ApplyInitialFileVariables("common");
+        int mode = save.ReadWramByte(WramAddress.wFileIsLinkedGame) +
+            2 * save.ReadWramByte(WramAddress.wFileIsHeroGame);
+        save.ApplyInitialFileVariables(mode switch
+        {
+            0 => "standardGame", 2 => "heroGame", 1 or 3 => "linkedGame",
+            _ => throw new InvalidOperationException($"fileManagement.initializeFile: invalid mode ${mode:x2}.")
+        });
         Array.Fill(save._data, (byte)0xff, UnappraisedRingsOffset, 0x40);
-        VerificationString.CopyTo(save._data, VerificationOffset);
-        save.WriteWramByte(WramAddress.wc608, 0x01);
-        save.WriteWramByte(WramAddress.wTextSpeed, 0x02);
-        // initializeFile falls through to saveFile, which marks Ages; the
-        // standard-game table also falls through to the hero-game defaults.
-        save.WriteWramByte(WramAddress.wWhichGame, 0x01);
-        save.WriteWramByte(WramAddress.wShieldLevel, 0x01);
-        // initialFileVariables: Ages begins at 0:8a, facing up at $38/$48.
-        save.WriteWramByte(WramAddress.wDeathRespawnBuffer, 0x00);
-        save.WriteWramByte(0xc62c, 0x8a);
-        save.WriteWramByte(0xc62e, 0x00);
-        save.WriteWramByte(0xc62f, 0x38);
-        save.WriteWramByte(0xc630, 0x48);
-        save.WriteWramByte(WramAddress.wMaxBombs, 0x10);
-        save.WriteWramByte(WramAddress.wLinkHealth, 0x0c);
-        save.WriteWramByte(WramAddress.wLinkMaxHealth, 0x0c);
-        save.WriteWramByte(WramAddress.wPortalGroup, 0xff);
-        save.WriteWramByte(WramAddress.wJabuWaterLevel, 0x21);
-        save.WriteWramByte(WramAddress.wPirateShipRoom, 0xb6);
-        save.WriteWramByte(WramAddress.wPirateShipY, 0x48);
-        save.WriteWramByte(WramAddress.wPirateShipX, 0x48);
-        save.WriteWramByte(WramAddress.wPirateShipAngle, 0x02);
-        for (int address = 0xc6c6; address <= 0xc6cb; address++)
+        for (int address = WramAddress.wRingBoxContents; address <= WramAddress.wActiveRing; address++)
             save.WriteWramByte(address, 0xff);
-
-        int punchFlagAddress = 0xc69a + TreasureId.Punch / 8;
-        save.WriteWramByte(
-            punchFlagAddress,
-            (byte)(1 << (TreasureId.Punch & 7)));
+        // Only the unlinked hero variant receives the unappraised Victory Ring $36.
+        if (mode == 2)
+        {
+            int address = 0xc69a + TreasureId.Ring / 8;
+            save.WriteWramByte(address, (byte)(save.ReadWramByte(address) | (1 << (TreasureId.Ring & 7))));
+            save.WriteWramByte(WramAddress.wUnappraisedRings, 0x76);
+        }
+        BipinBlossomFamilyStateResolver.InitializeOnGameStart(save);
         new VineSproutDatabase().InitializePositions(save);
+        // initializeFile falls through to saveFile, which marks Ages.
+        save.WriteWramByte(WramAddress.wWhichGame, 0x01);
+        VerificationString.CopyTo(save._data, VerificationOffset);
         return save;
+    }
+
+    private void ApplyInitialFileVariables(string variant)
+    {
+        int index = 0;
+        foreach (var row in GeneratedTable.Load("res://assets/oracle/metadata/new_file_initialization.tsv",
+            new("New file initialization", GeneratedTableKeySemantics.Ordered,
+                ["variant", "index", "address", "value", "source"], headerRequired: true)).Rows)
+        {
+            string sourceVariant = row.RequiredString(0);
+            if (sourceVariant is not ("common" or "standardGame" or "heroGame" or "linkedGame"))
+                throw row.Invalid(0, "a fileManagement.s initialization variant");
+            if (sourceVariant != variant) continue;
+            int address = row.HexWord(2);
+            if (row.Decimal(1) != index++ || address is < 0xc600 or > 0xc6ff)
+                throw row.Invalid(2, "ordered fileManagement.s initialization writes to $c6xx");
+            WriteWramByte(address, (byte)row.HexByte(3));
+        }
+        if (index != (variant switch { "common" => 19, "standardGame" => 5, "heroGame" => 3, "linkedGame" => 6, _ => 0 }))
+            throw new InvalidOperationException($"fileManagement.s: incomplete initialFileVariables {variant}.");
     }
 
     public bool HasGlobalFlag(int flag)

@@ -5,8 +5,8 @@ namespace oracleofages;
 
 /// <summary>
 /// Ports the usable fileSelectMode states: three files, Copy/Erase, standard
-/// game creation, name entry, and the message-speed confirmation before play.
-/// Secret and Game Link remain deterministic notices until those systems exist.
+/// game creation, name/secret entry, and message-speed confirmation before play.
+/// Game Link remains unavailable without a serial partner.
 /// </summary>
 public sealed class MainMenuController
 {
@@ -32,6 +32,9 @@ public sealed class MainMenuController
     private int _eraseTimer;
     private int _eraseHealth;
     private bool _erasing;
+    private LinkedGameNpcDatabase? _secretCodec;
+    private bool _secretError;
+    private int _secretErrorDelay;
     private static readonly string[] ButtonActions =
         ["attack", "item", "map", "inventory", "move_right", "move_left", "move_up", "move_down"];
 
@@ -40,6 +43,7 @@ public sealed class MainMenuController
     {
         FileMenuInitialization.NewFileOptions => Page.NewFileOptions,
         FileMenuInitialization.NameEntry => Page.NameEntry,
+        FileMenuInitialization.SecretEntry => Page.SecretEntry,
         FileMenuInitialization.FileSelect => Page.FileSelect,
         FileMenuInitialization.CopySource => Page.CopySource,
         FileMenuInitialization.EraseSelect => Page.EraseSelect,
@@ -131,6 +135,16 @@ public sealed class MainMenuController
                 case FileMenuInitialization.NameCommit:
                     SaveEnteredName();
                     break;
+                case FileMenuInitialization.SecretEntry:
+                    _secretError = false;
+                    _screen.ShowSecretEntry(20, _screen.SelectedSlot, retainInput: true);
+                    break;
+                case FileMenuInitialization.SecretCommit:
+                    SaveEnteredSecret();
+                    break;
+                case FileMenuInitialization.SecretCancel:
+                    OpenFileSelect();
+                    break;
                 case FileMenuInitialization.FileSelect:
                     ReloadSlots();
                     _screen.ShowFileSelect();
@@ -181,6 +195,16 @@ public sealed class MainMenuController
             if (Input.IsActionPressed(ButtonActions[bit])) held |= 1 << bit;
         }
         Page inputPage = CurrentPage;
+        if (inputPage == Page.SecretEntry && _secretError)
+        {
+            if (_secretErrorDelay > 0) _secretErrorDelay--;
+            else if (held != 0)
+            {
+                _secretError = false;
+                _screen.ShowSecretError(false);
+            }
+            return;
+        }
         DispatchInput(pressed, held);
         // fileSelectMode1 state 2 adds this sprite even on its Back path.
         if (inputPage == Page.TextSpeed) PresentTextSpeedCursor();
@@ -194,6 +218,7 @@ public sealed class MainMenuController
         switch (CurrentPage)
         {
             case Page.NameEntry:
+            case Page.SecretEntry:
                 UpdateNameInput(pressed, held);
                 return;
             case Page.NewFileOptions:
@@ -266,7 +291,15 @@ public sealed class MainMenuController
         {
             _playSound?.Invoke(SoundId.SndSelectItem);
             // US Select deliberately only makes the selection sound.
-            if (button == 3 && _screen.SelectNameOkay()) CommitNameEntry();
+            if (button == 3)
+            {
+                if (CurrentPage == Page.SecretEntry)
+                {
+                    if (_screen.SelectSecretLowerOption(3))
+                        _pendingInitialization = FileMenuInitialization.SecretCommit;
+                }
+                else if (_screen.SelectNameOkay()) CommitNameEntry();
+            }
         }
     }
 
@@ -311,6 +344,7 @@ public sealed class MainMenuController
                     _screen.SetCursor((_screen.Cursor + direction.Y + 3) % 3);
                 break;
             case Page.NameEntry:
+            case Page.SecretEntry:
                 _screen.MoveNameCursor(direction);
                 break;
             case Page.TextSpeed:
@@ -351,13 +385,15 @@ public sealed class MainMenuController
                 {
                     _pendingInitialization = FileMenuInitialization.NameEntry;
                 }
-                else
-                    _screen.ShowNotice(_screen.Cursor == 1
-                        ? "SECRET ENTRY\nIS NOT YET SUPPORTED"
-                        : "GAME LINK\nIS NOT AVAILABLE");
+                else if (_screen.Cursor == 1)
+                    _pendingInitialization = FileMenuInitialization.SecretEntry;
+                else _screen.ShowNotice("GAME LINK\nIS NOT AVAILABLE");
                 break;
             case Page.NameEntry:
                 AcceptNameEntry();
+                break;
+            case Page.SecretEntry:
+                AcceptSecretEntry();
                 break;
             case Page.TextSpeed:
                 StartSelectedFile();
@@ -418,6 +454,7 @@ public sealed class MainMenuController
                 _screen.RestoreFileSelect();
                 break;
             case Page.NameEntry:
+            case Page.SecretEntry:
                 _playSound?.Invoke(SoundId.SndClink);
                 _screen.DeleteNameCharacter();
                 break;
@@ -484,6 +521,40 @@ public sealed class MainMenuController
     private void PresentTextSpeedCursor()
     {
         _screen.SetTextSpeedCursorVisible(true);
+    }
+
+    private void AcceptSecretEntry()
+    {
+        if (_screen.TryGetSelectedNameCharacter(out char character))
+        {
+            _screen.AppendNameCharacter(character);
+            return;
+        }
+        switch (_screen.NameLowerChoice)
+        {
+            case 0: _screen.MoveNameEntryPosition(-1); break;
+            case 1: _screen.MoveNameEntryPosition(1); break;
+            case 2:
+                if (_screen.SelectSecretLowerOption(2)) _pendingInitialization = FileMenuInitialization.SecretCancel;
+                break;
+            case 3:
+                if (_screen.SelectSecretLowerOption(3)) _pendingInitialization = FileMenuInitialization.SecretCommit;
+                break;
+        }
+    }
+
+    private void SaveEnteredSecret()
+    {
+        _secretCodec ??= new LinkedGameNpcDatabase();
+        if (!_secretCodec.TryCreateGameFromSecret(_screen.EnteredSecret, out var save))
+        {
+            _secretError = true;
+            _secretErrorDelay = 0x10;
+            _screen.ShowSecretError(true);
+            _playSound?.Invoke(SoundId.SndError);
+            return;
+        }
+        if (TrySave(_screen.SelectedSlot, save!)) OpenFileSelect();
     }
 
     private void CommitNameEntry()
@@ -606,6 +677,9 @@ internal enum FileMenuInitialization
     NewFileOptions,
     NameEntry,
     NameCommit,
+    SecretEntry,
+    SecretCommit,
+    SecretCancel,
     FileSelect,
     CopySource,
     EraseSelect

@@ -165,6 +165,45 @@ public sealed partial class ValidationRoot
             "cursor, seed, and passive-treasure pixel hashes.");
     }
 
+    private void ValidateSecretEntryBackground()
+    {
+        var screen = new MainMenuScreen { Name = "SecretEntryBackgroundValidation" };
+        AddChild(screen);
+        try
+        {
+            // bank2.s initializes all $20 buffer bytes to spaces and uploads
+            // $18 characters at bank-1 $8c00 (UNCMP_GFXH_07), even for short secrets.
+            // GFXH_SECRET_ENTRY_LAYOUT displays twenty of them in four groups.
+            Color expected = new(0x1b / 31.0f, 0x19 / 31.0f, 0x03 / 31.0f);
+            const float tolerance = 1.0f / 255.0f + 0.0001f;
+            foreach (int length in new[] { 5, 15, 20, 5 })
+            {
+                screen.ShowSecretEntry(length);
+                foreach (bool error in new[] { false, true, false })
+                {
+                    screen.ShowSecretError(error);
+                    var texture = (Texture2D)typeof(MainMenuScreen).GetField("_secretEntryMenu",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(screen)!;
+                    using Image image = texture.GetImage();
+                    for (int group = 0; group < 4; group++)
+                    for (int y = 0; y < 16; y++)
+                    for (int x = 0; x < 40; x++)
+                    {
+                        int screenX = 48 + group % 2 * 48 + x;
+                        int screenY = group / 2 * 16 + y;
+                        Color actual = image.GetPixel(screenX, screenY);
+                        FailIf(Math.Abs(actual.R - expected.R) > tolerance ||
+                            Math.Abs(actual.G - expected.G) > tolerance ||
+                            Math.Abs(actual.B - expected.B) > tolerance || actual.A != 1,
+                            $"MENU_SECRET length={length}, error={error}: blank input pixel ({screenX},{screenY}) must use PALH_05 BG5 shade 3, got {actual}.");
+                    }
+                }
+            }
+        }
+        finally { screen.Free(); }
+        GD.Print("Validated MENU_SECRET yellow input backgrounds for all twenty slots, short/ring/game secrets, error recovery and reopening.");
+    }
+
     private void ValidateMainMenu()
     {
         var stored = new OracleSaveData?[OracleSaveStore.SlotCount];

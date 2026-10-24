@@ -238,11 +238,12 @@ public partial class MainMenuScreen : Node2D
         NameCursor = 0;
         QueueRedraw();
     }
-    internal void ShowSecretEntry(int length = 5)
+    internal void ShowSecretEntry(int length = 5, int slot = 0, bool retainInput = false)
     {
         if (length is not (5 or 15 or 20)) throw new ArgumentOutOfRangeException(nameof(length));
-        ShowNameEntry(0, string.Empty);
-        Array.Clear(_enteredSecret);
+        ShowNameEntry(slot, string.Empty);
+        // func_02_465c retains the file-menu buffer when its length is unchanged.
+        if (!retainInput || _secretLength != length) Array.Clear(_enteredSecret);
         _secretLength = length;
         _secretData ??= new SecretEntryDatabase();
         CurrentPage = Page.SecretEntry;
@@ -849,9 +850,10 @@ public partial class MainMenuScreen : Node2D
         return OracleTileRenderer.BuildTileMapTexture(compactMap, compactFlags, tiles, palette, 20, 18,
             static (tile, attributes) =>
             {
-                // The untouched live filename and name-entry buffers use shade 3.
+                // UNCMP_GFXH_07 uploads $18 name/secret characters at bank-1 $8c00.
+                // Untouched input and filename buffers contain shade-3 spaces.
                 bool filename = (attributes & 15) == 14 && tile is >= 0xc0 and <= 0xe1;
-                bool nameEntry = (attributes & 15) == 13 && tile is >= 0xc0 and <= 0xc9;
+                bool nameEntry = (attributes & 15) == 13 && tile is >= 0xc0 and <= 0xef;
                 return filename || nameEntry ? 3 : 0;
             });
     }

@@ -7,6 +7,40 @@ namespace oracleofages;
 public sealed partial class LinkedGameNpcDatabase
 {
     private ((int Address,int Bits)[] Header,(int Address,int Bits)[] Body)? _transferFields;
+
+    internal bool TryCreateGameFromSecret(ReadOnlySpan<byte> symbols, out OracleSaveData? save)
+    {
+        save = null;
+        if (symbols.Length != 20) return false;
+        byte[] buffer = symbols.ToArray();
+        foreach (byte symbol in buffer) if (symbol >= 64) return false;
+        int cipherOffset = ((buffer[0] & 0x38) >> 3) * 4;
+        for (int index = 0; index < buffer.Length; index++)
+            buffer[index] ^= (byte)(_xorCipher[cipherOffset + index] & (index == 0 ? 7 : 63));
+        int checksum = buffer[^1] & 15;
+        buffer[^1] &= 0x30;
+        if ((buffer.Sum(value => value) & 15) != checksum) return false;
+        int bitOffset = 0;
+        byte ReadBits(int count)
+        {
+            int value = 0;
+            for (int bit = 0; bit < count; bit++, bitOffset++)
+                value |= ((buffer[bitOffset / 6] >> (5 - bitOffset % 6)) & 1) << bit;
+            return (byte)value;
+        }
+        _transferFields ??= LoadTransferFields();
+        var fields = _transferFields.Value;
+        var values = new List<(int Address, byte Value)>();
+        foreach (var field in fields.Header) values.Add((field.Address, ReadBits(field.Bits)));
+        if (values[1].Value != 0) return false;
+        foreach (var field in fields.Body) values.Add((field.Address, ReadBits(field.Bits)));
+        // fileSelectMode6 rejects an Ages-origin linked secret; hero secrets
+        // with the linked bit clear are accepted from either game.
+        if (values[4 + 14].Value != 0 && values[4 + 1].Value == 1) return false;
+        // loadUnpackedSecretData copies the body and GameID, not the scratch header.
+        save = OracleSaveData.CreateNewGame(values.Skip(2).ToArray());
+        return true;
+    }
     internal byte[] GenerateGameTransferSecretText(OracleSaveData save)
     {
         var values=GenerateGameTransferSecretValues(save);var glyphs=new SecretEntryDatabase().Glyphs;

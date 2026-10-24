@@ -68,8 +68,10 @@ the required live/runtime/RNG/room context only at stable gameplay boundaries
 and reconstruct transient actors from room data on load. They never change a
 retail slot, backup, or explicit-save count.
 
-New files initialize all vine positions from the imported defaults before room
-loading. Deserialization preserves the saved image, including zero vine
+New files apply the imported common initialization writes followed by the
+standard, linked or hero variant. Game-transfer secrets supply their original
+fields before these writes; child initialization and vine defaults run before
+the explicit file creation commit. Deserialization preserves the saved image, including zero vine
 positions and invalid checkpoints. Loading applies only initialization traced
 to the original game; port-specific save migrations and state repairs are not
 part of this boundary.

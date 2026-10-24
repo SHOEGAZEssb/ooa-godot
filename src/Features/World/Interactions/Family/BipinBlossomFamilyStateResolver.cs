@@ -194,6 +194,16 @@ internal sealed class BipinBlossomFamilyStateResolver
             save.CommitInventoryChange();
     }
 
+    internal static void InitializeOnGameStart(OracleSaveData save)
+    {
+        // bipinBlossomFamilySpawner.s:initializeChildOnGameStart.
+        int status = save.ReadWramByte(WramAddress.wChildStatus);
+        if (status == 0) return;
+        save.WriteWramByte(WramAddress.wChildStage, 5);
+        save.WriteWramByte(WramAddress.wNextChildStage, 5);
+        save.WriteWramByte(WramAddress.wChildPersonality, (byte)DecideInitialPersonality(status));
+    }
+
     private static int DecideInitialPersonality(int status) =>
         status switch
         {

@@ -517,6 +517,9 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateFrontendIntroRom, requiresRom: true);
         RunIsolatedValidation(ValidateFrontendFixedUpdates);
         RunIsolatedValidation(ValidateMainMenu);
+        RunIsolatedValidation(ValidateSecretEntryBackground);
+        RunIsolatedValidation(ValidateNewFileSecretCodecRom, requiresRom: true);
+        RunIsolatedValidation(ValidateNewFileSecretMenuRom, requiresRom: true);
         RunIsolatedValidation(ValidateMainMenuRom, requiresRom: true);
         RunIsolatedValidation(ValidateInventoryFramePixelsRom, requiresRom: true);
         RunIsolatedValidation(ValidateInventoryMissingEssenceTextRom, requiresRom: true);
