@@ -203,12 +203,11 @@ if ($switchReplacementRows.Count -ne 13) {
 }
 Write-GeneratedTable((Join-Path $destination 'metadata/switch_tile_replacements.tsv'),$switchReplacementRows)
 
-# Import the save-backed subset of applyRoomSpecificTileChanges as declarative
+# Import applyRoomSpecificTileChanges as declarative
 # conditions and layout operations. The dispatcher is parsed rather than
 # repeating group/room IDs, so shared routines automatically expand to every
-# room that calls them. Transient switch and encounter state is kept out until
-# its owning runtime systems exist. Save-backed water levels and vine positions
-# are imported below with the Tokay Island and Talus Peaks routines that read them.
+# room that calls them. Live switches, save-backed water levels and vine
+# positions retain their authoritative runtime/save owners.
 $roomTileChangeSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomSpecificTileChanges.s')
 $tileChangeJumpBlock = [regex]::Match(
@@ -276,6 +275,51 @@ function Add-RoomTileChangeRule(
     }
     [void]$supportedTileChangeLabels.Add($label)
 }
+
+function Assert-RoomTileInstructions([string]$path, [string]$label, [string[]]$expected) {
+    $instructions = @(Read-AssemblyInstructions $path $label)
+    if ($instructions.Count -ne $expected.Count) {
+        throw "${path}:${label}: expected $($expected.Count) instructions, found $($instructions.Count)."
+    }
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        if (($instructions[$index].Code -replace '\s', '') -cne
+            ($expected[$index] -replace '\s', '')) {
+            throw "${path}:${label}:$($instructions[$index].Line) " +
+                "expected '$($expected[$index])', found '$($instructions[$index].Code)'."
+        }
+    }
+}
+
+$roomTileSourcePath = Join-Path $Disassembly 'code/ages/roomSpecificTileChanges.s'
+Assert-RoomTileInstructions $roomTileSourcePath 'tileReplacement_group4Map4c' @(
+    'ld hl,wSwitchState', 'bit 0,(hl)', 'ret nz', 'ld hl,wRoomLayout + $43',
+    'ld a,$6a', 'ld (hl),a', 'ld l,$53', 'ld (hl),a', 'ld l,$63', 'ld (hl),a',
+    'ld l,$76', 'ld a,$f4', 'jp set4Bytes')
+Add-RoomTileChangeRule 'tileReplacement_group4Map4c' 'runtime_mask_eq:cdd3:01:00' `
+    'set:43:6a,53:6a,63:6a|fill:76:01:04:f4'
+Assert-RoomTileInstructions $roomTileSourcePath 'tileReplacement_group4Map4e' @(
+    'ld hl,wSwitchState', 'bit 1,(hl)', 'ret z', 'ld hl,wRoomLayout + $36',
+    'ld a,$6d', 'call set4Bytes', 'ld a,$f4', 'ld l,$42', 'ld (hl),a',
+    'ld l,$52', 'ld (hl),a', 'ld l,$62', 'ld (hl),a', 'ld l,$4c', 'ld (hl),a',
+    'ld l,$5c', 'ld (hl),a', 'ld l,$6c', 'ld (hl),a', 'ret')
+Add-RoomTileChangeRule 'tileReplacement_group4Map4e' 'runtime_mask_eq:cdd3:02:02' `
+    'fill:36:01:04:6d|set:42:f4,52:f4,62:f4,4c:f4,5c:f4,6c:f4'
+
+# getBlackTowerProgress prioritizes $90/$40 over $ba/$40. Only stage 1
+# closes these two tiles, and only in a linked file (copied to wIsLinkedGame).
+$roomTileBank0Path = Join-Path $Disassembly 'code/bank0.s'
+Assert-RoomTileInstructions $roomTileBank0Path 'checkIsLinkedGame' @(
+    'ld a,(wIsLinkedGame)', 'or a', 'ret')
+Assert-RoomTileInstructions $roomTileBank0Path 'getBlackTowerProgress' @(
+    'push bc', 'ld c,$02', 'ld a,(wPresentRoomFlags+$90)', 'bit ROOMFLAG_BIT_40,a',
+    'jr nz,++', 'dec c', 'ld a,(wPresentRoomFlags+$ba)', 'bit ROOMFLAG_BIT_40,a',
+    'jr nz,++', 'dec c', 'ld a,c', 'pop bc', 'ret')
+Assert-RoomTileInstructions $roomTileSourcePath 'tileReplacement_group0Map76' @(
+    'call checkIsLinkedGame', 'ret z', 'call getBlackTowerProgress', 'dec a', 'ret nz',
+    'ld hl,wRoomLayout+$54', 'ld a,$a7', 'ldi (hl),a', 'ld (hl),a', 'ret')
+Add-RoomTileChangeRule 'tileReplacement_group0Map76' `
+    'wram_mask_ne:c612:ff:00,wram_mask_eq:c790:40:00,room_set:0:ba:40' `
+    'set:54:a7,55:a7'
 
 $flagD3Crystals = $globalFlagValues['GLOBALFLAG_D3_CRYSTALS'].ToString('x2')
 $flagMakuSaved = $globalFlagValues['GLOBALFLAG_MAKU_TREE_SAVED'].ToString('x2')
@@ -476,7 +520,7 @@ Add-RoomTileChangeRule 'tileReplacement_group0Map98' `
 Add-RoomTileChangeRule 'tileReplacement_group0Map98' `
     'treasure_set:48' 'set:24:3a'
 
-# Tokay Island's three past ENEMY_VINE_SPROUT positions are read while the
+# Rolling Ridge and Tokay Island's past ENEMY_VINE_SPROUT positions are read while the
 # paired present rooms load. A matching packed position grows the full vine in
 # both vertical rooms. A mismatch in the lower room leaves tile $8c at the
 # live sprout position when the underlying metatile has zero collision.
@@ -490,6 +534,14 @@ if (-not $vineHelperContract) {
 }
 
 $tokayVineSpecs = @(
+    @{ Label = 'tileReplacement_group0Map2c'; SubId = 0; Target = 0x17;
+       Edge = '06:5d,08:60'; Extra = ''; Withered = $true;
+       Instructions = @('ld bc,$0017', 'call getVinePosition', 'jp nz,setTileToWitheredVine',
+           'ld l,$06', 'ld de,@vineEdgeReplacements', 'jp replaceVineTiles'); Tiles = @(0x5d,0x60,0) },
+    @{ Label = 'tileReplacement_group0Map1c'; SubId = 0; Target = 0x17;
+       Edge = '66:5b,68:45,76:4d,78:55'; Extra = ''; Withered = $false;
+       Instructions = @('ld bc,$0017', 'call getVinePosition', 'ret nz',
+           'ld l,$66', 'ld de,@vineEdgeReplacements', 'jp replaceVineTiles'); Tiles = @(0x5b,0x45,0x4d,0x55,0) },
     @{ Label = 'tileReplacement_group0Mapba'; SubId = 2; Target = 0x18;
        Edge = '07:61,09:60'; Extra = '|set:18:8b'; Withered = $true;
        Pattern = '(?ms)^tileReplacement_group0Mapba:\s*ld bc,\$0218\s*call getVinePosition\s*jp nz,setTileToWitheredVine\s*ld l,\$07.*?\.db \$61 \$60\s*\.db \$00' },
@@ -512,7 +564,14 @@ $tokayVineSpecs = @(
 $vineGrowthOperations =
     'replace:05:d4|replace:8e:d5|replace:8f:d6|set_below_last:d6:8d'
 foreach ($spec in $tokayVineSpecs) {
-    if ($roomTileChangeSource -notmatch $spec.Pattern) {
+    if ($spec.ContainsKey('Instructions')) {
+        Assert-RoomTileInstructions $roomTileSourcePath $spec.Label $spec.Instructions
+        $tiles = @(Read-AssemblyLiteralValues $roomTileSourcePath $spec.Label)
+        if (($tiles -join ',') -cne ($spec.Tiles -join ',')) {
+            throw "${roomTileSourcePath}:$($spec.Label): vine edge replacements changed."
+        }
+    }
+    elseif ($roomTileChangeSource -notmatch $spec.Pattern) {
         throw "Tokay Island present-vine routine $($spec.Label) changed."
     }
     $address = 0xc8f0 + $spec.SubId
@@ -695,8 +754,8 @@ foreach ($block in $flagTileChangeBlocks) {
         throw "Flag-backed room tile-change routine $label was not imported."
     }
 }
-if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 50) {
-    throw "Expected 34 flag-backed and 50 total supported tile-change routines; " +
+if ($flagTileChangeCount -ne 34 -or $supportedTileChangeLabels.Count -ne 55) {
+    throw "Expected 34 flag-backed and 55 total supported tile-change routines; " +
         "found $flagTileChangeCount and $($supportedTileChangeLabels.Count)."
 }
 $roomTileChangePath = Join-Path $destination 'metadata\room_tile_changes.tsv'

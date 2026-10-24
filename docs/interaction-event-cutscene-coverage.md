@@ -32,7 +32,7 @@ rather than a separate inventory of all combat and item behavior.
 | Interaction IDs `$00-$e6` | 206 | 11 | 1 | 9 | 4 | 231 |
 | Native cutscene states `$00-$21` | 33 | 0 | 0 | 0 | 1 | 34 |
 | Room-specific code handlers `$00-$0c` | 6 | 0 | 7 | 0 | 0 | 13 |
-| Room-specific tile-change handlers `$00-$37` | 48 | 3 | 5 | 0 | 0 | 56 |
+| Room-specific tile-change handlers `$00-$37` | 53 | 3 | 0 | 0 | 0 | 56 |
 | Link cutscene subids `$00-$0c` | 13 | 0 | 0 | 0 | 0 | 13 |
 | Companion/Maple credit special objects `$0f-$12` | 4 | 0 | 0 | 0 | 0 | 4 |
 
@@ -45,7 +45,7 @@ rather than a separate inventory of all combat and item behavior.
 | Distinct literal object-data ID/subid pairs | 740 |
 | Room-specific code bindings | 14 |
 | Room-specific tile-change bindings | 58 |
-| Open implementation checklist items | 30 |
+| Open implementation checklist items | 25 |
 
 These inventories overlap. A cutscene can create several interaction IDs;
 a checklist item can affect several dispatch entries. Do not sum their counts.
@@ -93,12 +93,12 @@ Visual-only import or a directly stepped helper does not close an item.
 
 ### Room-load tile events
 
-- [ ] **TILE-01** — `4:4c`: D3 room-load bridge layout selected by switch-state bit 0.
-- [ ] **TILE-02** — `4:4e`: D3 room-load bridge layout selected by switch-state bit 1.
+- [x] **TILE-01** — `4:4c`: D3 room-load bridge layout selected by switch-state bit 0.
+- [x] **TILE-02** — `4:4e`: D3 room-load bridge layout selected by switch-state bit 1.
 - [x] **TILE-03** — `4:c7`: Hero's Cave room-load bridge layout selected by switch-state bit 0.
-- [ ] **TILE-04** — `0:2c`: Rolling Ridge vine growth/withered layout from sprout `$62:$00` at packed position `$17`.
-- [ ] **TILE-05** — `0:1c`: Rolling Ridge adjoining vine-edge substitutions for the same sprout and position.
-- [ ] **TILE-06** — `0:76`: Linked-game Black Tower progress-stage-1 room-layout substitution.
+- [x] **TILE-04** — `0:2c`: Rolling Ridge vine growth/withered layout from sprout `$62:$00` at packed position `$17`.
+- [x] **TILE-05** — `0:1c`: Rolling Ridge adjoining vine-edge substitutions for the same sprout and position.
+- [x] **TILE-06** — `0:76`: Linked-game Black Tower progress-stage-1 room-layout substitution.
 
 ### Room-entry side effects
 
@@ -433,8 +433,8 @@ changes whose original actor-creation side effect remains missing.
 | `$00` | `5:f5` | `tileReplacement_group5Mapf5` | R | — |
 | `$01` | `4:1b` | `tileReplacement_group4Map1b` | R | — |
 | `$02` | `2:7e` | `tileReplacement_group2Map7e` | R | — |
-| `$03` | `4:4c` | `tileReplacement_group4Map4c` | M | TILE-01 |
-| `$04` | `4:4e` | `tileReplacement_group4Map4e` | M | TILE-02 |
+| `$03` | `4:4c` | `tileReplacement_group4Map4c` | R | — |
+| `$04` | `4:4e` | `tileReplacement_group4Map4e` | R | — |
 | `$05` | `4:59` | `tileReplacement_group4Map59` | R | — |
 | `$06` | `4:60` | `tileReplacement_group4Map60` | R | — |
 | `$07` | `4:52` | `tileReplacement_group4Map52` | R | — |
@@ -455,8 +455,8 @@ changes whose original actor-creation side effect remains missing.
 | `$16` | `0:73` | `tileReplacement_group0Map73` | R | — |
 | `$17` | `0:48` | `tileReplacement_group0Map48` | R | — |
 | `$18` | `0:ac` | `tileReplacement_group0Mapac` | R | — |
-| `$19` | `0:2c` | `tileReplacement_group0Map2c` | M | TILE-04 |
-| `$1a` | `0:1c` | `tileReplacement_group0Map1c` | M | TILE-05 |
+| `$19` | `0:2c` | `tileReplacement_group0Map2c` | R | — |
+| `$1a` | `0:1c` | `tileReplacement_group0Map1c` | R | — |
 | `$1b` | `0:ba` | `tileReplacement_group0Mapba` | R | — |
 | `$1c` | `0:aa` | `tileReplacement_group0Mapaa` | R | — |
 | `$1d` | `0:cc` | `tileReplacement_group0Mapcc` | R | — |
@@ -484,7 +484,7 @@ changes whose original actor-creation side effect remains missing.
 | `$33` | `4:ea` | `tileReplacement_group4Mapea` | R | — |
 | `$34` | `1:58` | `tileReplacement_group1Map58` | R | — |
 | `$35` | `0:98` | `tileReplacement_group0Map98` | R | — |
-| `$36` | `0:76` | `tileReplacement_group0Map76` | M | TILE-06 |
+| `$36` | `0:76` | `tileReplacement_group0Map76` | R | — |
 | `$37` | `0:a5` | `tileReplacement_group0Mapa5` | R | — |
 
 ## Scripted special-object dispatch
