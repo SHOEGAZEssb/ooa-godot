@@ -508,6 +508,8 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateDungeonCollectibles);
         RunIsolatedValidation(ValidateRoomTileChanges);
         RunIsolatedValidation(ValidateRoomLoadTileEventsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRoomEntryEffectsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateRoomEntryEffectsGameplay);
         RunIsolatedValidation(ValidateRollingRidgeVines);
         RunIsolatedValidation(ValidateExplicitSavePersistence);
         RunIsolatedValidation(ValidateMenuPresentationData);

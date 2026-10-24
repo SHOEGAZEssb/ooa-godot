@@ -31,7 +31,7 @@ rather than a separate inventory of all combat and item behavior.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Interaction IDs `$00-$e6` | 206 | 11 | 1 | 9 | 4 | 231 |
 | Native cutscene states `$00-$21` | 33 | 0 | 0 | 0 | 1 | 34 |
-| Room-specific code handlers `$00-$0c` | 6 | 0 | 7 | 0 | 0 | 13 |
+| Room-specific code handlers `$00-$0c` | 13 | 0 | 0 | 0 | 0 | 13 |
 | Room-specific tile-change handlers `$00-$37` | 53 | 3 | 0 | 0 | 0 | 56 |
 | Link cutscene subids `$00-$0c` | 13 | 0 | 0 | 0 | 0 | 13 |
 | Companion/Maple credit special objects `$0f-$12` | 4 | 0 | 0 | 0 | 0 | 4 |
@@ -45,7 +45,7 @@ rather than a separate inventory of all combat and item behavior.
 | Distinct literal object-data ID/subid pairs | 740 |
 | Room-specific code bindings | 14 |
 | Room-specific tile-change bindings | 58 |
-| Open implementation checklist items | 25 |
+| Open implementation checklist items | 18 |
 
 These inventories overlap. A cutscene can create several interaction IDs;
 a checklist item can affect several dispatch entries. Do not sum their counts.
@@ -102,13 +102,13 @@ Visual-only import or a directly stepped helper does not close an item.
 
 ### Room-entry side effects
 
-- [ ] **ENTRY-01** — `5:d2`: Palace minimap-room `$06` and past-room `$06` flag `$10` writes.
-- [ ] **ENTRY-02** — `2:0e`: Sadness room-music override before Nayru is saved.
-- [ ] **ENTRY-03** — `0:39`: Ralph music on rightward entry before his portal-departure flag.
-- [ ] **ENTRY-04** — `0:3a`: Nayru music override after the finished-game flag.
-- [ ] **ENTRY-05** — `1:0e`: Present Mermaid's Cave exterior minimap location `$00:$3c`.
-- [ ] **ENTRY-06** — `3:0f`: Past Mermaid's Cave exterior minimap location `$01:$3c`.
-- [ ] **ENTRY-07** — `4:e6`: Change active music `$00` to `$ff` on the Vire/Black Tower room load.
+- [x] **ENTRY-01** — `5:d2`: Palace minimap-room `$06` and past-room `$06` flag `$10` writes.
+- [x] **ENTRY-02** — `2:0e`: Sadness room-music override before Nayru is saved.
+- [x] **ENTRY-03** — `0:39`: Ralph music on rightward entry before his portal-departure flag.
+- [x] **ENTRY-04** — `0:3a`: Nayru music override after the finished-game flag.
+- [x] **ENTRY-05** — `1:0e`: Present Mermaid's Cave exterior minimap location `$00:$3c`.
+- [x] **ENTRY-06** — `3:0f`: Past Mermaid's Cave exterior minimap location `$01:$3c`.
+- [x] **ENTRY-07** — `4:e6`: Change active music `$00` to `$ff` on the Vire/Black Tower room load.
 
 ### Linked-game entry flows
 
@@ -412,15 +412,15 @@ Room bindings are listed independently of visible actors.
 | `$01` | `4:60` | D3 spinner before crystals | R | — |
 | `$02` | `4:52` | D3 spinner after crystals | R | — |
 | `$03` | `1:81` | Mystery Seed palace soldier | R | — |
-| `$04` | `5:d2` | Palace minimap/visit writes | M | ENTRY-01 |
-| `$05` | `2:0e` | Nayru-house music | M | ENTRY-02 |
+| `$04` | `5:d2` | Palace minimap/visit writes | R | — |
+| `$05` | `2:0e` | Nayru-house music | R | — |
 | `$06` | `0:38`, `1:38` | Set death respawn point | R | — |
 | `$07` | `1:97` | Post-Rafton Ralph music | R | — |
-| `$08` | `0:39` | Portal-departure Ralph music | M | ENTRY-03 |
-| `$09` | `0:3a` | Finished-game Nayru music | M | ENTRY-04 |
-| `$0a` | `1:0e` | Present D6 minimap | M | ENTRY-05 |
-| `$0b` | `3:0f` | Past D6 minimap | M | ENTRY-06 |
-| `$0c` | `4:e6` | Vire-room active-music reset | M | ENTRY-07 |
+| `$08` | `0:39` | Portal-departure Ralph music | R | — |
+| `$09` | `0:3a` | Finished-game Nayru music | R | — |
+| `$0a` | `1:0e` | Present D6 minimap | R | — |
+| `$0b` | `3:0f` | Past D6 minimap | R | — |
+| `$0c` | `4:e6` | Vire-room active-music reset | R | — |
 
 ## Room-specific tile-change dispatch
 

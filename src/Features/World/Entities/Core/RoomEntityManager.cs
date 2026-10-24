@@ -221,6 +221,8 @@ public sealed class RoomEntityManager : IDisposable
     private IRoomEntity? TryCreateEnemyEntity(RoomEntitySpawn spawn) =>
         TryAllocateEnemy(_ => _factory.Create(spawn, _roomForActiveEntities));
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
+    internal event Action<int, OracleRoomData>? RoomInitializing;
+    internal event Action<int, OracleRoomData>? RoomInitialized;
     internal event Action<int, int>? NativeMusicSelectionRequested;
     internal void RequestNativeMusicSelection(int roomMusic, int activeMusic) =>
         NativeMusicSelectionRequested?.Invoke(roomMusic, activeMusic);
@@ -2393,6 +2395,7 @@ public sealed class RoomEntityManager : IDisposable
         bool notifyEntry = true)
     {
         using var diagnostics = OracleRoomLoadDiagnostics.Begin("objects", group, room.Id);
+        RoomInitializing?.Invoke(group, room);
         // parseObjectData clears wNumEnemies even when outgoing slots are
         // retained during a scroll. Failed allocation counts are room-local.
         // Its $cfc0 clear does not clear the later persistent scratch bytes.
@@ -2453,6 +2456,9 @@ public sealed class RoomEntityManager : IDisposable
                 throw new NotSupportedException("businessScrub.s:$ce:$80 has no free native interaction slot after the placed object stream.");
             AddEntity(scrub.AllocateBushSlot());
         }
+        // initializeRoom returns to checkPlayRoomMusic before object state zero.
+        // Native cutscene callers retain their explicit music handoff.
+        if (notifyEntry) RoomInitialized?.Invoke(group, room);
         RefreshNpcState(_activeEntities);
         diagnostics?.Mark("npc-state");
         if (notifyEntry) RoomEntitiesLoaded?.Invoke(group, room);

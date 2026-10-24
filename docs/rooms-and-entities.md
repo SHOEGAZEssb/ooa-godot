@@ -113,6 +113,11 @@ than retaining palette-dependent textures across room activations.
 Native changes to live tileset flags belong to the active room data. Room
 initialization restores imported flags before native actors apply their writes.
 
+Room-specific entry handlers run before actor allocation through the save and
+sound owners. Resource preparation and native background-only loads bypass
+them. Music selection is checked after parsing, before object state zero;
+later actors can replace the selected song through the same sound owner.
+
 Room initialization applies imported live WRAM writes before allocating actors;
 switch-controlled tile restoration also precedes allocation. Those writes must
 still occur when an object pool is full. Interleaved graphics

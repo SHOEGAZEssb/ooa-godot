@@ -52,6 +52,7 @@ public partial class OracleSoundEngine : Node
     // wActiveMusic2 retains the room's selected song while a boss or script
     // owns the active song. Native cutscenes restore this byte explicitly.
     internal int NativeRoomMusic { get; private set; } = 0xff;
+    internal void SetNativeRoomMusic(int music) => NativeRoomMusic = music;
     internal void SetNativeActiveMusic(int music) => NativeActiveMusic = music;
     internal void SetNativeMusicSelection(int roomMusic, int activeMusic)
     { NativeRoomMusic = roomMusic; NativeActiveMusic = activeMusic; }
@@ -139,6 +140,13 @@ public partial class OracleSoundEngine : Node
     }
     internal int SelectRoomMusic(int group,int room,OracleSaveData? save=null)=>
         NativeRoomMusic=save is null?_data.RoomMusic(group,room):_data.RoomMusic(group,room,save);
+
+    internal void CheckPlayRoomMusic()
+    {
+        if (NativeActiveMusic == 0 || NativeActiveMusic == NativeRoomMusic) return;
+        NativeActiveMusic = NativeRoomMusic;
+        PlayNativeSound(NativeRoomMusic);
+    }
 
     public void PlayMusicIfChanged(int music)
     {

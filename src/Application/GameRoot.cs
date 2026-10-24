@@ -33,6 +33,7 @@ public partial class GameRoot : Node2D
     private GameSceneGraph? _preparedGameplayScene;
     private OracleWorldData? _preparedWorld;
     private RoomSessionResources? _preparedRoomResources;
+    private RoomEntryEffectDatabase? _roomEntryEffects;
 
     internal RoomSession _rooms = null!;
     internal OracleSoundEngine _sound = null!;
@@ -572,7 +573,6 @@ public partial class GameRoot : Node2D
         _preparedWorld = null;
         _inventory = new InventoryState(
             _treasures, _saveData, () => _rooms.CurrentDungeonIndex, _runtimeState);
-        _rooms.RoomChanged += ApplyRoomMusic;
         yield return false;
         PackedScene gameplayScene = _gameplaySceneResource.Load();
         _scene = _preparedGameplayScene ?? gameplayScene.Instantiate<GameSceneGraph>();
@@ -674,8 +674,6 @@ public partial class GameRoot : Node2D
         _inventory.Changed += SyncHudToInventory;
         SyncHudToInventory();
         _transitions.ResetCamera();
-        if (initialRoomLoadKind != InitialRoomLoadKind.LinkSummonedCutscene)
-            ApplyRoomMusic(_rooms.ActiveGroup, _rooms.CurrentRoom);
         _scene.ApplyHudPlacement(_presentationSettings.HudBottom, _transitions);
         if (prepare)
         {
@@ -1239,6 +1237,8 @@ public partial class GameRoot : Node2D
         _entities.NativeSoundAllocationAliasWritten += _sound.WriteNativeAllocationAlias;
         _entities.NativeSoundAllocationAliasSource = _sound.ReadNativeAllocationAlias;
         _entities.RoomMusicRequested += _sound.PlayRoomMusic;
+        _entities.RoomInitializing += InitializeRoomEntryEffects;
+        _entities.RoomInitialized += ApplyRoomMusic;
         _entities.ScreenShakeChanged += offset => _roomCamera.Offset = offset;
         yield return false;
         _entities.EnemyDefeated += _inventory.RecordEnemyKill;
@@ -1596,7 +1596,6 @@ public partial class GameRoot : Node2D
         _statusBar?.Dispose();
         if (_rooms is not null)
         {
-            _rooms.RoomChanged -= ApplyRoomMusic;
             _rooms.RoomChanged -= SyncHudToRoom;
         }
         _entities?.Dispose();
@@ -1705,6 +1704,14 @@ public partial class GameRoot : Node2D
         InitializeGameplay(save);
     }
 
+    private void InitializeRoomEntryEffects(int group, OracleRoomData room)
+    {
+        // loadScreenMusic precedes initializeRoom; roomSpecificCode runs
+        // before object parsing. Background-only loads bypass this hook.
+        _sound.SelectRoomMusic(group, room.Id, _saveData);
+        (_roomEntryEffects ??= new()).Apply(group, room.Id, _saveData, _sound, _transitions.ScreenEntryDirection);
+    }
+
     private void ApplyRoomMusic(int group, OracleRoomData room)
     {
         _deferredIntroMusicGroup = -1;
@@ -1717,7 +1724,7 @@ public partial class GameRoot : Node2D
             !_saveData.HasGlobalFlag(GlobalFlag.IntroDone);
         if (!playableIntro)
         {
-            _sound.PlayRoomMusic(group, room.Id, _saveData);
+            _sound.CheckPlayRoomMusic();
             return;
         }
 

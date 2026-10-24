@@ -766,6 +766,42 @@ Write-GeneratedTable(
 # Preserve its room table; the output retains its legacy filename.
 $roomSpecificCodeSource = Read-ImportText (
     Join-Path $Disassembly 'code\ages\roomSpecificCode.s')
+$roomEntryPath = Join-Path $Disassembly 'code/ages/roomSpecificCode.s'
+$roomEntrySpecs = @{
+    0x04 = @{ Label = 'roomSpecificCode4'; Instructions = @(
+        'ld a,$06', 'ld (wMinimapRoom),a', 'ld hl,wPastRoomFlags+$06', 'set 4,(hl)', 'ret') }
+    0x05 = @{ Label = 'roomSpecificCode5'; Instructions = @(
+        'ld a,GLOBALFLAG_SAVED_NAYRU', 'call checkGlobalFlag', 'ret nz',
+        'ld a,MUS_SADNESS', 'ld (wActiveMusic2),a', 'ret') }
+    0x08 = @{ Label = 'roomSpecificCode8'; Instructions = @(
+        'ld a,(wScreenTransitionDirection)', 'cp DIR_RIGHT', 'ret nz',
+        'ld a,GLOBALFLAG_RALPH_ENTERED_PORTAL', 'call checkGlobalFlag', 'ret nz',
+        'ld a,MUS_RALPH', 'ld (wActiveMusic2),a', 'ret') }
+    0x09 = @{ Label = 'roomSpecificCode9'; Instructions = @(
+        'ld a,GLOBALFLAG_FINISHEDGAME', 'call checkGlobalFlag', 'ret z',
+        'ld a,MUS_NAYRU', 'ld (wActiveMusic2),a', 'ret') }
+    0x0a = @{ Label = 'roomSpecificCodeA'; Instructions = @(
+        'ld hl,wMinimapGroup', 'ld (hl),$00', 'inc l', 'ld (hl),$3c', 'ret') }
+    0x0b = @{ Label = 'roomSpecificCodeB'; Instructions = @(
+        'ld hl,wMinimapGroup', 'ld (hl),$01', 'inc l', 'ld (hl),$3c', 'ret') }
+    0x0c = @{ Label = 'roomSpecificCodeC'; Instructions = @(
+        'ld hl,wActiveMusic', 'ld a,(hl)', 'or a', 'ret nz', 'ld (hl),$ff', 'ret') }
+}
+$roomEntryDispatch = @(Read-AssemblyDataDirectives $roomEntryPath 'runRoomSpecificCode' '.dw' |
+    ForEach-Object { $_.Operands })
+if ($roomEntryDispatch.Count -ne 13) {
+    throw "${roomEntryPath}:runRoomSpecificCode: expected 13 dispatch targets."
+}
+foreach ($code in @($roomEntrySpecs.Keys | Sort-Object)) {
+    $spec = $roomEntrySpecs[$code]
+    if ($roomEntryDispatch[$code] -cne $spec.Label) {
+        throw "${roomEntryPath}:runRoomSpecificCode: handler `$$($code.ToString('x2')) " +
+            "expected '$($spec.Label)', found '$($roomEntryDispatch[$code])'."
+    }
+    Assert-RoomTileInstructions $roomEntryPath $spec.Label $spec.Instructions
+}
+$roomEntryRows = [Collections.Generic.List[string]]::new()
+$roomEntryRows.Add('# group`troom`tcode`tsource')
 $continuousRespawnRows = [Collections.Generic.List[string]]::new()
 $continuousRespawnRows.Add("# group`troom")
 for ($group = 0; $group -lt 8; $group++) {
@@ -778,6 +814,11 @@ for ($group = 0; $group -lt 8; $group++) {
     foreach ($entry in [regex]::Matches(
         $block.Groups['body'].Value,
         '(?m)^\s*\.db\s+\$(?<room>[0-9a-f]{2})\s+\$(?<code>[0-9a-f]{2})')) {
+        $entryCode = [Convert]::ToInt32($entry.Groups['code'].Value, 16)
+        if ($roomEntrySpecs.ContainsKey($entryCode)) {
+            $roomEntryRows.Add("$group`t$($entry.Groups['room'].Value.ToLowerInvariant())`t" +
+                "$($entryCode.ToString('x2'))`tcode/ages/roomSpecificCode.s:$($roomEntrySpecs[$entryCode].Label)")
+        }
         if ([Convert]::ToInt32($entry.Groups['code'].Value, 16) -eq 0x06) {
             $continuousRespawnRows.Add(
                 "$group`t$($entry.Groups['room'].Value.ToLowerInvariant())")
@@ -790,6 +831,10 @@ if ($continuousRespawnRows.Count -ne 3) {
 $continuousRespawnPath = Join-Path $destination 'metadata\continuous_death_respawn_rooms.tsv'
 Write-GeneratedTable(
     $continuousRespawnPath, $continuousRespawnRows)
+if ($roomEntryRows.Count -ne 8) {
+    throw "${roomEntryPath}: expected 7 room-entry side-effect bindings, found $($roomEntryRows.Count - 1)."
+}
+Write-GeneratedTable((Join-Path $destination 'metadata/room_entry_effects.tsv'), $roomEntryRows)
 
 # Parse the 103 non-stub tileset records. The runtime needs the room-layout
 # group and resolved six-palette block. Shared layouts are expanded by the
