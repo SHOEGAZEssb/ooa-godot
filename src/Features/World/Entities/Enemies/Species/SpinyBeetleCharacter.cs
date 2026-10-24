@@ -36,6 +36,10 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     private bool _swordRemovedCover;
     private Vector2 _coverDrawOffset;
     private CarriedObjectMotion _coverMotion;
+    private Func<SpinyBeetleCharacter, bool>? _createCover;
+    internal bool UsesNativeCover => Record.SubId is 0 or 3;
+    internal Texture2D CoverTexture => _coverTexture;
+    internal int CoverZ => _coverHeld || _coverThrown ? _coverMotion.ZFixed >> 8 : (int)_coverDrawOffset.Y;
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal SpinyBeetleState State => _state;
@@ -55,7 +59,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
     {
         get
         {
-            if (!_coverProtects)
+            if (!_coverProtects || UsesNativeCover)
                 return base.CollisionBounds;
             int radius = Record.RadiusX;
             return new Rect2(
@@ -71,7 +75,8 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         OracleRandom random,
         BraceletDatabaseRecord bracelet,
         BombRecord throwing,
-        Action<Rect2, int, int, int> applyThrownObjectHit)
+        Action<Rect2, int, int, int> applyThrownObjectHit,
+        Func<SpinyBeetleCharacter, bool>? createCover = null)
     {
         Record = record;
         InitializeEnemy(
@@ -84,8 +89,9 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         _throwing = throwing;
         _coverMotion = new CarriedObjectMotion(position);
         _applyThrownObjectHit = applyThrownObjectHit;
+        _createCover = createCover;
         _coverTexture = room.BuildMimickedMetatileTexture(
-            (byte)_behavior.DungeonBushTile);
+            (byte)EnemyBehaviorTables.Shared.SpinyCoverTiles[record.SubId].Value);
         _coverProtects = true;
         _coverVisualActive = true;
         _parentVisible = false;
@@ -108,7 +114,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
 
         // The bush/rock child remains independently active while its parent
         // is recoiling, matching the two-object source implementation.
-        UpdateCover(player, spawns);
+        if (!UsesNativeCover) UpdateCover(player, spawns);
         if (BeginFrame())
             return;
         if (CheckHazards())
@@ -116,6 +122,11 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
 
         if (_state == SpinyBeetleState.Uninitialized)
         {
+            if (UsesNativeCover)
+            {
+                _random.Next(); // enemyStandardUpdate repeats while state0 retries its child allocation.
+                if (_createCover is null || !_createCover(this)) return;
+            }
             _state = SpinyBeetleState.CoveredWaiting;
             return;
         }
@@ -204,7 +215,8 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
 
     internal override bool TakeSwordHit(Vector2 sourcePosition, int damage)
     {
-        if (_coverProtects && _coverVisualActive)
+        if (UsesNativeCover && Record.SubId >= 2 && _coverProtects) return false;
+        if (!UsesNativeCover && _coverProtects && _coverVisualActive)
         {
             RemoveProtectiveCover(createDebris: true);
             _swordRemovedCover = true;
@@ -215,7 +227,8 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
 
     internal override bool TakeBurnHit(int damage)
     {
-        if (_coverProtects && _coverVisualActive)
+        if (UsesNativeCover && Record.SubId >= 2 && _coverProtects) return false;
+        if (!UsesNativeCover && _coverProtects && _coverVisualActive)
         {
             RemoveProtectiveCover(createDebris: true);
             return true;
@@ -283,7 +296,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
             return;
         if (_parentVisible)
             DrawCurrentAnimation();
-        if (_coverVisualActive)
+        if (!UsesNativeCover && _coverVisualActive)
         {
             DrawTexture(
                 _coverTexture,
@@ -331,6 +344,9 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         _coverDebrisPending |= createDebris;
         QueueRedraw();
     }
+
+    internal void DetachNativeCover() { _coverProtects = false; _parentVisible = true; }
+    internal void DeleteNativeCover() => RemoveProtectiveCover(createDebris: false);
 
     private void UpdateCover(
         Player player,

@@ -3,7 +3,7 @@ using System;
 
 namespace oracleofages;
 
-/// <summary>ENEMY_BLADE_TRAP $0e:$00/$01, spinning red and center-limited blue traps.</summary>
+/// <summary>ENEMY_BLADE_TRAP $0e:$00/$01/$05: red, center-limited blue and unlimited green.</summary>
 internal partial class BladeTrapCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == BladeTrapState.Uninitialized;
@@ -23,8 +23,8 @@ internal partial class BladeTrapCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, Action<int> sound)
     {
-        if (record is not { Id: EnemyId.BladeTrap, SubId: 0 or 1 })
-            throw new ArgumentException("Blade trap requires imported $0e:$00/$01.", nameof(record));
+        if (record is not { Id: EnemyId.BladeTrap, SubId: 0 or 1 or 5 })
+            throw new ArgumentException("Blade trap requires imported $0e:$00/$01/$05.", nameof(record));
         Record = record;
         _room = room;
         _random = random;
@@ -53,11 +53,11 @@ internal partial class BladeTrapCharacter : EnemyCharacter
                 State = BladeTrapState.Waiting;
                 goto case BladeTrapState.Waiting;
             case BladeTrapState.Waiting:
-                if (!CheckAligned(target) || !HasUnobstructedTarget(target)) return;
+                if (!CheckAligned(target, Record.SubId == 5 ? EnemyBehaviorTables.Shared.GreenBladeTrap[0].Value : null) || !HasUnobstructedTarget(target)) return;
                 var walls = EnemyAdjacentWallResolver.Shared.ProbeTopDown(Position, Angle,
                     point => _room.IsSolidForEnemyMovement(point, holesAreWalls: true));
                 if (walls.Bitset != 0) return;
-                SpeedRaw = _behavior[2].Value;
+                SpeedRaw = Record.SubId == 5 ? EnemyBehaviorTables.Shared.GreenBladeTrap[1].Value : _behavior[2].Value;
                 State = BladeTrapState.Charging;
                 _sound(SoundId.SndUnknown5);
                 return;
@@ -66,16 +66,16 @@ internal partial class BladeTrapCharacter : EnemyCharacter
                 int coordinate = Mathf.FloorToInt((Angle & 8) == 0 ? Position.Y : Position.X);
                 int center = _behavior[(Angle & 8) == 0 ? 5 : 4].Value;
                 int radius = _behavior[6].Value;
-                if (moved && ((coordinate - center + radius) & 0xff) >= radius * 2 + 1) return;
+                if (moved && (Record.SubId == 5 || ((coordinate - center + radius) & 0xff) >= radius * 2 + 1)) return;
                 Angle ^= 0x10;
-                SpeedRaw = _behavior[3].Value;
+                SpeedRaw = Record.SubId == 5 ? EnemyBehaviorTables.Shared.GreenBladeTrap[2].Value : _behavior[3].Value;
                 State = BladeTrapState.Retracting;
                 _sound(SoundId.SndClink);
                 return;
             case BladeTrapState.Retracting:
                 if (Move()) return;
                 State = BladeTrapState.Cooldown;
-                Counter = _behavior[7].Value;
+                Counter = Record.SubId == 5 ? EnemyBehaviorTables.Shared.GreenBladeTrap[3].Value : _behavior[7].Value;
                 return;
             case BladeTrapState.Cooldown:
                 if (--Counter == 0) State = BladeTrapState.Waiting;

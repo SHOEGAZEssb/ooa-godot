@@ -376,6 +376,11 @@ Allocation, deletion, and native replacement have distinct byte-clearing and
 coordinate-copy rules. Shared bytes that outlive an actor remain with the pool
 or WRAM owner; retaining a stale object reference is not equivalent.
 
+Held enemy children preserve their physical allocation across scrolling while
+native enabled bit 1 is set. The room owner transfers surviving children and
+rebinds their terrain at arrival; held-position copying still follows Link
+while ordinary enemy updates are frozen. Throwing clears that persistence.
+
 Update eligibility is separate from input ownership. Dialogue, object freezes,
 scrolling, and palette fades can admit state-zero initialization or marked
 effects while freezing initialized actors. Each category samples dialogue at

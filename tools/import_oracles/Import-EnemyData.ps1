@@ -364,7 +364,7 @@ $commonEnemySpecs = @(
     @(0x16, 0x00),
     @(0x39, 0x00),
     @(0x12, 0x00),
-    @(0x0e, 0x00), @(0x0e, 0x01),
+    @(0x0e, 0x00), @(0x0e, 0x01), @(0x0e, 0x05),
     @(0x1c, 0x00), @(0x1c, 0x01),
     @(0x45, 0x00), @(0x45, 0x01), @(0x45, 0x02), @(0x45, 0x03), @(0x45, 0x04),
     @(0x2a, 0x03),
@@ -379,7 +379,7 @@ $commonEnemySpecs = @(
     @(0x0a, 0x00), @(0x0b, 0x00), @(0x0c, 0x00), @(0x0c, 0x01),
     @(0x10, 0x00), @(0x10, 0x01), @(0x10, 0x02), @(0x10, 0x03), @(0x13, 0x00),
     @(0x51, 0x02), @(0x51, 0x03),
-    @(0x14, 0x00), @(0x17, 0x00), @(0x17, 0x02), @(0x19, 0x00), @(0x1b, 0x01), @(0x1d, 0x00),
+    @(0x14, 0x00), @(0x17, 0x00), @(0x17, 0x01), @(0x17, 0x02), @(0x19, 0x00), @(0x1b, 0x00), @(0x1b, 0x01), @(0x1b, 0x03), @(0x1d, 0x00),
     @(0x1a, 0x00), @(0x22, 0x00), @(0x22, 0x01), @(0x23, 0x00), @(0x28, 0x00), @(0x33, 0x00),
     @(0x2f, 0x00), @(0x36, 0x00), @(0x3b, 0x00), @(0x3e, 0x00), @(0x47, 0x00), @(0x49, 0x00),
     @(0x30, 0x00), @(0x30, 0x01), @(0x30, 0x02),
@@ -446,7 +446,7 @@ foreach ($spec in $commonEnemySpecs) {
     $commonEnemyRows.Add(
         "$($id.ToString('x2'))`t$($subid.ToString('x2'))`t$($sprites -join ',')`t$($definition.TileBase)`t$($definition.Palette)`t$sourceGrayscaleInverted`t$($definition.RadiusY)`t$($definition.RadiusX)`t$($definition.Damage)`t$($definition.Health)`t$animations`t$($definition.RawDamage.ToString('x2'))")
 }
-if ($commonEnemyRows.Count -ne 97 -or
+if ($commonEnemyRows.Count -ne 101 -or
     ($commonEnemyRows | Where-Object {
         $_ -match '^74\t0[01]\tspr_smasher\t0\t3\t1\t6\t6\t2\t5\t'
     }).Count -ne 2 -or
@@ -1051,7 +1051,7 @@ $gelDefinitionRows.Add(
 
 # Perched Crows (`$41:$00) are fixed-position enemies. Their shared graphics
 # header, standard attributes, and four directional/flight animations are
-# resolved here; the off-screen flock subid `$01 remains outside this slice.
+# resolved here and shared with the off-screen flock subid `$01.
 $crowDefinition = Get-EnemyDefinition 0x41 0
 if ($crowDefinition.Gfx -ne 0x93 -or $crowDefinition.Collision -ne 0x31 -or
     $crowDefinition.ExtraIndex -ne 0x3d -or
@@ -1125,6 +1125,8 @@ $crowDefinitionRows.Add(
     "# id`tsubid`tsprite`ttile-base`tpalette`tradius-y`tradius-x`tdamage-quarters`thealth`tspeed-raw`tperched-right`tperched-left`tflight-right`tflight-left")
 $crowDefinitionRows.Add(
     "41`t00`t$crowSpriteName`t0`t3`t$crowRadiusY`t$crowRadiusX`t$crowDamageQuarters`t$crowHealth`t50`t$($crowAnimations -join "`t")")
+$crowDefinitionRows.Add(
+    "41`t01`t$crowSpriteName`t0`t3`t$crowRadiusY`t$crowRadiusX`t$crowDamageQuarters`t$crowHealth`t20`t$($crowAnimations -join "`t")")
 
 # Preserve parseObjectData order independently of the currently implemented
 # enemy species. Random/fixed enemies, reserving parts, and item-drop producers
@@ -1512,6 +1514,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '10:00' = 'rope'
     '0e:00' = 'blade-trap'
     '0e:01' = 'blade-trap'
+    '0e:05' = 'blade-trap'
     '2a:03' = 'giant-blade-trap'
     '15:00' = 'bubble'
     '3c:00' = 'bari'
@@ -1531,10 +1534,13 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '13:00' = 'spark'
     '14:00' = 'spiked-beetle'
     '17:00' = 'ghini'
+    '17:01' = 'ghini'
     '17:02' = 'ghini'
     '19:00' = 'whisp'
     '1a:00' = 'sand-crab'
     '1b:01' = 'spiny-beetle'
+    '1b:00' = 'spiny-beetle'
+    '1b:03' = 'spiny-beetle'
     '20:00' = 'masked-moblin'
     '20:01' = 'masked-moblin'
     '22:00' = 'arrow-moblin'
@@ -1569,6 +1575,7 @@ $orderedEnemyImplementationHandlers = [ordered]@{
     '50:01' = 'fireball-shooter'
     '3e:00' = 'peahat'
     '41:00' = 'crow'
+    '41:01' = 'crow'
     '43:00' = 'gel'
     '47:00' = 'color-changing-gel'
     '49:00' = 'sword-enemy'
@@ -1597,7 +1604,7 @@ foreach ($subid in @(0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x0a,0x0b,0x0c,0x82,0x83
     $orderedEnemyImplementationHandlers['54:' + $subid.ToString('x2')] = 'ambi-guard'
 }
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 133 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 138 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1668,9 +1675,9 @@ foreach ($row in $orderedObjectRows | Select-Object -Skip 1) {
 
 if ($enemyHandlerKeys.Count -ne 124 -or
     $enemyParameterRows -ne 12 -or
-    $enemyClassificationCounts['ordered-implemented'] -ne 805 -or
+    $enemyClassificationCounts['ordered-implemented'] -ne 822 -or
     $enemyClassificationCounts['dynamic-special'] -ne 0 -or
-    $enemyClassificationCounts['deliberately-unsupported'] -ne 17) {
+    $enemyClassificationCounts['deliberately-unsupported'] -ne 0) {
     throw "Enemy handler classification manifest changed: keys=$($enemyHandlerKeys.Count), " +
         "parameter=$enemyParameterRows, classifications=" +
         "$($enemyClassificationCounts | Out-String)"
@@ -3579,6 +3586,9 @@ for ($speedIndex = 0; $speedIndex -lt $objectSpeedNames.Count; $speedIndex++) {
 function Convert-EnemyBehaviorToken(
     [string]$token,
     [bool]$signedByte = $false) {
+    if ($token -match '^SPEED_0(?<speed>[0-9a-z]+)$') {
+        $token = 'SPEED_' + $Matches['speed'].TrimStart('0')
+    }
     if ($script:enemySpeedCodes.ContainsKey($token)) {
         return [int]$script:enemySpeedCodes[$token]
     }
@@ -4181,6 +4191,19 @@ if ($crowCodeSource -notmatch
 Add-EnemyBehaviorProfile 'crow' 'state-profile' `
     @(0x30, 0x18, 25, 90, 0x88, 0xa8) `
     'object_code/common/enemies/crows.s:crow_subid0'
+Add-EnemyBehaviorValueTable 'crow' 'offscreen-spawns' `
+    (Read-EnemyBehaviorValues ([regex]::Match($crowCodeSource, '(?ms)^crow_offScreenSpawnData:\s*(.*)').Groups[1].Value)) `
+    'object_code/common/enemies/crows.s:crow_offScreenSpawnData'
+Add-EnemyBehaviorValueTable 'crow' 'offscreen-speeds' `
+    (Read-EnemyBehaviorValues ([regex]::Match($crowCodeSource, '(?ms)^crow_speeds:\s*(.*?)(?=^crow_offScreenSpawnData:)').Groups[1].Value)) `
+    'object_code/common/enemies/crows.s:crow_speeds'
+if ($crowCodeSource -notmatch '(?ms)^crow_subid1_state8:.*?cp \$02.*?ld a,60.*?ld a,240.*?ld \(hl\),\$02' -or
+    $crowCodeSource -notmatch '(?ms)^crow_subid1_state9:.*?SPEED_80.*?-\$06' -or
+    $crowCodeSource -notmatch '(?ms)^crow_subid1_stateB:.*?ld \(hl\),24.*?SPEED_20') {
+    throw 'crows.s: offscreen admission, waits or charge operands changed.'
+}
+Add-EnemyBehaviorProfile 'crow' 'offscreen-state' @(2,60,240,60,24,0x14,0x05,-6,0x80,0x7f) `
+    'object_code/common/enemies/crows.s:crow_subid1'
 
 $gelCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\gel.s')
@@ -4338,6 +4361,11 @@ if ($bladeTrapSource -notmatch '(?ms)^bladeTrap_subid00:.*?SPEED_c0.*?ld b,\$0e.
 }
 Add-EnemyBehaviorProfile 'blade-trap' 'red-state-profile' @(0x1e,14,24) `
     'object_code/common/enemies/bladeAndFlameTrap.s:subid00-state-operands'
+if ($bladeTrapSource -notmatch '(?ms)^bladeTrap_subid05:.*?SPEED_200.*?ld b,\$0e.*?SND_UNKNOWN5.*?@stateA:.*?SPEED_100.*?SND_CLINK.*?@stateB:.*?ld \(hl\),\$10') {
+    throw 'bladeAndFlameTrap.s: unlimited green trap source changed.'
+}
+Add-EnemyBehaviorProfile 'blade-trap' 'green-state-profile' @(14,0x50,0x28,16) `
+    'object_code/common/enemies/bladeAndFlameTrap.s:bladeTrap_subid05'
 $bladeTrapCollisionEffects = @(0..0x1f | ForEach-Object {
     $enemyCollisionTableValues[0x13 * 0x20 + $_]
 })
@@ -4533,6 +4561,15 @@ Add-EnemyBehaviorProfile 'ghini' 'state-profile' `
     'object_code/common/enemies/ghini.s:ghini_subid00'
 
 $targetGhiniSource = $ghiniCodeSource -replace '(?m);[^\r\n]*',''
+if ($targetGhiniSource -notmatch '(?ms)^ghini_subid01:.*?@state8:.*?and \$01.*?@state9:.*?wFrameCounter.*?cp \$08.*?ldbc \$1f,\$1f.*?@stateA:.*?cp \$80.*?@gotoStateC:.*?\$7f.*?SPEED_20' -or
+    $targetGhiniSource -notmatch '(?ms)^@state_uninitialized:.*?ld \(hl\),60.*?ld \(hl\),\$10') {
+    throw 'ghini.s: subid $01 fade/wander/speed-cycle source changed.'
+}
+Add-EnemyBehaviorProfile 'ghini' 'spawn-state-profile' @(60,0x10,0x7f,0x80,8,0x1f,0x2a,0x54) `
+    'object_code/common/enemies/ghini.s:ghini_subid01'
+Add-EnemyBehaviorValueTable 'ghini' 'spawn-speeds' `
+    (Read-EnemyBehaviorValues ([regex]::Match($ghiniCodeSource, '(?ms)^@speeds:\s*(.*?)(?=^;;)').Groups[1].Value)) `
+    'object_code/common/enemies/ghini.s:ghini_updateMovementAndSetSpeedFromCounter1@speeds'
 foreach ($pattern in @(
     '^enemyCode17:.*?ENEMYSTATUS_NO_HEALTH.*?ecom_updateKnockbackNoSolidity.*?@stunned:.*?Enemy.stunCounter.*?ret nz.*?Enemy.zh\s+ld a,\$fe',
     '^@state_uninitialized:\s+ld a,SPEED_80\s+call ecom_setSpeedAndState8\s+ld l,Enemy.zh\s+ld \(hl\),\$fe.*?objectSetVisiblec1',
@@ -4719,6 +4756,22 @@ if ($spinyBeetleCodeSource -notmatch
 Add-EnemyBehaviorProfile 'spiny-beetle' 'state-profile' `
     @(0x23, 3, 0x0c, 0x38, 30, 60, 6, 40, 0x20, -4) `
     'object_code/common/enemies/spinyBeetle.s:state-entry-operands'
+if ($bushOrRockCodeSource -notmatch '(?ms)^@collisionAndTileData:.*?ENEMYCOLLISION_BUSH, TILEINDEX_OVERWORLD_BUSH_1.*?ENEMYCOLLISION_BUSH, TILEINDEX_DUNGEON_BUSH.*?ENEMYCOLLISION_ROCK, TILEINDEX_DUNGEON_POT.*?ENEMYCOLLISION_ROCK, TILEINDEX_OVERWORLD_ROCK') {
+    throw 'bushOrRock.s: cover collision/tile variants changed.'
+}
+Add-EnemyBehaviorProfile 'spiny-beetle' 'cover-tiles' @(0xc5,0x20,0x10,0xc0) `
+    'object_code/common/enemies/bushOrRock.s:@collisionAndTileData;constants/common/tileIndices.s'
+$coverDefinition = Get-EnemyDefinition 0x58 0
+Add-EnemyBehaviorProfile 'spiny-beetle' 'cover-attributes' @(0x58,$coverDefinition.Health,$coverDefinition.RadiusY,$coverDefinition.RadiusX,$coverDefinition.Damage,$coverDefinition.RawDamage) `
+    'data/ages/enemyData.s:enemyData+$0160'
+foreach ($mode in @(0x40,0x52)) {
+    Add-EnemyBehaviorProfile 'spiny-beetle' "cover-effects-$($mode.ToString('x2'))" `
+        @(0..31 | ForEach-Object { $enemyCollisionTableValues[$mode * 32 + $_] }) `
+        "data/ages/objectCollisionTable.s:objectCollisionTable+$((32 * $mode).ToString('x4'))"
+}
+$coverActiveBits = ($seedActiveRows[0x58].Operands -join '').Replace('%','')
+Add-EnemyBehaviorProfile 'spiny-beetle' 'cover-active-collisions' @($coverActiveBits.ToCharArray() | ForEach-Object { [int]::Parse([string]$_) }) `
+    'data/ages/enemyActiveCollisions.s:enemyActiveCollisions+$0160'
 
 $wallmasterCodeSource = Read-ImportText (
     Join-Path $Disassembly 'object_code\common\enemies\wallmaster.s')
@@ -5707,8 +5760,8 @@ $beamBits = ((@(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'data/ages
 if ($beamBits -notmatch '^[01]{32}$') { throw 'PART$1b active mask malformed.' }
 Add-EnemyBehaviorProfile 'lynel-beam' 'active-collisions' @($beamBits.ToCharArray() | ForEach-Object {[int]::Parse([string]$_)}) 'data/ages/partActiveCollisions.s:PART$1b'
 Add-EnemyBehaviorProfile 'lynel-beam' 'effects' @(0..31 | ForEach-Object {$enemyCollisionTableValues[0x6f*32+$_]}) 'data/ages/objectCollisionTable.s:mode$6f'
-if ($enemyBehaviorRows.Count -ne 3375) {
-    throw "Expected 3374 enemy behavior-table rows, got " +
+if ($enemyBehaviorRows.Count -ne 3530) {
+    throw "Expected 3529 enemy behavior-table rows, got " +
         "$($enemyBehaviorRows.Count - 1)."
 }
 Write-GeneratedTable(

@@ -1021,7 +1021,7 @@ public sealed class RoomEntityManager : IDisposable
             // enabled=$03 bypasses setObjectsEnabledTo2 and survives
             // clearItemsWithEnabled2. Its raw cloud coordinates also survive.
             if (entity is not BombRoomEntity { Bomb.State: BombState.Held } &&
-                entity is not PegasusDustRoomEntity && entity is not IPlayerScreenTransitionRoomEntity
+                entity is not PegasusDustRoomEntity && entity is not IScrollPersistentRoomEntity { PersistsAcrossScroll: true } && entity is not IPlayerScreenTransitionRoomEntity
                 {
                     ControlsPlayerScreenTransition: true
                 })
@@ -1032,6 +1032,8 @@ public sealed class RoomEntityManager : IDisposable
             _activeEntities.Add(entity);
             if (entity is BombRoomEntity heldBomb)
                 heldBomb.Bomb.SetRoom(_roomForActiveEntities.Group, _roomForActiveEntities);
+            if (entity is IScrollPersistentRoomEntity persistent)
+                persistent.EnterRoom(_roomForActiveEntities);
         }
         ClearEntities(_outgoingEntities);
         foreach (IRoomEntity entity in _activeEntities)

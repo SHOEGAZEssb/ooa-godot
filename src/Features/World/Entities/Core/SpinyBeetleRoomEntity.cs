@@ -83,6 +83,7 @@ internal sealed class SpinyBeetleRoomEntity
         Player player,
         Vector2I releaseDirection)
     {
+        if (Entity.UsesNativeCover) return false;
         bool used = Entity.TryUseBracelet(player, releaseDirection);
         if (used && Entity.CoverHeld && SeedBurning)
             CancelSeedBurn();

@@ -4,7 +4,7 @@ using System;
 namespace oracleofages;
 
 /// <summary>
-/// ENEMY_CROW ($41), subid $00. The perched Crow turns toward Link, rises for
+/// ENEMY_CROW ($41), subid $00/$01. The perched Crow turns toward Link, rises for
 /// 25 updates when approached, then charges with the original 32-step angle,
 /// SPEED_140 movement, random four-step aim offset, and eight-update steering.
 /// </summary>
@@ -25,6 +25,11 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
     private int _z;
     private bool _collisionEnabled;
     private bool _initialized;
+    private Func<int> _activeCrows = static () => 0;
+    private Vector2 _targetPosition;
+    private int _speed;
+    internal bool OccupiesAttackLane => SourceState >= 9;
+    internal int SourceState => !_initialized ? 0 : Record.SubId == 0 ? (int)_state + 8 : (int)_state;
 
     public CrowRecord Record { get; private set; }
     internal bool DeletedOutOfBounds { get; private set; }
@@ -48,14 +53,16 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
         CrowRecord record,
         OracleRoomData room,
         Vector2 position,
-        OracleRandom random)
+        OracleRandom random,
+        Func<int>? activeCrows = null)
     {
-        if (record.SubId != 0)
+        if (record.SubId is not (0 or 1))
             throw new InvalidOperationException(
-                $"CrowCharacter only supports ENEMY_CROW subid $00, got ${record.SubId:x2}.");
+                $"CrowCharacter requires ENEMY_CROW $41:$00/$01, got ${record.SubId:x2}.");
 
         Record = record;
         _random = random;
+        _activeCrows = activeCrows ?? (static () => 0);
         _precisePosition = position;
 
         InitializeEnemy(
@@ -87,7 +94,8 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
         if (_initialized) return;
         _random.Next(); // enemyStandardUpdate seeds var3d before crow state0.
         _initialized = true;
-        Visible = true;
+        Visible = Record.SubId == 0;
+        if (Record.SubId == 1) _state = CrowState.Offscreen;
     }
 
     internal void UpdateFrame(Vector2 linkPosition)
@@ -101,6 +109,7 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
         }
         if (BeginFrame())
             return;
+        if (Record.SubId == 1) { UpdateOffscreen(linkPosition); return; }
 
         switch (_state)
         {
@@ -151,11 +160,79 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
         }
     }
 
+    // crows.s:crow_subid1 uses the live physical ENEMY walk for admission.
+    // Hidden crows retain their slot and RNG state between repeated attacks.
+    private void UpdateOffscreen(Vector2 linkPosition)
+    {
+        var data = EnemyBehaviorTables.Shared;
+        var state = data.OffscreenCrowState;
+        switch (_state)
+        {
+            case CrowState.Offscreen:
+                int active = _activeCrows();
+                if (active >= state[0].Value) return;
+                _state = CrowState.SpawnDelay;
+                _counter1 = state[active == 0 ? 1 : 2].Value;
+                return;
+            case CrowState.SpawnDelay:
+                if (--_counter1 != 0) return;
+                int quadrant = (linkPosition.Y >= state[8].Value / 2 ? 8 : 0) +
+                    (linkPosition.X >= (_behavior.ScreenRight - 8) / 2 ? 4 : 0);
+                var positions = data.OffscreenCrowSpawns;
+                _precisePosition = new Vector2(positions[quadrant + 1].Value, positions[quadrant].Value) +
+                    _precisePosition - _precisePosition.Floor();
+                Position = _precisePosition.Floor();
+                _targetPosition = new(positions[quadrant + 3].Value, positions[quadrant + 2].Value);
+                _angle = OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition);
+                _state = CrowState.Entering;
+                _collisionEnabled = true; _speed = state[5].Value; _z = state[7].Value;
+                SetDirectionalAnimation(flight: true); Visible = true;
+                return;
+            case CrowState.Entering:
+                if ((((int)Position.X - (int)_targetPosition.X + 1) & 255) < 2 &&
+                    (((int)Position.Y - (int)_targetPosition.Y + 1) & 255) < 2)
+                {
+                    _state = CrowState.Hovering; _counter1 = state[3].Value;
+                    _angle = OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition);
+                    SetDirectionalAnimation(flight: true);
+                }
+                else
+                {
+                    _angle = OracleObjectMovement.Shared.RelativeAngle(Position, _targetPosition);
+                    Position = ApplyMovementSpeed(ref _precisePosition, _speed, _angle);
+                    SetDirectionalAnimation(flight: true);
+                }
+                AdvanceAnimation(); return;
+            case CrowState.Hovering:
+                if (--_counter1 == 0)
+                {
+                    _counter1 = state[4].Value; _counter2 = 0;
+                    _state = CrowState.Accelerating; _targetPosition = linkPosition;
+                    _speed = state[6].Value;
+                }
+                AdvanceAnimation(); return;
+            case CrowState.Accelerating:
+                if (!WithinChargeScreenBounds()) { _state = CrowState.Leaving; AdvanceAnimation(); return; }
+                _counter1 = (_counter1 - 1) & 255;
+                if (_counter1 == 0) _angle = OracleObjectMovement.Shared.RelativeAngle(Position, linkPosition);
+                if (_counter2 != state[9].Value) _counter2++;
+                _speed = data.OffscreenCrowSpeeds[(_counter2 & 0xf0) >> 4].Value;
+                Position = ApplyMovementSpeed(ref _precisePosition, _speed, _angle);
+                AdvanceAnimation(); return;
+            case CrowState.Leaving:
+                _state = CrowState.Offscreen; _collisionEnabled = false; Visible = false;
+                return;
+            default: throw new InvalidOperationException($"crows.s: $41:$01 state ${(int)_state:x2}.");
+        }
+    }
+
     internal bool TakeSwordHit(int damage)
     {
         if (IsDead || InvincibilityCounter > 0 || !CollisionEnabled)
             return false;
-        return ApplyDamage(damage, invincibilityFrames: 0);
+        bool accepted = ApplyDamage(damage, invincibilityFrames: 0);
+        if (accepted && Record.SubId == 1) DeferNativeHitStatus();
+        return accepted;
     }
 
     private bool WithinUnsignedApproachRange(Vector2 target)
@@ -219,5 +296,11 @@ internal enum CrowState
 {
     Perched,
     Rising,
-    Charging
+    Charging,
+    Offscreen = 8,
+    SpawnDelay = 9,
+    Entering = 10,
+    Hovering = 11,
+    Accelerating = 12,
+    Leaving = 13
 }

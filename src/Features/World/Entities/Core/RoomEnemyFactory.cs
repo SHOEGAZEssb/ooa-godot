@@ -14,6 +14,11 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
     private readonly OracleRuntimeState _runtimeState = owner.RuntimeState;
     private readonly OracleSaveData? _saveData = owner.SaveData;
     private readonly Func<long> _animationTick = owner.AnimationTick;
+    private void KillSpawnedGhinis()
+    {
+        foreach (var ghini in owner.Entities<GhiniCharacter>().Where(actor => actor.Record.SubId == 1))
+            ghini.KillFromParentDeath();
+    }
 
     internal IRoomEntity? CreateOrderedEnemy(
         EnemyHandlerDescriptor handler,
@@ -230,7 +235,8 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                     Name = $"Crow_{source.SubId:x2}_{source.Order}_{instance}",
                     ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
                 };
-                crow.Initialize(crowRecord, room, position, _random);
+                crow.Initialize(crowRecord, room, position, _random,
+                    () => owner.Entities<CrowCharacter>().Count(actor => actor.OccupiesAttackLane));
                 return new CrowRoomEntity(
                     crow, combatSource, owner.OnSoundRequested);
 
@@ -611,7 +617,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 if (source.SubId == 2)
                 {
                     var targetGhini = new TargetGhiniCharacter { Name = $"Ghini_{source.SubId:x2}_{source.Order}_{instance}" };
-                    targetGhini.Initialize(enemies.ImportedEnemy(EnemyId.Ghini, 2), room, position, _random, _runtimeState);
+                    targetGhini.Initialize(enemies.ImportedEnemy(EnemyId.Ghini, 2), room, position, _random, _runtimeState, KillSpawnedGhinis);
                     return new TargetGhiniRoomEntity(targetGhini, combatSource, owner.OnSoundRequested,
                         () => _random.Next().Value, () => owner.PartSlotAvailable);
                 }
@@ -625,7 +631,9 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                     Name = $"Ghini_{source.Order}_{instance}",
                     ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
                 };
-                ghini.Initialize(ghiniRecord, room, position, _random);
+                ghini.Initialize(ghiniRecord, room, position, _random, KillSpawnedGhinis);
+                if (source.SubId == 1) return new SpawnGhiniRoomEntity(ghini, combatSource,
+                    owner.OnSoundRequested, () => _random.Next().Value, () => owner.PartSlotAvailable);
                 return new GhiniRoomEntity(
                     ghini, combatSource, owner.OnSoundRequested);
 
@@ -669,7 +677,10 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                     _random,
                     resources.Bracelet.Data,
                     resources.Bomb.Data,
-                    owner.ApplyThrownObjectHit);
+                    owner.ApplyThrownObjectHit,
+                    parent => owner.TryAllocateEnemy(_ => new SpinyBeetleCoverRoomEntity(
+                        new SpinyBeetleCoverCharacter(parent, _random, room, resources.Bracelet.Data,
+                            resources.Bomb.Data, owner.ApplyThrownObjectHit), owner.OnSoundRequested, () => owner.PartSlotAvailable)) is not null);
                 return new SpinyBeetleRoomEntity(
                     spinyBeetle, combatSource, owner.OnSoundRequested);
 

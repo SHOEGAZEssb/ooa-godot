@@ -1220,6 +1220,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateRoom060EnemyCombat);
         RunIsolatedValidation(ValidateGraveyardCrowsAndDropProducers);
         RunIsolatedValidation(ValidateCrowPublicationRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMissingEnemyVariantsRom, requiresRom: true);
+        RunIsolatedValidation(ValidateMissingEnemyPlacements);
+        RunIsolatedValidation(ValidateOffscreenCrowFlockRom, requiresRom: true);
+        RunIsolatedValidation(ValidateSpinyVariantsRom, requiresRom: true);
         RunIsolatedValidation(ValidateCrowChargeCountersRom, requiresRom: true);
         RunIsolatedValidation(ValidateCuccoAttackerPublicationRom, requiresRom: true);
         RunIsolatedValidation(ValidateCuccoHopPublicationRom, requiresRom: true);

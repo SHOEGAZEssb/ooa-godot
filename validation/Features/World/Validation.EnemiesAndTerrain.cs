@@ -1267,6 +1267,11 @@ public sealed partial class ValidationRoot
             [(0x54, 0x8c)] = (0xda, EnemySwordResponse.NoKnockback),
             [(0x7f, 0x00)] = (0xd0, EnemySwordResponse.None)
         };
+        expectedCombat[(0x0e, 0x05)] = (0x93, EnemySwordResponse.Armored);
+        expectedCombat[(0x17, 0x01)] = (0x9a, EnemySwordResponse.Knockback);
+        expectedCombat[(0x1b, 0x00)] = (0x90, EnemySwordResponse.Knockback);
+        expectedCombat[(0x1b, 0x03)] = (0x90, EnemySwordResponse.Knockback);
+        expectedCombat[(0x41, 0x01)] = (0x31, EnemySwordResponse.Knockback);
         var combatSourceFlags = new HashSet<(int Id, int SubId, int Flags)>();
         int combatSourceRows = 0;
         int ordinaryEnemyPlacements = 0;
@@ -1366,30 +1371,30 @@ public sealed partial class ValidationRoot
             ordinaryEnemyPlacements != 822 ||
             parameterEnemyPlacements != 12 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 805 ||
+                EnemyHandlerClassification.OrderedImplemented) != 822 ||
             classificationCounts.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationCounts.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 17 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.OrderedImplemented) != 1133 ||
+                EnemyHandlerClassification.OrderedImplemented) != 1162 ||
             classificationInstances.GetValueOrDefault(
                 EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classificationInstances.GetValueOrDefault(
-                EnemyHandlerClassification.DeliberatelyUnsupported) != 29 ||
+                EnemyHandlerClassification.DeliberatelyUnsupported) != 0 ||
             classifiedKeys.Count != 124 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.OrderedImplemented) != 119 ||
+                    EnemyHandlerClassification.OrderedImplemented) != 124 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
                     EnemyHandlerClassification.DynamicSpecial) != 0 ||
             classifiedKeys.Count(key =>
                 key.Classification ==
-                    EnemyHandlerClassification.DeliberatelyUnsupported) != 5 ||
-            combatSourceRows != 770 ||
-            combatSourceFlags.Count != 208 ||
-            expectedCombat.Count != 99 ||
+                    EnemyHandlerClassification.DeliberatelyUnsupported) != 0 ||
+            combatSourceRows != 787 ||
+            combatSourceFlags.Count != 214 ||
+            expectedCombat.Count != 104 ||
             implementedHandler is not
             {
                 Id: EnemyId.Keese,
@@ -1439,8 +1444,8 @@ public sealed partial class ValidationRoot
             room5b0[0].Source !=
                 "objects/ages/enemyData.s:" +
                 "group5Mapb0EnemyObjectData[0]",
-            "The enemy handler registry lost its 821-row implementation " +
-            "classification, 769-row/207-flag typed combat descriptors, " +
+            "The enemy handler registry lost its 822-row implementation " +
+            "classification, 787-row/214-flag typed combat descriptors, " +
             "source collision modes, construction dispatch, source " +
             "identity, or dungeon-count completeness contract.");
 
@@ -4413,9 +4418,9 @@ public sealed partial class ValidationRoot
         }
 
         FailIf(
-            auditedCombatKeys.Count != 99 ||
+            auditedCombatKeys.Count != 104 ||
             auditedNonCombatKeys.Count != 18,
-            "The shield audit did not cover all 99 implemented combat " +
+            "The shield audit did not cover all 104 implemented combat " +
             "enemy keys and 18 deliberately non-combat placed keys, including ENEMY $16, $50:$00/$01 and $63:$05-$0b.");
 
         RoomObjectRecord octorokSource = RoomEnemyPlacements(

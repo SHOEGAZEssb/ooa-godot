@@ -102,7 +102,7 @@ public sealed class EnemyDatabase
                     $"Duplicate common enemy ${record.Id:x2}:${record.SubId:x2}.");
             }
         }
-        if (_importedDefinitions.Count != 96 ||
+        if (_importedDefinitions.Count != 100 ||
             ImportedEnemy(EnemyId.LikeLike) is not
                 { Health: 5, DamageQuarters: 2, RadiusY: 6, RadiusX: 6,
                     TileBase: 12, Palette: 3, Animations.Length: 2 } ||
@@ -411,11 +411,11 @@ public sealed class EnemyDatabase
                 throw row.Invalid(0, "unique ENEMY_CROW $41 definition");
             }
         }
-        if (_crowDefinitions.Count != 1 ||
-            !_crowDefinitions.ContainsKey(0))
+        if (_crowDefinitions.Count != 2 ||
+            !_crowDefinitions.ContainsKey(0) || !_crowDefinitions.ContainsKey(1))
         {
             throw new InvalidOperationException(
-                "Expected the ENEMY_CROW $41:$00 definition.");
+                "Expected the ENEMY_CROW $41:$00/$01 definitions.");
         }
 
         table = GeneratedTable.Load(

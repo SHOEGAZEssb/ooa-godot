@@ -82,6 +82,17 @@ internal sealed class EnemyBehaviorTables
     internal GiantCuccoBehaviorProfile GiantCucco { get; }
     internal CuccoAttackerBehaviorProfile CuccoAttacker { get; }
     internal CrowBehaviorProfile Crow { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> OffscreenCrowState { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> OffscreenCrowSpawns { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> OffscreenCrowSpeeds { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SpawnGhiniState { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SpawnGhiniSpeeds { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SpinyCoverTiles { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SpinyCoverAttributes { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SpinyBushEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SpinyRockEffects { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> SpinyCoverActiveCollisions { get; }
+    internal IReadOnlyList<EnemyBehaviorValue> GreenBladeTrap { get; }
     internal GelBehaviorProfile Gel { get; }
     internal ZolBehaviorProfile Zol { get; }
     internal OctorokBehaviorProfile Octorok { get; }
@@ -355,6 +366,17 @@ internal sealed class EnemyBehaviorTables
             values[5].Value,
             values);
 
+        OffscreenCrowState = TakeValues(groups, "crow", "offscreen-state", 10);
+        OffscreenCrowSpawns = TakeValues(groups, "crow", "offscreen-spawns", 16);
+        OffscreenCrowSpeeds = TakeValues(groups, "crow", "offscreen-speeds", 8);
+        SpawnGhiniState = TakeValues(groups, "ghini", "spawn-state-profile", 8);
+        SpawnGhiniSpeeds = TakeValues(groups, "ghini", "spawn-speeds", 3);
+        SpinyCoverTiles = TakeValues(groups, "spiny-beetle", "cover-tiles", 4);
+        SpinyCoverAttributes = TakeValues(groups, "spiny-beetle", "cover-attributes", 6);
+        SpinyBushEffects = TakeValues(groups, "spiny-beetle", "cover-effects-40", 32);
+        SpinyRockEffects = TakeValues(groups, "spiny-beetle", "cover-effects-52", 32);
+        SpinyCoverActiveCollisions = TakeValues(groups, "spiny-beetle", "cover-active-collisions", 32);
+        GreenBladeTrap = TakeValues(groups, "blade-trap", "green-state-profile", 4);
         values = TakeValues(groups, "gel", "state-profile", 8);
         Gel = new(
             values[0].Value,
@@ -810,10 +832,10 @@ internal sealed class EnemyBehaviorTables
             TakeValues(groups, "vire", "behaviors", 16), TakeValues(groups, "vire", "spawn-positions", 24),
             TakeValues(groups, "vire", "bat-z", 8), TakeValues(groups, "vire", "bat-offsets", 2),
             TakeValues(groups, "vire", "collision-effects", 32), TakeValues(groups, "vire", "active-collisions", 32));
-        if (table.Rows.Count != 3374 || groups.Count != 0)
+        if (table.Rows.Count != 3529 || groups.Count != 0)
         {
             throw new InvalidOperationException(
-                $"Enemy behavior table contract expected 3374 rows and no " +
+                $"Enemy behavior table contract expected 3529 rows and no " +
                 $"unclaimed groups; got {table.Rows.Count} rows and " +
                 $"{groups.Count} unclaimed groups.");
         }

@@ -13,6 +13,7 @@ internal sealed partial class TargetGhiniCharacter : EnemyCharacter
     private OracleRuntimeState _memory = null!;
     private int _stunCounter, _speedZ;
     private bool _collisionDisabled;
+    private Action? _killSpawnedGhinis;
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int State { get; private set; }
     internal int Counter { get; set; }
@@ -28,10 +29,11 @@ internal sealed partial class TargetGhiniCharacter : EnemyCharacter
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (ZFixed >> 8);
 
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
-        Vector2 position, OracleRandom random, OracleRuntimeState memory)
+        Vector2 position, OracleRandom random, OracleRuntimeState memory, Action? killSpawnedGhinis = null)
     {
         if (record.SubId != 2) throw new NotSupportedException($"ghini.s: target handler requires ENEMY$17:$02, got ${record.SubId:x2}.");
         Record = record; _room = room; _random = random; _memory = memory;
+        _killSpawnedGhinis = killSpawnedGhinis;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));
         ConfigureSwordKnockback(room, EnemyKnockbackMotion.ScreenBoundary, nativeSpeed: () => Speed);
         Visible = false;
@@ -56,7 +58,7 @@ internal sealed partial class TargetGhiniCharacter : EnemyCharacter
             ZFixed = _stunCounter == 0 ? unchecked((short)((_data.InitialZ & 0xff00) | (z & 0xff))) : z;
         }
         if (BeginFrame() || stunned) return;
-        if (Health == 0) { Finish(); return; }
+        if (Health == 0) { _killSpawnedGhinis?.Invoke(); Finish(); return; }
         switch (State)
         {
             case 0: PrepareForScreenTransition(); return;
@@ -125,6 +127,8 @@ internal sealed partial class TargetGhiniCharacter : EnemyCharacter
         // Its temporary health=$01 must not re-enable a lethally hit enemy.
         InvincibilityCounter = 0; _stunCounter = 1;
     }
+    protected override void CompleteKnockbackDeath()
+    { _killSpawnedGhinis?.Invoke(); base.CompleteKnockbackDeath(); }
     internal void MarkLinkHit() => DeferNativeHitStatus();
     internal override bool TakeSwordHit(Vector2 origin, int damage)
     {

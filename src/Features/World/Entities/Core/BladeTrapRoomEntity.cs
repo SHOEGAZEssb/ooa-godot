@@ -17,7 +17,7 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
             EnemySwordResponse.Armored, acceptedHitSound: 0)) => _sound = sound;
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame(frame.Player.Position);
+        Entity.UpdateFrame(Entity.Record.SubId == 5 ? frame.LinkTarget ?? frame.Player.EnemyContactPosition : frame.Player.Position);
 
     public bool UpdatesDuringDialogue => Entity.State == BladeTrapState.Uninitialized;
     public bool UpdatesDuringRoomEntityFreeze => Entity.State == BladeTrapState.Uninitialized;

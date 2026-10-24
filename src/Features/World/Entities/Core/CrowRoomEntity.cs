@@ -37,12 +37,12 @@ internal sealed class CrowRoomEntity
     public void UpdateFrame(
         RoomEntityFrame frame,
         ICollection<RoomEntitySpawn> spawns) =>
-        Entity.UpdateFrame(frame.Player.Position);
+        Entity.UpdateFrame(Entity.Record.SubId == 1 ? frame.LinkTarget ?? frame.Player.EnemyContactPosition : frame.Player.Position);
 
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
     {
         Entity.PrepareForScreenTransition();
-        return ScreenTransitionPresentation.Visible;
+        return Entity.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
     }
 
 }

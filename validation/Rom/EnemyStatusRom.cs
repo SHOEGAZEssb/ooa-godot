@@ -89,7 +89,7 @@ internal sealed class EnemyStatusRom
         Call(0x3b36, 0x08); // bank0.updateInteractions
     }
 
-    internal void HitWithSword(int collisionType, int damage, int enemySlot = 0)
+    internal void HitWithSword(int collisionType, int damage, int enemySlot = 0, int itemOffsetX = -1)
     {
         // Declared overlapping ITEM, then the unmodified bank-$07 scan and
         // collision effect. The wrapper only supplies the caller registers.
@@ -98,7 +98,7 @@ internal sealed class EnemyStatusRom
         this[0xd726] = this[0xd727] = 6;
         int address = 0xd080 + enemySlot * 256;
         this[0xd70b] = this[address + 11];
-        this[0xd70d] = (byte)(this[address + 13] - 1);
+        this[0xd70d] = (byte)(this[address + 13] + itemOffsetX);
         this[0xffae] = 0x80;
         this[0xffaf] = (byte)(address >> 8);
         byte[] caller = [0x16, (byte)(address >> 8), 0x21, 0x00, 0xd6, 0xcd, 0xd1, 0x41, 0xc9];
