@@ -13,6 +13,7 @@ public sealed class RoomTileChangeDatabase
 {
 
     private readonly Lookup<(int Group, int Room), Rule> _rules = new();
+    private readonly TwinrovaArenaDatabase _twinrova = new();
 
     internal int RuleCount { get; }
     internal int RoomCount => _rules.KeyCount;
@@ -52,6 +53,7 @@ public sealed class RoomTileChangeDatabase
         int? dungeonFloor = null)
     {
         var writes = new Dictionary<int, byte>();
+        _twinrova.Apply(group,room,runtimeState,writes);
         if (_rules.TryGetValues(
                 (group, room.Id), out IReadOnlyList<Rule> rules))
         {

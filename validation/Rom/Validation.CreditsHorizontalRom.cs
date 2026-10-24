@@ -9,10 +9,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCreditsHorizontalRom()
     {
-        foreach(int mode in Enumerable.Range(0,3))foreach(int scene in Enumerable.Range(0,mode==0?4:1))foreach(bool batched in new[]{false,true})
+        foreach(int mode in Enumerable.Range(0,3))foreach(int scene in Enumerable.Range(0,mode==0?8:1))foreach(bool batched in new[]{false,true})
         {
             int card=mode==1?1:scene;
-            ReinitializeGameplayForValidation();LoadValidationRoom(1,0x65);_entities.Clear();
+            ReinitializeGameplayForValidation();_saveData.SetLinkedGame(card>=4);LoadValidationRoom(1,0x65);_entities.Clear();
             var palettesBefore=_world.BackgroundPalettes.Capture();
             var owner=_roomEvents.Get<BlackTowerEndingEvent>();owner.Begin();
             typeof(BlackTowerEndingEvent).GetField("_initialize",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(owner,false);
@@ -20,6 +20,7 @@ public sealed partial class ValidationRoot
             var seed=_random.CaptureState();var rom=new SomariaRom(_saveData,seed,_currentRoom,0,0,0)
                 {CompanionDispatchEnabled=true,NativeGameKeysEnabled=true,PostObjectCollisionsEnabled=false};
             rom.InitializeLinkGameplay();rom.EnableVramDma();var menu=rom.CreateMenuView();menu.LoadHudGraphics();menu.LoadRoomGraphics();
+            rom[0xcc01]=(byte)(card>=4?1:0); // checkIsLinkedGame reads the live copy, not file byte $c612.
             for(int address=0xd000;address<0xe000;address++)rom[address]=0;
             rom[0xcc03]=1;rom[0xcd16]=0;rom[0xcd17]=0xd0;
             foreach(var pair in new[]{(0xc2ef,10),(0xcbc1,1),(0xcbc2,2),(0xcfde,card),(0xcfdf,255),(0xcbc3,255),(0xcbc4,255),(0xcbc5,255)})
@@ -121,14 +122,15 @@ public sealed partial class ValidationRoot
                 }
             }
             FailIf(update>=1800||firstParent==0||firstChild-firstParent!=(mode==2?80:32)||mode==2&&!poolInjected||
-                card!=0&&(!sawMask||!sawRestored||mode!=1&&maskUploads!=31),
+                (card&3)!=0&&(!sawMask||!sawRestored||mode!=1&&maskUploads!=31),
                 $"Credits card${card:x2} must spawn after 32 fade-free updates, preserve all 31 mask uploads and publish $cfdf: update{update}, parent{firstParent}, child{firstChild}, uploads{maskUploads}.");
             // Follow the native completion once: it chooses the next vignette
             // or staff roll, and begins the fade before any replacement load.
             if(mode!=1)
             {
                 StepGameplayUpdates(1,Vector2.Zero,afterUpdate:Compare);
-                FailIf(!_transitions.NativePaletteFadeActive||card<3&&(_runtimeState.ReadWramByte(0xcfde)!=card+1||owner.State!=0)||card==3&&owner.Stage!=2,
+                int last=card>=4?7:3;
+                FailIf(!_transitions.NativePaletteFadeActive||card<last&&(_runtimeState.ReadWramByte(0xcfde)!=card+1||owner.State!=0)||card==last&&owner.Stage!=2,
                     "Horizontal credits must hand off through the source stage/index boundary.");
             }
             owner.Cancel();

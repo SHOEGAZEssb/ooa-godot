@@ -36,7 +36,7 @@ internal sealed class CreditsHorizontalDatabase
             }
         }
         _bytes=bytes??throw new InvalidOperationException("creditsTextHorizontal.s: missing contiguous script bytes.");
-        if(_entries.Count!=4||_frames.Count!=27)throw new InvalidOperationException("INTERAC $ae: incomplete normal-game script/animation tables.");
+        if(_entries.Count!=8||_frames.Count!=27)throw new InvalidOperationException("INTERAC $ae: incomplete normal/linked script and animation tables.");
     }
     internal (int Offset,int Direction,int Animation) Entry(int index)=>_entries[index];
     internal byte Read(int offset)=>(uint)offset<_bytes.Length?_bytes[offset]:throw new NotSupportedException($"creditsTextHorizontal.s: script read beyond imported stream at ${offset:x4}.");

@@ -532,6 +532,11 @@ internal sealed class RoomEntityFactory
             {
                 var record = laterDungeonRecords[laterDungeonIndex++];
                 if (!DungeonObjectConditionMet(record)) continue;
+                if (record.Kind == DungeonObjectKind.Twinrova)
+                {
+                    foreach (var entity in ParseRandomEnemies(Resources.Twinrova.EntrySource(record), room, placementContext, reservations)) yield return entity;
+                    continue;
+                }
                 if (record.Kind is DungeonObjectKind.Octogon or DungeonObjectKind.Vire)
                 {
                     deferredMermaidEnemies.Add(record);
@@ -543,6 +548,8 @@ internal sealed class RoomEntityFactory
                     continue;
                 if (record.Kind is DungeonObjectKind.StonePanel or DungeonObjectKind.Sarcophagus or DungeonObjectKind.EnemyAttachedKey or DungeonObjectKind.SlateSlot or DungeonObjectKind.PanelStairs or DungeonObjectKind.JabuWater or DungeonObjectKind.JabuLadder or DungeonObjectKind.JabuHookKey or DungeonObjectKind.OctogonInitializer or DungeonObjectKind.SmogController or DungeonObjectKind.PushBlockSynchronizer
                     or DungeonObjectKind.WallSquish or DungeonObjectKind.ButtonBridge or DungeonObjectKind.PuzzleTrapReset
+                    or DungeonObjectKind.FinalDungeonEnergy or DungeonObjectKind.Decoration or DungeonObjectKind.EyePuzzleExit
+                    or DungeonObjectKind.TwinrovaFlame or DungeonObjectKind.ZeldaApproach or DungeonObjectKind.Zelda
                     or DungeonObjectKind.PatternHint or DungeonObjectKind.TilePatternChest or DungeonObjectKind.TriggerChestScript
                     or DungeonObjectKind.BossReward or DungeonObjectKind.MinibossReward or DungeonObjectKind.Essence or DungeonObjectKind.OrbChest
                     or DungeonObjectKind.TileFiller or DungeonObjectKind.FloorFillChest or DungeonObjectKind.BlueFlameChest
@@ -565,6 +572,18 @@ internal sealed class RoomEntityFactory
                 }
                 yield return record.Kind switch
                 {
+                    DungeonObjectKind.Zelda => owner.RoomOfRitesZeldaFactory?.Invoke(NpcDatabase.Shared.AllRecords.Single(n =>
+                        n.Group == record.Group && n.Room == record.Room && n.Id == record.Id && n.SubId == record.SubId &&
+                        n.X == record.X && n.Y == record.Y)) ??
+                        throw new InvalidOperationException($"{record.Source}: Zelda $ad:$00 requires its native script owner."),
+                    DungeonObjectKind.TwinrovaFlame => new TwinrovaFlameRoomEntity(_saveData!, group, room.Id, record.SubId,
+                        Resources.RoomOfRitesRitual.Flame(record.SubId)),
+                    DungeonObjectKind.ZeldaApproach => owner.ZeldaApproachFactory?.Invoke(record, Resources.RoomOfRitesRitual) ??
+                        throw new InvalidOperationException($"{record.Source}: Zelda approach $da:$00 requires its native cutscene owner."),
+                    DungeonObjectKind.FinalDungeonEnergy => owner.FinalDungeonEnergyFactory?.Invoke(Resources.FinalDungeonEntry) ??
+                        throw new InvalidOperationException($"{record.Source}: finalDungeonEnergy $b5:$00 requires its native lifecycle owner."),
+                    DungeonObjectKind.Decoration => new DecorationRoomEntity(record, Resources.FinalDungeonEntry.Decoration),
+                    DungeonObjectKind.EyePuzzleExit => new EyePuzzleExitRoomEntity(_runtimeState, placementContext.ScrollDirection, owner.OnSoundRequested),
                     DungeonObjectKind.TileScript => CreateDungeonTileScript(record, lightableTorchState),
                     DungeonObjectKind.EnemyAttachedKey => CreateEnemyAttachedKey(record),
                     DungeonObjectKind.Sarcophagus => new SarcophagusRoomEntity(record,
@@ -888,7 +907,9 @@ internal sealed class RoomEntityFactory
         diagnostics?.Mark("before-npcs");
         IReadOnlyList<NpcRecord> roomNpcs =
             _familyState.ResolveRoomNpcs(
-                group, room.Id, _saveData, _runtimeState);
+                group, room.Id, _saveData, _runtimeState).Where(n => !laterDungeonRecords.Any(placed =>
+                    placed.Kind == DungeonObjectKind.Zelda && placed.Id == n.Id && placed.SubId == n.SubId &&
+                    placed.X == n.X && placed.Y == n.Y)).ToArray();
         diagnostics?.Mark("npc-resolution");
         if (group == 0 && roomNpcs.Any(record => record.Id == InteractionId.Carpenter))
         {
@@ -1110,6 +1131,8 @@ internal sealed class RoomEntityFactory
                             ? new BombUpgradeFairyRoomEntity(NpcCharacter.CreateFromRecord(record))
                             : record.Id is InteractionId.Goron or InteractionId.GoronElder || record is {Id:InteractionId.ShootingGallery,SubId:1} or {Id:InteractionId.Troy,SubId:0}
                                 ? new GoronCaveRoomEntity(NpcCharacter.CreateFromRecord(record))
+                                : record is { Id: InteractionId.Zelda, SubId: 0 }
+                                ? owner.RoomOfRitesZeldaFactory?.Invoke(record) ?? throw new InvalidOperationException("Room $5:$f1 requires its Zelda $ad:$00 native owner.")
                                 : record is { Id: 0x31, SubId: 0x07 } or { Id: 0x4c, SubId: 0x04 }
                                 ? owner.ZeldaRescueFactory?.Invoke(record) ?? throw new InvalidOperationException("Room $0:$65 requires its Zelda rescue native owner.")
                                 : new EventOwnedNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
@@ -2742,6 +2765,9 @@ internal sealed class RoomEntityFactory
                     owner.OnDungeonEntranceTriggered);
 
             case DungeonEntranceInteractionDatabaseObjectKind.EyeSpawner:
+                if (record.SubId == 3)
+                    return new StatueEyeballSpawnerRoomEntity(room, Resources.DungeonEntrances,
+                        owner.TryCreateEyePuzzleEye, () => EyePuzzleDatabase.Shared.PrepareEyes(owner));
                 return new StatueEyeballSpawnerRoomEntity(room, Resources.DungeonEntrances, owner.TryCreateStatueEyeball);
 
             case DungeonEntranceInteractionDatabaseObjectKind.MinibossPortal:
@@ -3013,7 +3039,7 @@ internal sealed class RoomEntityFactory
         EmberSeedSpawn seed => CreateEmberSeed(seed, room),
         BombSpawn bomb => CreateBomb(bomb, room),
         BombchuSpawn bombchu => CreateBombchu(bombchu, room),
-        InteractionSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, sparkle.SourceAngle, sparkle.Visual),
+        InteractionSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, sparkle.SourceAngle, sparkle.Visual,sparkle.Subid),
         OwlStatueSparkleSpawn sparkle => CreateInteractionSparkle(sparkle.Position, 0, sparkle.Visual),
         PuzzlePuffSpawn puff => CreatePuzzlePuff(puff),
         GreenPoofSpawn poof => new GreenPoofRoomEntity(Resources.DungeonVisuals.Visual("green-poof"), poof.Position, poof.Z),
@@ -3414,10 +3440,11 @@ internal sealed class RoomEntityFactory
             $"Room ${room.Group:x1}:${room.Id:x2} has no imported miniboss portal placement.");
     }
 
-    private StatueEyeballRoomEntity CreateStatueEyeball(StatueEyeballSpawn spawn)
+    private IRoomEntity CreateStatueEyeball(StatueEyeballSpawn spawn)
     {
         var eye = new StatueEyeball();
         eye.Initialize(spawn.Position, Resources.DungeonEntrances);
+        if (spawn.Puzzle) return new EyePuzzleStatueRoomEntity(eye, owner);
         return new StatueEyeballRoomEntity(eye);
     }
 
@@ -4840,17 +4867,17 @@ internal sealed class RoomEntityFactory
     }
 
     private static IRoomEntity CreateInteractionSparkle(
-        Vector2 position, int sourceAngle, InteractionSparkleVisual visual)
+        Vector2 position, int sourceAngle, InteractionSparkleVisual visual,int subid=0)
     {
         var sparkle = new InteractionSparkleEffect
         {
-            Name = "InteractionSparkle_84_00",
+            Name = $"InteractionSparkle_84_{subid:x2}",
             // sparkle.s selects visible81 for any nonzero source angle.
-            ZIndex = sourceAngle == 0
+            ZIndex = subid==2||sourceAngle == 0
                 ? ObjectDrawPriority.BehindLinkZIndex
                 : ObjectDrawPriority.InFrontOfLinkZIndex
         };
-        sparkle.Initialize(position, sourceAngle, visual);
+        sparkle.Initialize(position, sourceAngle, visual,subid);
         return new InteractionSparkleRoomEntity(sparkle);
     }
 
@@ -4951,7 +4978,7 @@ internal sealed class RoomEntityFactory
             Name = "BossDeathExplosion",
             ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
         };
-        explosion.Initialize(spawn.Position, spawn.BossId, owner.OnSoundRequested, spawn.ZHigh);
+        explosion.Initialize(spawn.Position, spawn.BossId, owner.OnSoundRequested, spawn.ZHigh,spawn.NativeSubid);
         return new BossDeathExplosionRoomEntity(
             explosion, _itemDrops, _random, _inventory, _saveData, () => owner.RoomEnemyCount);
     }
@@ -5630,7 +5657,7 @@ internal readonly record struct EnemyPlacementContext(
     }
 }
 
-internal sealed record BossDeathExplosionSpawn(Vector2 Position, int BossId, int ZHigh = 0)
+internal sealed record BossDeathExplosionSpawn(Vector2 Position, int BossId, int ZHigh = 0,int? NativeSubid=null)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record BossShadowSpawn(
@@ -5690,7 +5717,7 @@ internal sealed record EnemyClinkSpawn(Vector2 Position, bool InitializeOnUpdate
 internal sealed record CuccoAttackerSpawn(int HitCount)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal sealed record StatueEyeballSpawn(Vector2 Position)
+internal sealed record StatueEyeballSpawn(Vector2 Position, bool Puzzle = false)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
 internal sealed record MovingPlatformSpawn(Vector2 Position, int SubId)

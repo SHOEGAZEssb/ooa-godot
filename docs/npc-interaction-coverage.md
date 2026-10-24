@@ -51,9 +51,9 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 
 | Status | Records | Interpretation |
 | --- | ---: | --- |
-| **I** | 388 | Traced and covered by named NPC/event scenarios. |
+| **I** | 389 | Traced and covered by named NPC/event scenarios. |
 | **P** | 1 | A production path exists with a documented incomplete or unverified boundary. |
-| **D** | 1 | Original native/script ownership is not implemented, so no actor is instantiated. |
+| **D** | 0 | Original native/script ownership is not implemented, so no actor is instantiated. |
 | **Total** | **390** | **217 rooms and 302 unique ID/subid keys.** |
 
 ### Implementation classifications
@@ -62,8 +62,8 @@ can be promoted to **I** merely because the actor looks plausible in one room.
 | --- | ---: | ---: | ---: |
 | Ordinary NPC adapter | 89 | 0 | 89 |
 | Specialized native interaction | 169 | 72 | 241 |
-| Event-owned actor | 131 | 0 | 131 |
-| Deliberately unsupported | 1 | 0 | 1 |
+| Event-owned actor | 132 | 0 | 132 |
+| Deliberately unsupported | 0 | 0 | 0 |
 | **Total** | **390** | **72** | **462** |
 
 ## Bipin and Blossom family variants
@@ -293,7 +293,7 @@ These are mutually selected alternatives, not 72 simultaneous actors.
 | `5:e8` | [I] `$94:$01/v$00` patch<br>[I] `$94:$02/v$00` patch |
 | `5:e9` | [I] `$48:$1d/v$00` tokay |
 | `5:ec` | [I] `$52:$03/v$00` oldMan<br>[I] `$52:$04/v$00` oldMan<br>[I] `$52:$05/v$00` oldMan<br>[I] `$52:$06/v$00` oldMan |
-| `5:f1` | [D] `$ad:$00/v$00` zelda |
+| `5:f1` | [I] `$ad:$00/v$00` zelda |
 | `5:f6` | [I] `$bf:$08/v$00` symmetryNpc<br>[I] `$bf:$09/v$00` symmetryNpc |
 | `5:f8` | [I] `$c3:$00/v$00` pirateCaptain<br>[I] `$c4:$00/v$00` pirate<br>[I] `$c4:$01/v$00` pirate<br>[I] `$c4:$02/v$00` pirate<br>[I] `$c4:$03/v$00` pirate |
 

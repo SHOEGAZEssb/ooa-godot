@@ -196,6 +196,28 @@ public sealed class RoomEntityManager : IDisposable
     }
     internal bool TryCreateEnemy(RoomEntitySpawn spawn) => TryCreateEnemyEntity(spawn) is not null;
 
+    internal TwinrovaRoomEntity? TryCreateTwinrova(Vector2 position, int var03) =>
+        (TwinrovaRoomEntity?)TryAllocateEnemy(_ => _factory.EnemyFactory.CreateTwinrova(position, var03, _roomForActiveEntities));
+
+    internal void MergeTwinrova(TwinrovaCharacter parent)
+    {
+        // twinrova_state10@substate7 deliberately starts above its own page.
+        // Unlike getFreeEnemySlot it neither scans lower slots nor increments
+        // wNumEnemies. The parent's slot remains occupied during this scan.
+        if (parent.Slot == 15)
+            throw new NotSupportedException("twinrova_state10@substate7: parent $df80 scans outside the native enemy pool at $e080.");
+        for (int slot = parent.Slot + 1; slot < 16; slot++)
+        {
+            if (_reservedEnemySlots.Contains(slot)) continue;
+            byte count = (byte)RoomEnemyCount;
+            var merged = new MergedTwinrovaRoomEntity(new(parent.World, parent.Position, parent.ZFixed));
+            RegisterEnemySlot(merged, slot); AddEntity(merged);
+            RuntimeState.SetWramByte(WramAddress.wLoadedTreeGfxIndex, 1);
+            parent.DeleteNative(); SetNativeRoomEnemyCount(count);
+            return;
+        }
+    }
+
     private IRoomEntity? TryCreateEnemyEntity(RoomEntitySpawn spawn) =>
         TryAllocateEnemy(_ => _factory.Create(spawn, _roomForActiveEntities));
     public event Action<int, OracleRoomData>? RoomEntitiesLoaded;
@@ -204,6 +226,9 @@ public sealed class RoomEntityManager : IDisposable
         NativeMusicSelectionRequested?.Invoke(roomMusic, activeMusic);
     public event Action<TimePortal>? TimePortalEntered;
     internal event Action<int, string>? DungeonEntranceTriggered;
+    internal event Action? DeathRespawnPointRequested;
+    internal void RecordDeathRespawnPoint() => (DeathRespawnPointRequested ??
+        throw new InvalidOperationException("finalDungeonEnergy.s:$b5:$00 requires the authoritative death-respawn owner."))();
     internal event Action<Warp>? RoomWarpRequested;
     internal event Action<GroundTreasurePickup, Player>? GroundTreasureCollected;
     internal event Action<
@@ -224,9 +249,17 @@ public sealed class RoomEntityManager : IDisposable
     internal Func<NpcRecord, IRoomEntity>? BlackTowerRalphFactory { get; set; }
     internal Func<NpcRecord, IRoomEntity>? BlackTowerAmbiFactory { get; set; }
     internal Func<NpcRecord, IRoomEntity>? ZeldaRescueFactory { get; set; }
+    internal Func<NpcRecord, IRoomEntity>? RoomOfRitesZeldaFactory { get; set; }
+    internal Func<FinalDungeonEntryDatabase, IRoomEntity>? FinalDungeonEnergyFactory { get; set; }
+    internal Func<DungeonObjectRecord, RoomOfRitesRitualDatabase, IRoomEntity>? ZeldaApproachFactory { get; set; }
     internal Func<NpcRecord, IRoomEntity>? VeranFaceFactory { get; set; }
     internal Func<VeranFinalCharacter,bool>? VeranFinalDeathFade {get;set;}
+    internal Action<int>? TwinrovaCutscene { get; set; }
+    internal Action<bool, int,int>? TwinrovaFade { get; set; }
+    internal Action<int>? TwinrovaArena { get; set; }
+    internal Action<TwinrovaCharacter>? TwinrovaMerged { get; set; }
     internal Action? VeranFinalEscape {get;set;}
+    internal Action? RoomOfRitesCollapse {get;set;}
     internal Action? BlackTowerPossessionAftermath { get; set; }
     internal Func<bool> PalacePossessionPaletteActive { get; set; } = null!;
     internal void RequestNayruRescueWarp() => NayruRescueWarpTriggered?.Invoke();
@@ -352,7 +385,11 @@ public sealed class RoomEntityManager : IDisposable
     private int _screenShakeCounter;
     private int _horizontalScreenShakeCounter;
     private int _screenShakeMagnitude;
-    private bool _linkCollisionsAndMenuDisabled;
+    private bool _linkCollisionsAndMenuDisabled
+    {
+        get => _runtimeState.ReadWramByte(WramAddress.wDisableLinkCollisionsAndMenu)!=0;
+        set => _runtimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,value?(byte)1:(byte)0);
+    }
     private bool _smogLinkAndMenuLocked;
     private readonly BossShutterSignal _bossShutterSignal = new();
     internal byte BossEntrySignal => _bossShutterSignal.Value;
@@ -389,6 +426,10 @@ public sealed class RoomEntityManager : IDisposable
             fire.SetPaletteOverride(_activeObjectPaletteOverride);
         else if (entity.PresentationNode is RamrockPart part)
             part.Animation.SetPaletteOverride(_activeObjectPaletteOverride);
+        else if (entity is TwinrovaFlameRoomEntity flame)
+            flame.ApplyNativePalette(_activeObjectPaletteOverride);
+        else if (entity is CompanionCreditsRoomEntity companion)
+            companion.ApplyNativePalette(_activeObjectPaletteOverride);
     }
 
     internal IReadOnlyDictionary<int,Color[]>? NativeObjectPalettes=>_activeObjectPaletteOverride;
@@ -639,6 +680,9 @@ public sealed class RoomEntityManager : IDisposable
         _familyState;
     internal int ActiveTriggers => _activeTriggers;
     internal int FrameCounter => _enemyFrameCounter;
+    // statueEyeball.s:$04 intentionally increments the global byte while
+    // choosing its final pose. Later slots and phases observe those writes.
+    internal int IncrementNativeFrameCounter() => _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
     internal int RandomCalls => _random.Calls;
     internal int ScreenShakeCounter => _screenShakeCounter;
     internal int HorizontalScreenShakeCounter =>
@@ -1002,7 +1046,7 @@ public sealed class RoomEntityManager : IDisposable
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (entity is not (RickyCompanionRoomEntity or DimitriCompanionRoomEntity or MooshCompanionRoomEntity) &&
-                entity is not (MapleCreditsRoomEntity or MapleEncounterRoomEntity) &&
+                entity is not (MapleCreditsRoomEntity or MapleEncounterRoomEntity or CompanionCreditsRoomEntity) &&
                 entity is not RaftRoomEntity { UsesSpecialObjectSlot: true } &&
                 entity is not MinecartRoomEntity { UsesSpecialObjectSlot: true })
                 continue;
@@ -1024,7 +1068,7 @@ public sealed class RoomEntityManager : IDisposable
                     ((IFixedRoomEntity)entity).UpdateFrame(frame, _pendingSpawns);
                 continue;
             }
-            if (!frozen || entity is MapleCreditsRoomEntity || entity is IRoomInitializedCompanion { RoomInitialization.Pending: true } ||
+            if (!frozen || entity is MapleCreditsRoomEntity or CompanionCreditsRoomEntity || entity is IRoomInitializedCompanion { RoomInitialization.Pending: true } ||
                 entity is MinecartRoomEntity { AllocationPending: true })
                 ((IFixedRoomEntity)entity).UpdateFrame(frame, _pendingSpawns);
         }
@@ -1038,6 +1082,28 @@ public sealed class RoomEntityManager : IDisposable
 
     internal void AdvanceFrozenRoomFrame() =>
         _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
+
+    // bank0.updateInteractionsAndDrawAllSprites omits Link, items, enemies,
+    // parts, collisions and camera. The cutscene caller owns frame advancement
+    // and may invoke this twice in one native update (cutscene17 state2->3).
+    internal void UpdateNativeInteractionPass(Player player, int counter)
+    {
+        bool disabled = TextActiveSource() || InitializedObjectsDisabledSource() || (NativeObjectMask & 2) != 0;
+        InitializedInteractionUpdatesAllowed = !disabled;
+        var frame = new RoomEntityFrame(player, counter, false, null);
+        ReservedKeyDoor?.Advance(1.0 / 60.0, player, disabled);
+        if (ReservedPushBlock is { Active: true } push && (!push.NativeInitialized || !disabled))
+            push.Advance(1.0 / 60.0, player);
+        foreach (IRoomEntity entity in EntitiesForUpdatePhase(2))
+        {
+            if (!UsesInteractionSlot(entity) || entity is IRoomEntityLifetime { Finished: true } ||
+                disabled && !UpdatesDuringDialogue(entity)) continue;
+            if (entity is IFixedRoomEntity fixedEntity) fixedEntity.UpdateFrame(frame, _pendingSpawns);
+            ProcessSpawns(frame);
+            if (entity is IRoomInteractionChildSource children) children.UpdateChildren(frame, _pendingSpawns);
+        }
+        RemoveFinishedEntities(frame);
+    }
 
     internal void UpdateTimeWarpSource(Player player, bool interactionsDisabled, bool enemiesDisabled)
     {
@@ -1064,6 +1130,7 @@ public sealed class RoomEntityManager : IDisposable
                 continue;
             if (entity is IFixedRoomEntity fixedEntity)
             {
+                frame = frame with { Counter = _enemyFrameCounter };
                 SynchronizeEnemyFrameCounter(entity, frame.Counter);
                 fixedEntity.UpdateFrame(frame, _pendingSpawns);
                 _updatedEntitiesThisFrame.Add(entity);
@@ -1308,6 +1375,7 @@ public sealed class RoomEntityManager : IDisposable
                         continue;
                     if (entity is IFixedRoomEntity fixedEntity)
                     {
+                        frame = frame with { Counter = _enemyFrameCounter };
                         SynchronizeEnemyFrameCounter(entity, frame.Counter);
                         // The species instrument check runs only AFTER native
                         // enemy admission, including the parent's release update.
@@ -2070,6 +2138,16 @@ public sealed class RoomEntityManager : IDisposable
         FreeEntity(entity);
     }
 
+    internal IRoomEntity ReplaceInteraction(IRoomEntity original, RoomEntitySpawn spawn)
+    {
+        int slot = _interactionSlots[original];
+        RetireEntity(original);
+        IRoomEntity replacement = _factory.Create(spawn, _roomForActiveEntities);
+        _interactionSlots.Add(replacement, slot);
+        AddEntity(replacement);
+        return replacement;
+    }
+
     internal TimePortal SpawnTemporaryTimePortal(Vector2 position)
     {
         IRoomEntity entity = AddEntity(
@@ -2696,7 +2774,7 @@ public sealed class RoomEntityManager : IDisposable
         }
         if (UsesInteractionSlot(entity) && entity is NpcCharacterRoomEntityAdapter or RaftonRoomEntity && entity.PresentationNode is NpcCharacter npcActor)
             npcActor.NativeActivationChanged = active => SetNpcInteractionActive(entity, active);
-        if (UsesInteractionSlot(entity) && (entity.PresentationNode is not NpcCharacter { Active: false }||entity is TokayNpcRoomEntity{ReservesInitializationSlot:true}))
+        if (UsesInteractionSlot(entity) && !_interactionSlots.ContainsKey(entity) && (entity.PresentationNode is not NpcCharacter { Active: false }||entity is TokayNpcRoomEntity{ReservesInitializationSlot:true}))
         {
             int slot = entity is PirateShipRoomEntity { Reserved: true } ? 1 : FindFreeInteractionSlot();
             if (slot < 0) throw new InvalidOperationException($"{entity.GetType().Name}: native dynamic INTERACTION pool is full ($d2-$df).");
@@ -2722,6 +2800,7 @@ public sealed class RoomEntityManager : IDisposable
             _partSlots.Add(entity, slot);
             if (entity.PresentationNode is VolcanoRock rock) rock.SetPartSlot(slot);
             if (entity.PresentationNode is FallingBoulder boulder) boulder.SetPartSlot(slot);
+            if (entity is RoomOfRitesBoulderRoomEntity ritesBoulder) ritesBoulder.Slot=slot;
             if (entity is FallingFireRoomEntity fire) fire.Slot = slot;
             if (entity.PresentationNode is RamrockPart ramrockPart) ramrockPart.Slot = slot;
             if (entity is VeranSpiderwebRoomEntity web) web.Slot=slot;
@@ -2809,6 +2888,7 @@ public sealed class RoomEntityManager : IDisposable
         if (_enemySlots.TryGetValue(entity, out int enemySlot)) return 0x10 + enemySlot;
         if (_partSlots.TryGetValue(entity, out int partSlot)) return 0x20 + partSlot;
         if (entity is DungeonEssenceGlow) return 0x31; // reserved INTERACTION $d1
+        if (entity is CompanionCreditsRoomEntity) return 1; // w1Companion, before ordinary object slots.
         if (_interactionSlots.TryGetValue(entity, out int interactionSlot)) return 0x30 + interactionSlot;
         return null;
     }
@@ -3021,7 +3101,7 @@ public sealed class RoomEntityManager : IDisposable
     private int EntityPhase(IRoomEntity entity) =>
         _enemySlots.ContainsKey(entity) || entity is PumpkinHeadBossRoomEntity ? 0 :
         entity is LightningRoomEntity ? 1 :
-        entity is VeranAcidPoolRoomEntity or VeranSpiderwebRoomEntity or VeranBeeProjectileRoomEntity ? 1 :
+          entity is VeranAcidPoolRoomEntity or VeranSpiderwebRoomEntity or VeranBeeProjectileRoomEntity or TwinrovaProjectileRoomEntity or TwinrovaAttackPart or GanonAttackPart or RoomOfRitesBoulderRoomEntity ? 1 :
         entity is RamrockPart or BlueStalfosProjectileRoomEntity or LynelBeamRoomEntity or PlasmarineProjectileRoomEntity or VeranProjectileRoomEntity or VeranFairyProjectileRoomEntity or DetectionHelperRoomEntity or SuctionPitRoomEntity or ItemDropRoomEntity or BridgeSpawnerRoomEntity or GroundButtonRoomEntity or BeamosBeamRoomEntity or SpikedBallRoomEntity or SmogProjectileRoomEntity or OctogonPartRoomEntity or VireProjectileRoomEntity or WizzrobeProjectileRoomEntity or CandleFlameRoomEntity or WallArrowShooterRoomEntity or ZoraFireRoomEntity or DungeonSwitchRoomEntity
             or FountainFairyHeartRoomEntity or SeaPowderRoomEntity or VolcanoRockRoomEntity or FallingBoulderRoomEntity or BlackTowerFlameRoomEntity or FallingFireRoomEntity or SmallFairyRoomEntity or GoronBombRoomEntity or KingMoblinBombRoomEntity or JabuBubbleRoomEntity
             or EnemySwordRoomEntity or StalfosBoneRoomEntity or BurningEnemyRoomEntity or KeeseFireRoomEntity
@@ -3144,20 +3224,20 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        FaroreRewardRoomEntity or FaroreMakeChestRoomEntity or FaroreSparkleRoomEntity or ZeldaRescueActor or
+        FaroreRewardRoomEntity or FaroreMakeChestRoomEntity or FaroreSparkleRoomEntity or ZeldaRescueActor or RoomOfRitesZeldaActor or ZeldaEndingRoomEntity or DinRoomEntity or KissHeartRoomEntity or MakuConfettiRoomEntity or
         PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or MapleTouchingBookRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
         TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or TokaySeedlingDecorationRoomEntity or TokayHeldAccessoryRoomEntity or TokayShopItemRoomEntity or
           TokayStatueRoomEntity or TokayRescueEmberRoomEntity or DimitriPresetSpawnerRoomEntity or DimitriRescueScriptRoomEntity or WildTokayControllerRoomEntity or WildTokayParticipantRoomEntity or WildTokayMeatRoomEntity or TokayAttachedVisualRoomEntity { NativeAllocationEnabled: true } or
         BusinessScrubRoomEntity or BusinessScrubBushRoomEntity or
-        GameCompleteDialogRoomEntity or
+        GameCompleteDialogRoomEntity or CreditsShipRoomEntity or CreditsSceneActorRoomEntity or CreditsFlyingSpriteRoomEntity or HoronDogCreditsRoomEntity or TroupeMemberRoomEntity or NayruRalphCreditsRoomEntity or BoyPatternRoomEntity or CreditsBananaRoomEntity or
         BlackTowerSeedRoomEntity or BlackTowerConfrontationActor or BlackTowerPossessionActor or BlackTowerEndingActor or ImpaCreditsRoomEntity or CreditsLinkLoaderRoomEntity or CreditsCompanionLoaderRoomEntity or CreditsHorizontalRoomEntity or CreditsVerticalRoomEntity or ForestAudienceRoomEntity or RestoredRabbitRoomEntity or LinkedSwordRoomEntity or FallingRockRoomEntity or VeranCutsceneWallmasterRoomEntity or VeranFaceRoomEntity or VeranDeathFadeRoomEntity or ExplosionWithDebrisRoomEntity or PickaxeWorkerCreditsRoomEntity or MakuStatueConstructionRoomEntity or
         MakuSeedTreeRoomEntity or MakuSeedFallingRoomEntity or MakuSeedSparkleRoomEntity or TwinrovaRevealRoomEntity or MakuSeedFlowerRoomEntity or MakuRevealSceneActor or
         PirateShipRoomEntity or PostD7ActorRoomEntity or PostD7BallRoomEntity or NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or AccessoryRoomEntity or RestoredFamilyRoomEntity or NativeBallRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
         CompanionTutorialRoomEntity { NativeAllocationEnabled: true } or
         KeyholeControllerRoomEntity or NpcCharacterRoomEntityAdapter or RaftonRoomEntity or CleanSeasZoraRoomEntity or JabuExteriorActorRoomEntity or JabuBubbleSpawnerRoomEntity or FountainDecorationRoomEntity or LynnaShopItemRoomEntity or Room149BallRoomEntity or
         LeverRoomEntity or LeverConnectionRoomEntity or Room5bfSlidingBlock or WaterPushblockRoomEntity or ShootingGalleryTargetDebrisRoomEntity or
-        TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or MinibossPortalRoomEntity or
+        TingleRoomEntity or KnowItAllBirdRoomEntity or KnockbackDustRoomEntity or SnowDebrisRoomEntity or EnemyClearStairsRoomEntity or RalphAfterChevalRoomEntity or DungeonEntranceRoomEntity or FinalDungeonEnergyRoomEntity or DecorationRoomEntity or TwinrovaFlameRoomEntity or ZeldaApproachRoomEntity or EyePuzzleExitRoomEntity or StatueEyeballSpawnerRoomEntity or StatueEyeballRoomEntity or EyePuzzleStatueRoomEntity or MinibossPortalRoomEntity or
         AncientTombEntranceRoomEntity or RidgeBridgeControllerRoomEntity or CollapsingFloorRoomEntity or ExclamationMarkRoomEntity or FallingDownHoleRoomEntity or DefeatedMoblinActorRoomEntity or DungeonDoorRoomEntity or DungeonRewardRoomEntity or KillPuffRoomEntity or SwordBeamClinkRoomEntity or NpcRoomEntity or DungeonEssence or DungeonEssencePedestal ||
         entity.PresentationNode is PuzzlePuffEffect or EyesoarSpawnEffect or InteractionSparkleEffect or InteractionExplosionEffect or DungeonKeyUseEffect
             or GrassDebrisEffect or RockDebrisEffect or ShovelDebrisEffect or SplashEffect or OverworldKeyUseEffect or Room148PickaxeDebris || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
@@ -3677,6 +3757,13 @@ public sealed class RoomEntityManager : IDisposable
         return true;
     }
 
+    internal bool TryCreateEyePuzzleEye(Vector2 position)
+    {
+        if (FindFreeInteractionSlot() < 0) return false;
+        AddEntity(_factory.Create(new StatueEyeballSpawn(position, Puzzle: true), _roomForActiveEntities));
+        return true;
+    }
+
     internal bool TryCreateRockDebris(Vector2 position)
     {
         if (FindFreeInteractionSlot() < 0) return false;
@@ -3855,6 +3942,9 @@ public sealed class RoomEntityManager : IDisposable
 
     private void FreeEntity(IRoomEntity entity)
     {
+        if(entity is CreditsSceneActorRoomEntity creditsActor)creditsActor.Detach();
+        if(entity is CreditsShipRoomEntity shipActor)shipActor.Detach();
+        if(entity is CompanionCreditsRoomEntity)CompanionRuntimeState.ClearCutscene(_runtimeState);
         if (entity is AncientTombEntranceRoomEntity entrance) entrance.Cancel();
         if (entity is VeranFaceRoomEntity face) face.Cancel();
         if (entity is PirateShipRoomEntity ship) ship.Dispose();

@@ -32,7 +32,7 @@ internal sealed class NayruRescueWarpDatabase
         foreach(string script in new[] {"nayru-arrival","nayru-song","nayru-farewell","ralph-arrival","ralph-greeting","ralph-farewell",
             "maku","cloaked","twinrova","boy","old-lady","nayru-escape","ralph-escape","nayru-ending","ralph-ending",
             "nayru-palace","nayru-palace-farewell","ralph-palace","ralph-palace-farewell",
-            "nayru-credits-maku","ralph-credits-maku","ralph-credits-sword","maku-credits"})
+            "nayru-credits-maku","ralph-credits-maku","ralph-credits-sword","maku-credits","nayru-reunion","maku-reunion"})
             _commands.Add(script,CutsceneCommandCatalog.Load(Root+$"nayru_rescue_{script}_commands.tsv"));
         foreach(var row in GeneratedTable.Load(Root+"nayru_rescue_texts.tsv",
             new("Nayru rescue dialogue",GeneratedTableKeySemantics.Unique,["text-id","message-base64","source"],["text-id"],headerRequired:true)).Rows)

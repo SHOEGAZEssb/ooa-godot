@@ -37,6 +37,7 @@ internal sealed class EnemyAnimationPlayer
 
     public int AnimationIndex => _animationIndex;
     public int FrameIndex => _frameIndex;
+    internal int RemainingUpdates => _frameCounter;
     public int CurrentParameter => _parameterOverride ?? (_parameterConsumed ? 0 : CurrentFrame.Parameter);
     internal void SetParameter(int value) => _parameterOverride = value & 255;
     internal int ConsumeParameter()

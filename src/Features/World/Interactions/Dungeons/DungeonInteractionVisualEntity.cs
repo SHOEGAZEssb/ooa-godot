@@ -37,6 +37,8 @@ internal abstract partial class DungeonInteractionVisualEntity : TransitionOffse
 
     protected void SetAnimation(int animation) => _animation.SetAnimation(animation);
     protected void AdvanceAnimation() => _animation.Advance();
+    protected void SetNativePalette(IReadOnlyDictionary<int, Color[]>? palettes) => _animation.SetPaletteOverride(palettes);
+    protected void AddAnimationCounter(int value) => _animation.SetFrameCounter((_animation.RemainingUpdates + value) & 255);
 
     public override void _Draw()
     {

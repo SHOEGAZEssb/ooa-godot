@@ -14,6 +14,7 @@ public partial class EndingScreen : Control
     private OracleVramTileMap? _tiles;
     private Image? _sprites;
     private Image? _roomGraphics;
+    private readonly List<Image> _ownedBackgroundImages=[];
     private RoomView? _roomView;
     private byte[] _map=[],_attributes=[],_secondMap=[],_secondAttributes=[];
     private byte[] _windowMap=[],_windowAttributes=[];
@@ -29,13 +30,21 @@ public partial class EndingScreen : Control
         if(_background is not null)_background.Changed-=RebuildBackground;
         _data=data;_background=background;_entities=entities;_background.Changed+=RebuildBackground;
     }
-    internal void Load(string profile,OracleRoomData? room=null,RoomView? roomView=null,int roomMapHeader=0x2d)
+    internal void Load(string profile,OracleRoomData? room=null,RoomView? roomView=null,int roomMapHeader=0x2d,bool retainGraphics=false,string? extraProfile=null)
     {
         ReleaseSecretGraphics();
-        ResetCreditsGraphics();bool creditsImage=profile.StartsWith("credits-image",StringComparison.Ordinal),creditsSprites=creditsImage||profile is "credits-scroll" or "ending-secret" or "ending-continued";
+        var retainedBytes=_creditsSpriteBytes;var retainedDefined=_creditsSpriteDefined;
+        ResetCreditsGraphics();if(retainGraphics){_creditsSpriteBytes=retainedBytes;_creditsSpriteDefined=retainedDefined;}
+        bool creditsImage=profile.StartsWith("credits-image",StringComparison.Ordinal),creditsSprites=creditsImage||profile is "credits-scroll" or "credits-waving" or "credits-linked-end" or "ending-secret" or "ending-continued";
         _nativeAnimationStart=null;
         _roomGraphics?.Dispose();_roomGraphics=null;_roomView=roomView;
-        _tiles=new();_map=new byte[1024];_attributes=new byte[1024];_secondMap=[];_secondAttributes=[];
+        if(!retainGraphics)
+        {
+            foreach(var owned in _ownedBackgroundImages)owned.Dispose();_ownedBackgroundImages.Clear();
+            _tiles=new();_map=new byte[1024];_attributes=new byte[1024];
+        }
+        if(_tiles is null)throw new InvalidOperationException("Retained ending graphics require a preceding graphics profile.");
+        _secondMap=[];_secondAttributes=[];
         _windowMap=new byte[1024];_windowAttributes=new byte[1024];_sprites=null;
         var zero=OracleGraphicsCache.LoadImage(EndingScreenDatabase.Root+"ending/zero_tile.png");
         if(room is not null)
@@ -49,21 +58,32 @@ public partial class EndingScreen : Control
         }
         // GFXH_TWINROVA_CLOSEUP clears VRAM bank 0 before loading its header.
         if(profile=="closeup")for(int index=0;index<256;index++)_tiles.MapTile(zero,0,index,0);
-        foreach(var upload in _data!.Uploads(profile))
+        var uploads=new List<EndingScreenUpload>(_data!.Uploads(profile));
+        if(extraProfile is not null)uploads.AddRange(_data.Uploads(extraProfile));
+        foreach(var upload in uploads)
         {
             string path=EndingScreenDatabase.Root+"ending/"+upload.Asset;
             switch(upload.Target)
             {
                 case "8000":if(creditsSprites)UploadCreditsSprites(upload,0);else _sprites=OracleGraphicsCache.LoadImage(path);break;
                 case "8200":case "8400":case "8600":UploadCreditsSprites(upload,Convert.ToInt32(upload.Target,16)-0x8000);break;
-                case "8800":case "9000":case "9200":
+                case "8800":case "8a00":case "8e00":case "9000":case "9200":case "9300":
                     var image=OracleGraphicsCache.LoadImage(path);int address=Convert.ToInt32(upload.Target,16);
-                    int first=address>=0x9000?(address-0x9000)/16:0x80+(address-0x8800)/16;
+                    int first=(address-0x9000)/16&255;
                     // gfx.py removes tile_padding from the padded PNG on
                     // encoding; those pixels are not native VRAM uploads.
                     int available=image.GetWidth()/8*(image.GetHeight()/8)-upload.Padding;
                     int count=upload.Length==0?available:upload.Length/16;
                     if(count>available)throw new InvalidOperationException($"Ending upload {upload.Asset} exceeds its encoded source bytes.");
+                    if(upload.Invert)
+                    {
+                        // Native encoding applies .properties inversion to BG
+                        // uploads as well as OBJ uploads. Cached PNGs are immutable.
+                        byte[] pixels=image.GetData();
+                        for(int at=0;at<pixels.Length;at+=4)for(int channel=0;channel<3;channel++)pixels[at+channel]=(byte)(255-pixels[at+channel]);
+                        image=Image.CreateFromData(image.GetWidth(),image.GetHeight(),false,Image.Format.Rgba8,pixels);
+                        _ownedBackgroundImages.Add(image);
+                    }
                     for(int index=0;index<count;index++)
                     {
                         var origin=OracleTileRenderer.SourceTileOrigin(image,index,upload.Interleave);
@@ -78,7 +98,7 @@ public partial class EndingScreen : Control
                 // These are the original WRAM copies of the same native maps.
                 case "w3VramTiles":if(creditsImage)UploadCreditsBuffer(upload,false,0);else Overlay(_map,FileAccess.GetFileAsBytes(path),upload.Offset);break;
                 case "w3VramAttributes":if(creditsImage)UploadCreditsBuffer(upload,false,0x400);else Overlay(_attributes,FileAccess.GetFileAsBytes(path),upload.Offset);break;
-                case "w4TileMap":if(creditsSprites)UploadCreditsBuffer(upload,true,0);else _secondMap=Expand(FileAccess.GetFileAsBytes(path));break;
+                case "w4TileMap":if(creditsSprites&&profile!="credits-waving")UploadCreditsBuffer(upload,true,0);else _secondMap=Expand(FileAccess.GetFileAsBytes(path));break;
                 case "w4AttributeMap":if(creditsImage)UploadCreditsBuffer(upload,true,0x400);else _secondAttributes=Expand(FileAccess.GetFileAsBytes(path));break;
                 default:throw new NotSupportedException($"gfxHeaders.s ending {profile}: unsupported destination {upload.Target}.");
             }
@@ -108,7 +128,7 @@ public partial class EndingScreen : Control
             foreach(var entry in live)for(int shade=0;shade<4;shade++)palettes[entry.Key,shade]=entry.Value[shade];
             for(int index=0;index<parts.Length;index++)_cells[index]=OracleTileRenderer.GetOamCellTexture(_sprites!,parts[index].Tile,(byte)parts[index].Flags,palettes);
         }
-        _oamY=y;_oamX=x;QueueRedraw();
+        _oamY=y;_oamX=x;RebuildObjectOam();QueueRedraw();
     }
     private void RebuildBackground()
     {
@@ -123,6 +143,7 @@ public partial class EndingScreen : Control
         _background=null;_entities=null;_tiles=null;_sprites=null;_texture=null;_parts=[];_cells=[];
         _roomView=null;_roomGraphics?.Dispose();_roomGraphics=null;
         ReleaseSecretGraphics();ResetCreditsGraphics();
+        foreach(var owned in _ownedBackgroundImages)owned.Dispose();_ownedBackgroundImages.Clear();
         _nativeAnimationStart=null;
     }
     public override void _ExitTree()=>Release();
@@ -135,14 +156,14 @@ public partial class EndingScreen : Control
             DrawTexture(_texture,new(-_scrollX,256-_scrollY));
             if(_scrollX!=0)DrawTexture(_texture,new(256-_scrollX,256-_scrollY));
         }
+        for(int index=_objectOam.Count-1;index>=0;index--)
+        {
+            var part=_objectOam[index];DrawTexture(_objectCells[(part.Tile,part.Flags)],new(part.X-8,part.Y-16));
+        }
         for(int index=_parts.Length-1;index>=0;index--)
         {
             int y=(_parts[index].Y+_oamY)&255,x=(_parts[index].X+_oamX)&255;
             if(y<160&&x<168)DrawTexture(_cells[index],new(x-8,y-16));
-        }
-        for(int index=_objectOam.Count-1;index>=0;index--)
-        {
-            var part=_objectOam[index];DrawTexture(_objectCells[(part.Tile,part.Flags)],new(part.X-8,part.Y-16));
         }
     }
     private static byte[] Expand(byte[] bytes){var output=new byte[1024];Overlay(output,bytes,0);return output;}

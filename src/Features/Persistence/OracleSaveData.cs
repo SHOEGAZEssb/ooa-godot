@@ -161,6 +161,16 @@ public sealed class OracleSaveData
     public bool HasRoomFlag(int group, int room, byte mask) =>
         (GetRoomFlags(group, room) & mask) != 0;
 
+    internal void AddRoomFlagByte(int group, int room, int value)
+    {
+        ValidateRoom(group, room);
+        int offset = GetRoomFlagTableOffset(group) + room;
+        byte next = unchecked((byte)(_data[offset] + value));
+        if (_data[offset] == next) return;
+        _data[offset] = next;
+        PublishChange();
+    }
+
     public void SetRoomFlag(int group, int room, byte mask, bool value = true)
     {
         ValidateRoom(group, room);

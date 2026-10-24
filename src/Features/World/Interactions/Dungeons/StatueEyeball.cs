@@ -58,17 +58,22 @@ internal sealed partial class StatueEyeball : TransitionOffsetNode2D
         if (low is not (0 or 1 or 7))
             angle = (angle & 0xfc) | 0x04;
         int direction = (angle >> 2) & 0x07;
-        _direction = direction;
-        DungeonEntranceInteractionDatabaseVisualRecord visual =
-            _data.EyeVisuals[direction];
-        Position = new Vector2(
-            Mathf.Floor(tileCenter.X / 16.0f) * 16.0f + visual.LowX,
-            Mathf.Floor(tileCenter.Y / 16.0f) * 16.0f + visual.LowY);
+        SetLookingDirection(direction);
 
         // Subid $02 keeps interactionInitGraphics' default animation $04.
         // Direction is represented solely by moving that fixed eye around
         // the tile; selecting animations $00-$07 double-applies the OAM
         // offset and is only correct for subid $00.
+    }
+
+    internal void SetLookingDirection(int direction)
+    {
+        _direction = direction;
+        DungeonEntranceInteractionDatabaseVisualRecord visual =
+            _data.EyeVisuals[direction];
+        Position = new Vector2(
+            Mathf.Floor(Position.X / 16.0f) * 16.0f + visual.LowX,
+            Mathf.Floor(Position.Y / 16.0f) * 16.0f + visual.LowY);
     }
 
     internal void PrepareForScreenTransition()

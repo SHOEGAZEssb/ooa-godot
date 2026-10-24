@@ -1492,6 +1492,7 @@ Write-GeneratedTable(
 # fixed/random/parameter placement semantics.
 $orderedEnemyImplementationHandlers = [ordered]@{
     '02:00' = 'veran-final'
+    '03:00' = 'twinrova'
     '08:00' = 'river-zora'
     '18:00' = 'buzzblob'
     '09:00' = 'octorok'
@@ -1596,7 +1597,7 @@ foreach ($subid in @(0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x0a,0x0b,0x0c,0x82,0x83
     $orderedEnemyImplementationHandlers['54:' + $subid.ToString('x2')] = 'ambi-guard'
 }
 for($subid=0;$subid -lt 12;$subid++){ $orderedEnemyImplementationHandlers['63:'+$subid.ToString('x2')]='target-cart-crystal' }
-if ($orderedEnemyImplementationHandlers.Count -ne 132 -or
+if ($orderedEnemyImplementationHandlers.Count -ne 133 -or
     $dynamicEnemyImplementationHandlers.Count -ne 0) {
     throw 'Enemy implementation registry key counts changed.'
 }
@@ -1689,6 +1690,13 @@ foreach ($key in @(
     if($key -match '^35:0[12]$') { $enemyHandlerKeys[$key]=@{Id=0x35;SubId=[Convert]::ToInt32($key.Substring(3),16)} }
     if($key -eq '1c:01') { $enemyHandlerKeys[$key]=@{Id=0x1c;SubId=1} }
     if($key -match '^45:0[1-4]$') { $enemyHandlerKeys[$key]=@{Id=0x45;SubId=[Convert]::ToInt32($key.Substring(3),16)} }
+    if($key -eq '03:00') {
+        $twinsEntry=@(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'objects/ages/mainData.s') 'group5Mapf5ObjectData' 'obj_BeforeEvent')
+        $twinsEnemy=@(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'objects/ages/enemyData.s') 'group5Mapf5BeforeEventObjectData' 'obj_RandomEnemy')
+        if($twinsEntry.Count -ne 1 -or $twinsEntry[0].Operands[0] -ne 'group5Mapf5BeforeEventObjectData' -or
+            $twinsEnemy.Count -ne 1 -or ($twinsEnemy[0].Operands -join ' ') -ne '$20 $03 $00') {throw 'Twinrova before-event placement changed.'}
+        $enemyHandlerKeys[$key]=@{Id=3;SubId=0}
+    }
     if (-not $enemyHandlerKeys.ContainsKey($key)) {
         throw "Enemy implementation key $key has no ordered source placement."
     }
@@ -1878,7 +1886,7 @@ foreach ($record in $enemyHandlerKeys.Values |
         "$($enemyCollisionTableValues[$collisionRowOffset + 3].ToString('x2'))`t" +
         $shieldSource)
 }
-if ($enemyHandlerRows.Count -ne 138 -or
+if ($enemyHandlerRows.Count -ne 139 -or
     -not $enemyHandlerRows.Contains((
         "09`t00`t90`tordered-implemented`toctorok`tENEMY_OCTOROK`t" +
         'constants/common/enemies.s:ENEMY_OCTOROK' +
@@ -1911,6 +1919,7 @@ Write-GeneratedTable(
     $enemyHandlerRows)
 Write-GeneratedTable((Join-Path $destination 'objects\native_enemy_spawns.tsv'), @(
     '# id`tsubid`tsource', "5f`t00`tobject_code/ages/interactions/patch.s:@spawnBeetle"
+    "03`t00`tobjects/ages/enemyData.s:group5Mapf5BeforeEventObjectData"
     "35`t01`tobject_code/common/enemies/floorMaster.s:floormaster_state1"
     "35`t02`tobject_code/common/enemies/floorMaster.s:floormaster_state1"
     "1c`t01`tobject_code/ages/enemies/ironMask.s:ironMask_state_switchHook@substate0"

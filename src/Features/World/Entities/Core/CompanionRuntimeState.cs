@@ -39,6 +39,26 @@ internal static class CompanionRuntimeState
 
     internal static bool AnyActive(OracleRuntimeState state) =>
         state.ReadWramByte(Active) != 0;
+    internal static int ReadCutsceneId(OracleRuntimeState state)=>state.ReadWramByte(Id);
+    internal static int ReadCutsceneSubid(OracleRuntimeState state)=>state.ReadWramByte(0xd102);
+    internal static void BeginCutscene(OracleRuntimeState state,int id,int subid,Vector2 position)
+    {
+        if(id is <0x0f or >0x11)throw new ArgumentOutOfRangeException(nameof(id));
+        state.SetWramByte(Active,1);state.SetWramByte(Id,(byte)id);state.SetWramByte(0xd102,(byte)subid);
+        state.SetWramByte(0xd10b,(byte)position.Y);state.SetWramByte(0xd10d,(byte)position.X);
+    }
+    internal static void ReplaceCutscene(OracleRuntimeState state,int id,int subid,Vector2 position)
+    {
+        for(int address=Id;address<0xd140;address++)state.SetWramByte(address,0);
+        // Native replacement retains enabled, rather than allocating again.
+        state.SetWramByte(Id,(byte)id);state.SetWramByte(0xd102,(byte)subid);
+        state.SetWramByte(0xd10b,(byte)position.Y);state.SetWramByte(0xd10d,(byte)position.X);
+    }
+    internal static void ClearCutscene(OracleRuntimeState state)
+    {
+        if(ReadCutsceneId(state) is not(0x0f or 0x10 or 0x11))return;
+        for(int address=Active;address<0xd140;address++)state.SetWramByte(address,0);
+    }
     internal static int ReadScriptSignals(OracleRuntimeState state)=>state.ReadWramByte(0xd13e);
     internal static void OrScriptSignals(OracleRuntimeState state,int mask)=>state.SetWramByte(0xd13e,(byte)(ReadScriptSignals(state)|mask));
     internal static int ReadScriptButton(OracleRuntimeState state)=>state.ReadWramByte(0xd13d);

@@ -906,6 +906,7 @@ public sealed class EnemyDatabase
     private bool HasOrderedHandlerDefinition(
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
+        EnemyHandlerKind.Twinrova => descriptor.Id == 3 && descriptor.SubId == 0 && new TwinrovaDatabase().Actor(3).Health == 3,
         EnemyHandlerKind.VeranFinal => descriptor.Id==2&&descriptor.SubId==0&&new VeranFinalDatabase().Actor(2).Health==24,
         EnemyHandlerKind.AmbiGuard => descriptor.Id == 0x54 && _importedDefinitions.ContainsKey((0x54, 0)),
         EnemyHandlerKind.KingMoblin => descriptor.Id == EnemyId.KingMoblin && descriptor.SubId == 0 &&

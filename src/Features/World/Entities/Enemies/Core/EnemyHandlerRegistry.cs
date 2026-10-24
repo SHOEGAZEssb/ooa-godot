@@ -162,6 +162,7 @@ internal sealed class EnemyHandlerRegistry
     {
         "-" => EnemyHandlerKind.None,
         "veran-final" => EnemyHandlerKind.VeranFinal,
+        "twinrova" => EnemyHandlerKind.Twinrova,
         "octorok" => EnemyHandlerKind.Octorok,
         "river-zora" => EnemyHandlerKind.RiverZora,
         "goponga-flower" => EnemyHandlerKind.GopongaFlower,
@@ -338,6 +339,7 @@ internal enum EnemyHandlerClassification
 internal enum EnemyHandlerKind
 {
     VeranFinal,
+    Twinrova,
     AmbiGuard,
     KingMoblin,
     Beetle,

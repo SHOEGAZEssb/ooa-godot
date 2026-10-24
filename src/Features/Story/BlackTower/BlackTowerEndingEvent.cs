@@ -6,7 +6,7 @@ namespace oracleofages;
 
 // CUTSCENE_BLACK_TOWER_ESCAPE $09 runs before updateAllObjects. Link reads
 // the same imported simulated-input stream as the original special-object pass.
-internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Action releasePreviousFade,Func<bool> flash) : IRoomEvent,IRoomEventDialogueContext
+internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Action releasePreviousFade,Func<int,bool> flash) : IRoomEvent,IRoomEventDialogueContext
 {
     private BlackTowerEndingDatabase? _data;
     private NayruRescueWarpDatabase? _companions;
@@ -23,11 +23,14 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
     public bool BlocksGameplay=>false;
     public bool OwnsGameLogic=>HasState;
     public bool MenusDisabled=>HasState;
-    public bool SuppressesStatusBar=>HasState&&(CreditsPending||Stage==1);
+    public bool SuppressesStatusBar=>HasState&&(CreditsPending||Stage==1&&(!RitesCollapseActive||State>=9));
     public bool SuppressesNormalMenuDispatch=>HasState;
     public bool DisablesLink=>HasState&&!_linkEnabled;
     public bool AllScreenTransitionsDisabled=>HasState;
-    public bool OwnsUpdatesOf(IRoomEvent other)=>other is PalacePossessionEvent;
+    // Native cutscene room loads retain the rescue event. The ending owns
+    // its dispatch through CUTSCENE $0f -> $0a and the remaining credits;
+    // changing wCutsceneIndex does not return to Zelda's room script.
+    public bool OwnsUpdatesOf(IRoomEvent other)=>other is PalacePossessionEvent or RoomOfRitesZeldaEvent;
     private byte Read(int address)=>context.Entities.RuntimeState.ReadWramByte(address);
     private void Write(int address,int value)=>context.Entities.RuntimeState.SetWramByte(address,unchecked((byte)value));
     private bool Decrement(int address){Write(address,Read(address)-1);return Read(address)==0;}
@@ -92,6 +95,7 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
         }
         context.Transitions.AdvanceNativeWhiteFade();
         if(CreditsPending){AdvanceCredits();return;}
+        if(RitesCollapseActive){AdvanceRoomOfRitesCollapse();return;}
         if(Stage==1){AdvanceTwinrova();return;}
         switch(State)
         {
@@ -163,15 +167,39 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
     }
     public void UpdateFrame()
     {
-        if(HasState&&CreditsPending&&Stage==1&&Read(0xcfde) is >=1 and <=3&&State==1&&Read(WramAddress.wTilesetAnimation)==1)
+        if(HasState&&CreditsPending&&Stage==1&&State==1&&Read(WramAddress.wTilesetAnimation)==1)
             Screen.UpdateNativeAnimation(context.AnimationTick());
     }
     public void Cancel()
     {
+        bool wasRites=RitesCollapseActive;
         if(!HasState)return;HasState=false;_initialize=false;Simulated.SetEnabled(0);Write(0xc2ef,0);
-        ReleaseCreditsInventory();ReleaseScreen();
+        if(wasRites)
+        {
+            foreach(var actor in context.Entities.EntityAdapters<RoomOfRitesBoulderRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+            foreach(var actor in context.Entities.EntityAdapters<MakuConfettiRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+            foreach(var actor in context.Entities.EntityAdapters<BlueEnergyBeadRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+            foreach(var actor in context.Entities.EntityAdapters<ExclamationMarkRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+            foreach(var actor in context.Entities.EntityAdapters<InteractionSparkleRoomEntity>().Where(a=>a.Node is InteractionSparkleEffect {Subid:2}).ToArray())context.Entities.RetireEntity(actor);
+        }
+        ReleaseCreditsInventory();ReleaseScreen();context.Transitions.ResetCamera();
         context.Player.ClearNativeItemParents();context.Player.BeginCutsceneControl(owner:this);
         context.Player.CancelCreditsLink();
+        foreach(var actor in context.Entities.EntityAdapters<NayruRescueActorRoomEntity>().Where(a=>a.Id==0x36&&a.SubId==8||a.Id==0x87&&a.SubId==5).ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<DinRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<ZeldaEndingRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<KissHeartRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<CreditsFlyingSpriteRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<CreditsSceneActorRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<CreditsShipRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<HoronDogCreditsRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<TroupeMemberRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<NayruRalphCreditsRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<BoyPatternRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<CompanionCreditsRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<CreditsBananaRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<FountainDecorationRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<InteractionSparkleRoomEntity>().Where(a=>a.Node is InteractionSparkleEffect {Subid:9}).ToArray())context.Entities.RetireEntity(actor);
         foreach(var actor in context.Entities.EntityAdapters<NayruRescueActorRoomEntity>().Where(a=>a.Id==0x36&&a.SubId is 3 or 4||a.Id==0x37&&a.SubId is 5 or 6).ToArray())context.Entities.RetireEntity(actor);
         foreach(var actor in context.Entities.EntityAdapters<BlackTowerEndingActor>().ToArray())context.Entities.RetireEntity(actor);
         foreach(var actor in context.Entities.EntityAdapters<RestoredFamilyRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
@@ -201,6 +229,7 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
         foreach(var statue in context.Entities.EntityAdapters<MakuLinkStatueRoomEntity>().Where(a=>a.Node is NpcCharacter {Record.SubId:0x0e}).ToArray())context.Entities.RetireEntity(statue);
         context.Transitions.CancelNativeWhiteFade();_resources.ReleaseFullScreenFade(restoreColor:false);context.Fade.Color=new(1,1,1,0);
         context.Player.Visible=true;context.Player.EndCutsceneControl();
+        Write(WramAddress.wLinkObjectIndex,0xd0);
         Write(WramAddress.wDisabledObjects,0);Write(WramAddress.wMenuDisabled,0);Write(WramAddress.wScrollMode,0);
     }
 }

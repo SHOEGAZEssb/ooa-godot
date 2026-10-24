@@ -28,6 +28,15 @@ foreach ($frame in $definitions[$tables['part45Animations'][0]].Frames) {
 }
 if (!$frames.Count) { throw 'PART $45: missing rolling animation.' }
 $sprite = $gfxNames[$bytes[0]]
+# PART $54 reuses this exact animation/OAM/sprite arrangement. Its separate
+# spawner/fall handler has no collision response, so $45's damage is not used.
+$rites = @((@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'data\ages\partData.s') 'partData' '.db')[0x54]).Operands |
+    ForEach-Object { Convert-AssemblyInteger $_ })
+if ($rites[0] -ne $bytes[0] -or $rites[5] -ne $bytes[5] -or $rites[6] -ne $bytes[6] -or
+    $tables['part54Animations'][0] -ne $tables['part45Animations'][0] -or
+    ($pointers['part54OamDataPointers'] -join ',') -ne ($pointers['part45OamDataPointers'] -join ',')) {
+    throw 'roomOfRitesFallingBoulder.s: PART $54 no longer shares PART $45 sprite, palette, animation and OAM.'
+}
 Copy-EnemySprite $sprite
 $inverted = [int](Get-EnemySpriteSourceGrayscaleInverted $sprite)
 Write-GeneratedTable((Join-Path $destination 'effects\falling_boulder.tsv'), @(

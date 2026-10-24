@@ -160,6 +160,8 @@ public sealed class RoomTransitionController
     private int _nativePaletteDirection, _nativePaletteOffset, _nativePaletteDelay = 1, _nativePaletteCounter = 1;
     private Color _nativePaletteColor = Colors.White;
     private int _nativePaletteSpeed = 1;
+    private Color[,]? _nativeBackgroundFadeSource;
+    private OracleRoomData? _nativeBackgroundFadeRoom;
     private OracleRoomData? _nativeDarkeningRoom;
     private int _nativeDarkeningOffset;
     internal Vector2? NativeCameraFocus { get; set; }
@@ -178,11 +180,24 @@ public sealed class RoomTransitionController
     }
     internal void BeginNativeBlackFade(bool fadeOut, int speed = 1,int delay=1)
         => BeginNativePaletteFade(Colors.Black, fadeOut,delay:delay,speed: speed);
+    internal void BeginNativeBackgroundBlackFade(int delay)
+    {
+        BeginNativeBlackFade(true,delay:delay);
+        // ganonRevivalCutscene_controller clears the sprite-source mask.
+        // Keep bright enemy OAM while the shared palette thread darkens BG.
+        _nativeBackgroundFadeRoom=_rooms.CurrentRoom;
+        _nativeBackgroundFadeSource=_nativeBackgroundFadeRoom.BackgroundPalettes.Capture();
+    }
+    private void RestoreNativeBackgroundFade()
+    {
+        if(_nativeBackgroundFadeSource is not null)_nativeBackgroundFadeRoom!.BackgroundPalettes.Restore(_nativeBackgroundFadeSource);
+        _nativeBackgroundFadeSource=null;_nativeBackgroundFadeRoom=null;
+    }
     private void BeginNativePaletteFade(Color color, bool fadeOut, int delay = 1, int speed = 1)
     {
         if (delay < 1) throw new ArgumentOutOfRangeException(nameof(delay));
         if (speed < 1) throw new ArgumentOutOfRangeException(nameof(speed));
-        _nativeDarkeningRoom = null;
+        RestoreNativeBackgroundFade();_nativeDarkeningRoom = null;
         _nativePaletteColor = color;
         _nativePaletteSpeed = speed;
         _nativePaletteDirection = fadeOut ? 1 : -1;
@@ -202,16 +217,25 @@ public sealed class RoomTransitionController
         if (--_nativePaletteCounter != 0) return;
         _nativePaletteCounter = _nativePaletteDelay;
         _nativePaletteOffset += _nativePaletteDirection * _nativePaletteSpeed;
+        if(_nativeBackgroundFadeSource is not null)
+        {
+            var colors=(Color[,])_nativeBackgroundFadeSource.Clone();
+            float offset=Math.Clamp(_nativePaletteOffset,0,32)/31f;
+            for(int palette=0;palette<8;palette++)for(int shade=0;shade<4;shade++)
+            {var c=colors[palette,shade];colors[palette,shade]=new(Math.Max(0,c.R-offset),Math.Max(0,c.G-offset),Math.Max(0,c.B-offset),c.A);}
+            _nativeBackgroundFadeRoom!.BackgroundPalettes.Restore(colors);
+        }
         // Black fades use the native negative offset ($e0..$ff). Fade-in
         // stops on carry to $00; white fade-in stops below zero instead.
         bool finished = _nativePaletteColor == Colors.Black
             ? _nativePaletteOffset > 32 || _nativePaletteOffset <= 0
             : _nativePaletteOffset >= 32 || _nativePaletteOffset < 0;
         if (finished) { _nativePaletteDirection = 0; return; }
-        _warpFade.Color = new Color(_nativePaletteColor, Math.Min(_nativePaletteOffset, 31) / 31f);
+        if(_nativeBackgroundFadeSource is null)_warpFade.Color = new Color(_nativePaletteColor, Math.Min(_nativePaletteOffset, 31) / 31f);
     }
     internal void CancelNativeWhiteFade(bool clearPresentation = false)
     {
+        RestoreNativeBackgroundFade();
         _nativePaletteDirection = 0;
         _nativeDarkeningRoom = null;
         if (clearPresentation) SetFade(0);
@@ -801,6 +825,8 @@ public sealed class RoomTransitionController
         Vector2I direction,
         out int targetId)
     {
+        if (EyePuzzleDatabase.Shared.TryResolve(_entities.RuntimeState, _rooms.ActiveGroup,
+                _rooms.CurrentRoom.Id, direction, out targetId)) return true;
         if (_rooms.ActiveGroup == 0 &&
             !_rooms.SaveData.HasGlobalFlag(
                 GlobalFlag.ForestUnscrambled) &&
@@ -819,6 +845,8 @@ public sealed class RoomTransitionController
 
     public void BeginScroll(Player player, Vector2I direction, int targetId)
     {
+        EyePuzzleDatabase.Shared.CommitTransition(_entities.RuntimeState, _rooms.ActiveGroup,
+            _rooms.CurrentRoom.Id, direction);
         using var diagnostics = OracleRoomLoadDiagnostics.Begin("scroll", _rooms.ActiveGroup, targetId);
         OracleRoomData source = _rooms.CurrentRoom;
         if (_rooms.World.RequiresRoomPackFade(_rooms.ActiveGroup, source.Id, targetId))
@@ -1069,6 +1097,15 @@ public sealed class RoomTransitionController
     public void ApplyWarpWithFadeOut(Player player, Warp warp)
     {
         BeginWarp(player, warp, false, forceFadeOut: true);
+    }
+
+    // A native cutscene can select CUTSCENE_03 after its own palette has
+    // already reached white. Keep that palette; load on the next update.
+    internal void ApplyWarpAfterNativeFadeOut(Player player, Warp warp)
+    {
+        BeginWarp(player, warp, false, forceFadeOut: true);
+        _warpFrame = _warpFadeOutFrames;
+        SetFade(1.0f);
     }
 
     internal void CancelPendingFadeOutWarp(int destinationGroup, int destinationRoom)
@@ -2134,6 +2171,8 @@ void fragment() {
 
     private void SetCameraOrigin(Vector2 origin) =>
         _camera.Position = origin + GameplayCameraOffset;
+    // Native fullscreen cutscenes write hCameraY/X independently of SCY/SCX.
+    internal void SetCutsceneCameraOrigin(Vector2 origin)=>SetCameraOrigin(origin);
 
     private static float MoveCameraComponent(float current, float target)
     {

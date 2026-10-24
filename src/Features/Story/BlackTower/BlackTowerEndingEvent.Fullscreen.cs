@@ -79,7 +79,7 @@ internal sealed partial class BlackTowerEndingEvent
                 TwinrovaOam(true);if(context.DialogueOpen||!Decrement(0xcbb3))return;
                 Write(WramAddress.wOpenedMenuType,0);Write(0xcbba,255);context.Sound.PlaySound(SoundId.SndLightning);State=8;return;
             case 8:
-                TwinrovaOam(true);if(!flash())return;
+                TwinrovaOam(true);if(!flash(2))return;
                 State=9;Write(0xcbb3,30);Profile("closeup",0x9c);Screen.SetOam(null);
                 context.Sound.PlaySound(SoundId.SndLightning);context.Transitions.CancelNativeWhiteFade();context.Fade.Color=new(1,1,1,0);return;
             case 9:

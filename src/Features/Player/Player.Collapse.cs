@@ -16,8 +16,10 @@ public partial class Player
     internal int CollapseSubstate => _collapseSubstate;
     internal void RequestCollapse(int parameter)
     {
-        if (parameter != 1) throw new NotSupportedException($"linkState14: collapse parameter${parameter:x2} is not represented.");
-        _collapseRequested = true; _collapseParameter = parameter;
+        if (parameter is not(0 or 1)) throw new NotSupportedException($"linkState14: collapse parameter${parameter:x2} is not represented.");
+        // Repeated wLinkForceState writes do not restart an active state14.
+        if(!CollapsedActive)_collapseRequested = true;
+        _collapseParameter = parameter;
     }
     private bool AdvanceCollapse()
     {

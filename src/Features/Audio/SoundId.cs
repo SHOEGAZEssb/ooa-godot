@@ -6,8 +6,12 @@ public static class SoundId
 {
     // constants/common/music.s: MUS_CREDITS_2
     public const int MusCredits2 = 0x2a;
+    public const int MusCredits1 = 0x29;
     // constants/common/music.s: MUS_FINAL_BOSS (Veran battle and transformations).
     public const int MusFinalBoss = 0x32;
+    public const int MusTwinrova = 0x33;
+    public const int MusGanon = 0x34;
+    public const int SndWind = 0xd3;
     public const int SndUnknown4 = 0x69;
     public const int SndTransform = 0xc0;
     public const int SndGoron = 0xc7;
@@ -170,6 +174,7 @@ public static class SoundId
     public const int SndBoomerang = 0x78;
     // constants/common/music.s: SND_BIG_EXPLOSION
     public const int SndBigExplosion = 0x79;
+    public const int SndBigExplosion2 = 0xbc;
     // constants/common/music.s: SND_MYSTERY_SEED
     public const int SndMysterySeed = 0x7b;
     // constants/common/music.s: SND_AQUAMENTUS_HOVER
@@ -247,6 +252,7 @@ public static class SoundId
     public const int SndTuneOfAges = 0xaf;
     // constants/common/music.s: SND_OPENING
     public const int SndOpening = 0xb0;
+    public const int SndEndless = 0xb9;
     // constants/common/music.s: SND_MAKUDISAPPEAR
     public const int SndMakuDisappear = 0xb2;
     // constants/common/music.s: SND_RUMBLE

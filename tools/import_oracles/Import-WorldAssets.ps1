@@ -757,6 +757,8 @@ foreach ($block in $paletteBlocks) {
         $paletteHeaders[$block.Groups['symbol'].Value] = @{
             Id = [Convert]::ToByte($block.Groups['id'].Value, 16)
             Label = $background.Groups['label'].Value
+            BackgroundRows = @([regex]::Matches($block.Groups['body'].Value,
+                'm_PaletteHeaderBg\s+(?<first>[0-7]),\s*(?<count>[1-8]),\s*(?<label>paletteData[0-9a-f]+)'))
         }
     }
 }
@@ -876,23 +878,16 @@ foreach ($tileset in $tilesets) {
     $tilesetMetadata[$id * $tilesetRecordSize + 7] = [byte]$flags
     [void]$usedTilesets.Add($id)
 
-    $label = $paletteHeader.Label
-    $labelIndex = $paletteDataSource.IndexOf("${label}:", [StringComparison]::Ordinal)
-    if ($labelIndex -lt 0) {
-        throw "Palette data label not found: $label"
-    }
-    $nextLabel = $paletteDataSource.IndexOf("paletteData", $labelIndex + $label.Length, [StringComparison]::Ordinal)
-    if ($nextLabel -lt 0) { $nextLabel = $paletteDataSource.Length }
-    $paletteBlock = $paletteDataSource.Substring($labelIndex, $nextLabel - $labelIndex)
-    $colors = [regex]::Matches($paletteBlock, 'm_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})')
-    if ($colors.Count -lt 24) {
-        throw "Palette $label contains $($colors.Count) colors; expected at least 24."
-    }
     $paletteBytes = [byte[]]::new(24 * 3)
-    for ($color = 0; $color -lt 24; $color++) {
-        $paletteBytes[$color * 3] = [Convert]::ToByte($colors[$color].Groups['r'].Value, 16)
-        $paletteBytes[$color * 3 + 1] = [Convert]::ToByte($colors[$color].Groups['g'].Value, 16)
-        $paletteBytes[$color * 3 + 2] = [Convert]::ToByte($colors[$color].Groups['b'].Value, 16)
+    # loadPaletteHeader applies every row in original order. For example,
+    # PALH_TILESET_ROOM_OF_RITES_ICE ($67) overwrites BG6 after its six-slot
+    # base load; retaining only the first row gives the ice the lava colors.
+    foreach($row in $paletteHeader.BackgroundRows) {
+        $first=[int]::Parse($row.Groups['first'].Value)
+        $count=[int]::Parse($row.Groups['count'].Value)
+        if($first -lt 2 -or $first+$count -gt 8){throw "${paletteSymbol}: BG row outside tileset slots 2..7."}
+        $bytes=Read-WorldPaletteBytes $row.Groups['label'].Value ($count*4)
+        [Array]::Copy($bytes,0,$paletteBytes,($first-2)*12,$bytes.Length)
     }
     $palettePath = Join-Path $destination "metadata\palette$($id.ToString('x2')).bin"
     Write-GeneratedBytes($palettePath, $paletteBytes)

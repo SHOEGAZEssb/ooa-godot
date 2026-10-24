@@ -58,6 +58,7 @@ internal sealed partial class NayruRescueActorRoomEntity : CutsceneCommandHost, 
     private void Initialize()
     {
         State=1;_actor.ShowInitializedPresentation();
+        if(ReunionActor){InitializeReunion();return;}
         if(CreditsSwordActor){InitializeCreditsSword();return;}
         if(CreditsPerformanceActor){InitializeCreditsPerformance();return;}
         if(CreditsMakuActor){InitializeCreditsMaku();return;}
@@ -93,6 +94,7 @@ internal sealed partial class NayruRescueActorRoomEntity : CutsceneCommandHost, 
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
         if(State==0) {Initialize();return;}
+        if(ReunionActor){UpdateReunion();return;}
         if(CreditsPerformanceActor){UpdateCreditsPerformance();return;}
         switch(Id)
         {
@@ -347,6 +349,7 @@ internal sealed partial class NayruRescueActorRoomEntity : CutsceneCommandHost, 
     {
         if (_flowerCreated) return;
         _flowerCreated=true;
+        if(!_context.Entities.InteractionSlotAvailable)return;
         _context.Entities.AddEntity(new NayruRescueFlowerRoomEntity(_data.Maku,this));
     }
     internal NpcCharacter Actor => _actor;

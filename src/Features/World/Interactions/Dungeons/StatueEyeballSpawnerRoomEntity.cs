@@ -12,16 +12,19 @@ internal sealed class StatueEyeballSpawnerRoomEntity : RoomEntityAdapter<Node2D>
     private readonly OracleRoomData _room;
     private readonly DungeonEntranceInteractionDatabase _data;
     private readonly Func<Vector2,bool> _tryCreateEye;
+    private readonly Func<bool>? _prepare;
 
     internal StatueEyeballSpawnerRoomEntity(
         OracleRoomData room,
         DungeonEntranceInteractionDatabase data,
-        Func<Vector2,bool> tryCreateEye)
+        Func<Vector2,bool> tryCreateEye,
+        Func<bool>? prepare = null)
         : base(new Node2D { Name = "StatueEyeballSpawner", Visible = false }, static _ => { })
     {
         _room = room;
         _data = data;
         _tryCreateEye = tryCreateEye;
+        _prepare = prepare;
     }
 
     public bool Finished { get; private set; }
@@ -42,6 +45,7 @@ internal sealed class StatueEyeballSpawnerRoomEntity : RoomEntityAdapter<Node2D>
     {
         if (Finished)
             return;
+        if (_prepare is not null && !_prepare()) return;
         if (_room.Layout.Length != 176)
         {
             throw new InvalidOperationException(

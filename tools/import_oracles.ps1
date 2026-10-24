@@ -334,6 +334,9 @@ $stageContracts = @(
             'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'New-CutsceneCommandRow')
     New-ImportStageContract 'navigation' 'Import-WorldNavigation.ps1' `
         -functionInputs @('Expand-TransitionGraphics')
+    New-ImportStageContract 'room-of-rites' 'Import-RoomOfRites.ps1' `
+        -inputs @('gfxNames','interactionGraphics') `
+        -functionInputs @('Copy-EnemySprite','Resolve-NpcAnimation','Get-EnemySpriteSourceGrayscaleInverted','Read-PaletteBytes')
     New-ImportStageContract 'black-tower-seed' 'Import-BlackTowerSeed.ps1' `
         -inputs @('gfxNames', 'interactionGraphics') `
         -functionInputs @('Copy-EnemySprite', 'Resolve-NpcAnimation', 'Read-PaletteBytes')
@@ -364,6 +367,12 @@ $stageContracts = @(
     New-ImportStageContract 'veran-final' 'Import-VeranFinal.ps1' `
         -inputs @('allTexts','allTextPositions','allTextFallthroughIds','gfxNames') `
         -functionInputs @('Get-EnemyDefinition','Copy-EnemySprite','Read-PaletteBytes','Resolve-PalaceText')
+    New-ImportStageContract 'twinrova' 'Import-Twinrova.ps1' `
+        -inputs @('allTexts','allTextPositions','allTextFallthroughIds','gfxNames','interactionGraphics') `
+        -functionInputs @('Get-EnemyDefinition','Copy-EnemySprite','Read-PaletteBytes','Resolve-PalaceText','Resolve-NpcAnimation','Get-EnemySpriteSourceGrayscaleInverted')
+    New-ImportStageContract 'ganon' 'Import-Ganon.ps1' `
+        -inputs @('allTexts','allTextPositions','allTextFallthroughIds','gfxNames') `
+        -functionInputs @('Get-EnemyDefinition','Copy-EnemySprite','Read-PaletteBytes','Resolve-PalaceText','Get-EnemySpriteSourceGrayscaleInverted')
     New-ImportStageContract 'ending-screens' 'Import-EndingScreens.ps1' `
         -inputs @('allTexts','allTextPositions','allTextFallthroughIds') `
         -functionInputs @('Read-PaletteBytes','Resolve-PalaceText','Resolve-NpcAnimation')

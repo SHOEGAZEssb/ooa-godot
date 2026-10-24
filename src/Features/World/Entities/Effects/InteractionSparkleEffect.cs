@@ -14,6 +14,7 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
     internal override bool Finished { get; private protected set; }
     internal int ElapsedUpdates { get; private set; }
     internal int SourceAngle { get; private set; }
+    internal int Subid {get;private set;}
     internal int AnimationFrame => _animation.FrameIndex;
     internal int AnimationParameter => _initialized ? _animation.CurrentParameter : 0;
     internal Vector2 RenderedTextureOrigin =>
@@ -25,10 +26,12 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
     internal void Initialize(
         Vector2 position,
         int sourceAngle,
-        InteractionSparkleVisual visual)
+        InteractionSparkleVisual visual,int subid=0)
     {
         Position = position;
         SourceAngle = sourceAngle;
+        Subid=subid;
+        if(subid is not(0 or 2 or 9))throw new System.NotSupportedException($"sparkle.s: INTERAC $84:${subid:x2} is not represented by the stationary native sparkle.");
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
@@ -80,5 +83,4 @@ internal readonly record struct InteractionSparkleVisual(
     string Animation);
 
 internal sealed record InteractionSparkleSpawn(
-    Vector2 Position, int SourceAngle, InteractionSparkleVisual Visual) : RoomEntitySpawn;
-
+    Vector2 Position, int SourceAngle, InteractionSparkleVisual Visual,int Subid=0) : RoomEntitySpawn;

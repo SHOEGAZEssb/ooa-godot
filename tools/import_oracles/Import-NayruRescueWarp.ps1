@@ -25,7 +25,7 @@ $rows.Add("# id`tsubid`tsprites`ttile-base`tpalette`tanimation`tsource")
 $animationsById=@{}
 $animationRows=[Collections.Generic.List[string]]::new()
 $animationRows.Add("# id`tindex`tanimation`tsource")
-foreach($spec in @(@(0x36,2,7),@(0x36,3,7),@(0x36,4,7),@(0x36,5,7),@(0x36,6,7),@(0x36,0x10,7),@(0x37,4,0x0b),@(0x37,5,3),@(0x37,6,3),@(0x37,7,3),@(0x37,8,0x0b),@(0x37,0x0e,3),@(0x5e,0,0x14),@(0x87,3,4),@(0x87,4,4),@(0x8d,0,3),@(0x3c,5,3),@(0x3d,3,3),@(0x39,4,8),@(0x39,6,8),@(0x93,0,3),@(0x93,1,3),@(0x63,0x3d,0x0a),@(0x63,0x3f,0x0a))) {
+foreach($spec in @(@(0x36,2,7),@(0x36,3,7),@(0x36,4,7),@(0x36,5,7),@(0x36,6,7),@(0x36,8,7),@(0x36,0x10,7),@(0x37,4,0x0b),@(0x37,5,3),@(0x37,6,3),@(0x37,7,3),@(0x37,8,0x0b),@(0x37,0x0e,3),@(0x5e,0,0x14),@(0x87,3,4),@(0x87,4,4),@(0x87,5,4),@(0x8d,0,3),@(0x3c,5,3),@(0x3d,3,3),@(0x39,4,8),@(0x39,6,8),@(0x93,0,3),@(0x93,1,3),@(0x63,0x3d,0x0a),@(0x63,0x3f,0x0a))) {
     $id=[int]$spec[0];$subid=[int]$spec[1];$graphic=Resolve-InteractionGraphics $id $subid
     if($null -eq $graphic) {throw "Nayru rescue: missing INTERAC 0x$($id.ToString('x2')):$subid graphics."}
     $sprites=@($gfxNames[$graphic.Gfx])
@@ -65,6 +65,8 @@ foreach($spec in @(
     @('ralph-credits-maku',0x37,$main,'ralphSubid07Script','ralphSubid08Script',$false),
     @('ralph-credits-sword',0x37,$main,'ralphSubid08Script','ralphSubid09Script',$false),
     @('maku-credits',0x87,$main,'makuTree_subid04Script','makuTree_subid05Script',$false),
+    @('maku-reunion',0x87,$main,'makuTree_subid05Script','makuTree_subid06Script_part1',$false),
+    @('nayru-reunion',0x36,$main,'nayruScript08','nayruScript09',$false),
     @('maku',0x87,$main,'makuTree_subid03Script','makuTree_subid04Script',$false),
     @('cloaked',0x8d,$helper,'cloakedTwinrova_subid00Script_body','cloakedTwinrova_subid02Script_body',$true),
     @('twinrova',0x93,$helper,'twinrova_subid00Script_body','twinrova_subid02Script_body',$true),

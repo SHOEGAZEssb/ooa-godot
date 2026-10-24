@@ -21,16 +21,19 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
 
     public bool Finished { get; private set; }
     internal int BossId { get; private set; }
+    internal int NativeSubid {get;private set;}
+    internal int AnimationParameter=>_terminalFrameReached?255:_animation[_frame].Parameter;
     internal int ZHigh { get; private set; }
     internal int AnimationDuration { get; private set; }
     internal Vector2 CurrentTextureSize => _animation[_frame].Texture.GetSize();
     internal Vector2 CurrentDrawOffset => _animation[_frame].Offset;
 
-    internal void Initialize(Vector2 position, int bossId, Action<int> playSound, int zHigh = 0)
+    internal void Initialize(Vector2 position, int bossId, Action<int> playSound, int zHigh = 0,int? nativeSubid=null)
     {
         Position = position;
         ZHigh = (sbyte)(byte)zHigh;
         BossId = bossId;
+        NativeSubid=nativeSubid??(bossId==0?0:1);
         _playSound = playSound;
         _animation = _definition ??= LoadDefinition();
         _counter = _animation[0].Duration;
@@ -46,7 +49,7 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         if (!_initialized)
         {
             _initialized = true;
-            if (BossId != EnemyId.Stub00)
+            if (NativeSubid != 0)
                 _playSound(SoundId.SndBigExplosion);
             return;
         }
@@ -109,7 +112,7 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
             animation.Add(new BossDeathExplosionEffectFrameRecord(
                 texture,
                 offset,
-                frame.Duration));
+                frame.Duration,frame.Parameter));
         }
         if (animation.Count != 13)
         {
@@ -123,4 +126,4 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
 internal sealed record BossDeathExplosionEffectFrameRecord(
     Texture2D Texture,
     Vector2 Offset,
-    int Duration);
+    int Duration,int Parameter);

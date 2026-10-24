@@ -47,7 +47,7 @@ internal sealed class BossDeathExplosionRoomEntity(
         // bossDeathExplosion decrements wNumEnemies first. Only the explosion
         // which brought that count to zero resolves the defeated boss ID
         // through decideItemDrop.
-        if (roomEnemyCount() != 0)
+        if (roomEnemyCount() != 0 || Entity.NativeSubid==0)
             return false;
 
         int? subId = itemDrops.DecideDrop(

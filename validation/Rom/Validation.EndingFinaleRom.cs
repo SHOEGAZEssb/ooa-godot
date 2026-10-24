@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             var owner=_roomEvents.Get<BlackTowerEndingEvent>();owner.Begin();var type=typeof(BlackTowerEndingEvent);
             type.GetField("_initialize",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(owner,false);
             type.GetField("_healthBeforeCredits",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(owner,8);
-            type.GetField("_ringWasEnabled",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(owner,true);
+            type.GetField("_ringBeforeCredits",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(owner,0x20);
             type.GetMethod("BeginScreen",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(owner,null);
             type.GetMethod("Profile",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(owner,["credits-scroll",0xa0]);
             var seed=_random.CaptureState();var rom=new SomariaRom(_saveData,seed,_currentRoom,0,0,0);

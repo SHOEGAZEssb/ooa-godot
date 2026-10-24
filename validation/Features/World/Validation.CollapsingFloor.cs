@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Linq;
-using System.Reflection;
 
 namespace oracleofages;
 
@@ -9,7 +8,6 @@ public sealed partial class ValidationRoot
 {
     private void ValidateMoblinKeepCollapsingFloor()
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         // Independently transcribed from miscellaneous2.s:@listOfTilesToBreak.
         int[] expected = [0x67,0x66,0x65,0x64,0x63,0x62,0x61,0x51,0x41,0x31,0x21,0x11,
             0x12,0x13,0x23,0x33,0x43,0x44,0x45,0x46,0x47,0x48,0x38,0x28,0x18,0x17,0x16];
@@ -101,11 +99,10 @@ public sealed partial class ValidationRoot
         FailIf(incoming.State != 1 || _entities.PlayerUpdatesFrozen,
             "$dc:$0b advanced beyond initialization during destination scrolling.");
         _entities.FinishScreenTransition();
-        var menu = typeof(RoomEntityManager).GetField("_linkCollisionsAndMenuDisabled", flags)!;
-        menu.SetValue(_entities, true);
+        _runtimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,1);
         _entities.Update(4.0 / 60, _player);
         FailIf(incoming.State != 1, "$dc:$0b ignored the collision/menu gate.");
-        menu.SetValue(_entities, false);
+        _runtimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,0);
         _entities.Update(1.0 / 60, _player);
         FailIf(incoming.State != 2, "$dc:$0b did not resume after scrolling and the collision gate cleared.");
         LoadValidationRoom(2, 0x9e);

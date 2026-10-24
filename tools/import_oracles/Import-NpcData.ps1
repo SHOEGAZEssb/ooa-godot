@@ -1193,6 +1193,7 @@ function Resolve-NpcImplementation(
     if ($id -eq 0x4e -and $subid -eq 0) { return 'ordinary-generic' }
     if ($id -eq 0x4e -and $subid -eq 2) { return 'ordinary-generic' }
     if ($id -eq 0xad -and $subid -eq 8) { return 'ordinary-generic' }
+    if ($id -eq 0xad -and $subid -eq 0) { return 'event-owned' }
     if ($id -eq 0xd6 -and $subid -eq 0) { return 'specialized-native' }
     if ($id -eq 0x3b -and $subid -eq 6) { return 'ordinary-generic' }
     if ($id -eq 0x66 -and $subid -eq 0x0f) { return 'ordinary-generic' }
@@ -4590,12 +4591,12 @@ foreach ($line in $mainObjectLines) {
         $sharedGroup = -1
         continue
     }
-    if ($line -match '^\s*obj_Interaction\s+\$(?<id>12|e2|7e)\s+\$(?<subid>00|01)(?:\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2}))?') {
+    if ($line -match '^\s*obj_Interaction\s+\$(?<id>12|e2|7e)\s+\$(?<subid>00|01|03)(?:\s+\$(?<y>[0-9a-f]{2})\s+\$(?<x>[0-9a-f]{2}))?') {
         $id = [Convert]::ToInt32($Matches['id'], 16)
         $subid = [Convert]::ToInt32($Matches['subid'], 16)
         $kind = if ($id -eq 0x12 -and $subid -eq 0x00) {
             'entry'
-        } elseif ($id -eq 0xe2 -and $subid -eq 0x01) {
+        } elseif ($id -eq 0xe2 -and $subid -in @(0x01,0x03)) {
             'eye-spawner'
         } elseif ($id -eq 0x7e -and $subid -eq 0x00) {
             'miniboss-portal'
@@ -4619,14 +4620,14 @@ foreach ($line in $mainObjectLines) {
     }
     $sharedOrder++
 }
-if ($dungeonSharedPlacementRows.Count -ne 43 -or
+if ($dungeonSharedPlacementRows.Count -ne 44 -or
     -not ($dungeonSharedPlacementRows -contains
         "4`t24`t0`tentry`t12`t00`t88`t78`t1`tmainData.s:group4Map24ObjectData") -or
     -not ($dungeonSharedPlacementRows -contains
         "4`t24`t1`teye-spawner`te2`t01`t--`t--`t1`tmainData.s:group4Map24ObjectData") -or
     -not ($dungeonSharedPlacementRows -contains
         "4`t24`t2`tminiboss-portal`t7e`t00`t--`t--`t1`tmainData.s:group4Map24ObjectData")) {
-    throw "Expected 42 shared dungeon interaction placements including ordered room 4:24, parsed $($dungeonSharedPlacementRows.Count - 1)."
+    throw "Expected 43 shared dungeon interaction placements including ordered room 4:24 and eye puzzle 5:f3, parsed $($dungeonSharedPlacementRows.Count - 1)."
 }
 
 $eyeGraphic = $interactionGraphics['226:0']
@@ -5350,9 +5351,9 @@ foreach ($npcRow in $npcRows | Select-Object -Skip 1) {
 }
 if ($npcImplementationCounts['ordinary-generic'] -ne 89 -or
     $npcImplementationCounts['specialized-native'] -ne 169 -or
-    $npcImplementationCounts['event-owned'] -ne 131 -or
-    $npcImplementationCounts['deliberately-unsupported'] -ne 1 -or
-    $npcImplementationCounts.Count -ne 4) {
+    $npcImplementationCounts['event-owned'] -ne 132 -or
+    $npcImplementationCounts.ContainsKey('deliberately-unsupported') -or
+    $npcImplementationCounts.Count -ne 3) {
     throw "NPC implementation classification manifest changed: $($npcImplementationCounts | Out-String)"
 }
 foreach ($familyRow in $familyRows | Select-Object -Skip 1) {

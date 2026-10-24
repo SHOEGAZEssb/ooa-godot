@@ -24,6 +24,11 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
     internal int AnimationIndex { get; private set; }
     internal int Size => _size;
     internal int YOffset => _yOffset;
+    internal void SetSize(int size)
+    {
+        if(size is <0 or >2)throw new ArgumentOutOfRangeException(nameof(size));
+        _size=size;
+    }
 
     internal void Initialize(
         Func<Vector2> parentPosition,

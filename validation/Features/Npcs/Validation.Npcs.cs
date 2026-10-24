@@ -573,8 +573,7 @@ public sealed partial class ValidationRoot
             {
                 [NpcImplementationClassification.OrdinaryGeneric] = 89,
                 [NpcImplementationClassification.SpecializedNative] = 241,
-                [NpcImplementationClassification.EventOwned] = 131,
-                [NpcImplementationClassification.DeliberatelyUnsupported] = 1
+                [NpcImplementationClassification.EventOwned] = 132
             };
         Dictionary<NpcImplementationClassification, int> actualCounts =
             records
@@ -587,7 +586,7 @@ public sealed partial class ValidationRoot
                 !actualCounts.TryGetValue(expected.Key, out int count) ||
                 count != expected.Value),
             "The generated NPC implementation manifest did not retain " +
-            "89 ordinary, 241 specialized, 131 event-owned, and 1 " +
+            "89 ordinary, 241 specialized, 132 event-owned, and 0 " +
             $"unsupported records (total={records.Count}; " +
             $"actual={string.Join(", ", actualCounts.OrderBy(pair => pair.Key))}).");
 
@@ -622,7 +621,7 @@ public sealed partial class ValidationRoot
             eventOwned.Implementation !=
                 NpcImplementationClassification.EventOwned ||
             unsupported.Implementation !=
-                NpcImplementationClassification.DeliberatelyUnsupported,
+                NpcImplementationClassification.EventOwned,
             "Representative generated NPC source keys changed " +
             "implementation classification.");
 
@@ -833,6 +832,7 @@ public sealed partial class ValidationRoot
         [
             "blossom.s:MENU_KIDNAME",
             "impaInCutscene.s:$31:$07;bird.s:$4c:$04",
+            "zelda.s:$ad:$00",
             "goron.s:scriptTable;goronElder.s;shootingGallery.s",
             "plen.s:plenSubid0Script",
             "symmetryNpc.s:scriptTable",

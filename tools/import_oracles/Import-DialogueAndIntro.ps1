@@ -348,12 +348,15 @@ Add-LinkIntroSpriteRows 'link-gale' @($galeFrames | ForEach-Object Duration) @($
 # The credits retain SPECIALOBJECT_LINK_CUTSCENE $08, not ordinary Link's
 # direction-adjusted graphics. Reuse the same partial-upload/OAM resolver.
 $creditsLinkPointers=@(Read-AssemblyDataDirectives $introAnimationPath 'specialObject08AnimationDataPointers' '.dw'|ForEach-Object {$_.Operands[0]})
-$creditsAnimations=Read-AssemblyAnimationDefinitions $introAnimationPath 'animation(?:Data|Loop)[A-Za-z0-9_]+'
+# Link's animation $12 ignores its $ff frame parameter and follows the loop
+# after it. A terminal parameter is a caller signal, not a stream terminator.
+$creditsAnimations=Read-AssemblyAnimationDefinitions $introAnimationPath 'animation(?:Data|Loop)[A-Za-z0-9_]+' $false
 $creditsLoops=[Collections.Generic.List[string]]::new();$creditsLoops.Add("# index`tloop-start`tsource")
-foreach($index in @(0,1,2,3,0x0d)) {
+foreach($index in @(0,1,2,3,0x0b,0x0d,0x0f,0x10,0x11,0x12)) {
     $definition=$creditsAnimations[$creditsLinkPointers[$index]]
     $frames=@($definition.Frames)
-    if($frames.Count -lt 2){throw "Credits Link animation `$${index}: missing native loop frames."}
+    # The shield-equipped kiss pose ($11) is a single held source frame.
+    if($frames.Count -lt 1){throw "Credits Link animation `$${index}: missing native frames."}
     Add-LinkIntroSpriteRows "link-credits-$($index.ToString('x2'))" @($frames|ForEach-Object {$_.Duration.ToString('x2')}) @($frames|ForEach-Object {$_.PointerOffset.ToString('x2')}) $true
     $creditsLoops.Add("$($index.ToString('x2'))`t$($definition.LoopStart)`tdata/ages/specialObjectAnimationData.s:$($creditsLinkPointers[$index])")
 }
@@ -419,8 +422,8 @@ function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
 }
 Add-SparkleIntroSpriteRows 'orb-descend' 0x0d
 Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
-if ($introSpriteRows.Count -ne 92) {
-    throw "Expected 91 shared Link/intro/credits sprite frames, exported $($introSpriteRows.Count - 1)."
+if ($introSpriteRows.Count -ne 104) {
+    throw "Expected 103 shared Link/intro/credits sprite frames, exported $($introSpriteRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),

@@ -10,6 +10,7 @@ internal sealed partial class FountainDecorationRoomEntity : TransitionOffsetNod
 {
     private readonly EnemyAnimationPlayer _animation;
     private bool _initialized;
+    private readonly System.Action? _loadPalette;
     internal FountainPlacement Placement { get; }
     internal bool RuinedPalette { get; }
     internal int AnimationFrame => _animation.FrameIndex;
@@ -17,9 +18,10 @@ internal sealed partial class FountainDecorationRoomEntity : TransitionOffsetNod
     internal Vector2 FrameOffset => _animation.CurrentOffset;
     public Node2D Node => this;
 
-    internal FountainDecorationRoomEntity(FountainPlacement placement, FountainDatabase data, OracleSaveData? save)
+    internal FountainDecorationRoomEntity(FountainPlacement placement, FountainDatabase data, OracleSaveData? save,System.Action? loadPalette=null)
     {
         Placement = placement;
+        _loadPalette=loadPalette;
         Name = $"Fountain_{placement.SubId:x2}";
         Position = placement.Position;
         // The basin keeps visible83; the stream switches to visible80.
@@ -37,8 +39,10 @@ internal sealed partial class FountainDecorationRoomEntity : TransitionOffsetNod
 
     private void InitializeState()
     {
+        if(_initialized)return;
         _initialized = true;
         Visible = true;
+        if(Placement.SubId==10)_loadPalette?.Invoke();
         QueueRedraw();
     }
 

@@ -17,7 +17,7 @@ internal sealed class CreditsLinkDatabase
             if(loop>=Frames(index).Length)throw row.Invalid(1,"native animation loop frame");
             _loops.Add(index,loop);
         }
-        if(_loops.Count!=5)throw new InvalidOperationException("specialObject08AnimationDataPointers: incomplete credits Link animations.");
+        if(_loops.Count!=10)throw new InvalidOperationException("specialObject08AnimationDataPointers: incomplete credits Link animations.");
     }
     internal IntroSpriteFrame[] Frames(int animation)=>_frames.SpriteFrames($"link-credits-{animation:x2}");
     internal int Loop(int animation)=>_loops[animation];

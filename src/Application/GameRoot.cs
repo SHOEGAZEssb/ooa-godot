@@ -1215,6 +1215,7 @@ public partial class GameRoot : Node2D
             _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
         _deathRespawnPoints = new DeathRespawnPointController(
             _rooms, _player, _runtimeState);
+        _entities.DeathRespawnPointRequested += _deathRespawnPoints.RecordCurrentPoint;
         _transitions = new RoomTransitionController(
             _rooms, WarpDatabase.Shared, _roomView, _scene.RoomLoadReveal,
             _player, _roomCamera,

@@ -48,6 +48,13 @@ internal enum DungeonObjectCondition
 
 internal enum DungeonObjectKind
 {
+    Twinrova,
+    TwinrovaFlame,
+    ZeldaApproach,
+    Zelda,
+    FinalDungeonEnergy,
+    Decoration,
+    EyePuzzleExit,
     StonePanel,
     Sarcophagus,
     EnemyAttachedKey,

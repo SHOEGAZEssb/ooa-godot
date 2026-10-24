@@ -155,11 +155,14 @@ public sealed class RoomEventController
             () => new RalphPortalEvent(_context),
             () => new PreBlackTowerEvent(_context),
             () => new ZeldaRescueEvent(_context),
+            () => new RoomOfRitesZeldaEvent(_context),
+            () => new RoomOfRitesBattleEvent(_context),
+            () => new FinalDungeonEntryEvent(_context, () => Get<PostD7Event>().Flash(1)),
             () => new BlackTowerDoorwayEvent(_context),
             () => new BlackTowerSeedEvent(_context),
             () => new BlackTowerConfrontationEvent(_context),
             () => new BlackTowerPossessionEvent(_context),
-            () => new BlackTowerEndingEvent(_context,()=>Get<PalacePossessionEvent>().ReleaseForNativeContinuation(restoreColor:false),()=>Get<PostD7Event>().Flash(2)),
+            () => new BlackTowerEndingEvent(_context,()=>Get<PalacePossessionEvent>().ReleaseForNativeContinuation(restoreColor:false),kind=>Get<PostD7Event>().Flash(kind)),
             () => new BlackTowerEntranceEvent(_context),
             () => new EnterPastEvent(_context),
             () => new GraveyardGhostKidsEvent(_context),
@@ -182,6 +185,7 @@ public sealed class RoomEventController
         _interactionHandlers =
         [
             Npc("impaInCutscene.s:$31:$07;bird.s:$4c:$04", Get<ZeldaRescueEvent>().TryInteractNpc),
+            Npc("zelda.s:$ad:$00", Get<RoomOfRitesZeldaEvent>().TryInteractNpc),
             Npc("goron.s:scriptTable;goronElder.s;shootingGallery.s", Get<GoronCaveEvent>().TryInteractNpc),
             Npc("plen.s:plenSubid0Script", Get<PlenEvent>().TryInteractNpc),
             Npc("symmetryNpc.s:scriptTable",
@@ -263,6 +267,13 @@ public sealed class RoomEventController
         _context.Entities.BlackTowerRalphFactory = Get<BlackTowerConfrontationEvent>().CreateRalph;
         _context.Entities.BlackTowerAmbiFactory = Get<BlackTowerPossessionEvent>().CreateAmbi;
         _context.Entities.ZeldaRescueFactory = Get<ZeldaRescueEvent>().CreatePlaced;
+        _context.Entities.RoomOfRitesZeldaFactory = Get<RoomOfRitesZeldaEvent>().CreatePlaced;
+        _context.Entities.FinalDungeonEnergyFactory = data => Get<FinalDungeonEntryEvent>().Create(data);
+        _context.Entities.ZeldaApproachFactory = Get<RoomOfRitesZeldaEvent>().CreateApproach;
+        _context.Entities.TwinrovaCutscene = Get<RoomOfRitesBattleEvent>().Begin;
+        _context.Entities.TwinrovaFade = Get<RoomOfRitesBattleEvent>().Fade;
+        _context.Entities.TwinrovaArena = Get<RoomOfRitesBattleEvent>().ReloadArena;
+        _context.Entities.TwinrovaMerged = _context.Entities.MergeTwinrova;
         VeranFaceDatabase? veranFace=null;
         _context.Entities.VeranFaceFactory=record=>new VeranFaceRoomEntity(_context,veranFace??=new(),record);
         _context.Entities.VeranFinalDeathFade=parent=>
@@ -273,6 +284,7 @@ public sealed class RoomEventController
             return true;
         };
         _context.Entities.VeranFinalEscape=Get<BlackTowerEndingEvent>().Begin;
+        _context.Entities.RoomOfRitesCollapse=Get<BlackTowerEndingEvent>().BeginRoomOfRitesCollapse;
         _context.Entities.BlackTowerPossessionAftermath = Get<BlackTowerPossessionEvent>().Aftermath;
         Get<BlackTowerPossessionEvent>().BeginEscapeAttempt=Get<BlackTowerEscapeAttemptEvent>().Begin;
         Get<RemoteMakuFifthEssenceEvent>().SpawnTunnelGoron=Get<GoronCaveEvent>().SpawnTunnelGoron;
@@ -304,8 +316,18 @@ public sealed class RoomEventController
     internal bool StatusBarUpdatesDisabled=>_eventsByPriority.Any(roomEvent=>roomEvent.HasState&&roomEvent.SuppressesStatusBar);
     internal bool NormalMenuDispatchSuppressed=>_eventsByPriority.Any(roomEvent=>roomEvent.HasState&&roomEvent.SuppressesNormalMenuDispatch);
     internal bool CameraUpdatesDisabled => Get<WallRetractionEvent>().CameraUpdatesDisabled || Get<PostD7Event>().HasState;
-    internal bool NativeCutsceneActive => Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || Get<MakuSeedEvent>().OwnsGameLogic || Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive;
-    internal void PublishNativeGameInput()=>Get<BlackTowerEndingEvent>().PublishGameKeys();
+    internal bool NativeCutsceneActive => Get<RoomOfRitesBattleEvent>().NativeActive || Get<RoomOfRitesZeldaEvent>().WarpActive || Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || Get<MakuSeedEvent>().OwnsGameLogic || Get<WallRetractionEvent>().HasState || Get<PalaceBootEvent>().HasState || Get<PalacePassageEvent>().HasState || Get<NayruRescueWarpEvent>().HasState || Get<JabuExteriorEvent>().Opening || Get<CleanSeasEvent>().NativeActive || Get<PostD7Event>().NativeActive;
+    internal void PublishNativeGameInput()
+    {
+        // specialObjects.s:updateGameKeysPressed consumes the one-update
+        // reverse request before Link; Ganon renews it in the enemy pass.
+        if(_context.Entities.RuntimeState.ReadWramByte(0xcbc3)==2)
+        {
+            _context.Entities.RuntimeState.SetWramByte(0xcbc3,0);
+            Input.ReverseGameMovement();
+        }
+        else Get<BlackTowerEndingEvent>().PublishGameKeys();
+    }
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
         var retraction=Get<WallRetractionEvent>();
@@ -316,6 +338,8 @@ public sealed class RoomEventController
         var cleanSeas=Get<CleanSeasEvent>();
         var postD7 = Get<PostD7Event>();
         var makuSeed = Get<MakuSeedEvent>();
+        bool ritesOwned = Get<RoomOfRitesZeldaEvent>().WarpActive;
+        bool battleOwned = Get<RoomOfRitesBattleEvent>().NativeActive;
         bool owned=Get<BlackTowerEndingEvent>().HasState || Get<BlackTowerEscapeAttemptEvent>().HasState || makuSeed.OwnsGameLogic || retraction.HasState || boot.HasState || passage.HasState || rescueWarp.HasState || jabu.Opening || cleanSeas.NativeActive || postD7.NativeActive;
         retraction.AdvanceBeforeObjects();
         boot.AdvanceBeforeObjects();
@@ -331,7 +355,10 @@ public sealed class RoomEventController
         postD7.AdvanceBeforeObjects();
         makuSeed.AdvanceBeforeObjects();
         Get<WildTokayGameEvent>().AdvanceBeforeObjects();
-        return owned || rescueWarp.HasState || makuSeed.OwnsGameLogic;
+        Get<FinalDungeonEntryEvent>().AdvanceBeforeObjects();
+        Get<RoomOfRitesZeldaEvent>().AdvanceBeforeObjects();
+        Get<RoomOfRitesBattleEvent>().AdvanceBeforeObjects();
+        return battleOwned || ritesOwned || owned || rescueWarp.HasState || makuSeed.OwnsGameLogic;
     }
     internal bool DisablesLink => _eventsByPriority.Any(roomEvent => roomEvent.DisablesLink);
     internal bool ObjectUpdateSuspended => _eventsByPriority.Any(roomEvent => roomEvent.ObjectUpdateSuspended);

@@ -490,6 +490,15 @@ public sealed class InventoryState
         else if (!enabled) ActiveRing |= 0x40;
         NotifyChanged();
     }
+    internal void UnequipRing()
+    {
+        ActiveRing=0xff;NotifyChanged();
+    }
+    internal void SetScriptedActiveRing(int ring)
+    {
+        if(ring is <0 or >255)throw new ArgumentOutOfRangeException(nameof(ring));
+        ActiveRing=ring;NotifyChanged();
+    }
 
     public void SwapStorageSlotWithButton(int storageIndex, bool isA)
     {

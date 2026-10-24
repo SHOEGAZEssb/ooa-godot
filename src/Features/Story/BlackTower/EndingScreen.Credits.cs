@@ -11,7 +11,7 @@ public partial class EndingScreen
     private bool[] _creditsSpriteDefined=[],_savedFontDefined=[],_maskedFontDefined=[];
     private Image? _ownedSprites;
     private int _scrollX,_scrollY;
-    private readonly Dictionary<object,(IntroOamPart[] Parts,int Y,int X,int Slot)> _objects=[];
+    private readonly Dictionary<object,(IntroOamPart[] Parts,int Y,int X,int Slot,int Priority,Func<Vector2,Vector2>? Project)> _objects=[];
     private readonly List<IntroOamPart> _objectOam=[];
     private readonly Dictionary<(int Tile,int Flags),Texture2D> _objectCells=[];
     internal IReadOnlyList<IntroOamPart> ObjectOam=>_objectOam;
@@ -23,9 +23,9 @@ public partial class EndingScreen
         _creditsSpriteDefined=[];_savedFontDefined=[];_maskedFontDefined=[];
         _objects.Clear();_objectOam.Clear();_objectCells.Clear();_scrollX=_scrollY=0;
     }
-    private static byte[] EncodedSpriteBytes(EndingScreenUpload upload)
+    private static byte[] EncodedSpriteBytes(EndingScreenUpload upload,Image? source=null)
     {
-        var image=OracleGraphicsCache.LoadImage(EndingScreenDatabase.Root+"ending/"+upload.Asset);
+        var image=source??OracleGraphicsCache.LoadImage(EndingScreenDatabase.Root+"ending/"+upload.Asset);
         int available=image.GetWidth()/8*(image.GetHeight()/8)-upload.Padding;
         int tiles=upload.Length==0?available:upload.Length/16;
         if(tiles>available)throw new InvalidOperationException($"Ending upload {upload.Asset} exceeds its encoded source bytes.");
@@ -77,16 +77,19 @@ public partial class EndingScreen
         var image=OracleGraphicsCache.DecodeTwoBitSpriteSheet(_creditsSpriteBytes);
         _ownedSprites?.Dispose();_ownedSprites=image;_sprites=image;_objectCells.Clear();
     }
-    internal void SetObjectOam(object owner,IntroOamPart[] parts,int y,int x,int slot)
-    {_objects[owner]=(parts,y,x,slot);RebuildObjectOam();}
+    internal void SetObjectOam(object owner,IntroOamPart[] parts,int y,int x,int slot,int priority=2,Func<Vector2,Vector2>? project=null)
+    {_objects[owner]=(parts,y,x,slot,priority,project);RebuildObjectOam();}
+    internal void RefreshObjectOam()=>RebuildObjectOam();
     internal void RemoveObjectOam(object owner){_objects.Remove(owner);RebuildObjectOam();}
     private void RebuildObjectOam()
     {
         _objectOam.Clear();
-        foreach(var obj in _objects.Values.OrderBy(value=>value.Slot))foreach(var part in obj.Parts)
+        int prefix=0;foreach(var part in _parts)if(((part.Y+_oamY)&255)<160&&((part.X+_oamX)&255)<168)prefix++;
+        foreach(var obj in _objects.Values.OrderBy(value=>value.Priority).ThenBy(value=>value.Slot))foreach(var part in obj.Parts)
         {
-            int y=(part.Y+obj.Y)&255,x=(part.X+obj.X)&255;
-            if(y>=160||x>=168||_objectOam.Count==40)continue;
+            Vector2 position=obj.Project?.Invoke(new(obj.X,obj.Y))??new Vector2(obj.X,obj.Y);
+            int y=(part.Y+(int)position.Y)&255,x=(part.X+(int)position.X)&255;
+            if(y>=160||x>=168||_objectOam.Count+prefix>=40)continue;
             // Padding between font uploads aliases saved OAM/ring scratch
             // memory in the ROM. It is not a glyph. Keep it explicitly unknown
             // rather than inventing those unrelated bytes or rendering them.

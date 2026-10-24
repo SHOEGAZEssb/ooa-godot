@@ -53,6 +53,17 @@ internal sealed class SomariaRom
         for(int index=0;index<caller.Length;index++) this[0xc100+index]=caller[index];
         _rom.Call(0xc100,7); this[0xd724]=0;
     }
+    internal void HitPartWithItem(int slot, int collision)
+    {
+        int part = 0xd0c0 + slot * 256;
+        this[0xd724] = (byte)(0x80 | collision); this[0xd728] = 0xff;
+        this[0xd701] = collision <= 3 ? (byte)1 : (byte)5; this[0xd726] = this[0xd727] = 6;
+        this[0xd70b] = this[part + 11]; this[0xd70d] = (byte)(this[part + 13] + 1);
+        this[0xffae] = 0xc0; this[0xffaf] = (byte)(part >> 8);
+        byte[] caller = [0x16, (byte)(part >> 8), 0x21, 0x00, 0xd6, 0xcd, 0xd1, 0x41, 0xc9];
+        for (int i = 0; i < caller.Length; i++) this[0xc100 + i] = caller[i];
+        _rom.Call(0xc100, 7); this[0xd724] = 0;
+    }
     internal void CheckTileWarps() => _rom.Call(0x60e9,1); // cutscene01, after toggle selection.
     internal void SelectNextActiveRoom() => _rom.Call(0x5f45,1); // getNextActiveRoom, after warp lookup.
     internal void InitializeRoomSpecificInteractions() => _rom.Call(0x5872,0x12); // Original runRoomSpecificCode/group dispatch.
@@ -63,10 +74,23 @@ internal sealed class SomariaRom
     internal void AdvancePalacePassage() => _rom.Call(0x7493, 3); // CUTSCENE$1c, before objects.
     internal void AdvanceJabuOpening() => _rom.Call(0x7565,3); // CUTSCENE$1d, before objects.
     internal void LoadRoomTileset() => _rom.LoadRoomTileset();
+    internal void PrepareRoomBackground()
+    {
+        _rom.Call(0x341a,0); // loadScreenMusicAndSetRoomPack also publishes wLoadingRoom.
+        _rom.LoadRoomTileset();
+        this[0xff70]=0; // Main-thread object dispatch resumes in the fixed object bank.
+    }
+    internal void ReloadTwinrovaArena(int mode)
+    {
+        this[0xcca9]=(byte)mode;
+        _rom.Call(0x131f,0); // Full native background/collision reload, retaining object slots.
+        this[0xff70]=0;
+    }
     internal void AdvanceScreenShake() => _rom.Call(0x427d,1); // Original post-object Y/X shake and RNG draws.
     internal void AdvanceCameraPosition() => _rom.Call(0x4201, 1); // bank1.updateCameraPosition, after objects.
     internal void AdvanceNayruRescueWarp() => _rom.Call(0x6785,3); // CUTSCENE$0c @runStates, before objects.
     internal void AdvanceBlackTowerEscapeAttempt()=>_rom.Call(0x7cb7,3); // CUTSCENE$1f, before status bar / objects.
+    internal void AdvanceRoomOfRitesCollapse()=>_rom.Call(this[0xcbc1]==0?0x5b76:0x5cc7,3); // CUTSCENE$0f native substate body, before updateAllObjects.
     internal void EnableVramDma()=>_rom.VramDmaTransfersEnabled=true;
     internal void EnableResetHandoff()=>_rom.StopAtReset=true;
     internal byte VramByte(int bank,int address)=>_rom.VramByte(bank,address);
@@ -122,6 +146,19 @@ internal sealed class SomariaRom
         CallLink(0x46bb, 6); // linkApplyDamage, including native death publication.
     }
     internal void AdvanceWarpPalette() => _rom.AdvancePalette();
+    internal void AdvanceTwinrovaFlameCutscene(int frameCounter,int cutscene=0x18)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        _rom.AdvancePalette();
+        _rom.Call(cutscene==0x18?0x4d16:0x4d1a, 1); // cutscene18/19: body, refreshLoadedTreeGfx and updateAllObjects.
+    }
+    internal void AdvanceRitualWarp(int frameCounter)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        if (this[0xcc04] != 0) _rom.Call(0x5e3d, 1);
+        _rom.AdvancePalette();
+        _rom.Call(0x4af8, 1); // bank1.cutscene17, including native interaction-only fallthrough.
+    }
     internal void BeginCutsceneWhiteFade()=>_rom.Call(0x326c,0); // bank0.s:fadeoutToWhite.
     internal void ApplyRequestedWarp() => _rom.Call(0x5e0e, 1); // applyWarpTransition2, after objects.
     internal void UpdateFadeOutWarp() => _rom.Call(0x5bd8, 1); // cutscene03, including native room load.

@@ -57,6 +57,11 @@ internal static class Input
     }
     private static int KeyBit(string action)=>action switch
     {"attack"=>1,"item"=>2,"map"=>4,"inventory"=>8,"move_right"=>16,"move_left"=>32,"move_up"=>64,"move_down"=>128,_=>0};
+    internal static void ReverseGameMovement()
+    {
+        int keys=_gameKeys;
+        OverrideGameKeys((keys&15)|((keys&0xa0)>>1)|((keys&0x50)<<1));
+    }
     private static int ReadSnapshotGameKeys(bool justPressed=false)
     {
         int keys=0;foreach(string action in GameActions)

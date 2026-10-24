@@ -128,6 +128,16 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
             return new CuccoRoomEntity(cucco, source);
         }
 
+        if (handler.Handler == EnemyHandlerKind.Twinrova)
+        {
+            var world = new TwinrovaEnvironment(resources.Twinrova, owner,
+                point => (int)(point.Y - owner.WorldToScreen(point).Y),
+                cutscene => (owner.TwinrovaCutscene ?? throw new NotSupportedException($"twinrova.s: CUTSCENE ${cutscene:x2} native continuation is not implemented."))(cutscene),
+                (fadeOut, delay, speed) => (owner.TwinrovaFade ?? throw new NotSupportedException("twinrova.s: native merge palette continuation is not implemented."))(fadeOut, delay, speed),
+                parent => (owner.TwinrovaMerged ?? throw new NotSupportedException("twinrova.s: ENEMY_MERGED_TWINROVA $01 continuation is not implemented."))(parent),
+                mode => (owner.TwinrovaArena ?? throw new NotSupportedException("mergedTwinrova.s: func_131f arena reload has no room owner."))(mode));
+            return new TwinrovaRoomEntity(new(world, position, source.SubId, source.Var03), counted: (source.Flags & 2) == 0);
+        }
         if(handler.Handler==EnemyHandlerKind.VeranFinal)
         {
             var world=new VeranFinalEnvironment(resources.VeranFinal,owner,room,
@@ -789,6 +799,16 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
         error = string.Empty;
         return CreateOrderedEnemy(handler, source, room, position, 0, 0,
             EnemyPlacementContext.Unrestricted);
+    }
+
+    internal TwinrovaRoomEntity CreateTwinrova(Vector2 position, int var03, OracleRoomData room)
+    {
+        var source = new RoomObjectRecord(rooms!.ActiveGroup, room.Id, 0,
+            RoomObjectKind.FixedEnemy, 0x03, 0, 0, 1, (int)position.Y, (int)position.X, 0, 0xff)
+        { Var03 = var03, SourceOverride = "bank3Cutscenes.s:cutscene18_state5 ENEMY $03" };
+        return (TwinrovaRoomEntity)(CreateOrderedEnemy(enemies.EnemyHandlers.ResolveHandler(source), source,
+            room, position, 0, 0, EnemyPlacementContext.Unrestricted)
+            ?? throw new InvalidOperationException($"{source.Source}: missing native enemy factory."));
     }
 
     internal IRoomEntity CreateEnemyReplacement(RoomEnemyReplacement replacement, OracleRoomData room)

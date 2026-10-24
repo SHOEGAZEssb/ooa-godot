@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
         IReadOnlyList<PlacementRecord> placements =
             data.GetRoomRecords(4, 0x24);
         FailIf(
-            data.PlacementCount != 42 || placements.Count != 3 ||
+            data.PlacementCount != 43 || placements.Count != 3 ||
             placements[0] is not
                 { Order: 0, Kind: DungeonEntranceInteractionDatabaseObjectKind.Entry } ||
             placements[1] is not

@@ -4,6 +4,8 @@ namespace oracleofages;
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class WramAddress
 {
+    // include/wram.s: wLinkObjectIndex (distinct from camera focus $cd17).
+    public const int wLinkObjectIndex = 0xcc2c;
     // include/wram.s: wScrollMode; bit 0 is used by native cutscenes.
     public const int wScrollMode = 0xcd00;
     // include/wram.s: wChannelVolumes

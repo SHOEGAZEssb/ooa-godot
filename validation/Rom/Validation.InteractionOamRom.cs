@@ -20,14 +20,16 @@ public sealed partial class ValidationRoot
     }
 
     private void CompareInteractionSpritePixelsRom(SomariaRom rom, Texture2D texture,
-        Vector2 drawOffset, int slot, int expectedCells, string context)
+        Vector2 drawOffset, int slot, int expectedCells, string context,int oamBank=0x14)
     {
         // Decode executed native VRAM/OAM/palettes independently of the
         // imported PNG, animation definitions and grayscale metadata.
         var native = rom.CreateMenuView();
         var source = ValidationRom.LoadCleanUs();
-        int address = 0x14 * 0x4000 + rom.Word(slot + 0x1e) - 0x4000;
-        FailIf(source.Span[address] != expectedCells, $"{context}: expected {expectedCells} native OBJ cells.");
+        // Enemy animation stores its resolved OAM pointer masked to $3fff.
+        int pointer=rom.Word(slot+0x1e);
+        int address = oamBank * 0x4000 + (pointer&0x3fff);
+        FailIf(source.Span[address] != expectedCells, $"{context}: expected {expectedCells} native OBJ cells, got{source.Span[address]}, pointer${pointer:x4}, offset${rom[slot+0x1e]:x2}, raw${rom.Word(slot+0x1e):x4}.");
         using Image actual = texture.GetImage();
         int width = actual.GetWidth(), height = actual.GetHeight();
         byte[]? pixels = actual.GetFormat() == Image.Format.Rgba8 ? actual.GetData() : null;
@@ -106,7 +108,15 @@ public sealed partial class ValidationRoot
         int address = rom.Word(slot + 0x1e);
         byte ReadOam(int offset) => image.Span[0x14 * 0x4000 + address - 0x4000 + offset];
         int count = ReadOam(0);
-        FailIf(count is < 1 or > 40, $"{context}: invalid native interaction OAM count {count} at $14:${address:x4}.");
+        FailIf(count > 40, $"{context}: invalid native interaction OAM count {count} at $14:${address:x4}.");
+        if(count==0)
+        {
+            // The kiss-heart's initial 200-update delay uses an empty OAM
+            // row. Check imported emptiness and the rendered transparency.
+            FailIf(frame.EncodedOam.Length!=0||actor.CurrentAnimationOpaquePixels!=0||counter!=rom[slot+0x20]||actor.CurrentAnimationParameter!=rom[slot+0x21],
+                $"{context}: native empty OAM frame, transparency or animation clock differs.");
+            return;
+        }
         string oam = string.Join(';', Enumerable.Range(0, count).Select(cell =>
             string.Join(',', Enumerable.Range(0, 4).Select(b => ReadOam(1 + cell * 4 + b)))));
         // Derive bounds from executed ROM OAM, including negative offsets and

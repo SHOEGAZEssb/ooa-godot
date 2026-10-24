@@ -205,13 +205,17 @@ function Read-PaletteBytes(
 ) {
     $labelIndex = $paletteDataSource.IndexOf("${label}:", [StringComparison]::Ordinal)
     if ($labelIndex -lt 0) { throw "Map palette data label not found: $label" }
-    $nextLabel = $paletteDataSource.IndexOf(
-        'paletteData', $labelIndex + $label.Length, [StringComparison]::Ordinal)
-    if ($nextLabel -lt 0) { $nextLabel = $paletteDataSource.Length }
-    $block = $paletteDataSource.Substring($labelIndex, $nextLabel - $labelIndex)
-    $colors = [regex]::Matches(
-        $block,
-        'm_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})')
+    # Header counts can cross adjacent palette labels (PALH_aa reads six
+    # palettes from paletteData4870). Labels do not terminate native bytes.
+    $colors = [Collections.Generic.List[Text.RegularExpressions.Match]]::new()
+    foreach ($line in $paletteDataSource.Substring($labelIndex).Split("`n")) {
+        $code = ($line -split ';', 2)[0].Trim()
+        if (-not $code -or $code -match '^\w+:$') { continue }
+        $color = [regex]::Match($code, '^m_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})$')
+        if (-not $color.Success) { throw "${label}: unsupported palette continuation '$code'." }
+        $colors.Add($color)
+        if ($colors.Count -eq $colorCount) { break }
+    }
     if ($colors.Count -lt $colorCount) {
         throw "$label contains $($colors.Count) colors; expected $colorCount."
     }

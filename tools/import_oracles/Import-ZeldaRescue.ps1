@@ -69,3 +69,34 @@ $birdNative=Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactio
 if($impaNative -notmatch '(?ms)^@init7:.*?ld a,\$81.*?wMenuDisabled.*?wDisabledObjects.*?wScrollMode.*?ld hl,\$cfd0.*?ld b,\$10.*?INTERAC_ZELDA, \$06.*?ld \(hl\),\$8c.*?ld \(hl\),\$50' -or
     $birdNative -notmatch '(?ms)^bird_runSubid4:.*?interactionAnimateAsNpc.*?bird_updateGravityAndHopWhenHitGround.*?interactionRunScript.*?cp \$68.*?inc a' -or
     (Resolve-SoundConstant 'SND_JUMP') -ne 0x53){throw 'Room $0:$65 native rescue contract changed.'}
+
+# Placed post-Ganon Zelda. The following native collapse controller is a
+# separate unsupported boundary, retained as a source-aware command binding.
+$ritesNative = Read-ImportText (Join-Path $Disassembly 'object_code/ages/interactions/zelda.s')
+$ritesHeaders = Read-ImportText (Join-Path $Disassembly 'data/ages/objectGfxHeaders.s')
+if ($ritesNative -notmatch '(?ms)^@initSubid00:\s+call getThisRoomFlags\s+bit 7,a\s+jr z,@commonInitWithExtraGraphics\s+ld a,\$01\s+ld \(wDisableScreenTransitions\),a\s+ld a,\(wActiveMusic\)\s+or a\s+jr z,@commonInitWithExtraGraphics\s+xor a\s+ld \(wActiveMusic\),a\s+ld a,MUS_ZELDA_SAVED\s+call playSound\s+@commonInitWithExtraGraphics:\s+call interactionLoadExtraGraphics' -or
+    $ritesNative -notmatch '(?ms)^@commonInit:\s+call zelda_loadScript\s+zelda_state1:' -or
+    $ritesHeaders -notmatch '/\* \$11 \*/ m_ObjectGfxHeader spr_zelda_1\s+/\* \$12 \*/ m_ObjectGfxHeader spr_zelda_2, 1' -or
+    (Resolve-SoundConstant 'MUS_ZELDA_SAVED') -ne 0x38) {
+    throw 'zelda.s:$ad:$00 room flag/music, extra graphics, or state-zero fallthrough changed.'
+}
+Copy-GeneratedFile 'gfx_compressible/common/spr_zelda_2.png' 'gfx/spr_zelda_2.png'
+$ritesAnimations = @{}
+foreach ($index in @(5,6)) {
+    $ritesAnimations[$index] = Resolve-NpcAnimation 0xad $index
+    if (!$ritesAnimations[$index]) { throw "zeldaSubid00Script: missing animation $index." }
+}
+$ritesOps = [Collections.Generic.HashSet[string]]::new([string[]]@(
+    'setanimation','setcollisionradii','makeabuttonsensitive','checkabutton',
+    'setdisabledobjectsto11','wait','showtext','writememory','scriptend'))
+$ritesCommands = @(Read-AssemblyCutsceneCommands $rescueMain 'zeldaSubid00Script' $ritesOps 'zeldaSubid01Script')
+$ritesBindings = @{
+    'setdisabledobjectsto11|' = @{Opcode='setdisabledobjects';Arg0='11'}
+    'writememory|wCutsceneTrigger, CUTSCENE_ROOM_OF_RITES_COLLAPSE' = @{Opcode='native';Payload='RoomOfRitesCollapse'}
+}
+$ritesTexts = @{0x3d05 = (Resolve-PalaceText 0x3d05 ([Collections.Generic.HashSet[int]]::new()))}
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/room_of_rites_zelda_commands.tsv'),
+    (ConvertTo-CutsceneCommandRows $ritesCommands 'Zelda' -animations $ritesAnimations -texts $ritesTexts -bindings $ritesBindings))
+Write-CutsceneGeneratedTable((Join-Path $destination 'cutscenes/room_of_rites_zelda_graphics.tsv'), @(
+    "# extra-sprite`tsource",
+    "spr_zelda_2`tzelda.s:@commonInitWithExtraGraphics;objectGfxHeaders.s:`$11/`$12"))

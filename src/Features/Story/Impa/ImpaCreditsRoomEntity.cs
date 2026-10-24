@@ -23,12 +23,13 @@ internal sealed class ImpaCreditsRoomEntity : RoomCutsceneCommandHost,IRoomEntit
     internal int ZFixed=>_z;
     internal int SpeedZ=>_speedZ;
     internal NpcCharacter Actor=>_actor;
+    internal int SubId {get;}
     internal Vector2 PrecisePosition=>_position;
     public Node2D Node=>_actor;
     public bool UpdatesDuringDialogue=>State==0;
     public bool UpdatesDuringRoomEntityFreeze=>State==0;
-    internal ImpaCreditsRoomEntity(RoomEventContext context,BlackTowerEndingDatabase data,Vector2 position,System.Func<bool> flash)
-    {Context=context;_data=data;_flash=flash;_position=position;_actor=data.Actor(0x31,2,position);_runner=new(this);}
+    internal ImpaCreditsRoomEntity(RoomEventContext context,BlackTowerEndingDatabase data,Vector2 position,System.Func<bool> flash,int subid=2)
+    {Context=context;_data=data;_flash=flash;_position=position;SubId=subid;_actor=data.Actor(0x31,subid,position);_runner=new(this);}
     private void Write(int address,int value)=>Context.Entities.RuntimeState.SetWramByte(address,(byte)value);
     private int Read(int address)=>Context.Entities.RuntimeState.ReadWramByte(address);
     private void Visible(bool terrain)=>_actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex,terrain);
@@ -37,7 +38,13 @@ internal sealed class ImpaCreditsRoomEntity : RoomCutsceneCommandHost,IRoomEntit
     public void SetTransitionDrawOffset(Vector2 offset)=>_actor.SetTransitionDrawOffset(offset);
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
-        if(State==0){State=1;_counter=30;Visible(false);return;}
+        if(State==0)
+        {
+            State=1;Visible(false);
+            if(SubId==3){Animation(3);_runner.Start(_data.Commands("reunion-impa"));return;}
+            _counter=30;return;
+        }
+        if(SubId==3){AnimateAndRun();return;}
         switch(Substate)
         {
             case 0:
@@ -82,6 +89,8 @@ internal sealed class ImpaCreditsRoomEntity : RoomCutsceneCommandHost,IRoomEntit
         _runner.AdvanceFrame();
     }
     public override bool HasActorBinding(CutsceneActorId actor)=>actor.Value=="Actor";
+    public override void ShowText(int id,string message)=>ShowText(id,message,null);
+    public override void ShowText(int id,string message,int? position)=>Context.ShowDialogue(message,position,sourceTextId:id);
     public override void SetActorAnimation(string actor,int index,string animation)=>Animation(index);
     public override void SetActorMovementAnimation(string actor,int angle,string animation)=>Animation((angle&0x18)>>3);
     public override void MoveActorAtSpeed(string actor,int speed,int angle)

@@ -185,20 +185,11 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
             SpawnSparkle(piece.Position);
         }
 
-        piece.YFixed = AddWord(piece.YFixed, _record.YOffsetFixed);
-        piece.SpeedY = AddWord(piece.SpeedY, piece.AccelerationY);
-        piece.SpeedX = AddWord(piece.SpeedX, piece.AccelerationX);
-        piece.YFixed = AddWord(piece.YFixed, piece.SpeedY);
-        piece.XFixed = AddWord(piece.XFixed, piece.SpeedX);
-
-        int yHigh = (byte)(piece.YFixed >> 8);
-        if (yHigh >= _record.DeleteY && yHigh < 0xd8)
-            return false;
-
-        if (AbsoluteWord(piece.SpeedY) >= _record.YSpeedLimit)
-            piece.AccelerationY = NegateWord(piece.AccelerationY);
-        if (AbsoluteWord(piece.SpeedX) >= _record.XSpeedLimit)
-            piece.AccelerationX = NegateWord(piece.AccelerationX);
+        var step=MakuConfettiMotion.Advance(piece.YFixed,piece.XFixed,piece.SpeedY,piece.SpeedX,
+            piece.AccelerationY,piece.AccelerationX,_record.YOffsetFixed,_record.YSpeedLimit,_record.XSpeedLimit,_record.DeleteY);
+        piece.YFixed=step.Y;piece.XFixed=step.X;piece.SpeedY=step.SpeedY;piece.SpeedX=step.SpeedX;
+        piece.AccelerationY=step.AccelerationY;piece.AccelerationX=step.AccelerationX;
+        if(!step.Alive)return false;
 
         bool movingLeft = piece.SpeedX < 0;
         if ((movingLeft && piece.Direction == 0) ||
@@ -238,12 +229,6 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
 
     private static int AddWord(int left, int right) =>
         unchecked((short)(left + right));
-
-    private static int NegateWord(int value) =>
-        unchecked((short)-value);
-
-    private static int AbsoluteWord(int value) =>
-        value == short.MinValue ? 0x8000 : Math.Abs(value);
 
     private sealed class ConfettiPiece(
         EnemyAnimationPlayer animation,

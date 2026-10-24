@@ -419,8 +419,12 @@ function Read-AssemblyAnimationDefinitions(
             $terminalNodes[$terminalIndex]
         } else { $null }
         $nextLabelIndex = $labelIndex + 1
+        # Native streams use both a suffix (partAnimation...Loop) and a
+        # prefix (animationLoop19e13) for internal loop anchors. These labels
+        # remain independently addressable; neither starts the next stream.
         while ($nextLabelIndex -lt $labels.Count -and
-            $labels[$nextLabelIndex].Name.EndsWith('Loop')) {
+            ($labels[$nextLabelIndex].Name.EndsWith('Loop') -or
+             $labels[$nextLabelIndex].Name.StartsWith('animationLoop', [StringComparison]::Ordinal))) {
             $nextLabelIndex++
         }
         $nextLabelOffset = if ($nextLabelIndex -lt $labels.Count) {

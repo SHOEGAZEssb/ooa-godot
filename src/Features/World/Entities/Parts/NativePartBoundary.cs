@@ -5,6 +5,10 @@ namespace oracleofages;
 
 internal static class NativePartBoundary
 {
+    // The common helper's Z flag is only set by raw $ff + 1. Ordinary
+    // wall collisions return carry with Z clear; RET NZ callers ignore them.
+    internal static bool IsScreenBoundaryAtPoint(OracleRoomData room,Vector2 position) =>
+        room.GetTerrainInfo(new(OracleObjectPosition.HighByte(position.X),OracleObjectPosition.HighByte(position.Y))).Collision==255;
     // partCommon_checkTileCollisionOrOutOfBounds tests the point itself:
     // raw $ff first, then checkTileCollision_allowHoles at wrapped high YX.
     internal static bool HasTileCollisionOrBoundary(OracleRoomData room, Vector2 position)

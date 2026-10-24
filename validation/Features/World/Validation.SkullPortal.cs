@@ -158,11 +158,10 @@ public sealed partial class ValidationRoot
         Step(4);
         FailIf(_player.CutsceneControlled, "A lifting Link activated the portal despite grab state$c2.");
         _player.SetBraceletLiftCollisionsDisabled(false);
-        var menu = typeof(RoomEntityManager).GetField("_linkCollisionsAndMenuDisabled", flags)!;
-        menu.SetValue(_entities, true);
+        _runtimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,1);
         Step(4);
         FailIf(_player.CutsceneControlled, "Portal ignored wDisableLinkCollisionsAndMenu.");
-        menu.SetValue(_entities, false);
+        _runtimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,0);
         Step();
         FailIf(!_player.CutsceneControlled, "Clearing the collision/menu gate did not allow the ready portal to activate.");
         LoadValidationRoom(4, 0x91);

@@ -3727,7 +3727,8 @@ public partial class Player : Node2D
     {
         if (CollapsedActive)
         {
-            DrawWalkLinkBody(_linkWalkAnimationFrame,Vector2.Down*EnemyContactZ);
+            if(_collapseParameter==0)DrawTexture(ScriptedLinkAnimationTexture(2,false),NormalSpriteOrigin+Vector2.Down*EnemyContactZ);
+            else DrawWalkLinkBody(_linkWalkAnimationFrame,Vector2.Down*EnemyContactZ);
             return;
         }
         if (_deathAnimationActive)

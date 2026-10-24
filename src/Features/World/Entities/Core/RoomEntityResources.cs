@@ -40,8 +40,11 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         var traps = TrapResets.GetRoomRecords(group, room);
         var pushes = PushSynchronizers.GetRoomRecords(group, room);
         var eyes = EyeStatues.GetRoomRecords(group, room);
+        var finalEntry = FinalDungeonEntry.GetRoomRecords(group, room);
+        var ritual = RoomOfRitesRitual.GetRoomRecords(group, room);
+        var twins = Twinrova.GetRoomRecords(group, room);
         int count = skull.Count + crown.Count + mermaid.Count + jabu.Count + tomb.Count +
-            traps.Count + pushes.Count + eyes.Count;
+            traps.Count + pushes.Count + eyes.Count + finalEntry.Count + ritual.Count + twins.Count;
         // Most rooms have no rows. Avoid allocating an iterator/closure chain
         // for every empty room while preparing the immutable catalog.
         if (count == 0) return Array.Empty<DungeonObjectRecord>();
@@ -51,6 +54,9 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         records.AddRange(mermaid);
         records.AddRange(jabu);
         records.AddRange(tomb);
+        records.AddRange(finalEntry);
+        records.AddRange(ritual);
+        records.AddRange(twins);
         foreach (var record in traps)
             records.Add(new(group, room, record.Order, DungeonObjectKind.PuzzleTrapReset,
                 InteractionId.MiscPuzzles, 0x1f, 0, 0, DungeonObjectCondition.Always, record.Source));
@@ -78,7 +84,13 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
     private PlacedPartDatabase? _placedParts;
     internal PlacedPartDatabase PlacedParts => _placedParts ??= new();
     private VeranFinalDatabase? _veranFinal;
+    private FinalDungeonEntryDatabase? _finalDungeonEntry;
+    internal FinalDungeonEntryDatabase FinalDungeonEntry => _finalDungeonEntry ??= new();
+    private RoomOfRitesRitualDatabase? _roomOfRitesRitual;
+    internal RoomOfRitesRitualDatabase RoomOfRitesRitual => _roomOfRitesRitual ??= new();
     internal VeranFinalDatabase VeranFinal=>_veranFinal??=new();
+    private TwinrovaDatabase? _twinrova;
+    internal TwinrovaDatabase Twinrova => _twinrova ??= new();
     private FallingRockDatabase? _fallingRocks;
     internal FallingRockDatabase FallingRocks=>_fallingRocks??=new();
     private LibraryDatabase? _library;

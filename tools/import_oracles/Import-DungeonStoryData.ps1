@@ -627,6 +627,10 @@ $positionPayload = @($confettiPositions | ForEach-Object {
     $ax = [Convert]::ToInt32($_.Groups['ax'].Value, 16)
     "$y`:$x`:$ay`:$ax"
 }) -join ','
+Write-CutsceneGeneratedTable((Join-Path $destination 'effects/maku_confetti.tsv'),@(
+    "# delays`tpositions`ty-offset`tsparkle-initial`tsparkle-repeat`tsound-counter`tsound`ty-limit`tx-limit`tdelete-y`tsource",
+    "1,50,20,30,40,30`t$positionPayload`t192`t16`t24`t180`t83`t256`t512`t136`tobject_code/ages/interactions/makuConfetti.s:makuConfetti_subid0"
+))
 $pastPositionPayload = @(
     for ($index = 0; $index -lt 12; $index++) {
         $position = $pastConfettiPositions[$index % 6]

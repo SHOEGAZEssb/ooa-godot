@@ -86,7 +86,7 @@ internal sealed class DungeonEntranceInteractionDatabase
                     (record.Id != 0x12 || record.SubId != 0x00 ||
                      record.Y < 0 || record.X < 0) ||
                 record.Kind == DungeonEntranceInteractionDatabaseObjectKind.EyeSpawner &&
-                    (record.Id != 0xe2 || record.SubId != 0x01 ||
+                    (record.Id != 0xe2 || record.SubId is not (0x01 or 0x03) ||
                      record.Y >= 0 || record.X >= 0) ||
                 record.Kind == DungeonEntranceInteractionDatabaseObjectKind.MinibossPortal &&
                     (record.Id != 0x7e || record.SubId != 0x00))
@@ -170,7 +170,7 @@ internal sealed class DungeonEntranceInteractionDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
         IReadOnlyList<PlacementRecord> room24 = GetRoomRecords(4, 0x24);
-        if (entryCount != 16 || PlacementCount != 42 || eyeVisualCount != 8 ||
+        if (entryCount != 16 || PlacementCount != 43 || eyeVisualCount != 8 ||
             portalVisualCount != 1 || _portalPairs.Count != 9 ||
             _constants.Count != 11 || room24.Count != 3 ||
             room24[0] is not { Order: 0, Kind: DungeonEntranceInteractionDatabaseObjectKind.Entry, Dungeon: 1 } ||

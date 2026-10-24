@@ -282,6 +282,15 @@ public sealed class RoomSession
         room.SetBackgroundMappingRectangle(Vector2I.Zero,room.WidthInTiles*2,background,_animationTick());
     }
 
+    // func_131f performs the complete background/collision reload, rather
+    // than retaining VRAM mappings as loadTilesetAndRoomLayout alone does.
+    internal OracleRoomData ReloadCurrentRoomBackground()
+    {
+        var room=LoadCutsceneBackground(ActiveGroup,CurrentRoom.Id);
+        room.CopyLayoutToUnderlying();
+        return room;
+    }
+
     internal bool IsLayoutSwapped(int group, int room) =>
         _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap);
 

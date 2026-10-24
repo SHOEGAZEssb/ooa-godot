@@ -104,7 +104,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         int initialAnimation = 0,
         IReadOnlyDictionary<int, Color[]>? paletteOverrides = null,
         bool positionedOam = false,
-        IReadOnlyList<int>? paletteVariants = null)
+        IReadOnlyList<int>? paletteVariants = null,
+        IReadOnlyList<int[]>? animationSourceOffsets = null)
     {
         Position = position;
         Health = configuration.Health;
@@ -145,7 +146,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
             paletteOverrides,
             configuration.SourceGrayscaleInverted,
             positionedOam,
-            paletteVariants);
+            paletteVariants,
+            animationSourceOffsets);
         // enemyLoadGraphicsAndProperties always loads the first animation
         // frame. SetAnimation can skip index zero on a newly created player.
         RestartAnimation(initialAnimation);

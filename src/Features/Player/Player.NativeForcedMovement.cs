@@ -8,6 +8,10 @@ public partial class Player
     {
         Face(direction switch {0=>Vector2I.Up,1=>Vector2I.Right,2=>Vector2I.Down,3=>Vector2I.Left,
             _=>throw new System.NotSupportedException($"forceLinkDirection ${direction:x2}.")});
+        RequestNativeState08Control(owner);
+    }
+    internal void RequestNativeState08Control(object owner)
+    {
         RequestState08Control(owner);
         // forceLinkDirection does not perform the portal's visible=$82 write.
         _forcedState08LowPriority=false;

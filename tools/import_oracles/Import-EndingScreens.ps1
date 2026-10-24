@@ -3,8 +3,10 @@
 $gfxSource='data/ages/gfxHeaders.s'
 $headers=Read-ImportText (Join-Path $Disassembly $gfxSource)
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# profile`tindex`tasset`ttarget`tbank`tpadding`tinvert`tinterleave`toffset`tlength`tsource")
-foreach($spec in @(@('oracle','2b'),@('twinrova','2c'),@('closeup','2d'),@('credits-maku','85'),@('credits-performance','87'),@('credits-sword','89'),@('credits-construction','8b'),@('credits-maku-past','84'),
-    @('credits-image0','86'),@('credits-image1','88'),@('credits-image2','8a'),@('credits-image3','8c'),@('credits-scroll','95'),@('credits-end','98'),@('ending-secret','97'),@('ending-continued','96'))) {
+foreach($spec in @(@('oracle','2b'),@('twinrova','2c'),@('closeup','2d'),@('reunion-makutree','3c'),@('credits-maku','85'),@('credits-performance','87'),@('credits-sword','89'),@('credits-construction','8b'),@('credits-maku-past','84'),
+    @('credits-image0','86'),@('credits-image1','88'),@('credits-image2','8a'),@('credits-image3','8c'),
+    @('credits-image4','8e'),@('credits-image5','90'),@('credits-image6','92'),@('credits-image7','94'),@('credits-linked7','93'),@('credits-linked5','8f'),@('credits-linked4','8d'),@('credits-linked6','91'),
+    @('credits-scroll','95'),@('credits-waving','9a'),@('credits-linked-end','99'),@('hero-secret-text','06'),@('credits-end','98'),@('ending-secret','97'),@('ending-continued','96'))) {
     $body=[regex]::Match($headers,'(?ms)^m_GfxHeaderStart \$'+$spec[1]+', [^\r\n]+\r?\n(?<body>.*?)^\s*m_GfxHeaderEnd').Groups['body'].Value
     if(-not $body){throw "${gfxSource}: missing ending header `$${spec[1]}."}
     $index=0
@@ -35,8 +37,8 @@ foreach($spec in @(@('oracle','2b'),@('twinrova','2c'),@('closeup','2d'),@('cred
         }
         $rows.Add("$($spec[0])`t$index`t$asset.$extension`t$target`t$bank`t$padding`t$invert`t$interleave`t$offset`t$length`t${gfxSource}:GFXH_`$$($spec[1])");$index++
     }
-    $expected=switch($spec[1]){'2b'{8};'2c'{10};'2d'{7};'84'{2};'85'{2};'87'{2};'89'{2};'8b'{2};'86'{6};'88'{11};'8a'{10};'8c'{10};'95'{9};'98'{4};'97'{11};'96'{3}}
-    if($index -ne $expected){throw "${gfxSource}: header `$${spec[1]} has $index uploads, expected $expected."}
+    $expected=switch($spec[1]){'2b'{8};'2c'{10};'2d'{7};'3c'{8};'84'{2};'85'{2};'87'{2};'89'{2};'8b'{2};'86'{6};'88'{11};'8a'{10};'8c'{10};'8e'{6};'90'{11};'92'{10};'94'{10};'93'{5};'8f'{5};'8d'{5};'91'{5};'95'{9};'9a'{9};'99'{4};'06'{1};'98'{4};'97'{11};'96'{3}}
+    if($index -ne $expected){throw "${gfxSource}: header `$$($spec[1]) has $index uploads, expected $expected."}
 }
 Write-GeneratedTable((Join-Path $destination 'cutscenes/ending_graphics.tsv'),$rows)
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# header`tindex`tbuffer`ttarget`tbank`tlength`tsource")
@@ -48,9 +50,20 @@ foreach($node in @(Read-AssemblyMacroInvocations (Join-Path $Disassembly $ramSou
 }
 if($index -ne 3){throw "${ramSource}: expected three UNCMP_GFXH_2b uploads."}
 Write-GeneratedTable((Join-Path $destination 'cutscenes/ending_ram_uploads.tsv'),$rows)
+$rows=[Collections.Generic.List[string]]::new();$rows.Add("# header`tindex`tbuffer`ttarget`tbank`tlength`tsource")
+foreach($header in @('01','2c')){
+    $index=0
+    foreach($node in @(Read-AssemblyMacroInvocations (Join-Path $Disassembly $ramSource) "uncmpGfxHeader$header" 'm_GfxHeaderRam')){
+        if($node.Operands.Count -ne 3){throw "${ramSource}: malformed UNCMP_GFXH_$header upload."}
+        $target=Convert-AssemblyInteger $node.Operands[1];$length=(Convert-AssemblyInteger $node.Operands[2])*16
+        $rows.Add("$header`t$index`t$($node.Operands[0])`t$(($target -band 0xfffe).ToString('x4'))`t$($target -band 1)`t$length`t${ramSource}:uncmpGfxHeader$header");$index++
+    }
+    if($index -ne $(if($header -eq '01'){1}else{2})){throw "${ramSource}: missing linked ending RAM upload."}
+}
+Write-GeneratedTable((Join-Path $destination 'cutscenes/ending_linked_ram_uploads.tsv'),$rows)
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# header`tkind`tfirst`tcount`tcolors`tsource")
 $paletteSource='data/ages/paletteHeaders.s';$headers=Read-ImportText (Join-Path $Disassembly $paletteSource)
-foreach($id in @('9d','9e','9c','04','05','0f','30','c6','c7','c8','a1','a0','a7','a9','2d','27')) {
+foreach($id in @('9d','9e','9c','04','05','0f','30','c6','c7','c8','c9','a1','a0','a7','a9','2d','27','ae','ca','7c','7d','0b','9f','aa')) {
     $body=[regex]::Match($headers,'(?ms)^m_PaletteHeaderStart \$'+$id+', [^\r\n]+\r?\n(?<body>.*?)^\s*m_PaletteHeaderEnd').Groups['body'].Value
     if(-not $body){throw "${paletteSource}: missing `$${id}."}
     if($id -eq 'a7') {
@@ -71,7 +84,7 @@ foreach($id in @('9d','9e','9c','04','05','0f','30','c6','c7','c8','a1','a0','a7
 }
 Write-GeneratedTable((Join-Path $destination 'cutscenes/ending_palettes.tsv'),$rows)
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# name`tparts`tsource")
-foreach($name in @('oamData_4e37','oamData_4d05','oamData_4d9e','oamData_4fec')) {
+foreach($name in @('oamData_4e37','oamData_4d05','oamData_4d9e','oamData_4fec','oamData_4f73','oamData_4ed8','oamData_4f21','oamData_4f56')) {
     $bytes=@(Read-AssemblyLiteralValues (Join-Path $Disassembly 'data/ages/endgameCutsceneOamData.s') $name)
     if($bytes.Count -ne 1+$bytes[0]*4 -or $bytes[0] -gt 40){throw "Ending OAM ${name}: malformed count/payload."}
     $parts=for($index=1;$index -lt $bytes.Count;$index+=4){(($bytes[$index..($index+3)]|ForEach-Object {$_.ToString('x2')}) -join ',')}
@@ -108,7 +121,13 @@ $rows=[Collections.Generic.List[string]]::new();$rows.Add("# kind`tindex`tdata`t
 $rows.Add("bytes`t0`t$(($scriptBytes|ForEach-Object {$_.ToString('x2')}) -join '')`t${creditSource}:@script0..3 + clean-US boundary")
 $settings=@(Read-AssemblyLiteralValues $path 'horizontalCreditsText_65b1')
 if($settings.Count -ne 16){throw "${creditSource}: expected eight direction/animation pairs."}
-foreach($index in 0..3){$rows.Add("entry`t$index`t$($starts[$index]),$($settings[$index*2]),$($settings[$index*2+1])`t${creditSource}:horizontalCreditsText_scriptTable")}
+$scriptTable=@(Read-AssemblyDataDirectives $path 'horizontalCreditsText_scriptTable' '.dw'|ForEach-Object {$_.Operands})
+if($scriptTable.Count -ne 8){throw "${creditSource}: expected eight script pointers, including linked aliases."}
+foreach($index in 0..7){
+    if($scriptTable[$index] -notmatch '^@script(?<index>[0-3])$'){throw "${creditSource}: unsupported script pointer '$($scriptTable[$index])'."}
+    $start=$starts[[int]$Matches['index']]
+    $rows.Add("entry`t$index`t$start,$($settings[$index*2]),$($settings[$index*2+1])`t${creditSource}:horizontalCreditsText_scriptTable")
+}
 foreach($index in 0..0x1a) {
     $animation=Resolve-NpcAnimation 0xae $index
     if(-not $animation){throw "INTERAC `$ae: missing animation `$${index}."}
