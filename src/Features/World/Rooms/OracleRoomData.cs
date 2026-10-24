@@ -647,6 +647,11 @@ public sealed class OracleRoomData
     }
 
     internal byte GetUnderlyingStorageMetatile(int position) => _underlyingLayout[position];
+    internal void SetPackedLayoutWithoutGraphics(byte position, byte tile)
+    {
+        _ = GetPackedStorageMetatile(position);
+        SetStorageLayoutWithoutGraphics((position >> 4) * _layoutStride + (position & 15), tile);
+    }
     internal void SetStorageLayoutWithoutGraphics(int position, byte tile)
     {
         // A direct WRAM layout write does not update the background mapping.

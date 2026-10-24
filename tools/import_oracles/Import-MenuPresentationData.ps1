@@ -592,11 +592,21 @@ $secretSymbolBlock = [regex]::Match(
     '(?ms)^secretSymbols:.*?^\.ifndef REGION_JP\s*\r?\n(?<table>.*?)^[ \t]*\.db \$00[^\r\n]*\r?\n^\.endif')
 if (-not $secretSymbolBlock.Success) { throw 'Missing clean-US secretSymbols table.' }
 $secretSymbolSource = $secretSymbolBlock.Groups['table'].Value
+$asciiMap = @{}
+foreach ($node in Read-AssemblyMacroInvocations (Join-Path $Disassembly 'include/rominfo.s') '' 'MAP') {
+    if ($node.Code.Trim() -notmatch '^MAP "(.)" = \$([0-9a-fA-F]{2})$') {
+        throw "include/rominfo.s:$($node.Line): unsupported ASCII mapping $($node.Code)."
+    }
+    $asciiMap[[int][char]$Matches[1]] = [Convert]::ToInt32($Matches[2], 16)
+}
+if ($asciiMap.Count -ne 1 -or $asciiMap[0x7e] -ne 0x5c) { throw 'include/rominfo.s: clean-US ASCII mapping changed.' }
 $secretGlyphIndex = 0
 foreach ($line in ($secretSymbolSource -split "`n")) {
     if ($line -match '^\s*\.asc\s+"([^"]+)"') {
         foreach ($character in $Matches[1].ToCharArray()) {
-            $secretGlyphRows.Add("$secretGlyphIndex`t$(([int]$character).ToString('x2'))")
+            $glyph = [int]$character
+            if ($asciiMap.ContainsKey($glyph)) { $glyph = $asciiMap[$glyph] }
+            $secretGlyphRows.Add("$secretGlyphIndex`t$($glyph.ToString('x2'))")
             $secretGlyphIndex++
         }
     } elseif ($line -match '^\s*\.db\s+(\$[0-9a-f]{2}(?:\s+\$[0-9a-f]{2})*)') {

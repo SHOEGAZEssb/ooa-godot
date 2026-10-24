@@ -65,6 +65,7 @@ public sealed class InteractionController
         _npcScripts;
     internal void SetFaroreSecretMenuOpener(Func<Action<int?>, bool> opener) =>
         _npcScripts.OpenFaroreSecretMenu = opener;
+    internal void SetSecretListOpener(Func<bool> opener) => _npcScripts.OpenSecretList = opener;
     internal void BindFaroreTransitions(RoomTransitionController transitions) => _npcScripts.FaroreTransitions = transitions;
     internal void AdvanceFarorePaletteBeforeObjects() => _npcScripts.AdvanceFarorePaletteBeforeObjects();
 
@@ -677,9 +678,8 @@ public sealed class InteractionController
         string message,
         Vector2 position)
     {
-        _ = textId;
         _dialogue.ShowGameplayMessage(
-            message, _worldToScreen(position).Y);
+            message, _worldToScreen(position).Y, sourceTextId: textId);
     }
 
     private void OnMapleItemCollected(

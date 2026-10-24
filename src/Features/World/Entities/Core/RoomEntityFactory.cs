@@ -561,6 +561,8 @@ internal sealed class RoomEntityFactory
                 {
                     if (!owner.InteractionSlotAvailable) continue;
                 }
+                if (record.Kind is DungeonObjectKind.SharedDungeonScript or DungeonObjectKind.SwitchTrigger or DungeonObjectKind.RestoreCrystals or DungeonObjectKind.LinkStatue or DungeonObjectKind.EntryText or DungeonObjectKind.SymmetryBarrier &&
+                    !owner.InteractionSlotAvailable) continue;
                 if (record.Kind == DungeonObjectKind.Lever)
                 {
                     LeverProfile profile = Resources.Levers.Profile(record.SubId);
@@ -574,6 +576,22 @@ internal sealed class RoomEntityFactory
                 }
                 yield return record.Kind switch
                 {
+                    DungeonObjectKind.SharedDungeonScript => CreateSharedDungeonScript(record, lightableTorchState),
+                    DungeonObjectKind.SwitchTrigger => new SwitchTriggerTranslatorRoomEntity(record, _runtimeState, owner.SetTrigger, owner.IsOutgoingEntity),
+                    DungeonObjectKind.RestoreCrystals => new DungeonCrystalRestoreRoomEntity(record, Resources.SharedInteractions, _saveData!, _runtimeState),
+                    DungeonObjectKind.LinkStatue => CreateSharedDecoration(record, room),
+                    DungeonObjectKind.EntryText => new RoomEntryTextRoomEntity(record, _runtimeState, player => {
+                        var text = Resources.SharedInteractions.EntryText(owner.ActiveRoom.Id);
+                        owner.OnRoomEntityDialogueRequested(owner.ActiveRoom.Id == 0xd0 ? 0x0209 : 0x120a,
+                            text.Position < 0 ? text.Message : $"\\pos({text.Position}){text.Message}", player.Position);
+                    }),
+                    DungeonObjectKind.SymmetryBarrier => new SymmetryCompanionBarrierRoomEntity(record, _saveData!, _runtimeState,
+                        () => owner.EntityAdapters<IRoomEntity>().Where(e => e is not IRoomEntityLifetime { Finished: true }).OfType<ICompanionBarrierTarget>().FirstOrDefault(),
+                        (companion, position) => {
+                            var text = Resources.SharedInteractions.SymmetryText(companion);
+                            owner.OnRoomEntityDialogueRequested(text.Id,
+                                text.Position < 0 ? text.Message : $"\\pos({text.Position}){text.Message}", position);
+                        }),
                     DungeonObjectKind.CavePortal => CreateHerosCavePortal(record),
                     DungeonObjectKind.CavePuzzle => new HerosCavePuzzleRoomEntity(record, Resources.HerosCave,
                         owner, _saveData!, _runtimeState, skullDungeonPuzzle, (position, tile) => {
@@ -1072,11 +1090,13 @@ internal sealed class RoomEntityFactory
                                     or { Id: InteractionId.Zelda, SubId: 8 }
                                     or { Id: InteractionId.Ambi, SubId: 0x0a }
                                     or { Id: InteractionId.Ralph, SubId: 0x12 }
-                                    or { Id: InteractionId.Nayru, SubId: 0x0c },
+                                    or { Id: InteractionId.Nayru, SubId: 0x0c }
+                                    or { Id: 0x39, SubId: 2 or 3 },
                                 // Both postgame actors call npcFaceLinkAndAnimate
                                 // before interactionRunScript consumes the A-button.
                                 animateBeforeDialogue: record is { Id: InteractionId.Ambi, SubId: 0x0a }
-                                    or { Id: InteractionId.Ralph, SubId: 0x12 });
+                                    or { Id: InteractionId.Ralph, SubId: 0x12 },
+                                deleteIfInactiveOnInitialization: record is { Id: 0x39, SubId: 2 or 3 });
                         break;
                     case NpcImplementationClassification.SpecializedNative:
                         IRoomEntity specialized = CreateSpecializedNpc(record, room);
@@ -1154,6 +1174,9 @@ internal sealed class RoomEntityFactory
                 }
             }
         }
+
+        foreach (var record in Resources.SharedInteractions.NpcTail(group, room.Id))
+            if (owner.InteractionSlotAvailable) yield return CreateSharedDecoration(record, room);
 
         if(_saveData is not null&&Resources.TokayDimitri.Matches(group,room.Id))
         {
@@ -1649,6 +1672,64 @@ internal sealed class RoomEntityFactory
                 if (rooms.TrySetTile(position, tile)) owner.OnRoomTileChanged();
             }, owner.OnNativeSoundRequested, owner.TryCreatePuzzlePuff, owner.OnWallRetractionTriggered);
     }
+
+    private SharedDungeonScriptRoomEntity CreateSharedDungeonScript(DungeonObjectRecord record, LightableTorchState? torches)
+    {
+        if (rooms is null || _saveData is null) throw new InvalidOperationException($"{record.Source}: dungeon script requires room/save owners.");
+        return new(record, Resources.SharedInteractions.Script(rooms.World.GetDungeonIndex(record.Group, record.Room), record.SubId),
+            _runtimeState, owner.IsScriptTextActive, () => torches?.LitCount ?? 0, () => owner.RoomEnemyCount,
+            flag => owner.ActiveRoomHasFlag(_saveData, (byte)flag),
+            flag => _saveData.SetRoomFlag(owner.ActiveRoom.Group, owner.ActiveRoom.Id, (byte)flag),
+            owner.OnNativeSoundRequested, handler => {
+                switch (handler)
+                {
+                    case "SpawnSmallKey": owner.TryCreateGroundTreasure(CreateFallingSmallKeyRequest(record)); break;
+                    case "SpawnRupees": owner.TryCreateGroundTreasure(new(record.Group, record.Room, record.Order,
+                        record.Y, record.X, "TREASURE_OBJECT_RUPEES_0c", record.Source) {
+                            SpawnMode = TreasureSpawnMode.Instant, GrabMode = TreasureGrabMode.TwoHands }); break;
+                    case "CreatePuff": owner.TryCreatePuzzlePuff(record.Position); break;
+                    case "SetStairs": case "SetChest":
+                        byte position = (byte)((record.Y & 0xf0) | (record.X >> 4));
+                        if (rooms.TrySetTile(position, handler == "SetStairs" ? (byte)0x45 : (byte)0xf1)) owner.OnRoomTileChanged();
+                        break;
+                    default: throw new InvalidOperationException($"{record.Source}: unsupported dungeon script handler '{handler}'.");
+                }
+            });
+    }
+
+    private IRoomEntity CreateSharedDecoration(DungeonObjectRecord record, OracleRoomData room)
+    {
+        if (_saveData is null) throw new InvalidOperationException($"{record.Source}: native decoration requires save state.");
+        return record.Kind switch {
+            DungeonObjectKind.LinkStatue => new MakuLinkStatueRoomEntity(NpcCharacter.CreateFromRecord(
+                Resources.MakuSproutRoom.Record.CreateStatueNpcRecord() with {
+                    Group = record.Group, Room = record.Room, X = record.X, Y = record.Y }),
+                Resources.MakuSproutRoom, room, _saveData, _animationTick, () => {
+                    var colors = new Color[1, 4];
+                    for (int shade = 0; shade < 4; shade++) colors[0, shade] =
+                        (room.TilesetFlags & (int)TilesetFlags.Past) == 0
+                            ? Resources.SharedInteractions.PresentStatuePalette[0, shade] : Resources.MakuSproutRoom.StatuePalette[shade];
+                    owner.LoadNativeObjectPaletteSlots(6, colors);
+                    return owner.NativeObjectPalettes![6];
+                }),
+            DungeonObjectKind.MoblinFlag => new DecorationRoomEntity(record, Resources.SharedInteractions.MoblinFlag,
+                () => _saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed)),
+            DungeonObjectKind.PortalDecoration => new MakuPortalDecorationRoomEntity(record, room,
+                () => owner.TryCreatePortalDecoration(record)),
+            DungeonObjectKind.SavedMonkeys => CreateSavedMonkey(record),
+            DungeonObjectKind.FaroreMemory => new FaroreMemoryRoomEntity(new FaroreMemoryDatabase().CreateActor(record), _saveData),
+            _ => throw new InvalidOperationException($"{record.Source}: unsupported native decoration ${record.Id:x2}:${record.SubId:x2}.")
+        };
+    }
+
+    internal DecorationRoomEntity CreatePortalDecoration(DungeonObjectRecord producer) =>
+        new(producer with { Id = InteractionId.Decoration, SubId = 0, Kind = DungeonObjectKind.Decoration },
+            Resources.FinalDungeonEntry.Decoration);
+
+    internal IRoomEntity? CreateRoomLoadReward(int group, int room) =>
+        Resources.SharedInteractions.TryGetGashaReward(group, room, out var record) && owner.InteractionSlotAvailable
+            ? new MakuGashaRewardRoomEntity(record, _saveData!, _inventory!, request => owner.TryCreateGroundTreasure(request)) : null;
+    internal MonkeyRoomEntity CreateSavedMonkey(DungeonObjectRecord record) => new(record, Resources.Monkeys, owner, _saveData!);
 
     private DungeonRoomFlagMirrorRoomEntity CreateRoomFlagMirror(DungeonObjectRecord record)
     {

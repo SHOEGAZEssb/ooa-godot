@@ -44,6 +44,7 @@ public partial class GameSceneGraph : Node2D
     public InventoryScreen InventoryScreen { get; private set; } = null!;
     public SaveQuitScreen SaveQuitScreen { get; private set; } = null!;
     public RingMenuScreen RingMenuScreen { get; private set; } = null!;
+    public SecretListScreen SecretListScreen { get; private set; } = null!;
     public DebugFlagScreen DebugFlagScreen { get; private set; } = null!;
     public DebugObjectSpawnerScreen DebugObjectSpawnerScreen { get; private set; } = null!;
     public ColorRect MenuFade { get; private set; } = null!;
@@ -65,6 +66,7 @@ public partial class GameSceneGraph : Node2D
         InventoryScreen = Unique<InventoryScreen>("InventoryScreen");
         SaveQuitScreen = Unique<SaveQuitScreen>("SaveQuitScreen");
         RingMenuScreen = Unique<RingMenuScreen>("RingMenuScreen");
+        SecretListScreen = Unique<SecretListScreen>("SecretListScreen");
         DebugFlagScreen = Unique<DebugFlagScreen>("DebugFlagScreen");
         DebugObjectSpawnerScreen = Unique<DebugObjectSpawnerScreen>("DebugObjectSpawnerScreen");
         MenuFade = Unique<ColorRect>("MenuFade");
@@ -78,6 +80,7 @@ public partial class GameSceneGraph : Node2D
             InventoryScreen.GetParent() != InterfaceLayer ||
             SaveQuitScreen.GetParent() != InterfaceLayer ||
             RingMenuScreen.GetParent() != InterfaceLayer ||
+            SecretListScreen.GetParent() != InterfaceLayer ||
             DebugFlagScreen.GetParent() != InterfaceLayer ||
             DebugObjectSpawnerScreen.GetParent() != InterfaceLayer ||
             MenuFade.GetParent() != InterfaceLayer)
@@ -92,7 +95,7 @@ public partial class GameSceneGraph : Node2D
         // Original full-screen presentations can contain a HUD aperture at y=0.
         // Keep their imported layouts intact; only rearrange the gameplay field.
         bottom &= !MapScreen.Visible && !InventoryScreen.Visible &&
-            !SaveQuitScreen.Visible && !RingMenuScreen.Visible;
+            !SaveQuitScreen.Visible && !RingMenuScreen.Visible && !SecretListScreen.Visible;
         // Native sprite projection retains its $10 origin even when the BG
         // uses all 144 lines. Only the room BG loses the HUD-row displacement.
         int fieldTop = bottom && !transitions.NativeRoomUsesFullScreen ? 0 : OracleRoomData.GameplayScreenTop;

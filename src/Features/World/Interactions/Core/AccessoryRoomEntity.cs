@@ -8,7 +8,8 @@ namespace oracleofages;
 // the original parent-animation attachment table and deletion dispatch.
 internal sealed class AccessoryRoomEntity(NpcCharacter actor,NpcCharacter parent,Func<bool> finished,
     Func<int> zFixed,Func<int,string> animation,int[] offsets,Action<NpcCharacter>? palette=null)
-    : IRoomEntity,IFixedRoomEntity,IRoomEntityLifetime,IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze
+    : IRoomEntity,IFixedRoomEntity,IRoomEntityLifetime,IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity
 {
     private int _animation;
     internal int State {get;private set;}
@@ -17,6 +18,11 @@ internal sealed class AccessoryRoomEntity(NpcCharacter actor,NpcCharacter parent
     public bool UpdatesDuringDialogue=>State==0;
     public bool UpdatesDuringRoomEntityFreeze=>State==0;
     public void SetTransitionDrawOffset(Vector2 offset)=>actor.SetTransitionDrawOffset(offset);
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (State == 0) UpdateFrame(default, spawns);
+        return actor.Visible ? ScreenTransitionPresentation.Visible : ScreenTransitionPresentation.Hidden;
+    }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
         State=1;

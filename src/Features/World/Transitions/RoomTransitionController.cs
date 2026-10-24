@@ -1807,6 +1807,8 @@ public sealed class RoomTransitionController
                 _deathRespawnPoints.RecordRoomInitialization(
                     new Vector2((warp.DestinationPosition & 0x0f) * 16 + 8,
                         (warp.DestinationPosition >> 4) * 16 + 8), facing: 0);
+            // bank1.loadingRoom leaves bit $02 set through destination state0.
+            _entities.RuntimeState.SetWramByte(WramAddress.wScrollMode, 2);
             _entities.LoadRoom(
                 _rooms.ActiveGroup, room,
                 EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));
@@ -2000,6 +2002,7 @@ public sealed class RoomTransitionController
 
     private void FinishWarp()
     {
+        _entities.RuntimeState.SetWramByte(WramAddress.wScrollMode, 1);
         bool finishedTimeWarp = _timeWarp;
         _player.FinishRoomWarpTransition(_destinationWalk ? _warpWalkEnd :
             _roomPackArrival is not null ? _player.PrecisePosition : _player.Position,

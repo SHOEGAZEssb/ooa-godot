@@ -68,9 +68,9 @@ internal sealed partial class SarcophagusRoomEntity : TransitionOffsetNode2D,
         State = 1; Visible = true; ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         byte tile = (byte)_room.GetPackedPosition(Position);
         _room.SetPackedTileCollision(tile, 0x0f);
-        _room.SetStorageLayoutWithoutGraphics(tile, 0);
+        _room.SetPackedLayoutWithoutGraphics(tile, 0);
         tile = (byte)(tile - 0x10);
-        _room.SetStorageLayoutWithoutGraphics(tile, 0);
+        _room.SetPackedLayoutWithoutGraphics(tile, 0);
         _room.SetPackedTileCollision(tile, 0x0f);
     }
     public void BindGrabbablePublisher(Action<INativeBraceletRoomEntity> publish) => _publish = publish;

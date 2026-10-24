@@ -881,6 +881,7 @@ public sealed partial class ValidationRoot
             "bipinScript3",
             "bipin/blossom/child family scripts",
             "commonScripts.s:faroreScript",
+            "commonScripts.s:faroresMemoryScript",
             "hardhatWorkerSubid00Script",
             "postmanScript",
             "linkInteractWithAButtonSensitiveObjects:ordinaryNpcDialogue",
@@ -4068,14 +4069,17 @@ public sealed partial class ValidationRoot
             "Room 0:5a's two-pose monkey animation did not loop after another $20 frames.");
         save.SetGlobalFlag(GlobalFlag.IntroDone);
         FailIf(
-            introMonkeys.Any(monkey => monkey.Active || monkey.Visible),
-            "GLOBALFLAG_INTRO_DONE $0a did not remove room 0:5a's intro monkeys.");
+            introMonkeys.Any(monkey => !monkey.Active || !monkey.Visible),
+            "monkeyMain.s checks GLOBALFLAG_INTRO_DONE $0a only at initialization; live intro monkeys must retain their state.");
         save.SetGlobalFlag(GlobalFlag.IntroDone, value: false);
         FailIf(
             introMonkeys.Any(monkey => !monkey.Active || !monkey.Visible),
-            "Clearing GLOBALFLAG_INTRO_DONE $0a did not restore room 0:5a's intro monkeys.");
+            "Clearing GLOBALFLAG_INTRO_DONE $0a must retain live intro monkeys.");
 
         save.SetGlobalFlag(GlobalFlag.IntroDone);
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x5a));
+        FailIf(manager.Entities<NpcCharacter>().Any(npc => npc.Record.Id == 0x39 && npc.Record.SubId is 2 or 3 && npc.Active),
+            "Re-entering room 0:5a after GLOBALFLAG_INTRO_DONE must suppress both intro monkeys.");
         manager.LoadRoom(2, _world.LoadRoom(2, 0xea));
         List<NpcCharacter> newbornLeftFamily = manager.Entities<NpcCharacter>();
         NpcCharacter? newbornBipin = newbornLeftFamily.Find(npc =>

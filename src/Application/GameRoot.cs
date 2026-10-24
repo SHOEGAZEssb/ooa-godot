@@ -56,6 +56,7 @@ public partial class GameRoot : Node2D
     internal InventoryMenuController _inventoryMenu = null!;
     internal RingMenuController _ringMenu = null!;
     internal SecretEntryController _secretEntry = null!;
+    internal SecretListController _secretList = null!;
     internal DebugFlagMenuController _debugFlagMenu = null!;
     internal DebugObjectSpawnerController _debugObjectSpawner = null!;
     internal GameplayPauseController _gameplayPause = null!;
@@ -863,6 +864,9 @@ public partial class GameRoot : Node2D
         bool secretOwnedFrame = _secretEntry.IsActive;
         _secretEntry.Update(delta);
         if (secretOwnedFrame || _secretEntry.IsActive) return;
+        bool secretListOwnedFrame = _secretList.IsActive;
+        _secretList.Update(delta);
+        if (secretListOwnedFrame || _secretList.IsActive) return;
         bool ringMenuOwnedFrame = _ringMenu.IsActive;
         _ringMenu.Update(delta);
         // A close callback resumes Vasu's native script. The original menu
@@ -1423,6 +1427,8 @@ public partial class GameRoot : Node2D
             _scene.InterfaceLayer, _menuLifecycle, _saveData, _inventory, _sound.PlaySound);
         _roomEvents.SetSecretMenuOpener(_secretEntry.Open);
         _interactions.SetFaroreSecretMenuOpener(_secretEntry.OpenAnyShortSecret);
+        _secretList = new SecretListController(_scene.SecretListScreen, _menuLifecycle, _saveData, _sound.PlaySound);
+        _interactions.SetSecretListOpener(_secretList.Open);
         _interactions.BindFaroreTransitions(_transitions);
         _roomEvents.Get<VasuShopEvent>().SetRingSecretMenuOpener(_secretEntry.OpenRingSecret);
         _debugFlagMenu = new DebugFlagMenuController(

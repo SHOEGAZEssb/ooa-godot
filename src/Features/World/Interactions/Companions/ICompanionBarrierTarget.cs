@@ -9,4 +9,5 @@ internal interface ICompanionBarrierTarget
     Vector2 BarrierPosition { get; }
     void SetBarrierCoordinate(bool horizontal, int coordinate);
     void SynchronizeRiderAfterObjects(Player player);
+    void DropForSymmetryBarrier(Player player) { }
 }

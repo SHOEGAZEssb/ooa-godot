@@ -2395,6 +2395,8 @@ public sealed class RoomEntityManager : IDisposable
         bool notifyEntry = true)
     {
         using var diagnostics = OracleRoomLoadDiagnostics.Begin("objects", group, room.Id);
+        // loadTilesetAndRoomLayout's tile handlers allocate before initializeRoom.
+        if (_factory.CreateRoomLoadReward(group, room.Id) is { } reward) AddEntity(reward);
         RoomInitializing?.Invoke(group, room);
         // parseObjectData clears wNumEnemies even when outgoing slots are
         // retained during a scroll. Failed allocation counts are room-local.
@@ -3243,7 +3245,7 @@ public sealed class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
-        FaroreRewardRoomEntity or FaroreMakeChestRoomEntity or FaroreSparkleRoomEntity or ZeldaRescueActor or RoomOfRitesZeldaActor or ZeldaEndingRoomEntity or DinRoomEntity or KissHeartRoomEntity or MakuConfettiRoomEntity or
+        FaroreMemoryRoomEntity or FaroreRewardRoomEntity or FaroreMakeChestRoomEntity or FaroreSparkleRoomEntity or ZeldaRescueActor or RoomOfRitesZeldaActor or ZeldaEndingRoomEntity or DinRoomEntity or KissHeartRoomEntity or MakuConfettiRoomEntity or
         PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or MapleTouchingBookRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
         TokayEntranceEyeRoomEntity or TokayEyeballSlotRoomEntity or TokaySeedlingDecorationRoomEntity or TokayHeldAccessoryRoomEntity or TokayShopItemRoomEntity or
@@ -3261,6 +3263,7 @@ public sealed class RoomEntityManager : IDisposable
         entity.PresentationNode is PuzzlePuffEffect or EyesoarSpawnEffect or InteractionSparkleEffect or InteractionExplosionEffect or DungeonKeyUseEffect
             or GrassDebrisEffect or RockDebrisEffect or ShovelDebrisEffect or SplashEffect or OverworldKeyUseEffect or Room148PickaxeDebris || entity is GoronCaveRoomEntity or TargetCartDebrisRoomEntity or SmogEncounterRoomEntity or MovingSideScrollPlatformRoomEntity or DungeonTriggerChestScriptRoomEntity or DungeonPuzzleChestRoomEntity or DungeonPatternHintRoomEntity
             or RetractableTriggerChestRoomEntity or TorchTriggerTranslatorRoomEntity or LightableTorchScannerRoomEntity or ButtonBridgeRoomEntity or PushBlockTriggerRoomEntity or NuunBridgeRoomEntity or OrbBridgeControllerRoomEntity or DungeonOrbChestRoomEntity or ColoredCubeRoomEntity or ColoredCubeSensorRoomEntity or ColoredCubeFlameRoomEntity
+            or SharedDungeonScriptRoomEntity or SwitchTriggerTranslatorRoomEntity or DungeonCrystalRestoreRoomEntity or MakuPortalDecorationRoomEntity or MakuGashaRewardRoomEntity or RoomEntryTextRoomEntity or SymmetryCompanionBarrierRoomEntity or MonkeyRoomEntity
             or DungeonStateController or ColoredCubeFloorSensorRoomEntity or HerosCavePuzzleRoomEntity or MermaidChangingFloorRoomEntity or MermaidChangingFloorWorkerRoomEntity or MermaidBossKeyRoomEntity or MermaidTorchOrderRoomEntity or DungeonRoomFlagMirrorRoomEntity or MinecartGateRoomEntity or SwitchTileTogglerRoomEntity or MinecartShutterRoomEntity or DungeonSignalScriptRoomEntity
             or GreenPoofRoomEntity or StonePanelRoomEntity or SarcophagusRoomEntity or EnemyAttachedKeyRoomEntity or SlateSlotRoomEntity or PanelStairsRoomEntity or DungeonTileScriptRoomEntity or JabuWaterControllerRoomEntity or JabuLadderRoomEntity or OctogonInteractionRoomEntity or OctogonEncounterInitializerRoomEntity or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity or DungeonTilePatternFallingKeyRoomEntity or MoonlitGrottoFallingKeyRoomEntity
             or DungeonSpinnerRoomEntity or DungeonSpinnerArrowRoomEntity or DungeonBossKeyMirrorRoomEntity or ChestContentsRoomEntity or MovingPlatformRoomEntity or CircularSideScrollPlatformRoomEntity or HeadThwompRewardScript or SpiritsGraveMovingPlatformSpawner or TileFillerRoomEntity or DungeonPatternTriggerRoomEntity or DungeonPatternKeyRoomEntity or GroundTreasureRoomEntity or ToggleFloorRoomEntity or ToggleFloorTileRoomEntity or FloorColorChangerRoomEntity or FloorColorWorkerRoomEntity;
@@ -3301,6 +3304,15 @@ public sealed class RoomEntityManager : IDisposable
     }
 
     internal bool InteractionSlotAvailable => FindFreeInteractionSlot() >= 0;
+    internal void TryCreatePortalDecoration(DungeonObjectRecord producer)
+    {
+        if (InteractionSlotAvailable) AddEntity(_factory.CreatePortalDecoration(producer));
+    }
+    internal bool TryCreateSavedMonkey(DungeonObjectRecord record)
+    {
+        if (!InteractionSlotAvailable) return false;
+        AddEntity(_factory.CreateSavedMonkey(record)); return true;
+    }
     internal bool TryCreateMovingPlatform(Vector2 position, int subId)
     {
         if (!InteractionSlotAvailable) return false;

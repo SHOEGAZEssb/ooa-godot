@@ -1271,6 +1271,16 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateArrowMoblins);
         RunIsolatedValidation(ValidateCrownDungeonArrowMoblins);
         RunIsolatedValidation(ValidateHerosCavePuzzles);
+        RunIsolatedValidation(ValidateSharedDungeonScripts);
+        RunIsolatedValidation(ValidateSavedMonkeysRom);
+        RunIsolatedValidation(ValidateSavedMonkeyAdmissionRom);
+        RunIsolatedValidation(ValidateSavedMonkeyTalkRom);
+        RunIsolatedValidation(ValidateFaroreMemory);
+        RunIsolatedValidation(ValidateSecretListRom);
+        RunIsolatedValidation(ValidateSharedSwitchesAndSarcophagi);
+        RunIsolatedValidation(ValidateSharedDecorationsAndGasha);
+        RunIsolatedValidation(ValidateSharedEntryText);
+        RunIsolatedValidation(ValidateSymmetryCompanionBarrier);
         RunIsolatedValidation(ValidateHerosCaveSignals);
         RunIsolatedValidation(ValidateHerosCavePortals);
         RunIsolatedValidation(ValidateHerosCavePortalScroll);

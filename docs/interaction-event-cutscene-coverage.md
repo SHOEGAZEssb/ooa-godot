@@ -29,10 +29,10 @@ rather than a separate inventory of all combat and item behavior.
 
 | Inventory | R | P | M | D | N | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Interaction IDs `$00-$e6` | 206 | 11 | 1 | 9 | 4 | 231 |
+| Interaction IDs `$00-$e6` | 217 | 1 | 0 | 9 | 4 | 231 |
 | Native cutscene states `$00-$21` | 33 | 0 | 0 | 0 | 1 | 34 |
 | Room-specific code handlers `$00-$0c` | 13 | 0 | 0 | 0 | 0 | 13 |
-| Room-specific tile-change handlers `$00-$37` | 53 | 3 | 0 | 0 | 0 | 56 |
+| Room-specific tile-change handlers `$00-$37` | 56 | 0 | 0 | 0 | 0 | 56 |
 | Link cutscene subids `$00-$0c` | 13 | 0 | 0 | 0 | 0 | 13 |
 | Companion/Maple credit special objects `$0f-$12` | 4 | 0 | 0 | 0 | 0 | 4 |
 
@@ -45,7 +45,7 @@ rather than a separate inventory of all combat and item behavior.
 | Distinct literal object-data ID/subid pairs | 740 |
 | Room-specific code bindings | 14 |
 | Room-specific tile-change bindings | 58 |
-| Open implementation checklist items | 18 |
+| Open implementation checklist items | 3 |
 
 These inventories overlap. A cutscene can create several interaction IDs;
 a checklist item can affect several dispatch entries. Do not sum their counts.
@@ -59,22 +59,22 @@ Visual-only import or a directly stepped helper does not close an item.
 
 ### Shared interactions and rewards
 
-- [ ] **INT-01** — `5:cf`, `$1c:$00`: Farore's Memory book, its linked/finished-game visibility, conversation and `MENU $0a` secrets list.
-- [ ] **INT-02** — `4:05`, `$20:$02`: Maku Path 30-Rupee script reward.
-- [ ] **INT-03** — `4:09`, `$20:$03`: Maku Path falling Small Key when exactly one torch is lit.
-- [ ] **INT-04** — `4:09`, `$20:$01`: Maku Path enemy-clear stairs, including its waits and room-flag completion.
-- [ ] **INT-05** — `4:53`, `$24:$21`: Switch-state bit 2 to active-trigger bit 2 translator.
-- [ ] **INT-06** — `4:66`, `$21:$18`: Restore D3 crystal switch bits from room flags for `4:5d`, `4:5f`, `4:61` and `4:63`.
-- [ ] **INT-07** — `0:5a`, `$39:$05`: Saved-Nayru monkey ensemble: the placed spawner, nine children, native movement and ordinary/bowtie dialogue.
-- [ ] **INT-08** — `0:38`, `0:67`, `1:67`, `$6b:$15`: Finished-game Link statues at the three placements outside the supported `1:38` owner.
-- [ ] **INT-09** — `0:22`, `0:24`, `$71:$0d`: Companion barrier to Symmetry City until the Tuni Nut is restored.
-- [ ] **INT-10** — `1:5b`, `1:6d`, `1:7c`, `5:c7`, `$82:$00/$01/$02`: Instantiate all nine sarcophagus placements outside D8 through the shared native owner.
-- [ ] **INT-11** — `4:d0`, `5:f9`, `$dc:$0f`: Collision-triggered Sea of No Return / Black Tower Turret entry text, with the original scrolling-entry gate.
-- [ ] **INT-12** — `0:38`, `$dc:$14`: Create decoration `$80:$00` when the Maku Tree final-dungeon portal tile is present.
-- [ ] **INT-13** — `0:e0`, `0:e1`, `0:e2`, `$90:$1b/$1c/$1d`: Room-load-created Maku Tree Gasha Seed rewards, retaining their distinct essence gates and positions.
+- [x] **INT-01** — `5:cf`, `$1c:$00`: Farore's Memory book, its linked/finished-game visibility, conversation and `MENU $0a` secrets list.
+- [x] **INT-02** — `4:05`, `$20:$02`: Maku Path 30-Rupee script reward.
+- [x] **INT-03** — `4:09`, `$20:$03`: Maku Path falling Small Key when exactly one torch is lit.
+- [x] **INT-04** — `4:09`, `$20:$01`: Maku Path enemy-clear stairs, including its waits and room-flag completion.
+- [x] **INT-05** — `4:53`, `$24:$21`: Switch-state bit 2 to active-trigger bit 2 translator.
+- [x] **INT-06** — `4:66`, `$21:$18`: Restore D3 crystal switch bits from room flags for `4:5d`, `4:5f`, `4:61` and `4:63`.
+- [x] **INT-07** — `0:5a`, `$39:$05`: Saved-Nayru monkey ensemble: the placed spawner, nine children, native movement and ordinary/bowtie dialogue.
+- [x] **INT-08** — `0:38`, `0:67`, `1:67`, `$6b:$15`: Finished-game Link statues at the three placements outside the supported `1:38` owner.
+- [x] **INT-09** — `0:22`, `0:24`, `$71:$0d`: Companion barrier to Symmetry City until the Tuni Nut is restored.
+- [x] **INT-10** — `1:5b`, `1:6d`, `1:7c`, `5:c7`, `$82:$00/$01/$02`: Instantiate all nine sarcophagus placements outside D8 through the shared native owner.
+- [x] **INT-11** — `4:d0`, `5:f9`, `$dc:$0f`: Collision-triggered Sea of No Return / Black Tower Turret entry text, with the original scrolling-entry gate.
+- [x] **INT-12** — `0:38`, `$dc:$14`: Create decoration `$80:$00` when the Maku Tree final-dungeon portal tile is present.
+- [x] **INT-13** — `0:e0`, `0:e1`, `0:e2`, `$90:$1b/$1c/$1d`: Room-load-created Maku Tree Gasha Seed rewards, retaining their distinct essence gates and positions.
 - [ ] **INT-14** — `2:ee`, `$89:$01`: Blue Snake successful cable fortune and ring transfer; the no-cable timeout remains supported.
-- [ ] **INT-15** — `4:55`, `$20:$02`: D3 chest script when exactly two torches are lit.
-- [ ] **INT-16** — `0:09`, `$80:$01`: King Moblin's Keep flag decoration and its destruction-flag visibility gate.
+- [x] **INT-15** — `4:55`, `$20:$02`: D3 chest script when exactly two torches are lit.
+- [x] **INT-16** — `0:09`, `$80:$01`: King Moblin's Keep flag decoration and its destruction-flag visibility gate.
 
 ### Hero's Cave
 
@@ -152,15 +152,15 @@ the corresponding family and are not bounded by this literal-row column.
 | `$19` | [coloredCube](../external/oracles-disasm/object_code/ages/interactions/coloredCube.s) | $00-$01, $03-$05 | R | — |
 | `$1a` | [coloredCubeFlame](../external/oracles-disasm/object_code/ages/interactions/coloredCubeFlame.s) | $00 | R | — |
 | `$1b` | [minecartGate](../external/oracles-disasm/object_code/ages/interactions/minecartGate.s) | $00-$01, $04, $25 | R | — |
-| `$1c` | [faroresMemory](../external/oracles-disasm/object_code/common/interactions/faroresMemory.s) | $00 | M | INT-01 |
+| `$1c` | [faroresMemory](../external/oracles-disasm/object_code/common/interactions/faroresMemory.s) | $00 | R | — |
 | `$1d` | `interactionDelete` | — | D | — |
 | `$1e` | [doorController](../external/oracles-disasm/object_code/common/interactions/doorController.s) | $04-$0b, $10-$11, $14 | R | — |
 | `$1f` | [specialWarp](../external/oracles-disasm/object_code/ages/interactions/specialWarp.s) | $00-$02 | R | — |
-| `$20` | [dungeonScript](../external/oracles-disasm/object_code/ages/interactions/dungeonScript.s) | $00-$06 | P | INT-02, INT-03, INT-04, INT-15 |
-| `$21` | [dungeonEvents](../external/oracles-disasm/object_code/ages/interactions/dungeonEvents.s) | $01-$0a, $0c-$19 | P | INT-06 |
+| `$20` | [dungeonScript](../external/oracles-disasm/object_code/ages/interactions/dungeonScript.s) | $00-$06 | R | — |
+| `$21` | [dungeonEvents](../external/oracles-disasm/object_code/ages/interactions/dungeonEvents.s) | $01-$0a, $0c-$19 | R | — |
 | `$22` | [floorColorChanger](../external/oracles-disasm/object_code/ages/interactions/floorColorChanger.s) | $00 | R | — |
 | `$23` | [extendableBridge](../external/oracles-disasm/object_code/ages/interactions/extendableBridge.s) | $00-$01 | R | — |
-| `$24` | [triggerTranslator](../external/oracles-disasm/object_code/ages/interactions/triggerTranslator.s) | $02, $21 | P | INT-05 |
+| `$24` | [triggerTranslator](../external/oracles-disasm/object_code/ages/interactions/triggerTranslator.s) | $02, $21 | R | — |
 | `$25` | [tileFiller](../external/oracles-disasm/object_code/ages/interactions/tileFiller.s) | $00 | R | — |
 | `$26` | `interactionDelete` | — | D | — |
 | `$27` | `interactionDelete` | — | D | — |
@@ -181,7 +181,7 @@ the corresponding family and are not bounded by this literal-row column.
 | `$36` | [nayru](../external/oracles-disasm/object_code/ages/interactions/nayru.s) | $00-$06, $08, $0a-$0e, $10-$11, $13 | R | — |
 | `$37` | [ralph](../external/oracles-disasm/object_code/ages/interactions/ralph.s) | $00, $02-$12 | R | — |
 | `$38` | [pastGirl](../external/oracles-disasm/object_code/ages/interactions/pastGirl.s) | $00 | R | — |
-| `$39` | [monkey](../external/oracles-disasm/object_code/ages/interactions/monkey.s) | $00-$07 | P | INT-07 |
+| `$39` | [monkey](../external/oracles-disasm/object_code/ages/interactions/monkey.s) | $00-$07 | R | — |
 | `$3a` | [villager](../external/oracles-disasm/object_code/ages/interactions/villager.s) | $00, $02-$0d | R | — |
 | `$3b` | [femaleVillager](../external/oracles-disasm/object_code/ages/interactions/femaleVillager.s) | $00-$08 | R | — |
 | `$3c` | [boy](../external/oracles-disasm/object_code/ages/interactions/boy.s) | $00-$0e, $10 | R | — |
@@ -231,13 +231,13 @@ the corresponding family and are not bounded by this literal-row column.
 | `$68` | [rosa](../external/oracles-disasm/object_code/ages/interactions/rosa.s) | $00-$01 | R | — |
 | `$69` | [rafton](../external/oracles-disasm/object_code/ages/interactions/rafton.s) | $00-$01 | R | — |
 | `$6a` | [cheval](../external/oracles-disasm/object_code/ages/interactions/cheval.s) | $00 | R | — |
-| `$6b` | [miscellaneous1](../external/oracles-disasm/object_code/ages/interactions/miscellaneous1.s) | $00-$03, $05-$06, $08, $0a-$15 | P | INT-08 |
+| `$6b` | [miscellaneous1](../external/oracles-disasm/object_code/ages/interactions/miscellaneous1.s) | $00-$03, $05-$06, $08, $0a-$15 | R | — |
 | `$6c` | [fairyHidingMinigame](../external/oracles-disasm/object_code/ages/interactions/fairyHidingMinigame.s) | $00-$02 | R | — |
 | `$6d` | [possessedNayru](../external/oracles-disasm/object_code/ages/interactions/possessedNayru.s) | $00 | R | — |
 | `$6e` | [nayruSavedCutscene](../external/oracles-disasm/object_code/ages/interactions/nayruSavedCutscene.s) | — | R | — |
 | `$6f` | [bombFlower](../external/oracles-disasm/object_code/common/interactions/bombFlower.s) | — | D | — |
 | `$70` | [wildTokayController](../external/oracles-disasm/object_code/ages/interactions/wildTokayController.s) | — | R | — |
-| `$71` | [companionScripts](../external/oracles-disasm/object_code/ages/interactions/companionScripts.s) | $00-$0d | P | INT-09 |
+| `$71` | [companionScripts](../external/oracles-disasm/object_code/ages/interactions/companionScripts.s) | $00-$0d | R | — |
 | `$72` | [kingMoblinDefeated](../external/oracles-disasm/object_code/ages/interactions/kingMoblinDefeated.s) | $00 | R | — |
 | `$73` | [ghiniHarassingMoosh](../external/oracles-disasm/object_code/ages/interactions/ghiniHarassingMoosh.s) | $00-$02 | R | — |
 | `$74` | [rickysGloveSpawner](../external/oracles-disasm/object_code/ages/interactions/rickysGloveSpawner.s) | $00 | R | — |
@@ -252,9 +252,9 @@ the corresponding family and are not bounded by this literal-row column.
 | `$7d` | [spinner](../external/oracles-disasm/object_code/common/interactions/spinner.s) | $00-$01 | R | — |
 | `$7e` | [minibossPortal](../external/oracles-disasm/object_code/common/interactions/minibossPortal.s) | $00-$01 | R | — |
 | `$7f` | [essence](../external/oracles-disasm/object_code/common/interactions/essence.s) | $00 | R | — |
-| `$80` | [decoration](../external/oracles-disasm/object_code/ages/interactions/decoration.s) | $00-$01, $04-$0a | P | INT-16 |
+| `$80` | [decoration](../external/oracles-disasm/object_code/ages/interactions/decoration.s) | $00-$01, $04-$0a | R | — |
 | `$81` | [tokayShopItem](../external/oracles-disasm/object_code/ages/interactions/tokayShopItem.s) | $00-$01, $04 | R | — |
-| `$82` | [sarcophagus](../external/oracles-disasm/object_code/ages/interactions/sarcophagus.s) | $00-$02 | P | INT-10 |
+| `$82` | [sarcophagus](../external/oracles-disasm/object_code/ages/interactions/sarcophagus.s) | $00-$02 | R | — |
 | `$83` | [bombUpgradeFairy](../external/oracles-disasm/object_code/ages/interactions/bombUpgradeFairy.s) | $00 | R | — |
 | `$84` | [sparkle](../external/oracles-disasm/object_code/ages/interactions/sparkle.s) | $08 | R | — |
 | `$85` | `interactionDelete` | — | D | — |
@@ -268,7 +268,7 @@ the corresponding family and are not bounded by this literal-row column.
 | `$8d` | [cloakedTwinrova](../external/oracles-disasm/object_code/ages/interactions/cloakedTwinrova.s) | $02 | R | — |
 | `$8e` | [octogonSplash](../external/oracles-disasm/object_code/ages/interactions/octogonSplash.s) | — | R | — |
 | `$8f` | [tokayCutsceneEmberSeed](../external/oracles-disasm/object_code/ages/interactions/tokayCutsceneEmberSeed.s) | — | R | — |
-| `$90` | [miscPuzzles](../external/oracles-disasm/object_code/ages/interactions/miscPuzzles.s) | $00-$04, $07-$1a, $1e-$20 | P | INT-13 |
+| `$90` | [miscPuzzles](../external/oracles-disasm/object_code/ages/interactions/miscPuzzles.s) | $00-$04, $07-$1a, $1e-$20 | R | — |
 | `$91` | [bubble](../external/oracles-disasm/object_code/common/interactions/bubble.s) | — | R | — |
 | `$92` | [fallingRock](../external/oracles-disasm/object_code/ages/interactions/fallingRock.s) | — | R | — |
 | `$93` | [twinrova](../external/oracles-disasm/object_code/ages/interactions/twinrova.s) | $04, $06 | R | — |
@@ -344,7 +344,7 @@ the corresponding family and are not bounded by this literal-row column.
 | `$d9` | [faroreGiveItem](../external/oracles-disasm/object_code/common/interactions/faroreGiveItem.s) | — | R | — |
 | `$da` | [zeldaApproachTrigger](../external/oracles-disasm/object_code/common/interactions/zeldaApproachTrigger.s) | $00 | R | — |
 | `$db` | [slateSlot](../external/oracles-disasm/object_code/ages/interactions/slateSlot.s) | $00-$03 | R | — |
-| `$dc` | [miscellaneous2](../external/oracles-disasm/object_code/ages/interactions/miscellaneous2.s) | $00-$17 | P | INT-11, INT-12 |
+| `$dc` | [miscellaneous2](../external/oracles-disasm/object_code/ages/interactions/miscellaneous2.s) | $00-$17 | R | — |
 | `$dd` | [timewarp](../external/oracles-disasm/object_code/ages/interactions/timewarp.s) | — | R | — |
 | `$de` | [timeportal](../external/oracles-disasm/object_code/ages/interactions/timeportal.s) | — | R | — |
 | `$df` | [nayruRalphCredits](../external/oracles-disasm/object_code/common/interactions/nayruRalphCredits.s) | $00-$01 | R | — |
@@ -425,8 +425,7 @@ Room bindings are listed independently of visible actors.
 ## Room-specific tile-change dispatch
 
 Source: [roomSpecificTileChanges.s](../external/oracles-disasm/code/ages/roomSpecificTileChanges.s).
-R accounts for a runtime layout route. P on `$30-$32` records imported layout
-changes whose original actor-creation side effect remains missing.
+R accounts for a runtime layout route and its original actor-creation side effects.
 
 | Index | Rooms | Source handler | Status | Open item |
 | --- | --- | --- | --- | --- |
@@ -478,9 +477,9 @@ changes whose original actor-creation side effect remains missing.
 | `$2d` | `4:c7` | `tileReplacement_group4Mapc7` | R | — |
 | `$2e` | `4:c9` | `tileReplacement_group4Mapc9` | R | — |
 | `$2f` | `2:9e` | `tileReplacement_group2Map9e` | R | — |
-| `$30` | `0:e0` | `tileReplacement_group0Mape0` | P | INT-13 |
-| `$31` | `0:e1` | `tileReplacement_group0Mape1` | P | INT-13 |
-| `$32` | `0:e2` | `tileReplacement_group0Mape2` | P | INT-13 |
+| `$30` | `0:e0` | `tileReplacement_group0Mape0` | R | — |
+| `$31` | `0:e1` | `tileReplacement_group0Mape1` | R | — |
+| `$32` | `0:e2` | `tileReplacement_group0Mape2` | R | — |
 | `$33` | `4:ea` | `tileReplacement_group4Mapea` | R | — |
 | `$34` | `1:58` | `tileReplacement_group1Map58` | R | — |
 | `$35` | `0:98` | `tileReplacement_group0Map98` | R | — |

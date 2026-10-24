@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://src/Application/GameSceneGraph.cs" id="1_gameplay"]
 [ext_resource type="Script" path="res://src/Features/World/Rooms/RoomView.cs" id="2_room_view"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://src/Features/World/Transitions/RoomLoadColumnRevealOverlay.cs" id="11_room_load_reveal"]
 [ext_resource type="Script" path="res://src/Features/Development/DebugObjectSpawnerScreen.cs" id="12_debug_spawner"]
 [ext_resource type="Script" path="res://src/Features/Story/BlackTower/EndingScreen.cs" id="13_ending"]
+[ext_resource type="Script" path="res://src/Features/Menus/Shell/SecretListScreen.cs" id="14_secret_list"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_palette_fade"]
 blend_mode = 1
@@ -105,6 +106,12 @@ unique_name_in_owner = true
 visible = false
 z_index = 47
 script = ExtResource("10_ring_menu")
+
+[node name="SecretListScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 48
+script = ExtResource("14_secret_list")
 
 [node name="MenuFade" type="ColorRect" parent="Interface"]
 unique_name_in_owner = true

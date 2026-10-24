@@ -307,6 +307,18 @@ $stageContracts = @(
     New-ImportStageContract 'ancient-tomb' 'Import-AncientTomb.ps1' `
         -inputs @('allTexts', 'allTextPositions')
     New-ImportStageContract 'heros-cave' 'Import-HerosCave.ps1'
+    New-ImportStageContract 'shared-interactions' 'Import-SharedInteractions.ps1' `
+        -inputs @('soundIds', 'gfxNames', 'interactionGraphics', 'paletteHeaderSource', 'allTexts', 'allTextPositions') `
+        -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Write-CutsceneGeneratedTable',
+            'Resolve-NpcAnimation', 'Copy-EnemySprite', 'Get-EnemySpriteSourceGrayscaleInverted', 'Read-PaletteBytes')
+    New-ImportStageContract 'monkeys' 'Import-Monkeys.ps1' `
+        -inputs @('gfxNames', 'allTexts') `
+        -functionInputs @('Resolve-InteractionGraphics', 'Resolve-NpcAnimation', 'Copy-EnemySprite',
+            'Read-AssemblyCutsceneCommands', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable', 'Resolve-OceanText')
+    New-ImportStageContract 'farore-memory' 'Import-FaroreMemory.ps1' `
+        -inputs @('gfxNames', 'allTexts', 'globalFlagValues') `
+        -functionInputs @('Read-AssemblyCutsceneCommands', 'ConvertTo-NpcProgramRows', 'Write-CutsceneGeneratedTable',
+            'Resolve-OceanText', 'Resolve-InteractionGraphics', 'Resolve-NpcAnimation', 'Copy-EnemySprite', 'Copy-GeneratedFile', 'Read-PaletteBytes')
     New-ImportStageContract 'octogon-effects' 'Import-OctogonEffects.ps1' `
         -inputs @('gfxNames','interactionGraphics') `
         -functionInputs @('Resolve-NpcAnimation','Copy-EnemySprite','Get-EnemySpriteSourceGrayscaleInverted')

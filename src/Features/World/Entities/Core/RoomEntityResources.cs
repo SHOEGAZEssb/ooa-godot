@@ -44,8 +44,9 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         var ritual = RoomOfRitesRitual.GetRoomRecords(group, room);
         var twins = Twinrova.GetRoomRecords(group, room);
         var cave = HerosCave.GetRoomRecords(group, room);
+        var shared = SharedInteractions.GetRoomRecords(group, room);
         int count = skull.Count + crown.Count + mermaid.Count + jabu.Count + tomb.Count +
-            traps.Count + pushes.Count + eyes.Count + finalEntry.Count + ritual.Count + twins.Count + cave.Count;
+            traps.Count + pushes.Count + eyes.Count + finalEntry.Count + ritual.Count + twins.Count + cave.Count + shared.Count;
         // Most rooms have no rows. Avoid allocating an iterator/closure chain
         // for every empty room while preparing the immutable catalog.
         if (count == 0) return Array.Empty<DungeonObjectRecord>();
@@ -59,6 +60,7 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         records.AddRange(ritual);
         records.AddRange(twins);
         records.AddRange(cave);
+        records.AddRange(shared);
         foreach (var record in traps)
             records.Add(new(group, room, record.Order, DungeonObjectKind.PuzzleTrapReset,
                 InteractionId.MiscPuzzles, 0x1f, 0, 0, DungeonObjectCondition.Always, record.Source));
@@ -105,6 +107,10 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
     internal JabuDungeonDatabase JabuDungeon => _jabuDungeon ??= new();
     private AncientTombDatabase? _ancientTomb;
     private HerosCaveDatabase? _herosCave;
+    private SharedInteractionDatabase? _sharedInteractions;
+    private MonkeyDatabase? _monkeys;
+    internal MonkeyDatabase Monkeys => _monkeys ??= new();
+    internal SharedInteractionDatabase SharedInteractions => _sharedInteractions ??= new();
     internal HerosCaveDatabase HerosCave => _herosCave ??= new();
     internal AncientTombDatabase AncientTomb => _ancientTomb ??= new();
     private PalacePossessionDatabase? _palacePossession;

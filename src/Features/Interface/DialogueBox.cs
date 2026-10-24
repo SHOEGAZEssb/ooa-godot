@@ -287,9 +287,9 @@ public partial class DialogueBox : Node2D
     /// bar. <paramref name="linkY"/> remains relative to the original 128-pixel
     /// gameplay field so initTextbox's $48 side-selection boundary is unchanged.
     /// </summary>
-    internal void ShowGameplayMessage(string message, float linkY)
+    internal void ShowGameplayMessage(string message, float linkY, int? sourceTextId = null)
     {
-        ShowMessageCore(message, GameplayScreen(linkY), 0, 0);
+        ShowMessageCore(message, GameplayScreen(linkY), 0, 0, sourceTextId);
     }
 
     internal void ShowGameplayMessage(

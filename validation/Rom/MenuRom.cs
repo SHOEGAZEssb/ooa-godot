@@ -73,6 +73,7 @@ internal sealed class MenuRom
     internal byte MapTile(int x, int y) => _rom.BankByte(4, 0xd000 + y * 32 + x);
     internal byte MapAttribute(int x, int y) => _rom.BankByte(4, 0xd400 + y * 32 + x);
     internal byte MapGfx(int bank, int address) => _rom.VramByte(bank, address);
+    internal byte SecretText(int index) => _rom.BankByte(7, 0xd460 + index);
     internal IReadOnlyList<int> Sounds => _rom.Sounds;
     internal int RandomCalls => _rom.RandomCalls;
     internal void ClearSounds() => _rom.Sounds.Clear();

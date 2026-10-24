@@ -27,6 +27,10 @@ disabled gameplay first. Failed acquisition leaves the caller unchanged.
 Gameplay-owned submenus may use their interaction controller when that matches
 the original mechanism. Do not force every prompt through the map/inventory
 lifecycle; preserve its update masks, fade, and screen boundary.
+Farore's book retains its native disabled-object mask while the shared menu
+lifecycle owns the secrets list. Closing returns to the book's retained script
+wait before it releases input. The list preserves locked rows in source table
+order; its header and secret panel stay fixed while only the name field scrolls.
 Normal map and inventory closing resume gameplay on the update that releases
 menu ownership. The post-menu return value observes the cleared menu state,
 so an eligible stair can activate on that same update.

@@ -5,11 +5,16 @@ using System.Collections.Generic;
 namespace oracleofages;
 
 internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce = false,
-    bool animateBeforeDialogue = false)
+    bool animateBeforeDialogue = false, bool deleteIfInactiveOnInitialization = false)
     : NpcCharacterRoomEntityAdapter(
         RequireOrdinaryGeneric(npc), npc.SetTransitionDrawOffset),
-    IFixedRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
+    IFixedRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity, IRoomEntityLifetime,
+    IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
+    private bool _nativeInitialized;
+    public bool Finished { get; private set; }
+    public bool UpdatesDuringDialogue => deleteIfInactiveOnInitialization && !_nativeInitialized;
+    public bool UpdatesDuringRoomEntityFreeze => UpdatesDuringDialogue;
     private Func<bool>? _pendingDialogue;
     private bool _storyInitialized;
     public bool RefreshStoryState => !initializeStoryOnce || !_storyInitialized;
@@ -17,6 +22,7 @@ internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce =
     public NpcCharacter Npc => Entity;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
+        if (!InitializeNative()) return;
         // Link sets pressedAButton in its earlier update. Most ordinary
         // handlers run the generic script before facing and animation;
         // Ambi $4d:$0a and Ralph $37:$12 run npcFaceLinkAndAnimate
@@ -25,6 +31,17 @@ internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce =
         if (_pendingDialogue?.Invoke() == true) _pendingDialogue = null;
         if (!animateBeforeDialogue) AdvanceNpc(frame);
     }
+    private bool InitializeNative()
+    {
+        if (!_nativeInitialized)
+        {
+            _nativeInitialized = true;
+            Finished = deleteIfInactiveOnInitialization && !Entity.Active;
+        }
+        return !Finished;
+    }
+    public override ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns) =>
+        InitializeNative() ? base.PrepareForScreenTransition(spawns) : ScreenTransitionPresentation.Hidden;
     private void AdvanceNpc(RoomEntityFrame frame)
     {
         if (initializeStoryOnce && !Entity.Record.CanFace)

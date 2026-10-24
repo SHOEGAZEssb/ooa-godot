@@ -28,6 +28,8 @@ internal sealed class NpcInteractionScriptController
     private readonly List<FamilyNpcScriptHost> _familyHosts = new();
     private readonly FaroreScriptDatabase _faroreData = new();
     private FaroreScriptHost? _farore;
+    private FaroreMemoryScriptHost? _book;
+    internal Func<bool>? OpenSecretList { get; set; }
     internal Func<Action<int?>, bool>? OpenFaroreSecretMenu { get; set; }
     internal RoomTransitionController? FaroreTransitions { get; set; }
     internal void AdvanceFarorePaletteBeforeObjects() => _farore?.AdvancePaletteBeforeObjects();
@@ -122,6 +124,8 @@ internal sealed class NpcInteractionScriptController
             }),
             NpcInteractionHandler.ForNpc("commonScripts.s:faroreScript", (target, player) =>
                 _farore?.TryInteract(target, player) == true),
+            NpcInteractionHandler.ForNpc("commonScripts.s:faroresMemoryScript", (target, player) =>
+                _book?.TryInteract(target, player) == true),
             NpcInteractionHandler.ForNpc(
                 "hardhatWorkerSubid00Script",
                 _hardhat.TryInteract),
@@ -132,6 +136,13 @@ internal sealed class NpcInteractionScriptController
         rooms.RoomChanged += OnRoomChanged;
         entities.RoomEntitiesLoaded += (_, _) =>
         {
+            _book?.Cancel(); _book = null;
+            foreach (var slot in entities.EntityAdapters<FaroreMemoryRoomEntity>())
+            {
+                _book = new FaroreMemoryScriptHost(slot.Npc, rooms, entities, dialogue,
+                    () => OpenSecretList?.Invoke() == true);
+                slot.Script = _book;
+            }
             _farore?.Cancel();
             _farore = null;
             foreach (FaroreRoomEntity slot in entities.EntityAdapters<FaroreRoomEntity>())
@@ -267,6 +278,7 @@ internal sealed class NpcInteractionScriptController
 
     private void OnRoomChanged(int group, OracleRoomData room)
     {
+        _book?.Cancel(); _book = null;
         _farore?.Cancel();
         _farore = null;
         foreach (FamilyNpcScriptHost host in _familyHosts) host.Cancel();

@@ -749,6 +749,13 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         CompanionRuntimeState.Update(_runtime, SpecialObjectId.Dimitri, _room.Id, _precisePosition, _direction);
     }
     void ICompanionBarrierTarget.SynchronizeRiderAfterObjects(Player player) => SynchronizePlayer(player);
+    void ICompanionBarrierTarget.DropForSymmetryBarrier(Player player)
+    {
+        if (_phase is not (DimitriPhase.Carried or DimitriPhase.Thrown or DimitriPhase.ThrownLanding)) return;
+        // companionScript_subid0d selects state2/substate3 before dropping Link's held item.
+        _phase = DimitriPhase.ThrownLanding; _holder = null; _carried.GroundPosition = _precisePosition;
+        player.DropHeldItemsForScript(); player.EndCarriedObjectPose();
+    }
     public void SetScreenTransitionBoundaryCoordinate(bool horizontal, int coordinate, Player player)
     {
         if (_phase == DimitriPhase.Carried)

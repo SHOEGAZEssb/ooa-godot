@@ -48,6 +48,16 @@ internal enum DungeonObjectCondition
 
 internal enum DungeonObjectKind
 {
+    SharedDungeonScript,
+    SwitchTrigger,
+    RestoreCrystals,
+    LinkStatue,
+    PortalDecoration,
+    MoblinFlag,
+    EntryText,
+    SymmetryBarrier,
+    SavedMonkeys,
+    FaroreMemory,
     CavePortal,
     CavePuzzle,
     Twinrova,
