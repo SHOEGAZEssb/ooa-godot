@@ -201,11 +201,15 @@ file-format contracts, and contributor workflow. It does not duplicate class
 inventories, generated tables, per-room implementation notes, or validation
 method contents that are easier to discover with `rg`.
 
-The intentional exception is the navigable
-`docs/npc-interaction-coverage.md` ledger. Any change that implements, extends,
+The intentional exceptions are the navigable
+`docs/npc-interaction-coverage.md` and
+`docs/interaction-event-cutscene-coverage.md` ledgers. The latter records
+source dispatch coverage and outstanding implementation/proof checklist items;
+update its affected statuses, counts and checklist items together when coverage
+changes, without adding audit narratives. Any change that implements, extends,
 partially supports, suppresses, or reclassifies an imported NPC record must
 update the affected table entries and summary counts in the same change.
-Only update the tables in this ledger; do not keep a diary, append dated
+Only update the tables in the NPC ledger; do not keep a diary, append dated
 snapshots, or add progress notes. Keep bugfix descriptions, implementation
 history, and regression details out of the tables as well. A bugfix that does
 not change NPC coverage requires no ledger update; when coverage does change,
@@ -214,5 +218,7 @@ record only the resulting coverage status.
 - Change `README.md` only for project scope, setup, quick start, or navigation.
 - Change a subsystem guide when its ownership or durable contract changes.
 - Change `docs/npc-interaction-coverage.md` whenever NPC coverage changes.
+- Change `docs/interaction-event-cutscene-coverage.md` whenever its source-wide
+  interaction, event or cutscene coverage changes.
 - Put source-specific detail in importer diagnostics, code comments beside the
   implementation, and focused validations.
