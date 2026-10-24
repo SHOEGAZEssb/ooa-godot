@@ -1684,6 +1684,13 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateGanonDeathRom, requiresRom: true);
         RunIsolatedValidation(ValidateMergedTwinrovaSwordRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomOfRitesBouldersRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLinkedFlameOfSorrowRom, requiresRom: true);
+        RunIsolatedValidation(ValidateZeldaKidnappingRom, requiresRom: true);
+        RunIsolatedValidation(ValidateFlameOfDespairRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePreRitesPalaceRom, requiresRom: true);
+        RunIsolatedValidation(ValidatePreRitesOracleWarpRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLinkedImpaWarningRom, requiresRom: true);
+        RunIsolatedValidation(ValidateLinkedLeadInCancellation);
         RunIsolatedValidation(ValidateMakuConfettiSlotsRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomOfRitesCollapseRom, requiresRom: true);
         RunIsolatedValidation(ValidateRoomOfRitesReunionRom, requiresRom: true);

@@ -15,7 +15,10 @@ internal sealed partial class BlackTowerEndingEvent
     private Action? _restoreTerrain;
     internal int Stage=>Read(0xcbc1);
     internal bool CreditsPending=>HasState&&Read(0xc2ef)==0x0a;
-    public DialogueScreenContext? DialogueScreen=>_screenActive?context.DialogueScreens.ClearedLink(4):null;
+    public DialogueScreenContext? DialogueScreen=>LinkedLeadInActive&&
+        (Read(0xc2ef)==0x11||Read(0xc2ef)==0x20&&(Stage<9||Stage>=13))?
+        context.DialogueScreens.ClearedLink(Read(0xc2ef)==0x20&&Stage>=13?4:0x13):
+        _screenActive?context.DialogueScreens.ClearedLink(4):null;
     private void ClearTemporaryState(){for(int address=0xcbb3;address<0xcbc3;address++)Write(address,0);}
     private void BeginScreen()
     {

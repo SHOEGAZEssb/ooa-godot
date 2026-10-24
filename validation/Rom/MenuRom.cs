@@ -20,6 +20,10 @@ internal sealed class MenuRom
         return _rom.BankByte(2, address) | _rom.BankByte(2, address + 1) << 8;
     }
     internal void LoadHudGraphics() => _rom.LoadHudGraphics();
+    internal int DisplayedObjectColor(int palette,int shade)
+    {
+        return _rom.DisplayedObjectColor(palette,shade);
+    }
     internal void LoadRoomGraphics() => _rom.Call(0x3796, 0); // loadTilesetGraphics, including source room palettes.
     internal void LoadRoomMappings() => _rom.Call(0x3712,0); // loadTilesetLayout, original mapping indices/table and Ages palette adjustment.
     internal void LoadToggleGraphics() => _rom.Call(0x7a77,2); // roomGfxChanges.func_02_7a77, header$3d/$3f.

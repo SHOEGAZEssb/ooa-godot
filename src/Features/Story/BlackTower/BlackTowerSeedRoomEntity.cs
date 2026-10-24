@@ -66,8 +66,6 @@ internal sealed class BlackTowerSeedRoomEntity : IRoomEntity, IFixedRoomEntity, 
                     foreach (int packed in new[] { 0x44, 0x47, 0x4a }) BehaviorTile(packed, 0x44);
                     Write(WramAddress.wDisableWarps, 0x44); Finish(); return;
                 }
-                if (_context.Rooms.SaveData.IsLinkedGame)
-                    throw new NotSupportedException("blackTowerDoorHandler.s -> CUTSCENE_FLAME_OF_SORROW: linked-game continuation is not implemented.");
                 player.ClearNativeItemParents(); player.PutOnGroundForScript(); player.ResetPortalDamageState();
                 player.RequestNativeForcedMovement(0x70, 8, 1);
                 Counter = 0x70; State = 1; _owner.SetMasks(true);
@@ -159,8 +157,13 @@ internal sealed class BlackTowerSeedRoomEntity : IRoomEntity, IFixedRoomEntity, 
             case 3:
                 if (--Counter != 0) return;
                 _context.Rooms.SaveData.SetRoomFlag(4, 0xea, 0x40);
-                BehaviorTile(0x47, 0x44); _owner.SetMasks(false);
+                BehaviorTile(0x47, 0x44);
+                if(_context.Rooms.SaveData.IsLinkedGame){_owner.BlackFadeOut();Substate++;return;}
+                _owner.SetMasks(false);
                 player.EndCutsceneControl(_owner); Sound(_context.Sound.ActiveMusic); Finish(); return;
+            case 4:
+                if(_context.Transitions.NativePaletteFadeActive)return;
+                Finish();_owner.BeginLinkedCutscene();return;
             default: throw new InvalidOperationException($"makuSeedAndEssences.s state $04/${Substate:x2}.");
         }
     }

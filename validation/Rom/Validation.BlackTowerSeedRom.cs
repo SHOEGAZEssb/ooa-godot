@@ -9,8 +9,10 @@ public sealed partial class ValidationRoot
     private void ValidateBlackTowerSeedRom()
     {
         foreach (bool batch in new[] { false, true })
+        foreach (bool linked in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
+            _saveData.SetLinkedGame(linked);
             _inventory.GiveTreasure(TreasureId.MakuSeed, 0);
             LoadValidationRoom(4, 0xea);
             _inventory.EquipA(0); _inventory.EquipB(0);
@@ -22,6 +24,7 @@ public sealed partial class ValidationRoot
             var rom = new SomariaRom(_saveData, random, _currentRoom, 0, (int)floor.X, (int)floor.Y)
                 { CompanionDispatchEnabled = true };
             rom.InitializeLinkGameplay();
+            rom[0xcc01] = linked ? (byte)1 : (byte)0;
             rom[0xcd16] = 0; rom[0xcd17] = 0xd0;
             rom[0xffaa] = 48; rom[0xffac] = 0;
             rom[0xd240] = 1; rom[0xd241] = 0xc6;
@@ -77,9 +80,23 @@ public sealed partial class ValidationRoot
             }
             for (int bound = 0; bound < 1600 && !_saveData.HasRoomFlag(4, 0xea, 0x40); bound += 4)
                 StepGameplayUpdates(4, Vector2.Zero, batched: batch, afterUpdate: Compare);
-            FailIf(!_saveData.HasRoomFlag(4, 0xea, 0x40) || !comparedTiles || essences != 8 || lastState != 4 || lastSubstate != 3,
+            FailIf(!_saveData.HasRoomFlag(4, 0xea, 0x40) || !comparedTiles || essences != 8 || lastState != 4 || lastSubstate != (linked?4:3),
                 $"Black Tower $4:ea seed reveal failed to finish all eight essences: {lastState}/{lastSubstate}, {essences}.");
             StepGameplayUpdates(4, Vector2.Zero, batched: batch, afterUpdate: Compare);
+            if (linked)
+            {
+                for (int wait = 0; _runtimeState.ReadWramByte(0xcc04) == 0 && wait < 100; wait++)
+                    StepGameplayUpdates(1, Vector2.Zero, batched: batch, afterUpdate: Compare);
+                var ending = _roomEvents.Get<BlackTowerEndingEvent>();
+                FailIf(rom[0xcc04] != 0x11 || _runtimeState.ReadWramByte(0xcc04) != 0x11 ||
+                    !ending.HasState || _roomEvents.Get<BlackTowerSeedEvent>().HasState ||
+                    _entities.EntityAdapters<BlackTowerSeedRoomEntity>().Any(),
+                    "Linked Maku Seed must finish the shared door reveal, wait for black fade, delete $d7 and hand off CUTSCENE $11.");
+                StepGameplayUpdates(1, Vector2.Zero);
+                FailIf(_runtimeState.ReadWramByte(0xc2ef) != 0x11 || _runtimeState.ReadWramByte(0xcc04) != 0,
+                    "Linked seed handoff must select CUTSCENE $11 on the following update.");
+                ending.Cancel();
+            }
             FailIf(_player.CutsceneControlled || _entities.PlayerMenusDisabled ||
                 _currentRoom.GetPackedStorageMetatile(0x47) != 0x44,
                 "Black Tower $c6/$d7 must release Link and install the central staircase after completion.");

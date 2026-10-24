@@ -44,6 +44,7 @@ internal sealed class RoomEventContext(
     public OracleSoundEngine Sound { get; } = sound;
     public Camera2D RoomCamera { get; } = roomCamera;
     public bool DialogueOpen => _dialogue.IsOpen;
+    internal bool TextPrintingComplete => _dialogue.PrintingComplete;
     internal bool ScriptDialogueOpen => _dialogue.IsOpen && !_dialogue.AllowsNativeScriptCommands;
     internal void RegisterHeartPiecePresentation(Action filled, Action accepted)
     {

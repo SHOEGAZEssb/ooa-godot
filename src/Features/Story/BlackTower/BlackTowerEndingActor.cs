@@ -43,7 +43,7 @@ internal sealed class BlackTowerEndingActor : RoomCutsceneCommandHost, IRoomEnti
                     Finished=true;_actor.SetActive(false);return;
                 case 0x40:_actor.SetBasePalette(3);_actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);break;
                 case 0x4d:
-                    _runner.Start(_data.Commands(SubId==2?"credits-ambi":Read(0xcfd0)==0x0b?"ambi-farewell":"ambi"));
+                    if(!(SubId==1&&IsLinkedGame&&Read(0xcfd0)==0x0b))_runner.Start(_data.Commands(SubId==2?"credits-ambi":Read(0xcfd0)==0x0b?"ambi-farewell":"ambi"));
                     if(SubId==2){_creditsPrecise=_actor.Position;_runner.SetInitialMotionRegisters(new("Actor"),0,0);_actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex,withTerrainEffects:true);}break;
                 default:throw UnsupportedCommand($"INTERAC ${Id:x2}:${SubId:x2}");
             }

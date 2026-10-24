@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
     }
 
     private void CompareInteractionSpritePixelsRom(SomariaRom rom, Texture2D texture,
-        Vector2 drawOffset, int slot, int expectedCells, string context,int oamBank=0x14)
+        Vector2 drawOffset, int slot, int expectedCells, string context,int oamBank=0x14,bool displayedPalette=false,Color? displayFade=null)
     {
         // Decode executed native VRAM/OAM/palettes independently of the
         // imported PNG, animation definitions and grayscale metadata.
@@ -53,7 +53,7 @@ public sealed partial class ValidationRoot
                 int shade = (native.MapGfx(bank, gfx) >> bit & 1) |
                     (native.MapGfx(bank, gfx + 1) >> bit & 1) << 1;
                 if (shade == 0) continue;
-                int rgb = native.HudColor(true, flags & 7, shade);
+                int rgb = displayedPalette?native.DisplayedObjectColor(flags&7,shade):native.HudColor(true, flags & 7, shade);
                 expected[(originY + y) * width + originX + x] =
                     new Color((rgb & 31) / 31f, (rgb >> 5 & 31) / 31f, (rgb >> 10 & 31) / 31f);
             }
@@ -62,6 +62,8 @@ public sealed partial class ValidationRoot
         for (int x = 0; x < width; x++)
         {
             Color pixel = ReadValidationPixel(actual, pixels, width, x, y), wanted = expected[y * width + x];
+            if(displayFade is { } fade&&pixel.A!=0)
+                pixel=new Color(Mathf.Lerp(pixel.R,fade.R,fade.A),Mathf.Lerp(pixel.G,fade.G,fade.A),Mathf.Lerp(pixel.B,fade.B,fade.A),pixel.A);
             FailIf(Math.Abs(pixel.A - wanted.A) > 1f / 255 || wanted.A != 0 &&
                 (Math.Abs(pixel.R - wanted.R) > 1f / 255 || Math.Abs(pixel.G - wanted.G) > 1f / 255 ||
                  Math.Abs(pixel.B - wanted.B) > 1f / 255),

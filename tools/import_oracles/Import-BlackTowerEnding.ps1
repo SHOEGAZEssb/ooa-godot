@@ -72,11 +72,12 @@ foreach($id in 1..6) {
 }
 Write-GeneratedTable((Join-Path $destination 'cutscenes/black_tower_ending_inputs.tsv'),$rows)
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# scene`tindex`tid`tsubid`ty`tx`tsource")
-foreach($label in @('objectData_blackTowerEscape_nayruAndRalph','objectData_blackTowerEscape_ambiAndGuards','objectData5462','objectData5470','objectData54ac','objectData54d0','objectData54c6','objectData54fe','objectData5492','objectData556a','objectData5514','objectData5542','objectData5560','objectData5574')) {
+foreach($label in @('objectData_blackTowerEscape_nayruAndRalph','objectData_blackTowerEscape_ambiAndGuards','objectData5462','objectData5470','objectData54ac','objectData54d0','objectData54c6','objectData54fe','objectData5492','objectData556a','objectData5514','objectData5542','objectData5560','objectData5574','objectData55a2','objectData543c')) {
     $entries=@(Read-AssemblyMacroInvocations (Join-Path $Disassembly 'objects/ages/extraData2.s') $label 'obj_Interaction');$index=0
     foreach($entry in $entries) {
-        if($entry.Operands.Count -ne 4){throw "${label}: unsupported actor operands."}
-        $rows.Add("$label`t$index`t$(($entry.Operands|ForEach-Object {(Convert-AssemblyInteger $_).ToString('x2')}) -join "`t")`tobjects/ages/extraData2.s:$label");$index++
+        if($entry.Operands.Count -notin @(2,4)){throw "${label}: unsupported actor operands."}
+        $operands=@($entry.Operands);if($operands.Count -eq 2){$operands+=@('$00','$00')}
+        $rows.Add("$label`t$index`t$(($operands|ForEach-Object {(Convert-AssemblyInteger $_).ToString('x2')}) -join "`t")`tobjects/ages/extraData2.s:$label");$index++
     }
 }
 Write-GeneratedTable((Join-Path $destination 'cutscenes/black_tower_ending_placements.tsv'),$rows)
@@ -88,7 +89,11 @@ $rooms=@([regex]::Matches($roomBlock.Groups['rows'].Value,'(?m)^\s*dwbe\s+(?<nam
 $sets=@(Read-AssemblyDataDirectives (Join-Path $Disassembly 'objects/ages/extraData3.s') 'objectTable2' '.dw'|ForEach-Object {$_.Operands})
 if($rooms.Count -ne 20 -or $sets.Count -ne 20){throw 'Black Tower ending requires the original twenty-entry room/object-set tables.'}
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# index`tgroup`troom`tscene`tsource")
-foreach($index in @(8,9,10,17)) {
+foreach($index in @(8,9,10,11,12,17)) {
+    if($rooms[$index] -eq 'ROOM_ZELDA_IN_FINAL_DUNGEON'){
+        if((Read-ImportText (Join-Path $Disassembly 'constants/common/rooms.s')) -notmatch 'ROOM_AGES_5f0\s+db\s+ROOM_ZELDA_IN_FINAL_DUNGEON\s+db\s+ROOM_AGES_5f2'){throw 'Linked lead-in requires the original ROOM_ZELDA_IN_FINAL_DUNGEON enum position.'}
+        $rooms[$index]='ROOM_AGES_5f1'
+    }
     if($rooms[$index] -notmatch '^ROOM_AGES_(?<id>[0-9a-f]{3})$'){throw "Ending object set `$${index}: unsupported room symbol."}
     $id=[Convert]::ToInt32($Matches['id'],16)
     $rows.Add("$($index.ToString('x2'))`t$(($id -shr 8).ToString('x2'))`t$(($id -band 255).ToString('x2'))`t$($sets[$index])`t${roomSource}:cutscene_disableLcdLoadRoomResetCamera / objects/ages/extraData3.s:objectTable2")
@@ -125,10 +130,15 @@ foreach($spec in @(@(0x4d,1,10),@(0x4d,2,10),@(0x57,1,7),@(0x57,2,7),@(0x88,2,2)
     @(0x4b,3,9),@(0x4b,4,9),@(0x4b,5,9),@(0x4b,0,9),@(0x4c,1,3),@(0x4c,2,3),@(0x4c,3,3),@(0x5d,1,0),
     @(0x31,3,9),@(0xaa,0,5),@(0xad,1,7),@(0xad,2,7),@(0xb7,0,1),@(0xb7,1,1),@(0xc1,0,0),@(0x84,9,0),
     @(0xaa,1,5),@(0x6b,3,5),@(0x6b,0x12,5),@(0xb9,0,15),@(0xb9,1,15),@(0xb9,2,15),@(0xb9,3,15),@(0xb9,4,15),@(0xb9,5,15),@(0xb9,6,15),@(0xb9,7,15),
-    @(0xdf,0,5),@(0xdf,1,5),@(0x3c,8,10),@(0x3c,9,10),@(0x3f,3,3),@(0xc0,0,3),@(0x4a,9,3),@(0x4a,10,3),@(0xcf,0,2),@(0xcf,1,2),@(0xcf,2,2),@(0xd4,0,2),@(0xd4,1,2),@(0xd4,2,2))) {
+    @(0xdf,0,5),@(0xdf,1,5),@(0x3c,8,10),@(0x3c,9,10),@(0x3f,3,3),@(0xc0,0,3),@(0x4a,9,3),@(0x4a,10,3),@(0xcf,0,2),@(0xcf,1,2),@(0xcf,2,2),@(0xd4,0,2),@(0xd4,1,2),@(0xd4,2,2),
+    @(0x31,8,9),@(0x31,0x0a,9),@(0x3c,0x0f,10),@(0xad,9,7),@(0xad,0,7),@(0xbc,0,4),@(0xbc,1,4),@(0xbc,2,4),@(0xbc,3,4),@(0xb0,2,1),@(0xb0,3,1),@(0x36,0x12,7),@(0x36,0x11,7),@(0x37,0x0f,7),@(0xaa,2,5),@(0x4d,9,10),@(0x3a,0x0e,13),@(0x43,7,3),@(0x9f,1,0),@(0x6b,0x16,10))) {
     $id=[int]$spec[0];$subid=[int]$spec[1];$gfx=Resolve-InteractionGraphics $id $subid
     if($null -eq $gfx){throw "Black Tower ending: missing INTERAC `$${id}:`$${subid} graphics."}
     $sprite=$gfxNames[$gfx.Gfx]
+    if($id -eq 0x6b -and $subid -eq 0x16){
+        if($gfx.Gfx -ne 0 -or $gfx.TileBase -ne 6 -or $gfx.DefaultAnimation -ne 10 -or $gfx.Flags -ne 0xaa){throw 'miscellaneous1.s:$16 requires retained common-sprites flame graphics.'}
+        $sprite='spr_common_sprites'
+    }
     if($id -eq 0xd4 -and ($gfx.Gfx -ne 0x8b -or $sprite -ne 'spr_boat_theend')){throw 'linkShip.s:$d4 requires its original $8b ordinary object graphics header.'}
     if($id -eq 0x4a){
         if($gfx.Gfx -ne 0 -or $gfx.TileBase -ne $(if($subid -eq 9){0x60}else{0x6a}) -or $gfx.Flags -ne $(if($subid -eq 9){0xa0}else{0x93})){throw 'introSprites1.s:$4a:$09/$0a requires retained bank1 Triforce graphics.'}
@@ -147,6 +157,12 @@ foreach($spec in @(@(0x4d,1,10),@(0x4d,2,10),@(0x57,1,7),@(0x57,2,7),@(0x88,2,2)
     }
     Copy-EnemySprite $sprite
     $extra='-'
+    if($id -in @(0x36,0x37)){$extra=$gfxNames[$gfx.Gfx+1];Copy-EnemySprite $extra}
+    if($id -eq 0xbc){
+        if($gfx.Gfx -ne 0x2f -or $gfxNames[$gfx.Gfx+1] -ne 'spr_twinrova_2' -or $gfxNames[$gfx.Gfx+2] -ne 'spr_twinrova_3' -or $gfxNames[$gfx.Gfx+3] -ne 'spr_zelda_2'){throw 'twinrova3.s requires its four chained object graphics headers $2f..$32, including carried Zelda.'}
+        $extra=($gfxNames[$gfx.Gfx+1],$gfxNames[$gfx.Gfx+2],$gfxNames[$gfx.Gfx+3]) -join ','
+        foreach($extraSprite in $extra.Split(',')){Copy-EnemySprite $extraSprite}
+    }
     if($id -eq 0xdf){
         if($gfx.Gfx -ne $(if($subid -eq 0){0x26}else{0x24})){throw 'nayruRalphCredits.s:$df requires the source two-header Nayru/Ralph graphics ranges.'}
         $extra=$gfxNames[$gfx.Gfx+1];Copy-EnemySprite $extra
@@ -179,7 +195,61 @@ Write-GeneratedTable((Join-Path $destination 'cutscenes/black_tower_ending_resto
     (ConvertTo-CutsceneCommandRows -commands $commands -actor 'Actor' -animations $animations[0x4b] -yieldOnJump $false))
 Write-GeneratedTable((Join-Path $destination 'cutscenes/black_tower_ending_visuals.tsv'),$rows)
 Write-GeneratedTable((Join-Path $destination 'cutscenes/black_tower_ending_animations.tsv'),$animationRows)
+$linked=Join-Path $Disassembly 'code/ages/cutscenes/linkedGameCutscenes.s'
+$linkedRows=[Collections.Generic.List[string]]::new();$linkedRows.Add("# profile`tvalues`tsource")
+foreach($index in 0..5){
+    $values=@(Read-AssemblyLiteralValues (Join-Path $Disassembly 'object_code/ages/interactions/twinrova3.s') "@positions$index")
+    if($values.Count -ne $(if($index -lt 2){24}elseif($index -lt 4){20}else{10})){throw "twinrova3.s: malformed positions$index."}
+    $linkedRows.Add("witch-path$index`t$(($values|ForEach-Object {$_.ToString('x2')}) -join ',')`ttwinrova3.s:@positions$index")
+}
+foreach($spec in @(@('witch-z','object_code/ages/interactions/twinrova3.s','@zValues',8),
+    @('flame-masks','code/ages/cutscenes/endgameCutscenes.s','@table_5932',6),
+    @('shake','code/ages/cutscenes/endgameCutscenes.s','@table_59ab',8))){
+    $values=@(Read-AssemblyLiteralValues (Join-Path $Disassembly $spec[1]) $spec[2])
+    if($values.Count -ne $spec[3]){throw "Linked lead-in $($spec[0]): malformed native table."}
+    $linkedRows.Add("$($spec[0])`t$(($values|ForEach-Object {($_ -band 255).ToString('x2')}) -join ',')`t$($spec[1]):$($spec[2])")
+}
+Write-GeneratedTable((Join-Path $destination 'cutscenes/black_tower_ending_linked_tables.tsv'),$linkedRows)
+$linkedOps=[Collections.Generic.HashSet[string]]@('checkmemoryeq','playsound','showtext','writeobjectbyte','wait','setspeed','moveleft','setanimation','callscript','asm15','writememory','scriptend','checkcfc0bit','xorcfc0bit','setangle','applyspeed')
+foreach($spec in @(@('lead-impa',0x31,'impaScript9','impaOctorokScript'),@('kidnap-impa',0x31,'impaScript8','impaScript9'),
+    @('kidnap-boy',0x3c,'boySubid0fScript','oldLadySubid0Script'),@('kidnap-zelda',0xad,'zeldaSubid09Script','twinrovaInCutsceneScript'))){
+    $commands=@(Read-AssemblyCutsceneCommands $main $spec[2] $linkedOps $spec[3]);$bindings=@{};$texts=@{}
+    foreach($c in $commands){
+        $key="$($c.Opcode)|$($c.Operands)"
+        switch($c.Opcode){
+            'checkcfc0bit' {$bindings[$key]=@{Opcode='checkmemoryeq';Arg0='01';Payload="Bit:$($c.Operands)"}}
+            'xorcfc0bit' {$bindings[$key]=@{Opcode='nativeyield';Payload="Toggle:$($c.Operands)"}}
+            'callscript' {
+                if($c.Operands -ne 'jumpAndWaitUntilLanded'){throw "Linked lead-in: unsupported callscript $($c.Operands)."}
+                $bindings[$key]=@{Opcode='nativeblock';Arg0='1';Payload="Jump`0"}
+            }
+            'playsound' {
+                if($c.Operands -ne 'SNDCTRL_STOPMUSIC'){throw "Linked lead-in: unsupported sound $($c.Operands)."}
+                $bindings[$key]=@{Opcode='playsound';Arg0='f0'}
+            }
+            'asm15' {
+                $handler=switch -Regex ($c.Operands){
+                    '^scriptHelp.createExclamationMark, (30|\$1e)$' {'Exclamation';break}
+                    '^scriptHelp.forceLinkDirection, DIR_UP$' {'FaceLinkUp';break}
+                    '^scriptHelp.impa_showZeldaKidnappedTextNonExitable$' {'KidnapText';break}
+                    default {throw "Linked lead-in: unsupported helper $($c.Operands)."}
+                }
+                $bindings[$key]=@{Opcode='native';Payload=$handler}
+            }
+            'showtext' {$id=[Convert]::ToInt32($c.Operands.Substring(3),16);$texts[$id]=Resolve-PalaceText $id ([Collections.Generic.HashSet[int]]::new())}
+        }
+    }
+    Write-GeneratedTable((Join-Path $destination "cutscenes/black_tower_ending_$($spec[0])_commands.tsv"),
+        (ConvertTo-CutsceneCommandRows -commands $commands -actor 'Actor' -symbols @{'SPEED_080'=0x14;'SPEED_180'=0x3c;'SPEED_200'=0x50;
+            'Interaction.var38'=0x78;'wTmpcfc0.genericCutscene.cfd0'='EndingSignal'} -animations $animations[[int]$spec[1]] -texts $texts -positions $allTextPositions -bindings $bindings -yieldOnJump $false))
+}
 $helper=Join-Path $Disassembly 'scripts/ages/scriptHelper.s'
+$preritesOps=[Collections.Generic.HashSet[string]]@('checkpalettefadedone','wait','setanimation','asm15','showtextlowindex','writememory','scriptend')
+$commands=@(Read-AssemblyCutsceneCommands $helper 'nayruScript11' $preritesOps 'nayruScript13')
+$bindings=@{'checkpalettefadedone|'=@{Opcode='gate';Payload='PaletteDone'};'asm15|forceLinkDirection, DIR_LEFT'=@{Opcode='native';Payload='FaceLinkLeft'}}
+foreach($id in @(0x1d1e,0x1d1f)){$bindings["showtextlowindex|<TX_$($id.ToString('x4'))"]=@{Opcode='showtext';Arg0=$id.ToString('x4');Payload=(Resolve-PalaceText $id ([Collections.Generic.HashSet[int]]::new()))}}
+Write-GeneratedTable((Join-Path $destination 'cutscenes/black_tower_ending_prerites-nayru_commands.tsv'),
+    (ConvertTo-CutsceneCommandRows -commands $commands -actor 'Actor' -symbols @{'wTmpcfc0.genericCutscene.cfd0'='EndingSignal'} -animations $animations[0x36] -positions $allTextPositions -bindings $bindings -yieldOnJump $false))
 $reunionOps=[Collections.Generic.HashSet[string]]@('checkmemoryeq','wait','setspeed','setangle','applyspeed','moveleft','moveright','movedown','setanimation','writememory','writeobjectbyte','asm15','showtext','scriptend')
 foreach($spec in @(@('reunion-impa',0x31,$main,'impaScript3','impaScript4'),
     @('reunion-zelda',0xad,$helper,'zeldaSubid01Script_body','zeldaSubid02Script_body'),
@@ -268,7 +338,7 @@ foreach($spec in @(@('ambi','ambiSubid01Script_part1','ambiSubid01Script_part2')
         (ConvertTo-CutsceneCommandRows -commands $commands -actor 'Actor' -symbols $symbols -animations $animations[0x4d] -texts $texts -positions $allTextPositions -bindings $bindings -yieldOnJump $false))
 }
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# text-id`tmessage-base64`tsource")
-foreach($id in @(0x1d0a,0x3d0e,0x3d0f,0x0563,0x3d09)) {
+foreach($id in @(0x1d0a,0x3d0e,0x3d0f,0x0563,0x3d09,0x0131,0x281b,0x2829,0x281c,0x281d,0x281e,0x281f,0x2820,0x2821,0x2822,0x2823,0x2824,0x2825,0x2826,0x2827,0x2828,0x1d1a,0x1d1b,0x1d1c,0x1d1d)) {
     $message=Resolve-PalaceText $id ([Collections.Generic.HashSet[int]]::new())
     $rows.Add("$($id.ToString('x4'))`t$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($message)))`ttext/ages/text.yaml")
 }

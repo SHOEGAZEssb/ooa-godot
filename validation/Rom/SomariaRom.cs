@@ -91,7 +91,25 @@ internal sealed class SomariaRom
     internal void AdvanceNayruRescueWarp() => _rom.Call(0x6785,3); // CUTSCENE$0c @runStates, before objects.
     internal void AdvanceBlackTowerEscapeAttempt()=>_rom.Call(0x7cb7,3); // CUTSCENE$1f, before status bar / objects.
     internal void AdvanceRoomOfRitesCollapse()=>_rom.Call(this[0xcbc1]==0?0x5b76:0x5cc7,3); // CUTSCENE$0f native substate body, before updateAllObjects.
+    internal void AdvanceLinkedLeadInBody()
+    {
+        if(this[0xc2ef] is 0x11 or 0x12)
+        {
+            _rom.Call(this[0xc2ef]==0x11?0x3ed0:0x3ee4,0);
+            _rom.Call(0x1613,0); // cutscene11/12 -> func_5d41: refreshLoadedTreeGfx before objects.
+            return;
+        }
+        if(this[0xc2ef]!=0x20)throw new InvalidOperationException("Expected linked lead-in cutscene $11/$12/$20.");
+        _rom.Call(0x1613,0); // cutscene20 refreshes before its state handler.
+        if(this[0xcc03]==0){this[0xcc03]=1;for(int at=0xcbb3;at<0xcbc3;at++)this[at]=0;}
+        var bytes=ValidationRom.LoadCleanUs().Span;
+        int handler=bytes[0xd42c]|bytes[0xd42d]<<8,offset=0xc000+handler-0x4000;
+        if(bytes[offset]!=0xcd||bytes[offset+3]!=0xc3||bytes[offset+4]!=0x5b||bytes[offset+5]!=0x34)
+            throw new InvalidOperationException("Clean-US CUTSCENE $20 handler no longer calls its body before updateAllObjects.");
+        _rom.Call(bytes[offset+1]|bytes[offset+2]<<8,3);
+    }
     internal void EnableVramDma()=>_rom.VramDmaTransfersEnabled=true;
+    internal void LatchDisplayedObjectPalettes()=>_rom.LatchDisplayedObjectPalettes();
     internal void EnableResetHandoff()=>_rom.StopAtReset=true;
     internal byte VramByte(int bank,int address)=>_rom.VramByte(bank,address);
     internal byte BankByte(int bank,int address)=>_rom.BankByte(bank,address);

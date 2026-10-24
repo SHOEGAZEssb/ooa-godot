@@ -430,6 +430,8 @@ public sealed class RoomEntityManager : IDisposable
             flame.ApplyNativePalette(_activeObjectPaletteOverride);
         else if (entity is CompanionCreditsRoomEntity companion)
             companion.ApplyNativePalette(_activeObjectPaletteOverride);
+        else if(entity is LinkedLeadInActorRoomEntity or TwinrovaKidnapRoomEntity or RoomOfRitesZeldaActor&&entity.Node is NpcCharacter npc&&_activeObjectPaletteOverride is not null)
+            npc.SetScriptPaletteOverrides(_activeObjectPaletteOverride);
     }
 
     internal IReadOnlyDictionary<int,Color[]>? NativeObjectPalettes=>_activeObjectPaletteOverride;
@@ -3231,7 +3233,7 @@ public sealed class RoomEntityManager : IDisposable
           TokayStatueRoomEntity or TokayRescueEmberRoomEntity or DimitriPresetSpawnerRoomEntity or DimitriRescueScriptRoomEntity or WildTokayControllerRoomEntity or WildTokayParticipantRoomEntity or WildTokayMeatRoomEntity or TokayAttachedVisualRoomEntity { NativeAllocationEnabled: true } or
         BusinessScrubRoomEntity or BusinessScrubBushRoomEntity or
         GameCompleteDialogRoomEntity or CreditsShipRoomEntity or CreditsSceneActorRoomEntity or CreditsFlyingSpriteRoomEntity or HoronDogCreditsRoomEntity or TroupeMemberRoomEntity or NayruRalphCreditsRoomEntity or BoyPatternRoomEntity or CreditsBananaRoomEntity or
-        BlackTowerSeedRoomEntity or BlackTowerConfrontationActor or BlackTowerPossessionActor or BlackTowerEndingActor or ImpaCreditsRoomEntity or CreditsLinkLoaderRoomEntity or CreditsCompanionLoaderRoomEntity or CreditsHorizontalRoomEntity or CreditsVerticalRoomEntity or ForestAudienceRoomEntity or RestoredRabbitRoomEntity or LinkedSwordRoomEntity or FallingRockRoomEntity or VeranCutsceneWallmasterRoomEntity or VeranFaceRoomEntity or VeranDeathFadeRoomEntity or ExplosionWithDebrisRoomEntity or PickaxeWorkerCreditsRoomEntity or MakuStatueConstructionRoomEntity or
+        LinkedLeadInActorRoomEntity or TwinrovaKidnapRoomEntity or BlackTowerSeedRoomEntity or BlackTowerConfrontationActor or BlackTowerPossessionActor or BlackTowerEndingActor or ImpaCreditsRoomEntity or CreditsLinkLoaderRoomEntity or CreditsCompanionLoaderRoomEntity or CreditsHorizontalRoomEntity or CreditsVerticalRoomEntity or ForestAudienceRoomEntity or RestoredRabbitRoomEntity or LinkedSwordRoomEntity or FallingRockRoomEntity or VeranCutsceneWallmasterRoomEntity or VeranFaceRoomEntity or VeranDeathFadeRoomEntity or ExplosionWithDebrisRoomEntity or PickaxeWorkerCreditsRoomEntity or MakuStatueConstructionRoomEntity or
         MakuSeedTreeRoomEntity or MakuSeedFallingRoomEntity or MakuSeedSparkleRoomEntity or TwinrovaRevealRoomEntity or MakuSeedFlowerRoomEntity or MakuRevealSceneActor or
         PirateShipRoomEntity or PostD7ActorRoomEntity or PostD7BallRoomEntity or NayruRescueActorRoomEntity or NayruRescueFlowerRoomEntity or NayruRescueHarpRoomEntity or NayruRescueMusicNoteRoomEntity or AccessoryRoomEntity or RestoredFamilyRoomEntity or NativeBallRoomEntity or PalacePossessionRoomEntity or PalaceApproachRoomEntity or PalaceButtonRoomEntity or CompanionBarrierRoomEntity { NativeAllocationEnabled: true } or
         CompanionTutorialRoomEntity { NativeAllocationEnabled: true } or

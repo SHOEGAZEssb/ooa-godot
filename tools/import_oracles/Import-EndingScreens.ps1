@@ -63,7 +63,7 @@ foreach($header in @('01','2c')){
 Write-GeneratedTable((Join-Path $destination 'cutscenes/ending_linked_ram_uploads.tsv'),$rows)
 $rows=[Collections.Generic.List[string]]::new();$rows.Add("# header`tkind`tfirst`tcount`tcolors`tsource")
 $paletteSource='data/ages/paletteHeaders.s';$headers=Read-ImportText (Join-Path $Disassembly $paletteSource)
-foreach($id in @('9d','9e','9c','04','05','0f','30','c6','c7','c8','c9','a1','a0','a7','a9','2d','27','ae','ca','7c','7d','0b','9f','aa')) {
+foreach($id in @('9d','9e','9c','04','05','0f','30','c6','c7','c8','c9','a1','a0','a7','a9','2d','27','ae','ca','7c','7d','0b','9f','aa','ab','ac','a2')) {
     $body=[regex]::Match($headers,'(?ms)^m_PaletteHeaderStart \$'+$id+', [^\r\n]+\r?\n(?<body>.*?)^\s*m_PaletteHeaderEnd').Groups['body'].Value
     if(-not $body){throw "${paletteSource}: missing `$${id}."}
     if($id -eq 'a7') {

@@ -159,10 +159,10 @@ public sealed class RoomEventController
             () => new RoomOfRitesBattleEvent(_context),
             () => new FinalDungeonEntryEvent(_context, () => Get<PostD7Event>().Flash(1)),
             () => new BlackTowerDoorwayEvent(_context),
-            () => new BlackTowerSeedEvent(_context),
+            () => new BlackTowerSeedEvent(_context, () => Get<BlackTowerEndingEvent>().BeginFlameOfSorrow()),
             () => new BlackTowerConfrontationEvent(_context),
             () => new BlackTowerPossessionEvent(_context),
-            () => new BlackTowerEndingEvent(_context,()=>Get<PalacePossessionEvent>().ReleaseForNativeContinuation(restoreColor:false),kind=>Get<PostD7Event>().Flash(kind)),
+            () => new BlackTowerEndingEvent(_context,()=>Get<PalacePossessionEvent>().ReleaseForNativeContinuation(restoreColor:false),(kind,address)=>Get<PostD7Event>().Flash(kind,address)),
             () => new BlackTowerEntranceEvent(_context),
             () => new EnterPastEvent(_context),
             () => new GraveyardGhostKidsEvent(_context),
@@ -328,6 +328,7 @@ public sealed class RoomEventController
         }
         else Get<BlackTowerEndingEvent>().PublishGameKeys();
     }
+    internal void AdvanceNativeCutscenesAfterObjects()=>Get<BlackTowerEndingEvent>().AdvanceAfterObjects();
     internal bool AdvanceNativeCutscenesBeforeObjects()
     {
         var retraction=Get<WallRetractionEvent>();

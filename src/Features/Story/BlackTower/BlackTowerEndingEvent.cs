@@ -6,31 +6,35 @@ namespace oracleofages;
 
 // CUTSCENE_BLACK_TOWER_ESCAPE $09 runs before updateAllObjects. Link reads
 // the same imported simulated-input stream as the original special-object pass.
-internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Action releasePreviousFade,Func<int,bool> flash) : IRoomEvent,IRoomEventDialogueContext
+internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Action releasePreviousFade,Func<int,int,bool> nativeFlash) : IRoomEvent,IRoomEventDialogueContext
 {
     private BlackTowerEndingDatabase? _data;
     private NayruRescueWarpDatabase? _companions;
     private ExplosionWithDebrisDatabase? _explosions;
     private BlackTowerEndingDatabase Data=>_data??=new();
     private readonly RoomEventResources _resources=new(context,new object());
+    private bool flash(int kind)=>nativeFlash(kind,0xcbb3);
     private NativeSimulatedInput? _input;
     private NativeSimulatedInput Simulated=>_input??=new(context.Entities.RuntimeState,context.Player.ClearNativePegasusCounter);
     private bool _initialize,_linkEnabled;
     public bool HasState {get;private set;}
+    public bool SkipsObjectUpdate {get;private set;}
     internal int State {get=>_initialize?0:Read(0xcbc2);private set=>Write(0xcbc2,value);}
     // Link's enabled byte and the source masks control his normal handler.
     // Simulated input still uses that handler while the cutscene owns menus.
     public bool BlocksGameplay=>false;
     public bool OwnsGameLogic=>HasState;
     public bool MenusDisabled=>HasState;
-    public bool SuppressesStatusBar=>HasState&&(CreditsPending||Stage==1&&(!RitesCollapseActive||State>=9));
+    public bool SuppressesStatusBar=>HasState&&(LinkedLeadInActive?
+        Read(0xc2ef)==0x11||Read(0xc2ef)==0x20&&(Stage<10||Stage>12):
+        CreditsPending||Stage==1&&(!RitesCollapseActive||State>=9));
     public bool SuppressesNormalMenuDispatch=>HasState;
     public bool DisablesLink=>HasState&&!_linkEnabled;
     public bool AllScreenTransitionsDisabled=>HasState;
     // Native cutscene room loads retain the rescue event. The ending owns
     // its dispatch through CUTSCENE $0f -> $0a and the remaining credits;
     // changing wCutsceneIndex does not return to Zelda's room script.
-    public bool OwnsUpdatesOf(IRoomEvent other)=>other is PalacePossessionEvent or RoomOfRitesZeldaEvent;
+    public bool OwnsUpdatesOf(IRoomEvent other)=>other is PalacePossessionEvent or RoomOfRitesZeldaEvent or BlackTowerSeedEvent;
     private byte Read(int address)=>context.Entities.RuntimeState.ReadWramByte(address);
     private void Write(int address,int value)=>context.Entities.RuntimeState.SetWramByte(address,unchecked((byte)value));
     private bool Decrement(int address){Write(address,Read(address)-1);return Read(address)==0;}
@@ -52,7 +56,8 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
     private void Companions(string scene)
     {
         foreach(var row in Data.Placements(scene))
-            if(row.Id is 0x36 or 0x37)context.Entities.AddEntity(new NayruRescueActorRoomEntity(context,_companions??=new(),row.Id,row.SubId,row.Position));
+            if(row.Id==0x31&&row.SubId==9&&context.Rooms.SaveData.IsLinkedGame)context.Entities.AddEntity(new LinkedLeadInActorRoomEntity(context,Data,row.Id,row.SubId,row.Position));
+            else if(row.Id is 0x36 or 0x37)context.Entities.AddEntity(new NayruRescueActorRoomEntity(context,_companions??=new(),row.Id,row.SubId,row.Position));
             else if(row.Id is 0x3c or 0x3a or 0x43)context.Entities.AddEntity(new RestoredFamilyRoomEntity(context,Data,_companions??=new(),row.Id,row.SubId,row.Position));
             else if(row.Id==0x4b)context.Entities.AddEntity(new RestoredRabbitRoomEntity(context,Data,_companions??=new(),row.SubId,row.Position));
             else context.Entities.AddEntity(new BlackTowerEndingActor(context,Data,row.Id,row.SubId,row.Position));
@@ -88,12 +93,15 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
     }
     internal void AdvanceBeforeObjects()
     {
+        SkipsObjectUpdate=false;
         if(!HasState)return;
+        if(SelectPendingLinkedCutscene())return;
         if(_initialize)
         {
             _initialize=false;for(int address=0xcbb3;address<0xcbc3;address++)Write(address,0);
         }
         context.Transitions.AdvanceNativeWhiteFade();
+        if(LinkedLeadInActive){AdvanceLinkedLeadIn();return;}
         if(CreditsPending){AdvanceCredits();return;}
         if(RitesCollapseActive){AdvanceRoomOfRitesCollapse();return;}
         if(Stage==1){AdvanceTwinrova();return;}
@@ -158,10 +166,16 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
                 context.Player.WarpTo(new(0x60,0x48),recordSafe:false);context.Player.Face(Vector2I.Up);context.Player.Visible=true;
                 context.Player.RequestNativeLinkInitialization();Write(0xcfd0,0x0b);return;
             case 0x10:
-                if(context.Rooms.SaveData.IsLinkedGame)throw new NotSupportedException("CUTSCENE $09 stage0 state $10 linked ending continuation is not represented.");
+                if(context.Rooms.SaveData.IsLinkedGame){if(Read(0xcfd0)==0x12)State=0x14;return;}
                 if(Read(0xcfd0)!=0x10)return;
                 State=0x11;context.Transitions.BeginNativeWhiteFade(true);return;
             case 0x11:case 0x12:case 0x13:AdvanceOracle();return;
+            case 0x14:
+                if(!context.TextPrintingComplete||!AnyPhysicalKey())return;
+                State=0x15;context.Transitions.BeginNativeWhiteFade(true,delay:4);return;
+            case 0x15:
+                if(context.Transitions.NativePaletteFadeActive)return;
+                context.CloseDialogue();RequestLinkedCutscene(0x12);return;
             default:throw new NotSupportedException($"endgameCutscenes.s:CUTSCENE $09 stage0 state ${State:x2} continuation is not represented.");
         }
     }
@@ -172,9 +186,25 @@ internal sealed partial class BlackTowerEndingEvent(RoomEventContext context,Act
     }
     public void Cancel()
     {
+        if(_linkedWarpAfterObjects){_linkedWarpAfterObjects=false;context.Transitions.CancelRequestedNativeWarp();}
         bool wasRites=RitesCollapseActive;
-        if(!HasState)return;HasState=false;_initialize=false;Simulated.SetEnabled(0);Write(0xc2ef,0);
-        if(wasRites)
+        bool wasLinked=LinkedLeadInActive||_pendingLinked!=0;
+        if(!HasState)return;HasState=false;_initialize=false;_pendingLinked=0;SkipsObjectUpdate=false;Simulated.SetEnabled(0);Write(0xc2ef,0);
+        context.Transitions.CutsceneCameraFrozen=false;
+        SetLinkedRoomScreen(false);
+        if(wasLinked)
+        {
+            Write(0xcc04,0);context.CloseDialogue();context.Hud.ShowStatusBar();context.RoomView.ClearBackgroundFade();
+            context.RoomView.SetNativeScrollOffset(Vector2.Zero);
+            if(_linkedBackground is not null)context.Rooms.World.BackgroundPalettes.Restore(_linkedBackground);
+            context.Entities.SetNativeObjectPalette(_linkedSprites);_linkedBackground=null;_linkedSprites=null;
+            foreach(var actor in context.Entities.EntityAdapters<TwinrovaFlameRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+            foreach(var actor in context.Entities.EntityAdapters<RoomOfRitesZeldaActor>().ToArray())context.Entities.RetireEntity(actor);
+            foreach(var actor in context.Entities.EntityAdapters<LightningRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        }
+        foreach(var actor in context.Entities.EntityAdapters<LinkedLeadInActorRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        foreach(var actor in context.Entities.EntityAdapters<TwinrovaKidnapRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
+        if(wasRites||wasLinked)
         {
             foreach(var actor in context.Entities.EntityAdapters<RoomOfRitesBoulderRoomEntity>().ToArray())context.Entities.RetireEntity(actor);
             foreach(var actor in context.Entities.EntityAdapters<MakuConfettiRoomEntity>().ToArray())context.Entities.RetireEntity(actor);

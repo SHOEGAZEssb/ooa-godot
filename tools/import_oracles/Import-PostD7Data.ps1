@@ -27,10 +27,10 @@
     $flashPath = Join-Path $Disassembly 'code/bank3Cutscenes.s'
     $agesFlashes=[regex]::Match((Read-ImportText $flashPath),'(?ms)^\.ifdef ROM_AGES\s+screenFlashingData:.*?(?=^\.else; ROM_SEASONS)')
     if(!$agesFlashes.Success){throw 'post-D7: missing Ages-only screenFlashingData boundary.'}
-    foreach ($kind in @(1,2)) {
+    foreach ($kind in @(1,2,5)) {
         $data=[regex]::Match($agesFlashes.Value,"(?m)^\s*@data${kind}:\s+\.db (?<bytes>[^\r\n]+)")
         $flash = @($data.Groups['bytes'].Value.Trim() -split '\s+' | ForEach-Object { Convert-AssemblyInteger $_ })
-        if (($flash -join ',') -ne $(if($kind -eq 1){'2,4,6,8,10,12,255'}else{'2,4,6,8,10,12,14,255'})) { throw 'post-D7: flashScreen data boundary changed.' }
+        if($flash.Count -eq 0 -or $flash[-1] -ne 255 -or ($kind -lt 5 -and ($flash -join ',') -ne $(if($kind -eq 1){'2,4,6,8,10,12,255'}else{'2,4,6,8,10,12,14,255'}))) { throw 'post-D7: flashScreen data boundary changed.' }
         $rows.Add("flash-$kind`t$(($flash | ForEach-Object {$_.ToString('x2')}) -join ',')`tcode/bank3Cutscenes.s:screenFlashingData@data$kind")
     }
     Write-GeneratedTable((Join-Path $destination 'cutscenes/post_d7_tables.tsv'),$rows)

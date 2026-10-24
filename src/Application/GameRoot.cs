@@ -1047,6 +1047,7 @@ public partial class GameRoot : Node2D
             _transitions.UpdateScroll(delta);
         else if (!arrivalOwnsUpdate && !toggleOwnsPostObjects && !pass.NativeCutsceneOwnedUpdate && !_roomEvents.NativeCutsceneActive)
             UpdatePostObjectPlayerState(roomExitSampled: true);
+        _roomEvents.AdvanceNativeCutscenesAfterObjects();
         _harp.Update(delta);
         if(!pass.StatusBarUpdatesDisabled)_statusBar.Update(delta);
         UpdateAnimatedTiles(delta);

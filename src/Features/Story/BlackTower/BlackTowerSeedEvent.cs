@@ -5,7 +5,7 @@ namespace oracleofages;
 
 // INTERAC_BLACK_TOWER_DOOR_HANDLER is the sole placed interaction in $4:ea.
 // Its $d7/$84 children retain native slot allocation and same-pass updates.
-internal sealed class BlackTowerSeedEvent(RoomEventContext context) : IRoomEntryEvent
+internal sealed class BlackTowerSeedEvent(RoomEventContext context, System.Action beginLinkedCutscene) : IRoomEntryEvent
 {
     private readonly BlackTowerSeedDatabase _data = new();
     private readonly RoomEventResources _resources = new(context, new object());
@@ -38,6 +38,15 @@ internal sealed class BlackTowerSeedEvent(RoomEventContext context) : IRoomEntry
     {
         _resources.CaptureFullScreenFade();
         context.Transitions.BeginNativeWhiteFade(fadeOut, delay);
+    }
+    internal void BlackFadeOut()
+    {_resources.CaptureFullScreenFade();context.Transitions.BeginNativeBlackFade(true);}
+    internal void BeginLinkedCutscene()
+    {
+        // The seed deletes itself after publishing CUTSCENE $11. Transfer
+        // the fade without cancelling it or clearing the native masks.
+        HasState=false;_ownsMasks=false;_actors.Clear();
+        _resources.ReleaseFullScreenFade(restoreColor:false);beginLinkedCutscene();
     }
     internal void AdvanceBeforeObjects()
     {

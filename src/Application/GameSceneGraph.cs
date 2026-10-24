@@ -93,7 +93,7 @@ public partial class GameSceneGraph : Node2D
         // Keep their imported layouts intact; only rearrange the gameplay field.
         bottom &= !MapScreen.Visible && !InventoryScreen.Visible &&
             !SaveQuitScreen.Visible && !RingMenuScreen.Visible;
-        int fieldTop = bottom ? 0 : OracleRoomData.GameplayScreenTop;
+        int fieldTop = bottom || transitions.NativeRoomUsesFullScreen ? 0 : OracleRoomData.GameplayScreenTop;
         transitions.SetGameplayScreenTop(fieldTop);
         Hud.Position = new Vector2(0, bottom ? 128 : 0);
         // Native events can temporarily own this rectangle as a full-screen

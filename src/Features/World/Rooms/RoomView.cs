@@ -7,6 +7,8 @@ public partial class RoomView : Node2D
     private Texture2D? _current;
     private bool _nativeTilemap;
     private int _nativeScrollY;
+    private Vector2 _nativeBackgroundOffset;
+    internal void SetNativeScrollOffset(Vector2 offset){_nativeBackgroundOffset=-offset;QueueRedraw();}
     internal void SetNativeScrollY(int value){_nativeScrollY=value&255;QueueRedraw();}
     private Texture2D? _previous;
     private Vector2I _direction;
@@ -49,7 +51,7 @@ public partial class RoomView : Node2D
 
     public void SetRoom(Texture2D texture)
     {
-        _nativeTilemap=false;_nativeScrollY=0;
+        _nativeTilemap=false;_nativeScrollY=0;_nativeBackgroundOffset=Vector2.Zero;
         _current = texture;
         _underwaterWaveActive = false;
         _underwaterWaveSuspended = false;
@@ -203,7 +205,7 @@ public partial class RoomView : Node2D
             else if (_underwaterWaveActive && _underwaterBackground is not null)
                 DrawWavedTexture(_underwaterBackground, 0x02, _underwaterWavePhase);
             else
-                DrawTexture(_current, Vector2.Zero);
+                DrawTexture(_current, _nativeBackgroundOffset);
             DrawBackgroundFade();
             return;
         }

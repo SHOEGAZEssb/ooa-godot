@@ -2274,7 +2274,8 @@ internal sealed class RoomEntityFactory
     private IRoomEntity CreateExclamationMark(ExclamationMarkSpawn spawn)
     {
         var actor = new NpcCharacter();
-        actor.Initialize(Resources.Moosh.CreateExclamationRecord((int)spawn.Position.Y,(int)spawn.Position.X));
+        actor.Initialize(spawn.Record is { } record?record with {X=(int)spawn.Position.X,Y=(int)spawn.Position.Y}:
+            Resources.Moosh.CreateExclamationRecord((int)spawn.Position.Y,(int)spawn.Position.X));
         actor.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // INTERAC $9f state0: visible80.
         owner.OnSoundRequested(SoundId.SndClink);
         return new ExclamationMarkRoomEntity(actor,spawn.Duration);

@@ -49,6 +49,10 @@ cutscene selects a successor and returns without updating objects, the event
 exposes `SkipsObjectUpdate`; the application still advances the global frame
 counter. Room changes and event ownership must preserve the first eligible
 update of newly loaded actors, including events that begin during a return fade.
+When a native caller applies a requested warp after updating objects, retain
+that handoff through the application's post-object cutscene phase. Releasing
+the event before the object pass must not defer the warp to ordinary gameplay
+or let its destination actors update during loading.
 
 Native background-only room loads retain live actor slots, scripts and shared
 signals while rebinding their terrain presentation to the new room. They do not

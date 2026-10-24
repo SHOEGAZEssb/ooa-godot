@@ -164,7 +164,37 @@ public sealed class RoomTransitionController
     private OracleRoomData? _nativeBackgroundFadeRoom;
     private OracleRoomData? _nativeDarkeningRoom;
     private int _nativeDarkeningOffset;
+    private Color[,]? _nativeMaskedBackground;
+    private IReadOnlyDictionary<int,Color[]>? _nativeMaskedSprites;
+    private int _nativeBackgroundMask,_nativeSpriteMask;
+    internal void BeginNativeMaskedFade(Color color,bool fadeOut,int backgroundMask,int spriteMask,
+        Color[,] background,IReadOnlyDictionary<int,Color[]> sprites,int delay=1,int speed=1)
+    {
+        BeginNativePaletteFade(color,fadeOut,delay,speed);
+        _nativeMaskedBackground=background;_nativeMaskedSprites=sprites;
+        _nativeBackgroundMask=backgroundMask;_nativeSpriteMask=spriteMask;
+        _warpFade.Color=new Color(color,0);
+    }
+    private void PublishNativeMaskedFade()
+    {
+        if(_nativeMaskedBackground is null)return;
+        int offset=Math.Clamp(_nativePaletteOffset,0,32)*(_nativePaletteColor==Colors.Black?-1:1);
+        Color Blend(Color c)=>new(Math.Clamp(Mathf.RoundToInt(c.R*31)+offset,0,31)/31f,
+            Math.Clamp(Mathf.RoundToInt(c.G*31)+offset,0,31)/31f,Math.Clamp(Mathf.RoundToInt(c.B*31)+offset,0,31)/31f,c.A);
+        var bg=_rooms.World.BackgroundPalettes.Capture();
+        for(int palette=0;palette<8;palette++)if((_nativeBackgroundMask&(1<<palette))!=0)
+            for(int shade=0;shade<4;shade++)bg[palette,shade]=Blend(_nativeMaskedBackground[palette,shade]);
+        _rooms.World.BackgroundPalettes.Restore(bg);
+        var sprites=new Dictionary<int,Color[]>(_entities.NativeObjectPalettes??new Dictionary<int,Color[]>());
+        foreach(var entry in _nativeMaskedSprites!)if((_nativeSpriteMask&(1<<entry.Key))!=0)
+        {var colors=new Color[4];for(int shade=0;shade<4;shade++)colors[shade]=Blend(entry.Value[shade]);sprites[entry.Key]=colors;}
+        _entities.SetNativeObjectPalette(sprites);
+    }
     internal Vector2? NativeCameraFocus { get; set; }
+    internal bool CutsceneCameraFrozen {get;set;}
+    // Native graphics states with the status window off-screen render the
+    // room at display y=0, independently of the user's HUD placement.
+    internal bool NativeRoomUsesFullScreen {get;set;}
     internal bool NativePaletteFadeActive => _nativePaletteDirection != 0 || _nativeDarkeningRoom is not null;
     internal int NativePaletteThreadMode=>_nativeDarkeningRoom is not null ? 5 : _nativePaletteDirection==0?0:
         (_nativePaletteColor==Colors.Black?(_nativePaletteDirection>0?3:4):(_nativePaletteDirection>0?1:2))|(_nativePaletteDelay>1?8:0);
@@ -198,6 +228,7 @@ public sealed class RoomTransitionController
         if (delay < 1) throw new ArgumentOutOfRangeException(nameof(delay));
         if (speed < 1) throw new ArgumentOutOfRangeException(nameof(speed));
         RestoreNativeBackgroundFade();_nativeDarkeningRoom = null;
+        _nativeMaskedBackground=null;_nativeMaskedSprites=null;
         _nativePaletteColor = color;
         _nativePaletteSpeed = speed;
         _nativePaletteDirection = fadeOut ? 1 : -1;
@@ -231,13 +262,15 @@ public sealed class RoomTransitionController
             ? _nativePaletteOffset > 32 || _nativePaletteOffset <= 0
             : _nativePaletteOffset >= 32 || _nativePaletteOffset < 0;
         if (finished) { _nativePaletteDirection = 0; return; }
-        if(_nativeBackgroundFadeSource is null)_warpFade.Color = new Color(_nativePaletteColor, Math.Min(_nativePaletteOffset, 31) / 31f);
+        PublishNativeMaskedFade();
+        if(_nativeBackgroundFadeSource is null&&_nativeMaskedBackground is null)_warpFade.Color = new Color(_nativePaletteColor, Math.Min(_nativePaletteOffset, 31) / 31f);
     }
     internal void CancelNativeWhiteFade(bool clearPresentation = false)
     {
         RestoreNativeBackgroundFade();
         _nativePaletteDirection = 0;
         _nativeDarkeningRoom = null;
+        _nativeMaskedBackground=null;_nativeMaskedSprites=null;
         if (clearPresentation) SetFade(0);
     }
     internal bool PaletteFadeActive => NativePaletteFadeActive || _warpActive && (_warpPhase switch
@@ -2129,7 +2162,7 @@ void fragment() {
 
     public void UpdateCamera()
     {
-        if (_scrollActive || _entities.CameraUpdatesDisabledSource())
+        if (_scrollActive || CutsceneCameraFrozen || _entities.CameraUpdatesDisabledSource())
             return;
         Vector2 focusPosition =
             NativeCameraFocus ??

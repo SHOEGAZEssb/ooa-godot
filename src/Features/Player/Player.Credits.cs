@@ -7,6 +7,10 @@ public partial class Player
     private int _creditsLinkState=-1,_creditsLinkSubstate,_creditsLinkCounter,_creditsLinkSpeedZ;
     private int _creditsLinkAnimation,_creditsLinkFrame,_creditsLinkTicks,_creditsLinkDirection;
     private bool _creditsReunion;
+    private bool _ritesReaction;
+    private System.Action? _createRitesMark;
+    internal void BeginRitesReaction(object owner,Vector2 position,System.Action createMark)
+    {BeginCreditsMaku(owner,position);_ritesReaction=true;_createRitesMark=createMark;}
     private System.Action? _createKissHearts;
     internal int CreditsLinkState=>_creditsLinkState;
     internal int CreditsLinkSubstate=>_creditsLinkSubstate;
@@ -17,13 +21,13 @@ public partial class Player
     internal void BeginCreditsMaku(object owner,Vector2 position)
     {
         BeginCutsceneControl(owner:owner);SetScriptedPosition(position);_creditsLinkState=0;_creditsLinkSubstate=0;
-        _creditsReunion=false;_createKissHearts=null;
+        _creditsReunion=false;_ritesReaction=false;_createKissHearts=null;_createRitesMark=null;
         _creditsLinkCounter=_creditsLinkSpeedZ=_creditsLinkDirection=0;SetCutsceneDrawZFixed(0);
     }
     internal void CancelCreditsLink()
     {
         if(_creditsLinkState<0)return;
-        _creditsLinkState=-1;_creditsReunion=false;_createKissHearts=null;SetCutsceneSpriteFrame(null);SetCutsceneDrawZFixed(0);EndCutsceneControl();
+        _creditsLinkState=-1;_creditsReunion=false;_ritesReaction=false;_createKissHearts=null;_createRitesMark=null;SetCutsceneSpriteFrame(null);SetCutsceneDrawZFixed(0);EndCutsceneControl();
     }
     private void CreditsLinkAnimationSet(int animation)
     {
@@ -40,6 +44,15 @@ public partial class Player
     private bool AdvanceCreditsLink()
     {
         if(_creditsLinkState<0)return false;
+        if(_ritesReaction)
+        {
+            if(_creditsLinkState==0)
+            {
+                _creditsLinkState=1;Visible=true;CreditsLinkAnimationSet(6);
+                _createRitesMark!();
+            }
+            return true;
+        }
         if(_creditsReunion){AdvanceReunionLink();return true;}
         if(_creditsLinkState==0)
         {_creditsLinkState=1;CreditsLinkAnimationSet(2);Visible=false;return true;}

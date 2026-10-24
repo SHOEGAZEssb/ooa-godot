@@ -1074,7 +1074,7 @@ $frontendGfxRegisterRows = @(Read-AssemblyDataDirectives `
 # wScreenOffsetY. In particular, gfx state $09 has no 16-pixel HUD offset.
 $dialogueScreenRows = [Collections.Generic.List[string]]::new()
 $dialogueScreenRows.Add('# state`tscroll-y`tsource')
-foreach ($state in @(0x02, 0x04, 0x09)) {
+foreach ($state in @(0x02, 0x04, 0x09, 0x13)) {
     $registerRow = $frontendGfxRegisterRows[$state * 2]
     if ($registerRow.Operands.Count -ne 6) {
         throw "gfxRegisterStates state $state must contain six bytes per phase."

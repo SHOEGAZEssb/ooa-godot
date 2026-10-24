@@ -46,6 +46,20 @@ internal sealed class FrontendRom
     }
     internal byte BankByte(int bank, int address) => _wram[bank][address - 0xd000];
     internal byte VramByte(int bank, int address) => _vram[bank][address - 0x8000];
+    private readonly int[] _displayedObjectColors = new int[32];
+    internal int DisplayedObjectColor(int palette,int shade)=>_displayedObjectColors[palette*4+shade];
+    internal void LatchDisplayedObjectPalettes()
+    {
+        // VBlank uploads only dirty palettes. paletteThread_stop clears the
+        // source masks without another upload, retaining the last faded colors.
+        for(int palette=0;palette<8;palette++)if((this[0xffa7]&(1<<palette))!=0)
+        for(int shade=0;shade<4;shade++)
+        {
+            int address=((this[0xffa9]&(1<<palette))!=0?0xdfc0:0xdec0)+palette*8+shade*2;
+            _displayedObjectColors[palette*4+shade]=BankByte(2,address)|BankByte(2,address+1)<<8;
+        }
+        this[0xffa7]=0;
+    }
     internal void LoadHudGraphics()
     {
         // GFXH_HUD and PALH_0f load the original HUD tiles, background 0

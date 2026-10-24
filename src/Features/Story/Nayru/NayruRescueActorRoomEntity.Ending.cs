@@ -9,7 +9,7 @@ internal sealed partial class NayruRescueActorRoomEntity
     {
         bool farewell=Read(0xcfd0)==0x0b;
         if(farewell)SetPosition(new(Id==0x36?0x40:0x50,0x48));
-        Start((Id==0x36?"nayru-palace":"ralph-palace")+(farewell?"-farewell":""));SetAnimation(0);
+        if(!(farewell&&IsLinkedGame&&Id==0x36))Start((Id==0x36?"nayru-palace":"ralph-palace")+(farewell?"-farewell":""));SetAnimation(0);
     }
     private void UpdateEndingPalaceCompanion()
     {

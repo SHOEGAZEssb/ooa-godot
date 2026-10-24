@@ -17,7 +17,7 @@ internal sealed class BlackTowerEndingDatabase
     private readonly Dictionary<string,IReadOnlyList<CutsceneCommand>> _commands=[];
     private readonly Dictionary<int,(int Group,int Room,string Scene)> _roomSets=[];
     private readonly Dictionary<int,(int Group,int Room,string Scene,int Uncmp,int Palette)> _creditsRooms=[];
-    private readonly Dictionary<(int,int),string> _extraSprites=[];
+    private readonly Dictionary<(int,int),string[]> _extraSprites=[];
     private readonly Dictionary<(int,int),int> _nativeFlags=[];
     private readonly Dictionary<(int,int),IntroOamPart[][]> _nativeFrames=[];
     internal BlackTowerEndingDatabase()
@@ -50,7 +50,7 @@ internal sealed class BlackTowerEndingDatabase
         foreach(var row in GeneratedTable.Load(Root+"room_sets.tsv",new("Black Tower ending native room/object sets",GeneratedTableKeySemantics.Unique,
             ["index","group","room","scene","source"],["index"],headerRequired:true)).Rows)
             _roomSets.Add(row.HexByte(0),(row.HexByte(1),row.HexByte(2),row.RequiredString(3)));
-        if(_roomSets.Count!=4||Enumerable.Range(8,3).Any(index=>!_roomSets.ContainsKey(index))||!_roomSets.ContainsKey(0x11))
+        if(_roomSets.Count!=6||Enumerable.Range(8,5).Any(index=>!_roomSets.ContainsKey(index))||!_roomSets.ContainsKey(0x11))
             throw new InvalidOperationException("miscCutscenes.s / objectTable2: missing ending room/object sets $08..$0a/$11.");
         foreach(var row in GeneratedTable.Load(Root+"visuals.tsv",new("Black Tower ending actors",GeneratedTableKeySemantics.Unique,
             ["id","subid","sprite","tile-base","palette","animation","extra-sprite","native-flags","source"],["id","subid"],headerRequired:true)).Rows)
@@ -58,15 +58,18 @@ internal sealed class BlackTowerEndingDatabase
             int id=row.HexByte(0),subid=row.HexByte(1);string animation=row.RequiredString(5);
             _actors.Add((id,subid),new(0,0x38,id,subid,0,0,0,0,row.RequiredString(2),row.Decimal(3),row.Decimal(4),0,false,
                 animation,animation,animation,animation,"",NpcImplementationClassification.EventOwned));
-            if(row.RequiredString(6)!="-")_extraSprites.Add((id,subid),row.RequiredString(6));
+            if(row.RequiredString(6)!="-")_extraSprites.Add((id,subid),row.SplitRequired(6,','));
             _nativeFlags.Add((id,subid),row.HexByte(7));
         }
         foreach(var row in GeneratedTable.Load(Root+"animations.tsv",new("Black Tower ending animation",GeneratedTableKeySemantics.Unique,
             ["id","index","animation","source"],["id","index"],headerRequired:true)).Rows)
             _animations.Add((row.HexByte(0),row.HexByte(1)),row.RequiredString(2));
         foreach(string script in new[]{"ambi","ambi-farewell","restored-boy","restored-father","restored-rabbit","credits-impa","reunion-impa","reunion-zelda","credits-zelda","credits-dog","listening-boy","listening-rabbit",
-            "credits-ambi","credits-statue","credits-worker1-start","credits-worker2-start","credits-worker1-middle","credits-worker2-middle","credits-worker1-end","credits-worker2-end"})
+            "credits-ambi","credits-statue","credits-worker1-start","credits-worker2-start","credits-worker1-middle","credits-worker2-middle","credits-worker1-end","credits-worker2-end","lead-impa","kidnap-impa","kidnap-boy","kidnap-zelda","prerites-nayru"})
             _commands.Add(script,CutsceneCommandCatalog.Load(Root+script+"_commands.tsv"));
+        foreach(var row in GeneratedTable.Load(Root+"linked_tables.tsv",new("Linked lead-in source tables",GeneratedTableKeySemantics.Unique,
+            ["profile","values","source"],["profile"],headerRequired:true)).Rows)
+            _tables.Add(row.RequiredString(0),Array.ConvertAll(row.SplitRequired(1,','),v=>Convert.ToByte(v,16)));
         foreach(var row in GeneratedTable.Load(Root+"credits_rooms.tsv",new("Normal credits room/object sets",GeneratedTableKeySemantics.Unique,
             ["index","group","room","scene","uncmp","palette","source"],["index"],headerRequired:true)).Rows)
             _creditsRooms.Add(row.Decimal(0,0,3),(row.HexByte(1),row.HexByte(2),row.RequiredString(3),row.HexByte(4),row.HexByte(5)));
@@ -92,7 +95,7 @@ internal sealed class BlackTowerEndingDatabase
     internal NpcCharacter Actor(int id,int subid,Vector2 position)
     {
         var actor=NpcCharacter.CreateFromRecord(_actors[(id,subid)] with {X=(int)position.X,Y=(int)position.Y});
-        if(_extraSprites.TryGetValue((id,subid),out string? extra))actor.AppendScriptGraphics(extra);
+        if(_extraSprites.TryGetValue((id,subid),out var extras))foreach(string extra in extras)actor.AppendScriptGraphics(extra);
         actor.SetAnimationRate(0);actor.SetBlocksLink(false);actor.SetDialogue(0,"",false);return actor;
     }
     internal string Animation(int id,int index)=>_animations[(id,index)];

@@ -352,7 +352,7 @@ $creditsLinkPointers=@(Read-AssemblyDataDirectives $introAnimationPath 'specialO
 # after it. A terminal parameter is a caller signal, not a stream terminator.
 $creditsAnimations=Read-AssemblyAnimationDefinitions $introAnimationPath 'animation(?:Data|Loop)[A-Za-z0-9_]+' $false
 $creditsLoops=[Collections.Generic.List[string]]::new();$creditsLoops.Add("# index`tloop-start`tsource")
-foreach($index in @(0,1,2,3,0x0b,0x0d,0x0f,0x10,0x11,0x12)) {
+foreach($index in @(0,1,2,3,6,0x0b,0x0d,0x0f,0x10,0x11,0x12)) {
     $definition=$creditsAnimations[$creditsLinkPointers[$index]]
     $frames=@($definition.Frames)
     # The shield-equipped kiss pose ($11) is a single held source frame.
@@ -422,8 +422,8 @@ function Add-SparkleIntroSpriteRows([string]$kind, [int]$subid) {
 }
 Add-SparkleIntroSpriteRows 'orb-descend' 0x0d
 Add-SparkleIntroSpriteRows 'orb-vanish' 0x06
-if ($introSpriteRows.Count -ne 104) {
-    throw "Expected 103 shared Link/intro/credits sprite frames, exported $($introSpriteRows.Count - 1)."
+if ($introSpriteRows.Count -ne 106) {
+    throw "Expected 105 shared Link/intro/credits sprite frames, exported $($introSpriteRows.Count - 1)."
 }
 Write-GeneratedTable(
     (Join-Path $destination 'cutscenes\new_game_intro_sprites.tsv'),
