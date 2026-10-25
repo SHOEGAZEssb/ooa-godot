@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported INTERAC_BUSINESS_SCRUB $ce:$00/$03 shield-sale data.
@@ -37,7 +37,7 @@ internal sealed class BusinessScrubDatabase
     {
         LoadConstants();
         LoadOffers();
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/business_scrub_all_offers.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/business_scrub_all_offers.tsv",
             new GeneratedTableSchema("Business Scrub source offers", GeneratedTableKeySemantics.Unique,
                 ["subid", "price", "treasure", "parameter", "source"], ["subid"], headerRequired: true)).Rows)
             _allOffers.Add(row.HexByte(0), new(0, row.HexByte(0), row.UnsignedDecimal(1),
@@ -90,7 +90,7 @@ internal sealed class BusinessScrubDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/business_scrub_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/business_scrub_constants.tsv",
             new GeneratedTableSchema(
                 "Business Scrub constants",
                 GeneratedTableKeySemantics.Unique,
@@ -104,7 +104,7 @@ internal sealed class BusinessScrubDatabase
     private void LoadOffers()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/business_scrub.tsv",
+            AgesGameContent.AssetRoot + "objects/business_scrub.tsv",
             new GeneratedTableSchema(
                 "Business Scrub offers",
                 GeneratedTableKeySemantics.Unique,
@@ -132,7 +132,7 @@ internal sealed class BusinessScrubDatabase
     private void LoadAnimations()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/business_scrub_animations.tsv",
+            AgesGameContent.AssetRoot + "objects/business_scrub_animations.tsv",
             new GeneratedTableSchema(
                 "Business Scrub animations",
                 GeneratedTableKeySemantics.Unique,
@@ -146,7 +146,7 @@ internal sealed class BusinessScrubDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/business_scrub_texts.tsv",
+            AgesGameContent.AssetRoot + "objects/business_scrub_texts.tsv",
             new GeneratedTableSchema(
                 "Business Scrub texts",
                 GeneratedTableKeySemantics.Unique,
@@ -168,7 +168,7 @@ internal sealed class BusinessScrubDatabase
 
     private void Validate()
     {
-        if (Group != 1 || Room != 0x81 || InteractionId != oracleofages.InteractionId.BusinessScrub ||
+        if (Group != 1 || Room != 0x81 || InteractionId != Oracles.InteractionId.BusinessScrub ||
             PlacedSubId != 0x03 || CollisionRadius != 0x06 ||
             ProximityRadius != 0x20 || AButtonPointOffset != 10 ||
             FloorTile != 0x00 || FloorCollision != 0x0f ||

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Resolves ITEM_SHOVEL ($15) against the imported breakable-tile table.

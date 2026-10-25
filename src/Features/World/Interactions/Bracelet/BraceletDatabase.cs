@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Native ITEM_BRACELET ($16) parent/child constants imported from the
@@ -12,7 +12,7 @@ internal sealed class BraceletDatabase
     internal BraceletDatabaseRecord Data { get; }
 
     internal BraceletDatabase(
-        string path = "res://assets/oracle/metadata/bracelet.tsv")
+        string path = AgesGameContent.AssetRoot + "metadata/bracelet.tsv")
     {
         GeneratedTable table = GeneratedTable.Load(
             path,

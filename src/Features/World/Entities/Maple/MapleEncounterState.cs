@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared PART_ITEM_FROM_MAPLE slot stream and race scores for one encounter.
@@ -16,8 +16,8 @@ internal sealed class MapleEncounterState(OracleRuntimeState memory)
     internal int LinkScore { get; set; }
     internal bool ObjectsDisabled
     {
-        get => (memory.ReadWramByte(WramAddress.wDisabledObjects) & 1) != 0;
-        set => memory.SetWramByte(WramAddress.wDisabledObjects, value ? (byte)1 : (byte)0);
+        get => (memory.ReadWramByte(AgesWramAddress.wDisabledObjects) & 1) != 0;
+        set => memory.SetWramByte(AgesWramAddress.wDisabledObjects, value ? (byte)1 : (byte)0);
     }
     internal void Register(MapleDroppedItem item)
     {

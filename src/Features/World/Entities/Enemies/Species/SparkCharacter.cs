@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ENEMY_SPARK $13 wall-hugging state.</summary>
 internal partial class SparkCharacter : EnemyCharacter

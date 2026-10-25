@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_HARDHAT_WORKER $58:$00 Shovel script.</summary>
 internal sealed class HardhatShovelScriptHost : NpcInteractionCommandHost
@@ -26,7 +26,7 @@ internal sealed class HardhatShovelScriptHost : NpcInteractionCommandHost
     }
 
     protected override bool MatchesAndPrepare(NpcCharacter npc) =>
-        npc.Record is { Id: InteractionId.HardhatWorker, SubId: 0x00 };
+        npc.Record is { Id: AgesInteractionId.HardhatWorker, SubId: 0x00 };
 
     public override int ReadMemory(string binding)
     {

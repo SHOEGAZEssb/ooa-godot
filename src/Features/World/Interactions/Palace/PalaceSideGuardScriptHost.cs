@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // soldier.s:soldierSubid03 / scripts.s:soldierSubid03Script.
 internal sealed class PalaceSideGuardScriptHost : CutsceneCommandHost

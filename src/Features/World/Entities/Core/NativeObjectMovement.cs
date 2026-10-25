@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Executed bank0 movement helpers. Pure geometry keeps using
 // OracleObjectMovement; room-owned updates supply their authoritative WRAM.
@@ -52,9 +52,9 @@ internal static class NativeObjectMovement
     private static void Write(OracleRuntimeState? memory, int y, int x)
     {
         if (memory is null) return; // Standalone object fixtures have no room WRAM.
-        memory.SetWramByte(WramAddress.wTmpcec0, unchecked((byte)y));
-        memory.SetWramByte(WramAddress.wTmpcec0 + 1, unchecked((byte)(y >> 8)));
-        memory.SetWramByte(WramAddress.wTmpcec0 + 2, unchecked((byte)x));
-        memory.SetWramByte(WramAddress.wTmpcec0 + 3, unchecked((byte)(x >> 8)));
+        memory.SetWramByte(AgesWramAddress.wTmpcec0, unchecked((byte)y));
+        memory.SetWramByte(AgesWramAddress.wTmpcec0 + 1, unchecked((byte)(y >> 8)));
+        memory.SetWramByte(AgesWramAddress.wTmpcec0 + 2, unchecked((byte)x));
+        memory.SetWramByte(AgesWramAddress.wTmpcec0 + 3, unchecked((byte)(x >> 8)));
     }
 }

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FallingBoulderRoomEntity(FallingBoulder boulder)
     : RoomEntityAdapter<FallingBoulder>(boulder, boulder.SetTransitionDrawOffset),

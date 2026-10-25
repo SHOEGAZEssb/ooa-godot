@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Runs Link-owned forced state before ordinary room objects on an original

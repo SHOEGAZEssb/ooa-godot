@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class DungeonToggleTileDatabase
 {
@@ -14,11 +14,11 @@ internal sealed class DungeonToggleTileDatabase
 
     internal DungeonToggleTileDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/dungeon_toggle_tiles.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/dungeon_toggle_tiles.tsv",
             new GeneratedTableSchema("dungeon toggle tiles", GeneratedTableKeySemantics.Unique,
                 ["dungeon", "state", "original", "replacement", "destination-tile", "tile-count", "source-tile", "source"],
                 ["dungeon", "state", "original"], headerRequired: true));
-        Image image = OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/gfx_animations_2.png");
+        Image image = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/gfx_animations_2.png");
         foreach (var row in table.Rows)
         {
             int dungeon = row.Decimal(0, 0, 15), state = row.Decimal(1, 0, 1);
@@ -36,7 +36,7 @@ internal sealed class DungeonToggleTileDatabase
             }
         }
         if (table.Rows.Count != 12) throw new InvalidOperationException("Expected twelve source dungeon toggle substitutions.");
-        var live = GeneratedTable.Load("res://assets/oracle/metadata/dungeon_toggle_cutscene.tsv",
+        var live = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/dungeon_toggle_cutscene.tsv",
             new GeneratedTableSchema("dungeon toggle cutscene", GeneratedTableKeySemantics.Unique,
                 ["name", "values", "source"], ["name"], headerRequired: true));
         foreach (var row in live.Rows)

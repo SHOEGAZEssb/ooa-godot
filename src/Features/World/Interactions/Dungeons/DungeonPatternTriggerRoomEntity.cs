@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_DUNGEON_EVENTS $21:$0f, verifyTiles -> wActiveTriggers.</summary>
 internal sealed partial class DungeonPatternTriggerRoomEntity : Node2D, IRoomEntity, IFixedRoomEntity,

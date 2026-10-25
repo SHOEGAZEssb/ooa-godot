@@ -3,7 +3,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Clone-side debug snapshot. This is deliberately separate from the original

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class VolcanoDatabase
 {
@@ -57,7 +57,7 @@ internal sealed class VolcanoDatabase
         throw new InvalidOperationException($"volcanoHandler.s: missing '{key}'.");
 
     private static GeneratedTable Load(string path, string columns, string keys) => GeneratedTable.Load(
-        "res://assets/oracle/" + path, new GeneratedTableSchema("volcano $dc/$b2/$11", GeneratedTableKeySemantics.Unique,
+        AgesGameContent.AssetRoot + "" + path, new GeneratedTableSchema("volcano $dc/$b2/$11", GeneratedTableKeySemantics.Unique,
             columns.Split(' '), keys.Split(' '), headerRequired: true));
 }
 

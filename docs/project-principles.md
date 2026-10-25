@@ -2,8 +2,9 @@
 
 ## Target
 
-Reproduce *The Legend of Zelda: Oracle of Ages* as executed by the supported
-clean US ROM. A cleaner abstraction is useful only when it preserves the
+Reproduce each implemented Oracle game as executed by its supported clean US
+ROM. Ages is currently playable; Seasons currently has preview content only.
+A cleaner abstraction is useful only when it preserves the
 original data, order, timing, arithmetic, and observable behavior. Visual
 similarity in one room is not enough.
 

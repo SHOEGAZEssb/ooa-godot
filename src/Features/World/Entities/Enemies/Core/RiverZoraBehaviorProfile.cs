@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 internal readonly record struct RiverZoraBehaviorProfile(
     int SpawnXLimit, int SpawnYMask, int SurfacingFrames,

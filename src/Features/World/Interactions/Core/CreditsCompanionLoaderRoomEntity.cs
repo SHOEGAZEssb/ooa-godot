@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $a8:$03 publishes SPECIALOBJECT_MAPLE_CUTSCENE $12:$00 after
 // w1Companion has already dispatched. The loader frees its interaction slot.

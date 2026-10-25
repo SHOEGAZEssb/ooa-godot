@@ -1,8 +1,8 @@
 using Godot;
 using System;
-using static oracleofages.OracleGraphicsData;
+using static Oracles.OracleGraphicsData;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Reconstructs the normal two-tile Oracle status bar from gfx_hud,
@@ -41,10 +41,10 @@ public partial class Hud : Node2D
     {
         if (_resourcesPrepared) return;
         _resourcesPrepared = true;
-        _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
-        _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
-        _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
-        _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
+        _hudTiles = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png");
+        _itemIcons1 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_1.png");
+        _itemIcons2 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_2.png");
+        _itemIcons3 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_3.png");
         _itemPalettes = ItemIconAtlas.LoadStandardSpritePalettes();
         Refresh();
     }
@@ -393,7 +393,7 @@ public partial class Hud : Node2D
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 8; x++)
         {
-            int shade = ItemIconAtlas.ShadeFromPng(
+            int shade = OracleGraphicsData.ShadeFromPng(
                 source.GetPixel(cell * 8 + x, y), out bool transparent);
             if (!transparent)
                 DrawPixel(output, position + new Vector2(x, y), _itemPalettes[palette, shade]);

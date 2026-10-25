@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // $3c:$0c / $3a:$0b / $43:$05: original restoration dispatches and
 // direct scripts, synchronized only through native cfd1/cfd3/cfdf.

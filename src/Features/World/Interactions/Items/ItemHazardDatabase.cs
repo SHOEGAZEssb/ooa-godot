@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // objectCheckIsOverHazard, shared by physical ITEM handlers.
 internal sealed class ItemHazardDatabase
@@ -11,7 +11,7 @@ internal sealed class ItemHazardDatabase
 
     private ItemHazardDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/item_hazards.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/item_hazards.tsv",
             new GeneratedTableSchema("hazardCollisionTable", GeneratedTableKeySemantics.Unique,
                 ["mode", "tile", "kind", "source"], ["mode", "tile"], headerRequired: true));
         if (table.Rows.Count != 84) throw new InvalidOperationException("hazardCollisionTable requires $54 source pairs.");

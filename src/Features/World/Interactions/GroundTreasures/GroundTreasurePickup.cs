@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_TREASURE $60 using the imported ground-item spawn and grab modes.
@@ -92,7 +92,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         _worldToScreen = worldToScreen ?? (static position => position);
         _room = room;
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(record.Animation);
         if (definition.Frames.Length != 1)
@@ -100,7 +100,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
             throw new InvalidOperationException(
                 $"Ground treasure from {record.Source} must have one static frame.");
         }
-        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTexture(
+        (_texture, _textureOffset) = OracleOamCompositor.BuildPositionedOamTexture(
             source,
             definition.Frames[0].EncodedOam,
             record.TileBase,
@@ -208,9 +208,9 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
 
     internal void SetSpritePaletteOverrides(IReadOnlyDictionary<int, Color[]> palettes)
     {
-        Image source = OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{Record.Sprite}.png");
+        Image source = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{Record.Sprite}.png");
         AnimationDefinition animation = OracleGraphicsCache.GetAnimationDefinition(Record.Animation);
-        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(
+        (_texture, _textureOffset) = OracleOamCompositor.BuildPositionedOamTextureWithPaletteOverrides(
             source, animation.Frames[0].EncodedOam, Record.TileBase, Record.Palette,
             palettes, Record.SourceGrayscaleInverted);
         PixelHash = HashImage(_texture.GetImage());

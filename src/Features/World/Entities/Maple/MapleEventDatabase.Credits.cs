@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class MapleEventDatabase
 {
@@ -10,7 +10,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadCredits()
     {
         var flight=new List<(int,int,int,int)>();
-        foreach(var row in GeneratedTable.Load("res://assets/oracle/objects/maple_credits_flight.tsv",new("Maple credits flight",GeneratedTableKeySemantics.Ordered,
+        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/maple_credits_flight.tsv",new("Maple credits flight",GeneratedTableKeySemantics.Ordered,
             ["index","speed","frames","y","animation","source"],headerRequired:true)).Rows)
         {
             if(row.Decimal(0)!=flight.Count)throw row.Invalid(0,"original flight order");
@@ -18,7 +18,7 @@ internal sealed partial class MapleEventDatabase
         }
         if(flight.Count!=4)throw new InvalidOperationException("companionCutscene.s: Maple requires four credits flight rows.");
         CreditsFlight=flight;
-        var offsets=GeneratedTable.Load("res://assets/oracle/objects/maple_credits_z.tsv",new("objectOscillateZ",GeneratedTableKeySemantics.Ordered,
+        var offsets=GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/maple_credits_z.tsv",new("objectOscillateZ",GeneratedTableKeySemantics.Ordered,
             ["offsets","source"],headerRequired:true)).SingleRow();
         CreditsZOffsets=Array.ConvertAll(offsets.SplitRequired(0,','),value=>(int)unchecked((sbyte)Convert.ToByte(value,16)));
         if(CreditsZOffsets.Length!=8)throw offsets.Invalid(0,"eight native vertical oscillation offsets");

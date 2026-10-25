@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_DUNGEON_EVENTS $21:$0d and the two original Moonlit Grotto
@@ -48,7 +48,7 @@ internal sealed partial class MoonlitGrottoCrystalEventRoomEntity : Node2D,
         Action<int, string, Vector2> showText,
         Func<bool> dialogueOpen)
     {
-        if (record.Id != InteractionId.DungeonEvents || record.SubId != 0x0d)
+        if (record.Id != AgesInteractionId.DungeonEvents || record.SubId != 0x0d)
             throw new ArgumentOutOfRangeException(nameof(record));
         _record = record;
         _data = data;
@@ -59,7 +59,7 @@ internal sealed partial class MoonlitGrottoCrystalEventRoomEntity : Node2D,
         _showText = showText;
         _dialogueOpen = dialogueOpen;
         _observedSwitchState = runtime.ReadWramByte(
-            OracleRuntimeState.SwitchStateAddress);
+            AgesGameContent.SwitchStateAddress);
         Name = $"MoonlitCrystalEvent_{record.Room:x2}";
     }
 
@@ -75,7 +75,7 @@ internal sealed partial class MoonlitGrottoCrystalEventRoomEntity : Node2D,
             case MoonlitCrystalEventPhase.Waiting:
             {
                 byte current = _runtime.ReadWramByte(
-                    OracleRuntimeState.SwitchStateAddress);
+                    AgesGameContent.SwitchStateAddress);
                 if (current == _observedSwitchState || frame.Player.IsDying)
                     return;
                 _observedSwitchState = current;
@@ -110,14 +110,14 @@ internal sealed partial class MoonlitGrottoCrystalEventRoomEntity : Node2D,
                     _record.Room,
                     (byte)_data.MoonlitRoomFlag);
                 if ((_runtime.ReadWramByte(
-                        OracleRuntimeState.SwitchStateAddress) &
+                        AgesGameContent.SwitchStateAddress) &
                      _data.MoonlitAllCrystalsMask) !=
                     _data.MoonlitAllCrystalsMask)
                 {
                     Finished = true;
                     return;
                 }
-                _runtime.SetWramByte(OracleRuntimeState.SpinnerStateAddress, 0);
+                _runtime.SetWramByte(AgesGameContent.SpinnerStateAddress, 0);
                 _counter = _data.MoonlitAllWait;
                 _phase = MoonlitCrystalEventPhase.AllWait;
                 break;

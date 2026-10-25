@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed INTERAC_ERA_OR_SEASON_INFO $e0 visuals, motion, and full-room-load
@@ -18,7 +18,7 @@ internal sealed class EraInfoDatabase
     public EraInfoDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/era_info.tsv",
+            AgesGameContent.AssetRoot + "effects/era_info.tsv",
             new GeneratedTableSchema(
                 "INTERAC_ERA_OR_SEASON_INFO records",
                 GeneratedTableKeySemantics.Unique,
@@ -90,7 +90,7 @@ internal sealed class EraInfoDatabase
             Present.PastMask != 0x80 ||
             Present.SuppressGlobalFlag != 0x16 ||
             Present.SentBackAddress !=
-                WramAddress.wSentBackByStrangeForce ||
+                AgesWramAddress.wSentBackByStrangeForce ||
             Present.SentBackValue != 1 ||
             !SharedContractMatches(Past))
         {

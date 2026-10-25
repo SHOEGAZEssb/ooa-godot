@@ -44,7 +44,7 @@ try {
     $Disassembly = (Resolve-Path -LiteralPath $Disassembly).Path
     $Rom = (Resolve-Path -LiteralPath $Rom).Path
     $importerHostPath = Join-Path $PSScriptRoot `
-        'OracleImporter\bin\Debug\net8.0\OracleOfAges.Importer.dll'
+        'OracleImporter\bin\Debug\net8.0\Oracles.Importer.dll'
     $firstManifest = Join-Path $temporary 'first.tsv'
     $secondManifest = Join-Path $temporary 'second.tsv'
     $workerParameters = @{

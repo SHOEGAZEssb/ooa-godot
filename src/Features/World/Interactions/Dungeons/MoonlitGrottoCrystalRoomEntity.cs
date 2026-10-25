@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_GROTTO_CRYSTAL $24. Its parameter is one retained wSwitchState bit;
@@ -51,7 +51,7 @@ internal sealed partial class MoonlitGrottoCrystalRoomEntity : TransitionOffsetN
         Func<long> animationTick,
         Action<int> playSound)
     {
-        if (record.Id != InteractionId.TriggerTranslator ||
+        if (record.Id != AgesInteractionId.TriggerTranslator ||
             record.SubId is not (0x10 or 0x20 or 0x40 or 0x80))
         {
             throw new ArgumentOutOfRangeException(nameof(record));
@@ -143,9 +143,9 @@ internal sealed partial class MoonlitGrottoCrystalRoomEntity : TransitionOffsetN
             return false;
 
         byte switchState = _runtime.ReadWramByte(
-            OracleRuntimeState.SwitchStateAddress);
+            AgesGameContent.SwitchStateAddress);
         _runtime.SetWramByte(
-            OracleRuntimeState.SwitchStateAddress,
+            AgesGameContent.SwitchStateAddress,
             (byte)(switchState ^ _record.SubId));
         _broken = true;
         _crystal.SetAnimation(1);

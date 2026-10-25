@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class WizzrobeProjectileRoomEntity(WizzrobeProjectile projectile, Func<Vector2> camera, Action<int> sound)
     : RoomEntityAdapter<WizzrobeProjectile>(projectile, projectile.SetTransitionDrawOffset), IFixedRoomEntity,

@@ -3,14 +3,14 @@
 ## Assembly boundary
 
 Headless regressions live in the separate
-`validation/oracle-of-ages.validation.csproj` assembly and run through
+`validation/oracles.validation.csproj` assembly and run through
 `validation/validation.tscn`. Production compilation excludes
 `validation/**/*.cs`; the validation project references production through a
 narrow `InternalsVisibleTo` surface.
 
 `ValidationRoot` is a partial class organized by use case under
-`validation/Features/`. ROM-backed scenarios and their dedicated execution
-fixtures and helpers live together in `validation/Rom/`. Keep the runner and
+`validation/Ages/Features/`. ROM-backed scenarios and their dedicated execution
+fixtures and helpers live together in `validation/Ages/Rom/`. Keep the runner and
 ordered registration in `Features/Framework/Validation.cs`; put other scenarios
 in the matching feature file. Fixtures, test doubles, observers, audit history,
 and expected traces stay in the validation assembly.

@@ -2,15 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class DungeonSignalScriptDatabase
 {
     private readonly Dictionary<(int Dungeon,int SubId),DungeonSignalScriptProfile> _profiles = new();
     internal DungeonSignalScriptDatabase()
     {
-        Load("res://assets/oracle/objects/dungeon_signal_scripts.tsv");
-        Load("res://assets/oracle/objects/heros_cave_signal_scripts.tsv");
+        Load(AgesGameContent.AssetRoot + "objects/dungeon_signal_scripts.tsv");
+        Load(AgesGameContent.AssetRoot + "objects/heros_cave_signal_scripts.tsv");
     }
     private void Load(string path)
     {

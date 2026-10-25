@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BoomerangRoomEntity(BoomerangItem item)
     : RoomEntityAdapter<BoomerangItem>(item, item.SetTransitionDrawOffset), IFixedRoomEntity, IRoomEntityLifetime

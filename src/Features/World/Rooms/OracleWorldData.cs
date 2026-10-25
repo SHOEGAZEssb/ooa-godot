@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using static oracleofages.OracleGraphicsData;
+using static Oracles.OracleGraphicsData;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Address-independent bridge between generated vanilla assets and the
@@ -39,26 +39,26 @@ public sealed class OracleWorldData
     public OracleWorldData()
     {
         GeneratedTableRow maku = GeneratedTable.Load(
-            "res://assets/oracle/metadata/maku_tree_layout_override.tsv",
+            AgesGameContent.AssetRoot + "metadata/maku_tree_layout_override.tsv",
             new GeneratedTableSchema("Maku Tree layout override", GeneratedTableKeySemantics.Ordered,
                 ["group", "room", "flag-group", "flag-room", "flag-mask", "layout-group"],
                 headerRequired: true)).SingleRow();
         _makuLayout = (maku.Decimal(0, 0, 7), maku.HexByte(1), maku.Decimal(2, 0, 7),
             maku.HexByte(3), maku.HexByte(4), maku.HexByte(5));
-        _tilesetMetadata = ReadBytes("res://assets/oracle/metadata/tilesets.bin", 128 * TilesetRecordSize);
-        _presentRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPresent.bin", 256);
-        _pastRoomPacks = ReadBytes("res://assets/oracle/groups/roomPacksPast.bin", 256);
-        _roomsInAltWorld = ReadBytes("res://assets/oracle/metadata/rooms_in_alt_world.bin", 256);
-        _jabuFloodedFloors = ReadBytes("res://assets/oracle/metadata/jabu_flooded_floors.bin", 3);
+        _tilesetMetadata = ReadBytes(AgesGameContent.AssetRoot + "metadata/tilesets.bin", 128 * TilesetRecordSize);
+        _presentRoomPacks = ReadBytes(AgesGameContent.AssetRoot + "groups/roomPacksPresent.bin", 256);
+        _pastRoomPacks = ReadBytes(AgesGameContent.AssetRoot + "groups/roomPacksPast.bin", 256);
+        _roomsInAltWorld = ReadBytes(AgesGameContent.AssetRoot + "metadata/rooms_in_alt_world.bin", 256);
+        _jabuFloodedFloors = ReadBytes(AgesGameContent.AssetRoot + "metadata/jabu_flooded_floors.bin", 3);
         Color[] commonBgPalette0 = LoadFourColorPalette(
-            "res://assets/oracle/metadata/commonBgPalette0.bin");
+            AgesGameContent.AssetRoot + "metadata/commonBgPalette0.bin");
         Color[,] textboxBgPalette1 = LoadPaletteSet(
-            "res://assets/oracle/metadata/textboxBgPalette1.bin", 3);
+            AgesGameContent.AssetRoot + "metadata/textboxBgPalette1.bin", 3);
         BackgroundPalettes = new BackgroundPaletteState(
             commonBgPalette0, textboxBgPalette1);
         BackgroundPalettes.Changed += RedrawLivePaletteRooms;
         _hudGraphics = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/gfx_hud.png");
+            AgesGameContent.AssetRoot + "gfx/gfx_hud.png");
         _clearTile = new RoomClearTile(_hudGraphics, BackgroundPalettes);
         _animations = new OracleAnimationData();
     }
@@ -98,7 +98,7 @@ public sealed class OracleWorldData
         if (GetDungeonIndex(group, room) != 7 ||
             (_tilesetMetadata[offset + 7] & (int)TilesetFlags.Sidescroll) != 0)
             return null;
-        int level = save.ReadWramByte(WramAddress.wJabuWaterLevel) & 7;
+        int level = save.ReadWramByte(AgesWramAddress.wJabuWaterLevel) & 7;
         if (level >= _jabuFloodedFloors.Length)
             throw new NotSupportedException($"loadTilesetData.s:@checkJabuFlooded: room {group:x1}:{room:x2}, unsupported water level ${level:x2}.");
         if (!maps.GetDungeon(7).TryGetRoom(room, out DungeonCell cell))
@@ -148,19 +148,19 @@ public sealed class OracleWorldData
         if (!_graphics.TryGetValue(tileset, out Image? graphics))
         {
             graphics = OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/gfx_tileset{tileset:x2}.png");
+                AgesGameContent.AssetRoot + $"gfx/gfx_tileset{tileset:x2}.png");
             _graphics.Add(tileset, graphics);
         }
         // The importer resolves vanilla shared layout headers into per-tileset
         // files. Room-specific palette changes must not mutate this cache.
         if (!_mappings.TryGetValue(tileset, out byte[]? mappings))
         {
-            mappings = ReadBytes($"res://assets/oracle/layouts/tilesetMappings{tileset:x2}.bin", 2048);
+            mappings = ReadBytes(AgesGameContent.AssetRoot + $"layouts/tilesetMappings{tileset:x2}.bin", 2048);
             _mappings.Add(tileset, mappings);
         }
         if (!_collisions.TryGetValue(tileset, out byte[]? collisions))
         {
-            collisions = ReadBytes($"res://assets/oracle/layouts/tilesetCollisions{tileset:x2}.bin", 256);
+            collisions = ReadBytes(AgesGameContent.AssetRoot + $"layouts/tilesetCollisions{tileset:x2}.bin", 256);
             _collisions.Add(tileset, collisions);
         }
         if (!_palettes.TryGetValue(tileset, out Color[,]? palette))
@@ -222,7 +222,7 @@ public sealed class OracleWorldData
     {
         if (!_groupTilesets.TryGetValue(group, out byte[]? roomTilesets))
         {
-            roomTilesets = ReadBytes($"res://assets/oracle/groups/group{group}Tilesets.bin", 256);
+            roomTilesets = ReadBytes(AgesGameContent.AssetRoot + $"groups/group{group}Tilesets.bin", 256);
             _groupTilesets.Add(group, roomTilesets);
         }
         return roomTilesets[room];
@@ -261,7 +261,7 @@ public sealed class OracleWorldData
 
     private Color[,] LoadPalette(int tileset)
     {
-        byte[] values = ReadBytes($"res://assets/oracle/metadata/palette{tileset:x2}.bin", 72);
+        byte[] values = ReadBytes(AgesGameContent.AssetRoot + $"metadata/palette{tileset:x2}.bin", 72);
         var result = new Color[6, 4];
         for (int palette = 0; palette < 6; palette++)
         for (int shade = 0; shade < 4; shade++)
@@ -328,6 +328,6 @@ public sealed class OracleWorldData
     private static string GetRoomPath(int layoutGroup, int room)
     {
         string size = layoutGroup < 4 ? "small" : "large";
-        return $"res://assets/oracle/rooms/{size}/room{layoutGroup:x2}{room:x2}.bin";
+        return AgesGameContent.AssetRoot + $"rooms/{size}/room{layoutGroup:x2}{room:x2}.bin";
     }
 }

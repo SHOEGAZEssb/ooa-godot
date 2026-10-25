@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Native INTERAC_BUSINESS_SCRUB $ce:$00/$03 and its $ce:$80 mimicked-bush child.

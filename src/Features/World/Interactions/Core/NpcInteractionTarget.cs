@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// One source-ordered A-button target and its optional native talk lifecycle.

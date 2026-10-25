@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // companionCheckCanSpawn state $00 yields once so interaction initializers
 // can mark solid positions. Rejection leaves remembered bytes untouched.

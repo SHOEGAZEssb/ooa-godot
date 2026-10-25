@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/Games/Ages/Features/Menus/Shell/BootLoadingScreen.cs" id="1_loading"]
+
+[node name="BootLoading" type="Node2D"]
+visible = false
+z_index = 300
+texture_filter = 1
+script = ExtResource("1_loading")
+
+[node name="VersionLabel" type="Label" parent="."]
+offset_right = 68.0
+offset_bottom = 16.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 2
+vertical_alignment = 2

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Main-thread presentation transaction for a synchronous room preparation.
 // Logical palette/VRAM/layout writes still happen at their original boundaries.

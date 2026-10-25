@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ENEMY_CHEEP_CHEEP $2c: parameterized horizontal/vertical patrol.</summary>
 internal partial class CheepCheepCharacter : EnemyCharacter

@@ -1,15 +1,15 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class PalaceApproachDatabase
 {
-    internal IReadOnlyList<CutsceneCommand> TriggerCommands { get; } = CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/palace_approach_commands.tsv");
-    internal IReadOnlyList<CutsceneCommand> RalphCommands { get; } = CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/palace_approach_ralph_commands.tsv");
+    internal IReadOnlyList<CutsceneCommand> TriggerCommands { get; } = CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/palace_approach_commands.tsv");
+    internal IReadOnlyList<CutsceneCommand> RalphCommands { get; } = CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/palace_approach_ralph_commands.tsv");
     internal NpcRecord Ralph { get; }
     internal PalaceApproachDatabase()
     {
-        var row = GeneratedTable.Load("res://assets/oracle/cutscenes/palace_approach_ralph.tsv",
+        var row = GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/palace_approach_ralph.tsv",
             new GeneratedTableSchema("palace approach Ralph", GeneratedTableKeySemantics.Ordered,
                 ["sprite", "tile-base", "palette", "animation", "source"], headerRequired: true)).Rows[0];
         string animation = row.RequiredString(3);

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_CREDITS_TEXT_HORIZONTAL $ae. Parent and children each occupy an
 // ordinary interaction slot; later-slot children initialize in the same pass.

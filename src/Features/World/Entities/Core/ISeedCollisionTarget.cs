@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // The original item ID, collision type and damage are independent: a flying
 // Mystery Seed changes collisionType while retaining ITEM24's damage byte.

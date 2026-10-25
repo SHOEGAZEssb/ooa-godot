@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_GASHA_SPOT $b6. Room graphics own the sprout/tree; this object owns
@@ -289,12 +289,12 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
     private void SetVisual(GashaSpotDatabaseVisualRecord visual)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
         if (animation.Frames.Length == 0)
             throw new InvalidOperationException("Gasha visual has no animation frame.");
-        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTexture(
+        (_texture, _textureOffset) = OracleOamCompositor.BuildPositionedOamTexture(
             source, animation.Frames[0].EncodedOam,
             visual.TileBase, visual.Palette,
             paletteOverride: null,

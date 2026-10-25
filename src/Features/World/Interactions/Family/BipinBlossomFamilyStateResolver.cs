@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Owns the live WRAM interpretation of INTERAC_BIPIN_BLOSSOM_FAMILY_SPAWNER
@@ -39,7 +39,7 @@ internal sealed class BipinBlossomFamilyStateResolver
             return placed;
         }
         if (save is not null &&
-            save.HasGlobalFlag(GlobalFlag.FinishedGame))
+            save.HasGlobalFlag(AgesGlobalFlag.FinishedGame))
         {
             return placed;
         }
@@ -49,12 +49,12 @@ internal sealed class BipinBlossomFamilyStateResolver
         int stage = save is null
             ? 0
             : Math.Clamp(
-                (int)save.ReadWramByte(WramAddress.wChildStage),
+                (int)save.ReadWramByte(AgesWramAddress.wChildStage),
                 0,
                 9);
         int personality = stage < 4 || save is null
             ? -1
-            : save.ReadWramByte(WramAddress.wChildPersonality);
+            : save.ReadWramByte(AgesWramAddress.wChildPersonality);
 
         var result = new List<NpcRecord>(placed.Count + family.Count);
         result.AddRange(placed);
@@ -106,7 +106,7 @@ internal sealed class BipinBlossomFamilyStateResolver
     {
         int textId = record.TextId;
         if (save.ChildNamed &&
-            save.ReadWramByte(WramAddress.wChildStage) == 0)
+            save.ReadWramByte(AgesWramAddress.wChildStage) == 0)
         {
             textId = record switch
             {
@@ -147,12 +147,12 @@ internal sealed class BipinBlossomFamilyStateResolver
         OracleRuntimeState runtime)
     {
         int refillBits = runtime.ReadWramByte(
-            WramAddress.wSeedTreeRefilledBitset);
+            AgesWramAddress.wSeedTreeRefilledBitset);
         if ((refillBits & AgesRefillMask) == 0)
             return;
 
         int nextStage = save.ReadWramByte(
-            WramAddress.wNextChildStage);
+            AgesWramAddress.wNextChildStage);
         int requiredEssences = nextStage switch
         {
             1 or 7 => 2,
@@ -161,34 +161,34 @@ internal sealed class BipinBlossomFamilyStateResolver
             _ => 0
         };
         int essenceCount = CountBits(
-            save.ReadWramByte(WramAddress.wEssencesObtained));
+            save.ReadWramByte(AgesWramAddress.wEssencesObtained));
         bool saveChanged = false;
         if (nextStage is >= 0 and <= 9 &&
             essenceCount >= requiredEssences)
         {
             saveChanged |= save.WriteWramByte(
-                WramAddress.wChildStage,
+                AgesWramAddress.wChildStage,
                 (byte)nextStage);
             int personality = nextStage switch
             {
                 4 => DecideInitialPersonality(
-                    save.ReadWramByte(WramAddress.wChildStatus)),
+                    save.ReadWramByte(AgesWramAddress.wChildStatus)),
                 7 => DecideFinalPersonality(
                     save.ReadWramByte(
-                        WramAddress.wChildPersonality),
-                    save.ReadWramByte(WramAddress.wChildStatus)),
+                        AgesWramAddress.wChildPersonality),
+                    save.ReadWramByte(AgesWramAddress.wChildStatus)),
                 _ => -1
             };
             if (personality >= 0)
             {
                 saveChanged |= save.WriteWramByte(
-                    WramAddress.wChildPersonality,
+                    AgesWramAddress.wChildPersonality,
                     (byte)personality);
             }
         }
 
         runtime.SetWramByte(
-            WramAddress.wSeedTreeRefilledBitset,
+            AgesWramAddress.wSeedTreeRefilledBitset,
             (byte)(refillBits & ~AgesRefillMask));
         if (saveChanged)
             save.CommitInventoryChange();
@@ -197,11 +197,11 @@ internal sealed class BipinBlossomFamilyStateResolver
     internal static void InitializeOnGameStart(OracleSaveData save)
     {
         // bipinBlossomFamilySpawner.s:initializeChildOnGameStart.
-        int status = save.ReadWramByte(WramAddress.wChildStatus);
+        int status = save.ReadWramByte(AgesWramAddress.wChildStatus);
         if (status == 0) return;
-        save.WriteWramByte(WramAddress.wChildStage, 5);
-        save.WriteWramByte(WramAddress.wNextChildStage, 5);
-        save.WriteWramByte(WramAddress.wChildPersonality, (byte)DecideInitialPersonality(status));
+        save.WriteWramByte(AgesWramAddress.wChildStage, 5);
+        save.WriteWramByte(AgesWramAddress.wNextChildStage, 5);
+        save.WriteWramByte(AgesWramAddress.wChildPersonality, (byte)DecideInitialPersonality(status));
     }
 
     private static int DecideInitialPersonality(int status) =>

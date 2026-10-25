@@ -34,7 +34,7 @@ The importer builds and verifies the supported clean US ROM automatically,
 then reuses it from `.cache/oracle-rom/`. First use needs network access;
 cached imports work offline. The ROM build checkout is independent of the
 import submodule and never changes it. Build inputs are pinned in
-`tools/rom-build/pins.json`, shared with CI. A changed pin selects a new cache;
+`tools/rom-build/ages.json`, shared with CI. A changed pin selects a new cache;
 a corrupt cached ROM is rebuilt.
 
 MSYS2 is discovered through `MSYS2_ROOT` or its default `C:/msys64` installation.
@@ -251,7 +251,7 @@ ground. Quest progress is retained.
 7. Run the appropriate import checks, `dotnet build -t:Rebuild -p:Optimize=true`,
    the full headless suite, `git diff --check`, and `git status --short`.
 8. Update a guide only if a durable rule changed; update the
-   [NPC coverage ledger](npc-interaction-coverage.md) when NPC coverage changes.
+   [NPC coverage ledger](ages/npc-interaction-coverage.md) when NPC coverage changes.
 
 Use `rg` for repository and disassembly searches. Inspect pixel-sensitive work
 at an integer scale; the internal viewport is 160 by 144.

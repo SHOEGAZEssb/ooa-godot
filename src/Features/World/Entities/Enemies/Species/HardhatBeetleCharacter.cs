@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_HARDHAT_BEETLE $4d:$00. It continuously tracks Link at SPEED_60,
@@ -31,9 +31,9 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
     {
         Record = record;
         Dictionary<int, Color[]>? palettes = null;
-        if (record.Id == EnemyId.HarmlessHardhatBeetle)
+        if (record.Id == AgesEnemyId.HarmlessHardhatBeetle)
         {
-            var source = OracleGraphicsData.LoadPalette("res://assets/oracle/objects/harmless_beetle_palette.bin", 1, 6);
+            var source = OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "objects/harmless_beetle_palette.bin", 1, 6);
             var colors = new Color[4];
             for (int shade = 0; shade < 4; shade++) colors[shade] = source[6, shade];
             palettes = new() { [6] = colors };

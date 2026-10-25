@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // ENEMY_VERAN_FINAL_FORM $02: transformations retain this enemy slot and
 // restore its saved turtle health when a temporary form is defeated.
@@ -179,7 +179,7 @@ internal sealed partial class VeranFinalCharacter : EnemyCharacter
     }
     private void SnapTarget()=>Position=new(Target.X+Position.X%1,Target.Y+Position.Y%1);
     private void Input(bool enabled)
-    {World.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,enabled?(byte)0:(byte)1);World.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled,enabled?(byte)0:(byte)1);}
+    {World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,enabled?(byte)0:(byte)1);World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled,enabled?(byte)0:(byte)1);}
     private void Text(int id)=>World.Entities.OnRoomEntityDialogueRequested(id,Data.Text(id),Position);
     private NotSupportedException Unsupported()=>new($"veranFinalForm.s: form ${SubId:x2}, state ${State:x2}, substate ${Substate:x2}.");
     private void Death(Player player)
@@ -187,7 +187,7 @@ internal sealed partial class VeranFinalCharacter : EnemyCharacter
         switch(Substate)
         {
             case 0:
-                if(InvincibilityCounter!=0||!player.NativeObjectVulnerable||World.Entities.RuntimeState.ReadWramByte(WramAddress.wMenuDisabled)!=0)return;
+                if(InvincibilityCounter!=0||!player.NativeObjectVulnerable||World.Entities.RuntimeState.ReadWramByte(AgesWramAddress.wMenuDisabled)!=0)return;
                 Input(false);player.DropHeldItemsForScript();player.ClearNativeItemParents();Substate=1;
                 Text(World.Entities.SaveData!.IsLinkedGame?0x5616:0x5615);return;
             case 1:Substate=2;Counter2=40;World.Entities.CreateEnergySwirl(Position,outgoing:true);return;

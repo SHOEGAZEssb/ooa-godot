@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// MENU_MAP-specific input and screen behavior. The shared bank-2-style menu

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// One generated implementation classification for each enemy ID/subid used
@@ -19,7 +19,7 @@ internal sealed class EnemyHandlerRegistry
         IEnumerable<IReadOnlyList<RoomObjectRecord>> roomObjectGroups)
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/enemy_handler_registry.tsv",
+            AgesGameContent.AssetRoot + "objects/enemy_handler_registry.tsv",
             new GeneratedTableSchema(
                 "enemy handler registry",
                 GeneratedTableKeySemantics.Unique,
@@ -65,7 +65,7 @@ internal sealed class EnemyHandlerRegistry
                 usedKeys.Add((descriptor.Id, descriptor.SubId));
             }
         }
-        var nativeSpawns = GeneratedTable.Load("res://assets/oracle/objects/native_enemy_spawns.tsv",
+        var nativeSpawns = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/native_enemy_spawns.tsv",
             new GeneratedTableSchema("native enemy creation", GeneratedTableKeySemantics.Unique,
                 ["id", "subid", "source"], ["id", "subid"], headerRequired: true));
         foreach (var row in nativeSpawns.Rows)

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_SEED_ON_TREE ($10). A sword hit knocks the seed toward Link when the
@@ -69,13 +69,13 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
         Visible = true;
 
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{database.Visual.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{database.Visual.Sprite}.png");
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(database.Visual.Animation);
         if (animation.Frames.Length == 0)
             throw new InvalidOperationException(
                 "PART_SEED_ON_TREE has no imported animation frame.");
-        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTexture(
+        (_texture, _textureOffset) = OracleOamCompositor.BuildPositionedOamTexture(
             source,
             animation.Frames[0].EncodedOam,
             type.TileBase,

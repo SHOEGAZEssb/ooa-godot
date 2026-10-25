@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// A source owner for a non-modal wDisabledObjects-style room-object freeze.

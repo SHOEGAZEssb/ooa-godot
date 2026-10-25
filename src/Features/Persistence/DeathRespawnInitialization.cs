@@ -1,11 +1,11 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal static class DeathRespawnInitialization
 {
     private static readonly Lazy<GeneratedTable> Rules = new(() => GeneratedTable.Load(
-        "res://assets/oracle/metadata/death_respawn_initialization.tsv",
+        AgesGameContent.AssetRoot + "metadata/death_respawn_initialization.tsv",
         new GeneratedTableSchema("saved checkpoint initialization", GeneratedTableKeySemantics.Unique,
             columns: ["source_group", "source_room", "minimum_x", "write_mask", "group", "room", "modifier", "facing", "y", "x", "companion_id", "source"],
             keyColumns: ["source_group", "source_room"],

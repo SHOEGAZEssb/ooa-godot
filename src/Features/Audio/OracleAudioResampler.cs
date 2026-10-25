@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Converts timed mixer steps to band-limited 44100 Hz samples.</summary>
 internal sealed class OracleAudioResampler

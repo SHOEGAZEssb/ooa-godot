@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class VireProjectileRoomEntity(VireProjectile projectile, Action<int> sound)
     : RoomEntityAdapter<VireProjectile>(projectile, projectile.SetTransitionDrawOffset), IFixedRoomEntity,

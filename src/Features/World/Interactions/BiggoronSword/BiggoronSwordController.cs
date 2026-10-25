@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BiggoronSwordController(Node world,RoomEntityManager entities,CombatController combat,Action<int> sound)
 {
@@ -25,7 +25,7 @@ internal sealed class BiggoronSwordController(Node world,RoomEntityManager entit
     internal void UpdateItem() => Weapon?.Initialize(sound);
     internal void UpdatePost(Player player)
     {
-        Weapon?.UpdatePost(Parent,player,unchecked((sbyte)entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset)),
+        Weapon?.UpdatePost(Parent,player,unchecked((sbyte)entities.RuntimeState.ReadWramByte(AgesWramAddress.wLinkRaisedFloorOffset)),
             sector=>combat.ApplyBiggoronTileHit(player,sector));
         if(Weapon is {Finished:false} weapon)
             entities.ApplySwordHit(weapon.Bounds,player.Position,weapon.Damage,EnemyKnockbackStrength.High,
@@ -40,9 +40,9 @@ internal sealed class BiggoronSwordController(Node world,RoomEntityManager entit
         var key=(Parent!.Mode,Parent.Frame,direction,palette);
         if(!_linkGraphics.TryGetValue(key,out var graphic))
         {
-            var source=OracleGraphicsCache.LoadTwoBitSpriteSheet("res://assets/oracle/gfx/spr_link.2bpp",0x22e0);
+            var source=OracleGraphicsCache.LoadTwoBitSpriteSheet(AgesGameContent.AssetRoot + "gfx/spr_link.2bpp",0x22e0);
             var record=_data.LinkGraphic(key.Mode,key.Frame,direction);
-            graphic=NpcCharacter.BuildPositionedOamTexture(source,record.Oam,0,palette,null,
+            graphic=OracleOamCompositor.BuildPositionedOamTexture(source,record.Oam,0,palette,null,
                 sourceGrayscaleInverted:true,sourceOffset:record.ByteOffset);
             _linkGraphics.Add(key,graphic);
         }

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed runtime view of tileTypesTable@sidescrolling,
@@ -51,7 +51,7 @@ internal sealed class SideScrollPlayerDatabase
     internal SideScrollPlayerDatabase()
     {
         GeneratedTable tileTable = GeneratedTable.Load(
-            "res://assets/oracle/metadata/side_scroll_tiles.tsv",
+            AgesGameContent.AssetRoot + "metadata/side_scroll_tiles.tsv",
             new GeneratedTableSchema(
                 "side-scrolling tile types",
                 GeneratedTableKeySemantics.Unique,
@@ -65,7 +65,7 @@ internal sealed class SideScrollPlayerDatabase
         }
 
         GeneratedTable constantTable = GeneratedTable.Load(
-            "res://assets/oracle/metadata/side_scroll_constants.tsv",
+            AgesGameContent.AssetRoot + "metadata/side_scroll_constants.tsv",
             new GeneratedTableSchema(
                 "side-scrolling player constants",
                 GeneratedTableKeySemantics.Unique,
@@ -76,7 +76,7 @@ internal sealed class SideScrollPlayerDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
         GeneratedTable swimmingFrameTable = GeneratedTable.Load(
-            "res://assets/oracle/metadata/side_scroll_swim_frames.tsv",
+            AgesGameContent.AssetRoot + "metadata/side_scroll_swim_frames.tsv",
             new GeneratedTableSchema(
                 "side-view Link swimming frames",
                 GeneratedTableKeySemantics.Unique,

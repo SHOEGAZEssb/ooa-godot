@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>PART_BRIDGE_SPAWNER $0c; directional half-tile construction.</summary>
 internal sealed partial class BridgeSpawnerRoomEntity : DungeonMechanicRoomEntity,

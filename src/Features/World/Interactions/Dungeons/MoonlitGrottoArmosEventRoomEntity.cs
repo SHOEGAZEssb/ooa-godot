@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_DUNGEON_EVENTS $21:$0a/$0c. The orb variant converts toggle bit
@@ -39,7 +39,7 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         GroundTreasureGrantRequest? buttonKey,
         Func<RoomEntitySpawn, Node2D?> createInteraction)
     {
-        if (record.Id != InteractionId.DungeonEvents || record.SubId is not (0x0a or 0x0c) ||
+        if (record.Id != AgesInteractionId.DungeonEvents || record.SubId is not (0x0a or 0x0c) ||
             record.SubId == 0x0a && buttonKey is not null ||
             record.SubId == 0x0c && buttonKey is null)
         {
@@ -79,7 +79,7 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         if (_record.SubId == 0x0a)
         {
             if ((_runtime.ReadWramByte(
-                    OracleRuntimeState.ToggleBlocksStateAddress) &
+                    AgesGameContent.ToggleBlocksStateAddress) &
                  _data.MoonlitOrbMask) == 0)
             {
                 return;
@@ -94,7 +94,7 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         }
 
         _runtime.SetWramByte(
-            OracleRuntimeState.ArmosTriggerAddress,
+            AgesGameContent.ArmosTriggerAddress,
             checked((byte)armosTrigger));
         // parseGivenObjectData creates this interaction before the enemy
         // spawner. Neither receives an update until the full spawn queue is
@@ -124,9 +124,9 @@ internal sealed partial class MoonlitGrottoArmosEventRoomEntity : Node2D,
         if (_record.SubId != 0x0a)
             return;
         byte state = _runtime.ReadWramByte(
-            OracleRuntimeState.ToggleBlocksStateAddress);
+            AgesGameContent.ToggleBlocksStateAddress);
         _runtime.SetWramByte(
-            OracleRuntimeState.ToggleBlocksStateAddress,
+            AgesGameContent.ToggleBlocksStateAddress,
             (byte)(state & ~_data.MoonlitOrbMask));
         spawns.Add(new MoonlitGrottoOrbSpawn(
             _record.Group, _record.Room));

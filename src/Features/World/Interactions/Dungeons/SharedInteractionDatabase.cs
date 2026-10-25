@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class SharedInteractionDatabase
 {
@@ -10,14 +10,14 @@ internal sealed class SharedInteractionDatabase
     internal IReadOnlyList<(int Room, byte Flag, int Bit)> CrystalFlags { get; }
     internal DungeonInteractionVisual MoblinFlag { get; }
     internal Color[,] PresentStatuePalette { get; } = OracleGraphicsData.LoadPalette(
-        "res://assets/oracle/objects/maku_statue_present_palette.bin", 1);
+        AgesGameContent.AssetRoot + "objects/maku_statue_present_palette.bin", 1);
     private readonly Lookup<int, DungeonObjectRecord> _npcTail = new();
     private readonly Dictionary<(int Group, int Room), MakuGashaRewardRecord> _gashaRewards = new();
     private readonly Dictionary<int, (int Position, string Message)> _entryTexts = new();
 
     internal SharedInteractionDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/shared_interactions.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/shared_interactions.tsv",
             new GeneratedTableSchema("shared interaction placements", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "order", "kind", "id", "subid", "y", "x", "condition", "source"],
                 ["group", "room", "order"], headerRequired: true));
@@ -45,19 +45,19 @@ internal sealed class SharedInteractionDatabase
                 ? _npcTail : _records;
             destination.GetOrAdd(record.Group * 256 + record.Room).Add(record);
         }
-        table = GeneratedTable.Load("res://assets/oracle/objects/dungeon_crystal_restore.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/dungeon_crystal_restore.tsv",
             new GeneratedTableSchema("D3 crystal switch restoration", GeneratedTableKeySemantics.Unique,
                 ["room", "flag", "bit", "source"], ["room"], headerRequired: true));
         var flags = new List<(int, byte, int)>();
         foreach (var row in table.Rows) flags.Add((row.HexByte(0), (byte)row.HexByte(1), row.Decimal(2, 0, 7)));
         if (flags.Count != 4) throw new InvalidOperationException("INTERAC $21:$18 requires four crystal-room flags.");
         CrystalFlags = flags.AsReadOnly();
-        var visual = GeneratedTable.Load("res://assets/oracle/objects/moblin_flag_decoration.tsv",
+        var visual = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/moblin_flag_decoration.tsv",
             new GeneratedTableSchema("King Moblin flag decoration $80:$01", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"], ["sprite"], headerRequired: true)).SingleRow();
         MoblinFlag = new("decoration-01", [visual.RequiredString(0)], visual.UnsignedDecimal(1),
             visual.Decimal(2, 0, 7), visual.Boolean01(3), [visual.RequiredString(4)]);
-        table = GeneratedTable.Load("res://assets/oracle/objects/maku_gasha_rewards.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/maku_gasha_rewards.tsv",
             new GeneratedTableSchema("room-load Maku Tree Gasha rewards", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "subid", "essence-mask", "position", "source"], ["group", "room"], headerRequired: true));
         foreach (var row in table.Rows)
@@ -66,7 +66,7 @@ internal sealed class SharedInteractionDatabase
                 row.HexByte(3), row.HexByte(4), row.RequiredString(5));
             _gashaRewards.Add((reward.Group, reward.Room), reward);
         }
-        table = GeneratedTable.Load("res://assets/oracle/objects/room_entry_text.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/room_entry_text.tsv",
             new GeneratedTableSchema("native room-entry text", GeneratedTableKeySemantics.Unique,
                 ["id", "position", "message-base64", "source"], ["id"], headerRequired: true));
         foreach (var row in table.Rows) _entryTexts.Add(row.HexWord(0), (row.Decimal(1, -1, 3), row.Base64Utf8(2)));
@@ -87,7 +87,7 @@ internal sealed class SharedInteractionDatabase
     }
 
     internal IReadOnlyList<CutsceneCommand> Script(int dungeon, int subid) =>
-        CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/" + ((dungeon, subid) switch {
+        CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/" + ((dungeon, subid) switch {
             (0 or 13, 1) => "makuPathScript_spawnDownStairsWhenEnemiesKilled",
             (0 or 13, 2) => "makuPathScript_spawn30Rupees",
             (0 or 13, 3) => "makuPathScript_keyFallsFromCeilingWhen1TorchLit",

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_FLOOR_COLOR_CHANGER $22:$01, a physical shared-buffer worker.</summary>
 internal sealed partial class FloorColorWorkerRoomEntity : Node2D, IRoomEntity, IFixedRoomEntity,
@@ -55,7 +55,7 @@ internal sealed partial class FloorColorWorkerRoomEntity : Node2D, IRoomEntity, 
             _index = 0xff;
             byte[] permutation = _random.GeneratePermutation();
             for (int index = 0; index < 256; index++)
-                _runtime.SetWramByte(WramAddress.wBigBuffer+index,permutation[index]);
+                _runtime.SetWramByte(AgesWramAddress.wBigBuffer+index,permutation[index]);
         }
         if (current != _controlTile && current != _somariaTile) { Finished = true; return; }
         for (int count = 0; count < 4 && _index > 0; count++) Convert(room,controller);
@@ -66,7 +66,7 @@ internal sealed partial class FloorColorWorkerRoomEntity : Node2D, IRoomEntity, 
 
     private void Convert(OracleRoomData room,byte controller)
     {
-        byte position = _runtime.ReadWramByte(WramAddress.wBigBuffer+_index--);
+        byte position = _runtime.ReadWramByte(AgesWramAddress.wBigBuffer+_index--);
         if (position >= 0x9f || position == controller || (position&15) == 0 ||
             (position&0xf0) is 0 or 0xa0) return;
         int tile = room.GetPackedStorageMetatile(position);

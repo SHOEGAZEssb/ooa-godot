@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // ENEMY $60 never increments state: common graphics/RNG initialization runs
 // on EVERY visit, including during the controller's BG-only palette fade.

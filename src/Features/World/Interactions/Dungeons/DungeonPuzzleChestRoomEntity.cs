@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_DUNGEON_EVENTS $21:$11-$15, spawnChestAndDeleteSelf.</summary>
 internal sealed partial class DungeonPuzzleChestRoomEntity : Node2D, IRoomEntity, IFixedRoomEntity,

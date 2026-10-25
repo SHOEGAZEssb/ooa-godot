@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_GREAT_FAIRY $d5:$00. The Temple Secret fairy is marked solid and
@@ -100,7 +100,7 @@ internal sealed class GreatFairyRoomEntity
             {
                 Group: 0,
                 Room: 0x83,
-                Id: InteractionId.GreatFairy,
+                Id: AgesInteractionId.GreatFairy,
                 SubId: 0x00,
                 Var03: 0x00,
                 Implementation:

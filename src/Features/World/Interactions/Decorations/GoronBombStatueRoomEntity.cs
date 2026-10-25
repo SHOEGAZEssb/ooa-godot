@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscellaneous1.s: interaction6b_subid13/14. The state-0 WRAM writes
 // change logical layout/collision only; the loaded background stays intact.

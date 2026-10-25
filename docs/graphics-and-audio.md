@@ -22,6 +22,12 @@ upload images immediately.
 Shared background-tile blits clip to the destination image while retaining
 the original source coordinates, flip flags, and palette selection.
 
+OAM composition and PNG shade conversion belong to graphics, so shared caches
+and renderers do not depend on NPC or inventory owners. Native menu artwork is
+also presentation-only: the launcher reuses it without invoking the save/quit
+flow. Resource cache identity includes the full game-pack path; preload is
+limited to the selected game rather than every pack in the application.
+
 Room rasterization reuses its CPU buffers and retains the input identity of
 each composed background tile. Only tiles whose art, mapping, attributes or
 palette changed are recomposed; the complete image still uses a fresh backing

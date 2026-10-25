@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/interactions/finalDungeonEnergy.s:$b5:$00. Keep the original
 // interaction slot; PART children born here first run in the next PART pass.
@@ -35,9 +35,9 @@ internal sealed class FinalDungeonEnergyRoomEntity(RoomEventContext context,
             rooms.SaveData.SetRoomFlag(rooms.ActiveGroup, rooms.CurrentRoom.Id, data.CompletionFlag);
             context.Entities.RecordDeathRespawnPoint();
             context.CloseDialogue();
-            Write(WramAddress.wTextIsActive, 0);
-            _inheritedObjects = Read(WramAddress.wDisabledObjects);
-            _inheritedMenu = Read(WramAddress.wMenuDisabled);
+            Write(AgesWramAddress.wTextIsActive, 0);
+            _inheritedObjects = Read(AgesWramAddress.wDisabledObjects);
+            _inheritedMenu = Read(AgesWramAddress.wMenuDisabled);
             Counter = data.WaitUpdates;
             _beads = context.Entities.CreateEnergySwirl(data.Center, (byte)data.WaitUpdates);
             return;
@@ -62,8 +62,8 @@ internal sealed class FinalDungeonEnergyRoomEntity(RoomEventContext context,
                 return;
             case 2:
                 if (context.Transitions.NativePaletteFadeActive) return;
-                Write(WramAddress.wDisabledObjects, 0);
-                Write(WramAddress.wMenuDisabled, 0);
+                Write(AgesWramAddress.wDisabledObjects, 0);
+                Write(AgesWramAddress.wMenuDisabled, 0);
                 Write(0xcbc3, 0); // include/wram.s:wUseSimulatedInput.
                 Finished = true; owner.Complete();
                 return;
@@ -75,8 +75,8 @@ internal sealed class FinalDungeonEnergyRoomEntity(RoomEventContext context,
         _beads = [];
         if (State != 0 && !Finished)
         {
-            if (Read(WramAddress.wDisabledObjects) == _inheritedObjects) Write(WramAddress.wDisabledObjects, 0);
-            if (Read(WramAddress.wMenuDisabled) == _inheritedMenu) Write(WramAddress.wMenuDisabled, 0);
+            if (Read(AgesWramAddress.wDisabledObjects) == _inheritedObjects) Write(AgesWramAddress.wDisabledObjects, 0);
+            if (Read(AgesWramAddress.wMenuDisabled) == _inheritedMenu) Write(AgesWramAddress.wMenuDisabled, 0);
         }
         context.Player.EndCutsceneControl(this);
         Finished = true;

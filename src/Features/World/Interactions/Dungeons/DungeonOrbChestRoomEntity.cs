@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class DungeonOrbChestRoomEntity : Node2D, IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity,
@@ -24,7 +24,7 @@ internal sealed partial class DungeonOrbChestRoomEntity : Node2D, IRoomEntity, I
     internal DungeonOrbChestRoomEntity(DungeonObjectRecord record,OracleRuntimeState runtime,
         Action<int> sound,Func<bool> textActive,Func<bool> itemFlag,Action writeChest)
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/orb_chest_scripts.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/orb_chest_scripts.tsv",
             new GeneratedTableSchema("orb chest scripts", GeneratedTableKeySemantics.Unique,
                 ["subid", "mask", "wait", "source"], ["subid"], headerRequired: true));
         if (table.Rows.Count != 2 || record.SubId is not (2 or 3)) throw new InvalidOperationException($"Unknown orb script at {record.Source}.");
@@ -71,7 +71,7 @@ internal sealed partial class DungeonOrbChestRoomEntity : Node2D, IRoomEntity, I
                 _scriptStopped = initializing; Finished = !initializing; return;
             }
         }
-        Finished = _script.Advance((_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress)&_mask) != 0,
+        Finished = _script.Advance((_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress)&_mask) != 0,
             Position,spawns,_sound,_writeChest);
     }
     public void SetTransitionDrawOffset(Vector2 offset) { }

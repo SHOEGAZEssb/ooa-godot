@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Common shutter variants $1e:$04-$0b/$10-$17. Trigger-controlled doors observe one

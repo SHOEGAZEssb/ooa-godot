@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class PalaceFriendlySoldierScriptHost(NpcCharacter actor, PalaceSoldierDatabase database,
     PalaceSoldierRecord record, OracleRuntimeState runtime, Func<bool> textActive,
@@ -11,7 +11,7 @@ internal sealed class PalaceFriendlySoldierScriptHost(NpcCharacter actor, Palace
     private int _direction, _patrolCounter;
     private bool _pressed;
     internal Player Player { get; set; } = null!;
-    internal bool InputDisabled => actor.Active && (runtime.ReadWramByte(WramAddress.wDisabledObjects) & 1) != 0;
+    internal bool InputDisabled => actor.Active && (runtime.ReadWramByte(AgesWramAddress.wDisabledObjects) & 1) != 0;
     internal void PressA() => _pressed = true;
     public override bool DialogueOpen => textActive();
     public override bool ScriptExecutionBlocked => DialogueOpen || Player.IsDying;
@@ -21,7 +21,7 @@ internal sealed class PalaceFriendlySoldierScriptHost(NpcCharacter actor, Palace
         "Mode" => record.Mode,
         "PressedA" => _pressed ? 1 : 0,
         "PatrolCounterZero" => (runtime.ReadWramByte(0xcddb) & 0x80) != 0 ? 1 : 0,
-        "TimeWarp" => runtime.ReadWramByte(WramAddress.wcde0),
+        "TimeWarp" => runtime.ReadWramByte(AgesWramAddress.wcde0),
         _ => throw UnsupportedCommand($"read soldier byte '{binding}'")
     };
     public override bool MemoryEquals(string binding, int value) => ReadMemory(binding) == value;
@@ -38,8 +38,8 @@ internal sealed class PalaceFriendlySoldierScriptHost(NpcCharacter actor, Palace
     }
     public override void SetInputEnabled(bool enabled)
     {
-        runtime.SetWramByte(WramAddress.wDisabledObjects, enabled ? (byte)0 : (byte)0x81);
-        runtime.SetWramByte(WramAddress.wMenuDisabled, enabled ? (byte)0 : (byte)0x80);
+        runtime.SetWramByte(AgesWramAddress.wDisabledObjects, enabled ? (byte)0 : (byte)0x81);
+        runtime.SetWramByte(AgesWramAddress.wMenuDisabled, enabled ? (byte)0 : (byte)0x80);
         if (!enabled) { Player.ClearNativeItemParents(); Player.DropHeldItemsForScript(); }
     }
     public override void ShowLoadedText() => showText(record.TextId, record.Message, actor.Position);

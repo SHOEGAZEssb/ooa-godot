@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // Shared wcc93: doorController owns the count, boss initialization sets bit7.
 internal sealed class BossShutterSignal

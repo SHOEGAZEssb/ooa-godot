@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 internal sealed class Sparkle
 {
     public readonly Vector2 Position;

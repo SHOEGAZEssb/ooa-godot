@@ -1,0 +1,69 @@
+using System;
+
+namespace Oracles;
+
+/// <summary>
+/// Native room contract installed by INTERAC_IMPA_NPC $4f:$00 in room 3:9e.
+/// </summary>
+internal sealed class NayruHouseDatabase
+{
+    public NayruHouseRecord Record { get; }
+
+    public NayruHouseDatabase()
+    {
+        GeneratedTable table = GeneratedTable.Load(
+            AgesGameContent.AssetRoot + "objects/nayru_house.tsv",
+            new GeneratedTableSchema(
+                "Nayru house",
+                GeneratedTableKeySemantics.Unique,
+                [
+                    "group", "room", "interaction-id", "subid",
+                    "stair-position", "stair-tile", "preserve-rendered",
+                    "source"
+                ],
+                ["group", "room", "interaction-id", "subid"],
+                headerRequired: true));
+        GeneratedTableRow row = table.SingleRow();
+        Record = new NayruHouseRecord(
+            row.Decimal(0, 0, 7),
+            row.HexByte(1),
+            row.HexByte(2),
+            row.HexByte(3),
+            row.HexByte(4),
+            row.HexByte(5),
+            row.Boolean01(6),
+            row.RequiredString(7));
+        if (Record is not
+            {
+                Group: 3,
+                Room: 0x9e,
+                InteractionId: AgesInteractionId.ImpaNpc,
+                SubId: 0x00,
+                StairPosition: 0x22,
+                StairTile: 0x45,
+                PreserveRendered: true
+            })
+        {
+            throw new InvalidOperationException(
+                $"Invalid Nayru-house native contract at " +
+                $"{row.Path}:{row.LineNumber}.");
+        }
+    }
+
+    public bool Matches(NpcRecord npc) =>
+        npc.Group == Record.Group &&
+        npc.Room == Record.Room &&
+        (npc.Id == Record.InteractionId && npc.SubId == Record.SubId ||
+         npc.Id == AgesInteractionId.Nayru && npc.SubId == 0x0b ||
+         npc.Id == AgesInteractionId.Zelda && npc.SubId == 0x07);
+}
+
+internal readonly record struct NayruHouseRecord(
+    int Group,
+    int Room,
+    int InteractionId,
+    int SubId,
+    int StairPosition,
+    int StairTile,
+    bool PreserveRendered,
+    string Source);

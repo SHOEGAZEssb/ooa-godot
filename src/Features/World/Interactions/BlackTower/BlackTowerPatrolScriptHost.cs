@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BlackTowerPatrolScriptHost : NpcInteractionCommandHost
 {

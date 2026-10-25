@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported interaction-initialization predicates which delete room-placed
@@ -21,7 +21,7 @@ public sealed class NpcVisibilityRuleDatabase
     public NpcVisibilityRuleDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/npc_visibility.tsv",
+            AgesGameContent.AssetRoot + "objects/npc_visibility.tsv",
             new GeneratedTableSchema(
                 "NPC visibility rules",
                 GeneratedTableKeySemantics.Grouped,
@@ -116,7 +116,7 @@ public sealed class NpcVisibilityRuleDatabase
                 rule.Group, rule.Room, (byte)rule.Value),
             FlagKind.Treasure => save.HasTreasure(rule.Value),
             FlagKind.Linked => save.IsLinkedGame,
-            FlagKind.Essence => (save.ReadWramByte(WramAddress.wEssencesObtained) & rule.Value) != 0,
+            FlagKind.Essence => (save.ReadWramByte(AgesWramAddress.wEssencesObtained) & rule.Value) != 0,
             FlagKind.Wram => (save.ReadWramByte(rule.Room) & rule.Value) != 0,
             FlagKind.RuntimeEquals =>
                 runtimeState.ReadWramByte(rule.Room) == rule.Value,

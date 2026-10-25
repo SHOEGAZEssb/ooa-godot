@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Optional observer for effects created by combat. Spawned nodes remain owned

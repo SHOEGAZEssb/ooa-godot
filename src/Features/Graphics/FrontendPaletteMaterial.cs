@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>RGB5 fade followed by the clean ROM's GBA-mode palette conversion.</summary>
 internal static class FrontendPaletteMaterial
@@ -9,7 +9,7 @@ internal static class FrontendPaletteMaterial
     internal static ShaderMaterial Create()
     {
         byte[] components = OracleGraphicsData.ReadBytes(
-            "res://assets/oracle/metadata/gba_palette_components.bin", 32);
+            AgesGameContent.AssetRoot + "metadata/gba_palette_components.bin", 32);
         var material = new ShaderMaterial { Shader = new Shader { Code = """
             shader_type canvas_item;
             uniform float fade_offset = 0.0;

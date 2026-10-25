@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class EnemyDatabase
 {
@@ -44,20 +44,20 @@ public sealed class EnemyDatabase
 
     public EnemyDatabase()
     {
-        var smogText = GeneratedTable.Load("res://assets/oracle/objects/smog_intro_text.tsv",
+        var smogText = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/smog_intro_text.tsv",
             new GeneratedTableSchema("Smog intro", GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
         if (smogText.Rows.Count != 1 || smogText.Rows[0].HexWord(0) != 0x2f26)
             throw new InvalidOperationException("smog_state_uninitialized requires TX_2f26.");
         SmogIntroText = smogText.Rows[0].Base64Utf8(1);
-        var likeLikeText = GeneratedTable.Load("res://assets/oracle/objects/like_like_text.tsv",
+        var likeLikeText = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/like_like_text.tsv",
             new GeneratedTableSchema("Like Like shield loss", GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
         if (likeLikeText.Rows.Count != 1 || likeLikeText.Rows[0].HexWord(0) != 0x510b)
             throw new InvalidOperationException("likelike_stateB requires TX_510b.");
         LikeLikeShieldText = likeLikeText.Rows[0].Base64Utf8(1);
         _ = likeLikeText.Rows[0].RequiredString(2);
-        GeneratedTable texts = GeneratedTable.Load("res://assets/oracle/objects/cukeman_text.tsv",
+        GeneratedTable texts = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/cukeman_text.tsv",
             new GeneratedTableSchema("Cukeman dialogue", GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
         foreach (GeneratedTableRow row in texts.Rows)
@@ -71,7 +71,7 @@ public sealed class EnemyDatabase
         if (_cukemanTexts.Count != 8)
             throw new InvalidOperationException("Cukeman requires TX_2f1e through TX_2f25.");
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/common_enemies.tsv",
+            AgesGameContent.AssetRoot + "objects/common_enemies.tsv",
             new GeneratedTableSchema(
                 "common enemy definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -232,7 +232,7 @@ public sealed class EnemyDatabase
                 "Imported common-enemy contract is incomplete.");
         }
 
-        var beamPoses = GeneratedTable.Load("res://assets/oracle/effects/lynel_beam.tsv",
+        var beamPoses = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/lynel_beam.tsv",
             new GeneratedTableSchema("PART_LYNEL_BEAM $1b", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
                 ["animation-index"], headerRequired: true));
@@ -248,7 +248,7 @@ public sealed class EnemyDatabase
             beamAnimations[i] = row.RequiredString(5);
         }
         LynelBeam = new([firstBeam.RequiredString(1)], 26, 5, firstBeam.Boolean01(4), beamAnimations);
-        var wizzrobePoses = GeneratedTable.Load("res://assets/oracle/effects/wizzrobe_projectile.tsv",
+        var wizzrobePoses = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/wizzrobe_projectile.tsv",
             new GeneratedTableSchema("PART_WIZZROBE_PROJECTILE $1f", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
                 ["animation-index"], headerRequired: true));
@@ -265,7 +265,7 @@ public sealed class EnemyDatabase
         }
         WizzrobeProjectile = new([firstPose.RequiredString(1)], firstPose.UnsignedDecimal(2),
             firstPose.UnsignedDecimal(3), firstPose.Boolean01(4), poses);
-        var candleFlame = GeneratedTable.Load("res://assets/oracle/effects/candle_flame.tsv",
+        var candleFlame = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/candle_flame.tsv",
             new GeneratedTableSchema("PART_CANDLE_FLAME $36", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
                 ["animation-index"], headerRequired: true));
@@ -283,7 +283,7 @@ public sealed class EnemyDatabase
         CandleFlame = new([firstFlame.RequiredString(1)], firstFlame.UnsignedDecimal(2), firstFlame.UnsignedDecimal(3),
             firstFlame.Boolean01(4), flameAnimations);
 
-        var vireShots = GeneratedTable.Load("res://assets/oracle/effects/vire_projectile.tsv",
+        var vireShots = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/vire_projectile.tsv",
             new GeneratedTableSchema("PART_VIRE_PROJECTILE $3a", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
                 ["animation-index"], headerRequired: true));
@@ -302,7 +302,7 @@ public sealed class EnemyDatabase
             firstShot.Boolean01(4), shotAnimations);
 
         Color[,] colorGelPalette = OracleGraphicsData.LoadPalette(
-            "res://assets/oracle/objects/color_changing_gel_palette.bin",
+            AgesGameContent.AssetRoot + "objects/color_changing_gel_palette.bin",
             1,
             6);
         var colorGelPalette6 = new Color[4];
@@ -311,7 +311,7 @@ public sealed class EnemyDatabase
         _colorChangingGelPalettes.Add(6, colorGelPalette6);
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/effects/moblin_boomerang.tsv",
+            AgesGameContent.AssetRoot + "effects/moblin_boomerang.tsv",
             new GeneratedTableSchema(
                 "Moblin boomerang",
                 GeneratedTableKeySemantics.Ordered,
@@ -341,7 +341,7 @@ public sealed class EnemyDatabase
         }
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/objects/keese.tsv",
+            AgesGameContent.AssetRoot + "objects/keese.tsv",
             new GeneratedTableSchema(
                 "Keese definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -377,7 +377,7 @@ public sealed class EnemyDatabase
                 $"Expected two Keese definitions, got {_keeseDefinitions.Count}.");
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/objects/crows.tsv",
+            AgesGameContent.AssetRoot + "objects/crows.tsv",
             new GeneratedTableSchema(
                 "Crow definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -419,7 +419,7 @@ public sealed class EnemyDatabase
         }
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/objects/octoroks.tsv",
+            AgesGameContent.AssetRoot + "objects/octoroks.tsv",
             new GeneratedTableSchema(
                 "Octorok definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -461,7 +461,7 @@ public sealed class EnemyDatabase
                 $"Expected three Octorok definitions, got {_octorokDefinitions.Count}.");
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/objects/stalfos.tsv",
+            AgesGameContent.AssetRoot + "objects/stalfos.tsv",
             new GeneratedTableSchema(
                 "Stalfos definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -501,7 +501,7 @@ public sealed class EnemyDatabase
         }
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/objects/zols.tsv",
+            AgesGameContent.AssetRoot + "objects/zols.tsv",
             new GeneratedTableSchema(
                 "Zol definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -542,7 +542,7 @@ public sealed class EnemyDatabase
                 $"Expected two Zol definitions, got {_zolDefinitions.Count}.");
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/objects/gels.tsv",
+            AgesGameContent.AssetRoot + "objects/gels.tsv",
             new GeneratedTableSchema(
                 "Gel definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -571,7 +571,7 @@ public sealed class EnemyDatabase
             throw gel.Invalid(0, "ENEMY_GEL $43:$00 definition");
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/objects/enemy_object_stream.tsv",
+            AgesGameContent.AssetRoot + "objects/enemy_object_stream.tsv",
             new GeneratedTableSchema(
                 "ordered enemy object stream",
                 GeneratedTableKeySemantics.Grouped,
@@ -611,7 +611,7 @@ public sealed class EnemyDatabase
         RoomObjectRecordCount = records;
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/effects/octorok_projectile.tsv",
+            AgesGameContent.AssetRoot + "effects/octorok_projectile.tsv",
             new GeneratedTableSchema(
                 "Octorok projectile",
                 GeneratedTableKeySemantics.Ordered,
@@ -633,7 +633,7 @@ public sealed class EnemyDatabase
             projectile.RequiredString(8));
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/objects/masked_moblin.tsv",
+            AgesGameContent.AssetRoot + "objects/masked_moblin.tsv",
             new GeneratedTableSchema(
                 "masked Moblin",
                 GeneratedTableKeySemantics.Ordered,
@@ -654,7 +654,7 @@ public sealed class EnemyDatabase
             masked.RequiredString(15), masked.RequiredString(16));
 
         table = GeneratedTable.Load(
-            "res://assets/oracle/effects/enemy_arrow.tsv",
+            AgesGameContent.AssetRoot + "effects/enemy_arrow.tsv",
             new GeneratedTableSchema(
                 "enemy arrow",
                 GeneratedTableKeySemantics.Ordered,
@@ -909,10 +909,10 @@ public sealed class EnemyDatabase
         EnemyHandlerKind.Twinrova => descriptor.Id == 3 && descriptor.SubId == 0 && new TwinrovaDatabase().Actor(3).Health == 3,
         EnemyHandlerKind.VeranFinal => descriptor.Id==2&&descriptor.SubId==0&&new VeranFinalDatabase().Actor(2).Health==24,
         EnemyHandlerKind.AmbiGuard => descriptor.Id == 0x54 && _importedDefinitions.ContainsKey((0x54, 0)),
-        EnemyHandlerKind.KingMoblin => descriptor.Id == EnemyId.KingMoblin && descriptor.SubId == 0 &&
+        EnemyHandlerKind.KingMoblin => descriptor.Id == AgesEnemyId.KingMoblin && descriptor.SubId == 0 &&
             new KingMoblinDatabase().Actor(0x7f).Health == 6,
         EnemyHandlerKind.CheepCheep => HasImportedDefinition(descriptor, 0x2c),
-        EnemyHandlerKind.TargetCartCrystal => descriptor.Id==EnemyId.TargetCartCrystal && descriptor.SubId<12 && _importedDefinitions.ContainsKey((0x63,0)),
+        EnemyHandlerKind.TargetCartCrystal => descriptor.Id==AgesEnemyId.TargetCartCrystal && descriptor.SubId<12 && _importedDefinitions.ContainsKey((0x63,0)),
         EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),
         EnemyHandlerKind.GopongaFlower => HasImportedDefinition(descriptor, 0x25),
         EnemyHandlerKind.ArrowDarknut => HasImportedDefinition(descriptor, 0x21),
@@ -1004,7 +1004,7 @@ public sealed class EnemyDatabase
             descriptor.Id == EnemyId.Crow &&
             _crowDefinitions.ContainsKey(descriptor.SubId),
         EnemyHandlerKind.VineSprout =>
-            descriptor.Id == EnemyId.VineSprout && VineSprouts.HasSubId(descriptor.SubId),
+            descriptor.Id == AgesEnemyId.VineSprout && VineSprouts.HasSubId(descriptor.SubId),
         EnemyHandlerKind.Gel =>
             descriptor.Id == Gel.Id && descriptor.SubId == 0,
         EnemyHandlerKind.HardhatBeetle =>

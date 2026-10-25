@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // object_code/common/enemies/waterTektite.s. This swimmer has no jump/hazard
 // handler: raw layout tiles $f9-$fd are traversable regardless of solidity.

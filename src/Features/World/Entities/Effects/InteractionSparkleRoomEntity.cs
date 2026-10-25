@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC$84:$00 state0 sets enabled bit$80 and angle-dependent visible81/82. Its handler
 // continues during text, disabled-object updates and scrolling.

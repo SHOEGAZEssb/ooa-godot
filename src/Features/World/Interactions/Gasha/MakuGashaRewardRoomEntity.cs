@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Room-load INTERAC $90:$1b-$1d. The helper occupies its slot even if the
 // essence/item gate fails; createTreasure failure also deletes it permanently.
@@ -23,7 +23,7 @@ internal sealed partial class MakuGashaRewardRoomEntity(MakuGashaRewardRecord re
     {
         if (Finished) return;
         if (inventory.HasTreasure(TreasureId.Essence) &&
-            (save.ReadWramByte(WramAddress.wEssencesObtained) & record.EssenceMask) != 0)
+            (save.ReadWramByte(AgesWramAddress.wEssencesObtained) & record.EssenceMask) != 0)
         {
             Position = new((record.Position & 15) * 16 + 8, (record.Position >> 4) * 16 + 8);
             if (!save.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlagItem))

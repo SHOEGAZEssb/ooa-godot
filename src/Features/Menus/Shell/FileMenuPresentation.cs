@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Shared file-menu layout assembly and decorative OAM list.</summary>
 internal static class FileMenuPresentation
@@ -15,19 +15,19 @@ internal static class FileMenuPresentation
         byte[] map = new byte[576];
         byte[] flags = new byte[576];
         OracleGraphicsData.Overlay(map, OracleGraphicsData.ReadBytes(
-            "res://assets/oracle/menu/map_file_menu_top.bin", 160), 0);
+            AgesGameContent.AssetRoot + "menu/map_file_menu_top.bin", 160), 0);
         OracleGraphicsData.Overlay(flags, OracleGraphicsData.ReadBytes(
-            "res://assets/oracle/menu/flags_file_menu_top.bin", 160), 0);
+            AgesGameContent.AssetRoot + "menu/flags_file_menu_top.bin", 160), 0);
         OracleGraphicsData.Overlay(map, OracleGraphicsData.ReadBytes(
-            $"res://assets/oracle/menu/{middleMap}", 320), 0xa0);
+            AgesGameContent.AssetRoot + $"menu/{middleMap}", 320), 0xa0);
         OracleGraphicsData.Overlay(flags, OracleGraphicsData.ReadBytes(
-            $"res://assets/oracle/menu/{middleFlags}", 320), 0xa0);
+            AgesGameContent.AssetRoot + $"menu/{middleFlags}", 320), 0xa0);
         // The save-menu data includes a fourth, off-screen row; only the
         // first three rows beginning at tilemap offset $1e0 are visible.
         OracleGraphicsData.Overlay(map, OracleGraphicsData.ReadBytes(
-            $"res://assets/oracle/menu/{bottomMap}", bottomLength), 0x1e0, 96);
+            AgesGameContent.AssetRoot + $"menu/{bottomMap}", bottomLength), 0x1e0, 96);
         OracleGraphicsData.Overlay(flags, OracleGraphicsData.ReadBytes(
-            $"res://assets/oracle/menu/{bottomFlags}", bottomLength), 0x1e0, 96);
+            AgesGameContent.AssetRoot + $"menu/{bottomFlags}", bottomLength), 0x1e0, 96);
         return (map, flags);
     }
 

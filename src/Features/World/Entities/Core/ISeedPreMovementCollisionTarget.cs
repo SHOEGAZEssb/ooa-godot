@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Marks part collisions resolved by itemUpdateDamageToApply before the

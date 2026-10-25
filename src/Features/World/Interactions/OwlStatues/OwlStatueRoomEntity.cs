@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_OWL_STATUE ($13). The part installs its own solid floor cell, accepts
@@ -56,7 +56,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
             preserveRenderedTile: true);
 
         Image sourceImage = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
         _animation = new EnemyAnimationPlayer(this, 2);
         _animation.Load(
             sourceImage,

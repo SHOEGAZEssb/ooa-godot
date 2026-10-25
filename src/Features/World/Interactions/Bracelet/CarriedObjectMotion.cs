@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared bracelet-parent held, release, lateral throw, and bounce state.

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_BIPIN $28:$00 consumes the imported @bipin0/@updateSpeed native
 // record, including its raw speed, angle, X interval, and var3a toggle.

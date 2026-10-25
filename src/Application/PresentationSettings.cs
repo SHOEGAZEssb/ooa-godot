@@ -1,11 +1,11 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Port presentation preferences, independent of the original save image.</summary>
 internal sealed class PresentationSettings
 {
-    private const string DefaultPath = "user://presentation.cfg";
+    private const string DefaultPath = AgesGameContent.PresentationPath;
     internal bool HudBottom { get; set; }
     internal bool RoomOverlayEnabled { get; set; }
 

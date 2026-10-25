@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ITEM_SEED_SATCHEL ($19) parent-item allocation and BCD consumption. The
@@ -268,7 +268,7 @@ internal readonly record struct SeedShooterRecord(
     internal static SeedShooterRecord Load()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/seed_shooter.tsv",
+            AgesGameContent.AssetRoot + "metadata/seed_shooter.tsv",
             new GeneratedTableSchema(
                 "seed shooter",
                 GeneratedTableKeySemantics.Unique,

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_CUCCO $36:$00. The ordinary adult Cucco idles on a shared-RNG

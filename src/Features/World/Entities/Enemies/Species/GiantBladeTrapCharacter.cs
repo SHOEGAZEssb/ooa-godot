@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // giantBladeTrap.s $2a:$03 accelerates along walls, choosing a counterclockwise
 // turn, then its reverse, then forward when the first two directions are solid.

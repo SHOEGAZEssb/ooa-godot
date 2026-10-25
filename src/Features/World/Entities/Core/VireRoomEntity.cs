@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class VireRoomEntity(VireCharacter actor,VireRoomEnvironment world)
     : RoomEntityAdapter<VireCharacter>(actor,actor.SetTransitionDrawOffset), IFixedRoomEntity,

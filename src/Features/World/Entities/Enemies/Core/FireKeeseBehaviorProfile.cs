@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal readonly record struct FireKeeseBehaviorProfile(IReadOnlyList<EnemyBehaviorValue> Values)
 {

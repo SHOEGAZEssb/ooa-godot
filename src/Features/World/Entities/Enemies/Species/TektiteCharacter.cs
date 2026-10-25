@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ENEMY_TEKTITE $30: tektite.s states $08-$0b, including the
 /// separate crouch, ready and launch updates and signed 8.8 jump integration.</summary>

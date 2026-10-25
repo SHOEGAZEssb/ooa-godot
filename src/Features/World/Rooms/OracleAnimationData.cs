@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class OracleAnimationData
 {
@@ -16,7 +16,7 @@ public sealed class OracleAnimationData
     {
         _headers = LoadHeaders();
         LoadTracks();
-        foreach(var row in GeneratedTable.Load("res://assets/oracle/animations/groups.tsv",new("Animation group initial state",GeneratedTableKeySemantics.Unique,
+        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "animations/groups.tsv",new("Animation group initial state",GeneratedTableKeySemantics.Unique,
             ["group","initial-state","source"],["group"],headerRequired:true)).Rows)
         {
             int group=row.Decimal(0,0,21),state=row.HexByte(1);
@@ -26,7 +26,7 @@ public sealed class OracleAnimationData
         if(_initialStates.Count!=_groups.Count)throw new InvalidOperationException("animationGroups.s: missing initial animation state.");
         for (int sheet = 0; sheet < _sheets.Length; sheet++)
             _sheets[sheet] = OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/gfx_animations_{sheet + 1}.png");
+                AgesGameContent.AssetRoot + $"gfx/gfx_animations_{sheet + 1}.png");
         ValidateHeaderRanges();
     }
 
@@ -157,7 +157,7 @@ public sealed class OracleAnimationData
     private static Header[] LoadHeaders()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/animations/headers.tsv",
+            AgesGameContent.AssetRoot + "animations/headers.tsv",
             new GeneratedTableSchema(
                 "animation DMA headers",
                 GeneratedTableKeySemantics.Unique,
@@ -181,7 +181,7 @@ public sealed class OracleAnimationData
     private void LoadTracks()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/animations/tracks.tsv",
+            AgesGameContent.AssetRoot + "animations/tracks.tsv",
             new GeneratedTableSchema(
                 "animation tracks",
                 GeneratedTableKeySemantics.Grouped,

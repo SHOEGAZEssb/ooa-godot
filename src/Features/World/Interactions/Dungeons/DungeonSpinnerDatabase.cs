@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported roomSpecificCode placements for INTERAC_SPINNER $7d. The
@@ -17,7 +17,7 @@ internal sealed class DungeonSpinnerDatabase
     internal DungeonSpinnerDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_spinners.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_spinners.tsv",
             new GeneratedTableSchema(
                 "room-specific dungeon spinners",
                 GeneratedTableKeySemantics.Grouped,

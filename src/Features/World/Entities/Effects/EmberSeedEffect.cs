@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared Satchel-thrown seed child for ITEM_EMBER_SEED ($20),
@@ -181,9 +181,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _frameIndex = 0;
 
         Image flyingSource = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
         Image flameSource = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.FlameSprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{record.FlameSprite}.png");
         _flyingTextures = OracleGraphicsCache.BuildAnimationTextures(
             flyingSource, _flyingFrames, record.TileBase, record.Palette);
         _effectTextures = OracleGraphicsCache.BuildAnimationTextures(

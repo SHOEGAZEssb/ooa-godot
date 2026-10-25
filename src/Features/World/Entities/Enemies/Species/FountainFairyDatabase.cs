@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FountainFairyDatabase
 {
@@ -15,7 +15,7 @@ internal sealed class FountainFairyDatabase
     internal FountainFairyDatabase()
     {
         GeneratedTable texts = GeneratedTable.Load(
-            "res://assets/oracle/objects/great_fairy_text.tsv",
+            AgesGameContent.AssetRoot + "objects/great_fairy_text.tsv",
             new GeneratedTableSchema("ENEMY_GREAT_FAIRY $38 dialogue",
                 GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
@@ -30,7 +30,7 @@ internal sealed class FountainFairyDatabase
         if (_texts.Count != 2)
             throw new InvalidOperationException("ENEMY_GREAT_FAIRY $38 requires TX_4100/TX_4105.");
         GeneratedTableRow heart = GeneratedTable.Load(
-            "res://assets/oracle/effects/great_fairy_heart.tsv",
+            AgesGameContent.AssetRoot + "effects/great_fairy_heart.tsv",
             new GeneratedTableSchema("PART_GREAT_FAIRY_HEART $30",
                 GeneratedTableKeySemantics.Ordered,
                 ["sprite", "tile-base", "palette", "inverted", "animation", "source"],

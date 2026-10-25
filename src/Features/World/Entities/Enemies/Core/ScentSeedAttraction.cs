@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared ecom_updateAngleToScentSeed counter. Enemy.var3d is a wrapping byte:

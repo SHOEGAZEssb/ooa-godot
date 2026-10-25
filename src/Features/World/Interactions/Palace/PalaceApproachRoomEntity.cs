@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $6b:$02 and the $37:$01 child share cfc0 and advance at their
 // allocated interaction slots, including a child created later in this pass.
@@ -127,8 +127,8 @@ internal sealed class PalaceApproachRoomEntity : CutsceneCommandHost, IRoomEntit
     public override void SetInputEnabled(bool enabled)
     {
         _inputLocked = !enabled;
-        _owner.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, enabled ? (byte)0 : (byte)0x81);
-        _owner.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, enabled ? (byte)0 : (byte)0x80);
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, enabled ? (byte)0 : (byte)0x81);
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, enabled ? (byte)0 : (byte)0x80);
         if (enabled) _player.EndCutsceneControl();
         else { _player.ClearNativeItemParents(); _player.DropHeldItemsForScript(); }
     }
@@ -168,8 +168,8 @@ internal sealed class PalaceApproachRoomEntity : CutsceneCommandHost, IRoomEntit
         if (!_inputLocked) return;
         _inputLocked = false;
         _player.EndCutsceneControl();
-        _owner.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
-        _owner.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0);
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 0);
     }
 }
 

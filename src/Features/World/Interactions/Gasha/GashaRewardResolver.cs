@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Resolves the native Gasha reward branches while consuming the shared game

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported room, script, flag, ring, text, and animation metadata for Vasu
@@ -76,7 +76,7 @@ internal sealed class VasuShopDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/vasu_shop_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/vasu_shop_constants.tsv",
             new GeneratedTableSchema(
                 "Vasu Jewelers constants",
                 GeneratedTableKeySemantics.Unique,
@@ -92,7 +92,7 @@ internal sealed class VasuShopDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/vasu_shop_texts.tsv",
+            AgesGameContent.AssetRoot + "objects/vasu_shop_texts.tsv",
             new GeneratedTableSchema(
                 "Vasu Jewelers text",
                 GeneratedTableKeySemantics.Unique,
@@ -112,7 +112,7 @@ internal sealed class VasuShopDatabase
     private void LoadAnimations()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/vasu_shop_animations.tsv",
+            AgesGameContent.AssetRoot + "objects/vasu_shop_animations.tsv",
             new GeneratedTableSchema(
                 "Vasu Jewelers animations",
                 GeneratedTableKeySemantics.Unique,

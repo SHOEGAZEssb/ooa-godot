@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Owns transient status-bar values which deliberately trail their live

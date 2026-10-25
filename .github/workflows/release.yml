@@ -58,6 +58,11 @@ jobs:
           }
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_WORKFLOW_SHA/Directory.Build.targets" `
               -OutFile Directory.Build.targets
+          # Historical tags keep their original project and assembly identities.
+          $gameBase = if (Test-Path -LiteralPath 'oracles.csproj') { 'oracles' } else { 'oracle-of-ages' }
+          "GAME_PROJECT=$gameBase.csproj" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "VALIDATION_PROJECT=validation/$gameBase.validation.csproj" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "GAME_ASSEMBLY=$gameBase" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Exclude debug symbols from every release preset
         shell: python
@@ -183,10 +188,10 @@ jobs:
           # Godot's editor host looks in Debug, regardless of compilation settings.
           # Stage Release assemblies there so validation needs no Debug build.
           $hostOutput = '.godot/mono/temp/bin/Debug'
-          dotnet build oracle-of-ages.csproj --configuration ExportRelease `
+          dotnet build $env:GAME_PROJECT --configuration ExportRelease `
               -t:Rebuild -p:Optimize=true --warnaserror --output $hostOutput
           if ($LASTEXITCODE -ne 0) { throw 'Release game build failed.' }
-          dotnet build validation/oracle-of-ages.validation.csproj --configuration Release `
+          dotnet build $env:VALIDATION_PROJECT --configuration Release `
               -t:Rebuild -p:Optimize=true -p:BuildProjectReferences=false --warnaserror `
               --output validation/bin/Debug/net8.0
           if ($LASTEXITCODE -ne 0) { throw 'Release validation build failed.' }
@@ -307,6 +312,7 @@ jobs:
       - name: Verify Android release contents
         shell: python
         run: |
+          import os
           import zipfile
 
           with zipfile.ZipFile("builds/android/oracle-of-ages.apk") as apk:
@@ -316,7 +322,7 @@ jobs:
                   raise SystemExit(f"Build-only files in Android release: {unwanted}")
               for required in ("lib/arm64-v8a/libgodot_android.so",
                                "lib/arm64-v8a/libmonosgen-2.0.so",
-                               "assets/.godot/mono/publish/arm64/oracle-of-ages.dll"):
+                               f"assets/.godot/mono/publish/arm64/{os.environ['GAME_ASSEMBLY']}.dll"):
                   if required not in names or apk.getinfo(required).file_size == 0:
                       raise SystemExit(f"Missing or empty Android runtime file: {required}")
 

@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot '..\import_oracles\Import-CutsceneData.ps1')
-. (Join-Path $PSScriptRoot '..\import_oracles\Convert-CutsceneCommands.ps1')
+. (Join-Path $PSScriptRoot '..\import_oracles\Shared\Import-CutsceneData.ps1')
+. (Join-Path $PSScriptRoot '..\import_oracles\Shared\Convert-CutsceneCommands.ps1')
 
 function Assert-Normalization([bool]$condition, [string]$message) {
     if (-not $condition) { throw $message }

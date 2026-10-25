@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART_WIZZROBE_PROJECTILE $1f: its held pose never advances during flight.
 internal sealed partial class WizzrobeProjectile : TransitionOffsetNode2D

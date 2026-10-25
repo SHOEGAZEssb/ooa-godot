@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Native $95 dispatch around the same ball physics used by ordinary $1:49.
 internal sealed class NativeBallRoomEntity(Room149Ball ball,OracleRuntimeState runtime)

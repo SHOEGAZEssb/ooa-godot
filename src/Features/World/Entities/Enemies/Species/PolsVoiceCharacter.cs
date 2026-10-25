@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_POLS_VOICE $23:$00. The source alternates a random grounded wait

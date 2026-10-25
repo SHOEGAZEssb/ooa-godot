@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_DUNGEON_EVENTS $21:$0e, the current-room $4a:$2a block goal.</summary>
 internal sealed partial class MoonlitGrottoFallingKeyRoomEntity : Node2D,
@@ -25,7 +25,7 @@ internal sealed partial class MoonlitGrottoFallingKeyRoomEntity : Node2D,
         Func<OracleRoomData> activeRoom,GroundTreasureGrantRequest request,Func<bool> itemFlagSet,
         Func<GroundTreasureGrantRequest,bool> createTreasure)
     {
-        if (record.Id != InteractionId.DungeonEvents || record.SubId != 0x0e)
+        if (record.Id != AgesInteractionId.DungeonEvents || record.SubId != 0x0e)
             throw new ArgumentOutOfRangeException(nameof(record));
         _data = data;
         _activeRoom = activeRoom;

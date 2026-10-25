@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_GRASSDEBRIS ($00) and INTERAC_REDGRASSDEBRIS ($01). State 0
@@ -35,7 +35,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
 
     internal void Initialize(
         Vector2 position,
-        int interactionId = oracleofages.InteractionId.GrassDebris,
+        int interactionId = Oracles.InteractionId.GrassDebris,
         bool flickers = false,
         bool underwater = false,
         Action<int>? playSound = null)
@@ -51,7 +51,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
         }
 
         _record = record;
-        _animation = underwater && interactionId == oracleofages.InteractionId.GrassDebris
+        _animation = underwater && interactionId == Oracles.InteractionId.GrassDebris
             ? record.UnderwaterAnimation
             : record.Animation;
         Flickers = flickers;
@@ -119,7 +119,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
         LoadDefinitions()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/grass_debris.tsv",
+            AgesGameContent.AssetRoot + "effects/grass_debris.tsv",
             new GeneratedTableSchema(
                 "grass debris",
                 GeneratedTableKeySemantics.Unique,
@@ -145,11 +145,11 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
             int palette = row.UnsignedDecimal(3);
             int underwaterPalette = row.UnsignedDecimal(4);
             int sound = row.HexByte(5);
-            if (interactionId is not (oracleofages.InteractionId.GrassDebris or oracleofages.InteractionId.RedGrassDebris) ||
+            if (interactionId is not (Oracles.InteractionId.GrassDebris or Oracles.InteractionId.RedGrassDebris) ||
                 sprite != "spr_common_sprites" ||
                 tileBase != 0x00 ||
                 palette != 0 ||
-                underwaterPalette != (interactionId == oracleofages.InteractionId.GrassDebris ? 6 : 0) ||
+                underwaterPalette != (interactionId == Oracles.InteractionId.GrassDebris ? 6 : 0) ||
                 sound != SoundId.SndCutGrass)
             {
                 throw new InvalidOperationException(
@@ -158,7 +158,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
             }
 
             Image source = OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{sprite}.png");
+                AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
             AnimationDefinition animationDefinition =
                 OracleGraphicsCache.GetAnimationDefinition(
                     row.RequiredString(6));
@@ -203,7 +203,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
         foreach (AnimationFrameDefinition frame in definition.Frames)
         {
             animation.Add(new GrassDebrisEffectFrameRecord(
-                NpcCharacter.BuildOamTexture(
+                OracleOamCompositor.BuildOamTexture(
                     source, frame.EncodedOam, tileBase, palette),
                 frame.Duration,
                 frame.Parameter));

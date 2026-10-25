@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported before/after-SAVED_NAYRU states for INTERAC_BOY $3c:$0d and
@@ -19,7 +19,7 @@ internal sealed class Room20eNpcDatabase
     public Room20eNpcDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/room20e_npc_states.tsv",
+            AgesGameContent.AssetRoot + "objects/room20e_npc_states.tsv",
             new GeneratedTableSchema(
                 "room 2:0e NPC states",
                 GeneratedTableKeySemantics.Unique,
@@ -123,7 +123,7 @@ internal sealed class Room20eNpcDatabase
 
         // PALH_a2: preserve color zero's RGB beneath its transparent alpha.
         StonePalette = OracleGraphicsData.LoadPaletteColors(
-            "res://assets/oracle/cutscenes/nayru_stone_sprite_palette.bin");
+            AgesGameContent.AssetRoot + "cutscenes/nayru_stone_sprite_palette.bin");
         StonePalette[0].A = 0.0f;
     }
 
@@ -146,7 +146,7 @@ internal sealed class Room20eNpcDatabase
     public Color[] Palette(Room20eNpcStateRecord state) =>
         state.PaletteKind == Room20ePaletteKind.PalhA2
             ? StonePalette
-            : NpcCharacter.GetStandardSpritePalette(state.Palette);
+            : OracleOamCompositor.GetStandardSpritePalette(state.Palette);
 }
 
 internal readonly record struct Room20eNpcStateRecord(

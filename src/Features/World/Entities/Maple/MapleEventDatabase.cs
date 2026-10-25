@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed runtime view of the Ages Maple location, flight, visual, loot, and
@@ -89,7 +89,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadLocations()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/maple_locations.tsv",
+            AgesGameContent.AssetRoot + "objects/maple_locations.tsv",
             new GeneratedTableSchema(
                 "Maple eligible locations",
                 GeneratedTableKeySemantics.Unique,
@@ -124,7 +124,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadPaths()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/maple_paths.tsv",
+            AgesGameContent.AssetRoot + "objects/maple_paths.tsv",
             new GeneratedTableSchema(
                 "Maple flight paths",
                 GeneratedTableKeySemantics.Unique,
@@ -187,7 +187,7 @@ internal sealed partial class MapleEventDatabase
     private static MapleVisualRecord LoadVisual()
     {
         GeneratedTableRow row = GeneratedTable.Load(
-            "res://assets/oracle/objects/maple_visual.tsv",
+            AgesGameContent.AssetRoot + "objects/maple_visual.tsv",
             new GeneratedTableSchema(
                 "Maple special-object visual",
                 GeneratedTableKeySemantics.Ordered,
@@ -208,7 +208,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadMovementSelection()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/maple_movement_selection.tsv",
+            AgesGameContent.AssetRoot + "objects/maple_movement_selection.tsv",
             new GeneratedTableSchema(
                 "Maple movement path selection",
                 GeneratedTableKeySemantics.Unique,
@@ -235,7 +235,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadItems()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/maple_items.tsv",
+            AgesGameContent.AssetRoot + "objects/maple_items.tsv",
             new GeneratedTableSchema(
                 "Maple scattered items",
                 GeneratedTableKeySemantics.Unique,
@@ -279,7 +279,7 @@ internal sealed partial class MapleEventDatabase
     private static MapleBookVisualRecord LoadBookVisual()
     {
         GeneratedTableRow row = GeneratedTable.Load(
-            "res://assets/oracle/objects/maple_book.tsv",
+            AgesGameContent.AssetRoot + "objects/maple_book.tsv",
             new GeneratedTableSchema(
                 "Maple Touching Book actor",
                 GeneratedTableKeySemantics.Ordered,
@@ -296,7 +296,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/maple_text.tsv",
+            AgesGameContent.AssetRoot + "metadata/maple_text.tsv",
             new GeneratedTableSchema(
                 "Maple dialogue",
                 GeneratedTableKeySemantics.Unique,
@@ -310,7 +310,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/maple_constants.tsv",
+            AgesGameContent.AssetRoot + "metadata/maple_constants.tsv",
             new GeneratedTableSchema(
                 "Maple constants",
                 GeneratedTableKeySemantics.Unique,

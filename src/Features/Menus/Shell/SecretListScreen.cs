@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 // GFXH_SECRET_LIST_MENU uses unsigned tiles and a window at Y=$60.
 // The middle $18..$5f scanlines alone use the scrolling register set.
@@ -19,10 +19,10 @@ public sealed partial class SecretListScreen : Node2D
     internal void Initialize(SecretListDatabase data, OracleSaveData save)
     {
         foreach (var bank in _vram) Array.Fill(bank, (byte)0xff);
-        var graphics = OracleGraphicsCache.LoadImage("res://assets/oracle/menu/gfx_secret_list_menu.png");
+        var graphics = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "menu/gfx_secret_list_menu.png");
         int count = graphics.GetWidth() / 8 * (graphics.GetHeight() / 8);
         CopyGraphics(graphics, 0x700, count);
-        _cursor = OracleGraphicsCache.LoadImage("res://assets/oracle/map/sprites.png");
+        _cursor = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "map/sprites.png");
         CopyGraphics(_cursor, 0, 0x20);
         int index = 0;
         foreach (var entry in data.Entries(save))
@@ -31,7 +31,7 @@ public sealed partial class SecretListScreen : Node2D
             int address = 0xa00 + index++ * 0x200;
             glyphs.CopyTo(_vram[address < 0x1000 ? 0 : 1], address < 0x1000 ? address : address - 0x1000);
         }
-        _cursorPalette = OracleGraphicsData.LoadPalette("res://assets/oracle/menu/secret_list_obj.bin");
+        _cursorPalette = OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "menu/secret_list_obj.bin");
         SetSecret(new byte[24], unlocked: false);
     }
     private void CopyGraphics(Image graphics, int destination, int count)
@@ -65,9 +65,9 @@ public sealed partial class SecretListScreen : Node2D
             tiles.MapTile(bank0, sourceTile, tile, 0); tiles.MapTile(bank1, sourceTile, tile, 1);
         }
         _map = OracleTileRenderer.BuildTileMapTexture(
-            OracleAssetCache.ReadBytes("res://assets/oracle/menu/map_secret_list_menu.bin"),
-            OracleAssetCache.ReadBytes("res://assets/oracle/menu/flg_secret_list_menu.bin"), tiles,
-            OracleGraphicsData.LoadPalette("res://assets/oracle/menu/secret_list_bg.bin", 4, 2), 32, 32);
+            OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "menu/map_secret_list_menu.bin"),
+            OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "menu/flg_secret_list_menu.bin"), tiles,
+            OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "menu/secret_list_bg.bin", 4, 2), 32, 32);
         QueueRedraw();
     }
     public override void _Draw()

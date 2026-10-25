@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported script-selected visuals, text, sound, and dirt-chip physics for
@@ -14,7 +14,7 @@ internal sealed class Room148PickaxeDatabase
     public Room148PickaxeDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/room148_pickaxe.tsv",
+            AgesGameContent.AssetRoot + "objects/room148_pickaxe.tsv",
             new GeneratedTableSchema(
                 "room 1:48 pickaxe worker",
                 GeneratedTableKeySemantics.Ordered,

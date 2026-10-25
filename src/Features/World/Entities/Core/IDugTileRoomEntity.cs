@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Receives a successful breakable-tile dig after the room layout has changed.

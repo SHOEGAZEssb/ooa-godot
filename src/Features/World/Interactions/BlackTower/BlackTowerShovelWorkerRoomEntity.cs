@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_HARDHAT_WORKER $58:$00.</summary>
 internal sealed class BlackTowerShovelWorkerRoomEntity : BlackTowerNpcRoomEntity,

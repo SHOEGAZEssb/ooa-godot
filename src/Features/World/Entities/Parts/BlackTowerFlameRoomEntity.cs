@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART_BLACK_TOWER_MOVING_FLAMES $59. Collision is enabled by partData,
 // including the invisible ignition delay; partCode59 ignores hit/death status.

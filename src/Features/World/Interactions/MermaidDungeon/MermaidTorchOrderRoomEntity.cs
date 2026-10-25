@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscPuzzles_subid07 reads layout bits, not the cumulative wNumTorchesLit.
 internal sealed partial class MermaidTorchOrderRoomEntity : Node2D,

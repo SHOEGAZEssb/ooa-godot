@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed record VireBehaviorProfile(IReadOnlyList<EnemyBehaviorValue> State,
     IReadOnlyList<EnemyBehaviorValue> Behaviors, IReadOnlyList<EnemyBehaviorValue> Spawns,

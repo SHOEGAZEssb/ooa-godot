@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_SWORD $5e follows its parent's animParameter and high XYZ bytes.
 internal sealed class LinkedSwordRoomEntity(NpcCharacter actor, Func<NpcCharacter?> parent, Func<int, string> animation)

@@ -1,0 +1,1853 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+
+namespace Oracles;
+
+public partial class DialogueBox : Node2D
+{
+    // Immutable grammar is prepared with the dialogue type during UI loading,
+    // rather than parsed through Regex's shared, evictable cache on first talk.
+    private static readonly Regex InitialPositionPattern = new(@"^\\pos\(([0-3])\)");
+    private static readonly Regex LinkPattern = new(@"\\link", RegexOptions.IgnoreCase);
+    private static readonly Regex HeartPattern = new(@"\\heart(?![A-Za-z])");
+    private static readonly Regex PromisedHeartPattern = new(@"\\heart(?=promised)", RegexOptions.IgnoreCase);
+    private static readonly Regex HeartPiecePattern = new(@"\\heartpiece", RegexOptions.IgnoreCase);
+    private static readonly Regex HexCharacterPattern = new(@"\\x(?<hex>[0-9a-f]{2})", RegexOptions.IgnoreCase);
+    private static readonly Regex FormattingPattern = new(
+        @"\\(?:stop(?:\(\))?|pos\([^)]*\)|col\([^)]*\)|opt\([^)]*\)|" +
+        @"item\([^)]*\)|sfx\([^)]*\)|charsfx\([^)]*\)|" +
+        @"slow\([^)]*\)|speed\([^)]*\)|wait\([^)]*\))", RegexOptions.IgnoreCase);
+    // Suppress beforefieldinit: both CoreCLR and Android Mono must prepare the
+    // grammar before boot constructs its dormant dialogue nodes, not first talk.
+    static DialogueBox() { }
+
+    private Func<float> _gameplayCameraY = () => 0;
+    private bool _gameplayPresentation;
+    private int _presentationOffsetY;
+    internal int? SourceTextId { get; private set; }
+
+    internal void SetGameplayPresentationOffset(int offsetY)
+    {
+        if (_gameplayPresentation)
+            Position += new Vector2(0, offsetY - _presentationOffsetY);
+        _presentationOffsetY = offsetY;
+    }
+
+    internal void SetGameplayCameraYProvider(Func<float> cameraY) =>
+        _gameplayCameraY = cameraY;
+
+    private DialogueScreenContext GameplayScreen(float linkScreenY)
+    {
+        float cameraY = _gameplayCameraY();
+        return DialogueScreenContext.Gameplay(linkScreenY + cameraY, cameraY);
+    }
+
+    private const int LinesPerPage = 2;
+    private const int LineSpacing = 16;
+    private const int CharactersPerLine = 16;
+    private const int PanelX = 8;
+    private const int PanelWidth = 18 * 8;
+    private const int PanelHeight = 5 * 8;
+    private const int TextAreaHeight = LinesPerPage * LineSpacing;
+    private const int TextSoundCooldownFrames = 4;
+    private const int TextSlowdownFrames = 0x78;
+    private const int ChoiceCursorTile = 0x04;
+    private static readonly Rect2 ContinueMarkerRect = new(144, 32, 8, 8);
+
+    // getCharacterDisplayLength reads byte 2 of each eight-byte row in
+    // textbox.s:textSpeedData for wTextSpeed values $00-$04.
+    private static readonly int[] CharacterDisplayFrames = { 7, 5, 4, 3, 2 };
+
+    // Argumentless controls can be adjoined directly to printable text. Keep
+    // longest names first so heartpiece is never split as heart + "piece".
+    private static readonly string[] AdjacentTextCommandNames =
+    {
+        "heartpiece", "rectangle", "triangle", "diamond", "circle",
+        "spade", "heart", "times", "right", "left", "down", "link",
+        "club", "abtn", "bbtn", "up"
+    };
+
+    // textbox.s:@textColorData selects either the common background palette 0
+    // (paletteData48e0) or PALH_0e's background palette 1 (paletteData4920).
+    // Default color 0 is palette 0 color 2: the original warm white.
+    private static readonly Color NormalTextColor = GbcColor(0x1f, 0x1a, 0x11);
+    private static readonly Color RedTextColor = GbcColor(0x1d, 0x01, 0x03);
+    private static readonly Color SecondaryRedTextColor = GbcColor(0x1f, 0x0e, 0x04);
+    private static readonly Color BlueTextColor = GbcColor(0x04, 0x15, 0x1f);
+    private static readonly Color AlternateLightTextColor = GbcColor(0x08, 0x1f, 0x00);
+    private static readonly Color BackgroundColor = GbcColor(0x00, 0x00, 0x00);
+
+    private readonly List<TextSegment> _segments = new();
+    private Texture2D _fontTexture = null!;
+    private ImageTexture? _composedTexture;
+    private Image? _retainedPresentation;
+    private Image? _scrollStartPresentation;
+    private Texture2D _symbolTexture = null!;
+    private Image? _tradeItemSource;
+    private Texture2D? _tradeItemTexture;
+    private Texture2D _continueMarkerTexture = null!;
+    private Texture2D _choiceCursorTexture = null!;
+    private Texture2D[] _heartPieceTextures = null!;
+    private string _currentMessage = string.Empty;
+    private int _segmentIndex;
+    private int _firstLineIndex;
+    private int _visibleGlyphs;
+    private int _messageSpeed = 4;
+    private ulong _openedFrame;
+    private double _arrowFrameCounter;
+    private double _characterFrameAccumulator;
+    private int _characterDisplayTimer;
+    private int _initialTextUpdates;
+    private bool _prepareNextLine;
+    private bool _pendingSegmentAdvance;
+    private bool _automaticTextScroll;
+    private bool _skipToLineEnd;
+    private int _textSlowdownTimer;
+    private int _textSoundCooldownCounter;
+    private double _textScrollTickAccumulator;
+    private float _textScrollOffset;
+    private int _textScrollState;
+    private double _heartPieceTickAccumulator;
+    private int _heartPieceTimer;
+    private int _heartPieceDisplayCount;
+    private int _heartPieceLine = -1;
+    private int _heartPieceColumn = -1;
+    private bool _heartPieceSetComplete;
+    private bool _open;
+    private bool _consumeClosingInput;
+    private bool _closing;
+    private bool _scrollingText;
+    private bool _choiceActive;
+    private int _choicePhase = -1;
+    private int _choiceDelay;
+    private int _choiceClosingUpdates;
+    private bool _nonExitableReady;
+    private bool _ownerClosing;
+    private int _textboxFlags;
+    private int _visiblePanelHeight = PanelHeight;
+    private int _selectedChoice;
+    private int? _choiceResult;
+    private BackgroundPaletteState? _backgroundPaletteState;
+    private Action<int> _playSound = static _ => { };
+    private Action<bool> _alternatePalettePriorityChanged = static _ => { };
+    private Func<int> _heartPieceCount = static () => 0;
+    private Func<string> _linkName = static () => "Link";
+    private Func<int, int, Color> _backgroundPaletteColor =
+        static (_, shade) =>
+        {
+            float component = 1.0f - shade / 3.0f;
+            return new Color(component, component, component);
+        };
+
+    internal event Action? HeartPieceSetFilled;
+    internal event Action? HeartPieceSetAccepted;
+
+    public bool IsOpen => _open;
+    internal bool ApplicationUpdateOwned { get; set; }
+    public bool BlocksPlayerInput => _open || _consumeClosingInput;
+    public int MessageSpeed
+    {
+        get => _messageSpeed;
+        set
+        {
+            if (value is < 0 or > 4)
+                throw new ArgumentOutOfRangeException(nameof(value));
+            _messageSpeed = value;
+        }
+    }
+
+    internal bool ArrowVisible => IsAwaitingNextMessage && _heartPieceTimer == 0 &&
+        (((int)_arrowFrameCounter >> 4) & 1) != 0;
+    internal bool HasNextMessage => _open && HasContinuation;
+    internal bool IsPageComplete => _open && CurrentWindowGlyphCount == _visibleGlyphs;
+    // wTextIsActive=$80 retains the textbox while menu handlers may consume
+    // its completed printing/choice result (textbox.s states f and option 2).
+    internal bool PrintingComplete => !_open || _nonExitableReady;
+    // interactionRunScript accepts the high bit of wTextIsActive: $80
+    // after non-exitable printing, or $ff while the owner requests closing.
+    internal bool AllowsNativeScriptCommands => _open && (_nonExitableReady || _ownerClosing);
+    internal int VisibleLinesPerPage => LinesPerPage;
+    internal int TextLineSpacing => LineSpacing;
+    internal int CharacterDisplayFrameLength => CharacterDisplayFrames[_messageSpeed];
+    internal int TextSlowdownTimerForValidation => _textSlowdownTimer;
+    internal int VisibleGlyphCount => _visibleGlyphs;
+    internal bool IsScrollingText => _scrollingText;
+    internal float TextScrollOffset => _textScrollOffset;
+    internal string CurrentMessage => _currentMessage;
+    internal bool ChoiceActive => _choiceActive;
+    internal bool ChoiceCursorVisible => _choiceActive &&
+        (_choicePhase == 2 || _choiceClosingUpdates >= 2 ||
+            _choicePhase == 3 && _nonExitableReady);
+    internal int TextboxFlagsForValidation => _textboxFlags;
+    internal int VisiblePanelHeight => _visiblePanelHeight;
+    internal int SelectedChoice => _selectedChoice;
+    internal bool HeartPieceDisplayActive => _heartPieceLine >= 0;
+    internal int HeartPieceDisplayCount => _heartPieceDisplayCount;
+    internal int HeartPieceDisplayTimer => _heartPieceTimer;
+    internal static Color DefaultTextColorForValidation => NormalTextColor;
+    internal static Color RedTextColorForValidation => RedTextColor;
+    internal static Color BlueTextColorForValidation => BlueTextColor;
+    internal static Rect2 ContinueMarkerRectForValidation => ContinueMarkerRect;
+    internal static int ChoiceCursorTileForValidation => ChoiceCursorTile;
+
+    private TextSegment CurrentSegment => _segments[_segmentIndex];
+    private bool HasAnotherLine => _firstLineIndex + LinesPerPage < CurrentSegment.Lines.Count;
+    private bool HasContinuation => HasAnotherLine || _segmentIndex + 1 < _segments.Count;
+    private bool IsAwaitingNextMessage => _open && !_scrollingText &&
+        IsPageComplete && HasContinuation && (!_automaticTextScroll || !HasAnotherLine);
+    private int CurrentWindowGlyphCount =>
+        CurrentLine(0).Glyphs.Count + CurrentLine(1).Glyphs.Count;
+
+    private bool _resourcesPrepared;
+    private string _assetRoot = AgesGameContent.AssetRoot;
+    private static bool _textProcessingPrepared;
+    private bool _diagnoseFirstDraw;
+    public override void _Ready() => PrepareResources();
+
+    internal void PrepareResources(string? assetRoot = null)
+    {
+        if (assetRoot is not null)
+        {
+            if (OracleAssetPack.RootFor(assetRoot + "dialogue") != assetRoot)
+                throw new ArgumentException("Dialogue requires a game pack root.", nameof(assetRoot));
+            if (_resourcesPrepared && _assetRoot != assetRoot)
+                throw new InvalidOperationException("Prepared dialogue resources cannot change game packs.");
+            _assetRoot = assetRoot;
+        }
+        if (_resourcesPrepared) return;
+        PrepareTextProcessing();
+        _resourcesPrepared = true;
+        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture(_assetRoot + "gfx/gfx_font.png");
+        _symbolTexture = OracleTileRenderer.BuildMonochromeFontTexture(_assetRoot + "gfx/gfx_font_jp.png");
+        _tradeItemSource = LoadSourceImage(
+            _assetRoot + "gfx/gfx_font_tradeitems.png");
+        _continueMarkerTexture = BuildHudMarkerTexture(0x03, 1);
+        _choiceCursorTexture = BuildHudMarkerTexture(ChoiceCursorTile, 2);
+        _heartPieceTextures = BuildHeartPieceTextures();
+    }
+
+    internal static void PrepareTextProcessing()
+    {
+        if (_textProcessingPrepared) return;
+        // Regex construction alone does not execute its runner or the managed
+        // parser on Android. Prepare only pure text conversion with local input:
+        // no ShowMessage, name provider, palette, audio, input or live text state.
+        // Discard all output; real messages still resolve save-owned names and
+        // produce fresh segments at their original opening boundary.
+        using var diagnostics = DialogueLoadDiagnostics.Begin("prepare-text", null);
+        const string sample = "\\pos(0)\\col(0)A\\x20B\\heart\\stop()\n\\opt()Yes\\n\\opt()No";
+        _ = InitialPositionPattern.Match(sample).Groups[1].Value;
+        _ = UnresolvedCommandsForValidation(sample);
+        _ = LinkPattern.Replace("\\Link", static _ => "Link");
+        _ = ParseMessage(sample, 0, out _);
+        _ = PlainText(sample + "\\heartpromised\\heartpiece");
+        _textProcessingPrepared = true;
+    }
+
+    internal void SetSoundPlayer(Action<int> playSound)
+    {
+        ArgumentNullException.ThrowIfNull(playSound);
+        _playSound = playSound;
+    }
+
+    internal void SetHeartPieceCountProvider(Func<int> heartPieceCount)
+    {
+        ArgumentNullException.ThrowIfNull(heartPieceCount);
+        _heartPieceCount = heartPieceCount;
+    }
+
+    internal void SetLinkNameProvider(Func<string> linkName)
+    {
+        ArgumentNullException.ThrowIfNull(linkName);
+        _linkName = linkName;
+    }
+
+    internal void SetBackgroundPaletteProvider(
+        Func<int, int, Color> backgroundPaletteColor)
+    {
+        ArgumentNullException.ThrowIfNull(backgroundPaletteColor);
+        _backgroundPaletteColor = backgroundPaletteColor;
+    }
+
+    internal void SetBackgroundPaletteState(
+        BackgroundPaletteState backgroundPaletteState)
+    {
+        ArgumentNullException.ThrowIfNull(backgroundPaletteState);
+        _backgroundPaletteState = backgroundPaletteState;
+        _backgroundPaletteColor = backgroundPaletteState.Resolve;
+    }
+
+    internal void SetAlternatePalettePriorityHandler(
+        Action<bool> alternatePalettePriorityChanged)
+    {
+        ArgumentNullException.ThrowIfNull(alternatePalettePriorityChanged);
+        _alternatePalettePriorityChanged = alternatePalettePriorityChanged;
+    }
+
+    public void ShowMessage(string message, float linkY)
+    {
+        ShowMessage(message, linkY, 0);
+    }
+
+    /// <summary>
+    /// Opens ordinary room dialogue in the display area below the top status
+    /// bar. <paramref name="linkY"/> remains relative to the original 128-pixel
+    /// gameplay field so initTextbox's $48 side-selection boundary is unchanged.
+    /// </summary>
+    internal void ShowGameplayMessage(string message, float linkY, int? sourceTextId = null)
+    {
+        ShowMessageCore(message, GameplayScreen(linkY), 0, 0, sourceTextId);
+    }
+
+    internal void ShowGameplayMessage(
+        string message, float linkY, int textPosition)
+    {
+        ShowMessageCore(message, GameplayScreen(linkY), textPosition, 0);
+    }
+
+    internal void ShowGameplayMessageWithFlags(
+        string message,
+        float linkY,
+        int textboxFlags,
+        int? textPosition = null)
+    {
+        ShowMessageCore(message, GameplayScreen(linkY), textPosition ?? 0, textboxFlags);
+    }
+
+    public void ShowMessage(string message, float linkY, int textPosition)
+    {
+        ShowMessageCore(message, DialogueScreenContext.FullScreen(linkY), textPosition, textboxFlags: 0);
+    }
+
+    internal void ShowMessage(
+        string message, DialogueScreenContext screen,
+        int? textPosition = null, int textboxFlags = 0, int? sourceTextId = null) =>
+        ShowMessageCore(message, screen, textPosition ?? 0, textboxFlags, sourceTextId);
+
+    private void ShowMessageCore(
+        string message,
+        DialogueScreenContext screen,
+        int textPosition,
+        int textboxFlags,
+        int? sourceTextId = null)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        _retainedPresentation?.Dispose();
+        _retainedPresentation = null;
+        _scrollStartPresentation?.Dispose();
+        _scrollStartPresentation = null;
+        SourceTextId = sourceTextId;
+        using var diagnostics = DialogueLoadDiagnostics.Begin("open", sourceTextId);
+        _diagnoseFirstDraw = OracleRoomLoadDiagnostics.IsEnabled;
+        // checkInitialTextCommands recognizes $0c:$20-$23 only at the
+        // beginning of the resolved text, after initTextbox's automatic side.
+        Match initialPosition = InitialPositionPattern.Match(message);
+        int? textCommandPosition = initialPosition.Success
+            ? initialPosition.Groups[1].Value[0] - '0' : null;
+        IReadOnlyList<string> unresolved = UnresolvedCommandsForValidation(message);
+        if (unresolved.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Dialogue reached the textbox with unresolved command(s) " +
+                $"{string.Join(", ", unresolved)} in " +
+                $"'{message.Replace('\n', ' ')}'.");
+        }
+        // Text control $0a:$00 reads wLinkName when the original textbox
+        // reaches it. Resolve from the provider for each newly opened message
+        // so OracleSaveData remains the sole owner of the entered name.
+        message = LinkPattern.Replace(message, _ => _linkName());
+        _segments.Clear();
+        _segments.AddRange(ParseMessage(message, textboxFlags, out bool slowdownRequested));
+        diagnostics?.Mark("parse");
+        if (ContainsTradeItemGlyph())
+            _tradeItemTexture = BuildTradeItemTexture();
+        _currentMessage = PlainText(message);
+        diagnostics?.Mark("plain-text-and-glyphs");
+        _segmentIndex = 0;
+        _firstLineIndex = 0;
+        _visibleGlyphs = 0;
+        _openedFrame = Input.TimingFrame;
+        _open = true;
+        _closing = false;
+        _consumeClosingInput = false;
+        _scrollingText = false;
+        _choiceActive = false;
+        _choicePhase = -1;
+        _choiceDelay = _choiceClosingUpdates = 0;
+        _nonExitableReady = false;
+        _ownerClosing = false;
+        _textboxFlags = textboxFlags;
+        _backgroundPaletteState?.LoadTextboxPalette(textboxFlags);
+        _alternatePalettePriorityChanged(UsesAlternatePalette1);
+        diagnostics?.Mark("palette-and-state");
+        // Textbox position $04 starts at w4TileMap row 11. The ring-list LCD
+        // interrupt replaces its fifth screen row with source row 1, keeping
+        // the menu's bottom border visible; only four rows of the textbox are
+        // therefore visible on hardware.
+        _visiblePanelHeight =
+            textPosition == 4 ? TextAreaHeight : PanelHeight;
+        _selectedChoice = 0;
+        _choiceResult = null;
+        _arrowFrameCounter = 0.0;
+        _characterFrameAccumulator = 0.0;
+        _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+        // Standard text states 0 and 1 upload the panel and prepare the first
+        // row. Neither runs the character timer nor accepts A/B input.
+        _initialTextUpdates = 2;
+        _prepareNextLine = false;
+        _pendingSegmentAdvance = false;
+        _automaticTextScroll = false;
+        _skipToLineEnd = false;
+        _textSlowdownTimer = slowdownRequested ? TextSlowdownFrames : 0;
+        _textSoundCooldownCounter = 0;
+        _textScrollTickAccumulator = 0.0;
+        _textScrollOffset = 0.0f;
+        _textScrollState = 0;
+        ResetHeartPieceDisplay();
+
+        // initTextbox subtracts hCameraY as a byte. Explicit source position
+        // $00 is top when DONTCHECKPOSITION is set, not automatic placement.
+        int position = textPosition == 0 && (textboxFlags & 0x08) == 0
+            ? screen.AutomaticPosition : textPosition;
+        if ((textboxFlags & 0x08) == 0 && textCommandPosition.HasValue)
+            position = textCommandPosition.Value;
+        int textboxY = position switch
+        {
+            0 => 8,
+            1 => 40,
+            2 => 80,
+            3 => 96,
+            // Ring-list TX_30c1 descriptions begin at w4TileMap+$0160.
+            // With the menu's SCY=$f0 split, source row 11 appears at y=104.
+            4 => 104,
+            5 => 48,
+            6 => 24,
+            _ => throw new InvalidOperationException(
+                $"Unsupported wTextboxPosition ${position:x2}.")
+        };
+        _gameplayPresentation = screen.IsGameplay;
+        Position = new Vector2(0, screen.ScreenY(textboxY) +
+            (_gameplayPresentation ? _presentationOffsetY : 0));
+        Visible = true;
+        QueueRedraw();
+    }
+
+    internal void ShowChoiceMessage(
+        string message,
+        DialogueScreenContext screen,
+        int initialChoice = 0,
+        int? textPosition = null,
+        int textboxFlags = 0,
+        int? sourceTextId = null)
+    {
+        ShowMessage(message, screen, textPosition, textboxFlags,sourceTextId);
+        _choiceActive = true;
+        _selectedChoice = Math.Max(0, initialChoice);
+    }
+
+    internal void ShowChoiceMessage(
+        string message,
+        float linkY,
+        int initialChoice = 0,
+        int? textPosition = null)
+    {
+        if (textPosition.HasValue)
+            ShowMessage(message, linkY, textPosition.Value);
+        else
+            ShowMessage(message, linkY);
+        _choiceActive = true;
+        _selectedChoice = Math.Max(0, initialChoice);
+    }
+
+    internal void ShowGameplayChoiceMessage(
+        string message,
+        float linkY,
+        int initialChoice = 0,
+        int? textPosition = null,
+        int textboxFlags = 0)
+    {
+        ShowChoiceMessage(message, GameplayScreen(linkY), initialChoice, textPosition, textboxFlags);
+    }
+
+    /// <summary>
+    /// Opens a showItemText2-style message whose lifetime and input belong to
+    /// the surrounding menu. It still uses the ordinary textbox printer but
+    /// A/B and direction input cannot advance or dismiss it.
+    /// </summary>
+    internal void ShowPassiveMessage(string message, float linkY, int textPosition)
+    {
+        ShowMessage(message, DialogueScreenContext.FullScreen(linkY), textPosition, textboxFlags: 0x0b);
+    }
+
+    internal bool TryTakeChoiceResult(out int choice)
+    {
+        choice = _choiceResult ?? 0;
+        if ((_open && !_nonExitableReady) || !_choiceResult.HasValue)
+            return false;
+        _choiceResult = null;
+        return true;
+    }
+
+    internal void SubmitChoiceForValidation(int choice)
+    {
+        if (!_choiceActive)
+            throw new InvalidOperationException("No dialogue choice is active.");
+        _selectedChoice = choice;
+        SubmitChoice();
+        // This existing helper arranges a completed prompt for script/menu
+        // tests. Input-driven comparisons exercise all native close updates.
+        Close();
+    }
+
+    // updateTextbox treats the owner's wTextIsActive=$ff request as standard
+    // state $0f on every dispatch. It restores the underlying menu, but the
+    // thread stays active until the owner replaces or clears that request.
+    internal void RequestClosing()
+    {
+        if (!_open) return;
+        _nonExitableReady = false;
+        _choicePhase = -1;
+        _ownerClosing = true;
+        Visible = false;
+    }
+
+    public void Close()
+    {
+        _retainedPresentation?.Dispose();
+        _retainedPresentation = null;
+        _scrollStartPresentation?.Dispose();
+        _scrollStartPresentation = null;
+        _closing = false;
+        _open = false;
+        _scrollingText = false;
+        _automaticTextScroll = false;
+        _skipToLineEnd = false;
+        _choiceActive = false;
+        _pendingSegmentAdvance = false;
+        _choicePhase = -1;
+        _choiceDelay = _choiceClosingUpdates = 0;
+        _nonExitableReady = false;
+        _ownerClosing = false;
+        _textboxFlags = 0;
+        _alternatePalettePriorityChanged(false);
+        ResetHeartPieceDisplay();
+        Visible = false;
+    }
+
+    internal void CloseRetainingPresentation()
+    {
+        // showItemText2 replaces the text thread without restoring the
+        // existing textbox map. Its published pixels survive until a later
+        // standard-text initialization or a menu map upload replaces them.
+        Image retained = ComposeImage();
+        Close();
+        _retainedPresentation = retained;
+        Visible = true;
+        QueueRedraw();
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!ApplicationUpdateOwned)
+            Advance(delta);
+    }
+
+    internal void AdvanceApplicationUpdate() =>
+        Advance(ApplicationFixedUpdateScheduler.UpdateDelta);
+
+    private void Advance(double delta)
+    {
+        if (_consumeClosingInput &&
+            !Input.IsPhysicalActionPressed("attack") && !Input.IsPhysicalActionPressed("item"))
+        {
+            _consumeClosingInput = false;
+        }
+
+        if (!_open)
+            return;
+        if (_nonExitableReady || _ownerClosing)
+            return;
+
+        if (_choiceClosingUpdates > 0)
+        {
+            // Option state 3 returns to standard state $0f; that state
+            // restores the tiles, then $10 releases text after object updates.
+            if (--_choiceClosingUpdates == 0) Close();
+            return;
+        }
+
+        if (_choicePhase >= 0)
+        {
+            AdvanceChoice();
+            return;
+        }
+
+        if (_initialTextUpdates > 0)
+        {
+            if (_pendingSegmentAdvance)
+                AdvancePendingTextSegment();
+            _initialTextUpdates--;
+            return;
+        }
+
+        if (_prepareNextLine)
+        {
+            // Standard state 3 consumes its own update preparing the lower
+            // row. A/B can expire the delay but cannot display that row yet.
+            if (_textSoundCooldownCounter > 0) _textSoundCooldownCounter--;
+            if (_textSlowdownTimer > 0) _textSlowdownTimer--;
+            bool skip = _textSlowdownTimer == 0 &&
+                (Input.IsPhysicalActionJustPressed("attack") || Input.IsPhysicalActionJustPressed("item"));
+            if (skip || --_characterDisplayTimer <= 0)
+            {
+                _skipToLineEnd |= skip;
+                _prepareNextLine = false;
+                _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+            }
+            return;
+        }
+
+        // textbox.s: standardTextStatef saves the underlying tiles and moves
+        // to $10. Only the next text-thread update clears wTextIsActive, after
+        // that update's object passes have observed the still-active textbox.
+        if (_closing)
+        {
+            Close();
+            return;
+        }
+
+        if (UpdateHeartPieceDisplay(delta))
+        {
+            QueueRedraw();
+            return;
+        }
+
+        if (_scrollingText)
+        {
+            UpdateTextScroll(delta);
+            return;
+        }
+
+        if (_automaticTextScroll && IsPageComplete && HasAnotherLine)
+        {
+            BeginTextScroll(automaticNextLine: false);
+            return;
+        }
+
+        bool pageWasComplete = IsPageComplete;
+        if (IsPageComplete)
+        {
+            if (HasContinuation)
+                _arrowFrameCounter += delta * 60.0;
+        }
+        else
+        {
+            UpdateCharacterDisplay(delta);
+        }
+
+        QueueRedraw();
+        if (_choiceActive && IsPageComplete && !HasContinuation)
+        {
+            // func_5296 enters option state 0 on the final printing update.
+            _choicePhase = 0;
+            return;
+        }
+        if (!pageWasComplete)
+            return;
+        if ((_textboxFlags & 2) != 0 && !HasContinuation)
+        {
+            _textboxFlags &= ~2;
+            _nonExitableReady = true;
+            return;
+        }
+        // Standard text's final @checkShouldExit accepts any pressed key.
+        // Continuations and option prompts retain their narrower controls.
+        bool finalMenuPress = !HasContinuation && !_choiceActive &&
+            (Input.IsPhysicalActionJustPressed("inventory") || Input.IsPhysicalActionJustPressed("map"));
+        if (Input.TimingFrame == _openedFrame ||
+            (!finalMenuPress && !Input.IsPhysicalActionJustPressed("attack") && !Input.IsPhysicalActionJustPressed("item") &&
+             !Input.IsPhysicalActionJustPressed("move_left") && !Input.IsPhysicalActionJustPressed("move_right") &&
+             !Input.IsPhysicalActionJustPressed("move_up") && !Input.IsPhysicalActionJustPressed("move_down")))
+            return;
+
+        if (HasContinuation && !Input.IsPhysicalActionJustPressed("attack") &&
+            !Input.IsPhysicalActionJustPressed("item"))
+            return;
+
+        AdvanceOrClose();
+    }
+
+    internal void AdvanceOrClose()
+    {
+        if (!_open || _scrollingText)
+            return;
+
+        if (_heartPieceTimer > 0)
+            return;
+        if (_heartPieceSetComplete)
+        {
+            _heartPieceSetComplete = false;
+            HeartPieceSetAccepted?.Invoke();
+            return;
+        }
+
+        if (!IsPageComplete)
+        {
+            RevealCurrentLine();
+            QueueRedraw();
+            return;
+        }
+
+        if (HasContinuation && (!_automaticTextScroll || !HasAnotherLine))
+            _playSound(SoundId.SndText2);
+
+        if (HasAnotherLine)
+        {
+            bool firstNewLine = !_automaticTextScroll;
+            if (firstNewLine) _skipToLineEnd = false;
+            BeginTextScroll(automaticNextLine: firstNewLine);
+        }
+        else if (_segmentIndex + 1 < _segments.Count)
+        {
+            // \stop clears the old text before the following segment starts.
+            _pendingSegmentAdvance = true;
+            _initialTextUpdates = 2;
+            _automaticTextScroll = false;
+            _skipToLineEnd = false;
+            QueueRedraw();
+        }
+        else
+        {
+            if (_choiceActive)
+            {
+                SubmitChoice();
+                return;
+            }
+            _closing = true;
+            // The original main loop cannot run Link's interaction code again
+            // for the same wKeysJustPressed value. Hold the closing press until
+            // both face buttons have been released to preserve that ordering.
+            _consumeClosingInput = true;
+        }
+    }
+
+    private void BeginTextScroll(bool automaticNextLine)
+    {
+        _scrollStartPresentation?.Dispose();
+        _scrollStartPresentation = ComposeImage();
+        // State 5 jumps into state b's code, which increments the CURRENT
+        // state to 6 (not c). States 6-9/a draw the first new line; a then
+        // enters b-c-d-e/3/4 to draw the second without another button press.
+        _automaticTextScroll = automaticNextLine;
+        _scrollingText = true;
+        _arrowFrameCounter = 0.0;
+        _textScrollTickAccumulator = 0.0;
+        _textScrollState = 0;
+        _textScrollOffset = 8.0f;
+        QueueRedraw();
+    }
+
+    public override void _Draw()
+    {
+        if (!_open && _retainedPresentation is null)
+            return;
+
+        using var diagnostics = _diagnoseFirstDraw ? DialogueLoadDiagnostics.Begin("first-draw", SourceTextId) : null;
+        _diagnoseFirstDraw = false;
+        using Image output = ComposeImage();
+        diagnostics?.Mark("compose");
+        if (_composedTexture is null) _composedTexture = ImageTexture.CreateFromImage(output);
+        else _composedTexture.Update(output);
+        diagnostics?.Mark("texture");
+        DrawTexture(_composedTexture, Vector2.Zero);
+        diagnostics?.Mark("submit");
+    }
+
+    internal Image ComposeImage()
+    {
+        if (_retainedPresentation is not null) return (Image)_retainedPresentation.Duplicate();
+        if (_scrollingText && _textScrollState == 0 && _scrollStartPresentation is not null)
+            return (Image)_scrollStartPresentation.Duplicate();
+        var output = new OracleImageCanvas(160, PanelHeight);
+        output.Fill(Colors.Transparent);
+        if (!_open || _ownerClosing) return output.ToImage();
+        output.FillRect(new Rect2I(PanelX, 0, PanelWidth, _visiblePanelHeight), BackgroundColor);
+
+        if (_scrollingText)
+        {
+            // State b shifts the map and clears its top tile row without
+            // publishing it. State 6/c publishes that map; 7/d edits it
+            // again, and only 8/e publishes the final whole-line position.
+            DrawFontLineClipped(output, CurrentLine(1),
+                new Vector2(16, 8),
+                CurrentLine(1).Glyphs.Count);
+        }
+        else
+        {
+            int visible = _visibleGlyphs;
+            for (int lineIndex = 0; lineIndex < LinesPerPage; lineIndex++)
+            {
+                TextLine line = CurrentLine(lineIndex);
+                int lineVisible = Math.Min(visible, line.Glyphs.Count);
+                DrawFontLine(output, line, new Vector2(16, lineIndex * LineSpacing), lineVisible);
+                visible = Math.Max(0, visible - line.Glyphs.Count);
+            }
+        }
+
+        // updateTextboxArrow alternates blank tile $02 and arrow tile $03
+        // every 16 updates. It runs only while state $05 is waiting for more
+        // text, so the final message of a dialogue never receives an arrow.
+        if (ArrowVisible)
+            BlitDialogueTexture(output, _continueMarkerTexture, ContinueMarkerRect,
+                new Rect2(0, 0, 8, 8), RedTextColor);
+
+        // standardTextStatef restores the WRAM map without publishing it.
+        // Its state $10 update performs the DMA and releases text, so the
+        // last published option cursor survives that intervening update.
+        if (ChoiceCursorVisible || _choiceClosingUpdates == 1)
+            DrawChoiceCursor(output);
+
+        DrawHeartPieceDisplay(output);
+        return output.ToImage();
+    }
+
+    internal void AdvanceArrowClockForValidation(double delta)
+    {
+        if (IsAwaitingNextMessage)
+            _arrowFrameCounter += delta * 60.0;
+    }
+
+    internal bool AdvanceCharacterClockForValidation(double delta)
+    {
+        return UpdateCharacterDisplay(delta);
+    }
+
+    internal void RevealCurrentPageForValidation()
+    {
+        if (_pendingSegmentAdvance) AdvancePendingTextSegment();
+        _initialTextUpdates = 0;
+        _prepareNextLine = false;
+        _visibleGlyphs = CurrentWindowGlyphCount;
+        _characterFrameAccumulator = 0.0;
+        _arrowFrameCounter = 0.0;
+        TryStartVisibleHeartPieceDisplay();
+        QueueRedraw();
+    }
+
+    internal void AdvanceHeartPieceClockForValidation(double delta) =>
+        UpdateHeartPieceDisplay(delta);
+
+    internal ulong HeartPiecePixelHashForValidation()
+    {
+        if (_heartPieceLine < 0)
+            return 0;
+        Image image = _heartPieceTextures[_heartPieceDisplayCount].GetImage();
+        ulong hash = 1469598103934665603UL;
+        for (int y = 0; y < image.GetHeight(); y++)
+        for (int x = 0; x < image.GetWidth(); x++)
+        {
+            Color pixel = image.GetPixel(x, y);
+            hash = (hash ^ (byte)Mathf.RoundToInt(pixel.R * 255.0f)) * 1099511628211UL;
+            hash = (hash ^ (byte)Mathf.RoundToInt(pixel.G * 255.0f)) * 1099511628211UL;
+            hash = (hash ^ (byte)Mathf.RoundToInt(pixel.B * 255.0f)) * 1099511628211UL;
+        }
+        return hash;
+    }
+
+    internal void AdvanceTextScrollForValidation(double delta)
+    {
+        UpdateTextScroll(delta);
+    }
+
+    internal void MoveChoiceForValidation(int delta) => MoveChoice(delta);
+
+    internal int ChoiceCursorOpaquePixelCountForValidation()
+    {
+        using Image image = _choiceCursorTexture.GetImage();
+        int count = 0;
+        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            if (image.GetPixel(x, y).A > 0.5f)
+                count++;
+        }
+        return count;
+    }
+
+    internal int GlyphColorForValidation(int segment, int line, int column) =>
+        _segments[segment].Lines[line].Glyphs[column].ColorIndex;
+
+    internal bool GlyphUsesSymbolFontForValidation(int segment, int line, int column) =>
+        _segments[segment].Lines[line].Glyphs[column].Source == FontSource.Symbol;
+
+    internal bool GlyphUsesTradeItemFontForValidation(
+        int segment,
+        int line,
+        int column) =>
+        _segments[segment].Lines[line].Glyphs[column].Source ==
+            FontSource.TradeItem;
+
+    internal int GlyphCodeForValidation(int segment, int line, int column) =>
+        _segments[segment].Lines[line].Glyphs[column].Code;
+
+    internal int TradeItemNonBackgroundPixelCountForValidation(int itemIndex)
+    {
+        Image source = TradeItemSource();
+        if (itemIndex is < 0 or > 0x0f)
+            throw new ArgumentOutOfRangeException(nameof(itemIndex));
+        int count = 0;
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            if (OracleGraphicsData.TwoBitShade(
+                    source.GetPixel(itemIndex * 8 + x, y)) != 3)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    internal int ContinueMarkerOpaquePixelCountForValidation()
+    {
+        Image marker = _continueMarkerTexture.GetImage();
+        int count = 0;
+        for (int y = 0; y < marker.GetHeight(); y++)
+        for (int x = 0; x < marker.GetWidth(); x++)
+        {
+            if (marker.GetPixel(x, y).A > 0.5f)
+                count++;
+        }
+        return count;
+    }
+
+    internal static string PlainText(string message) =>
+        PlainText(message, "Link");
+
+    internal static string PlainText(string message, string linkName)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(linkName);
+        string text = message.Replace("\r", string.Empty);
+        text = LinkPattern.Replace(text, _ => linkName);
+        text = text.Replace("\\sym(0x1c)", "♪", StringComparison.OrdinalIgnoreCase);
+        text = text.Replace("\\sym(0x57)", "▲", StringComparison.OrdinalIgnoreCase);
+        text = text.Replace("\\left", "←", StringComparison.Ordinal);
+        text = text.Replace("\\right", "→", StringComparison.Ordinal);
+        text = text.Replace("\\up", "↑", StringComparison.Ordinal);
+        text = text.Replace("\\down", "↓", StringComparison.Ordinal);
+        text = HeartPattern.Replace(text, "♥");
+        text = PromisedHeartPattern.Replace(text, "\u2665");
+        text = HeartPiecePattern.Replace(text, string.Empty);
+        text = HexCharacterPattern.Replace(text,
+            match => ((char)Convert.ToInt32(
+                match.Groups["hex"].Value, 16)).ToString());
+        text = text.Replace("\\n", "\n", StringComparison.Ordinal);
+        return FormattingPattern.Replace(text, string.Empty);
+    }
+
+    private void SubmitChoice()
+    {
+        _playSound(SoundId.SndSelectItem);
+        _choiceResult = _selectedChoice;
+        _choicePhase = 3;
+        _choiceClosingUpdates = 3;
+        if ((_textboxFlags & 2) != 0)
+        {
+            _textboxFlags &= ~2;
+            _nonExitableReady = true;
+            _choiceClosingUpdates = 0;
+        }
+        _consumeClosingInput = true;
+    }
+
+    private void AdvanceChoice()
+    {
+        if (_choicePhase == 0)
+        {
+            // textbox.s:textOptionCode@cursorDelay, indexed by wTextSpeed.
+            _choiceDelay = 0x20 - _messageSpeed * 4;
+            _choicePhase = 1;
+            return;
+        }
+        if (_choicePhase == 1)
+        {
+            if (--_choiceDelay == 0)
+            {
+                _choicePhase = 2;
+                // textOptionCode@state01 publishes the default cursor with
+                // updateSelectedTextPositionAndDmaTextboxMap on this update.
+                QueueRedraw();
+            }
+            return;
+        }
+        // A/B precede directions, and B selects the last option without
+        // accepting it. Direction chords use getHighestSetBit priority.
+        if (Input.IsPhysicalActionJustPressed("item")) MoveChoiceToLast();
+        else if (Input.IsPhysicalActionJustPressed("attack")) SubmitChoice();
+        else if (Input.IsPhysicalActionJustPressed("move_down") || Input.IsPhysicalActionJustPressed("move_up"))
+            MoveChoiceVertically();
+        else if (Input.IsPhysicalActionJustPressed("move_left")) MoveChoice(-1);
+        else if (Input.IsPhysicalActionJustPressed("move_right")) MoveChoice(1);
+    }
+
+    private void MoveChoiceVertically()
+    {
+        var positions = new List<int>();
+        for (int line = 0; line < LinesPerPage; line++)
+            foreach (int column in CurrentLine(line).OptionColumns)
+                positions.Add(line * 0x20 + column * 2 + 1);
+        if (_selectedChoice >= positions.Count) return;
+        _playSound(SoundId.SndMenuMove);
+        int current = positions[_selectedChoice], closest = 0xff, selected = _selectedChoice;
+        for (int index = 0; index < positions.Count; index++)
+        {
+            int distance = Math.Abs(Math.Abs(positions[index] - current) - 0x20);
+            if (distance < closest) { closest = distance; selected = index; }
+        }
+        if (closest < 0x10) _selectedChoice = selected;
+        QueueRedraw();
+    }
+
+    private void MoveChoice(int delta)
+    {
+        if (!_choiceActive || !IsPageComplete || HasContinuation)
+            return;
+
+        int choiceCount = CurrentLine(0).OptionColumns.Count +
+            CurrentLine(1).OptionColumns.Count;
+        if (choiceCount == 0)
+            return;
+
+        _playSound(SoundId.SndMenuMove);
+        _selectedChoice =
+            (_selectedChoice + delta % choiceCount + choiceCount) % choiceCount;
+        QueueRedraw();
+    }
+
+    private void MoveChoiceToLast()
+    {
+        if (!_choiceActive || !IsPageComplete || HasContinuation)
+            return;
+
+        int choiceCount = CurrentLine(0).OptionColumns.Count +
+            CurrentLine(1).OptionColumns.Count;
+        if (choiceCount == 0)
+            return;
+
+        _playSound(SoundId.SndMenuMove);
+        _selectedChoice = choiceCount - 1;
+        QueueRedraw();
+    }
+
+    private void DrawChoiceCursor(OracleImageCanvas output)
+    {
+        int optionIndex = 0;
+        for (int lineIndex = 0; lineIndex < LinesPerPage; lineIndex++)
+        {
+            foreach (int column in CurrentLine(lineIndex).OptionColumns)
+            {
+                if (optionIndex++ != _selectedChoice)
+                    continue;
+                // updateSelectedTextPosition writes HUD tile $04 into
+                // textbox-map row $20/$60: the lower half of the text line.
+                BlitDialogueTexture(output, _choiceCursorTexture,
+                    new Rect2(16 + column * 8, lineIndex * LineSpacing + 8, 8, 8),
+                    new Rect2(0, 0, 8, 8), ColorFor(0));
+                return;
+            }
+        }
+    }
+
+    private bool UpdateCharacterDisplay(double delta)
+    {
+        if (!_open || _scrollingText || IsPageComplete)
+            return false;
+
+        bool faceInputBlocked = false;
+        _characterFrameAccumulator += delta * 60.0;
+        while (_visibleGlyphs < CurrentWindowGlyphCount &&
+               _characterFrameAccumulator >= 1.0)
+        {
+            _characterFrameAccumulator -= 1.0;
+            if (_textSoundCooldownCounter > 0)
+                _textSoundCooldownCounter--;
+            if (_textSlowdownTimer > 0)
+            {
+                _textSlowdownTimer--;
+                // textbox.s decrements w7TextSlowdownTimer first. A/B is
+                // tested on the same update that changes $01 to $00.
+                if (_textSlowdownTimer > 0)
+                    faceInputBlocked = true;
+            }
+            bool skip = !faceInputBlocked &&
+                (Input.IsPhysicalActionJustPressed("attack") || Input.IsPhysicalActionJustPressed("item"));
+            if (!skip && --_characterDisplayTimer > 0)
+                continue;
+
+            _skipToLineEnd |= skip;
+            if (_skipToLineEnd) RevealCurrentLine();
+            else RevealNextGlyph();
+            _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+            // func_5296 consumes the skip flag before accepting a later
+            // press at a stop command. It cannot also clear the textbox.
+            if (IsPageComplete && !HasAnotherLine && HasContinuation)
+                _skipToLineEnd = false;
+            if (_prepareNextLine) break;
+        }
+        if (IsPageComplete)
+        {
+            _characterFrameAccumulator = 0.0;
+            _arrowFrameCounter = 0.0;
+        }
+        QueueRedraw();
+        return faceInputBlocked;
+    }
+
+    private void RevealCurrentLine()
+    {
+        int topLineLength = CurrentLine(0).Glyphs.Count;
+        TextLine line = CurrentLine(_visibleGlyphs < topLineLength ? 0 : 1);
+        int targetGlyphs = _visibleGlyphs < topLineLength
+            ? topLineLength
+            : CurrentWindowGlyphCount;
+        while (_visibleGlyphs < targetGlyphs)
+            RevealNextGlyph(skipped: true);
+        // displayNextTextCharacter recurses past skipped glyphs before
+        // reading their sound buffers. @endLine requests only the current
+        // character cue, subject to the same four-update cooldown.
+        if (line.Glyphs.Count > 0 && _textSoundCooldownCounter == 0)
+        {
+            _textSoundCooldownCounter = TextSoundCooldownFrames;
+            _playSound(line.Glyphs[^1].CharacterSound);
+        }
+        _characterFrameAccumulator = 0.0;
+        _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+        if (IsPageComplete)
+            _arrowFrameCounter = 0.0;
+    }
+
+    private void ResetCharacterDisplay(int alreadyVisible)
+    {
+        _prepareNextLine = false;
+        _visibleGlyphs = alreadyVisible;
+        _characterFrameAccumulator = 0.0;
+        _characterDisplayTimer = CharacterDisplayFrames[_messageSpeed];
+        _arrowFrameCounter = 0.0;
+    }
+
+    private void AdvancePendingTextSegment()
+    {
+        // func_5296 returns to state 0 on the continuation press; its
+        // following preparation update replaces the old textbox mapping.
+        _pendingSegmentAdvance = false;
+        _segmentIndex++;
+        _firstLineIndex = 0;
+        ResetHeartPieceDisplay();
+        ResetCharacterDisplay(0);
+    }
+
+    private void RevealNextGlyph(bool skipped = false)
+    {
+        TextLine firstLine = CurrentLine(0);
+        TextLine line;
+        int column;
+        int windowLine;
+        if (_visibleGlyphs < firstLine.Glyphs.Count)
+        {
+            line = firstLine;
+            column = _visibleGlyphs;
+            windowLine = 0;
+        }
+        else
+        {
+            line = CurrentLine(1);
+            column = _visibleGlyphs - firstLine.Glyphs.Count;
+            windowLine = 1;
+        }
+
+        TextGlyph glyph = line.Glyphs[column];
+        _visibleGlyphs++;
+        if (_visibleGlyphs == firstLine.Glyphs.Count && CurrentLine(1).Glyphs.Count != 0)
+            _prepareNextLine = true;
+        if (line.HeartPieceColumn == column + 1)
+        {
+            StartHeartPieceDisplay(
+                _firstLineIndex + windowLine, line.HeartPieceColumn);
+        }
+
+        // displayNextTextCharacter branches to @endLine before reading the
+        // sound buffers for column $0f.
+        if (skipped || column + 1 == CharactersPerLine)
+            return;
+
+        if (glyph.Code != ' ' && glyph.CharacterSound != 0 &&
+            _textSoundCooldownCounter == 0)
+        {
+            _textSoundCooldownCounter = TextSoundCooldownFrames;
+            _playSound(glyph.CharacterSound);
+        }
+        if (glyph.SoundEffect != 0)
+            _playSound(glyph.SoundEffect);
+    }
+
+    private bool UpdateHeartPieceDisplay(double delta)
+    {
+        if (_heartPieceLine < 0 || _heartPieceTimer == 0)
+            return false;
+
+        _heartPieceTickAccumulator += delta * 60.0;
+        while (_heartPieceTimer > 0 && _heartPieceTickAccumulator >= 1.0)
+        {
+            _heartPieceTickAccumulator -= 1.0;
+            _heartPieceTimer--;
+        }
+        if (_heartPieceTimer > 0)
+            return true;
+
+        int pieces = Math.Clamp(_heartPieceCount(), 0, 4);
+        _heartPieceDisplayCount = pieces;
+        _playSound(SoundId.SndText2);
+        if (pieces == 4)
+        {
+            _heartPieceSetComplete = true;
+            HeartPieceSetFilled?.Invoke();
+        }
+        _arrowFrameCounter = 0.0;
+        return false;
+    }
+
+    private void StartHeartPieceDisplay(int line, int column)
+    {
+        if (_heartPieceLine >= 0)
+            return;
+        int pieces = Math.Clamp(_heartPieceCount(), 1, 4);
+        _heartPieceLine = line;
+        _heartPieceColumn = column;
+        _heartPieceDisplayCount = pieces - 1;
+        _heartPieceTimer = 30;
+        _heartPieceTickAccumulator = 0.0;
+        _heartPieceSetComplete = false;
+        _arrowFrameCounter = 0.0;
+    }
+
+    private void TryStartVisibleHeartPieceDisplay()
+    {
+        int visible = _visibleGlyphs;
+        for (int windowLine = 0; windowLine < LinesPerPage; windowLine++)
+        {
+            TextLine line = CurrentLine(windowLine);
+            if (line.HeartPieceColumn >= 0 &&
+                visible >= line.HeartPieceColumn)
+            {
+                StartHeartPieceDisplay(
+                    _firstLineIndex + windowLine, line.HeartPieceColumn);
+                return;
+            }
+            visible = Math.Max(0, visible - line.Glyphs.Count);
+        }
+    }
+
+    private void ResetHeartPieceDisplay()
+    {
+        _heartPieceTickAccumulator = 0.0;
+        _heartPieceTimer = 0;
+        _heartPieceDisplayCount = 0;
+        _heartPieceLine = -1;
+        _heartPieceColumn = -1;
+        _heartPieceSetComplete = false;
+    }
+
+    private void UpdateTextScroll(double delta)
+    {
+        if (!_scrollingText)
+            return;
+
+        _textScrollTickAccumulator += delta * 60.0;
+        while (_scrollingText && _textScrollTickAccumulator >= 1.0)
+        {
+            _textScrollTickAccumulator -= 1.0;
+            switch (_textScrollState++)
+            {
+                case 0: // state 6/c: DMA after standardTextStateb's first shift
+                    _scrollStartPresentation?.Dispose();
+                    _scrollStartPresentation = null;
+                    break;
+                case 1: // state 7/d: shift the second 8px tile row
+                    _textScrollOffset = 16.0f;
+                    break;
+                default: // state 8/e: preserve the old bottom line at the top
+                    _firstLineIndex++;
+                    _scrollingText = false;
+                    _textScrollOffset = 0.0f;
+                    _textScrollState = 0;
+                    ResetCharacterDisplay(CurrentLine(0).Glyphs.Count);
+                    _prepareNextLine = true;
+                    break;
+            }
+        }
+        QueueRedraw();
+    }
+
+    private TextLine CurrentLine(int windowLine)
+    {
+        int index = _firstLineIndex + windowLine;
+        return index < CurrentSegment.Lines.Count
+            ? CurrentSegment.Lines[index]
+            : TextLine.Empty;
+    }
+
+    private void DrawFontLineClipped(OracleImageCanvas output, TextLine line, Vector2 destination, int visibleGlyphs)
+    {
+        int length = Math.Min(Math.Min(line.Glyphs.Count, visibleGlyphs), CharactersPerLine);
+        float visibleTop = Mathf.Max(0.0f, destination.Y);
+        float visibleBottom = Mathf.Min(TextAreaHeight, destination.Y + 16.0f);
+        float visibleHeight = visibleBottom - visibleTop;
+        if (visibleHeight <= 0.0f)
+            return;
+
+        float sourceYOffset = visibleTop - destination.Y;
+        for (int column = 0; column < length; column++)
+        {
+            TextGlyph glyph = line.Glyphs[column];
+            if (glyph.Code == 0x20)
+                continue;
+            Rect2 source = new(
+                (glyph.Code & 0x0f) * 8,
+                (glyph.Code >> 4) * 16 + sourceYOffset,
+                8,
+                visibleHeight);
+            Rect2 target = new(
+                destination.X + column * 8,
+                visibleTop,
+                8,
+                visibleHeight);
+            BlitDialogueTexture(output, TextureFor(glyph), target, source, ModulationFor(glyph));
+        }
+    }
+
+    private void DrawFontLine(OracleImageCanvas output, TextLine line, Vector2 destination, int visibleGlyphs)
+    {
+        int length = Math.Min(Math.Min(line.Glyphs.Count, visibleGlyphs), CharactersPerLine);
+        for (int column = 0; column < length; column++)
+        {
+            TextGlyph glyph = line.Glyphs[column];
+            if (glyph.Code == 0x20)
+                continue;
+
+            Rect2 source = new(
+                (glyph.Code & 0x0f) * 8,
+                (glyph.Code >> 4) * 16,
+                8,
+                16);
+            BlitDialogueTexture(output, TextureFor(glyph),
+                new Rect2(destination + new Vector2(column * 8, 0), new Vector2(8, 16)),
+                source,
+                ModulationFor(glyph));
+        }
+    }
+
+    private void DrawHeartPieceDisplay(OracleImageCanvas output)
+    {
+        if (_heartPieceLine < _firstLineIndex ||
+            _heartPieceLine >= _firstLineIndex + LinesPerPage)
+            return;
+
+        Vector2 destination = new(
+            16 + _heartPieceColumn * 8,
+            (_heartPieceLine - _firstLineIndex) * LineSpacing);
+        Texture2D texture = _heartPieceTextures[_heartPieceDisplayCount];
+        BlitDialogueTexture(output, texture, new Rect2(destination, texture.GetSize()),
+            new Rect2(Vector2.Zero, texture.GetSize()), Colors.White);
+    }
+
+    private static void BlitDialogueTexture(OracleImageCanvas output, Texture2D texture,
+        Rect2 target, Rect2 sourceRectangle, Color modulation) =>
+        output.BlitTexture(texture, target, sourceRectangle, modulation);
+
+    private Texture2D TextureFor(TextGlyph glyph) => glyph.Source switch
+    {
+        FontSource.Symbol => _symbolTexture,
+        FontSource.TradeItem => _tradeItemTexture ??
+            throw new InvalidOperationException(
+                "Trade-item text glyphs were not composed before drawing."),
+        _ => _fontTexture
+    };
+
+    private Color ModulationFor(TextGlyph glyph) =>
+        glyph.Source == FontSource.TradeItem
+            ? Colors.White
+            : ColorFor(glyph.ColorIndex);
+
+    private Color ColorFor(int colorIndex)
+    {
+        if (_backgroundPaletteState is null)
+            return LegacyColorFor(colorIndex);
+
+        return colorIndex switch
+        {
+            1 => _backgroundPaletteColor(0, 1),
+            2 => _backgroundPaletteColor(1, 0),
+            3 => _backgroundPaletteColor(1, 1),
+            4 => _backgroundPaletteColor(1, 2),
+            _ => _backgroundPaletteColor(0, 2)
+        };
+    }
+
+    private Color LegacyColorFor(int colorIndex) => colorIndex switch
+    {
+        1 => RedTextColor,
+        2 when UsesAlternatePalette1 => RedTextColor,
+        2 => SecondaryRedTextColor,
+        3 => BlueTextColor,
+        4 when UsesAlternatePalette1 => NormalTextColor,
+        4 => AlternateLightTextColor,
+        _ => NormalTextColor
+    };
+
+    private bool UsesAlternatePalette1 => (_textboxFlags & 0x04) != 0;
+
+    internal Color ResolvedTextColorForValidation(int colorIndex) =>
+        ColorFor(colorIndex);
+
+    internal static IReadOnlyList<string> UnresolvedCommandsForValidation(
+        string message)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        var unresolved = new List<string>();
+        for (int index = 0; index < message.Length;)
+        {
+            if (message[index] != '\\' ||
+                !TryReadTextCommand(
+                    message, index, out string name, out _, out int end))
+            {
+                index++;
+                continue;
+            }
+            if (!IsSupportedTextCommand(name))
+                unresolved.Add(message[index..end]);
+            index = end;
+        }
+        return unresolved;
+    }
+
+    private static List<TextSegment> ParseMessage(
+        string message,
+        int textboxFlags,
+        out bool slowdownRequested)
+    {
+        var segments = new List<TextSegment>();
+        var lines = new List<TextLine>();
+        var glyphs = new List<TextGlyph>();
+        var optionColumns = new List<int>();
+        int heartPieceColumn = -1;
+        bool noColors = (textboxFlags & 1) != 0;
+        // initTextboxStuff starts with attribute $81 only for ALTPALETTE1
+        // without NOCOLORS/ALTPALETTE2. Later \col(0) still selects $80.
+        int colorIndex = !noColors && (textboxFlags & 0x14) == 4 ? 4 : 0;
+        int characterSound = SoundId.SndText;
+        int pendingSoundEffect = 0;
+        bool skipNextNewline = false;
+        slowdownRequested = false;
+
+        void AddGlyph(int code, FontSource source = FontSource.Main)
+        {
+            glyphs.Add(new TextGlyph(
+                code, source, colorIndex, characterSound, pendingSoundEffect));
+            pendingSoundEffect = 0;
+        }
+
+        void AddCharacter(char character)
+        {
+            switch (character)
+            {
+                case '♪': AddGlyph(0x1c, FontSource.Symbol); break;
+                case '▲': AddGlyph(0x57, FontSource.Symbol); break;
+                case '♥': AddGlyph(0x14); break;
+                case '↑': AddGlyph(0x15); break;
+                case '↓': AddGlyph(0x16); break;
+                case '←': AddGlyph(0x17); break;
+                case '→': AddGlyph(0x18); break;
+                default: AddGlyph(character <= 0xff ? character : 0x3f); break;
+            }
+        }
+
+        void FinishLine()
+        {
+            lines.Add(new TextLine(glyphs, optionColumns, heartPieceColumn));
+            glyphs = new List<TextGlyph>();
+            optionColumns = new List<int>();
+            heartPieceColumn = -1;
+        }
+
+        void FinishSegment()
+        {
+            if (lines.Count == 0)
+                FinishLine();
+            segments.Add(new TextSegment(lines));
+            lines = new List<TextLine>();
+        }
+
+        string source = message.Replace("\r", string.Empty);
+        for (int index = 0; index < source.Length;)
+        {
+            char character = source[index];
+            if (character == '\n')
+            {
+                index++;
+                if (skipNextNewline)
+                {
+                    skipNextNewline = false;
+                    continue;
+                }
+                FinishLine();
+                continue;
+            }
+            skipNextNewline = false;
+
+            if (character != '\\')
+            {
+                AddCharacter(character);
+                index++;
+                continue;
+            }
+
+            int tokenStart = index;
+            if (!TryReadTextCommand(
+                    source,
+                    tokenStart,
+                    out string name,
+                    out string argument,
+                    out index))
+            {
+                AddCharacter('\\');
+                index++;
+                continue;
+            }
+
+            switch (name)
+            {
+                case "col":
+                    if (!noColors && TryParseCommandNumber(argument, out int requestedColor) &&
+                        requestedColor < 0x80)
+                    {
+                        colorIndex = requestedColor;
+                    }
+                    break;
+                case "stop":
+                    FinishLine();
+                    FinishSegment();
+                    skipNextNewline = true;
+                    break;
+                case "sym":
+                    if (TryParseCommandNumber(argument, out int symbolCode))
+                        AddGlyph(symbolCode, FontSource.Symbol);
+                    break;
+                case "item":
+                    if (TryParseCommandNumber(argument, out int itemCode) &&
+                        itemCode is >= 0 and <= 0x0f)
+                    {
+                        AddGlyph(itemCode, FontSource.TradeItem);
+                    }
+                    break;
+                case "circle": AddGlyph(0x10); break;
+                case "club": AddGlyph(0x11); break;
+                case "diamond": AddGlyph(0x12); break;
+                case "spade": AddGlyph(0x13); break;
+                case "heart": AddGlyph(0x14); break;
+                // Control $0c:$05 stops the current textbox span, draws its
+                // 2x2 quarter-heart map at the current cursor, then holds for
+                // 30 updates before revealing the newly collected quarter.
+                case "heartpiece":
+                    heartPieceColumn = glyphs.Count;
+                    FinishLine();
+                    FinishSegment();
+                    skipNextNewline = true;
+                    break;
+                case "up": AddGlyph(0x15); break;
+                case "down": AddGlyph(0x16); break;
+                case "left": AddGlyph(0x17); break;
+                case "right": AddGlyph(0x18); break;
+                case "times": AddGlyph(0x19); break;
+                case "triangle": AddGlyph(0x7e); break;
+                case "rectangle": AddGlyph(0x7f); break;
+                case "abtn": AddGlyph(0xb8); AddGlyph(0xb9); break;
+                case "bbtn": AddGlyph(0xba); AddGlyph(0xbb); break;
+                case "n":
+                    FinishLine();
+                    break;
+                case "opt":
+                    optionColumns.Add(glyphs.Count);
+                    // textControlCodeC_2 reserves a real space glyph for
+                    // the cursor, including its printing delay and column.
+                    AddGlyph(0x20);
+                    break;
+                case "sfx":
+                    if (TryParseCommandNumber(argument, out int requestedSoundEffect))
+                        pendingSoundEffect = requestedSoundEffect & 0xff;
+                    break;
+                case "charsfx":
+                    if (TryParseCommandNumber(argument, out int requestedCharacterSound))
+                        characterSound = requestedCharacterSound & 0xff;
+                    break;
+                case "pos":
+                case "speed":
+                case "wait":
+                    break;
+                case "slow":
+                    slowdownRequested = true;
+                    break;
+                default:
+                    if (TryParseHexByteEscape(name, out int byteValue))
+                    {
+                        AddCharacter((char)byteValue);
+                        break;
+                    }
+                    throw new InvalidOperationException(
+                        $"Unsupported dialogue command '{source[tokenStart..index]}'.");
+            }
+        }
+
+        if (glyphs.Count > 0 || lines.Count > 0 || segments.Count == 0)
+        {
+            FinishLine();
+            FinishSegment();
+        }
+        return segments;
+    }
+
+    private static bool TryReadTextCommand(
+        string source,
+        int tokenStart,
+        out string name,
+        out string argument,
+        out int end)
+    {
+        name = string.Empty;
+        argument = string.Empty;
+        end = tokenStart;
+        if (tokenStart < 0 || tokenStart >= source.Length ||
+            source[tokenStart] != '\\')
+        {
+            return false;
+        }
+
+        int nameStart = tokenStart + 1;
+        int index = nameStart;
+        while (index < source.Length && char.IsLetterOrDigit(source[index]))
+            index++;
+        if (index == nameStart)
+            return false;
+
+        string candidate = source[nameStart..index];
+        // TX_0544 adjoins "promised" to $14, linked secrets adjoin arbitrary
+        // alphabet symbols, and byte literals can directly precede text. The
+        // source command vocabulary, not a greedy identifier, owns boundaries.
+        if (candidate.Length >= 3 &&
+            candidate[0] is 'x' or 'X' &&
+            int.TryParse(
+                candidate.AsSpan(1, 2),
+                System.Globalization.NumberStyles.HexNumber,
+                null,
+                out _))
+        {
+            name = candidate[..3].ToLowerInvariant();
+            index = nameStart + 3;
+        }
+        else if (TryMatchAdjacentTextCommand(candidate, out string adjacent))
+        {
+            name = adjacent;
+            index = nameStart + adjacent.Length;
+        }
+        else
+        {
+            name = candidate.ToLowerInvariant();
+        }
+
+        if (index < source.Length && source[index] == '(')
+        {
+            int argumentStart = ++index;
+            while (index < source.Length && source[index] != ')')
+                index++;
+            argument = source[argumentStart..index];
+            if (index < source.Length)
+                index++;
+        }
+        end = index;
+        return true;
+    }
+
+    private static bool TryMatchAdjacentTextCommand(
+        string candidate,
+        out string name)
+    {
+        foreach (string command in AdjacentTextCommandNames)
+        {
+            if (!candidate.StartsWith(
+                    command, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            name = command;
+            return true;
+        }
+        name = string.Empty;
+        return false;
+    }
+
+    private static bool IsSupportedTextCommand(string name) => name switch
+    {
+        "col" or "stop" or "sym" or "item" or "circle" or "club" or
+        "diamond" or "spade" or "heart" or "heartpiece" or "up" or
+        "down" or "left" or "right" or "times" or "triangle" or
+        "rectangle" or "abtn" or "bbtn" or "n" or "opt" or "sfx" or
+        "charsfx" or "pos" or "slow" or "speed" or "wait" or "link" => true,
+        _ => TryParseHexByteEscape(name, out _)
+    };
+
+    private static bool TryParseHexByteEscape(string name, out int value)
+    {
+        value = 0;
+        return name.Length == 3 && name[0] == 'x' &&
+            int.TryParse(
+                name[1..],
+                System.Globalization.NumberStyles.HexNumber,
+                null,
+                out value);
+    }
+
+    private static bool TryParseCommandNumber(string value, out int result)
+    {
+        if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            return int.TryParse(value[2..], System.Globalization.NumberStyles.HexNumber,
+                null, out result);
+        return int.TryParse(value, out result);
+    }
+
+    private bool ContainsTradeItemGlyph()
+    {
+        foreach (TextSegment segment in _segments)
+        foreach (TextLine line in segment.Lines)
+        foreach (TextGlyph glyph in line.Glyphs)
+        {
+            if (glyph.Source == FontSource.TradeItem)
+                return true;
+        }
+        return false;
+    }
+
+    private Image TradeItemSource()
+    {
+        _tradeItemSource ??= LoadSourceImage(
+            _assetRoot + "gfx/gfx_font_tradeitems.png");
+        if (_tradeItemSource.GetWidth() != 128 ||
+            _tradeItemSource.GetHeight() != 16)
+        {
+            throw new InvalidOperationException(
+                "gfx_font_tradeitems must contain sixteen horizontal 8x16 glyphs.");
+        }
+        return _tradeItemSource;
+    }
+
+    private Texture2D BuildTradeItemTexture()
+    {
+        Image source = TradeItemSource();
+        Image output = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
+        for (int y = 0; y < source.GetHeight(); y++)
+        for (int x = 0; x < source.GetWidth(); x++)
+        {
+            int shade = OracleGraphicsData.TwoBitShade(source.GetPixel(x, y));
+            output.SetPixel(x, y, _backgroundPaletteColor(4, shade));
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private Texture2D BuildHudMarkerTexture(int tile, int foregroundShade)
+    {
+        // HUD tile $03's continuation arrow uses shade 1; the option
+        // cursor at $04 uses shade 2. Shade 3 is transparent textbox black.
+        Image source = LoadSourceImage(_assetRoot + "gfx/gfx_hud.png");
+        using Image output = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
+        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++)
+        {
+            int shade = OracleGraphicsData.TwoBitShade(source.GetPixel(tile * 8 + x, y));
+            output.SetPixel(x, y, shade == foregroundShade ? Colors.White : Colors.Transparent);
+        }
+        return ImageTexture.CreateFromImage(output);
+    }
+
+    private Texture2D[] BuildHeartPieceTextures()
+    {
+        // func_53eb loads four tiles at $5d/$5f/$7c/$7e. Its table selects
+        // outline or filled left halves and attribute bit 5 mirrors the right
+        // halves. PNG shades retain the PALH_0e background-palette-0 indices.
+        Image source = LoadSourceImage(
+            _assetRoot + "gfx/gfx_font_heartpiece.png");
+        if (source.GetWidth() != 64 || source.GetHeight() != 8)
+        {
+            throw new InvalidOperationException(
+                "gfx_font_heartpiece must contain eight horizontal 8x8 tiles.");
+        }
+
+        int[,] sourceTiles =
+        {
+            { 0, 2, 0, 2 },
+            { 1, 2, 0, 2 },
+            { 1, 3, 0, 2 },
+            { 1, 3, 0, 3 },
+            { 1, 3, 1, 3 }
+        };
+        var textures = new Texture2D[5];
+        for (int pieces = 0; pieces < textures.Length; pieces++)
+        {
+            Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
+            for (int quadrant = 0; quadrant < 4; quadrant++)
+            {
+                bool right = quadrant >= 2;
+                bool bottom = (quadrant & 1) != 0;
+                int tile = sourceTiles[pieces, quadrant];
+                for (int y = 0; y < 8; y++)
+                for (int x = 0; x < 8; x++)
+                {
+                    int sourceX = tile * 8 + (right ? 7 - x : x);
+                    Color shade = source.GetPixel(sourceX, y);
+                    int paletteIndex = 3 - Math.Clamp(
+                        Mathf.RoundToInt(shade.R * 3.0f), 0, 3);
+                    Color color = paletteIndex switch
+                    {
+                        0 => GbcColor(0x0d, 0x01, 0x05),
+                        1 => RedTextColor,
+                        2 => NormalTextColor,
+                        _ => BackgroundColor
+                    };
+                    output.SetPixel((right ? 8 : 0) + x,
+                        (bottom ? 8 : 0) + y, color);
+                }
+            }
+            textures[pieces] = ImageTexture.CreateFromImage(output);
+        }
+        return textures;
+    }
+
+    private static Image LoadSourceImage(string path)
+    {
+        return OracleGraphicsCache.LoadImage(path);
+    }
+
+    private static Color GbcColor(int red, int green, int blue)
+    {
+        return new Color(red / 31.0f, green / 31.0f, blue / 31.0f);
+    }
+}
+
+internal readonly record struct TextGlyph(int Code, FontSource Source, int ColorIndex, int CharacterSound, int SoundEffect);
+
+internal enum FontSource
+{
+    Main,
+    Symbol,
+    TradeItem
+}

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_SPINY_BEETLE $1b:$01 and its uncounted ENEMY_BUSH_OR_ROCK child.

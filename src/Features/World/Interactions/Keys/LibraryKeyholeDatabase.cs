@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class LibraryKeyholeDatabase
 {
     internal IReadOnlyList<CutsceneCommand> Commands { get; } =
-        CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/library_keyhole_commands.tsv");
+        CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/library_keyhole_commands.tsv");
 
     internal LibraryKeyholeDatabase()
     {

@@ -1,0 +1,400 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+
+namespace Oracles;
+
+/// <summary>
+/// Runs the five INTERAC_TOKAY $48:$00-$04 thieves reached directly from the
+/// room $1:$a8 raftwreck warp.
+/// </summary>
+internal sealed class TokayTheftEvent : IRoomEntryEvent, IUpdatesDuringDialogueRoomEvent
+{
+    private const int ThiefCount = 5;
+    private readonly RoomEventContext _context;
+    private readonly TokayTheftEventDatabase _database = new();
+    private readonly TokayNativeDatabase _native = new();
+    private int _waveCounter;
+    private readonly List<TokayThiefScriptHost> _thieves = [];
+    private bool _active;
+    private bool _initializing;
+    private int _stealCounter;
+    private int _stolenCount;
+    private int _linkFrame;
+    private int _linkFrameCounter;
+    private int _linkWait;
+    private bool _linkInitialized;
+    private bool _linkNormalPending;
+
+    internal TokayTheftEvent(RoomEventContext context) => _context = context;
+
+    public bool HasState => _active;
+    public bool BlocksGameplay => _active;
+    public bool MenusDisabled => _active;
+    internal TokayTheftEventDatabase Database => _database;
+    internal IReadOnlyList<TokayThiefScriptHost> Thieves => _thieves;
+    internal TokayThiefScriptHost? UpdatingThief { get; private set; }
+    internal int ScriptCounter => _thieves.Find(thief => thief.SubId == _database.Record.MainSubId)?.Runner.Counter ?? 0;
+    internal int LinkFrame => _linkFrame;
+    internal int LinkFrameCounter => _linkFrameCounter;
+    internal int StolenCount => _stolenCount;
+    internal int ActiveThiefCount => _thieves.FindAll(thief => thief.Actor.Active).Count;
+    internal int AccessoryCount => _thieves.FindAll(thief => thief.Accessory?.Active == true).Count;
+    internal Vector2I[] AccessoryTextureSizes
+    {
+        get
+        {
+            var sizes = new List<Vector2I>();
+            foreach (TokayThiefScriptHost thief in _thieves)
+            {
+                if (thief.Accessory?.Active == true)
+                    sizes.Add(thief.Accessory.CurrentAnimationTextureSize);
+            }
+            return [.. sizes];
+        }
+    }
+
+    public bool Matches(int group, OracleRoomData room) =>
+        group == _database.Record.Group && room.Id == _database.Record.Room;
+
+    public void Start(OracleRoomData room)
+    {
+        Cancel();
+        TokayTheftEventRecord record = _database.Record;
+        for (int subId = 0; subId < ThiefCount; subId++)
+        {
+            NpcCharacter actor = _context.RequireNpc(
+                record.Group, record.Room, record.InteractionId, subId,
+                "Tokay thief");
+            actor.SetBlocksLink(false);
+            if (_context.Rooms.SaveData.HasRoomFlag(
+                    record.Group, record.Room, record.RoomFlag))
+            {
+                actor.SetActive(false);
+                continue;
+            }
+
+            actor.SetAnimationRate(0.0f);
+            actor.SetScriptAnimation(
+                _database.Animation(record.InitialAnimations[subId]));
+            _thieves.Add(new TokayThiefScriptHost(_context, _database, actor, subId, MakeLinkJump));
+        }
+        if (_thieves.Count == 0)
+            return;
+        if (_thieves.Count != ThiefCount)
+            throw new InvalidOperationException(
+                $"Room 1:aa instantiated {_thieves.Count} of 5 Tokay thieves.");
+
+        _context.Player.BeginCutsceneControl(owner: this);
+        _active = true;
+        _initializing = true;
+        _stealCounter = record.StealFirstWait;
+        _linkFrame = 0;
+        _context.Sound.PlaySound(SoundId.SndCtrlStopMusic);
+    }
+
+    internal void InitializeDuringTransition()
+    {
+        if (!_active || !_initializing) return;
+        _initializing = false;
+        foreach (TokayThiefScriptHost thief in _thieves)
+            thief.Actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // tokay.s state 0: objectSetVisiblec2
+    }
+
+    public void UpdateFrame()
+    {
+        if (!_active) return;
+        if (_initializing)
+        {
+            InitializeDuringTransition();
+            return;
+        }
+        if (!_context.Entities.InitializedInteractionUpdatesAllowed) return;
+
+        AdvanceThieves();
+        SynchronizeAccessories();
+        // $6b:$08 follows all five thieves and the cliff NPC in the object
+        // stream. The main thief's cfd1 signal deletes it before this pass
+        // once Link jumps. Each wave consumes exactly one shared RNG byte.
+        if (_context.Entities.RuntimeState.ReadWramByte(0xcfd1) == 0)
+        {
+            if (_waveCounter != 0) _waveCounter--;
+            else
+            {
+                _context.Sound.PlaySound(SoundId.SndWave); // SND_WAVE
+                _waveCounter = _native.Constant($"wave-{_context.Entities.NextRandomValue() & 3}");
+            }
+        }
+    }
+
+    public void UpdateDuringDialogueFrame() => UpdateFrame();
+
+    public void UpdateSpecialObjectFrame()
+    {
+        if (!_active || _initializing) return;
+        if (!_linkInitialized)
+        {
+            _linkInitialized=true; _linkWait=_database.Record.LinkWait;
+            _linkFrame=0; _linkFrameCounter=_database.LinkFrames[0].Duration;
+            _context.Player.SetCutsceneSpriteFrame(_database.LinkFrames[0]);
+            return;
+        }
+        if (_linkNormalPending)
+        {
+            _linkNormalPending=false;
+            _context.Player.SetCutsceneSpriteFrame(null);
+            _context.Player.BeginSimulatedInputControl(this);
+            // The adopted normal ID runs linkState00's setup and returns.
+            // A jump requested by the main thief on the preceding update
+            // retains its speedZ/in-air request until state01 runs next.
+            return;
+        }
+        if (_linkWait != 0)
+        {
+            AdvanceWashedUpLinkAnimation();
+            if (--_linkWait == 0)
+            {
+                _linkNormalPending=true;
+                _context.Player.Face(Vector2I.Down);
+                _context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled,1);
+            }
+        }
+        // Normal linkState01 rejects scroll-mode bits$0e before its air path.
+        if ((_context.Entities.RuntimeState.ReadWramByte(0xcd00)&0x0e)==0)
+            _context.Player.AdvanceControlledTopDownAir(this);
+    }
+
+    public void Cancel()
+    {
+        bool releaseControl = _active;
+        foreach (TokayThiefScriptHost thief in _thieves)
+        {
+            thief.Accessory?.SetActive(false);
+            thief.Actor.SetScriptDrawOffset(Vector2.Zero);
+        }
+        _thieves.Clear();
+        _active = false;
+        _initializing = false;
+        _stealCounter = 0;
+        _stolenCount = 0;
+        _waveCounter = 0;
+        _linkFrame = 0;
+        _linkFrameCounter = 0;
+        _linkWait=0; _linkInitialized=false; _linkNormalPending=false;
+        _context.Player.SetCutsceneDrawZFixed(0);
+        _context.Player.SetCutsceneSpriteFrame(null);
+        if (releaseControl)
+        {
+            _context.Player.CancelControlledTopDownAir(this);
+            _context.Player.EndCutsceneControl(this);
+            _context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled,0);
+        }
+    }
+
+    private void AdvanceTheft()
+    {
+        if (--_stealCounter != 0)
+            return;
+        _stealCounter = _database.Record.StealRepeatWait;
+        if (_stolenCount >= _database.Record.StolenItems.Length)
+            return;
+
+        int treasure = _database.Record.StolenItems[_stolenCount++];
+        _context.Inventory.LoseTreasure(treasure);
+        if (treasure == TreasureId.SeedSatchel)
+        {
+            _context.Inventory.LoseTreasure(TreasureId.EmberSeeds);
+            _context.Inventory.LoseTreasure(TreasureId.EmberSeeds + 4);
+        }
+        _context.Sound.PlaySound(SoundId.SndUnknown5);
+    }
+
+    private void FinishScript(TokayThiefScriptHost thief)
+    {
+        thief.Stage = 1;
+        thief.Counter = _database.Record.ItemWait;
+        thief.Actor.SetScriptAnimation(_database.Animation(5));
+        if (thief.SubId == 0) _context.Sound.PlaySound(SoundId.SndGetItem);
+        if (_context.Entities.InteractionSlotAvailable) thief.Accessory = SpawnAccessory(thief);
+    }
+
+    private NpcCharacter SpawnAccessory(TokayThiefScriptHost thief)
+    {
+        TokayAccessoryRecord visual = _database.Accessory(thief.SubId);
+        Vector2 position = thief.Actor.Position + new Vector2(0, -12);
+        var npc = new NpcRecord(
+            _database.Record.Group, _database.Record.Room, AgesInteractionId.Accessory, visual.SubId,
+            Mathf.FloorToInt(position.Y), Mathf.FloorToInt(position.X), 0, 0,
+            visual.Sprite, visual.TileBase, visual.Palette, 0, false,
+            visual.Animation, visual.Animation, visual.Animation, visual.Animation,
+            string.Empty, NpcImplementationClassification.EventOwned);
+        NpcCharacter accessory = _context.Entities.Spawn<NpcCharacter>(
+            new CutsceneNpcSpawn(npc, $"TokayTheftAccessory{thief.SubId}"));
+        accessory.Position = position;
+        accessory.SetScriptAnimation(visual.Animation);
+        accessory.SetAnimationRate(0.0f);
+        accessory.SetBlocksLink(false);
+        accessory.SetFixedDrawPriority(ObjectDrawPriority.FixedHighPriorityZIndex); // accessory.s state 0: objectSetVisible80
+        return accessory;
+    }
+
+    private void AdvanceThieves()
+    {
+        bool completed = false;
+        foreach (TokayThiefScriptHost thief in _thieves)
+        {
+            UpdatingThief=thief;
+            switch (thief.Stage)
+            {
+                case 0:
+                    if (thief.SubId == _database.Record.MainSubId) AdvanceTheft();
+                    thief.AdvanceScript();
+                    if (!thief.Runner.Active) FinishScript(thief);
+                    break;
+                case 1:
+                    if (--thief.Counter == 0)
+                    {
+                        thief.Counter = (thief.SubId << 4) + 0x14;
+                        thief.Stage = 2;
+                    }
+                    break;
+                case 2:
+                    thief.Actor.AdvanceAnimationUpdates(3);
+                    if (--thief.Counter == 0)
+                        BeginThiefJump(thief, 3);
+                    break;
+                case 3:
+                    if (!AdvanceThiefJump(thief, moveWhileAirborne: true))
+                        break;
+                    thief.Actor.SetScriptAnimation(_database.Animation(5));
+                    thief.Counter = 6;
+                    thief.Stage = 4;
+                    break;
+                case 4:
+                    if (--thief.Counter == 0)
+                        BeginThiefJump(thief, 5);
+                    break;
+                case 5:
+                    Move(thief, _database.Record.JumpSpeed, _database.Record.JumpAngle);
+                    if (!OracleObjectMath.IsInsideOriginalScreenBoundary(thief.Position))
+                    {
+                        RetireThief(thief);
+                        break;
+                    }
+                    AdvanceThiefZ(thief);
+                    break;
+                case 6:
+                    if (--thief.Counter == 0)
+                    {
+                        Complete();
+                        thief.Actor.SetActive(false);
+                        thief.Accessory?.SetActive(false);
+                        completed = true;
+                    }
+                    break;
+            }
+        }
+        UpdatingThief=null;
+        if (completed)
+        {
+            // Every placed thief and related accessory has been retired by
+            // this boundary. Release their room-owned nodes before
+            // RoomEntityManager frees them so a later room 1:aa Start cannot
+            // touch disposed actors.
+            _thieves.Clear();
+        }
+    }
+
+    private void BeginThiefJump(TokayThiefScriptHost thief, int stage)
+    {
+        thief.Stage = stage;
+        thief.SpeedZ = _database.Record.JumpZFixed;
+        // The source calls the SPECIALOBJECT animation ABI with an
+        // INTERACTION page. Its actual Interaction.animCounter is forced to
+        // one; specialObjectAnimate then touches the page prefix instead.
+        thief.ApplyJumpAnimationAbi(_database.JumpAnimation);
+        _context.Sound.PlaySound(SoundId.SndJump);
+    }
+
+    private bool AdvanceThiefJump(TokayThiefScriptHost thief, bool moveWhileAirborne)
+    {
+        bool landed = AdvanceThiefZ(thief);
+        if (!landed && moveWhileAirborne)
+            Move(thief, _database.Record.JumpSpeed, _database.Record.JumpAngle);
+        return landed;
+    }
+
+    private bool AdvanceThiefZ(TokayThiefScriptHost thief)
+    {
+        bool landed = OracleObjectMath.UpdateSpeedZ(
+            ref thief.ZFixed, ref thief.SpeedZ,
+            _database.Record.JumpGravityFixed);
+        thief.Actor.SetScriptDrawOffset(
+            landed ? Vector2.Zero : new Vector2(0, thief.ZFixed / 256.0f));
+        return landed;
+    }
+
+    private void RetireThief(TokayThiefScriptHost thief)
+    {
+        if (thief.SubId == 3)
+        {
+            thief.Stage = 6;
+            thief.Counter = _database.Record.FinalWait;
+        }
+        else
+        {
+            thief.Actor.SetActive(false);
+            thief.Accessory?.SetActive(false);
+            thief.Stage = 7;
+        }
+    }
+
+    private void Complete()
+    {
+        TokayTheftEventRecord record = _database.Record;
+        _context.Rooms.SaveData.SetRoomFlag(
+            record.Group, record.Room, record.RoomFlag);
+        _context.Sound.PlayRoomMusic(record.Group, record.Room);
+        _context.Player.SetLocalRespawnPosition(_context.Player.Position);
+        _context.Rooms.SaveData.SetDeathRespawnPoint(
+            record.Group, record.Room, 0, 2,
+            Mathf.Clamp(Mathf.FloorToInt(_context.Player.Position.Y), 0, 0xff),
+            Mathf.Clamp(Mathf.FloorToInt(_context.Player.Position.X), 0, 0xff));
+        _context.Player.SetCutsceneDrawZFixed(0);
+        _context.Player.EndCutsceneControl(this);
+        _context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,0);
+        _context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled,0);
+        _active = false;
+    }
+
+    private void MakeLinkJump()
+    {
+        _context.Player.BeginControlledTopDownJump(this,-0x200);
+        _context.Sound.PlaySound(SoundId.SndJump);
+    }
+
+    private void AdvanceWashedUpLinkAnimation()
+    {
+        if (--_linkFrameCounter != 0)
+            return;
+        _linkFrame++;
+        if (_linkFrame >= _database.LinkFrames.Length)
+            _linkFrame = _database.LinkLoopStart;
+        _linkFrameCounter = _database.LinkFrames[_linkFrame].Duration;
+        _context.Player.SetCutsceneSpriteFrame(_database.LinkFrames[_linkFrame]);
+    }
+
+    private void SynchronizeAccessories()
+    {
+        foreach (TokayThiefScriptHost thief in _thieves)
+        {
+            if (thief.Accessory?.Active == true)
+            {
+                thief.Accessory.Position = thief.Actor.Position +
+                    thief.Actor.ScriptDrawOffset + new Vector2(0, -12);
+            }
+        }
+    }
+
+    private static void Move(TokayThiefScriptHost thief,int speed,int angle) => thief.Move(speed,angle);
+}

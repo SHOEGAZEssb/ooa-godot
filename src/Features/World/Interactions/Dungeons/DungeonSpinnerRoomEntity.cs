@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_SPINNER $7d and its related arrow interaction. Link's circular
@@ -109,7 +109,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
 
-        _red = (_runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress) &
+        _red = (_runtime.ReadWramByte(AgesGameContent.SpinnerStateAddress) &
             _stateMask) != 0;
         Image graphics = EnemyVisualSource.LoadComposite(visual.Sprites);
         _spinnerAnimation = CreateAnimation(graphics, visual);
@@ -123,7 +123,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
     {
         if (!_initializing) return;
         _initializing = false;
-        _red = (_runtime.ReadWramByte(OracleRuntimeState.SpinnerStateAddress)&_stateMask) != 0;
+        _red = (_runtime.ReadWramByte(AgesGameContent.SpinnerStateAddress)&_stateMask) != 0;
         _spinnerAnimation.SetAnimation(_red ? 1 : 0);
         Visible = true;
         Arrow = (_createArrow ?? throw new InvalidOperationException($"INTERAC$7d missing checked arrow allocator at {_source}."))(this,_visual);
@@ -260,9 +260,9 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
             return;
 
         byte state = _runtime.ReadWramByte(
-            OracleRuntimeState.SpinnerStateAddress);
+            AgesGameContent.SpinnerStateAddress);
         _runtime.SetWramByte(
-            OracleRuntimeState.SpinnerStateAddress,
+            AgesGameContent.SpinnerStateAddress,
             (byte)(state ^ _stateMask));
         _red = !_red;
         _phase = SpinnerPhase.Waiting;

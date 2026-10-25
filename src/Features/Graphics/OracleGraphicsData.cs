@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Shared validated asset reads and Game Boy palette conversion.</summary>
 internal static class OracleGraphicsData
@@ -59,7 +59,7 @@ internal static class OracleGraphicsData
     }
 
     public static Color[] LoadCommonBackgroundPalette() =>
-        LoadPaletteColors("res://assets/oracle/metadata/commonBgPalette0.bin");
+        LoadPaletteColors(AgesGameContent.AssetRoot + "metadata/commonBgPalette0.bin");
 
     public static Color[] LoadPaletteColors(string path, bool transparentZero = false)
     {
@@ -89,8 +89,17 @@ internal static class OracleGraphicsData
     public static int TwoBitShade(Color color) =>
         Math.Clamp(Mathf.RoundToInt((1.0f - color.R) * 3.0f), 0, 3);
 
+    public static int ShadeFromPng(Color sourceColor, out bool transparent)
+    {
+        // spr_* sources use the disassembly converter's default `invert: true`:
+        // black/gray/white map directly to Game Boy color indices 0/1-2/3.
+        int shade = Mathf.Clamp(Mathf.RoundToInt(sourceColor.R * 3.0f), 0, 3);
+        transparent = shade == 0;
+        return shade;
+    }
+
     public static int PaletteShade(Color color, bool spriteEncoding) =>
         spriteEncoding
-            ? ItemIconAtlas.ShadeFromPng(color, out _)
+            ? OracleGraphicsData.ShadeFromPng(color, out _)
             : TwoBitShade(color);
 }

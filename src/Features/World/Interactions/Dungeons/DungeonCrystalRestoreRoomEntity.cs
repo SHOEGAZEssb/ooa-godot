@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $21:$18 has no enabled-bit guard and deletes in its first dispatch.
 internal sealed partial class DungeonCrystalRestoreRoomEntity(DungeonObjectRecord record,
@@ -20,10 +20,10 @@ internal sealed partial class DungeonCrystalRestoreRoomEntity(DungeonObjectRecor
     private void Dispatch()
     {
         if (Finished) return;
-        int value = runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress);
+        int value = runtime.ReadWramByte(AgesGameContent.SwitchStateAddress);
         foreach (var flag in database.CrystalFlags)
             if (save.HasRoomFlag(record.Group, flag.Room, flag.Flag)) value |= 1 << flag.Bit;
-        runtime.SetWramByte(OracleRuntimeState.SwitchStateAddress, (byte)value);
+        runtime.SetWramByte(AgesGameContent.SwitchStateAddress, (byte)value);
         Finished = true;
     }
 }

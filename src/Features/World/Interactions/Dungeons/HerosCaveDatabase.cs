@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class HerosCaveDatabase
 {
@@ -12,7 +12,7 @@ internal sealed class HerosCaveDatabase
 
     internal HerosCaveDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/heros_cave_objects.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/heros_cave_objects.tsv",
             new GeneratedTableSchema("Hero's Cave objects", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "order", "kind", "id", "subid", "y", "x", "condition", "source"],
                 ["group", "room", "order"], headerRequired: true));
@@ -37,7 +37,7 @@ internal sealed class HerosCaveDatabase
             _records.GetOrAdd(record.Room).Add(record);
         }
         if (table.Rows.Count != 25) throw new InvalidOperationException("Hero's Cave requires 25 native placements.");
-        table = GeneratedTable.Load("res://assets/oracle/objects/heros_cave_portals.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/heros_cave_portals.tsv",
             new GeneratedTableSchema("Hero's Cave portal destinations", GeneratedTableKeySemantics.Unique,
                 ["index", "room", "position", "source"], ["index"], headerRequired: true));
         if (table.Rows.Count != 8) throw new InvalidOperationException("Hero's Cave requires eight portal destinations.");
@@ -47,12 +47,12 @@ internal sealed class HerosCaveDatabase
             if (row.UnsignedDecimal(0) != i) throw row.Invalid(0, "source-ordered portal destinations $00..$07");
             _portals[i] = (row.HexByte(1), row.HexByte(2));
         }
-        table = GeneratedTable.Load("res://assets/oracle/objects/heros_cave_constants.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/heros_cave_constants.tsv",
             new GeneratedTableSchema("Hero's Cave constants", GeneratedTableKeySemantics.Unique,
                 ["name", "value", "source"], ["name"], headerRequired: true));
         foreach (var row in table.Rows) _constants.Add(row.RequiredString(0), row.Decimal(1, 0, 255));
         if (_constants.Count != 6) throw new InvalidOperationException("Hero's Cave requires six source constants.");
-        var exit = GeneratedTable.Load("res://assets/oracle/objects/heros_cave_exit.tsv",
+        var exit = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/heros_cave_exit.tsv",
             new GeneratedTableSchema("Hero's Cave final chest exit", GeneratedTableKeySemantics.Ordered,
                 ["group", "room", "destination-transition", "position", "source-transition", "source"],
                 headerRequired: true)).SingleRow();

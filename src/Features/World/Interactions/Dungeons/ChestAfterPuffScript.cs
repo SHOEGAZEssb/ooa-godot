@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // dungeonScripts.s:spawnChestAfterPuff. playsound and createpuff each
 // return with carry clear; wait installs counter1 on a third script update.

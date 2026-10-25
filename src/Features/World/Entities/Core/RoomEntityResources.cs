@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Session-scoped imported data. Keep first-use caching and staged preparation
 // here; placement and actor construction consume the same database instances.
@@ -63,10 +63,10 @@ internal sealed class RoomEntityResources(RoomSession? rooms)
         records.AddRange(shared);
         foreach (var record in traps)
             records.Add(new(group, room, record.Order, DungeonObjectKind.PuzzleTrapReset,
-                InteractionId.MiscPuzzles, 0x1f, 0, 0, DungeonObjectCondition.Always, record.Source));
+                AgesInteractionId.MiscPuzzles, 0x1f, 0, 0, DungeonObjectCondition.Always, record.Source));
         foreach (var record in pushes)
             records.Add(new(group, room, record.Order, DungeonObjectKind.PushBlockSynchronizer,
-                InteractionId.PushBlockSynchronizer, 0, 0, 0, DungeonObjectCondition.Always, record.Source));
+                AgesInteractionId.PushBlockSynchronizer, 0, 0, 0, DungeonObjectCondition.Always, record.Source));
         foreach (var record in eyes)
             records.Add(new(group, room, record.Order, DungeonObjectKind.SeedShooterEyeStatue,
                 InteractionId.Shopkeeper, record.Subid,

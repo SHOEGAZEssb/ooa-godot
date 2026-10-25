@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Centralizes the presentation-only screen-scroll offset used by drawable

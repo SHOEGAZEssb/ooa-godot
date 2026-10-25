@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_FARORE_MAKECHEST $11:$00's ordered native counter lane.</summary>
 internal sealed partial class FaroreMakeChestRoomEntity(

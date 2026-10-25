@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // object_code/ages/interactions/miscPuzzles.s, $90:$14-$18/$20.
 internal sealed partial class HerosCavePuzzleRoomEntity : Node2D, IRoomEntity,
@@ -80,8 +80,8 @@ internal sealed partial class HerosCavePuzzleRoomEntity : Node2D, IRoomEntity,
             case 0x16:
                 if (State == 1 && !ItemFlag) return;
                 State = 2;
-                _runtime.SetWramByte(WramAddress.wDisabledObjects, 0x81);
-                _runtime.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu, 0x81);
+                _runtime.SetWramByte(AgesWramAddress.wDisabledObjects, 0x81);
+                _runtime.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu, 0x81);
                 if (_owner.IsTextActive()) return;
                 _owner.OnRoomWarpRequested(_data.ExitWarp with { SourceGroup = room.Group, SourceRoom = room.Id });
                 Finished = true;

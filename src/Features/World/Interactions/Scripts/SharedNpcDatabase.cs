@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class SharedNpcDatabase
 {
@@ -12,23 +12,23 @@ internal sealed class SharedNpcDatabase
     internal SharedNpcDatabase()
     {
         var animals = new List<NpcRecord>();
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/animals_waiting_for_nayru.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/animals_waiting_for_nayru.tsv",
             new GeneratedTableSchema("animalsWaitingForNayru", GeneratedTableKeySemantics.Ordered,
                 ["group", "room", "id", "subid", "y", "x", "var03", "text-id", "sprite", "tile-base", "palette", "default-animation", "can-face",
                     "up-animation", "right-animation", "down-animation", "left-animation", "utf8-base64", "implementation"], headerRequired: true)).Rows)
             animals.Add(NpcDatabase.ParseNpcRecord(row, 0));
         WaitingAnimals = animals;
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/shared_npc_texts.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/shared_npc_texts.tsv",
             new GeneratedTableSchema("shared NPC texts", GeneratedTableKeySemantics.Unique,
                 ["text-id", "utf8-base64"], ["text-id"], headerRequired: true)).Rows)
             _texts.Add(row.HexWord(0), row.Base64Utf8(1));
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/shared_npc_animations.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/shared_npc_animations.tsv",
             new GeneratedTableSchema("shared NPC animations", GeneratedTableKeySemantics.Unique,
                 ["id", "index", "animation"], ["id", "index"], headerRequired: true)).Rows)
             _animations.Add((row.HexByte(0), row.HexByte(1)), row.RequiredString(2));
         foreach (string name in new[] { "nayru", "ralph", "boy", "monkey", "bear", "old_man_gift", "adlar" })
-            _scripts.Add(name, CutsceneCommandCatalog.Load($"res://assets/oracle/cutscenes/shared_npc_{name}_commands.tsv"));
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/shared_npc_extra_graphics.tsv",
+            _scripts.Add(name, CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + $"cutscenes/shared_npc_{name}_commands.tsv"));
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/shared_npc_extra_graphics.tsv",
             new GeneratedTableSchema("shared NPC extra graphics", GeneratedTableKeySemantics.Unique,
                 ["id", "sprite"], ["id"], headerRequired: true)).Rows)
             _extraGraphics.Add(row.HexByte(0), row.RequiredString(1));

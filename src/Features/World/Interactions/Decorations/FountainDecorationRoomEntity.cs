@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // decoration.s: $80:$09/$0a. State0 initializes graphics without advancing
 // animation. State1 calls interactionAnimate; ordinary interaction gates apply.
@@ -30,7 +30,7 @@ internal sealed partial class FountainDecorationRoomEntity : TransitionOffsetNod
         RuinedPalette = data.UsesRuinedPalette(placement.Group, placement.Room, save);
         FountainVisual visual = data.Visual(placement.SubId);
         _animation = new(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{visual.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
             [visual.Animation], visual.TileBase, visual.Palette,
             paletteOverrides: data.Palettes(RuinedPalette), positionedOam: true);
         _animation.SetAnimation(0);

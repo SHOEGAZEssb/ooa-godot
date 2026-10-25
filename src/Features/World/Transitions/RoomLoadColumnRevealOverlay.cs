@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Screen-space copy of the still-cleared BG-map columns. The original map

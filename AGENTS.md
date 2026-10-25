@@ -1,9 +1,11 @@
-# Oracle of Ages Godot port: agent guide
+# Oracles Godot port: agent guide
 
 ## Goal and source of truth
 
-This repository reconstructs *The Legend of Zelda: Oracle of Ages* in Godot
-4.7.1/.NET. The target is the supported clean US game, not a reinterpretation.
+This repository reconstructs *The Legend of Zelda: Oracle of Ages* and prepares
+the shared engine for *Oracle of Seasons* in Godot 4.7.1/.NET. Ages is currently
+playable; Seasons has launcher preview content only. Each game targets its
+supported clean US source, not a reinterpretation.
 
 Always go for 1:1 fidelity using the disassembly.
 When behavior is uncertain, use evidence in this order:
@@ -120,14 +122,16 @@ Important world invariants:
 | Path | Ownership |
 | --- | --- |
 | `src/Application/` | Composition, fixed-update scheduling, input, pause ownership |
-| `src/Features/` | Gameplay and presentation features by owning use case |
+| `src/Features/` | Shared gameplay and presentation features by owning use case |
+| `src/Games/Ages/` | Ages content, source-specific catalogs, state layout and composition |
+| `src/Games/Seasons/` | Implemented Seasons content; currently preview bindings only |
 | `src/Infrastructure/` | Generated-data and external boundaries |
 | `src/Shared/` | Small behavior-neutral primitives |
 | `scenes/` | Stable Godot scene trees |
 | `tools/import_oracles.ps1` | Import entry point and stage contracts |
-| `tools/import_oracles/` | Feature import stages |
+| `tools/import_oracles/` | Shared import infrastructure and per-game producers |
 | `assets/oracle/` | Generated runtime data; never hand-edit |
-| `validation/` | Separate headless validation project |
+| `validation/Ages/` | Ages fixtures and ROM expectations in the separate validation project |
 | `docs/` | Durable engineering guides and high-level status |
 
 Place a production type with the feature that owns it. Follow the original
@@ -192,7 +196,7 @@ than treating a focused or serial run as sufficient.
 
 Keep fidelity audits and working findings in untracked files under
 `local-audits/`, excluded through `.git/info/exclude`. Never put audit reports
-in tracked documentation, including `docs/npc-interaction-coverage.md`, or link
+in tracked documentation, including `docs/ages/npc-interaction-coverage.md`, or link
 tracked documentation to local audit files. The coverage ledger records current
 statuses, room entries, and counts in its tables only.
 
@@ -202,8 +206,8 @@ inventories, generated tables, per-room implementation notes, or validation
 method contents that are easier to discover with `rg`.
 
 The intentional exceptions are the navigable
-`docs/npc-interaction-coverage.md` and
-`docs/interaction-event-cutscene-coverage.md` ledgers. The latter records
+`docs/ages/npc-interaction-coverage.md` and
+`docs/ages/interaction-event-cutscene-coverage.md` ledgers. The latter records
 source dispatch coverage and outstanding implementation/proof checklist items;
 update its affected statuses, counts and checklist items together when coverage
 changes, without adding audit narratives. Any change that implements, extends,
@@ -217,8 +221,8 @@ record only the resulting coverage status.
 
 - Change `README.md` only for project scope, setup, quick start, or navigation.
 - Change a subsystem guide when its ownership or durable contract changes.
-- Change `docs/npc-interaction-coverage.md` whenever NPC coverage changes.
-- Change `docs/interaction-event-cutscene-coverage.md` whenever its source-wide
+- Change `docs/ages/npc-interaction-coverage.md` whenever NPC coverage changes.
+- Change `docs/ages/interaction-event-cutscene-coverage.md` whenever its source-wide
   interaction, event or cutscene coverage changes.
 - Put source-specific detail in importer diagnostics, code comments beside the
   implementation, and focused validations.

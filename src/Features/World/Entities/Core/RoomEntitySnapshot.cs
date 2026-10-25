@@ -2,7 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // A scoped membership snapshot. Each nested scan owns its own rented array,
 // so callbacks may mutate the live list or enter another collision scan.

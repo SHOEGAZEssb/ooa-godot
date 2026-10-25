@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_SPARKLE $84:$00. Initialization is a setup-only update;
@@ -35,7 +35,7 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{visual.Sprite}.png"),
+                AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
             [visual.Animation],
             visual.TileBase,
             visual.Palette);

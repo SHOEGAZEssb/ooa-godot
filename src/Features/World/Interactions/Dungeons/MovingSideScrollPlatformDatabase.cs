@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source-ordered placements for the globally dispatched
@@ -15,7 +15,7 @@ internal sealed class MovingSideScrollPlatformDatabase
     internal MovingSideScrollPlatformDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/moving_side_scroll_platform_placements.tsv",
+            AgesGameContent.AssetRoot + "objects/moving_side_scroll_platform_placements.tsv",
             new GeneratedTableSchema(
                 "moving side-scroll platform placements",
                 GeneratedTableKeySemantics.Grouped,

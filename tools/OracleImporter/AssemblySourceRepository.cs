@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 public sealed class AssemblySourceRepository
 {

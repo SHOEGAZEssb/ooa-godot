@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 internal readonly record struct TektiteBehaviorProfile(
     int EvenSubIdWait, int OddSubIdWait, int WaitMask, int CrouchFrames,

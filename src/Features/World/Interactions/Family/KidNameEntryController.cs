@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Gameplay-owned use of MENU_KIDNAME ($07). The original routes this through

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_ARROW_MOBLIN $0c:$00/$01. The shared Moblin handler alternates cardinal

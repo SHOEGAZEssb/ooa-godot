@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported MENU_MAP lookup data: 14x14 area text bytes, cursor popup types,
@@ -75,7 +75,7 @@ public sealed class MapDataDatabase
                     : 0x0300 | entrance.FallbackText;
 
             case 2: // Moblin's Keep / ruins.
-                return save.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) ? 0x0317 : 0x0318;
+                return save.HasGlobalFlag(AgesGlobalFlag.MoblinsKeepDestroyed) ? 0x0317 : 0x0318;
 
             case 3: // Animal companion region.
                 return presentation.AnimalCompanionAreaTextId;
@@ -91,7 +91,7 @@ public sealed class MapDataDatabase
     private void LoadCells()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/map/overworld.tsv",
+            AgesGameContent.AssetRoot + "map/overworld.tsv",
             new GeneratedTableSchema(
                 "overworld map cells",
                 GeneratedTableKeySemantics.Unique,
@@ -111,7 +111,7 @@ public sealed class MapDataDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/map/texts.tsv",
+            AgesGameContent.AssetRoot + "map/texts.tsv",
             new GeneratedTableSchema(
                 "map text",
                 GeneratedTableKeySemantics.Unique,
@@ -128,7 +128,7 @@ public sealed class MapDataDatabase
     private void LoadTreeWarps()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/map/tree_warps.tsv",
+            AgesGameContent.AssetRoot + "map/tree_warps.tsv",
             new GeneratedTableSchema(
                 "map tree warps",
                 GeneratedTableKeySemantics.Unique,
@@ -145,7 +145,7 @@ public sealed class MapDataDatabase
     private void LoadDungeonEntrances()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/map/dungeon_entrances.tsv",
+            AgesGameContent.AssetRoot + "map/dungeon_entrances.tsv",
             new GeneratedTableSchema(
                 "map dungeon entrances",
                 GeneratedTableKeySemantics.Unique,
@@ -199,8 +199,8 @@ public sealed class MapPresentationState
             _ => throw new ArgumentOutOfRangeException(nameof(group))
         };
         int metFlag = past
-            ? GlobalFlag.MakuGivesAdviceFromPastMap
-            : GlobalFlag.MakuGivesAdviceFromPresentMap;
+            ? AgesGlobalFlag.MakuGivesAdviceFromPastMap
+            : AgesGlobalFlag.MakuGivesAdviceFromPresentMap;
         if (!_save.HasGlobalFlag(metFlag))
             return past ? 0x0324 : 0x0323;
 

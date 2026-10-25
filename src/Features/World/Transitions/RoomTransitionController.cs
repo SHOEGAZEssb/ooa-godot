@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class RoomTransitionController
 {
@@ -110,7 +110,7 @@ public sealed class RoomTransitionController
     private int _timeWarpAppliedDissolveStep = -1;
     private double _timeWarpTickAccumulator;
     private bool _timeWarpUsesIndoorBeamPalette;
-    private bool TimeWarpCreatesPortal => _entities.RuntimeState.ReadWramByte(WramAddress.wLinkTimeWarpTile) == 0;
+    private bool TimeWarpCreatesPortal => _entities.RuntimeState.ReadWramByte(AgesWramAddress.wLinkTimeWarpTile) == 0;
     private byte _timeWarpDestinationFlags;
     private bool _timeWarpArrivalRejected;
     private OracleRoomData? _timeWarpSourceRoom;
@@ -421,15 +421,15 @@ public sealed class RoomTransitionController
             return RequestUnderwaterTravel(player, terrain.PackedPosition, surface: false);
         if (!UnderwaterSurfacingDatabase.Shared.CanSurface(
             _rooms.ActiveGroup, _rooms.CurrentRoom.Id, _rooms.CurrentRoom.TilesetFlags,
-            terrain.PackedPosition, _rooms.SaveData.HasGlobalFlag(GlobalFlag.WaterPollutionFixed),
-            _rooms.CurrentDungeonIndex, _rooms.SaveData.ReadWramByte(WramAddress.wJabuWaterLevel)))
+            terrain.PackedPosition, _rooms.SaveData.HasGlobalFlag(AgesGlobalFlag.WaterPollutionFixed),
+            _rooms.CurrentDungeonIndex, _rooms.SaveData.ReadWramByte(AgesWramAddress.wJabuWaterLevel)))
             return false;
         return RequestUnderwaterTravel(player, terrain.PackedPosition, surface: true);
     }
 
     private bool UnderwaterTravelDisabled() =>
         IsTransitioning || AllScreenTransitionsDisabledSource() || ScreenTransitionsDisabledSource() ||
-        _entities.RuntimeState.ReadWramByte(WramAddress.wDisableScreenTransitions) != 0;
+        _entities.RuntimeState.ReadWramByte(AgesWramAddress.wDisableScreenTransitions) != 0;
 
     private bool RequestUnderwaterTravel(Player player, int packedPosition, bool surface)
     {
@@ -484,7 +484,7 @@ public sealed class RoomTransitionController
         // the standing tile or clearing wEnteredWarpPosition. INTERAC$1f:00
         // installs its diving warp independently of this tile-warp dispatcher.
         if (!hasDiveWarp && (player.TopDownAirborne || _dialogue.IsOpen ||
-            _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled) != 0))
+            _entities.RuntimeState.ReadWramByte(AgesWramAddress.wWarpsDisabled) != 0))
             return false;
         Vector2 standingPoint = linkPosition + new Vector2(0, 4);
         int position = room.GetPackedPosition(standingPoint);
@@ -522,7 +522,7 @@ public sealed class RoomTransitionController
         // Ages bank4.findWarpSourceAndDest checks this byte before source
         // lookup. setWarpDestDefault reloads this room at the entered tile;
         // screen-edge warps and the separate diving interaction ignore it.
-        if (_entities.RuntimeState.ReadWramByte(WramAddress.wDisableWarps) != 0 &&
+        if (_entities.RuntimeState.ReadWramByte(AgesWramAddress.wDisableWarps) != 0 &&
             WarpDatabase.IsWarpTile(room.ActiveCollisions, tile) &&
             LinkWithinTileWarpBounds(room, position, linkPosition))
         {
@@ -557,19 +557,19 @@ public sealed class RoomTransitionController
         // checkTileWarps rejects height/menu/grab or finds no tile source.
         // Its $ff write precedes findScreenEdgeWarpSource's scroll-mode gate.
         // An actual boundary match is resolved by CheckRoomExit below.
-        _entities.RuntimeState.SetWramByte(WramAddress.wTmpcec0, 0xff);
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcec0, 0xff);
         return false;
     }
 
     private bool TrySelectScreenEdgeWarp(
         OracleRoomData room, Vector2I direction, Vector2 position, out Warp warp)
     {
-        _entities.RuntimeState.SetWramByte(WramAddress.wTmpcec0, 0xff);
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcec0, 0xff);
         if (!_warps.TryGetEdgeWarp(_rooms.ActiveGroup, room.Id, direction,
                 position, new Vector2(room.Width, room.Height), out warp))
             return false;
         // bank4.findScreenEdgeWarpSource @foundWarpSource clears the byte.
-        _entities.RuntimeState.SetWramByte(WramAddress.wTmpcec0, 0);
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcec0, 0);
         return true;
     }
 
@@ -690,7 +690,7 @@ public sealed class RoomTransitionController
     {
         if (IsTransitioning)
             return;
-        if (_entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode) == 0)
+        if (_entities.RuntimeState.ReadWramByte(AgesWramAddress.wScrollMode) == 0)
         {
             // bank1.func_4000 omits the boundary pass. cutscene01 still
             // checks screen-edge warp sources, whose scroll gate rejects it.
@@ -730,7 +730,7 @@ public sealed class RoomTransitionController
     internal void SampleRoomExit(Player player)
     {
         if (IsTransitioning || RoomExitPending) return;
-        if (_entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode) == 0) return;
+        if (_entities.RuntimeState.ReadWramByte(AgesWramAddress.wScrollMode) == 0) return;
         if (player.DelaysOrdinaryScreenTransition)
             _screenTransitionDelay = 4;
 
@@ -770,7 +770,7 @@ public sealed class RoomTransitionController
             owner.SetScreenTransitionBoundaryCoordinate(horizontal, boundary, player);
         if (AllScreenTransitionsDisabledSource() ||
             ScreenTransitionsDisabledSource() ||
-            _entities.RuntimeState.ReadWramByte(WramAddress.wDisableScreenTransitions) != 0)
+            _entities.RuntimeState.ReadWramByte(AgesWramAddress.wDisableScreenTransitions) != 0)
             return false;
         if (_screenTransitionDelay != 0)
         {
@@ -862,7 +862,7 @@ public sealed class RoomTransitionController
                 _rooms.CurrentRoom.Id, direction, out targetId)) return true;
         if (_rooms.ActiveGroup == 0 &&
             !_rooms.SaveData.HasGlobalFlag(
-                GlobalFlag.ForestUnscrambled) &&
+                AgesGlobalFlag.ForestUnscrambled) &&
             _fairiesWoodsScrambler.TryResolve(
                 _rooms.CurrentRoom.Id, direction, out targetId))
         {
@@ -1278,9 +1278,9 @@ public sealed class RoomTransitionController
         // it after the era swap.
         _timeWarpUsesIndoorBeamPalette =
             (_rooms.CurrentRoom.TilesetFlags & (int)TilesetFlags.Past) != 0;
-        _entities.RuntimeState.SetWramByte(WramAddress.wLinkTimeWarpTile,
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wLinkTimeWarpTile,
             createDestinationPortal ? (byte)0 : (byte)(position + 1));
-        _entities.RuntimeState.SetWramByte(WramAddress.wcde0,
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wcde0,
             createDestinationPortal ? (byte)0x5b : (byte)(position + 1));
         _timeWarpArrivalRejected = false;
         _destinationWalk = false;
@@ -1310,7 +1310,7 @@ public sealed class RoomTransitionController
         _roomPackArrival = null;
         _suppressDestinationMusic = suppressDestinationMusic;
         _timeWarp = false;
-        _entities.RuntimeState.SetWramByte(WramAddress.wLinkTimeWarpTile, 0);
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wLinkTimeWarpTile, 0);
         _warpActive = true;
         _warpFrame = 0.0f;
         _warpFadeOutFrames = delayedFadeOut ? DelayedWarpFadeFrames : WarpFadeFrames;
@@ -1480,9 +1480,9 @@ public sealed class RoomTransitionController
                 TimeWarpInitializeFrames + _timeWarpPhaseFrame < FastPaletteFadeFrames;
         _timeWarpGlobalFrame = (_entities.FrameCounter + 1) & 0xff;
         _timeWarpPhaseFrame++;
-        if (_entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce) == 1 ||
+        if (_entities.RuntimeState.ReadWramByte(AgesWramAddress.wSentBackByStrangeForce) == 1 ||
             _warpPhase == WarpPhase.TimeWarpReturnFadeOut &&
-            _entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce) == 2)
+            _entities.RuntimeState.ReadWramByte(AgesWramAddress.wSentBackByStrangeForce) == 2)
             _roomView.SetHorizontalWave(0xff, _timeWarpGlobalFrame);
 
         switch (_warpPhase)
@@ -1606,7 +1606,7 @@ public sealed class RoomTransitionController
                 {
                     SpawnTimeWarpEffect(source: false);
                     _timeWarpArrivalRejected =
-                        _entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce) == 1 ||
+                        _entities.RuntimeState.ReadWramByte(AgesWramAddress.wSentBackByStrangeForce) == 1 ||
                         !_timeWarpLanding.CanStandOnTile(_rooms.CurrentRoom, _player.Position,
                             _player.Inventory.HasTreasure(TreasureId.MermaidSuit)) ||
                         _entities.TimeWarpPositionOccupied(_timeWarpLanding, _pendingWarp.DestinationPosition);
@@ -1665,11 +1665,11 @@ public sealed class RoomTransitionController
                         _rooms.SaveData.SetRoomFlag(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, OracleSaveData.RoomFlagVisited, false);
                     _pendingWarp = new Warp(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, packed, 0, 0,
                         _rooms.ActiveGroup ^ 1, _rooms.CurrentRoom.Id, packed, 0, WarpDestinationTransition.TimeWarp);
-                    _entities.RuntimeState.SetWramByte(WramAddress.wLinkTimeWarpTile, (byte)(packed + 1));
-                    _entities.RuntimeState.SetWramByte(WramAddress.wcddf, (byte)(packed + 1));
-                    byte strangeForce = _entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce);
+                    _entities.RuntimeState.SetWramByte(AgesWramAddress.wLinkTimeWarpTile, (byte)(packed + 1));
+                    _entities.RuntimeState.SetWramByte(AgesWramAddress.wcddf, (byte)(packed + 1));
+                    byte strangeForce = _entities.RuntimeState.ReadWramByte(AgesWramAddress.wSentBackByStrangeForce);
                     if (strangeForce != 0)
-                        _entities.RuntimeState.SetWramByte(WramAddress.wSentBackByStrangeForce, (byte)(strangeForce + 1));
+                        _entities.RuntimeState.SetWramByte(AgesWramAddress.wSentBackByStrangeForce, (byte)(strangeForce + 1));
                     _sound.PlaySound(SoundId.SndTimewarpCompleted);
                     SetTimeWarpPhase(WarpPhase.TimeWarpReturnFadeOut);
                 }
@@ -1724,9 +1724,9 @@ public sealed class RoomTransitionController
         if (_timeWarp)
         {
             _timeWarpDestinationFlags = _rooms.SaveData.GetRoomFlags(warp.DestinationGroup, warp.DestinationRoom);
-            if (_entities.RuntimeState.ReadWramByte(WramAddress.wcddf) == 0 &&
+            if (_entities.RuntimeState.ReadWramByte(AgesWramAddress.wcddf) == 0 &&
                 _timeWarpLanding.SentBackByStrangeForce(_rooms.CurrentRoom.Id))
-                _entities.RuntimeState.SetWramByte(WramAddress.wSentBackByStrangeForce, 1);
+                _entities.RuntimeState.SetWramByte(AgesWramAddress.wSentBackByStrangeForce, 1);
         }
         // Full room loading retains the mounted animal slot. Update its room
         // and packed destination before the factory reconstitutes that slot.
@@ -1743,7 +1743,7 @@ public sealed class RoomTransitionController
                 CompanionRuntimeState.SetLastAnimalMountPosition(_rooms.SaveData, destination);
             }
         }
-        bool returningThroughTime = _timeWarp && _entities.RuntimeState.ReadWramByte(WramAddress.wcddf) != 0;
+        bool returningThroughTime = _timeWarp && _entities.RuntimeState.ReadWramByte(AgesWramAddress.wcddf) != 0;
         OracleRoomData room;
         if (returningThroughTime)
         {
@@ -1759,7 +1759,7 @@ public sealed class RoomTransitionController
         {
             _timePortals.ApplyEntryTileReplacement(
                 room, warp.DestinationPosition, _entities.FrameCounter);
-            int returnTile = _entities.RuntimeState.ReadWramByte(WramAddress.wLinkTimeWarpTile);
+            int returnTile = _entities.RuntimeState.ReadWramByte(AgesWramAddress.wLinkTimeWarpTile);
             if (returnTile != 0)
             {
                 _timePortals.ApplyReturnTileReplacement(
@@ -1789,7 +1789,7 @@ public sealed class RoomTransitionController
         // actors observe the adjusted Link position during their state 0.
         if (_roomPackArrival is { } arrival)
             _player.WarpTo(arrival);
-        if (_timeWarp && _entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce) == 1)
+        if (_timeWarp && _entities.RuntimeState.ReadWramByte(AgesWramAddress.wSentBackByStrangeForce) == 1)
         {
             // initializeRoom returns before object parsing, Maple, companions,
             // and room code. Only INTERAC_SCREEN_DISTORTION $7c is created.
@@ -1808,7 +1808,7 @@ public sealed class RoomTransitionController
                     new Vector2((warp.DestinationPosition & 0x0f) * 16 + 8,
                         (warp.DestinationPosition >> 4) * 16 + 8), facing: 0);
             // bank1.loadingRoom leaves bit $02 set through destination state0.
-            _entities.RuntimeState.SetWramByte(WramAddress.wScrollMode, 2);
+            _entities.RuntimeState.SetWramByte(AgesWramAddress.wScrollMode, 2);
             _entities.LoadRoom(
                 _rooms.ActiveGroup, room,
                 EnemyPlacementContext.FromWarpDestination(warp.DestinationPosition));
@@ -2002,7 +2002,7 @@ public sealed class RoomTransitionController
 
     private void FinishWarp()
     {
-        _entities.RuntimeState.SetWramByte(WramAddress.wScrollMode, 1);
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wScrollMode, 1);
         bool finishedTimeWarp = _timeWarp;
         _player.FinishRoomWarpTransition(_destinationWalk ? _warpWalkEnd :
             _roomPackArrival is not null ? _player.PrecisePosition : _player.Position,
@@ -2034,17 +2034,17 @@ public sealed class RoomTransitionController
                     packed);
                 _entities.SpawnTemporaryTimePortal(position);
             }
-            if (_entities.RuntimeState.ReadWramByte(WramAddress.wSentBackByStrangeForce) != 0)
+            if (_entities.RuntimeState.ReadWramByte(AgesWramAddress.wSentBackByStrangeForce) != 0)
                 _dialogue.ShowMessage(_timeWarpLanding.StrangeForceText, _player.Position.Y);
-            _entities.RuntimeState.SetWramByte(WramAddress.wSentBackByStrangeForce, 0);
-            _entities.RuntimeState.SetWramByte(WramAddress.wcddf, 0);
-            _entities.RuntimeState.SetWramByte(WramAddress.wcde0, 0);
+            _entities.RuntimeState.SetWramByte(AgesWramAddress.wSentBackByStrangeForce, 0);
+            _entities.RuntimeState.SetWramByte(AgesWramAddress.wcddf, 0);
+            _entities.RuntimeState.SetWramByte(AgesWramAddress.wcde0, 0);
             _player.ApplyInteractionInvincibility(0x78); // signed byte $88
         }
         _destinationWalk = false;
         _destinationFall = false;
         _timeWarp = false;
-        _entities.RuntimeState.SetWramByte(WramAddress.wLinkTimeWarpTile, 0);
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wLinkTimeWarpTile, 0);
         _timeWarpSourceRoom = null;
         _warpActive = false;
         _roomPackArrival = null;

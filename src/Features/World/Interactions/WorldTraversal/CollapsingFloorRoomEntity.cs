@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MISCELLANEOUS_2 $dc:$0b; native four-state floor mini-script.</summary>
 internal sealed class CollapsingFloorRoomEntity : RoomEntityAdapter<Node2D>, IFixedRoomEntity,

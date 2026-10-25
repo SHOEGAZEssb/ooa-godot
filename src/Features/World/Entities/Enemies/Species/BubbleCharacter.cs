@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // ENEMY_BUBBLE $15:$00, shared dungeon rail movement and deferred Link jinx.
 internal sealed partial class BubbleCharacter : EnemyCharacter
@@ -40,7 +40,7 @@ internal sealed partial class BubbleCharacter : EnemyCharacter
         // enemyCode15 checks var2a=$80 only after common status dispatch.
         // The Ring is sampled now, rather than during the late collision.
         if (linkHit && !RingEffects.PreventsJinx(player.Inventory))
-            _runtime.SetWramByte(WramAddress.wSwordDisabledCounter, (byte)_behavior.JinxUpdates);
+            _runtime.SetWramByte(AgesWramAddress.wSwordDisabledCounter, (byte)_behavior.JinxUpdates);
         if (State == 0)
         {
             PrepareForScreenTransition();

@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // data/ages/tile_properties/interactableTiles.s: six collision-mode pointers,
 // including aliases and unterminated label fallthrough. $ff represents the
@@ -9,7 +9,7 @@ internal sealed class InteractableTileDatabase
 {
     internal const byte NoEntry = 0xff;
     private readonly byte[] _parameters =
-        OracleAssetCache.ReadBytes("res://assets/oracle/metadata/interactableTiles.bin");
+        OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/interactableTiles.bin");
 
     internal InteractableTileDatabase()
     {

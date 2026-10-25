@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // bank1.s:initWaveScrollValues_body multiplies bytes, retains the high byte,
 // mirrors the first quarter, then reverses/negates the complete first half.
@@ -11,7 +11,7 @@ internal sealed class ScreenWaveData
 
     private ScreenWaveData()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/screen_wave_sine.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/screen_wave_sine.tsv",
             new GeneratedTableSchema("screen wave coefficients", GeneratedTableKeySemantics.Ordered,
                 ["order", "coefficient", "source"]));
         if (table.Rows.Count != 32)

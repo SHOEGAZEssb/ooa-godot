@@ -1,4 +1,4 @@
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 public readonly record struct SourcePosition(
     string Path,

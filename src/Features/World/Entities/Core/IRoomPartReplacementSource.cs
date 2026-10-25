@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>objectReplaceWithID retains the current PART page and defers
 /// the replacement's state zero until the next part pass.</summary>

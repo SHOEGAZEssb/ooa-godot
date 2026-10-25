@@ -1,8 +1,9 @@
 using System;
 using System.Buffers.Binary;
 using System.Text;
+using static Oracles.AgesSaveLayout;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// The original $550-byte file image copied between WRAM $c5b0-$caff and
@@ -22,7 +23,7 @@ public sealed class OracleSaveData
     public const byte RoomFlag40 = 0x40;
     public const byte RoomFlag80 = 0x80;
 
-    public const int ChildFlagsAddress = WramAddress.wc6e2;
+    public const int ChildFlagsAddress = AgesWramAddress.wc6e2;
 
     internal const int RespawnRememberedCompanionIdAddress = 0xc631;
     internal const int RespawnRememberedCompanionGroupAddress = 0xc632;
@@ -31,16 +32,6 @@ public sealed class OracleSaveData
     internal const int RespawnRememberedCompanionYAddress = 0xc636;
     internal const int RespawnRememberedCompanionXAddress = 0xc637;
 
-    private const int WramBase = 0xc5b0;
-    private const int ChecksumOffset = 0x000;
-    private const int VerificationOffset = 0x002;
-    private const int UnappraisedRingsOffset = 0x010;
-    private const int GlobalFlagsOffset = 0x120;
-    private const int Group0RoomFlagsOffset = 0x150;
-    private const int Group1RoomFlagsOffset = 0x250;
-    private const int Group4RoomFlagsOffset = 0x350;
-    private const int Group5RoomFlagsOffset = 0x450;
-    private static readonly byte[] VerificationString = "Z21216-0"u8.ToArray();
 
     private readonly byte[] _data;
     private int _mutationDepth;
@@ -48,29 +39,29 @@ public sealed class OracleSaveData
 
     public event Action? Changed;
 
-    public int MinimapGroup => ReadWramByte(WramAddress.wMinimapGroup);
-    public int MinimapRoom => ReadWramByte(WramAddress.wMinimapRoom);
-    public int MinimapDungeonPosition => ReadWramByte(WramAddress.wMinimapDungeonMapPosition);
-    public int MinimapDungeonFloor => ReadWramByte(WramAddress.wMinimapDungeonFloor);
+    public int MinimapGroup => ReadWramByte(AgesWramAddress.wMinimapGroup);
+    public int MinimapRoom => ReadWramByte(AgesWramAddress.wMinimapRoom);
+    public int MinimapDungeonPosition => ReadWramByte(AgesWramAddress.wMinimapDungeonMapPosition);
+    public int MinimapDungeonFloor => ReadWramByte(AgesWramAddress.wMinimapDungeonFloor);
     public byte DungeonVisitedFloors(int dungeon) => ReadWramByte(0xc662 + dungeon);
-    public int TimePortalGroup => ReadWramByte(WramAddress.wPortalGroup);
-    public int TimePortalRoom => ReadWramByte(WramAddress.wPortalRoom);
-    public int TimePortalPosition => ReadWramByte(WramAddress.wPortalPos);
-    public int MakuTreeState => ReadWramByte(WramAddress.wMakuTreeState);
-    public int MakuMapTextPresent => ReadWramByte(WramAddress.wMakuMapTextPresent);
-    public int MakuMapTextPast => ReadWramByte(WramAddress.wMakuMapTextPast);
-    public int MakuTreeSeedSatchelXPosition => ReadWramByte(WramAddress.wMakuTreeSeedSatchelXPosition);
-    public string ChildName => ReadName(WramAddress.wKidName, 6);
+    public int TimePortalGroup => ReadWramByte(AgesWramAddress.wPortalGroup);
+    public int TimePortalRoom => ReadWramByte(AgesWramAddress.wPortalRoom);
+    public int TimePortalPosition => ReadWramByte(AgesWramAddress.wPortalPos);
+    public int MakuTreeState => ReadWramByte(AgesWramAddress.wMakuTreeState);
+    public int MakuMapTextPresent => ReadWramByte(AgesWramAddress.wMakuMapTextPresent);
+    public int MakuMapTextPast => ReadWramByte(AgesWramAddress.wMakuMapTextPast);
+    public int MakuTreeSeedSatchelXPosition => ReadWramByte(AgesWramAddress.wMakuTreeSeedSatchelXPosition);
+    public string ChildName => ReadName(AgesWramAddress.wKidName, 6);
     public bool ChildNamed => (ReadWramByte(ChildFlagsAddress) & 0x01) != 0;
     public string LinkName
     {
         get => ReadName(0xc602, 5);
     }
-    public int MaxHealthQuarters => ReadWramByte(WramAddress.wLinkMaxHealth);
+    public int MaxHealthQuarters => ReadWramByte(AgesWramAddress.wLinkMaxHealth);
     public int DeathCount => ReadWramByte(0xc61f) * 100 +
-        FromBcd(ReadWramByte(WramAddress.wDeathCounter));
-    public int TextSpeed => ReadWramByte(WramAddress.wTextSpeed);
-    public int RespawnGroup => ReadWramByte(WramAddress.wDeathRespawnBuffer);
+        FromBcd(ReadWramByte(AgesWramAddress.wDeathCounter));
+    public int TextSpeed => ReadWramByte(AgesWramAddress.wTextSpeed);
+    public int RespawnGroup => ReadWramByte(AgesWramAddress.wDeathRespawnBuffer);
     public int RespawnRoom => ReadWramByte(0xc62c);
     public int RespawnStateModifier => ReadWramByte(0xc62d);
     public int RespawnFacing => ReadWramByte(0xc62e) & 0x03;
@@ -78,14 +69,14 @@ public sealed class OracleSaveData
     public int RespawnX => ReadWramByte(0xc630);
     internal byte LastAnimalMountY => ReadWramByte(0xc638);
     internal byte LastAnimalMountX => ReadWramByte(0xc639);
-    public bool IsLinkedGame => ReadWramByte(WramAddress.wFileIsLinkedGame) != 0;
-    public bool IsCompleted => ReadWramByte(WramAddress.wFileIsCompleted) != 0;
-    public int MapleKillCounter => ReadWramByte(WramAddress.wMapleKillCounter);
-    public int MapleState => ReadWramByte(WramAddress.wMapleState);
+    public bool IsLinkedGame => ReadWramByte(AgesWramAddress.wFileIsLinkedGame) != 0;
+    public bool IsCompleted => ReadWramByte(AgesWramAddress.wFileIsCompleted) != 0;
+    public int MapleKillCounter => ReadWramByte(AgesWramAddress.wMapleKillCounter);
+    public int MapleState => ReadWramByte(AgesWramAddress.wMapleState);
     public int GashaMaturity =>
-        ReadWramByte(WramAddress.wGashaMaturity) | (ReadWramByte(0xc660) << 8);
-    internal bool HasHarvestedFirstGashaNut => (ReadWramByte(WramAddress.wGashaSpotFlags) & 0x01) != 0;
-    internal bool HasHarvestedGashaHeartPiece => (ReadWramByte(WramAddress.wGashaSpotFlags) & 0x02) != 0;
+        ReadWramByte(AgesWramAddress.wGashaMaturity) | (ReadWramByte(0xc660) << 8);
+    internal bool HasHarvestedFirstGashaNut => (ReadWramByte(AgesWramAddress.wGashaSpotFlags) & 0x01) != 0;
+    internal bool HasHarvestedGashaHeartPiece => (ReadWramByte(AgesWramAddress.wGashaSpotFlags) & 0x02) != 0;
 
     private OracleSaveData(byte[] data)
     {
@@ -99,35 +90,35 @@ public sealed class OracleSaveData
         var save = new OracleSaveData(new byte[FileSize]);
         foreach (var field in transferred) save.WriteWramByte(field.Address, field.Value);
         save.ApplyInitialFileVariables("common");
-        int mode = save.ReadWramByte(WramAddress.wFileIsLinkedGame) +
-            2 * save.ReadWramByte(WramAddress.wFileIsHeroGame);
+        int mode = save.ReadWramByte(AgesWramAddress.wFileIsLinkedGame) +
+            2 * save.ReadWramByte(AgesWramAddress.wFileIsHeroGame);
         save.ApplyInitialFileVariables(mode switch
         {
             0 => "standardGame", 2 => "heroGame", 1 or 3 => "linkedGame",
             _ => throw new InvalidOperationException($"fileManagement.initializeFile: invalid mode ${mode:x2}.")
         });
         Array.Fill(save._data, (byte)0xff, UnappraisedRingsOffset, 0x40);
-        for (int address = WramAddress.wRingBoxContents; address <= WramAddress.wActiveRing; address++)
+        for (int address = AgesWramAddress.wRingBoxContents; address <= AgesWramAddress.wActiveRing; address++)
             save.WriteWramByte(address, 0xff);
         // Only the unlinked hero variant receives the unappraised Victory Ring $36.
         if (mode == 2)
         {
             int address = 0xc69a + TreasureId.Ring / 8;
             save.WriteWramByte(address, (byte)(save.ReadWramByte(address) | (1 << (TreasureId.Ring & 7))));
-            save.WriteWramByte(WramAddress.wUnappraisedRings, 0x76);
+            save.WriteWramByte(AgesWramAddress.wUnappraisedRings, 0x76);
         }
         BipinBlossomFamilyStateResolver.InitializeOnGameStart(save);
         new VineSproutDatabase().InitializePositions(save);
         // initializeFile falls through to saveFile, which marks Ages.
-        save.WriteWramByte(WramAddress.wWhichGame, 0x01);
-        VerificationString.CopyTo(save._data, VerificationOffset);
+        save.WriteWramByte(AgesWramAddress.wWhichGame, 0x01);
+        VerificationString.CopyTo(save._data.AsSpan(VerificationOffset));
         return save;
     }
 
     private void ApplyInitialFileVariables(string variant)
     {
         int index = 0;
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/metadata/new_file_initialization.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/new_file_initialization.tsv",
             new("New file initialization", GeneratedTableKeySemantics.Ordered,
                 ["variant", "index", "address", "value", "source"], headerRequired: true)).Rows)
         {
@@ -192,8 +183,8 @@ public sealed class OracleSaveData
     public void SetMinimapLocation(int group, int room)
     {
         ValidateRoom(group, room);
-        bool changed = WriteWramByte(WramAddress.wMinimapGroup, (byte)group);
-        changed |= WriteWramByte(WramAddress.wMinimapRoom, (byte)room);
+        bool changed = WriteWramByte(AgesWramAddress.wMinimapGroup, (byte)group);
+        changed |= WriteWramByte(AgesWramAddress.wMinimapRoom, (byte)room);
         if (changed)
             PublishChange();
     }
@@ -210,16 +201,16 @@ public sealed class OracleSaveData
         if (position is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(position));
 
-        bool changed = WriteWramByte(WramAddress.wPortalGroup, (byte)group);
-        changed |= WriteWramByte(WramAddress.wPortalRoom, (byte)room);
-        changed |= WriteWramByte(WramAddress.wPortalPos, (byte)position);
+        bool changed = WriteWramByte(AgesWramAddress.wPortalGroup, (byte)group);
+        changed |= WriteWramByte(AgesWramAddress.wPortalRoom, (byte)room);
+        changed |= WriteWramByte(AgesWramAddress.wPortalPos, (byte)position);
         if (changed)
             PublishChange();
     }
 
     public void ClearTimePortalLocation()
     {
-        if (WriteWramByte(WramAddress.wPortalGroup, 0xff))
+        if (WriteWramByte(AgesWramAddress.wPortalGroup, 0xff))
             PublishChange();
     }
 
@@ -227,7 +218,7 @@ public sealed class OracleSaveData
     {
         if (state is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(state));
-        if (WriteWramByte(WramAddress.wMakuTreeState, (byte)state))
+        if (WriteWramByte(AgesWramAddress.wMakuTreeState, (byte)state))
             PublishChange();
     }
 
@@ -235,7 +226,7 @@ public sealed class OracleSaveData
     {
         if (textLow is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(textLow));
-        if (WriteWramByte(WramAddress.wMakuMapTextPast, (byte)textLow))
+        if (WriteWramByte(AgesWramAddress.wMakuMapTextPast, (byte)textLow))
             PublishChange();
     }
 
@@ -243,7 +234,7 @@ public sealed class OracleSaveData
     {
         if (textLow is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(textLow));
-        if (WriteWramByte(WramAddress.wMakuMapTextPresent, (byte)textLow))
+        if (WriteWramByte(AgesWramAddress.wMakuMapTextPresent, (byte)textLow))
             PublishChange();
     }
 
@@ -251,13 +242,13 @@ public sealed class OracleSaveData
     {
         if (x is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(x));
-        if (WriteWramByte(WramAddress.wMakuTreeSeedSatchelXPosition, (byte)x))
+        if (WriteWramByte(AgesWramAddress.wMakuTreeSeedSatchelXPosition, (byte)x))
             PublishChange();
     }
 
     public void SetLinkedGame(bool linked)
     {
-        if (WriteWramByte(WramAddress.wFileIsLinkedGame, linked ? (byte)0x01 : (byte)0x00))
+        if (WriteWramByte(AgesWramAddress.wFileIsLinkedGame, linked ? (byte)0x01 : (byte)0x00))
             PublishChange();
     }
 
@@ -265,7 +256,7 @@ public sealed class OracleSaveData
     {
         Span<byte> encoded = stackalloc byte[6];
         EncodeName(name, encoded, nameof(name));
-        if (WriteWramBytes(WramAddress.wLinkName, encoded))
+        if (WriteWramBytes(AgesWramAddress.wLinkName, encoded))
             PublishChange();
     }
 
@@ -273,16 +264,16 @@ public sealed class OracleSaveData
     {
         Span<byte> encoded = stackalloc byte[6];
         string normalized = EncodeName(name, encoded, nameof(name));
-        bool changed = WriteWramBytes(WramAddress.wKidName, encoded);
+        bool changed = WriteWramBytes(AgesWramAddress.wKidName, encoded);
 
         int lowNibbleSum = 0;
         for (int index = 0; index < normalized.Length; index++)
             lowNibbleSum += encoded[index] & 0x0f;
         changed |= WriteWramByte(
-            WramAddress.wChildStatus, (byte)(lowNibbleSum % 3 + 1));
+            AgesWramAddress.wChildStatus, (byte)(lowNibbleSum % 3 + 1));
         changed |= WriteWramByte(
             ChildFlagsAddress, (byte)(ReadWramByte(ChildFlagsAddress) | 0x01));
-        changed |= WriteWramByte(WramAddress.wNextChildStage, 0x01);
+        changed |= WriteWramByte(AgesWramAddress.wNextChildStage, 0x01);
         if (changed)
             PublishChange();
     }
@@ -291,15 +282,15 @@ public sealed class OracleSaveData
     {
         if (speed is < 0 or > 4)
             throw new ArgumentOutOfRangeException(nameof(speed));
-        if (WriteWramByte(WramAddress.wTextSpeed, (byte)speed))
+        if (WriteWramByte(AgesWramAddress.wTextSpeed, (byte)speed))
             PublishChange();
     }
 
     // tryToBreakTile_body calls incHlRefWithCap for TILEINDEX_SIGN.
     internal void RecordSignDestroyed()
     {
-        if (WriteWramByte(WramAddress.wTotalSignsDestroyed,
-            (byte)Math.Min(0xff, ReadWramByte(WramAddress.wTotalSignsDestroyed) + 1)))
+        if (WriteWramByte(AgesWramAddress.wTotalSignsDestroyed,
+            (byte)Math.Min(0xff, ReadWramByte(AgesWramAddress.wTotalSignsDestroyed) + 1)))
             PublishChange();
     }
 
@@ -311,7 +302,7 @@ public sealed class OracleSaveData
         if (amount is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(amount));
         int next = Math.Min(0xffff, GashaMaturity + amount);
-        bool changed = WriteWramByte(WramAddress.wGashaMaturity, (byte)next);
+        bool changed = WriteWramByte(AgesWramAddress.wGashaMaturity, (byte)next);
         changed |= WriteWramByte(0xc660, (byte)(next >> 8));
         if (changed)
             PublishChange();
@@ -322,7 +313,7 @@ public sealed class OracleSaveData
         if (amount is < 0 or > 0xffff)
             throw new ArgumentOutOfRangeException(nameof(amount));
         int next = Math.Max(0, GashaMaturity - amount);
-        bool changed = WriteWramByte(WramAddress.wGashaMaturity, (byte)next);
+        bool changed = WriteWramByte(AgesWramAddress.wGashaMaturity, (byte)next);
         changed |= WriteWramByte(0xc660, (byte)(next >> 8));
         if (changed)
             PublishChange();
@@ -364,8 +355,8 @@ public sealed class OracleSaveData
     {
         if (bit is < 0 or > 1)
             throw new ArgumentOutOfRangeException(nameof(bit));
-        byte value = (byte)(ReadWramByte(WramAddress.wGashaSpotFlags) | (1 << bit));
-        if (WriteWramByte(WramAddress.wGashaSpotFlags, value))
+        byte value = (byte)(ReadWramByte(AgesWramAddress.wGashaSpotFlags) | (1 << bit));
+        if (WriteWramByte(AgesWramAddress.wGashaSpotFlags, value))
             PublishChange();
     }
 
@@ -373,18 +364,18 @@ public sealed class OracleSaveData
     {
         if (value is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(value));
-        if (WriteWramByte(WramAddress.wMapleKillCounter, (byte)value))
+        if (WriteWramByte(AgesWramAddress.wMapleKillCounter, (byte)value))
             PublishChange();
     }
 
     internal void MarkGameCompleted()
     {
         // scripts/common/scriptHelper.s:gameCompleteDialog_markGameAsComplete.
-        bool changed=WriteWramByte(WramAddress.wMapleKillCounter,0);
-        changed|=WriteWramByte(WramAddress.wFileIsCompleted,1);
-        changed|=WriteWramByte(WramAddress.wMakuMapTextPresent,0x1c);
-        changed|=WriteWramByte(WramAddress.wMakuMapTextPast,0x8c);
-        SetGlobalFlag(GlobalFlag.FinishedGame);
+        bool changed=WriteWramByte(AgesWramAddress.wMapleKillCounter,0);
+        changed|=WriteWramByte(AgesWramAddress.wFileIsCompleted,1);
+        changed|=WriteWramByte(AgesWramAddress.wMakuMapTextPresent,0x1c);
+        changed|=WriteWramByte(AgesWramAddress.wMakuMapTextPast,0x8c);
+        SetGlobalFlag(AgesGlobalFlag.FinishedGame);
         if(changed)PublishChange();
     }
 
@@ -392,7 +383,7 @@ public sealed class OracleSaveData
     {
         if (value is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(value));
-        if (WriteWramByte(WramAddress.wMapleState, (byte)value))
+        if (WriteWramByte(AgesWramAddress.wMapleState, (byte)value))
             PublishChange();
     }
 
@@ -446,7 +437,7 @@ public sealed class OracleSaveData
         if (x is < 0 or > 0xff)
             throw new ArgumentOutOfRangeException(nameof(x));
 
-        bool changed = WriteWramByte(WramAddress.wDeathRespawnBuffer, (byte)group);
+        bool changed = WriteWramByte(AgesWramAddress.wDeathRespawnBuffer, (byte)group);
         changed |= WriteWramByte(0xc62c, (byte)room);
         changed |= WriteWramByte(0xc62d, (byte)stateModifier);
         changed |= WriteWramByte(0xc62e, (byte)facing);
@@ -484,14 +475,14 @@ public sealed class OracleSaveData
         bool changed = false;
         for (int offset = 0; offset < values.Length; offset++)
             if ((mask & (0x80 >> offset)) != 0)
-                changed |= WriteWramByte(WramAddress.wDeathRespawnBuffer + offset, values[offset]);
+                changed |= WriteWramByte(AgesWramAddress.wDeathRespawnBuffer + offset, values[offset]);
         if (changed) PublishChange();
     }
 
     public void IncrementDeathCount()
     {
         int next = Math.Min(999, DeathCount + 1);
-        bool changed = WriteWramByte(WramAddress.wDeathCounter, ToBcd(next % 100));
+        bool changed = WriteWramByte(AgesWramAddress.wDeathCounter, ToBcd(next % 100));
         changed |= WriteWramByte(0xc61f, (byte)(next / 100));
         if (changed)
             PublishChange();
@@ -501,7 +492,7 @@ public sealed class OracleSaveData
     {
         // bank0.s:mainThread increments the live four-byte little-endian
         // counter before game dispatch, including cutscenes and menus.
-        for (int address = WramAddress.wPlaytimeCounter; address < WramAddress.wPlaytimeCounter + 4; address++)
+        for (int address = AgesWramAddress.wPlaytimeCounter; address < AgesWramAddress.wPlaytimeCounter + 4; address++)
         {
             byte next = unchecked((byte)(ReadWramByte(address) + 1));
             WriteWramByte(address, next);
@@ -511,13 +502,13 @@ public sealed class OracleSaveData
 
     internal void ResetHealthIfDepleted()
     {
-        byte health = ReadWramByte(WramAddress.wLinkHealth);
+        byte health = ReadWramByte(AgesWramAddress.wLinkHealth);
         if (health != 0 && (health & 0x80) == 0)
             return;
         // bank1.initializeGame: SRL / AND $fc rounds half the maximum to
         // whole hearts; CP $0c imposes a three-heart minimum after depletion.
-        byte restored = (byte)Math.Max(0x0c, (ReadWramByte(WramAddress.wLinkMaxHealth) >> 1) & 0xfc);
-        if (WriteWramByte(WramAddress.wLinkHealth, restored))
+        byte restored = (byte)Math.Max(0x0c, (ReadWramByte(AgesWramAddress.wLinkMaxHealth) >> 1) & 0xfc);
+        if (WriteWramByte(AgesWramAddress.wLinkHealth, restored))
             PublishChange();
     }
 
@@ -533,7 +524,7 @@ public sealed class OracleSaveData
     public byte[] Serialize()
     {
         byte[] output = (byte[])_data.Clone();
-        VerificationString.CopyTo(output, VerificationOffset);
+        VerificationString.CopyTo(output.AsSpan(VerificationOffset));
         BinaryPrimitives.WriteUInt16LittleEndian(
             output.AsSpan(ChecksumOffset, sizeof(ushort)), CalculateChecksum(output));
         return output;

@@ -1,19 +1,12 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 public static class ItemIconAtlas
 {
-    private const string StandardSpritePalettePath = "res://assets/oracle/inventory/palette_sprites.bin";
+    private const string StandardSpritePalettePath = AgesGameContent.AssetRoot + "inventory/palette_sprites.bin";
 
-    public static int ShadeFromPng(Color sourceColor, out bool transparent)
-    {
-        // spr_* sources use the disassembly converter's default `invert: true`:
-        // black/gray/white map directly to Game Boy color indices 0/1-2/3.
-        int shade = Mathf.Clamp(Mathf.RoundToInt(sourceColor.R * 3.0f), 0, 3);
-        transparent = shade == 0;
-        return shade;
-    }
+
 
     internal static ulong DecodedCellHash(Image source, int cell)
     {
@@ -21,7 +14,7 @@ public static class ItemIconAtlas
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 8; x++)
         {
-            int shade = ShadeFromPng(source.GetPixel(cell * 8 + x, y), out _);
+            int shade = OracleGraphicsData.ShadeFromPng(source.GetPixel(cell * 8 + x, y), out _);
             hash ^= (byte)shade;
             hash *= 1099511628211UL;
         }

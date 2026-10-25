@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Game-wide owner of the original objectGetRelativeAngle and objectApplySpeed
@@ -22,7 +22,7 @@ internal sealed class OracleObjectMovement
     private OracleObjectMovement()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/object_relative_angles.tsv",
+            AgesGameContent.AssetRoot + "metadata/object_relative_angles.tsv",
             new GeneratedTableSchema(
                 "bank0.pushDirectionData",
                 GeneratedTableKeySemantics.Unique,

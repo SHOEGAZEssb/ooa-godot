@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/enemies/floorMaster.s: one counted spawner, separately allocated hands.
 internal sealed partial class FloormasterCharacter : EnemyCharacter, ITerrainShadowSource

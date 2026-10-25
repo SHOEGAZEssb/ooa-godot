@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class VolcanoRock : TransitionOffsetNode2D
 {
@@ -41,7 +41,7 @@ internal sealed partial class VolcanoRock : TransitionOffsetNode2D
         _sound = sound; _worldToScreen = worldToScreen;
         Name = "VolcanoRock"; Visible = false; ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
         _radiusX = _radiusY = data.Radius;
-        var image = OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{data.Sprite}.png");
+        var image = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{data.Sprite}.png");
         _animation = new(this, 4);
         _animation.Load(image, data.Animations, data.TileBase, data.Palette);
         _impact = new(this, 1);

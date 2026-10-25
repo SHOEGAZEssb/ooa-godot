@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_BALL $95, including its exact 8.8 parabolic flight.</summary>
 internal partial class Room149Ball : TransitionOffsetNode2D
@@ -31,13 +31,13 @@ internal partial class Room149Ball : TransitionOffsetNode2D
     internal void Initialize(Room149FamilyDatabaseVisualRecord visual)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.SpriteName}.png");
+            AgesGameContent.AssetRoot + $"gfx/{visual.SpriteName}.png");
         AnimationFrameDefinition[] frames =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation).Frames;
         if (frames.Length == 0)
             throw new InvalidOperationException(
                 "INTERAC_BALL $95 has malformed imported animation data.");
-        _texture = NpcCharacter.BuildOamTexture(
+        _texture = OracleOamCompositor.BuildOamTexture(
             source,
             frames[0].EncodedOam,
             visual.TileBase,

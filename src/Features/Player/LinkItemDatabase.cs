@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed Link, parent-item presentation, sword geometry, and sword-tile data
@@ -38,14 +38,14 @@ internal sealed class LinkItemDatabase
     internal IReadOnlyList<ClinkTileRecord> ClinkRows { get; private set; } = [];
 
     private LinkItemDatabase(
-        string constantsPath = "res://assets/oracle/metadata/link_item_constants.tsv",
-        string offsetsPath = "res://assets/oracle/metadata/link_item_offsets.tsv",
-        string graphicsPath = "res://assets/oracle/metadata/link_item_graphics.tsv",
-        string swordPath = "res://assets/oracle/metadata/sword_presentation.tsv",
-        string clinkPath = "res://assets/oracle/metadata/sword_clink_tiles.tsv")
+        string constantsPath = AgesGameContent.AssetRoot + "metadata/link_item_constants.tsv",
+        string offsetsPath = AgesGameContent.AssetRoot + "metadata/link_item_offsets.tsv",
+        string graphicsPath = AgesGameContent.AssetRoot + "metadata/link_item_graphics.tsv",
+        string swordPath = AgesGameContent.AssetRoot + "metadata/sword_presentation.tsv",
+        string clinkPath = AgesGameContent.AssetRoot + "metadata/sword_clink_tiles.tsv")
     {
         Constants = LoadConstants(constantsPath);
-        var parentFlags = GeneratedTable.Load("res://assets/oracle/metadata/parent_item_animation_flags.tsv",
+        var parentFlags = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/parent_item_animation_flags.tsv",
             new GeneratedTableSchema("Parent item animation flags", GeneratedTableKeySemantics.Unique,
                 ["item-id", "flags", "source"], ["item-id"], headerRequired: true));
         if (parentFlags.Rows.Count != 32)

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // tileSubstitutions.s:replacePollutionWithWaterIfPollutionFixed, before single-tile changes.
 internal sealed class PollutedWaterTileDatabase
@@ -11,7 +11,7 @@ internal sealed class PollutedWaterTileDatabase
     internal PollutedWaterTileDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/polluted_water_tile_substitutions.tsv",
+            AgesGameContent.AssetRoot + "metadata/polluted_water_tile_substitutions.tsv",
             new GeneratedTableSchema("polluted water tile substitutions", GeneratedTableKeySemantics.Unique,
                 ["underwater-mask", "replacement", "original", "source"], ["underwater-mask"], headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
@@ -28,7 +28,7 @@ internal sealed class PollutedWaterTileDatabase
 
     internal void Apply(OracleRoomData room, OracleSaveData save, long animationTick)
     {
-        if (!save.HasGlobalFlag(GlobalFlag.WaterPollutionFixed) ||
+        if (!save.HasGlobalFlag(AgesGlobalFlag.WaterPollutionFixed) ||
             (room.TilesetFlags & (int)TilesetFlags.Outdoors) == 0) return;
         room.ApplyMetatileSubstitutions(
             _substitutions[room.TilesetFlags & (int)TilesetFlags.Underwater], animationTick);

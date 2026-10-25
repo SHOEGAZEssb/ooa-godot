@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MALE_VILLAGER $3a:$02 path blocker.</summary>
 internal sealed class BlackTowerBlockingVillagerRoomEntity : BlackTowerNpcRoomEntity, IFixedRoomEntity,

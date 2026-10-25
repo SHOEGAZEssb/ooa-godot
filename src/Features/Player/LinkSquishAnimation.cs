@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // LINK_STATE_SQUISHED's animation and visible-update countdown. Link owns
 // request consumption, item cancellation, collision state and respawn.

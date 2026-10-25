@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System;
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class MoldormTailRoomEntity
     : CombatEnemyRoomEntityAdapter<MoldormTailCharacter>, IFixedRoomEntity,

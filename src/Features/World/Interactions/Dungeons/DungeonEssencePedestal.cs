@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_ESSENCE $7f:$01, the persistent pedestal.</summary>
 internal sealed partial class DungeonEssencePedestal : DungeonInteractionVisualEntity,

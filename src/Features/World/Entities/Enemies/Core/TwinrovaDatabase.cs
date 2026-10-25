@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class TwinrovaDatabase
 {
@@ -13,10 +13,10 @@ internal sealed class TwinrovaDatabase
     internal DungeonInteractionVisual SnowDebris {get;}
     internal TwinrovaDatabase()
     {
-        var snow=GeneratedTable.Load("res://assets/oracle/objects/twinrova_snow_debris.tsv",new("Twinrova snow debris",
+        var snow=GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/twinrova_snow_debris.tsv",new("Twinrova snow debris",
             GeneratedTableKeySemantics.Unique,["sprite","tile-base","palette","inverted","animation","source"],["sprite"],headerRequired:true)).Rows[0];
         SnowDebris=new("snow-debris",[snow.RequiredString(0)],snow.Decimal(1),snow.Decimal(2),snow.Boolean01(3),[snow.RequiredString(4)]);
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/twinrova_placements.tsv", new("Twinrova before-event entry",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/twinrova_placements.tsv", new("Twinrova before-event entry",
             GeneratedTableKeySemantics.Unique, ["group", "room", "order", "id", "subid", "flags", "count", "source"], ["group", "room", "order"], headerRequired: true)).Rows)
         {
             int group = row.Decimal(0, 0, 7), room = row.HexByte(1), order = row.UnsignedDecimal(2), id = row.HexByte(3), subid = row.HexByte(4);
@@ -26,15 +26,15 @@ internal sealed class TwinrovaDatabase
             _entries.Add(key, new(group, room, order, RoomObjectKind.RandomEnemy, id, subid, row.HexByte(5), row.Decimal(6, 1, 7), -1, -1, -1, 0xff)
                 { SourceOverride = row.RequiredString(7) });
         }
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/twinrova_tables.tsv", new("Twinrova native tables",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/twinrova_tables.tsv", new("Twinrova native tables",
             GeneratedTableKeySemantics.Unique, ["profile", "values", "source"], ["profile"], headerRequired: true)).Rows)
             _tables.Add(row.RequiredString(0), Array.ConvertAll(row.SplitRequired(1, ','), v => Convert.ToByte(v, 16)));
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/twinrova_actors.tsv", new("Twinrova actors",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/twinrova_actors.tsv", new("Twinrova actors",
             GeneratedTableKeySemantics.Unique, ["id", "subid", "sprites", "tile-base", "palette", "source-grayscale-inverted",
                 "radius-y", "radius-x", "damage-quarters", "health", "animations-base64"], ["id", "subid"], headerRequired: true)).Rows)
             _actors.Add(row.HexByte(0), new(row.HexByte(0), row.HexByte(1), row.SplitRequired(2, ','), row.Decimal(3), row.Decimal(4), row.Boolean01(5),
                 row.Decimal(6), row.Decimal(7), row.Decimal(8), row.Decimal(9), row.EncodedAnimations(10)));
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/cutscenes/twinrova_texts.tsv", new("Twinrova text",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/twinrova_texts.tsv", new("Twinrova text",
             GeneratedTableKeySemantics.Unique, ["text-id", "message-base64", "source"], ["text-id"], headerRequired: true)).Rows)
             _texts.Add(row.HexWord(0), row.Base64Utf8(1));
         foreach (var (name, count) in new[] { ("entrance", 8), ("levitation", 4), ("attack-pattern", 1),

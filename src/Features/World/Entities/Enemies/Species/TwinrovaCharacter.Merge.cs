@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class TwinrovaCharacter
 {
@@ -47,14 +47,14 @@ internal sealed partial class TwinrovaCharacter
             case 5:
                 if (Subid != 0) { DeleteNative(); return; }
                 if (frame.Player.IsDying) return;
-                World.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 1);
+                World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 1);
                 World.Entities.RuntimeState.SetWramByte(0xcbca, 1); // wDisableLinkCollisionsAndMenu.
                 Substate = 6; _palette = 0; RestartAnimation(12); World.Entities.OnSoundRequested(SoundId.SndTransform);
                 World.Fade(false, 2); return;
             case 6:
                 if (World.Entities.PaletteFadeActiveSource()) return;
                 Substate = 7; Flags &= ~1;
-                World.Entities.RuntimeState.SetWramByte(WramAddress.wLoadedTreeGfxIndex, 1); return;
+                World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wLoadedTreeGfxIndex, 1); return;
             case 7:
                 World.SpawnMerged(this); return;
             default: throw Unsupported();

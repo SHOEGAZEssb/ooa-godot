@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // roomSpecificCode.s, run by initializeRoom before sea effects and object parsing.
 // These handlers select music; checkPlayRoomMusic owns the later sound request.
@@ -12,7 +12,7 @@ internal sealed class RoomEntryEffectDatabase
 
     internal RoomEntryEffectDatabase()
     {
-        GeneratedTable table = GeneratedTable.Load("res://assets/oracle/metadata/room_entry_effects.tsv",
+        GeneratedTable table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/room_entry_effects.tsv",
             new GeneratedTableSchema("room-entry side effects", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "code", "source"], ["group", "room"], headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
@@ -31,18 +31,18 @@ internal sealed class RoomEntryEffectDatabase
         switch (entry.Code)
         {
             case Handler.PalaceMinimap:
-                save.WriteWramByte(WramAddress.wMinimapRoom, 0x06);
+                save.WriteWramByte(AgesWramAddress.wMinimapRoom, 0x06);
                 save.SetRoomFlag(1, 0x06, 0x10);
                 break;
             case Handler.NayruHouseMusic:
-                if (!save.HasGlobalFlag(GlobalFlag.SavedNayru)) sound.SetNativeRoomMusic(SoundId.MusSadness);
+                if (!save.HasGlobalFlag(AgesGlobalFlag.SavedNayru)) sound.SetNativeRoomMusic(SoundId.MusSadness);
                 break;
             case Handler.RalphPortalMusic:
-                if (entryDirection == Vector2I.Right && !save.HasGlobalFlag(GlobalFlag.RalphEnteredPortal))
+                if (entryDirection == Vector2I.Right && !save.HasGlobalFlag(AgesGlobalFlag.RalphEnteredPortal))
                     sound.SetNativeRoomMusic(SoundId.MusRalph);
                 break;
             case Handler.FinishedGameMusic:
-                if (save.HasGlobalFlag(GlobalFlag.FinishedGame)) sound.SetNativeRoomMusic(SoundId.MusNayru);
+                if (save.HasGlobalFlag(AgesGlobalFlag.FinishedGame)) sound.SetNativeRoomMusic(SoundId.MusNayru);
                 break;
             case Handler.PresentMermaidMinimap:
                 save.SetMinimapLocation(0, 0x3c);

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_ARM_MIMIC $4e:$00. Its movement angle and animation direction are
@@ -78,7 +78,7 @@ internal partial class ArmMimicCharacter : EnemyCharacter
             InitializePresentation(linkFacing);
             return;
         }
-        if(Record.Id==0x64&&_nativeMemory!.ReadWramByte(WramAddress.wDisabledObjects)!=0)return;
+        if(Record.Id==0x64&&_nativeMemory!.ReadWramByte(AgesWramAddress.wDisabledObjects)!=0)return;
 
         // wLinkAngle=$ff means Link is not supplying movement. The source
         // returns before both movement and enemyAnimate on that update.

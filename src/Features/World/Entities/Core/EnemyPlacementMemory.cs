@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // The placement view of wTmpcec0. Movement helpers reuse the first four
 // bytes as velocity scratch, so these names apply only during placement.

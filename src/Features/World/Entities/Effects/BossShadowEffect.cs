@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_SHADOW ($07), attached to an airborne boss object. The original part
@@ -109,7 +109,7 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
     private static BossShadowEffectDefinition LoadDefinition()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/boss_shadow.tsv",
+            AgesGameContent.AssetRoot + "effects/boss_shadow.tsv",
             new GeneratedTableSchema(
                 "boss shadow",
                 GeneratedTableKeySemantics.Ordered,
@@ -121,11 +121,11 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
         int tileBase = row.UnsignedDecimal(1);
         int palette = row.UnsignedDecimal(2);
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
         var textures = new Texture2D[4];
         for (int index = 0; index < textures.Length; index++)
         {
-            textures[index] = NpcCharacter.BuildOamTexture(
+            textures[index] = OracleOamCompositor.BuildOamTexture(
                 source, row.RequiredString(3 + index), tileBase, palette);
         }
         return new BossShadowEffectDefinition(sprite, tileBase, palette, textures);

@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// An interaction-owned child which the original continues to update while

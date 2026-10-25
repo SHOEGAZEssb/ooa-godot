@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>PART_ENEMY_ARROW $1a fired by Moblin archers.</summary>
 public partial class EnemyArrowProjectile
@@ -69,15 +69,15 @@ public partial class EnemyArrowProjectile
             _ => record.LeftAnimation
         };
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.SpriteName}.png");
+            AgesGameContent.AssetRoot + $"gfx/{record.SpriteName}.png");
         AnimationFrameDefinition frame =
             OracleGraphicsCache.GetAnimationDefinition(animation).Frames[0];
-        _texture = NpcCharacter.BuildOamTexture(
+        _texture = OracleOamCompositor.BuildOamTexture(
             source, frame.EncodedOam, record.TileBase, record.Palette);
         AnimationFrameDefinition bounceFrame =
             OracleGraphicsCache.GetAnimationDefinition(
                 record.BounceAnimation).Frames[0];
-        _bounceTexture = NpcCharacter.BuildOamTexture(
+        _bounceTexture = OracleOamCompositor.BuildOamTexture(
             source, bounceFrame.EncodedOam, record.TileBase, record.Palette);
         QueueRedraw();
     }

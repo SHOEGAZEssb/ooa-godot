@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// applyStandardTileSubstitutions: room-flag bits 0-3 and 7 select an imported
@@ -17,7 +17,7 @@ public sealed class StandardTileSubstitutionDatabase
     public StandardTileSubstitutionDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/standard_tile_substitutions.tsv",
+            AgesGameContent.AssetRoot + "metadata/standard_tile_substitutions.tsv",
             new GeneratedTableSchema(
                 "standard tile substitutions",
                 GeneratedTableKeySemantics.Grouped,

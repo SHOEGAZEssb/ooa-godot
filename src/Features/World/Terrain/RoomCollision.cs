@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class RoomCollision
 {
@@ -62,18 +62,18 @@ public sealed class RoomCollision
         // bank0.s:checkAndUpdateLinkOnChest. This is a shared collision-buffer
         // write, not a Link-only exception. Restore the current tile's collision
         // on departure, even if another writer replaced the chest meanwhile.
-        byte active = state.ReadWramByte(WramAddress.wActiveTilePos);
-        byte chest = state.ReadWramByte(WramAddress.wLinkOnChest);
+        byte active = state.ReadWramByte(AgesWramAddress.wActiveTilePos);
+        byte chest = state.ReadWramByte(AgesWramAddress.wLinkOnChest);
         if (chest == 0)
         {
-            if (state.ReadWramByte(WramAddress.wActiveTileIndex) != ChestDatabase.ClosedTile) return;
-            state.SetWramByte(WramAddress.wLinkOnChest, active);
+            if (state.ReadWramByte(AgesWramAddress.wActiveTileIndex) != ChestDatabase.ClosedTile) return;
+            state.SetWramByte(AgesWramAddress.wLinkOnChest, active);
             room.SetPackedTileCollision(active, 0);
         }
         else if (active != chest)
         {
             room.SetPackedTileCollision(chest, null);
-            state.SetWramByte(WramAddress.wLinkOnChest, 0);
+            state.SetWramByte(AgesWramAddress.wLinkOnChest, 0);
         }
     }
 
@@ -83,8 +83,8 @@ public sealed class RoomCollision
         OracleRuntimeState state = _entities.RuntimeState;
         Vector2 feet = new(unchecked((byte)Mathf.FloorToInt(position.X)),
             unchecked((byte)(Mathf.FloorToInt(position.Y)+5)));
-        state.SetWramByte(WramAddress.wActiveTilePos,(byte)room.GetPackedPosition(feet));
-        state.SetWramByte(WramAddress.wActiveTileIndex,room.GetMetatile(feet));
+        state.SetWramByte(AgesWramAddress.wActiveTilePos,(byte)room.GetPackedPosition(feet));
+        state.SetWramByte(AgesWramAddress.wActiveTileIndex,room.GetMetatile(feet));
     }
 
     public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide)
@@ -244,7 +244,7 @@ public sealed class RoomCollision
         // wScrollMode bit0 disables screenTransitionState2's boundary owner.
         // Native escape input deliberately walks Link beyond the viewport;
         // objectApplySpeed itself does not clamp him to the room rectangle.
-        bool nativeBoundsDisabled=(_entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode)&1)==0;
+        bool nativeBoundsDisabled=(_entities.RuntimeState.ReadWramByte(AgesWramAddress.wScrollMode)&1)==0;
         return (nativeBoundsDisabled||position.X >= 0 && position.X < room.Width &&
             position.Y >= 0 && position.Y < room.Height) &&
             !_entities.BlocksLink(position, beforeInteractions: true);
@@ -263,7 +263,7 @@ public sealed class RoomCollision
                 return false;
             return !_hasNeighborFor(point);
         }
-        return _entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset) != 0
+        return _entities.RuntimeState.ReadWramByte(AgesWramAddress.wLinkRaisedFloorOffset) != 0
             ? room.IsSolidForRaisedFloorLink(point)
             : room.IsSolid(point);
     }

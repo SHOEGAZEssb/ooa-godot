@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Declarative room-initialization rules imported from
@@ -21,7 +21,7 @@ public sealed class RoomTileChangeDatabase
     public RoomTileChangeDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/room_tile_changes.tsv",
+            AgesGameContent.AssetRoot + "metadata/room_tile_changes.tsv",
             new GeneratedTableSchema(
                 "room-specific tile changes",
                 GeneratedTableKeySemantics.Grouped,
@@ -90,7 +90,7 @@ public sealed class RoomTileChangeDatabase
                 ConditionKind.RoomSet =>
                     (save.GetRoomFlags(condition.A, condition.B) & condition.C) != 0,
                 ConditionKind.EssenceSet =>
-                    (save.ReadWramByte(WramAddress.wEssencesObtained) & (1 << condition.A)) != 0,
+                    (save.ReadWramByte(AgesWramAddress.wEssencesObtained) & (1 << condition.A)) != 0,
                 ConditionKind.TreasureSet => save.HasTreasure(condition.A),
                 ConditionKind.WramMaskEquals =>
                     (save.ReadWramByte(condition.A) & condition.B) == condition.C,

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal abstract partial class DungeonMechanicRoomEntity : Node2D, IRoomEntity
 {

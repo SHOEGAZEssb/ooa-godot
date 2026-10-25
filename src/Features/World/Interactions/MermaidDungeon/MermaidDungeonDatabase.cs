@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class MermaidDungeonDatabase
 {
@@ -13,7 +13,7 @@ internal sealed class MermaidDungeonDatabase
     internal DungeonEssenceDefinition Essence { get; }
     internal MermaidDungeonDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/mermaid_dungeon_objects.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_dungeon_objects.tsv",
             new GeneratedTableSchema("Mermaid's Cave native objects", GeneratedTableKeySemantics.Grouped,
                 ["group","room","order","kind","id","subid","y","x","condition","source"],
                 ["group","room"],headerRequired:true));
@@ -46,7 +46,7 @@ internal sealed class MermaidDungeonDatabase
             _records.GetOrAdd((record.Group << 8) | record.Room).Add(record);
         }
         if (table.Rows.Count != 28) throw new InvalidOperationException("Mermaid's Cave requires twenty-eight ordered native placements.");
-        var essence = GeneratedTable.Load("res://assets/oracle/objects/mermaid_dungeon_essence.tsv",
+        var essence = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_dungeon_essence.tsv",
             new GeneratedTableSchema("Mermaid's Cave Essence",GeneratedTableKeySemantics.Ordered,
                 ["index","text-id","text-position","message-base64","destination-group","destination-room",
                  "destination-position","destination-transition","source"],headerRequired:true)).SingleRow();
@@ -58,14 +58,14 @@ internal sealed class MermaidDungeonDatabase
         if (Essence.Index != 5 || essence.HexWord(1) != 0x0013 || Essence.ExitWarp is not
             {DestinationGroup:3,DestinationRoom:0x0f,DestinationPosition:0x16,DestinationTransition:WarpDestinationTransition.SetRespawn})
             throw new InvalidOperationException("Mermaid Essence source text/exit mapping is incomplete.");
-        var failure = GeneratedTable.Load("res://assets/oracle/objects/mermaid_boss_key_enemies.tsv",
+        var failure = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_boss_key_enemies.tsv",
             new GeneratedTableSchema("Mermaid boss-key failure enemies",GeneratedTableKeySemantics.Unique,
                 ["id","subid","flags","count","source"],["id","subid"],headerRequired:true));
         if (failure.Rows.Count != 1) throw new InvalidOperationException("objectData78db requires one random-enemy row.");
         var failureRow = failure.Rows[0];
         BossKeyFailureEnemies = new(5,0x1c,0,RoomObjectKind.RandomEnemy,failureRow.HexByte(0),failureRow.HexByte(1),
             failureRow.HexByte(2),failureRow.Decimal(3,1,7),0,0,0,0) { SourceOverride = failureRow.RequiredString(4) };
-        var orders = GeneratedTable.Load("res://assets/oracle/objects/mermaid_enemy_orders.tsv",
+        var orders = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_enemy_orders.tsv",
             new GeneratedTableSchema("Mermaid native enemy insertion",GeneratedTableKeySemantics.Unique,
                 ["group","room","id","subid","enemy-stream-order","source"],
                 ["group","room","id","subid"],headerRequired:true));
@@ -75,7 +75,7 @@ internal sealed class MermaidDungeonDatabase
             _enemyOrders.Add((row.Decimal(0,0,7),row.HexByte(1),row.HexByte(2),row.HexByte(3)),row.UnsignedDecimal(4));
         }
         if (orders.Rows.Count != 3) throw new InvalidOperationException("Mermaid native enemies require three source insertion points.");
-        var initial = GeneratedTable.Load("res://assets/oracle/objects/octogon_initial_state.tsv",
+        var initial = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/octogon_initial_state.tsv",
             new GeneratedTableSchema("Octogon encounter initialization",GeneratedTableKeySemantics.Unique,
                 ["field","address","value","source"],["field"],headerRequired:true));
         string[] fields = ["loadedExtraGfx","var03","direction","health","y","x","var30"];

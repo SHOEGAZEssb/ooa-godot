@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/enemies/twinrovaIce.s ($5d), twinrovaBat.s ($5e).
 internal sealed partial class TwinrovaMinionCharacter : EnemyCharacter

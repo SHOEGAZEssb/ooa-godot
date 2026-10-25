@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class GlobalFlagDatabase
 {
@@ -10,7 +10,7 @@ public sealed class GlobalFlagDatabase
     public GlobalFlagDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/global_flags.tsv",
+            AgesGameContent.AssetRoot + "metadata/global_flags.tsv",
             new GeneratedTableSchema(
                 "global flags",
                 GeneratedTableKeySemantics.Unique,

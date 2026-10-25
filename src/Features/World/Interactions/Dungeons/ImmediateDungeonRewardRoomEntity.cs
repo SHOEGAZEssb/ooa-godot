@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_DUNGEON_SCRIPT $20:$00/$01 immediate rewards.</summary>
 internal sealed partial class ImmediateDungeonRewardRoomEntity : Node2D,

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Shared 8x8 background and 8x16 OAM tile addressing/rendering.</summary>
 internal static class OracleTileRenderer
@@ -63,7 +63,7 @@ internal static class OracleTileRenderer
         // bank0.s:copyTextCharacterGfx, English font (C bit0 clear).
         // gfx_font_start is gfx_font-$e0 because m_GfxDataSimple omits the
         // PNG's first fourteen blank cells from the ROM. The PNG retains them.
-        Image font=OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/gfx_font.png");
+        Image font=OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
         byte[] pixels=font.GetData(),output=new byte[characters.Length*32];
         for(int index=0;index<characters.Length;index++)
         {

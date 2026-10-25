@@ -1,0 +1,217 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://src/Application/GameSelect/GameSelectScreen.cs" id="1_screen"]
+[ext_resource type="Script" path="res://src/Application/GameSelect/GameSelectPreview.cs" id="2_preview"]
+[ext_resource type="Shader" path="res://src/Application/GameSelect/inactive_preview.gdshader" id="3_inactive"]
+
+[sub_resource type="ShaderMaterial" id="Material_ages"]
+resource_local_to_scene = true
+shader = ExtResource("3_inactive")
+shader_parameter/inactive = false
+
+[sub_resource type="ShaderMaterial" id="Material_seasons"]
+resource_local_to_scene = true
+shader = ExtResource("3_inactive")
+shader_parameter/inactive = true
+
+[sub_resource type="Gradient" id="Gradient_title"]
+colors = PackedColorArray(0, 0, 0, 0, 0, 0, 0, 0.85)
+
+[sub_resource type="GradientTexture2D" id="Texture_title"]
+gradient = SubResource("Gradient_title")
+width = 1
+height = 128
+fill_from = Vector2(0, 0)
+fill_to = Vector2(0, 1)
+
+[node name="GameSelect" type="Control"]
+visible = false
+z_index = 300
+texture_filter = 1
+layout_mode = 0
+script = ExtResource("1_screen")
+
+[node name="Ages" type="Control" parent="."]
+clip_contents = true
+material = SubResource("Material_ages")
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 0.5
+script = ExtResource("2_preview")
+Game = 0
+
+[node name="TitleShade" type="TextureRect" parent="Ages"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -80.0
+mouse_filter = 2
+texture_filter = 2
+texture = SubResource("Texture_title")
+expand_mode = 1
+
+[node name="Series" type="Label" parent="Ages"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -62.0
+offset_right = 400.0
+offset_bottom = -48.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.88, 0.88, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 9
+text = "THE LEGEND OF ZELDA"
+
+[node name="Title" type="Label" parent="Ages"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 18.0
+offset_top = -48.0
+offset_right = 450.0
+offset_bottom = -24.0
+mouse_filter = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 22
+text = "ORACLE OF AGES"
+
+[node name="Hint" type="Label" parent="Ages"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -23.0
+offset_right = 450.0
+offset_bottom = -7.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.88, 0.88, 0.88, 1)
+theme_override_font_sizes/font_size = 9
+text = "UP / DOWN TO SELECT     A / ENTER TO PLAY"
+
+[node name="Options" type="TextureButton" parent="Ages"]
+use_parent_material = true
+layout_mode = 1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -112.0
+offset_top = -32.0
+offset_right = -16.0
+offset_bottom = -16.0
+tooltip_text = "Options coming soon"
+mouse_filter = 0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Acorn" type="TextureRect" parent="Ages/Options"]
+visible = false
+use_parent_material = true
+layout_mode = 0
+offset_left = 2.0
+offset_right = 10.0
+offset_bottom = 16.0
+mouse_filter = 2
+
+[node name="Seasons" type="Control" parent="."]
+clip_contents = true
+material = SubResource("Material_seasons")
+layout_mode = 1
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("2_preview")
+Game = 1
+
+[node name="TitleShade" type="TextureRect" parent="Seasons"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -80.0
+mouse_filter = 2
+texture_filter = 2
+texture = SubResource("Texture_title")
+expand_mode = 1
+
+[node name="Series" type="Label" parent="Seasons"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -62.0
+offset_right = 400.0
+offset_bottom = -48.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.88, 0.88, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 9
+text = "THE LEGEND OF ZELDA"
+
+[node name="Title" type="Label" parent="Seasons"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 18.0
+offset_top = -48.0
+offset_right = 450.0
+offset_bottom = -24.0
+mouse_filter = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 22
+text = "ORACLE OF SEASONS"
+
+[node name="Hint" type="Label" parent="Seasons"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -23.0
+offset_right = 450.0
+offset_bottom = -7.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.88, 0.88, 0.88, 1)
+theme_override_font_sizes/font_size = 9
+text = "COMING SOON"
+
+[node name="Options" type="TextureButton" parent="Seasons"]
+use_parent_material = true
+layout_mode = 1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -112.0
+offset_top = -32.0
+offset_right = -16.0
+offset_bottom = -16.0
+tooltip_text = "Options coming soon"
+mouse_filter = 0
+focus_mode = 0
+ignore_texture_size = true
+
+[node name="Acorn" type="TextureRect" parent="Seasons/Options"]
+visible = false
+use_parent_material = true
+layout_mode = 0
+offset_left = 2.0
+offset_right = 10.0
+offset_bottom = 16.0
+mouse_filter = 2
+
+[node name="Divider" type="ColorRect" parent="."]
+layout_mode = 1
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_top = -1.0
+offset_bottom = 1.0
+mouse_filter = 2
+color = Color(0.06, 0.06, 0.08, 1)

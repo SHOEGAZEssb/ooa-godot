@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared runtime state for INTERAC_BOY $3c:$0e, INTERAC_MALE_VILLAGER
@@ -130,7 +130,7 @@ internal sealed class Room149FamilyInteraction
     {
         bool veranDefeated = _save?.HasRoomFlag(
             VeranRoomGroup, VeranRoom, VeranDefeatedMask) == true;
-        bool d7Complete = ((_save?.ReadWramByte(WramAddress.wEssencesObtained) ?? 0) &
+        bool d7Complete = ((_save?.ReadWramByte(AgesWramAddress.wEssencesObtained) ?? 0) &
             D7EssenceMask) != 0;
         FamilyState next = veranDefeated
             ? FamilyState.PlayingAfterVeran

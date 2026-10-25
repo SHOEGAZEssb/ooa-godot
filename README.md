@@ -1,12 +1,12 @@
-# Oracle of Ages: Godot reconstruction
+# Oracles: Godot reconstruction
 
-This is a playable, in-progress reconstruction of *The Legend of Zelda: Oracle
-of Ages* in Godot 4.7.1/.NET.
+This project reconstructs *The Legend of Zelda: Oracle of Ages* and prepares
+the shared engine for *Oracle of Seasons* in Godot 4.7.1/.NET. Ages is playable;
+Seasons currently provides its game-selector preview only.
 
 The project aims to reproduce the supported clean US game exactly. ROM behavior
 and `oracles-disasm` are the authority for data, timing, coordinates, object
-order, RNG, collision, animation, audio, transitions, and state. The game is not
-complete.
+order, RNG, collision, animation, audio, transitions, and state.
 
 ## Requirements
 
@@ -39,7 +39,7 @@ Import the source data, then build:
 
 ```powershell
 & .\tools\import_oracles.ps1
-dotnet build
+dotnet build -t:Rebuild -p:Optimize=true
 ```
 
 Use path overrides when needed. An explicit `-Rom` bypasses ROM building:
@@ -51,8 +51,9 @@ Use path overrides when needed. An explicit `-Rom` bypasses ROM building:
 On Linux, run `pwsh -NoProfile -File tools/import_oracles.ps1`. The same
 `-Rom` and `-Disassembly` options accept native Linux paths.
 
-Generated files are written to `assets/oracle/`. Change the importer and
-regenerate them; never edit generated files directly.
+Generated files are written to `assets/oracle/ages/` and
+`assets/oracle/seasons/preview/`, with a table manifest for each game pack.
+Change the importer and regenerate them; never edit generated files directly.
 
 Launch the game selector, then choose Ages for its title and file-select flow:
 

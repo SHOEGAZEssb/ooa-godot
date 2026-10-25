@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Maintains the original wDeathRespawnBuffer checkpoint. Saving copies this
@@ -26,7 +26,7 @@ public sealed class DeathRespawnPointController
         _runtimeState = runtimeState;
 
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/continuous_death_respawn_rooms.tsv",
+            AgesGameContent.AssetRoot + "metadata/continuous_death_respawn_rooms.tsv",
             new GeneratedTableSchema(
                 "room-initialization death-respawn rooms",
                 GeneratedTableKeySemantics.Unique,

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_ROTATABLE_SEED_THING's collision-effect-$2a contract. The current

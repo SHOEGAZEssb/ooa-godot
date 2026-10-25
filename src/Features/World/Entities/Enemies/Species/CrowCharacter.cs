@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_CROW ($41), subid $00/$01. The perched Crow turns toward Link, rises for

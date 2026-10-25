@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class MovingPlatformDatabase
 {
@@ -9,7 +9,7 @@ internal sealed class MovingPlatformDatabase
 
     internal MovingPlatformDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/moving_platform_scripts.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/moving_platform_scripts.tsv",
             new GeneratedTableSchema("moving platform mini-scripts", GeneratedTableKeySemantics.Unique,
                 ["dungeon", "script", "commands", "source"], ["dungeon", "script"], headerRequired: true));
         foreach (var row in table.Rows)

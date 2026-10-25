@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Physical ITEM_BRACELET in reserved slot C. Its fractional coordinates are
 // distinct from the related native enemy's high-byte position copies.

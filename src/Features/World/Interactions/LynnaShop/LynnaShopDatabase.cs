@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported INTERAC_SHOP_ITEM $47, INTERAC_SHOPKEEPER $46, and
@@ -89,7 +89,7 @@ internal sealed class LynnaShopDatabase
 
             int subId = placement.SubId;
             if (subId == 0 && save?.HasTreasure(TreasureId.RingBox) == true &&
-                save.ReadWramByte(WramAddress.wRingBoxLevel) != 1)
+                save.ReadWramByte(AgesWramAddress.wRingBoxLevel) != 1)
                 subId = 0x14;
             if (subId == 0x03 && save?.IsLinkedGame == true)
                 subId = 0x13;
@@ -161,7 +161,7 @@ internal sealed class LynnaShopDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/lynna_shop_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/lynna_shop_constants.tsv",
             new GeneratedTableSchema(
                 "Lynna shop constants",
                 GeneratedTableKeySemantics.Unique,
@@ -177,7 +177,7 @@ internal sealed class LynnaShopDatabase
     private void LoadItems()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/lynna_shop_items.tsv",
+            AgesGameContent.AssetRoot + "objects/lynna_shop_items.tsv",
             new GeneratedTableSchema(
                 "Lynna shop items",
                 GeneratedTableKeySemantics.Unique,
@@ -211,7 +211,7 @@ internal sealed class LynnaShopDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/lynna_shop_texts.tsv",
+            AgesGameContent.AssetRoot + "objects/lynna_shop_texts.tsv",
             new GeneratedTableSchema(
                 "Lynna shop text",
                 GeneratedTableKeySemantics.Unique,
@@ -231,7 +231,7 @@ internal sealed class LynnaShopDatabase
     private void LoadAnimations()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/lynna_shop_animations.tsv",
+            AgesGameContent.AssetRoot + "objects/lynna_shop_animations.tsv",
             new GeneratedTableSchema(
                 "Lynna shop animations",
                 GeneratedTableKeySemantics.Unique,

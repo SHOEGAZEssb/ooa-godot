@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // impaNpc.s:$01 selects its text and existence in state zero, then faces
 // Link within the strict Manhattan radius $28 without the generic cooldown.

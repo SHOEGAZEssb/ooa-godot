@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Text;
 
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 /// <summary>Writes opaque, 8-bit grayscale atlases without a platform image API.</summary>
 public static class GeneratedGrayscalePng

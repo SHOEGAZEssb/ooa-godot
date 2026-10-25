@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Shared rider publication consumed by Link before the next interaction pass.</summary>
 internal sealed class MovingPlatformRidingState

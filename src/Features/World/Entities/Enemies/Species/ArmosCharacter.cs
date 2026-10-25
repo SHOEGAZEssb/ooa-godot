@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal partial class ArmosCharacter : EnemyCharacter
 {
@@ -76,7 +76,7 @@ internal partial class ArmosCharacter : EnemyCharacter
 
             case ArmosState.Waiting:
                 if (_runtime.ReadWramByte(
-                        OracleRuntimeState.ArmosTriggerAddress) != 0)
+                        AgesGameContent.ArmosTriggerAddress) != 0)
                 {
                     _state = ArmosState.Activating;
                 }

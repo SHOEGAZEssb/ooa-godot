@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Live owners expose native high bytes. Writing these coordinates must retain
 // Link's low bytes; this interface does not hold a second copy of player state.

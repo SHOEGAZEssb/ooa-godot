@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Address-independent view of the original banks $39-$3e sound payload.
@@ -22,20 +22,20 @@ public sealed class OracleSoundData
 
     private const int SoundPointerTableAddress = 0xe5748;
     private readonly byte[] _sound = LoadExact(
-        "res://assets/oracle/audio/sound_data.bin", BankCount * BankSize);
+        AgesGameContent.AssetRoot + "audio/sound_data.bin", BankCount * BankSize);
     private readonly byte[] _roomMusic = LoadExact(
-        "res://assets/oracle/audio/room_music.bin", 6 * 256);
+        AgesGameContent.AssetRoot + "audio/room_music.bin", 6 * 256);
     private readonly ConditionalRoomMusicRule[] _conditionalRoomMusic =
         LoadConditionalRoomMusic();
     private readonly RoomFlagMusicRule[] _roomFlagMusic = LoadRoomFlagMusic();
     private readonly byte[] _waveforms = LoadExact(
-        "res://assets/oracle/audio/waveforms.bin", WaveformCount * 16);
+        AgesGameContent.AssetRoot + "audio/waveforms.bin", WaveformCount * 16);
     private readonly byte[] _noise = LoadExact(
-        "res://assets/oracle/audio/noise_frequencies.bin", 13 * 3);
+        AgesGameContent.AssetRoot + "audio/noise_frequencies.bin", 13 * 3);
     private readonly byte[] _frequencies = LoadExact(
-        "res://assets/oracle/audio/frequencies.bin", FrequencyCount * 2);
+        AgesGameContent.AssetRoot + "audio/frequencies.bin", FrequencyCount * 2);
     private readonly byte[] _envelopeDelays = LoadExact(
-        "res://assets/oracle/audio/envelope_delays.bin", 16 * 8);
+        AgesGameContent.AssetRoot + "audio/envelope_delays.bin", 16 * 8);
 
     public OracleSoundData()
     {
@@ -190,7 +190,7 @@ public sealed class OracleSoundData
     private static ConditionalRoomMusicRule[] LoadConditionalRoomMusic()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/audio/conditional_room_music.tsv",
+            AgesGameContent.AssetRoot + "audio/conditional_room_music.tsv",
             new GeneratedTableSchema(
                 "conditional room music",
                 GeneratedTableKeySemantics.Unique,
@@ -238,7 +238,7 @@ public sealed class OracleSoundData
     private static RoomFlagMusicRule[] LoadRoomFlagMusic()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/audio/room_flag_music.tsv",
+            AgesGameContent.AssetRoot + "audio/room_flag_music.tsv",
             new GeneratedTableSchema("room-flag music overrides", GeneratedTableKeySemantics.Unique,
                 ["group", "assigned-music", "flag-group", "flag-room", "clear-flag-mask", "music", "source"],
                 ["group", "assigned-music"], headerRequired: true));

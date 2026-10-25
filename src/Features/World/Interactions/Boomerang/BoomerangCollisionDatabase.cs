@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BoomerangCollisionDatabase
 {
@@ -14,7 +14,7 @@ internal sealed class BoomerangCollisionDatabase
 
     private BoomerangCollisionDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/boomerang_collision_effects.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/boomerang_collision_effects.tsv",
             new GeneratedTableSchema("ITEMCOLLISION_L1_BOOMERANG $17", GeneratedTableKeySemantics.Unique,
                 ["mode", "effect", "source"], ["mode"], headerRequired: true));
         if (table.Rows.Count != 0x7d) throw new InvalidOperationException("Expected $7d vanilla boomerang collision modes.");
@@ -27,7 +27,7 @@ internal sealed class BoomerangCollisionDatabase
         }
         LoadMasks("enemy", _enemies);
         LoadMasks("part", _parts);
-        table = GeneratedTable.Load("res://assets/oracle/metadata/boomerang_status.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/boomerang_status.tsv",
             new GeneratedTableSchema("Boomerang damage status", GeneratedTableKeySemantics.Unique,
                 ["damage-type", "flags", "invincibility", "knockback", "stun", "source"],
                 ["damage-type"], headerRequired: true));
@@ -42,7 +42,7 @@ internal sealed class BoomerangCollisionDatabase
 
     private static void LoadMasks(string kind, bool[] masks)
     {
-        var table = GeneratedTable.Load($"res://assets/oracle/metadata/boomerang_{kind}_collisions.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + $"metadata/boomerang_{kind}_collisions.tsv",
             new GeneratedTableSchema($"Boomerang {kind} masks", GeneratedTableKeySemantics.Unique,
                 ["id", "enabled", "source"], ["id"], headerRequired: true));
         if (table.Rows.Count != masks.Length) throw new InvalidOperationException($"Incomplete boomerang {kind} masks.");

@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 internal static class ObjectCollisionFlags
 {

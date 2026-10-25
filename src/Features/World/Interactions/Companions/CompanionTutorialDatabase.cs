@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source-owned INTERAC_COMPANION_TUTORIAL placements whose invisible marker
@@ -17,7 +17,7 @@ internal sealed class CompanionTutorialDatabase
     internal CompanionTutorialDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/companion_tutorials.tsv",
+            AgesGameContent.AssetRoot + "objects/companion_tutorials.tsv",
             new GeneratedTableSchema(
                 "companion tutorials",
                 GeneratedTableKeySemantics.Grouped,

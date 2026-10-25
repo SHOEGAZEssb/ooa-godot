@@ -2,16 +2,16 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class DungeonChestPatternDatabase
 {
     private readonly Lookup<(int Id,int SubId),DungeonChestPatternCell> _patterns = new();
     internal DungeonChestPatternDatabase()
     {
-        Load("res://assets/oracle/objects/crown_chest_patterns.tsv",0x21,[0x13,0x14,0x15],16);
-        Load("res://assets/oracle/objects/mermaid_chest_patterns.tsv",0x90,[1,3],9);
-        Load("res://assets/oracle/objects/heros_cave_chest_pattern.tsv",0x90,[0x1a],7);
+        Load(AgesGameContent.AssetRoot + "objects/crown_chest_patterns.tsv",0x21,[0x13,0x14,0x15],16);
+        Load(AgesGameContent.AssetRoot + "objects/mermaid_chest_patterns.tsv",0x90,[1,3],9);
+        Load(AgesGameContent.AssetRoot + "objects/heros_cave_chest_pattern.tsv",0x90,[0x1a],7);
     }
     private void Load(string path,int id,int[] supportedSubIds,int count)
     {

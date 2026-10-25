@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 public partial class OctorokRockProjectile
     : TransitionOffsetNode2D, IHostileProjectile, ILinkContactEntity
@@ -44,7 +44,7 @@ public partial class OctorokRockProjectile
                 ResetZOnBounce: true),
             angle);
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.SpriteName}.png");
+            AgesGameContent.AssetRoot + $"gfx/{record.SpriteName}.png");
         _normalTexture = BuildFirstFrame(
             source, record.NormalAnimation, record.TileBase, record.Palette);
         _bounceTexture = BuildFirstFrame(
@@ -88,7 +88,7 @@ public partial class OctorokRockProjectile
             OracleGraphicsCache.GetAnimationDefinition(animation).Frames;
         if (frames.Length == 0)
             throw new InvalidOperationException("Malformed Octorok projectile animation.");
-        return NpcCharacter.BuildOamTexture(
+        return OracleOamCompositor.BuildOamTexture(
             source, frames[0].EncodedOam, tileBase, palette);
     }
 }

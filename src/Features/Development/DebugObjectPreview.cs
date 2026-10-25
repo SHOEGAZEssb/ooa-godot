@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Presentation only: never allocate an actor or run its initialization/AI.
 internal sealed class DebugObjectPreview(EnemyDatabase enemies)
@@ -96,9 +96,9 @@ internal sealed class DebugObjectPreview(EnemyDatabase enemies)
                 OracleGraphicsCache.GetAnimationDefinition(animation).Frames)
             {
                 (Texture2D texture, _) = visual.PaletteOverrides is null
-                    ? NpcCharacter.BuildPositionedOamTexture(source, frame.EncodedOam,
+                    ? OracleOamCompositor.BuildPositionedOamTexture(source, frame.EncodedOam,
                         visual.TileBase, visual.Palette, null, visual.Inverted)
-                    : NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(source,
+                    : OracleOamCompositor.BuildPositionedOamTextureWithPaletteOverrides(source,
                         frame.EncodedOam, visual.TileBase, visual.Palette,
                         visual.PaletteOverrides, visual.Inverted);
                 using Image pixels = texture.GetImage();

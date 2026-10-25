@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $71:$0d remains state0, including while text and object masks are active.
 internal sealed partial class SymmetryCompanionBarrierRoomEntity(DungeonObjectRecord record,
@@ -26,14 +26,14 @@ internal sealed partial class SymmetryCompanionBarrierRoomEntity(DungeonObjectRe
     private void Dispatch(Player player)
     {
         if (Finished) return;
-        if (player.IsDying) { runtime.SetWramByte(WramAddress.wDisabledObjects, 0); Finished = true; return; }
-        if (save.HasGlobalFlag(GlobalFlag.TuniNutPlaced)) { Finished = true; return; }
-        if ((runtime.ReadWramByte(WramAddress.wScrollMode) & 0x0e) != 0 ||
+        if (player.IsDying) { runtime.SetWramByte(AgesWramAddress.wDisabledObjects, 0); Finished = true; return; }
+        if (save.HasGlobalFlag(AgesGlobalFlag.TuniNutPlaced)) { Finished = true; return; }
+        if ((runtime.ReadWramByte(AgesWramAddress.wScrollMode) & 0x0e) != 0 ||
             !CompanionRuntimeState.AnyActive(runtime) || companion() is not { } target || target.CompanionId is < 0x0b or > 0x0d) return;
         if (unchecked((byte)(record.X - (int)target.BarrierPosition.X + 5)) >= 0x0b ||
             record.Y < unchecked((byte)(int)target.BarrierPosition.Y)) return;
         target.SetBarrierCoordinate(false, unchecked((byte)(record.Y + 1)));
         target.DropForSymmetryBarrier(player);
-        showText(save.ReadWramByte(WramAddress.wAnimalCompanion), target.BarrierPosition);
+        showText(save.ReadWramByte(AgesWramAddress.wAnimalCompanion), target.BarrierPosition);
     }
 }

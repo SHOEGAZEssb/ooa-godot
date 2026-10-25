@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // object_code/common/enemies/lynel.s, ENEMY_LYNEL $0d:$00/$01.
 internal sealed partial class LynelCharacter : EnemyCharacter, ITerrainShadowSource

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Positioned treasures created by invisible room interactions. The source
@@ -17,7 +17,7 @@ internal sealed class GroundTreasureDatabase
     public GroundTreasureDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/ground_treasures.tsv",
+            AgesGameContent.AssetRoot + "objects/ground_treasures.tsv",
             new GeneratedTableSchema(
                 "ground treasures",
                 GeneratedTableKeySemantics.Grouped,

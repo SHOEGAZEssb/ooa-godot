@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Both room tilemaps address the same live BG VRAM and palette slots. This
 // owner schedules the original uploads; it never crossfades room textures.

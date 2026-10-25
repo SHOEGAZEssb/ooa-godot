@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class MapleDroppedItemRoomEntity(MapleDroppedItem item, RoomEntityManager owner)
     : RoomEntityAdapter<MapleDroppedItem>(

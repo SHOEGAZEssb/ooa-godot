@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// checkTileValidForEnemySpawn's six collision-mode exception lists. A random
@@ -13,7 +13,7 @@ internal sealed class EnemySpawnTileDatabase
     private const int CollisionModeCount = 6;
     private const int TilesPerMode = 256;
     private readonly byte[] _unspawnable = OracleAssetCache.ReadBytes(
-        "res://assets/oracle/metadata/enemyUnspawnableTiles.bin");
+        AgesGameContent.AssetRoot + "metadata/enemyUnspawnableTiles.bin");
 
     internal int RecordCount { get; }
 

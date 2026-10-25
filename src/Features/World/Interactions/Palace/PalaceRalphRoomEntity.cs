@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // $37:$09 checks flag $32 during state 0. Publishing that flag near the
 // script's end must not hide/freeze the actor before resetmusic/scriptend.

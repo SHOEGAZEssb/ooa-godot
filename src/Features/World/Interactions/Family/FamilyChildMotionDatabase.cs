@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Native INTERAC_CHILD $35 movement and animation tables.</summary>
 internal sealed class FamilyChildMotionDatabase
@@ -16,7 +16,7 @@ internal sealed class FamilyChildMotionDatabase
     internal FamilyChildMotionDatabase()
     {
         GeneratedTable motion = GeneratedTable.Load(
-            "res://assets/oracle/cutscenes/family_child_motion.tsv",
+            AgesGameContent.AssetRoot + "cutscenes/family_child_motion.tsv",
             new GeneratedTableSchema("INTERAC_CHILD movement tables",
                 GeneratedTableKeySemantics.Ordered,
                 ["kind", "index", "y", "x"], headerRequired: true));
@@ -38,7 +38,7 @@ internal sealed class FamilyChildMotionDatabase
             throw new InvalidOperationException("INTERAC_CHILD movement table lengths changed.");
 
         GeneratedTable animations = GeneratedTable.Load(
-            "res://assets/oracle/cutscenes/family_child_animations.tsv",
+            AgesGameContent.AssetRoot + "cutscenes/family_child_animations.tsv",
             new GeneratedTableSchema("INTERAC_CHILD animation data",
                 GeneratedTableKeySemantics.Unique,
                 ["animation", "encoded-data"], ["animation"], headerRequired: true));

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class ZeldaApproachRoomEntity(RoomEventContext context, DungeonObjectRecord record,
     RoomOfRitesRitualDatabase data, Action trigger) : IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime,
@@ -27,10 +27,10 @@ internal sealed class ZeldaApproachRoomEntity(RoomEventContext context, DungeonO
         }
         var player = frame.Player;
         if (!player.NativePuzzleResetVulnerable ||
-            (context.Entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode) & 0x0e) != 0 ||
+            (context.Entities.RuntimeState.ReadWramByte(AgesWramAddress.wScrollMode) & 0x0e) != 0 ||
             (int)player.Position.Y > record.Y || Math.Abs(record.X - (int)player.Position.X) >= 9) return;
         context.Entities.RuntimeState.SetWramByte(0xcc04, 0x17); // wCutsceneTrigger.
-        context.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0x17);
+        context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 0x17);
         foreach (var flame in context.Entities.EntityAdapters<TwinrovaFlameRoomEntity>()) flame.Visible = false;
         trigger(); Finished = true;
     }

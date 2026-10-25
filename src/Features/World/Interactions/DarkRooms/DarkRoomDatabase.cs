@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source-ordered PART_DARK_ROOM_HANDLER $08 placements and the
@@ -40,7 +40,7 @@ internal sealed class DarkRoomDatabase
     public DarkRoomDatabase()
     {
         GeneratedTable interactions = GeneratedTable.Load(
-            "res://assets/oracle/objects/dark_room_interactions.tsv",
+            AgesGameContent.AssetRoot + "objects/dark_room_interactions.tsv",
             new GeneratedTableSchema(
                 "dark-room interactions",
                 GeneratedTableKeySemantics.Grouped,
@@ -105,7 +105,7 @@ internal sealed class DarkRoomDatabase
         RecordCount = count;
 
         GeneratedTable constants = GeneratedTable.Load(
-            "res://assets/oracle/objects/dark_room_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/dark_room_constants.tsv",
             new GeneratedTableSchema(
                 "dark-room constants",
                 GeneratedTableKeySemantics.Unique,

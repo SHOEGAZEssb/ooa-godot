@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Invisible PART_ENEMY_SWORD $1d. Its position and collision lifetime
 /// belong to the part pass, after its parent's enemy pass.</summary>

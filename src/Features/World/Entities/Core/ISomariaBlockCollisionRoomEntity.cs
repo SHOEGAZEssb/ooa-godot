@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Called in the post-object item scan. Returning true terminates this
 // target's scan, even when its imported collision effect is zero.

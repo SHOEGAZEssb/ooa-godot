@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_OVERWORLD_KEY_SPRITE $18. The named key rises until its vertical
@@ -34,7 +34,7 @@ internal partial class OverworldKeyUseEffect : FixedEffectNode2D
     {
         Position = position;
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
         if (visual.SubId != visual.Treasure - constants.FirstKey ||
@@ -43,7 +43,7 @@ internal partial class OverworldKeyUseEffect : FixedEffectNode2D
             throw new InvalidOperationException(
                 "INTERAC_OVERWORLD_KEY_SPRITE visual no longer matches its named key.");
         }
-        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTexture(
+        (_texture, _textureOffset) = OracleOamCompositor.BuildPositionedOamTexture(
             source,
             definition.Frames[0].EncodedOam,
             visual.TileBase,

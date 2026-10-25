@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ENEMY_IRON_MASK $1c, including the detached mask and unmasked child.</summary>
 internal sealed partial class IronMaskCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource

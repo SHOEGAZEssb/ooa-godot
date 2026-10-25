@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>PART_FALLING_BOULDER_SPAWNER $45, shared by the climb to Patch.</summary>
 internal sealed partial class FallingBoulder : TransitionOffsetNode2D
@@ -52,7 +52,7 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
         Visible = false;
         ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // fallingBoulderSpawner.s: visiblec1.
         _animation = new(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{data.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{data.Sprite}.png"),
             [data.Animation], data.TileBase, data.Palette,
             sourceGrayscaleInverted: data.SourceGrayscaleInverted);
         _animation.SetAnimation(0);

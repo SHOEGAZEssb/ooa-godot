@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC $21:$16: trigger-controlled pattern display.</summary>
 internal sealed partial class DungeonPatternHintRoomEntity : Node2D, IRoomEntity, IFixedRoomEntity,

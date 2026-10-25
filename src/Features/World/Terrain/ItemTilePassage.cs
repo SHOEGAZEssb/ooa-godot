@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Per-item cache and byte elevation for itemCheckCanPassSolidTile.</summary>
 internal sealed class ItemTilePassage

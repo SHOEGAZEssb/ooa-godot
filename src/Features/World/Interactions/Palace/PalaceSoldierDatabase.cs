@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class PalaceSoldierDatabase
 {
     internal IReadOnlyList<CutsceneCommand> Commands { get; } = CutsceneCommandCatalog.Load(
-        "res://assets/oracle/npcs/palace_friendly_soldier_commands.tsv");
+        AgesGameContent.AssetRoot + "npcs/palace_friendly_soldier_commands.tsv");
     internal string[] Animations { get; } = GeneratedTable.Load(
-        "res://assets/oracle/npcs/palace_soldier_animations.tsv",
+        AgesGameContent.AssetRoot + "npcs/palace_soldier_animations.tsv",
         new GeneratedTableSchema("palace soldier animations", GeneratedTableKeySemantics.Unique,
             ["index", "animation"], ["index"], headerRequired: true))
         .Rows.Select(row => row.RequiredString(1)).ToArray();
@@ -17,7 +17,7 @@ internal sealed class PalaceSoldierDatabase
 
     internal PalaceSoldierDatabase()
     {
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/npcs/palace_friendly_soldiers.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "npcs/palace_friendly_soldiers.tsv",
             new GeneratedTableSchema("friendly palace soldiers", GeneratedTableKeySemantics.Unique,
                 ["index", "mode", "palette", "text-id", "utf8-base64", "source"], ["index"], headerRequired: true)).Rows)
         {

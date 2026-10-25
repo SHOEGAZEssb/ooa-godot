@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported room/script contract for INTERAC_TROY $ca:$01 in room 3:fb.
@@ -17,7 +17,7 @@ internal sealed class TroyHouseDatabase
     public TroyHouseDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/troy_house.tsv",
+            AgesGameContent.AssetRoot + "objects/troy_house.tsv",
             new GeneratedTableSchema(
                 "room 3:fb Troy house interaction",
                 GeneratedTableKeySemantics.Unique,
@@ -80,7 +80,7 @@ internal sealed class TroyHouseDatabase
 
         if (Record is not
             {
-                Group: 3, Room: 0xfb, InteractionId: InteractionId.Troy, SubId: 0x01,
+                Group: 3, Room: 0xfb, InteractionId: AgesInteractionId.Troy, SubId: 0x01,
                 FirstTalkFlag: 0x40, RandomMask: 0x0f,
                 FirstTextId: 0x2c11, RepeatTextId: 0x2c12
             } ||

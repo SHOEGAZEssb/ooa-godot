@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BeamosRoomEntity(BeamosCharacter enemy, bool countsAsEnemy)
     : RoomEntityAdapter<BeamosCharacter>(enemy, enemy.SetTransitionDrawOffset),

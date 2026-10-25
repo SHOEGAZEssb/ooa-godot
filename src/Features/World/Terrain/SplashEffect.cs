@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 public partial class SplashEffect : FixedEffectNode2D
 {
@@ -74,7 +74,7 @@ public partial class SplashEffect : FixedEffectNode2D
     private static Texture2D BuildTexture(bool lava)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_sprites.png");
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
         SplashPart[][] frames = lava ? LavaParts : WaterParts;
         int sourceCell = lava ? 0x26 / 2 : 0x04 / 2;
         int sourceCellX = (sourceCell % 16) * 8;

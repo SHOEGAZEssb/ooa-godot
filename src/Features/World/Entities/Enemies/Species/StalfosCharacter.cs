@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Common ENEMY_STALFOS $31, including subid $02's dodge and bone attack.

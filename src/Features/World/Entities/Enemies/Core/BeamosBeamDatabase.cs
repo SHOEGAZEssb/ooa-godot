@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BeamosBeamDatabase
 {
@@ -14,7 +14,7 @@ internal sealed class BeamosBeamDatabase
 
     internal BeamosBeamDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/effects/beamos_beam.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/beamos_beam.tsv",
             new GeneratedTableSchema("PART_BEAM $29", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "radius-y", "radius-x",
                  "damage-quarters", "animation", "source"], ["animation-index"], headerRequired: true));

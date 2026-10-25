@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Common PART_MOVING_ORB $0b: script movement and delayed hit toggle.</summary>
 internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoomEntity, IFixedRoomEntity,
@@ -46,7 +46,7 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
         if (State == 0)
         {
             State = 9;
-            Palette = (_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) & _mask) == 0 ? 1 : 2;
+            Palette = (_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) & _mask) == 0 ? 1 : 2;
             _collisionEnabled = true; _pending = false; Visible = true;
         }
         return ScreenTransitionPresentation.Visible;
@@ -58,8 +58,8 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
         if (_pending)
         {
             _pending = false;
-            _runtime.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress,
-                (byte)(_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) ^ _mask));
+            _runtime.SetWramByte(AgesGameContent.ToggleBlocksStateAddress,
+                (byte)(_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) ^ _mask));
             Palette = Palette == 1 ? 2 : 1; _sound(_switchSound);
         }
         int target = State == 9 ? _data.Right : _data.Left;

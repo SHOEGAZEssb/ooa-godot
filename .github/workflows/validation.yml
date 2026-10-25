@@ -12,8 +12,8 @@ on:
       - 'validation/**'
       - 'tools/**'
       - 'project.godot'
-      - 'oracle-of-ages.csproj'
-      - 'oracle-of-ages.sln'
+      - 'oracles.csproj'
+      - 'oracles.sln'
   workflow_dispatch:
 
 permissions:

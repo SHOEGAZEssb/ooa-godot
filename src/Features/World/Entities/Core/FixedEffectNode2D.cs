@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Narrow lifecycle shared by short-lived room effects whose entity adapters

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART_VIRE_PROJECTILE $3a. relatedObj1 reads the live ENEMY page, including
 // after reuse; the visual effect does not retain a detached parent health.

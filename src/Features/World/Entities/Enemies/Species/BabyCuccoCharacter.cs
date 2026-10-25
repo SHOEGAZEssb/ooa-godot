@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_BABY_CUCCO $33:$00. These non-combat enemies follow Link until

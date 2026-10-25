@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART $4c/$4e: source native charge, flight and collision publication.
 internal sealed partial class TwinrovaAttackPart : EnemyCharacter,IRoomEntity,IFixedRoomEntity,IRoomEntityLifetime,

@@ -1,9 +1,9 @@
 using Godot;
 using System;
-using static oracleofages.OracleGraphicsData;
-using static oracleofages.OracleTileRenderer;
+using static Oracles.OracleGraphicsData;
+using static Oracles.OracleTileRenderer;
 
-namespace oracleofages;
+namespace Oracles;
 
 public partial class MainMenuScreen : Node2D
 {
@@ -103,23 +103,23 @@ public partial class MainMenuScreen : Node2D
     {
         _fadeMaterial = FrontendPaletteMaterial.Create();
         Material = _fadeMaterial;
-        _titleSprites = LoadPng("res://assets/oracle/menu/spr_titlescreen_sprites.png");
+        _titleSprites = LoadPng(AgesGameContent.AssetRoot + "menu/spr_titlescreen_sprites.png");
         yield return false;
-        _fileSprites = LoadPng("res://assets/oracle/menu/spr_fileselect_decorations.png");
+        _fileSprites = LoadPng(AgesGameContent.AssetRoot + "menu/spr_fileselect_decorations.png");
         yield return false;
-        _linkSprites = LoadPng("res://assets/oracle/gfx/spr_link.png");
+        _linkSprites = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_link.png");
         yield return false;
-        _nayruSprites = LoadPng("res://assets/oracle/menu/spr_nayru_1.png");
+        _nayruSprites = LoadPng(AgesGameContent.AssetRoot + "menu/spr_nayru_1.png");
         yield return false;
-        _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
+        _hudTiles = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png");
         yield return false;
-        _titleSpritePalette = LoadPalette("res://assets/oracle/menu/palette_title_sprites.bin");
+        _titleSpritePalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_title_sprites.bin");
         yield return false;
-        _fileSpritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
+        _fileSpritePalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_sprites.bin");
         yield return false;
-        _fileBgPalette = LoadPalette("res://assets/oracle/menu/palette_file_bg.bin");
+        _fileBgPalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_bg.bin");
         yield return false;
-        _eraseBgPalette = LoadPalette("res://assets/oracle/menu/palette_file_erase_bg.bin");
+        _eraseBgPalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_erase_bg.bin");
         yield return false;
         _font = BuildFontTexture(new Color(0x08 / 31.0f, 0x1f / 31.0f, 0x00));
         yield return false;
@@ -468,7 +468,7 @@ public partial class MainMenuScreen : Node2D
             return;
         }
 
-        if ((save.ReadWramByte(WramAddress.wFileIsHeroGame) & 1) != 0)
+        if ((save.ReadWramByte(AgesWramAddress.wFileIsHeroGame) & 1) != 0)
             foreach (MenuOamPart part in MenuPresentationDatabase.Shared.FileOam("hero-file"))
                 DrawFileOamPart(part, Vector2.Zero);
 
@@ -867,15 +867,15 @@ public partial class MainMenuScreen : Node2D
     }
 
     private Texture2D BuildTitleTexture() => BuildScreenTexture(
-        ReadBytes("res://assets/oracle/menu/map_titlescreen.bin", 576),
-        ReadBytes("res://assets/oracle/menu/flags_titlescreen.bin", 576),
-        LoadPalette("res://assets/oracle/menu/palette_title_bg.bin"),
-        ("res://assets/oracle/menu/gfx_titlescreen_1.png", 0x8800, 0, false),
-        ("res://assets/oracle/menu/gfx_titlescreen_2.png", 0x8d00, 0, false),
-        ("res://assets/oracle/menu/gfx_titlescreen_3.png", 0x9300, 0, false),
-        ("res://assets/oracle/menu/gfx_titlescreen_4.png", 0x9400, 0, false),
-        ("res://assets/oracle/menu/gfx_titlescreen_5.png", 0x8800, 1, false),
-        ("res://assets/oracle/menu/gfx_titlescreen_6.png", 0x8cd0, 1, false));
+        ReadBytes(AgesGameContent.AssetRoot + "menu/map_titlescreen.bin", 576),
+        ReadBytes(AgesGameContent.AssetRoot + "menu/flags_titlescreen.bin", 576),
+        LoadPalette(AgesGameContent.AssetRoot + "menu/palette_title_bg.bin"),
+        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_1.png", 0x8800, 0, false),
+        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_2.png", 0x8d00, 0, false),
+        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_3.png", 0x9300, 0, false),
+        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_4.png", 0x9400, 0, false),
+        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_5.png", 0x8800, 1, false),
+        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_6.png", 0x8cd0, 1, false));
 
     private Texture2D BuildFileMenuTexture()
     {
@@ -883,13 +883,13 @@ public partial class MainMenuScreen : Node2D
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
         return BuildScreenTexture(map, flags, _fileBgPalette,
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 0, false),
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 1, false),
-            ("res://assets/oracle/menu/gfx_messagespeed.png", 0x9200, 0, false),
-            ("res://assets/oracle/menu/gfx_fileselect.png", 0x9200, 1, false),
-            ("res://assets/oracle/menu/gfx_pickafile_2.png", 0x8800, 1, true),
-            ("res://assets/oracle/menu/gfx_copy.png", 0x8a00, 1, true),
-            ("res://assets/oracle/menu/gfx_erase.png", 0x8aa0, 1, true));
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_pickafile_2.png", 0x8800, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_copy.png", 0x8a00, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
     }
 
     private Texture2D BuildCopyMenuTexture()
@@ -898,13 +898,13 @@ public partial class MainMenuScreen : Node2D
             "map_file_menu_copy.bin", "flags_file_menu_copy.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
         return BuildScreenTexture(map, flags, _fileBgPalette,
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 0, false),
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 1, false),
-            ("res://assets/oracle/menu/gfx_messagespeed.png", 0x9200, 0, false),
-            ("res://assets/oracle/menu/gfx_fileselect.png", 0x9200, 1, false),
-            ("res://assets/oracle/menu/gfx_copywhatwhere.png", 0x8800, 1, true),
-            ("res://assets/oracle/menu/gfx_quit_2.png", 0x8a00, 1, true),
-            ("res://assets/oracle/menu/gfx_copy.png", 0x8aa0, 1, true));
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_copywhatwhere.png", 0x8800, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_quit_2.png", 0x8a00, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_copy.png", 0x8aa0, 1, true));
     }
 
     private Texture2D BuildEraseMenuTexture()
@@ -913,13 +913,13 @@ public partial class MainMenuScreen : Node2D
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
         return BuildScreenTexture(map, flags, _eraseBgPalette,
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 0, false),
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 1, false),
-            ("res://assets/oracle/menu/gfx_messagespeed.png", 0x9200, 0, false),
-            ("res://assets/oracle/menu/gfx_fileselect.png", 0x9200, 1, false),
-            ("res://assets/oracle/menu/gfx_pickafile.png", 0x8800, 1, true),
-            ("res://assets/oracle/menu/gfx_quit_2.png", 0x8a00, 1, true),
-            ("res://assets/oracle/menu/gfx_erase.png", 0x8aa0, 1, true));
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_pickafile.png", 0x8800, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_quit_2.png", 0x8a00, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
     }
 
     private Texture2D BuildNewFileMenuTexture()
@@ -928,11 +928,11 @@ public partial class MainMenuScreen : Node2D
             "map_save_menu_middle.bin", "flags_save_menu_middle.bin",
             "map_save_menu_bottom.bin", "flags_save_menu_bottom.bin", bottomLength: 128);
         return BuildScreenTexture(map, flags, _fileBgPalette,
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 0, false),
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 1, false),
-            ("res://assets/oracle/menu/gfx_messagespeed.png", 0x9200, 0, false),
-            ("res://assets/oracle/menu/gfx_fileselect.png", 0x9200, 1, false),
-            ("res://assets/oracle/menu/gfx_newfilescreen.png", 0x8800, 1, true));
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_newfilescreen.png", 0x8800, 1, true));
     }
 
     private Texture2D BuildNameEntryTexture(int slot, bool secret = false, bool error = false)
@@ -940,13 +940,13 @@ public partial class MainMenuScreen : Node2D
         byte[] map = new byte[576];
         byte[] flags = new byte[576];
         string prefix = secret ? "secret" : "name";
-        Overlay(map, ReadBytes($"res://assets/oracle/menu/map_{prefix}_entry_top.bin", 160), 0);
-        Overlay(flags, ReadBytes($"res://assets/oracle/menu/flags_{prefix}_entry_top.bin", 160), 0);
-        Overlay(map, ReadBytes($"res://assets/oracle/menu/map_{prefix}_entry_middle.bin", 320), 0xa0);
-        Overlay(flags, ReadBytes($"res://assets/oracle/menu/flags_{prefix}_entry_middle.bin", 320), 0xa0);
-        Overlay(map, ReadBytes($"res://assets/oracle/menu/map_{prefix}_entry_bottom.bin", 128),
+        Overlay(map, ReadBytes(AgesGameContent.AssetRoot + $"menu/map_{prefix}_entry_top.bin", 160), 0);
+        Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + $"menu/flags_{prefix}_entry_top.bin", 160), 0);
+        Overlay(map, ReadBytes(AgesGameContent.AssetRoot + $"menu/map_{prefix}_entry_middle.bin", 320), 0xa0);
+        Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + $"menu/flags_{prefix}_entry_middle.bin", 320), 0xa0);
+        Overlay(map, ReadBytes(AgesGameContent.AssetRoot + $"menu/map_{prefix}_entry_bottom.bin", 128),
             0x1e0, 96);
-        Overlay(flags, ReadBytes($"res://assets/oracle/menu/flags_{prefix}_entry_bottom.bin", 128),
+        Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + $"menu/flags_{prefix}_entry_bottom.bin", 128),
             0x1e0, 96);
 
         // label_02_038 writes hActiveFileSlot+$20 into this tile before the
@@ -954,21 +954,21 @@ public partial class MainMenuScreen : Node2D
         if (!secret) map[0x49] = (byte)(0x20 + slot);
         if (error)
         {
-            Overlay(map, ReadBytes("res://assets/oracle/menu/map_secret_entry_error.bin", 64), 0x140);
-            Overlay(flags, ReadBytes("res://assets/oracle/menu/flags_secret_entry_error.bin", 64), 0x140);
+            Overlay(map, ReadBytes(AgesGameContent.AssetRoot + "menu/map_secret_entry_error.bin", 64), 0x140);
+            Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + "menu/flags_secret_entry_error.bin", 64), 0x140);
         }
 
         Texture2D baseTexture = BuildScreenTexture(map, flags, _fileBgPalette,
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 0, false),
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 1, false),
-            (secret ? "res://assets/oracle/menu/gfx_secret_thatswrong.png" : "res://assets/oracle/menu/gfx_name.png", 0x8800, 1, true),
-            ("res://assets/oracle/menu/gfx_fileselect.png", 0x9200, 1, false));
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (secret ? AgesGameContent.AssetRoot + "menu/gfx_secret_thatswrong.png" : AgesGameContent.AssetRoot + "menu/gfx_name.png", 0x8800, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false));
 
         // UNCMP_GFXH_0b expands characters $40-$7a from the 1bpp font into
         // paired 2bpp tiles at bank-0 $8800. Reproduce that VRAM layout so
         // the imported name-entry map supplies all five keyboard rows.
         Image output = baseTexture.GetImage();
-        Image font = LoadPng("res://assets/oracle/gfx/gfx_font.png");
+        Image font = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
         for (int row = 0; row < 18; row++)
         for (int column = 0; column < 20; column++)
         {
@@ -992,22 +992,22 @@ public partial class MainMenuScreen : Node2D
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
             "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
         Overlay(map, ReadBytes(
-            "res://assets/oracle/menu/map_file_menu_message_speed.bin", 128), 0x1c0);
+            AgesGameContent.AssetRoot + "menu/map_file_menu_message_speed.bin", 128), 0x1c0);
         Overlay(flags, ReadBytes(
-            "res://assets/oracle/menu/flags_file_menu_message_speed.bin", 128), 0x1c0);
+            AgesGameContent.AssetRoot + "menu/flags_file_menu_message_speed.bin", 128), 0x1c0);
         return BuildScreenTexture(map, flags, _fileBgPalette,
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 0, false),
-            ("res://assets/oracle/gfx/gfx_hud.png", 0x9000, 1, false),
-            ("res://assets/oracle/menu/gfx_messagespeed.png", 0x9200, 0, false),
-            ("res://assets/oracle/menu/gfx_fileselect.png", 0x9200, 1, false),
-            ("res://assets/oracle/menu/gfx_pickafile_2.png", 0x8800, 1, true),
-            ("res://assets/oracle/menu/gfx_copy.png", 0x8a00, 1, true),
-            ("res://assets/oracle/menu/gfx_erase.png", 0x8aa0, 1, true));
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AgesGameContent.AssetRoot + "menu/gfx_pickafile_2.png", 0x8800, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_copy.png", 0x8a00, 1, true),
+            (AgesGameContent.AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
     }
 
     private static Texture2D BuildFontTexture(Color color)
     {
-        Image source = LoadPng("res://assets/oracle/gfx/gfx_font.png");
+        Image source = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
         using Image colors = Image.CreateEmpty(2, 1, false, Image.Format.Rgba8);
         colors.SetPixel(0, 0, Colors.Transparent);
         colors.SetPixel(1, 0, color);

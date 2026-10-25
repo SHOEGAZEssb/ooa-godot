@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Native residency, distinct from Godot's texture cache. A missing header
 // suspends interactionInitGraphics while VBlank transfers its tiles.

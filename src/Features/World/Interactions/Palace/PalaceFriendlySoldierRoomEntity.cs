@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // soldierSubid0d: story visibility is checked in state 0, then the script is
 // advanced twice per state-1 update for stationary actors, once for patrollers.
@@ -19,7 +19,7 @@ internal sealed class PalaceFriendlySoldierRoomEntity : NpcCharacterRoomEntityAd
         Action<int, string, Vector2> showText) : base(actor, actor.SetTransitionDrawOffset)
     {
         _record = database.Require(actor.Record.Var03);
-        actor.SetActive(save.HasGlobalFlag(GlobalFlag.FinishedGame));
+        actor.SetActive(save.HasGlobalFlag(AgesGlobalFlag.FinishedGame));
         actor.SetBasePalette(_record.Palette);
         actor.SetDialogue(_record.TextId, _record.Message, true);
         actor.SetAnimationRate(0);

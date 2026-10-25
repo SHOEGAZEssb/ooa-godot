@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // collisionEffect24 writes the same relatedObj1 carrier for ordinary drops
 // and PART_SMALL_FAIRY. The manager resolves the live physical ITEM slot.

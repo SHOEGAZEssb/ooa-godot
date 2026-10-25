@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Script-created character interactions animate with the normal NPC renderer.
 // Solidity and talking are opt-in because objectSetVisible82-only actors and

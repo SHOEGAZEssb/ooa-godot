@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_COMPANION_SCRIPTS $71:$01/$02/$04/$05. State 0 waits for Link to mount and

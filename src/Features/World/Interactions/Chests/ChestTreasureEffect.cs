@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_TREASURE $60 spawn mode $03. The displayed object comes from the
@@ -29,7 +29,7 @@ public partial class ChestTreasureEffect : Node2D
         VisualGraphic = visual.Graphic;
 
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
         if (definition.Frames.Length == 0)
@@ -37,7 +37,7 @@ public partial class ChestTreasureEffect : Node2D
             throw new System.InvalidOperationException(
                 $"Treasure graphic ${visual.Graphic:x2} has no animation frames.");
         }
-        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTexture(
+        (_texture, _textureOffset) = OracleOamCompositor.BuildPositionedOamTexture(
             source,
             definition.Frames[0].EncodedOam,
             visual.TileBase,

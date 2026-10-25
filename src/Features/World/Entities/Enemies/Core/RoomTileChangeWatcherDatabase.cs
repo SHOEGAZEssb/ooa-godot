@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Placed INTERAC_MISCELLANEOUS_2 $dc:$08 objects. Their nominal Y/X bytes
@@ -19,7 +19,7 @@ internal sealed class RoomTileChangeWatcherDatabase
     internal RoomTileChangeWatcherDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/tile_change_watchers.tsv",
+            AgesGameContent.AssetRoot + "objects/tile_change_watchers.tsv",
             new GeneratedTableSchema(
                 "room tile-change watchers",
                 GeneratedTableKeySemantics.Grouped,

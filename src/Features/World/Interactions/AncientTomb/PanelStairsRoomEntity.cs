@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscPuzzles_subid0d/0e. State zero keeps polling even while initialized
 // interactions are frozen; the stone panels clear the shared completion bit.

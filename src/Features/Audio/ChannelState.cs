@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>A live view of a logical channel in the sound driver's WRAM/HRAM.</summary>
 internal sealed class ChannelState(int index, OracleSoundData data, OracleSoundDriver driver)

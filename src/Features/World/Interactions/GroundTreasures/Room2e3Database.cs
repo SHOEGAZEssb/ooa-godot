@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source placement and script constants for room 2:e3's $6b:$0a Bombs
@@ -9,7 +9,7 @@ namespace oracleofages;
 internal sealed class Room2e3Database
 {
     private const string Path =
-        "res://assets/oracle/objects/room2e3_interactions.tsv";
+        AgesGameContent.AssetRoot + "objects/room2e3_interactions.tsv";
 
     internal Room2e3InteractionRecord Record { get; }
 

@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // INTERACTION enabled bit 7 admits this effect during text and category masks.
 internal sealed class AlwaysUpdateFixedEffectRoomEntityAdapter<T>(T effect)

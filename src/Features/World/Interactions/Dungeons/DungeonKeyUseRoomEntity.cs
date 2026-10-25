@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC$17 does not set enabled bit$80. Only state0 remains eligible
 // in bank0's restricted interaction dispatcher; visible80 is separate.

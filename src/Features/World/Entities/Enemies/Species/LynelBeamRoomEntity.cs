@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART_LYNEL_BEAM $1b. This projectile has no tile-collision or sword response.
 internal sealed partial class LynelBeamRoomEntity : TransitionOffsetNode2D, IRoomEntity,

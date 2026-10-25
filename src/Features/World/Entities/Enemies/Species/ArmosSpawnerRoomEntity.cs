@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Spawner form of ENEMY_ARMOS $1d with bit 7 of subid clear.</summary>
 internal sealed partial class ArmosSpawnerRoomEntity : Node2D,

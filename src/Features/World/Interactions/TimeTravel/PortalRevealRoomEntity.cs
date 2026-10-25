@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MISCELLANEOUS_2 $dc:$03/$04, before the placed $e1 portals.</summary>
 internal sealed class PortalRevealRoomEntity

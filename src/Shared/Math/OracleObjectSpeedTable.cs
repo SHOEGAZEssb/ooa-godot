@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed runtime view of bank3.objectSpeedTable. Each record is the exact
@@ -21,7 +21,7 @@ internal sealed class OracleObjectSpeedTable
     private OracleObjectSpeedTable()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/object_speed_vectors.tsv",
+            AgesGameContent.AssetRoot + "metadata/object_speed_vectors.tsv",
             new GeneratedTableSchema(
                 "bank3.objectSpeedTable vectors",
                 GeneratedTableKeySemantics.Unique,

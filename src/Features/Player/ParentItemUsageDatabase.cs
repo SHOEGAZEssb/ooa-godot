@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // chooseParentItemSlot is a decision over the live parent slots. This table
 // does not own or mirror their lifetime, input state, or animation state.
@@ -9,7 +9,7 @@ internal sealed class ParentItemUsageDatabase
     private readonly ParentItemUsage[] _items=new ParentItemUsage[32];
     internal ParentItemUsageDatabase()
     {
-        var table=GeneratedTable.Load("res://assets/oracle/metadata/parent_item_usage.tsv",
+        var table=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/parent_item_usage.tsv",
             new GeneratedTableSchema("itemUsageParameterTable",GeneratedTableKeySemantics.Unique,
                 ["item-id","usage","input","source"],["item-id"],headerRequired:true));
         if(table.Rows.Count!=32) throw new InvalidOperationException("itemUsageParameterTable requires $20 ordered rows.");

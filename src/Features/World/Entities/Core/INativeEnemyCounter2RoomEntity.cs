@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // Live ENEMY.counter2 byte, including foreign PART writes to the shared page.
 internal interface INativeEnemyCounter2RoomEntity

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class ScreenTransitionPaletteDatabase
 {
@@ -11,7 +11,7 @@ internal sealed class ScreenTransitionPaletteDatabase
     internal ScreenTransitionPaletteDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/screen_transition_palettes.tsv",
+            AgesGameContent.AssetRoot + "metadata/screen_transition_palettes.tsv",
             new GeneratedTableSchema("smooth screen palettes", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "direction", "source-rgb5", "destination-rgb5", "source"],
                 ["group", "room", "direction"], headerRequired: true));
@@ -31,7 +31,7 @@ internal sealed class ScreenTransitionPaletteDatabase
     {
         palettes = default;
         // checkSymmetryCityPaletteTransition, GLOBALFLAG_TUNI_NUT_PLACED.
-        if (group == 0 && (room is 0x12 or 0x22 or 0x14 or 0x24) && save.HasGlobalFlag(GlobalFlag.TuniNutPlaced))
+        if (group == 0 && (room is 0x12 or 0x22 or 0x14 or 0x24) && save.HasGlobalFlag(AgesGlobalFlag.TuniNutPlaced))
             return false;
         int index = direction == Vector2I.Up ? 0 : direction == Vector2I.Right ? 1 : direction == Vector2I.Down ? 2 : 3;
         return _routes.TryGetValue((group, room, index), out palettes);

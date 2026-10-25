@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>One RGBA8 composition with one CPU snapshot per source texture.</summary>
 internal sealed class OracleImageCanvas

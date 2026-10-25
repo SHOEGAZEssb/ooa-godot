@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>MENU_SECRET input and validation; the shared lifecycle owns fades and pause.</summary>
 internal sealed class SecretEntryController(

@@ -1,0 +1,269 @@
+using Godot;
+using System;
+
+namespace Oracles;
+
+/// <summary>
+/// ITEM_BOMB ($03) parent. It first reuses a touching unexploded Bomb, then
+/// allocates one child subject to the normal/Bomber's Ring object cap, and
+/// shares Bracelet's exact lift/carry/throw Link state boundaries.
+/// </summary>
+public sealed class BombController
+{
+    private readonly InventoryState _inventory;
+    private readonly RoomEntityManager _entities;
+    private readonly RoomSession _rooms;
+    private readonly Action<int> _playSound;
+    private readonly Func<bool> _isUnderwater;
+    private readonly BombRecord _record;
+    private readonly LinkItemDatabase _linkItems;
+
+    private BombParentState _state;
+    private BombEffect? _bomb;
+    private int _counter;
+    private int _liftLowFrames;
+
+    internal BombParentState State => _state;
+    internal BombEffect? Bomb => _bomb;
+    internal bool Active => _state != BombParentState.Idle;
+
+    public BombController(
+        InventoryState inventory,
+        RoomEntityManager entities,
+        RoomSession rooms,
+        Action<int> playSound,
+        Func<bool> isUnderwater,
+        BombDatabase? database = null)
+    {
+        _inventory = inventory;
+        _entities = entities;
+        _rooms = rooms;
+        _playSound = playSound;
+        _isUnderwater = isUnderwater;
+        _record = (database ?? new BombDatabase()).Data;
+        _linkItems = LinkItemDatabase.Shared;
+    }
+
+    public bool TryUse(Player player)
+    {
+        if (_state != BombParentState.Idle ||
+            player.IsCarryingObject ||
+            !player.IsGroundedForFloorButton ||
+            player.SideScrollSwimming ||
+            _isUnderwater())
+        {
+            return false;
+        }
+
+        if (!_entities.TryPickupBomb(player, out BombEffect? bomb))
+        {
+            _liftLowFrames = _record.CreationLiftLowFrames;
+            if (!_entities.DynamicItemSlotAvailable || _inventory.Bombs == 0 ||
+                _entities.ActiveBombCount >=
+                    RingEffects.BombObjectLimit(_inventory))
+            {
+                return false;
+            }
+            bomb = _entities.Spawn<BombEffect>(new BombSpawn(
+                player,
+                _record,
+                _rooms.ActiveGroup,
+                OnHeldExplosion));
+            if (!_inventory.TryConsumeBomb())
+            {
+                bomb.Discard();
+                throw new InvalidOperationException(
+                    "ITEM_BOMB child allocation succeeded without a packed-BCD Bomb to consume.");
+            }
+        }
+        else
+        {
+            _liftLowFrames = _record.LiftLowFrames;
+            bomb!.BeginHeld(player, OnHeldExplosion);
+        }
+
+        _bomb = bomb ?? throw new InvalidOperationException(
+            "Bomb pickup/allocation returned no ITEM_BOMB actor.");
+        _counter = 0;
+        _state = BombParentState.Lifting;
+        player.SetBraceletActionPose(BraceletActionPose.PullStrain);
+        player.SetBraceletLiftCollisionsDisabled(true);
+        _bomb.SetHeldOffset(player, GetLiftOffset(player, 0));
+        _playSound(_record.PickupSound);
+        return true;
+    }
+
+    /// <summary>
+    /// Advances one Bomb parent update. True means Link movement is disabled
+    /// by the lift or throw animation; held movement remains available.
+    /// </summary>
+    public bool Update(
+        Player player,
+        Vector2 movementInput,
+        bool itemButtonJustPressed)
+    {
+        switch (_state)
+        {
+            case BombParentState.Idle:
+                return false;
+
+            case BombParentState.Lifting:
+                UpdateLift(player);
+                return _state == BombParentState.Lifting;
+
+            case BombParentState.Holding:
+                if (_bomb is null || _bomb.State != BombState.Held)
+                {
+                    Interrupt(player, discard: false);
+                    return false;
+                }
+                UpdateHeldPosition(player);
+                if (!itemButtonJustPressed && !player.NativeContactSignal)
+                    return false;
+                Throw(player, movementInput);
+                return true;
+
+            case BombParentState.Throwing:
+                _counter++;
+                // state4 observes the terminal marker before animating, so
+                // the eight animation updates precede one deletion update.
+                if (_counter > _record.ThrowFrames)
+                {
+                    player.ClearBraceletActionPose();
+                    _counter = 0;
+                    _state = BombParentState.Idle;
+                    _bomb = null;
+                    return false;
+                }
+                return true;
+
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported Bomb parent state {_state}.");
+        }
+    }
+
+    internal void Interrupt(Player player, bool discard)
+    {
+        if (_state == BombParentState.Idle)
+            return;
+
+        player.SetBraceletLiftCollisionsDisabled(false);
+        player.ClearBraceletActionPose();
+        player.EndCarriedObjectPose();
+        if (_bomb is not null)
+        {
+            if (discard)
+            {
+                _bomb.Discard();
+            }
+            else if (_bomb.State == BombState.Exploding)
+            {
+                _bomb.ReleaseExploding(
+                    player, CarriedObjectMotion.HeldOffset(player));
+            }
+            else if (_bomb.State == BombState.Held)
+            {
+                _bomb.Throw(
+                    player,
+                    CarriedObjectMotion.HeldOffset(player),
+                    Vector2I.Zero,
+                    speedZ: 0,
+                    speedRaw: ObjectSpeed.Speed0);
+            }
+        }
+        _bomb = null;
+        _counter = 0;
+        _state = BombParentState.Idle;
+    }
+
+    private void UpdateLift(Player player)
+    {
+        if (_bomb is null || _bomb.Finished)
+        {
+            Interrupt(player, discard: false);
+            return;
+        }
+
+        if (!BraceletLiftSequence.Advance(
+                player,
+                ref _counter,
+                _liftLowFrames,
+                _record.LiftMidFrames,
+                _record.LiftHighFrames,
+                stage => _bomb.SetHeldOffset(
+                    player, GetLiftOffset(player, stage))))
+        {
+            return;
+        }
+
+        player.SetBraceletLiftCollisionsDisabled(false);
+        player.BeginCarriedObjectPose();
+        _counter = 0;
+        _state = BombParentState.Holding;
+        UpdateHeldPosition(player);
+    }
+
+    private void UpdateHeldPosition(Player player) =>
+        _bomb?.SetHeldOffset(player, CarriedObjectMotion.HeldOffset(player));
+
+    private void Throw(Player player, Vector2 movementInput)
+    {
+        if (_bomb is null)
+        {
+            Interrupt(player, discard: false);
+            return;
+        }
+
+        Vector2I direction =
+            player.SelectCarriedObjectReleaseDirection(movementInput);
+        bool dropped = direction == Vector2I.Zero;
+        _bomb.Throw(
+            player,
+            CarriedObjectMotion.HeldOffset(player),
+            direction,
+            dropped ? 0 : _record.InitialSpeedZ,
+            dropped
+                ? ObjectSpeed.Speed0
+                : RingEffects.UsesStrongThrow(_inventory)
+                    ? _record.TossSpeedRaw
+                    : _record.SpeedRaw);
+        player.EndCarriedObjectPose();
+        player.SetBraceletActionPose(BraceletActionPose.Throw);
+        _playSound(_record.ThrowSound);
+        _counter = 0;
+        _state = BombParentState.Throwing;
+    }
+
+    private void OnHeldExplosion(BombEffect bomb)
+    {
+        if (_bomb != bomb || _state is not
+                (BombParentState.Lifting or BombParentState.Holding))
+        {
+            return;
+        }
+        Player? player = bomb.HeldPlayer;
+        if (player is null)
+            return;
+        bomb.ReleaseExploding(player, CarriedObjectMotion.HeldOffset(player));
+        player.SetBraceletLiftCollisionsDisabled(false);
+        player.ClearBraceletActionPose();
+        player.EndCarriedObjectPose();
+        // dropLinkHeldItem clears grabState in the child pass. The parent
+        // notices the lost ownership and clears itself on its next update.
+    }
+
+    private Vector2I GetLiftOffset(Player player, int frame) =>
+        _linkItems.BraceletLiftOffset(
+            frame,
+            CarriedObjectMotion.DirectionIndex(player.FacingVector));
+
+}
+
+internal enum BombParentState
+{
+    Idle,
+    Lifting,
+    Holding,
+    Throwing
+}

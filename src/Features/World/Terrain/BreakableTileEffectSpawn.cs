@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Creates the interaction selected by tryToBreakTile_body's effect byte.

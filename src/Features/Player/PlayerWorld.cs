@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class PlayerWorld : IPlayerWorld
 {
@@ -42,11 +42,11 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool DialogueOpen => _interactions.DialogueOpen;
     public bool NativeTextActive => _entities.TextActiveSource();
     public bool SwordDisabled => _roomEvents.Active || _entities.PlayerSwordDisabled;
-    public bool SwordJinxed => _entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter) != 0;
+    public bool SwordJinxed => _entities.RuntimeState.ReadWramByte(AgesWramAddress.wSwordDisabledCounter) != 0;
     public void AdvanceSwordJinxCounter()
     {
-        byte counter = _entities.RuntimeState.ReadWramByte(WramAddress.wSwordDisabledCounter);
-        if (counter != 0) _entities.RuntimeState.SetWramByte(WramAddress.wSwordDisabledCounter, (byte)(counter - 1));
+        byte counter = _entities.RuntimeState.ReadWramByte(AgesWramAddress.wSwordDisabledCounter);
+        if (counter != 0) _entities.RuntimeState.SetWramByte(AgesWramAddress.wSwordDisabledCounter, (byte)(counter - 1));
     }
     public bool ItemUsageDisabled => _entities.PlayerItemUsageDisabled;
     public bool InShop => _rooms.InShop;
@@ -57,31 +57,31 @@ public sealed class PlayerWorld : IPlayerWorld
     public bool LinkDisabled => _roomEvents.DisablesLink;
     public bool MovementDisabled => _roomEvents.Active ||
         _entities.PlayerMovementDisabled || _pushBlocks.LinkMovementDisabled;
-    public byte NativeObjectDisableMask => _entities.RuntimeState.ReadWramByte(WramAddress.wDisabledObjects);
+    public byte NativeObjectDisableMask => _entities.RuntimeState.ReadWramByte(AgesWramAddress.wDisabledObjects);
     public bool RidingObject => _entities.PlayerRidingObject;
     public bool BraceletParentActive => _bracelet.State is not (BraceletState.Idle or BraceletState.Projectile);
     public int RaisedFloorOffset
     {
-        get => unchecked((sbyte)_entities.RuntimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset));
-        set => _entities.RuntimeState.SetWramByte(WramAddress.wLinkRaisedFloorOffset, unchecked((byte)value));
+        get => unchecked((sbyte)_entities.RuntimeState.ReadWramByte(AgesWramAddress.wLinkRaisedFloorOffset));
+        set => _entities.RuntimeState.SetWramByte(AgesWramAddress.wLinkRaisedFloorOffset, unchecked((byte)value));
     }
     public void UpdateLinkOnChest(Vector2 position, bool airborne) =>
         _collision.UpdateLinkOnChest(position, airborne);
     public void UpdateActiveLinkTile(Vector2 position) => _collision.UpdateActiveLinkTile(position);
     public bool GaleWarpDisabled => _entities.WarpTilesDisabled ||
-        _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled) != 0 ||
+        _entities.RuntimeState.ReadWramByte(AgesWramAddress.wWarpsDisabled) != 0 ||
         _entities.PlayerMenusDisabled || _roomEvents.MenusDisabled || _roomEvents.Active;
     public bool PlayerContactDisabled => _transitions.TimeWarpActive || _entities.PlayerContactDisabled;
     public bool NativeWarpsDisabled =>
-        _entities.RuntimeState.ReadWramByte(WramAddress.wWarpsDisabled) != 0;
+        _entities.RuntimeState.ReadWramByte(AgesWramAddress.wWarpsDisabled) != 0;
     public void SetNativeWarpsDisabled(bool disabled) =>
-        _entities.RuntimeState.SetWramByte(WramAddress.wWarpsDisabled, disabled ? (byte)1 : (byte)0);
+        _entities.RuntimeState.SetWramByte(AgesWramAddress.wWarpsDisabled, disabled ? (byte)1 : (byte)0);
     public void RequestWallmasterReturn()
     {
         var profile = EnemyBehaviorTables.Shared.Floormaster;
         _entities.OnRoomWarpRequested(new Warp(_rooms.ActiveGroup, _rooms.CurrentRoom.Id, -1, 0,
             WarpSourceTransition.FadeOut, _rooms.ActiveGroup,
-            _entities.RuntimeState.ReadWramByte(WramAddress.wDungeonWallmasterDestRoom), profile.ReturnPosition,
+            _entities.RuntimeState.ReadWramByte(AgesWramAddress.wDungeonWallmasterDestRoom), profile.ReturnPosition,
             0, profile.ReturnTransition, DirectFadeOut: true)); // wWarpDestTransition2=$03.
     }
     public Vector2? MountedCompanionPosition => _entities.MountedCompanionPosition;
@@ -387,8 +387,8 @@ public sealed class PlayerWorld : IPlayerWorld
     }
     public int TilePushingDirection
     {
-        get => _entities.RuntimeState.ReadWramByte(WramAddress.wLinkPushingDirection);
-        set => _entities.RuntimeState.SetWramByte(WramAddress.wLinkPushingDirection, (byte)value);
+        get => _entities.RuntimeState.ReadWramByte(AgesWramAddress.wLinkPushingDirection);
+        set => _entities.RuntimeState.SetWramByte(AgesWramAddress.wLinkPushingDirection, (byte)value);
     }
     public ActiveTerrainInfo GetActiveTerrain(Vector2 position) => _terrain.GetActiveTerrain(position);
     public SideScrollTerrainState GetSideScrollTerrain(Vector2 position) =>

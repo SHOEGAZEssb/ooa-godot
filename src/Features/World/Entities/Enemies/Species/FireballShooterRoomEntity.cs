@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Invisible ENEMY_FIREBALL_SHOOTER $50 scanner and its native children.</summary>
 internal sealed partial class FireballShooterRoomEntity : TransitionOffsetNode2D,

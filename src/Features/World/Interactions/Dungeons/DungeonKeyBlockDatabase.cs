@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported nextToKeyBlock contract for dungeon metatile $1e. Persistent
@@ -15,7 +15,7 @@ internal sealed class DungeonKeyBlockDatabase
     internal DungeonKeyBlockDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_key_blocks.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_key_blocks.tsv",
             new GeneratedTableSchema(
                 "dungeon key blocks",
                 GeneratedTableKeySemantics.Unique,

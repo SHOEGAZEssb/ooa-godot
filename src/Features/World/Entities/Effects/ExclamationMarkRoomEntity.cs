@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_EXCLAMATION_MARK $9f; state zero initializes without consuming counter1.
 internal sealed class ExclamationMarkRoomEntity(NpcCharacter actor,int frames)

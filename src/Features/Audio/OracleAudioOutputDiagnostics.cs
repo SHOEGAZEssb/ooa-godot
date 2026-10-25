@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Diagnostics;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Opt-in operational audio diagnostics for debug device builds.</summary>
 internal sealed class OracleAudioOutputDiagnostics

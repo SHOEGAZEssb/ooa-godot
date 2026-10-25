@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // bank2.s:loadStatusBarMap / correctAddressForExtraHeart / drawHeartDisplay.
 // Shared by the gameplay HUD and the status bar retained in inventory.
@@ -10,14 +10,14 @@ internal static class StatusBarLayout
     internal static void DrawBiggoronSword(Node2D canvas, Vector2 offset = default, Image? output = null)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/hud/spr_biggoron_sword_icon.png");
+            AgesGameContent.AssetRoot + "hud/spr_biggoron_sword_icon.png");
         Color[,] palette = ItemIconAtlas.LoadStandardSpritePalettes();
         // updateStatusBar_body@oamData: four bank-1 sprites, palette 3,
         // raw X $18/$20/$28/$30 and raw Y $10.
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 32; x++)
         {
-            int shade = ItemIconAtlas.ShadeFromPng(source.GetPixel(x, y), out bool transparent);
+            int shade = OracleGraphicsData.ShadeFromPng(source.GetPixel(x, y), out bool transparent);
             if (!transparent)
             {
                 Vector2 position = offset + new Vector2(16 + x, y);
@@ -35,7 +35,7 @@ internal static class StatusBarLayout
     {
         string layout = equippedB == TreasureId.BiggoronSword
             ? "biggoron_sword" : maxHealth >= 57 ? "extra_hearts" : "normal";
-        string path = $"res://assets/oracle/hud/{(attributes ? "flg" : "map")}_hud_{layout}.bin";
+        string path = AgesGameContent.AssetRoot + $"hud/{(attributes ? "flg" : "map")}_hud_{layout}.bin";
         byte[] data = OracleAssetCache.ReadBytes(path);
         if (data.Length != 64)
             throw new InvalidOperationException($"GFXH_HUD_LAYOUT: {path} must contain 64 bytes.");

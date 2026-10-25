@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed source records shared by INTERAC_DUNGEON_STUFF $12:$00,
@@ -37,7 +37,7 @@ internal sealed class DungeonEntranceInteractionDatabase
     public DungeonEntranceInteractionDatabase()
     {
         GeneratedTable entries = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_entry_data.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_entry_data.tsv",
             new GeneratedTableSchema(
                 "dungeon entry data",
                 GeneratedTableKeySemantics.Unique,
@@ -55,7 +55,7 @@ internal sealed class DungeonEntranceInteractionDatabase
         }
 
         GeneratedTable placements = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_shared_placements.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_shared_placements.tsv",
             new GeneratedTableSchema(
                 "shared dungeon interaction placements",
                 GeneratedTableKeySemantics.Grouped,
@@ -108,7 +108,7 @@ internal sealed class DungeonEntranceInteractionDatabase
         PlacementCount = placementCount;
 
         GeneratedTable visuals = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_shared_visuals.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_shared_visuals.tsv",
             new GeneratedTableSchema(
                 "shared dungeon interaction visuals",
                 GeneratedTableKeySemantics.Unique,
@@ -144,7 +144,7 @@ internal sealed class DungeonEntranceInteractionDatabase
         }
 
         GeneratedTable pairs = GeneratedTable.Load(
-            "res://assets/oracle/objects/miniboss_portal_pairs.tsv",
+            AgesGameContent.AssetRoot + "objects/miniboss_portal_pairs.tsv",
             new GeneratedTableSchema(
                 "miniboss portal pairs",
                 GeneratedTableKeySemantics.Unique,
@@ -159,7 +159,7 @@ internal sealed class DungeonEntranceInteractionDatabase
         }
 
         GeneratedTable constants = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_shared_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_shared_constants.tsv",
             new GeneratedTableSchema(
                 "shared dungeon interaction constants",
                 GeneratedTableKeySemantics.Unique,

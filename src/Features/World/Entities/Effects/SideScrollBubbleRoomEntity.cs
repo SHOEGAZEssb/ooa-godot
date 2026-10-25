@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_BUBBLE $91:$00 in side-view water.</summary>
 internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2D,
@@ -95,7 +95,7 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
     private static BubbleDefinition LoadDefinition()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/side_scroll_bubble.tsv",
+            AgesGameContent.AssetRoot + "effects/side_scroll_bubble.tsv",
             new GeneratedTableSchema("side-view swimming bubble",
                 GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "speed-raw", "turn-counter", "initial-turns",
@@ -107,8 +107,8 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
             row.UnsignedDecimal(4) != 5 || row.UnsignedDecimal(5) != 8 ||
             animation.Frames.Length != 1 || animation.Frames[0].Duration != 0x7f)
             throw new InvalidOperationException($"{row.RequiredString(7)}: unexpected bubble constants or animation.");
-        (Texture2D texture, Vector2 offset) = NpcCharacter.BuildPositionedOamTexture(
-            OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_common_sprites.png"),
+        (Texture2D texture, Vector2 offset) = OracleOamCompositor.BuildPositionedOamTexture(
+            OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png"),
             animation.Frames[0].EncodedOam, row.UnsignedDecimal(0), row.UnsignedDecimal(1),
             paletteOverride: null, sourceGrayscaleInverted: true);
         return new BubbleDefinition(texture, offset, row.UnsignedDecimal(2),

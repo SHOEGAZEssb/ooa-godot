@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FluteDatabase
 {
@@ -17,7 +17,7 @@ internal sealed class FluteDatabase
 
     internal FluteDatabase()
     {
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/flute.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/flute.tsv",
             new GeneratedTableSchema("Flute source data", GeneratedTableKeySemantics.Ordered,
                 ["kind", "index", "value", "source"], headerRequired: true)).Rows)
         {

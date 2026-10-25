@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// applySingleTileChanges: ordered, position-specific room-load writes selected
@@ -17,7 +17,7 @@ public sealed class SingleTileChangeDatabase
     public SingleTileChangeDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/single_tile_changes.tsv",
+            AgesGameContent.AssetRoot + "metadata/single_tile_changes.tsv",
             new GeneratedTableSchema(
                 "single-tile changes",
                 GeneratedTableKeySemantics.Grouped,
@@ -88,7 +88,7 @@ public sealed class SingleTileChangeDatabase
         0xf1 => save.IsLinkedGame,
         // The source comment describes this as an unlinked completion row;
         // executed code tests GLOBALFLAG_FINISHEDGAME directly.
-        0xf2 => save.HasGlobalFlag(GlobalFlag.FinishedGame),
+        0xf2 => save.HasGlobalFlag(AgesGlobalFlag.FinishedGame),
         _ => (save.GetRoomFlags(group, room) & mask) != 0
     };
 }

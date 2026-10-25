@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_PUFF $05. State 0 initializes graphics and conditionally requests
@@ -115,7 +115,7 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
     private static List<PuzzlePuffEffectFrameRecord> LoadDefinition()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/puzzle_puff.tsv",
+            AgesGameContent.AssetRoot + "effects/puzzle_puff.tsv",
             new GeneratedTableSchema(
                 "puzzle puff",
                 GeneratedTableKeySemantics.Ordered,
@@ -128,13 +128,13 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
             throw new InvalidOperationException("Imported INTERAC_PUFF constants are invalid.");
 
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_sprites.png");
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
         var animation = new List<PuzzlePuffEffectFrameRecord>();
         foreach (AnimationFrameDefinition frame in
             OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(2)).Frames)
         {
             animation.Add(new PuzzlePuffEffectFrameRecord(
-                NpcCharacter.BuildOamTexture(
+                OracleOamCompositor.BuildOamTexture(
                     source, frame.EncodedOam, tileBase, palette),
                 frame.Duration,
                 frame.Parameter));

@@ -1,0 +1,444 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Oracles;
+
+// Clean-US parent dispatch, item update and unconditional post pass in original
+// object order. Room bytes and Link's ground state are explicit inputs; graphics,
+// block allocation, tile writes/restoration and puff creation execute native code.
+internal sealed class SomariaRom
+{
+    private readonly FrontendRom _rom = new();
+    internal byte this[int address] { get => _rom[address]; set => _rom[address] = value; }
+    internal int RandomCalls => _rom.RandomCalls;
+    internal int TextGeneration => _rom.TextGeneration;
+    internal bool HostilePartsEnabled { get; set; }
+    internal bool HostileEnemiesEnabled { get; set; }
+    internal bool PostObjectCollisionsEnabled { get; set; } = true;
+    internal bool CompanionDispatchEnabled { get; set; }
+    internal bool NativeGameKeysEnabled {get;set;}
+    internal IReadOnlyList<int> Sounds => _rom.Sounds;
+    internal int[] Blocks => Enumerable.Range(0xd7, 5).Select(page => page << 8)
+        .Where(slot => this[slot] != 0 && this[slot + 1] == 0x18).ToArray();
+    internal int Word(int address) => _rom.Word(address);
+    internal void Word(int address, int value)
+    {
+        this[address] = (byte)value; this[address + 1] = (byte)(value >> 8);
+    }
+    internal byte Underlying(int packed) => _rom.BankByte(3, 0xdf00 + packed);
+    internal byte FloorPermutation(int index) => _rom.BankByte(4,0xd000+index);
+    internal byte BackgroundTile(int x, int y) => _rom.BankByte(3, 0xd800 + y * 32 + x);
+    internal byte BackgroundAttribute(int x, int y) => _rom.BankByte(3, 0xdc00 + y * 32 + x);
+    internal byte TileCollision(int tile) => _rom.BankByte(3,0xdb00+tile);
+    internal MenuRom CreateMenuView() => new(_rom);
+    internal void AdvanceDeathPrelude() => _rom.UpdateDeathPrelude();
+    internal void SelectToggleCutscene()
+    {
+        _rom.Call(0x7c6c,1); // cutscene01.checkUpdateToggleBlocks, after objects.
+        if (this[0xcc04] != 0) _rom.Call(0x5e3d,1); // setCutsceneIndexIfCutsceneTriggerSet.
+    }
+    internal void AdvanceEnemyAndPartCollisions() => _rom.Call(0x41d1,7);
+    internal void AdvanceInteractions() => _rom.Call(0x3b36,0); // bank0.updateInteractions, including the scroll/always-update gates.
+    internal void AdvanceScreenBoundary() => _rom.Call(0x4000, 1); // bank1.func_4000, including the wScrollMode=$00 gate.
+    internal void HitEnemyWithItem(int slot,int collision,int damage,int itemId=0,Godot.Vector2? origin=null)
+    {
+        int enemy=0xd080+slot*256;
+        this[0xd724]=(byte)(0x80|collision); this[0xd728]=unchecked((byte)-damage);
+        this[0xd701]=(byte)itemId; this[0xd726]=this[0xd727]=6;
+        this[0xd70b]=origin is { } pointY?unchecked((byte)Godot.Mathf.FloorToInt(pointY.Y)):this[enemy+11];
+        this[0xd70d]=origin is { } pointX?unchecked((byte)Godot.Mathf.FloorToInt(pointX.X)):(byte)(this[enemy+13]-1);
+        this[0xffae]=0x80; this[0xffaf]=(byte)(enemy>>8);
+        byte[] caller=[0x16,(byte)(enemy>>8),0x21,0x00,0xd6,0xcd,0xd1,0x41,0xc9];
+        for(int index=0;index<caller.Length;index++) this[0xc100+index]=caller[index];
+        _rom.Call(0xc100,7); this[0xd724]=0;
+    }
+    internal void HitPartWithItem(int slot, int collision)
+    {
+        int part = 0xd0c0 + slot * 256;
+        this[0xd724] = (byte)(0x80 | collision); this[0xd728] = 0xff;
+        this[0xd701] = collision <= 3 ? (byte)1 : (byte)5; this[0xd726] = this[0xd727] = 6;
+        this[0xd70b] = this[part + 11]; this[0xd70d] = (byte)(this[part + 13] + 1);
+        this[0xffae] = 0xc0; this[0xffaf] = (byte)(part >> 8);
+        byte[] caller = [0x16, (byte)(part >> 8), 0x21, 0x00, 0xd6, 0xcd, 0xd1, 0x41, 0xc9];
+        for (int i = 0; i < caller.Length; i++) this[0xc100 + i] = caller[i];
+        _rom.Call(0xc100, 7); this[0xd724] = 0;
+    }
+    internal void CheckTileWarps() => _rom.Call(0x60e9,1); // cutscene01, after toggle selection.
+    internal void SelectNextActiveRoom() => _rom.Call(0x5f45,1); // getNextActiveRoom, after warp lookup.
+    internal void InitializeRoomSpecificInteractions() => _rom.Call(0x5872,0x12); // Original runRoomSpecificCode/group dispatch.
+    internal void InitializeRoomInteractions() => _rom.Call(0x30fe,1); // Full bank0.initializeRoom, with its original bank-1 caller.
+    internal void ApplyRoomTileSubstitutions() => _rom.ApplyRoomTileSubstitutions();
+    internal void AdvanceWallRetraction() => _rom.Call(0x701d,3); // bank3Cutscenes.func_701d, before objects.
+    internal void AdvancePalaceBoot() => _rom.Call(0x6275, 3); // CUTSCENE$14, before objects.
+    internal void AdvancePalacePassage() => _rom.Call(0x7493, 3); // CUTSCENE$1c, before objects.
+    internal void AdvanceJabuOpening() => _rom.Call(0x7565,3); // CUTSCENE$1d, before objects.
+    internal void LoadRoomTileset() => _rom.LoadRoomTileset();
+    internal void PrepareRoomBackground()
+    {
+        _rom.Call(0x341a,0); // loadScreenMusicAndSetRoomPack also publishes wLoadingRoom.
+        _rom.LoadRoomTileset();
+        this[0xff70]=0; // Main-thread object dispatch resumes in the fixed object bank.
+    }
+    internal void ReloadTwinrovaArena(int mode)
+    {
+        this[0xcca9]=(byte)mode;
+        _rom.Call(0x131f,0); // Full native background/collision reload, retaining object slots.
+        this[0xff70]=0;
+    }
+    internal void AdvanceScreenShake() => _rom.Call(0x427d,1); // Original post-object Y/X shake and RNG draws.
+    internal void AdvanceCameraPosition() => _rom.Call(0x4201, 1); // bank1.updateCameraPosition, after objects.
+    internal Godot.Vector2 ObjectSpriteScreenOrigin(int slot)
+    {
+        // Execute the original draw projection. Suppress the independent
+        // terrain-effects publication while querying an actor's screen point.
+        byte visible=this[slot+0x1a];this[slot+0x1a]=(byte)(visible&~0x40);
+        byte[] caller=[0x21,(byte)(slot+11),(byte)(slot>>8),0xcd,0x82,0x0f,0xc9];
+        for(int index=0;index<caller.Length;index++)this[0xc100+index]=caller[index];
+        _rom.Call(0xc100,0);this[slot+0x1a]=visible;
+        return new(this[0xff8d]-8,this[0xff8c]-16);
+    }
+    internal void AdvanceNayruRescueWarp() => _rom.Call(0x6785,3); // CUTSCENE$0c @runStates, before objects.
+    internal void AdvanceBlackTowerEscapeAttempt()=>_rom.Call(0x7cb7,3); // CUTSCENE$1f, before status bar / objects.
+    internal void AdvanceRoomOfRitesCollapse()=>_rom.Call(this[0xcbc1]==0?0x5b76:0x5cc7,3); // CUTSCENE$0f native substate body, before updateAllObjects.
+    internal void AdvanceLinkedLeadInBody()
+    {
+        if(this[0xc2ef] is 0x11 or 0x12)
+        {
+            _rom.Call(this[0xc2ef]==0x11?0x3ed0:0x3ee4,0);
+            _rom.Call(0x1613,0); // cutscene11/12 -> func_5d41: refreshLoadedTreeGfx before objects.
+            return;
+        }
+        if(this[0xc2ef]!=0x20)throw new InvalidOperationException("Expected linked lead-in cutscene $11/$12/$20.");
+        _rom.Call(0x1613,0); // cutscene20 refreshes before its state handler.
+        if(this[0xcc03]==0){this[0xcc03]=1;for(int at=0xcbb3;at<0xcbc3;at++)this[at]=0;}
+        var bytes=ValidationRom.LoadCleanUs().Span;
+        int handler=bytes[0xd42c]|bytes[0xd42d]<<8,offset=0xc000+handler-0x4000;
+        if(bytes[offset]!=0xcd||bytes[offset+3]!=0xc3||bytes[offset+4]!=0x5b||bytes[offset+5]!=0x34)
+            throw new InvalidOperationException("Clean-US CUTSCENE $20 handler no longer calls its body before updateAllObjects.");
+        _rom.Call(bytes[offset+1]|bytes[offset+2]<<8,3);
+    }
+    internal void EnableVramDma()=>_rom.VramDmaTransfersEnabled=true;
+    internal void LatchDisplayedObjectPalettes()=>_rom.LatchDisplayedObjectPalettes();
+    internal void EnableResetHandoff()=>_rom.StopAtReset=true;
+    internal byte VramByte(int bank,int address)=>_rom.VramByte(bank,address);
+    internal byte BankByte(int bank,int address)=>_rom.BankByte(bank,address);
+    internal void AdvanceBlackTowerEnding()
+    {
+        if(this[0xc2ef]==0x0a){_rom.Call(0x5e16,3);return;} // endgameCutsceneHandler_0a@runStates, before func_3539.
+        if(this[0xcbc1]==0){_rom.Call(0x545b,3);return;}
+        // Original stage-selector table, not a port/imported timing table.
+        var bytes=ValidationRom.LoadCleanUs().Span;int at=3*0x4000+0x1450;
+        int handler=bytes[at]|bytes[at+1]<<8;int offset=3*0x4000+handler-0x4000;
+        if(bytes[offset]!=0xcd||bytes[offset+3]!=0xc3||bytes[offset+4]!=0x5b||bytes[offset+5]!=0x34)
+            throw new System.InvalidOperationException("Clean US native09 stage1 caller no longer matches the source dispatch boundary.");
+        _rom.Call(bytes[offset+1]|bytes[offset+2]<<8,3);
+    }
+    internal void UpdateCredits(int frameCounter)
+    {
+        this[0xcc00]=(byte)frameCounter;
+        _rom.Call(0x3539,0); // Complete native credits object caller, with no post-object collision pass.
+    }
+    internal void DrawCutsceneObjects()=>_rom.Call(0x0d9a,0); // bank0.drawAllSprites, after native credits object updates.
+    internal void LoadCutsceneGraphics(int graphics,int palette)
+    {
+        byte[] caller=[0x3e,(byte)graphics,0xcd,0x26,0x06,0x3e,(byte)palette,0xcd,0x0b,0x05,0xc9];
+        for(int index=0;index<caller.Length;index++)this[0xc100+index]=caller[index];
+        _rom.Call(0xc100,0);
+    }
+    internal void InitializeBackgroundAnimations(int group,bool direct)
+    {
+        this[0xcd25]=(byte)group;this[0xcc2c]=1;
+        if(!direct){_rom.Call(0x58e4,4);return;} // animations.s:initializeAnimations.
+        byte[] caller=[0x3e,(byte)group,0xcd,0x59,0x36,0xc9]; // bank0.loadAnimationData, preserving the group state byte.
+        for(int index=0;index<caller.Length;index++)this[0xc100+index]=caller[index];
+        _rom.Call(0xc100,0);
+    }
+    internal void AdvanceBackgroundAnimations()=>_rom.Call(0x5906,4); // animations.s:updateAnimations, including original FIFO drain.
+    internal void AdvancePostD7()
+    {
+        // The original state handlers precede updateAllObjects. Their room,
+        // palette and temporary-object loads execute without replacements.
+        int entry = this[0xc2ef] switch
+        {
+            0x21 => 0x69be, 0x08 => 0x65b9, 0x10 => 0x6a97,
+            _ => throw new InvalidOperationException($"Post-D7 ROM cutscene ${this[0xc2ef]:x2}.")
+        };
+        _rom.Call(entry, 3);
+    }
+    internal void SelectTriggeredCutscene()
+    { if (this[0xcc04] != 0) _rom.Call(0x5e3d, 1); }
+    internal void ApplyLinkDamage(byte rawDamage)
+    {
+        this[0xd025] = rawDamage;
+        CallLink(0x46bb, 6); // linkApplyDamage, including native death publication.
+    }
+    internal void AdvanceWarpPalette() => _rom.AdvancePalette();
+    internal void AdvanceTwinrovaFlameCutscene(int frameCounter,int cutscene=0x18)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        _rom.AdvancePalette();
+        _rom.Call(cutscene==0x18?0x4d16:0x4d1a, 1); // cutscene18/19: body, refreshLoadedTreeGfx and updateAllObjects.
+    }
+    internal void AdvanceRitualWarp(int frameCounter)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        if (this[0xcc04] != 0) _rom.Call(0x5e3d, 1);
+        _rom.AdvancePalette();
+        _rom.Call(0x4af8, 1); // bank1.cutscene17, including native interaction-only fallthrough.
+    }
+    internal void BeginCutsceneWhiteFade()=>_rom.Call(0x326c,0); // bank0.s:fadeoutToWhite.
+    internal void ApplyRequestedWarp() => _rom.Call(0x5e0e, 1); // applyWarpTransition2, after objects.
+    internal void UpdateFadeOutWarp() => _rom.Call(0x5bd8, 1); // cutscene03, including native room load.
+    internal void CompleteGaleMenuHandoff() => _rom.Call(0x5de8, 1); // cutscene16 after updateMenus/ret nz.
+    internal void AdvanceArrivalRoomControl()
+    {
+        // updateAllObjects' native screen-transition pass, followed by
+        // cutscene00's continuation when that caller still owns the room.
+        _rom.Call(0x4000, 1);
+        if (this[0xc2ef] == 0) _rom.Call(0x5b2c, 1);
+    }
+    internal void UpdateGaleCancelGameplay(int pressed, int held, int frameCounter)
+    {
+        // cutscene16 consumes wWarpTransition2 before updateAllObjects.
+        // This fixture supplies that object pass via UpdateGameplay, then
+        // executes its native CUTSCENE_INGAME/lock-clearing epilogue.
+        this[0xcc4b] = 0;
+        UpdateGameplay(pressed, held, 0xff, frameCounter);
+        _rom.Call(0x5df6, 1);
+    }
+
+    internal SomariaRom(OracleSaveData save, OracleRandomState random, OracleRoomData room,
+        int direction, int x, int y)
+    {
+        for (int address = 0xc5b0; address < 0xcb00; address++) this[address] = save.ReadWramByte(address);
+        this[0xff94] = random.Rng1; this[0xff95] = random.Rng2;
+        this[0xcc2b] = 0xff;
+        this[0xcc2c] = 0xd0;
+        this[0xcc2d] = (byte)room.Group; this[0xcc30] = (byte)room.Id; this[0xcc2e] = 1;
+        this[0xcc33] = (byte)room.ActiveCollisions; this[0xcc34] = room.TilesetFlags;
+        this[0xcc86] = (byte)room.Height; this[0xcc87] = (byte)room.Width;
+        this[0xcd00] = 1;
+        this[0xd000] = 1; this[0xd004] = 1; this[0xd024] = 0x80;
+        this[0xd029] = 1;
+        this[0xd026] = this[0xd027] = 6;
+        this[0xd008] = (byte)direction; this[0xd009] = (byte)(direction * 8);
+        this[0xd00b] = (byte)y; this[0xd00d] = (byte)x;
+        for (int tile = 0; tile < 256; tile++)
+            _rom.SetBankByte(3, 0xdb00 + tile, room.GetCollision((byte)tile));
+        CopyRoom(room);
+    }
+
+    internal void Update(int pressed, int held, int frameCounter)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        this[0xcc29] = (byte)held; this[0xcc2a] = (byte)pressed;
+        this[0xcc99] = (byte)((this[0xd00b] & 0xf0) | (this[0xd00d] >> 4));
+        if (this[0xcba0] == 0 && (this[0xcc8a] & 0x81) == 0)
+            _rom.Call(0x48b3, 6); // checkUseItems, including parent pass.
+        _rom.Call(0x4872, 7); // updateItems: initialized children obey native freeze gates.
+        _rom.Call(0x3616, 0); // bank0.setEnemyTargetToLinkPosition, before later object phases.
+        _rom.Call(0x3b36, 0); // updateInteractions, including block-deletion puffs.
+        _rom.Call(0x491a, 7); // updateItemsPost: runs even while parents/items are frozen.
+    }
+
+    internal void ClearPhysicalItems() => _rom.Call(0x19ad, 0);
+    internal void ClearOutgoingInteractions() => _rom.Call(0x4a31,1); // clearInteractionsWithEnabled2.
+    internal void ClearOutgoingEnemies() => _rom.Call(0x4a38,1); // clearEnemiesWithEnabled2.
+    internal void SetOutgoingInteractions() => _rom.Call(0x49f1,1); // setInteractionsEnabledTo2.
+    internal void SetOutgoingParts() => _rom.Call(0x49ff,1); // setPartsEnabledTo2.
+    internal void ClearOutgoingParts() => _rom.Call(0x4a3f,1); // clearPartsWithEnabled2.
+    internal void AdvanceInteractions(int frameCounter)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        _rom.Call(0x3b36,0); // Original object pass, before scroll control.
+    }
+
+    internal void AdvanceParts(int frameCounter)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        _rom.Call(0x5e58,0x11); // Original updateParts, including modal/scroll masks.
+    }
+
+    internal void GeneratePlacementBuffer() => _rom.Call(0x3215, 0);
+    internal void AdvanceEnemies(int frameCounter)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        _rom.Call(0x2ea5, 0x0d); // Original updateEnemies, including scroll state-zero admission.
+    }
+
+    internal void SetEnemyAnimation(int slot, int animation)
+    {
+        byte[] caller=[0x16,(byte)(0xd0+slot),0x3e,(byte)animation,0xcd,0x2b,0x28,0xc9];
+        for(int i=0;i<caller.Length;i++)this[0xc200+i]=caller[i];
+        _rom.Call(0xc200,0);
+    }
+
+    internal void InteractWithFrontTile() => CallLink(0x4000,6);
+
+    // Clean-US bank1 func_49c9 / clearMemoryOnScreenReload. The former
+    // clears $cc8a..$cce0; the latter starts at $cc5c and also clears items.
+    internal void ClearRoomVariables(bool scrolling) => _rom.Call(scrolling ? 0x49c9 : 0x49af,1);
+    internal void AdvanceTileGraphics()
+    {
+        // updateAllObjects tail, after the previous VBlank consumed commands.
+        this[0xffa5] = 0;
+        _rom.Call(0x6c32, 4); // tilesets.updateChangedTileQueue, at most four entries.
+    }
+    internal void SetTile(byte position, byte tile)
+    {
+        // Original setTile: supplied A/C, including full-queue rejection.
+        byte[] caller = [0x3e,tile,0x0e,position,0xcd,0x9c,0x3a,0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100+index] = caller[index];
+        _rom.Call(0xc100,0);
+    }
+    internal void ClearItemParents() => _rom.Call(0x4878, 6); // clearAllParentItems_body.
+    internal void DeleteDynamicItem(int slot)
+    {
+        if (slot < 0xd700 || slot > 0xdb00 || (slot & 0xff) != 0)
+            throw new ArgumentOutOfRangeException(nameof(slot));
+        // Native itemDelete with the caller's D register pointing at its slot.
+        byte[] caller = [0x16, (byte)(slot >> 8), 0xcd, 0xe2, 0x2c, 0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
+        _rom.Call(0xc100, 7);
+    }
+
+    internal void ScanBombchuTarget(int slot)
+    {
+        if (slot < 0xd700 || slot > 0xdb00 || (slot & 0xff) != 0)
+            throw new ArgumentOutOfRangeException(nameof(slot));
+        // bombchuCheckForEnemyTarget, original bank $07:$5426. The caller
+        // supplies only D; the routine reads the actual enemy-slot bytes.
+        byte[] caller = [0x16, (byte)(slot >> 8), 0xcd, 0x26, 0x54, 0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
+        _rom.Call(0xc100, 7);
+    }
+
+    internal void HomeBombchu(int slot, bool sidescroll) =>
+        CallBombchuHelper(slot, sidescroll ? 0x539e : 0x5361);
+    internal void CheckBombchuWalls(int slot) => CallBombchuHelper(slot, 0x52ea);
+    internal void TurnBombchuFromHole(int slot) => CallBombchuHelper(slot, 0x52b0);
+    internal void PlaceBombchuInFrontOfLink(int slot) => CallBombchuHelper(slot, 0x53ce);
+    internal int ReadBombchuFrontCollision(int slot)
+    {
+        // bombchuGetTileCollisions takes E=Item.angle. Preserve its actual
+        // front-offset lookup and room-collision reader, then publish A.
+        byte[] caller = [0x16, (byte)(slot >> 8), 0x1e, 9, 0xcd, 0xbd, 0x52,
+            0xea, 0x20, 0xc1, 0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
+        _rom.Call(0xc100, 7);
+        return this[0xc120];
+    }
+    private void CallBombchuHelper(int slot, int address)
+    {
+        if (slot < 0xd700 || slot > 0xdb00 || (slot & 0xff) != 0)
+            throw new ArgumentOutOfRangeException(nameof(slot));
+        byte[] caller = [0x16, (byte)(slot >> 8), 0xcd, (byte)address, (byte)(address >> 8), 0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
+        _rom.Call(0xc100, 7);
+    }
+
+    internal void CopyRoom(OracleRoomData room)
+    {
+        for (int row = 0; row < room.HeightInTiles; row++)
+        for (int column = 0; column < room.WidthInTiles; column++)
+        {
+            int packed = row * 16 + column;
+            Godot.Vector2 point = new(column * 16 + 8, row * 16 + 8);
+            this[0xcf00 + packed] = room.GetMetatile(point);
+            this[0xce00 + packed] = (byte)room.GetTerrainInfo(point).Collision;
+            // Runtime small-room storage has ten columns; live native WRAM
+            // tile buffers always use the sixteen-byte row stride.
+            _rom.SetBankByte(3, 0xdf00 + packed, room.GetUnderlyingMetatile(point));
+        }
+    }
+
+    internal void InitializeLinkGameplay()
+    {
+        this[0xcc39] = this[0xccaa] = 0xff;
+        this[0xcc6a] = 20;
+        for (int column = 0; column < 16; column++)
+            this[0xcef0 + column] = this[0xce00 + this[0xcc86] + column] = 0xff;
+        for (int row = 0; row < 11; row++)
+            this[0xce0f + row * 16] = this[0xce00 + (this[0xcc87] >> 4) + row * 16] = 0xff;
+    }
+
+    internal void InitializeLinkWalkingAnimation()
+    {
+        this[0xd01a] = 0x80;
+        CallLink(0x2b0a, 0, 0x10); // specialObjectSetAnimation WALK, as linkState00.
+    }
+
+    internal void PublishLinkGraphics() => _rom.Call(0x2b25,0);
+
+    internal void UpdateGameplay(int pressed, int held, int angle, int frameCounter,
+        Action? beforeInteractions = null, Action? afterInteractions = null, Action? beforeParts = null, Action? afterLink = null,
+        Action? beforeEnemies = null)
+    {
+        this[0xcc00] = (byte)frameCounter;
+        if(NativeGameKeysEnabled){this[0xc481]=(byte)held;this[0xc482]=(byte)pressed;}
+        else {this[0xcc29] = (byte)held; this[0xcc2a] = (byte)pressed; this[0xcc2b] = (byte)angle;}
+        // updateSpecialObjects preparation/tail, with no companion or physical
+        // controller input. The actual Link dispatch owns tile interaction,
+        // item parents, wall probes, movement, facing and grab eligibility.
+        _rom.UpdateSpecialObjectPrelude();
+        if(NativeGameKeysEnabled)_rom.Call(0x40b3,5); // updateGameKeysPressed, including original simulated-input reader.
+        if (CompanionDispatchEnabled)
+        {
+            CallSpecialObject(0xd1);
+            this[0xcc68] = this[0xcc98] = 0;
+            CallSpecialObject(0xd0);
+        }
+        else if (this[0xd001] == 2) CallSpecialObject(0xd0);
+        else CallLink(0x49b6);
+        CallLink(0x4279); // updateLinkInvincibilityCounter.
+        if (CompanionDispatchEnabled) this[0xcc96] = this[0xcc8d];
+        this[0xcc61] &= 0x0f;
+        this[0xd02a] = this[0xcc67] = this[0xccd8] = 0;
+        if (this[0xcc6b] != 0) this[0xcc6b]--;
+        // Clear only after Link has read the preceding publication. ITEM$18
+        // state3 republishes later in this update, including after a push.
+        for (int address = 0xcc74; address < 0xcc84; address++) this[address] = 0;
+        afterLink?.Invoke();
+        _rom.Call(0x4872, 7);
+        _rom.Call(0x3616, 0); // updateAllObjects publishes the post-Link target before interactions.
+        beforeEnemies?.Invoke();
+        if (HostileEnemiesEnabled) _rom.Call(0x2ea5, 0x0d); // updateEnemies, before parts.
+        beforeParts?.Invoke();
+        if (HostilePartsEnabled) _rom.Call(0x5e58, 0x11); // updateParts, before interactions.
+        beforeInteractions?.Invoke();
+        _rom.Call(0x3b36, 0);
+        // updateAllObjects calls bank1.func_4000 here, before its rider copy.
+        // A scroll fixture supplies that native phase; ordinary fixtures
+        // retain their declared room boundary without a transition pass.
+        afterInteractions?.Invoke();
+        if ((this[0xcc5a] & 0x80) != 0) _rom.Call(0x54df, 6);
+        if (CompanionDispatchEnabled && (this[0xcc2c] & 1) != 0)
+            CallLink(0x410d); // Native bank0.updateAllObjects post-object rider copy.
+        // This late graphics pass publishes wLinkPushingDirection for the
+        // following Link update, using its retained adjacent-wall probes.
+        _rom.Call(0x2b25, 0);
+        _rom.Call(0x491a, 7);
+        if ((HostileEnemiesEnabled || HostilePartsEnabled) && PostObjectCollisionsEnabled && this[0xcba0] == 0)
+            _rom.Call(0x41d1, 7); // Original post-object collision publication.
+    }
+
+    private void CallLink(int address, int bank = 5, int accumulator = 0)
+    {
+        this[0xffae] = 0; this[0xffaf] = 0xd0;
+        // Supply D/H as updateSpecialObjects does; no native instruction is
+        // replaced. FrontendRom keeps the stack in unbanked WRAM.
+        byte[] caller = [0x3e, (byte)accumulator, 0x16, 0xd0, 0x62, 0xcd, (byte)address, (byte)(address >> 8), 0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
+        _rom.Call(0xc100, bank);
+    }
+
+    private void CallSpecialObject(int page)
+    {
+        // updateSpecialObjects @updateSpecialObject ($05:$407d), including
+        // enabled gates, original ID dispatch and its banked vehicle handler.
+        byte[] caller = [0x21, 0, (byte)page, 0xcd, 0x7d, 0x40, 0xc9];
+        for (int index = 0; index < caller.Length; index++) this[0xc100 + index] = caller[index];
+        _rom.Call(0xc100, 5);
+    }
+}

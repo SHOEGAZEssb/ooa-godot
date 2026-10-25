@@ -1,12 +1,12 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // roomGfxChanges.s:applyRoomSpecificTileChangesAfterGfxLoad and handler$04.
 // Source graphics initialization sets wInShop independently of NPC presence.
 internal sealed class RoomShopDatabase
 {
-    private readonly byte[] _flags = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/roomShopFlags.bin");
+    private readonly byte[] _flags = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/roomShopFlags.bin");
 
     internal RoomShopDatabase()
     {

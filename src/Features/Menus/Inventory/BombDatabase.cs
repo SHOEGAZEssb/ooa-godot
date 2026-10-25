@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed ITEM_BOMB ($03) data imported from the supported Ages disassembly.
@@ -14,7 +14,7 @@ public sealed class BombDatabase
     internal BombRecord Data { get; }
 
     public BombDatabase(
-        string path = "res://assets/oracle/metadata/bomb.tsv")
+        string path = AgesGameContent.AssetRoot + "metadata/bomb.tsv")
     {
         GeneratedTable table = GeneratedTable.Load(
             path,

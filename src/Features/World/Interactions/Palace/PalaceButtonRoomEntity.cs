@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class PalaceButtonRoomEntity(RoomEntityManager owner, RoomSession rooms, PalaceButtonRecord record)
     : IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
@@ -36,9 +36,9 @@ internal sealed class PalaceButtonRoomEntity(RoomEntityManager owner, RoomSessio
             Player link = frame.Player;
             if (link.IsDying || link.GrabStateActive || !link.IsGroundedForFloorButton || !link.NativeObjectVulnerable ||
                 !Player.EnemyCollisionOverlaps(link.Position, new Rect2(record.Position - Vector2.One * 2, Vector2.One * 4)) ||
-                owner.RuntimeState.ReadWramByte(WramAddress.wActiveTilePos) != rooms.CurrentRoom.GetPackedPosition(record.Position)) return;
-            owner.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0x81);
-            owner.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, 0x81);
+                owner.RuntimeState.ReadWramByte(AgesWramAddress.wActiveTilePos) != rooms.CurrentRoom.GetPackedPosition(record.Position)) return;
+            owner.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0x81);
+            owner.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 0x81);
             Counter = 45; State = 2;
             rooms.TrySetTile((byte)rooms.CurrentRoom.GetPackedPosition(record.Position), 0x9e);
             owner.OnRoomTileChanged(); owner.OnSoundRequested(SoundId.SndOpenChest); return;
@@ -46,7 +46,7 @@ internal sealed class PalaceButtonRoomEntity(RoomEntityManager owner, RoomSessio
         Counter = (Counter - 1) & 255;
         if (Counter != 0) return;
         owner.RuntimeState.SetWramByte(0xcbbb, (byte)record.Room);
-        owner.RuntimeState.SetWramByte(0xcbbc, owner.RuntimeState.ReadWramByte(WramAddress.wActiveTilePos));
+        owner.RuntimeState.SetWramByte(0xcbbc, owner.RuntimeState.ReadWramByte(AgesWramAddress.wActiveTilePos));
         owner.RuntimeState.SetWramByte(0xcbbd, (byte)record.Subid);
         owner.RequestPalacePassage(); Finished = true;
     }

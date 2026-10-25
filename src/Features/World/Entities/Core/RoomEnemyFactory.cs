@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Constructs the imported enemy handler selected by the ordered room parser or
 // a native allocation. Slot admission, placement buffers and RNG order belong
@@ -34,9 +34,9 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
 
         if(handler.Handler==EnemyHandlerKind.TargetCartCrystal)
         {
-            var visual=enemies.ImportedEnemy(EnemyId.TargetCartCrystal);
+            var visual=enemies.ImportedEnemy(AgesEnemyId.TargetCartCrystal);
             string animation=visual.Animations[0];
-            var actor = NpcCharacter.CreateFromRecord(new(rooms!.ActiveGroup,room.Id,InteractionId.Accessory,source.SubId,0,0,0,0,
+            var actor = NpcCharacter.CreateFromRecord(new(rooms!.ActiveGroup,room.Id,AgesInteractionId.Accessory,source.SubId,0,0,0,0,
                 visual.Sprites[0],visual.TileBase,visual.Palette,0,false,animation,animation,animation,animation,"",
                 NpcImplementationClassification.EventOwned));
             actor.SetSourceGrayscaleInverted(visual.SourceGrayscaleInverted);
@@ -175,7 +175,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
             case EnemyHandlerKind.Candle:
                 CandleRoomEntity? candleOwner = null;
                 var candle = new CandleCharacter { Name = $"Candle_{source.Order}_{instance}" };
-                candle.Initialize(enemies.ImportedEnemy(EnemyId.Candle), room, position, _random, _runtimeState,
+                candle.Initialize(enemies.ImportedEnemy(AgesEnemyId.Candle), room, position, _random, _runtimeState,
                     () => owner.TryCreateCandleFlame(candleOwner!, enemies.CandleFlame), owner.TryCreateCandleExplosion,
                     owner.InteractionAnimationParameter, owner.ConsumeCandleExplosionSignal);
                 candleOwner = new CandleRoomEntity(candle, combatSource, owner.OnSoundRequested);
@@ -190,7 +190,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
                 return floorOwner;
             case EnemyHandlerKind.Bari:
                 var bari = new BariCharacter { Name = $"Bari_{source.Order}_{instance}" };
-                bari.Initialize(enemies.ImportedEnemy(EnemyId.Bari, source.SubId), room, position, _random);
+                bari.Initialize(enemies.ImportedEnemy(AgesEnemyId.Bari, source.SubId), room, position, _random);
                 return new BariRoomEntity(bari, combatSource, owner.OnSoundRequested, () => _random.Next().Value);
             case EnemyHandlerKind.KingMoblin:
                 var king = new KingMoblinBoss();
@@ -876,8 +876,8 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
     internal IRoomEntity CreateBariChild(BariChildSpawn spawn, OracleRoomData room)
     {
         var child = new BariCharacter { Name = "Biri" };
-        child.Initialize(enemies.ImportedEnemy(EnemyId.Bari, 1), room, spawn.Position, _random, spawn.Angle, spawn.ZHigh);
-        var source = enemies.EnemyHandlers.ResolveHandler(EnemyId.Bari, 1, "ENEMY_BARI split")
+        child.Initialize(enemies.ImportedEnemy(AgesEnemyId.Bari, 1), room, spawn.Position, _random, spawn.Angle, spawn.ZHigh);
+        var source = enemies.EnemyHandlers.ResolveHandler(AgesEnemyId.Bari, 1, "ENEMY_BARI split")
             .CombatSource(spawn.ObjectFlags, spawn.KillableEnemyIndex,
                 "object_code/ages/enemies/bari.s:@spawnSmallBari/ecom_spawnEnemyWithSubid01");
         return new BariRoomEntity(child, source, owner.OnSoundRequested, () => _random.Next().Value);

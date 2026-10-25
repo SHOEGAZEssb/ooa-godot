@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Past INTERAC_BIPIN $28:$0a and bipinScript3.</summary>
 internal sealed class PastBipinScriptHost : NpcInteractionCommandHost

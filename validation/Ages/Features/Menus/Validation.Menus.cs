@@ -1,0 +1,2346 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace Oracles;
+
+public sealed partial class ValidationRoot
+{
+    private void ValidateMenuPresentationData()
+    {
+        MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;
+
+        string[] expectedMapLabels = Enumerable.Range(0, 26)
+            .Select(index => $"@mapIcon{index:X2}")
+            .ToArray();
+        int[] expectedFloorOffsets =
+        [
+            0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+            0x60, 0x40, 0x60, 0x60, 0x60, 0x80, 0x80
+        ];
+        string[] expectedBlurbs =
+        [
+            "makupath", "d1", "d2", "d3", "d4", "d5", "d6", "d7",
+            "d8", "blacktowerturret", "roomofrites", "heroscave", "d6",
+            "makupath", "makupath", "makupath"
+        ];
+        int[] expectedItemSlots =
+        [
+            0x063, 0x067, 0x06b, 0x06f,
+            0x0c3, 0x0c7, 0x0cb, 0x0cf,
+            0x123, 0x127, 0x12b, 0x12f,
+            0x183, 0x187, 0x18b, 0x18f
+        ];
+        int[] expectedPassiveIds =
+        [
+            0x2e, 0x4a, 0x2f, 0x41, 0x50, 0x51, 0x4e, 0x4f,
+            0x36, 0x34, 0x42, 0x52, 0x48, 0x54, 0x53, 0x4d,
+            0x4c, 0x49, 0x58, 0x43, 0x5b, 0x4b, 0x5a, 0x59,
+            0x44, 0x5e, 0x5c, 0x5d, 0x45, 0x46, 0x55, 0x2d
+        ];
+        int[] expectedPassivePositions =
+        [
+            0x01, 0x01, 0x04, 0x07, 0x0a, 0x0a, 0x0a, 0x0a,
+            0x0a, 0x0d, 0x31, 0x34, 0x34, 0x34, 0x34, 0x37,
+            0x37, 0x27, 0x47, 0x37, 0x3a, 0x3d, 0x61, 0x61,
+            0x61, 0x64, 0x64, 0x64, 0x64, 0x67, 0x6a, 0x6d
+        ];
+        int[] expectedPassiveSlots =
+        [
+            0, 0, 1, 2, 3, 3, 3, 3, 3, 4, 5, 6, 6, 6, 6, 7,
+            7, 7, 7, 7, 8, 9, 10, 10, 10, 11, 11, 11, 11, 12, 13, 14
+        ];
+        int[] expectedSecondaryCursors =
+        [
+            0x52, 0x55, 0x58, 0x5b, 0x5e,
+            0x82, 0x85, 0x88, 0x8b, 0x8e,
+            0xb2, 0xb5, 0xb8, 0xbb, 0xbe,
+            0xe0, 0xe3, 0xe6, 0xe9, 0xec, 0xef
+        ];
+        int[] expectedEssenceTiles =
+            [0x084, 0x087, 0x0c9, 0x129, 0x167, 0x164, 0x122, 0x0c2];
+        (int Y, int X)[] expectedEssenceCursors =
+        [
+            (0x30, 0x20), (0x30, 0x38), (0x40, 0x48), (0x58, 0x48),
+            (0x68, 0x38), (0x68, 0x20), (0x58, 0x10), (0x40, 0x10),
+            (0x28, 0x70), (0x58, 0x70), (0x70, 0x70)
+        ];
+        (int Y, int X, int Tile, int Attributes)[] expectedSeedSprites =
+        [
+            (0x14, 0x0c, 0x06, 0x0a),
+            (0x14, 0x0c, 0x08, 0x0b),
+            (0x14, 0x0c, 0x0a, 0x09),
+            (0x14, 0x0c, 0x0c, 0x09),
+            (0x14, 0x0c, 0x0e, 0x08)
+        ];
+
+        FailIf(
+            !layouts.MapIcons.Select(icon => icon.Label)
+                .SequenceEqual(expectedMapLabels) ||
+            layouts.MapIcons[0].SpriteCount != 0 ||
+            layouts.MapIcons[20].SpriteCount != 0 ||
+            layouts.MapIcons[20].AliasOf != "@mapIcon00" ||
+            layouts.MapIcons[10].Right.Attributes != 0x63,
+            "Imported mapIconOamTable count, label order, empty alias, or " +
+            "time-portal Y-flip changed.");
+        FailIf(
+            !layouts.DungeonFloorLists.Select(row => row.Offset)
+                .SequenceEqual(expectedFloorOffsets) ||
+            !layouts.DungeonBlurbs.Select(row => row.Asset)
+                .SequenceEqual(expectedBlurbs) ||
+            layouts.DungeonBlurbs[12].AliasOf !=
+                "GFXH_DUNGEON_6_BLURB" ||
+            layouts.DungeonBlurbs[15].AliasOf !=
+                "GFXH_DUNGEON_0_BLURB",
+            "Imported dungeon floor-list order or GFX header blurb aliases changed.");
+        FailIf(
+            !layouts.InventoryItemSlots.Select(row => row.TilemapOffset)
+                .SequenceEqual(expectedItemSlots) ||
+            !layouts.PassiveTreasures.Select(row => row.TreasureId)
+                .SequenceEqual(expectedPassiveIds) ||
+            !layouts.PassiveTreasures.Select(row => row.Position)
+                .SequenceEqual(expectedPassivePositions) ||
+            !layouts.PassiveTreasures.Select(row => row.Slot)
+                .SequenceEqual(expectedPassiveSlots) ||
+            !layouts.SecondaryCursors.Select(row => row.Packed)
+                .SequenceEqual(expectedSecondaryCursors) ||
+            !layouts.EssenceTiles.Select(row => row.TilemapOffset)
+                .SequenceEqual(expectedEssenceTiles) ||
+            !layouts.EssenceCursors.Select(row => (row.RawY, row.RawX))
+                .SequenceEqual(expectedEssenceCursors) ||
+            !layouts.InventoryItemSubmenus.Select(row => row.MaxWidth)
+                .SequenceEqual([0x08, 0x0a, 0x10, 0x10]) ||
+            !layouts.InventorySeedSubmenuSprites.Select(
+                    row => (row.Y, row.X, row.Tile, row.Attributes))
+                .SequenceEqual(expectedSeedSprites),
+            "Imported inventory slot, passive-treasure, secondary cursor, or " +
+            "item-submenu layout order changed.");
+
+        IReadOnlyList<MenuOamPart> fileDecorations =
+            layouts.FileOam("decorations");
+        IReadOnlyList<MenuOamPart> ringArrows =
+            layouts.RingOam("page-arrows");
+        FailIf(
+            fileDecorations.Count != 16 ||
+            fileDecorations[0] is not
+                { Y: 0x23, X: 0x0a, Tile: 0x20, Attributes: 0x05 } ||
+            fileDecorations[15] is not
+                { Y: 0x39, X: 0x9a, Tile: 0x22, Attributes: 0x05 } ||
+            layouts.FileOam("name-character-cursor").Count != 2 ||
+            layouts.FileOam("save-quit-acorn")[0] is not
+                { Y: 0x48, X: 0x29, Tile: 0x28, Attributes: 0x04 } ||
+            ringArrows.Count != 2 ||
+            ringArrows[1].Attributes != 0x24 ||
+            !layouts.RingBoxOffsets.Select(row => row.XOffset)
+                .SequenceEqual([0x38, 0x50, 0x68, 0x80, 0x98]),
+            "Imported file/save or ring OAM layout count/order changed.");
+
+        ulong popupHash = _mapScreen.PopupIconPixelHashForValidation(1);
+        ulong cursorHash =
+            _inventoryScreen.SecondaryCursorPixelHashForValidation(0);
+        ulong passiveHash =
+            _inventoryScreen.PassiveTreasurePixelHashForValidation(TreasureId.Flippers);
+        ulong[] seedHashes = Enumerable.Range(0, 5)
+            .Select(_inventoryScreen.SeedSubmenuSpritePixelHashForValidation)
+            .ToArray();
+        FailIf(
+            popupHash != 0xe2e0ca9e95ac1fecUL ||
+            cursorHash != 0x2845fdf38557ae90UL ||
+            passiveHash != 0x7556905e79409bceUL ||
+            !seedHashes.SequenceEqual(
+            [
+                0xcd8315405a37a443UL,
+                0xaf7b4c2bc9052220UL,
+                0x8da58b33fe7e1b59UL,
+                0xd29ce71f9989b031UL,
+                0x44b56e2df5a9380bUL
+            ]),
+            $"Imported menu OAM rendering changed: popup={popupHash:x16}, " +
+            $"cursor={cursorHash:x16}, passive={passiveHash:x16}, " +
+            $"seeds={string.Join(',', seedHashes.Select(hash => $"{hash:x16}"))}.");
+        GD.Print("Validated imported map/inventory/file/ring presentation " +
+            "table counts, source order, aliases, and representative popup, " +
+            "cursor, seed, and passive-treasure pixel hashes.");
+    }
+
+    private void ValidateSecretEntryBackground()
+    {
+        var screen = new MainMenuScreen { Name = "SecretEntryBackgroundValidation" };
+        AddChild(screen);
+        try
+        {
+            // bank2.s initializes all $20 buffer bytes to spaces and uploads
+            // $18 characters at bank-1 $8c00 (UNCMP_GFXH_07), even for short secrets.
+            // GFXH_SECRET_ENTRY_LAYOUT displays twenty of them in four groups.
+            Color expected = new(0x1b / 31.0f, 0x19 / 31.0f, 0x03 / 31.0f);
+            const float tolerance = 1.0f / 255.0f + 0.0001f;
+            foreach (int length in new[] { 5, 15, 20, 5 })
+            {
+                screen.ShowSecretEntry(length);
+                foreach (bool error in new[] { false, true, false })
+                {
+                    screen.ShowSecretError(error);
+                    var texture = (Texture2D)typeof(MainMenuScreen).GetField("_secretEntryMenu",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(screen)!;
+                    using Image image = texture.GetImage();
+                    for (int group = 0; group < 4; group++)
+                    for (int y = 0; y < 16; y++)
+                    for (int x = 0; x < 40; x++)
+                    {
+                        int screenX = 48 + group % 2 * 48 + x;
+                        int screenY = group / 2 * 16 + y;
+                        Color actual = image.GetPixel(screenX, screenY);
+                        FailIf(Math.Abs(actual.R - expected.R) > tolerance ||
+                            Math.Abs(actual.G - expected.G) > tolerance ||
+                            Math.Abs(actual.B - expected.B) > tolerance || actual.A != 1,
+                            $"MENU_SECRET length={length}, error={error}: blank input pixel ({screenX},{screenY}) must use PALH_05 BG5 shade 3, got {actual}.");
+                    }
+                }
+            }
+        }
+        finally { screen.Free(); }
+        GD.Print("Validated MENU_SECRET yellow input backgrounds for all twenty slots, short/ring/game secrets, error recovery and reopening.");
+    }
+
+    private void ValidateMainMenu()
+    {
+        var stored = new OracleSaveData?[OracleSaveStore.SlotCount];
+        var screen = new MainMenuScreen { Name = "MainMenuValidation" };
+        AddChild(screen);
+        int startedSlot = -1;
+        OracleSaveData? startedSave = null;
+        var menu = new MainMenuController(
+            screen,
+            (slot, save) => { startedSlot = slot; startedSave = save; },
+            slot => stored[slot],
+            (slot, save) =>
+            {
+                stored[slot] = save;
+                return SaveResult.Succeeded;
+            },
+            slot => stored[slot] = null);
+
+        FailIf(
+            MainMenuScreen.InterleavedSourceTileForValidation(0, 16) != 0 ||
+            MainMenuScreen.InterleavedSourceTileForValidation(1, 16) != 16 ||
+            MainMenuScreen.InterleavedSourceTileForValidation(2, 16) != 1 ||
+            !screen.FileNameStripColorForValidation.IsEqualApprox(Colors.Black) ||
+            !screen.FilePanelColorForValidation.IsEqualApprox(
+                screen.DeathTileBackgroundColorForValidation) ||
+            !screen.EraseBackgroundAccentForValidation.IsEqualApprox(
+                new Color(0x10 / 31.0f, 0x16 / 31.0f, 0x1b / 31.0f)) ||
+            !screen.EraseFilePanelColorForValidation.IsEqualApprox(
+                screen.EraseDeathTileBackgroundColorForValidation) ||
+            screen.EraseFilePanelColorForValidation.IsEqualApprox(
+                screen.FilePanelColorForValidation) ||
+            !screen.NameEntryFieldColorForValidation.IsEqualApprox(
+                screen.NameEntryPanelColorForValidation) ||
+            !screen.NameEntryHighlightIsGlyphMaskForValidation ||
+            MainMenuScreen.SpriteColorIndexForValidation(Colors.White, inverted: false) != 0 ||
+            MainMenuScreen.SpriteColorIndexForValidation(Colors.Black, inverted: false) != 3 ||
+            MainMenuScreen.SpriteColorIndexForValidation(Colors.Black, inverted: true) != 0 ||
+            MainMenuScreen.SpriteColorIndexForValidation(Colors.White, inverted: true) != 3 ||
+            !screen.TitleLogoSpritePixelForValidation(128, 80).IsEqualApprox(
+                new Color(0x09 / 31.0f, 0x0f / 31.0f, 0x05 / 31.0f)) ||
+            MainMenuScreen.TextSpeedCursorPositionForValidation(0) != new Vector2(41, 128) ||
+            MainMenuScreen.TextSpeedCursorPositionForValidation(4) != new Vector2(105, 128),
+            "File-select tile interleave, normal/PALH_06 erase panel fill, " +
+            "filename/name-entry fields, " +
+            "name cursor priority mask, sprite inversion, title OAM priority, " +
+            "or original message-speed cursor coordinates regressed.");
+
+        menu.BeginTitleStart();
+        for (int frame = 0; frame < MainMenuController.WhiteFadeFrames - 2; frame++)
+            menu.Update(1.0 / 60.0);
+        FailIf(menu.CurrentPage != Page.Title, "The title white fade ended before its original 32 updates.");
+        menu.Update(1.0 / 60.0);
+        FailIf(menu.CurrentPage != Page.Title,
+            "Fade completion must stop palette writes before the file thread observes it.");
+        menu.Update(1.0 / 60.0);
+        FailIf(
+            menu.CurrentPage != Page.FileSelect,
+            "The title did not enter file select on the update after its white fade.");
+        menu.Update(1.0 / 60.0);
+        menu.Move(Vector2I.Up);
+        FailIf(menu.Cursor != 3, "File-select Up did not wrap from file 1 to the bottom row.");
+        menu.Move(Vector2I.Right);
+        FailIf(screen.Choice != 1, "File-select Copy/Erase horizontal selection did not toggle.");
+        menu.Accept();
+        FailIf(screen.CurrentPage != Page.FileSelect,
+            "setFileSelectMode($04) changed graphics before its initialization update.");
+        menu.Update(1.0 / 60.0);
+        FailIf(
+            menu.CurrentPage != Page.EraseSelect ||
+            !screen.CurrentDeathTileBackgroundColorForValidation.IsEqualApprox(
+                screen.EraseDeathTileBackgroundColorForValidation),
+            "Erase selection did not swap the file background and HUD tiles to PALH_06.");
+        FailIf(menu.Cursor != 3, "fileSelectMode4 did not initialize on Quit ($03).");
+        menu.Back();
+        FailIf(menu.CurrentPage != Page.EraseSelect, "Erase file selection incorrectly handled B.");
+        menu.Accept();
+        menu.Update(1.0 / 60.0);
+        FailIf(
+            menu.CurrentPage != Page.FileSelect ||
+            !screen.CurrentDeathTileBackgroundColorForValidation.IsEqualApprox(
+                screen.DeathTileBackgroundColorForValidation),
+            "Leaving erase selection did not restore the normal PALH_05 file palette.");
+
+        screen.SetCursor(0);
+        menu.Accept();
+        FailIf(
+            menu.CurrentPage != Page.NewFileOptions,
+            "A blank slot did not open New Game/Secret/Game Link.");
+        FailIf(screen.CurrentPage != Page.FileSelect,
+            "setFileSelectMode($05) changed the displayed screen before state-0 initialization.");
+        menu.Update(1.0 / 60.0);
+        menu.Accept();
+        FailIf(menu.CurrentPage != Page.NameEntry, "New Game did not open file name entry.");
+        menu.Update(1.0 / 60.0);
+        FailIf(
+            !screen.TryGetSelectedNameCharacter(out char initialCharacter) ||
+            initialCharacter != 'A',
+            "The original US name keyboard did not begin on uppercase A.");
+        for (int column = 0; column < 6; column++)
+            screen.MoveNameCursor(Vector2I.Right);
+        FailIf(
+            !screen.TryGetSelectedNameCharacter(out char lowercaseCharacter) ||
+            lowercaseCharacter != 'a',
+            "Name entry did not preserve the original six-column uppercase/lowercase split.");
+        for (int column = 0; column < 6; column++)
+            screen.MoveNameCursor(Vector2I.Left);
+        foreach (char character in "LINK")
+            screen.AppendNameCharacter(character);
+        for (int row = 0; row < 5; row++)
+            screen.MoveNameCursor(Vector2I.Down);
+        screen.MoveNameCursor(Vector2I.Right);
+        screen.MoveNameCursor(Vector2I.Right);
+        FailIf(
+            screen.NameCursor != 0x56 || screen.NameLowerChoice != 2,
+            "Name entry did not map the five character rows onto its original OK option.");
+        menu.Accept();
+        FailIf(stored[0] is not null, "Name confirmation saved before fileSelectMode2 substate 2 ran.");
+        menu.Update(1.0 / 60.0);
+        FailIf(
+            stored[0]?.LinkName != "LINK" || menu.CurrentPage != Page.FileSelect,
+            "Name entry did not initialize and save the selected standard file.");
+        menu.Update(1.0 / 60.0);
+
+        screen.SetCursor(0);
+        menu.Accept();
+        FailIf(
+            menu.CurrentPage != Page.TextSpeed || screen.TextSpeed != 2 ||
+            screen.Cursor != 0 || screen.SelectedSlot != 0,
+            "An existing file did not open its message-speed confirmation.");
+        menu.Move(Vector2I.Left);
+        menu.Accept();
+        for (int frame = 0; frame < MainMenuController.WhiteFadeFrames - 2; frame++)
+            menu.Update(1.0 / 60.0);
+        FailIf(startedSave is not null, "File select started gameplay before its 32-update white fade.");
+        menu.Update(1.0 / 60.0);
+        FailIf(startedSave is not null,
+            "The file thread observed fade completion before the palette thread's stop update.");
+        menu.Update(1.0 / 60.0);
+        FailIf(
+            startedSlot != 0 || startedSave != stored[0] || stored[0]!.TextSpeed != 1,
+            "Message-speed confirmation did not save and start the chosen file.");
+
+        var copyScreen = new MainMenuScreen { Name = "MainMenuCopyValidation" };
+        AddChild(copyScreen);
+        var copyMenu = new MainMenuController(
+            copyScreen, (_, _) => { }, slot => stored[slot],
+            (slot, save) =>
+            {
+                stored[slot] = save;
+                return SaveResult.Succeeded;
+            },
+            slot => stored[slot] = null);
+        copyMenu.OpenFileSelect();
+        copyMenu.Update(1.0 / 60.0);
+        copyScreen.SetCursor(3);
+        copyMenu.Accept();
+        copyMenu.Update(1.0 / 60.0);
+        copyScreen.SetCursor(0);
+        copyMenu.Accept();
+        copyMenu.Accept();
+        copyMenu.Move(Vector2I.Right);
+        copyMenu.Accept();
+        FailIf(
+            stored[1]?.LinkName != "LINK" || ReferenceEquals(stored[0], stored[1]),
+            "Copy did not clone the original $550-byte file into its destination.");
+        copyMenu.Update(1.0 / 60.0);
+
+        copyScreen.SetCursor(3);
+        copyScreen.SetChoice(1);
+        copyMenu.Accept();
+        copyMenu.Update(1.0 / 60.0);
+        copyScreen.SetCursor(1);
+        copyMenu.Accept();
+        copyMenu.Move(Vector2I.Right);
+        copyMenu.Accept();
+        FailIf(stored[1] is null, "Erase deleted the file before its heart-drain updates.");
+        for (int frame = 0; frame < 24; frame++) copyMenu.Update(1.0 / 60.0);
+        FailIf(stored[1] is null || copyScreen.EraseHealth != 0,
+            "Erase did not drain twelve quarter-heart units on alternate updates before deletion.");
+        copyMenu.Update(1.0 / 60.0);
+        FailIf(stored[1] is null, "Erase skipped its final zero-health counter boundary.");
+        copyMenu.Update(1.0 / 60.0);
+        FailIf(stored[1] is not null, "Erase confirmation did not clear the selected file slot.");
+
+        bool startedAfterFailure = false;
+        var failureScreen = new MainMenuScreen { Name = "MainMenuSaveFailureValidation" };
+        AddChild(failureScreen);
+        var failureMenu = new MainMenuController(
+            failureScreen,
+            (_, _) => startedAfterFailure = true,
+            slot => stored[slot],
+            (_, _) => SaveResult.Failed("validation failure"));
+        failureMenu.OpenFileSelect();
+        failureMenu.Update(1.0 / 60.0);
+        failureScreen.SetCursor(0);
+        failureMenu.Accept();
+        failureMenu.Accept();
+        FailIf(
+            failureMenu.CurrentPage != Page.TextSpeed ||
+            !failureScreen.SaveErrorVisible ||
+            failureMenu.LastSaveError != "validation failure" || startedAfterFailure,
+            "A file-select save failure escaped, changed page, or began gameplay.");
+        failureMenu.Accept();
+        FailIf(
+            failureScreen.SaveErrorVisible || failureMenu.CurrentPage != Page.TextSpeed,
+            "The file-select save error was not dismissible and retryable.");
+
+        var inputSounds = new List<int>();
+        var inputMenu = new MainMenuController(copyScreen, (_, _) => { },
+            slot => stored[slot], (slot, save) => { stored[slot] = save; return SaveResult.Succeeded; },
+            slot => stored[slot] = null, inputSounds.Add, startAtFileSelect: true);
+        void Tick(string[] pressed, string[]? held = null)
+        {
+            Input.BeginOriginalUpdate(new ApplicationInputSnapshot(held ?? pressed, pressed, Vector2.Zero));
+            try { inputMenu.Update(1.0 / 60.0); }
+            finally { Input.EndOriginalUpdate(); }
+        }
+        Tick(["move_down", "attack"]);
+        FailIf(inputMenu.CurrentPage != Page.FileSelect || inputMenu.Cursor != 1,
+            "fileSelectUpdateInput did not consume Down before A on a file row.");
+        Tick(["attack"]);
+        Tick([]); // fileSelectMode5 state 0 consumes its own initialization update.
+        Tick(["move_down", "move_up", "attack"]);
+        FailIf(inputMenu.CurrentPage != Page.NewFileOptions || inputMenu.Cursor != 1,
+            "fileSelectMode5 did not prioritize Down over Up and A.");
+        Tick(["map"]);
+        FailIf(inputMenu.CurrentPage != Page.FileSelect,
+            "New-file options did not accept Select as Back.");
+        Tick([]);
+        copyScreen.SetCursor(1);
+        Tick(["attack"]);
+        Tick([]);
+        Tick(["attack"]);
+        Tick([]); // fileSelectMode2 state 0 initializes without handling input.
+        Tick(["inventory"]);
+        FailIf(inputMenu.CurrentPage != Page.NameEntry || copyScreen.NameCursor != 0x5a,
+            "Name Start did not select OK at $5a without submitting.");
+        Tick(["inventory"]);
+        Tick([]);
+        FailIf(inputMenu.CurrentPage != Page.FileSelect || stored[1] is not null,
+            "A second Start on a blank name did not return without creating a file.");
+        Tick([]);
+        copyScreen.SetCursor(1);
+        Tick(["attack"]);
+        Tick([]);
+        Tick(["attack"]);
+        Tick([]);
+        Tick(["move_right", "attack"]);
+        FailIf(copyScreen.NameCursor != 1 || copyScreen.EnteredName.Length != 0,
+            "runTextInput did not prioritize Right over A.");
+        for (int frame = 0; frame < 39; frame++) Tick([], ["move_right"]);
+        FailIf(copyScreen.NameCursor != 1, "Name autofire began before its $28-update hold.");
+        Tick([], ["move_right"]);
+        FailIf(copyScreen.NameCursor != 2, "Name autofire missed the $28-update boundary.");
+        Tick(["map"]);
+        FailIf(inputSounds[^1] != SoundId.SndSelectItem || copyScreen.NameCursor != 2,
+            "US name Select must make the selection sound without changing the keyboard.");
+        Tick(["attack"]);
+        Tick(["inventory"]);
+        Tick(["inventory"]);
+        Tick([]);
+        Tick([]);
+        FailIf(stored[1]?.LinkName != "C" || inputMenu.Cursor != 0,
+            "Name creation did not retain the selected glyph or reset file selection to $00.");
+        Tick(["attack"]);
+        Tick(["move_right", "move_left", "attack"]);
+        FailIf(inputMenu.CurrentPage != Page.TextSpeed || copyScreen.TextSpeed != 2,
+            "Text speed did not prioritize Right over Left and A.");
+        Tick(["map", "move_right", "attack"]);
+        FailIf(inputMenu.CurrentPage != Page.FileSelect, "Text speed did not prioritize Select as Back.");
+        copyScreen.SetCursor(3);
+        Tick(["move_right"]);
+        Tick(["move_right"]);
+        FailIf(copyScreen.Choice != 1, "Right toggled Copy/Erase instead of selecting Erase.");
+        Tick(["move_left"]);
+        Tick(["attack"]);
+        FailIf(inputMenu.Cursor != 3, "Copy did not initialize on Quit.");
+        Tick([]);
+        copyScreen.SetCursor(2);
+        Tick(["attack"]);
+        FailIf(inputSounds[^1] != SoundId.SndError ||
+            inputSounds[^2] != SoundId.SndSelectItem,
+            "An empty copy source did not request SELECTITEM then ERROR.");
+        copyScreen.SetCursor(1);
+        Tick(["attack"]);
+        FailIf(inputMenu.Cursor != 0, "Copy source $01 did not start destination selection at $00.");
+        Tick(["move_down"]);
+        FailIf(inputMenu.Cursor != 2, "Copy destination failed to skip source $01.");
+        Tick(["attack"]);
+        Tick(["item"]);
+        FailIf(inputMenu.CurrentPage != Page.CopyDestination || inputMenu.Cursor != 2,
+            "Canceling copy confirmation lost its destination cursor.");
+        Tick(["item"]);
+        FailIf(inputMenu.CurrentPage != Page.CopySource || inputMenu.Cursor != 1,
+            "Canceling copy destination lost its source cursor.");
+
+        screen.QueueFree();
+        copyScreen.QueueFree();
+        failureScreen.QueueFree();
+        GD.Print("Validated title/file-select 32-update white fades, slot wrapping, " +
+            "PALH_05/PALH_06 erase palette switching, new-file naming, message speed, " +
+            "copy, erase, and retryable save failures.");
+    }
+
+    private void ValidateFrontendIntro()
+    {
+        var introScreen = new FrontendIntroScreen
+        {
+            Name = "FrontendIntroValidation"
+        };
+        var titleScreen = new MainMenuScreen
+        {
+            Name = "FrontendTitleValidation",
+            Visible = false
+        };
+        AddChild(introScreen);
+        AddChild(titleScreen);
+
+        var random = new OracleRandom();
+        var sounds = new List<int>();
+        int restartCount = 0;
+        MainMenuController? handedOffMenu = null;
+        var intro = new FrontendIntroController(
+            introScreen,
+            titleScreen,
+            random,
+            () => restartCount++,
+            sounds.Add,
+            () => handedOffMenu = new MainMenuController(
+                titleScreen,
+                (_, _) => { },
+                load: _ => null,
+                startAtFileSelect: true));
+        FrontendIntroDatabase introData = FrontendIntroDatabase.Shared;
+        FrontendAnimation templeLinkWalk =
+            introData.Animation("temple-link-walk");
+        FrontendAnimation templeLinkRise =
+            introData.Animation("temple-link-rise");
+        FrontendAnimation templeLinkFall =
+            introData.Animation("temple-link-fall");
+        Image linkSprites = OracleGraphicsCache.LoadImage(
+            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+        Color[,] templeSpritePalette = OracleGraphicsData.LoadPalette(
+            AgesGameContent.AssetRoot + "intro/palette_temple_sprites.bin");
+        FrontendOamPart outerAuraPart = templeLinkRise.Frames[0].Parts[0];
+        FrontendOamPart innerAuraPart = templeLinkRise.Frames[2].Parts[0];
+        int outerAuraTile = templeLinkRise.Frames[0].SourceTileOffset +
+            outerAuraPart.Tile;
+        int innerAuraTile = templeLinkRise.Frames[2].SourceTileOffset +
+            innerAuraPart.Tile;
+        ulong outerAuraCellHash = OracleGraphicsCache.PixelHash(
+            OracleTileRenderer.GetOamCellTexture(
+                linkSprites,
+                outerAuraTile,
+                (byte)outerAuraPart.Flags,
+                templeSpritePalette,
+                sourceGrayscaleInverted: true).GetImage());
+        ulong innerAuraCellHash = OracleGraphicsCache.PixelHash(
+            OracleTileRenderer.GetOamCellTexture(
+                linkSprites,
+                innerAuraTile,
+                (byte)innerAuraPart.Flags,
+                templeSpritePalette,
+                sourceGrayscaleInverted: true).GetImage());
+        ulong truncatedAuraCellHash = OracleGraphicsCache.PixelHash(
+            OracleTileRenderer.GetOamCellTexture(
+                linkSprites,
+                outerAuraTile & 0xff,
+                (byte)outerAuraPart.Flags,
+                templeSpritePalette,
+                sourceGrayscaleInverted: true).GetImage());
+        FailIf(
+            outerAuraCellHash != 0x2a840e67546a861eUL ||
+            innerAuraCellHash != 0x354f80fb050776aaUL ||
+            outerAuraCellHash == truncatedAuraCellHash,
+            "Temple Link's `$1c00 aura graphics did not retain source-sheet " +
+            "tile bits above the one-byte hardware OAM field " +
+            $"(outer={outerAuraCellHash:x16}, " +
+            $"inner={innerAuraCellHash:x16}, " +
+            $"truncated={truncatedAuraCellHash:x16}).");
+        FrontendAnimation horseFront = introData.Animation("horse-1");
+        FrontendOamPart horseFrontLeg = horseFront.Frames[0].Parts[14];
+        FrontendAnimation castleHorse = introData.Animation("horse-4");
+        FrontendSequenceValue[] castleAnimations =
+            introData.Sequence("castle-animation");
+        FrontendSequenceValue[] horseFaceRegisters =
+            introData.Sequence("horse-face-registers");
+        FrontendSequenceValue[] horseFaceBars =
+            introData.Sequence("horse-face-bars");
+        FrontendSequenceValue[] horseFaceMotion =
+            introData.Sequence("horse-face-motion");
+        FrontendSequenceValue[] horseFaceSparkle =
+            introData.Sequence("horse-face-sparkle");
+        FrontendSequenceValue templeBackgroundAnimation =
+            introData.Sequence("temple-background-animation")[0];
+        var backgroundAnimations = new OracleAnimationData();
+        int[] directLoadTick8 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 8);
+        int[] directLoadTick9 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 9);
+        int[] directLoadTick15 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 15);
+        int[] directLoadTick16 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 16);
+        int[] directLoadTick18 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 18);
+        int[] directLoadTick19 =
+            backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 19);
+        ulong[] templeAnimationHashes =
+        [
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 16),
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 31),
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 46),
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 61),
+            introScreen.TempleAnimationPixelHashForValidation(0x10, 76)
+        ];
+        byte[] horseFrontGroundFlags = Godot.FileAccess.GetFileAsBytes(
+            AgesGameContent.AssetRoot + "intro/flags_link_on_horse_front_ground.bin");
+        FailIf(
+            horseFront.Frames.Length != 5 ||
+            horseFront.Frames.Any(frame => frame.Parts.Length != 18) ||
+            horseFrontLeg.Y != 0x0e || horseFrontLeg.Tile != 0x6c ||
+            FrontendIntroScreen.ObjectPartRawY(0x4c, horseFrontLeg.Y) != 0x6a ||
+            FrontendIntroScreen.HorseFrontBackgroundScrollX(0x40, 0xfe, 0xed) != 0xfe ||
+            FrontendIntroScreen.HorseFrontBackgroundScrollX(0x41, 0xfe, 0xed) != 0xed ||
+            FrontendIntroScreen.HorseFrontBackgroundScrollX(0x67, 0xfe, 0xed) != 0xed ||
+            horseFrontGroundFlags.Length != 160 ||
+            horseFrontGroundFlags.Any(flags => (flags & 0x80) == 0) ||
+            castleHorse.Frames.Length != 6 ||
+            castleHorse.LoopStart != 1 ||
+            castleHorse.Frames[5].Parameter != 0xff ||
+            !castleHorse.Frames.Select(frame => frame.Duration)
+                .SequenceEqual([10, 7, 7, 7, 6, 1]) ||
+            castleAnimations.Length != 2 ||
+            castleAnimations[0].A != 4 || castleAnimations[0].B != 5 ||
+            castleAnimations[1].A != 5 || castleAnimations[1].B != 0 ||
+            horseFaceRegisters.Length != 2 ||
+            horseFaceRegisters[0].A != 0 || horseFaceRegisters[0].B != 1 ||
+            horseFaceRegisters[1].A != 0x98 || horseFaceRegisters[1].B != 0 ||
+            horseFaceBars.Length != 2 ||
+            horseFaceBars[0].A != 0x48 || horseFaceBars[0].B != 0x48 ||
+            horseFaceBars[1].A != 0x2f || horseFaceBars[1].B != 0x60 ||
+            horseFaceMotion.Length != 2 ||
+            horseFaceMotion[0].A != 2 || horseFaceMotion[0].B != 8 ||
+            horseFaceMotion[1].A != 0x60 || horseFaceMotion[1].B != 0x120 ||
+            horseFaceSparkle.Length != 2 ||
+            horseFaceSparkle[0].A != 0x18 || horseFaceSparkle[0].B != 0x38 ||
+            horseFaceSparkle[1].A != 2 || horseFaceSparkle[1].B != 0 ||
+            templeBackgroundAnimation.A != 0x10 ||
+            templeBackgroundAnimation.B != 0 ||
+            !directLoadTick8.SequenceEqual([60,64,68,72]) ||
+            !directLoadTick9.SequenceEqual([60,64,68,72]) ||
+            !directLoadTick15.SequenceEqual([60,64,68,72,65]) ||
+            !directLoadTick16.SequenceEqual([60,64,68,72,65]) ||
+            !directLoadTick18.SequenceEqual([60,64,68,72,65,61,69]) ||
+            !directLoadTick19.SequenceEqual([60,64,68,72,65,61,69,73]) ||
+            !templeAnimationHashes.SequenceEqual(
+            [
+                0x0a7a1280e17d4d84UL,
+                0x2080fd7b93fd7518UL,
+                0x18b7eab68aaf75acUL,
+                0x8871149f66fbfd14UL,
+                0x0a7a1280e17d4d84UL
+            ]) ||
+            introData.Animation("bird-0").Frames.Any(frame =>
+                frame.SourceTileOffset != 0x1a ||
+                frame.SourceGrayscaleInverted) ||
+            introData.Animation("tree-branches").Frames.Any(frame =>
+                frame.SourceTileOffset != 0 ||
+                frame.SourceGrayscaleInverted) ||
+            introData.Animation("triforce-glow").Frames.Any(frame =>
+                frame.SourceTileOffset != 0x06 ||
+                !frame.SourceGrayscaleInverted) ||
+            templeLinkWalk.Frames.Length != 13 ||
+            templeLinkWalk.LoopStart != 1 ||
+            templeLinkWalk.Frames.Any(frame =>
+                frame.SourceTileOffset != 0 ||
+                !frame.SourceGrayscaleInverted ||
+                frame.Parts.Length != 2) ||
+            templeLinkRise.Frames.Length != 4 ||
+            templeLinkRise.LoopStart != 0 ||
+            templeLinkRise.Frames[0].SourceTileOffset != 0x1c0 ||
+            templeLinkRise.Frames[0].Parts.Length != 14 ||
+            templeLinkRise.Frames[1].SourceTileOffset != 0 ||
+            templeLinkRise.Frames[1].Parts.Length != 2 ||
+            templeLinkRise.Frames[2].SourceTileOffset != 0x1c0 ||
+            templeLinkRise.Frames[2].Parts.Length != 18 ||
+            templeLinkRise.Frames[3].SourceTileOffset != 0 ||
+            templeLinkRise.Frames[3].Parts.Length != 2 ||
+            templeLinkFall.Frames.Length != 4 ||
+            templeLinkFall.LoopStart != 3 ||
+            !templeLinkFall.Frames.Select(frame => frame.SourceTileOffset)
+                .SequenceEqual([0x10, 0x14, 0x16, 0x16]) ||
+            introData.Sequence("temple-wave-sine").Length != 32,
+            "Frontend horse object-Y bias, $40/$68 parallax, $19 face-pan " +
+            "register/window boundaries, dynamic-GFX source offsets, " +
+            "Link special-object OAM, temple animation group `$10` direct-load " +
+            "FIFO timing/pixels, " +
+            "sprite encoding, or the bank1.s " +
+            "32-coefficient temple wave were not retained exactly. temple-hashes=" +
+            string.Join(',', templeAnimationHashes.Select(hash => $"{hash:x16}")));
+
+        int AdvanceTo(FrontendIntroStage stage, int state, int limit)
+        {
+            for (int updates = 1; updates <= limit; updates++)
+            {
+                intro.AdvanceOneOriginalUpdate();
+                if (intro.Stage == stage && intro.State == state)
+                    return updates;
+            }
+            throw new InvalidOperationException(
+                $"Frontend did not reach {stage} state {state} within {limit} updates; " +
+                $"it is at {intro.Stage} state {intro.State}.");
+        }
+
+        void ExpectTransition(
+            FrontendIntroStage stage,
+            int state,
+            int expectedUpdates,
+            string sourceBoundary)
+        {
+            int actual = AdvanceTo(stage, state, expectedUpdates + 1);
+            FailIf(
+                actual != expectedUpdates,
+                $"Frontend {sourceBoundary} took {actual} updates; expected " +
+                $"{expectedUpdates}. Reached {stage} state {state}.");
+        }
+
+        ExpectTransition(FrontendIntroStage.Capcom, 1, 1, "US region skip and Capcom fallthrough");
+        ExpectTransition(FrontendIntroStage.Capcom, 2, 208, "Capcom hold");
+        ExpectTransition(FrontendIntroStage.Horse, 0, 32, "Capcom fade-out");
+        FailIf(
+            !intro.InputsEnabled || random.Calls != 0,
+            "Start was not enabled at the Capcom completion boundary, or RNG advanced.");
+        ExpectTransition(FrontendIntroStage.Horse, 1, 1, "horse initialization");
+        FailIf(
+            !intro.InputsEnabled || intro.FrameCounter != 0 || sounds.Count != 1 ||
+            sounds[0] != SoundId.MusIntro1,
+            "The horse scene did not enable skipping and request MUS_INTRO_1.");
+        ExpectTransition(FrontendIntroStage.Horse, 2, 350, "sunset");
+        FailIf(intro.HorseBirdAnimationClock != 1,
+            "Horse-scene bird animation was not gated by the palette thread until its clear update.");
+        ExpectTransition(FrontendIntroStage.Horse, 3, 432, "ground reveal");
+        ExpectTransition(FrontendIntroStage.Horse, 4, 126, "ground pause");
+        ExpectTransition(FrontendIntroStage.Horse, 5, 288, "front-facing ride");
+        FailIf(
+            intro.HorseSpritePalette != 3 ||
+            intro.HorseFaceTopBarLastY != 0x48 ||
+            intro.HorseFaceBottomBarY != 0x48 ||
+            intro.HorseFaceScrollX != 0 ||
+            intro.HorseFaceSparkleVisible ||
+            intro.BlackBarPixels != 0,
+            "The front-facing horse shot did not consume the three palette " +
+            "steps or initialize gfx state $19's closed face interval.");
+        for (int update = 0; update < 11; update++)
+            intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            intro.State != 5 ||
+            intro.HorseFaceTopBarLastY != 0x32 ||
+            intro.HorseFaceBottomBarY != 0x5e ||
+            intro.HorseFaceScrollX != 0x58 ||
+            intro.HorseFaceSparkleVisible,
+            "The face pan did not update LYC/WINY before the lower-layer SCX " +
+            "step for its first 11 updates.");
+        ExpectTransition(FrontendIntroStage.Horse, 6, 1, "final face-pan step");
+        FailIf(
+            intro.HorseFaceTopBarLastY != 0x30 ||
+            intro.HorseFaceBottomBarY != 0x60 ||
+            intro.HorseFaceScrollX != 0x60 ||
+            !intro.HorseFaceSparkleVisible ||
+            intro.HorseFaceSparkleClock != 0,
+            "The face pan did not stop on the reachable $30/$60 boundaries " +
+            "or create intro-sprite subid $04 after the twelfth SCX step.");
+        ExpectTransition(FrontendIntroStage.Horse, 7, 24, "face linger");
+        ExpectTransition(FrontendIntroStage.Horse, 8, 112, "closeup scroll");
+        ExpectTransition(FrontendIntroStage.Horse, 9, 204, "closeup linger");
+        FailIf(
+            intro.CastleActorY != 0x70 || intro.CastleActorX != 0x80 ||
+            intro.CastleHorseAnimation != 4 || intro.CastleStaticAnimation != 5 ||
+            intro.CastleHorseAnimationFrame != 0 ||
+            intro.CastleHorseTerminalEventsRemaining != 5 ||
+            intro.CastleHorseAnimationStopped,
+            "The castle horse/cliff interactions did not initialize from " +
+            "subids $01/$02 at source position $7080.");
+        for (int update = 0; update < 36; update++)
+            intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            intro.CastleHorseAnimationFrame != 4 ||
+            intro.CastleHorseTerminalEventsRemaining != 5 ||
+            intro.CastleHorseAnimationStopped,
+            "The castle horse reached its first terminal frame before update 37.");
+        intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            intro.CastleHorseAnimationFrame != 5 ||
+            intro.CastleHorseTerminalEventsRemaining != 4 ||
+            intro.CastleHorseAnimationStopped,
+            "The castle horse did not consume its first parameter-$ff event " +
+            "on update 37.");
+        for (int update = 37; update < 149; update++)
+            intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            !intro.CastleHorseAnimationStopped ||
+            intro.CastleHorseAnimationFrame != 0 ||
+            intro.CastleHorseTerminalEventsRemaining != 0 ||
+            intro.CastleActorX != 0x6d || intro.CastleScrollX != 3,
+            "The castle horse did not reset and freeze on animation-$04 frame " +
+            "zero after five parameter-$ff events at update 149.");
+        ExpectTransition(FrontendIntroStage.Horse, 10, 251, "castle hold remainder");
+        FailIf(
+            !intro.CastleHorseAnimationStopped ||
+            intro.CastleHorseAnimationFrame != 0 ||
+            intro.CastleActorX != 0x69 || intro.CastleScrollX != 0,
+            "The stopped castle horse looped again or missed the source " +
+            "SPEED_20/$b4 movement boundary during the remaining hold.");
+        ExpectTransition(FrontendIntroStage.Temple, 0, 32, "castle fade-out");
+        ExpectTransition(FrontendIntroStage.Temple, 1, 1, "temple initialization");
+        FailIf(
+            intro.TempleLinkAnimation != 0 ||
+            intro.TempleLinkAnimationClock != 0 ||
+            intro.TempleBackgroundAnimationGroup != 0x10 ||
+            intro.TempleBackgroundAnimationTick != 1,
+            "Temple Link did not initialize SPECIALOBJECT_LINK_CUTSCENE " +
+            "animation $00 or the direct-loaded background animation group `$10` " +
+            "from their first source update.");
+        int stationaryTempleUpdates =
+            introData.Timing("temple-fade-input-block") - 1 +
+            introData.Sequence("temple-input")[0].A;
+        for (int update = 0; update < stationaryTempleUpdates; update++)
+        {
+            intro.AdvanceOneOriginalUpdate();
+            FailIf(
+                intro.TempleLinkY != 0xd0 ||
+                intro.TempleLinkAnimationClock != 0,
+                "Temple Link advanced SPECIALOBJECT_LINK_CUTSCENE animation $00 " +
+                $"during stopped intro update {update + 1}/{stationaryTempleUpdates}.");
+        }
+        ExpectTransition(
+            FrontendIntroStage.Temple,
+            2,
+            597 - stationaryTempleUpdates,
+            "remaining simulated input");
+        FailIf(intro.TempleLinkY != 0x3f || intro.TriforceMotionClock != 4,
+            "Link did not stop at Y $3f while Triforce interactions began during the final input records.");
+        // Center: 60+180+60+80 with its two fallthroughs; Link observes the
+        // signal next tick, waits 120+180+60, then the handler observes Link.
+        ExpectTransition(FrontendIntroStage.Temple, 3, 737, "Triforce and Link signal handoffs");
+        FailIf(
+            intro.TempleLinkAnimation != 4 || intro.TempleLinkZ == 0,
+            "Temple Link did not switch to source animation $04 for the rise.");
+        ExpectTransition(FrontendIntroStage.Temple, 4, 32, "temple fade-out");
+        FailIf(
+            !intro.TempleWaveActive || intro.TempleWaveClock != 1,
+            "The temple wave did not execute its state-3 fallthrough update.");
+        for (int update = 0; update < 32; update++) intro.AdvanceOneOriginalUpdate();
+        FailIf(intro.State != 4 || titleScreen.WhiteFadeOffset != 0,
+            "Fade-in must display offset $00 before its palette thread reports completion.");
+        ExpectTransition(FrontendIntroStage.Temple, 5, 1, "fade-in underflow completion");
+        ExpectTransition(FrontendIntroStage.Temple, 6, 120, "wave hold");
+        ExpectTransition(FrontendIntroStage.Temple, 7, 14, "screen flash remainder");
+        FailIf(
+            intro.TempleLinkAnimation != 5 ||
+            intro.TempleLinkAnimationClock != 0 ||
+            intro.TempleLinkBlinking || !intro.TempleOrbVisible || intro.TempleOrbClock != 0,
+            "Temple Link did not load source animation $05 before the " +
+            "alternating-frame fall visibility began.");
+        for (int update = 0; update < 61; update++) intro.AdvanceOneOriginalUpdate();
+        FailIf(intro.State != 7 || intro.TempleOrbVisible || !intro.TempleLinkVisible,
+            "The vanishing orb must be deleted at signal $07 before the handler clears Link.");
+        ExpectTransition(FrontendIntroStage.Temple, 8, 1, "Link fall handoff after 62 updates");
+        ExpectTransition(FrontendIntroStage.Temple, 9, 60, "first temple wait");
+        ExpectTransition(FrontendIntroStage.Temple, 10, 60, "second temple wait");
+        ExpectTransition(FrontendIntroStage.PreTitle, 0, 32, "temple fade-out");
+        ExpectTransition(FrontendIntroStage.PreTitle, 1, 1, "tree initialization");
+        ExpectTransition(FrontendIntroStage.PreTitle, 2, 696, "tree scroll");
+        FailIf(
+            intro.TreeMapPhase != 2 || intro.TreeBranchesVisible ||
+            !intro.CloudsVisible || intro.CloudOffsetY != 32,
+            "The pre-title tree did not preserve the $10/$b0 map-copy order, " +
+            "delete the branch interaction at SCY $00, or apply the exact " +
+            "SPEED_20 cloud displacement from SCY $e0 to $88.");
+        FailIf(
+            !intro.Birds.Select(bird => bird.Subid)
+                .SequenceEqual(Enumerable.Range(0, 8).Reverse()),
+            "Pre-title birds did not retain their source slot/update order 7..0.");
+        ExpectTransition(FrontendIntroStage.PreTitle, 3, 17, "title reveal on the intro clock");
+        ExpectTransition(FrontendIntroStage.Title, 1, 13, "pre-title flash/title init");
+        FailIf(titleScreen.TitleBlinkVisible,
+            "PRESS START was visible at initialization despite counter $0960 bit $20.");
+
+        int[] expectedSounds =
+        [
+            SoundId.MusIntro1,
+            SoundId.SndDropEssence,
+            SoundId.SndEnergyThing,
+            SoundId.SndAquamentusHover,
+            SoundId.SndFairyCutscene,
+            SoundId.SndFadeOut,
+            SoundId.MusIntro2,
+            SoundId.SndSwordObtained,
+            SoundId.MusTitlescreen
+        ];
+        FailIf(
+            !sounds.SequenceEqual(expectedSounds) || restartCount != 2 ||
+            random.Calls != 8 || introScreen.Visible || !titleScreen.Visible,
+            "The unskipped frontend changed its sound order, restart boundaries, " +
+            $"seven bird RNG calls plus title-init call, or screen ownership. " +
+            $"sounds={string.Join(',', sounds.Select(sound => $"{sound:x2}"))}, " +
+            $"restarts={restartCount}, rng={random.Calls}.");
+
+        int titleCalls = random.Calls;
+        intro.AdvanceOneOriginalUpdate();
+        intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            random.Calls != titleCalls + 2,
+            "The title did not consume exactly one shared RNG call per original update.");
+
+        intro.AdvanceOneOriginalUpdate(startPressed: true);
+        FailIf(
+            sounds.Count < 2 ||
+            sounds[^2] != SoundId.SndSelectItem ||
+            sounds[^1] != SoundId.SndCtrlFastFadeOut,
+            "Title Start did not request SND_SELECTITEM then SNDCTRL_FAST_FADEOUT.");
+        for (int update = 0; update < 31; update++)
+            intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            handedOffMenu is not null,
+            "Title Start ended its fade before 32 updates.");
+        intro.AdvanceOneOriginalUpdate();
+        FailIf(
+            handedOffMenu is null || intro.IsActive ||
+            random.Calls != titleCalls + 35 ||
+            handedOffMenu?.CurrentPage != Page.FileSelect ||
+            titleScreen.WhiteFadeOffset != 0,
+            "Title Start did not finish after 32 fade updates with a visible " +
+            "file-select handoff while preserving one RNG call per title " +
+            $"dispatch. page={handedOffMenu?.CurrentPage}, " +
+            $"fadeOffset={titleScreen.WhiteFadeOffset}.");
+
+        var replayRandom = new OracleRandom();
+        var replaySounds = new List<int>();
+        var replay = new FrontendIntroController(
+            introScreen,
+            titleScreen,
+            replayRandom,
+            () => { },
+            replaySounds.Add,
+            () => { },
+            startAtTitle: true);
+        replay.AdvanceOneOriginalUpdate();
+        for (int update = 0; update < 2400; update++)
+            replay.AdvanceOneOriginalUpdate();
+        FailIf(
+            replay.Stage != FrontendIntroStage.Title || replay.State != 2 ||
+            replaySounds[^1] != SoundId.SndCtrlFastFadeOut,
+            "The title idle counter did not enter the retail replay fade at $0960.");
+        for (int update = 0; update < 32; update++)
+            replay.AdvanceOneOriginalUpdate();
+        FailIf(
+            replay.Stage != FrontendIntroStage.Restart,
+            "The idle title replay fade did not complete in 32 updates.");
+        replay.AdvanceOneOriginalUpdate();
+        replay.AdvanceOneOriginalUpdate();
+        FailIf(
+            replay.Stage != FrontendIntroStage.Capcom || replay.State != 1,
+            "Idle title replay did not pass through restart and the clean-US stage skip.");
+
+        var skipRandom = new OracleRandom();
+        var skip = new FrontendIntroController(
+            introScreen,
+            titleScreen,
+            skipRandom,
+            () => { },
+            _ => { },
+            () => { });
+        skip.AdvanceOneOriginalUpdate(startPressed: true);
+        FailIf(
+            skip.Stage != FrontendIntroStage.Capcom || skipRandom.Calls != 0,
+            "Start skipped the clean-US region/Capcom gate before inputs were enabled.");
+        while (!skip.InputsEnabled)
+            skip.AdvanceOneOriginalUpdate();
+        skip.AdvanceOneOriginalUpdate(startPressed: true);
+        FailIf(
+            skip.Stage != FrontendIntroStage.Title || skip.State != 1 ||
+            skipRandom.Calls != 1,
+            "Cinematic Start skip did not run title initialization and its RNG call in " +
+            "the same original update.");
+
+        ulong[] hashes = introScreen.AssetPixelHashesForValidation();
+        FailIf(
+            !hashes.SequenceEqual(
+            [
+                0x59572895153042ceUL, 0xc847bdc3213fdd31UL,
+                0x4d0d4521c468a92cUL, 0xfe7c20e191d9cfbfUL,
+                0x451e37b3458d1f96UL, 0x9ad508f8905ade75UL,
+                0x0a7a1280e17d4d84UL, 0x46e7c6981f2ff614UL,
+                0x2d7647f62b734cfeUL, 0x7cc8b60d573183feUL
+            ]),
+            "Imported frontend background assembly or palettes changed: " +
+            string.Join(',', hashes.Select(hash => $"{hash:x16}")));
+
+        introScreen.QueueFree();
+        titleScreen.QueueFree();
+        GD.Print("Validated the clean-US Capcom, horse/castle, temple, pre-title, " +
+            "title idle/replay/Start paths, exact counters and sounds, imported " +
+            "presentation assets, horse parallax/priority boundaries, finite " +
+            "castle-horse animation, object-to-OAM Y bias, and shared frontend " +
+            "RNG consumption.");
+    }
+
+    private void ValidateDebugFlagMenu()
+    {
+        FailIf(!InputMap.HasAction("debug_flags"), "The F1 debug_flags input action was not registered.");
+
+        _debugFlagMenu.OpenImmediatelyForValidation();
+        FailIf(
+            !_debugFlagMenu.IsActive || !_debugFlagScreen.Visible ||
+            !_gameplayPause.IsOwnedBy(_debugFlagMenu) ||
+            _player.IsPhysicsProcessing() || _player.IsProcessing(),
+            "The debug flag menu did not open in screen space and freeze Link.");
+
+        _debugFlagScreen._Input(new InputEventKey
+        {
+            PhysicalKeycode = Key.Tab,
+            Pressed = true
+        });
+        FailIf(
+            _debugFlagScreen.Page != FlagPage.Room,
+            "A physical Tab key event did not switch the flag editor to room flags.");
+        _debugFlagScreen._Input(new InputEventKey
+        {
+            Keycode = Key.Tab,
+            Pressed = true
+        });
+        FailIf(
+            _debugFlagScreen.Page != FlagPage.Inventory,
+            "A logical Tab key event did not switch the flag editor to linked/items.");
+        _debugFlagScreen._Input(new InputEventKey
+        {
+            Keycode = Key.Tab,
+            Pressed = true
+        });
+        FailIf(
+            _debugFlagScreen.Page != FlagPage.Rings,
+            "Tab did not switch the debug editor from items to appraised rings.");
+        _debugFlagScreen._Input(new InputEventKey
+        {
+            Keycode = Key.Tab,
+            Pressed = true
+        });
+        FailIf(
+            _debugFlagScreen.Page != FlagPage.Global,
+            "Tab did not cycle the debug editor back to global flags.");
+
+        _debugFlagScreen.SelectGlobalFlagForValidation(GlobalFlag.IntroDone);
+        FailIf(
+            !_debugFlagScreen.RenderedText.Contains("GLOBALFLAG_INTRO_DONE", StringComparison.Ordinal),
+            "The imported name for GLOBALFLAG_INTRO_DONE was not displayed.");
+        bool globalBefore = _saveData.HasGlobalFlag(GlobalFlag.IntroDone);
+        _debugFlagScreen.ActivateSelection();
+        FailIf(
+            _saveData.HasGlobalFlag(GlobalFlag.IntroDone) == globalBefore,
+            "The global flag editor did not toggle flag $0a.");
+        _debugFlagScreen.ActivateSelection();
+
+        const int room = 0xaa;
+        const int bit = 6;
+        byte mask = 1 << bit;
+        bool roomBefore = _saveData.HasRoomFlag(5, room, mask);
+        _debugFlagScreen.SelectRoomFlagForValidation(7, room, bit);
+        FailIf(
+            _debugFlagScreen.SelectedRoomGroup != 5 ||
+            !_debugFlagScreen.RenderedText.Contains("GENERIC_40", StringComparison.Ordinal),
+            "The room editor did not expose group 7 through canonical table 5 and bit 6.");
+        _debugFlagScreen.ActivateSelection();
+        FailIf(
+            _saveData.HasRoomFlag(5, room, mask) == roomBefore,
+            "The room flag editor did not toggle 5:aa bit 6.");
+        _debugFlagScreen.MoveHorizontal(1);
+        FailIf(_debugFlagScreen.SelectedRoom != 0xab, "Room flag browsing did not advance $aa -> $ab.");
+        _debugFlagScreen.MoveHorizontal(-1);
+        _debugFlagScreen.ActivateSelection();
+
+        bool linkedBefore = _saveData.IsLinkedGame;
+        _debugFlagScreen.SelectLinkedGameForValidation();
+        FailIf(
+            !_debugFlagScreen.RenderedText.Contains("wIsLinkedGame $c612", StringComparison.Ordinal),
+            "The linked/items page did not expose the source WRAM linked-game field.");
+        _debugFlagScreen.ActivateSelection();
+        FailIf(_saveData.IsLinkedGame == linkedBefore, "The debug editor did not toggle wIsLinkedGame.");
+        _debugFlagScreen.ActivateSelection();
+
+        var itemSave = OracleSaveData.CreateStandardGame();
+        var itemTreasures = new TreasureDatabase();
+        var itemInventory = new InventoryState(itemTreasures, itemSave, () => 0);
+        var itemScreen = new DebugFlagScreen { Name = "DebugItemGrantValidation" };
+        AddChild(itemScreen);
+        itemScreen.Initialize(
+            itemSave, new GlobalFlagDatabase(), itemTreasures, itemInventory);
+        itemScreen.Open(0, 0);
+        itemScreen.SelectTreasureForValidation("TREASURE_OBJECT_SWORD_01");
+        FailIf(
+            !itemScreen.RenderedText.Contains("PARAM $02", StringComparison.Ordinal) ||
+            !itemScreen.RenderedText.Contains("SWORD_01", StringComparison.Ordinal),
+            "The item grant browser did not display the imported treasure variant and parameter.");
+        itemScreen.ActivateSelection();
+        FailIf(
+            itemInventory.SwordLevel != 2 ||
+            !itemInventory.HasTreasure(TreasureId.Sword) ||
+            !itemSave.HasTreasure(TreasureId.Sword),
+            "The debug item grant did not use the imported treasure transaction.");
+        itemScreen.ActivateSelection();
+        FailIf(
+            itemInventory.HasTreasure(TreasureId.Sword) ||
+            itemSave.HasTreasure(TreasureId.Sword) ||
+            itemInventory.SwordLevel != 2,
+            "The debug item toggle did not apply loseTreasure semantics.");
+
+        itemScreen.SelectTreasureForValidation("TREASURE_OBJECT_TRADEITEM_02");
+        itemScreen.ActivateSelection();
+        FailIf(
+            !itemInventory.HasTreasure(TreasureId.TradeItem) ||
+            itemInventory.TradeItem != 0x02 ||
+            itemSave.ReadWramByte(AgesWramAddress.wTradeItem) != 0x02 ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [1] TRADEITEM_02", StringComparison.Ordinal),
+            "The debug item toggle did not grant exact trade item $02.");
+
+        itemScreen.SelectTreasureForValidation("TREASURE_OBJECT_TRADEITEM_03");
+        FailIf(
+            !itemScreen.RenderedText.Contains(
+                "$41 [1] TRADEITEM_02", StringComparison.Ordinal) ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [0] TRADEITEM_03", StringComparison.Ordinal),
+            "The debug item browser did not distinguish the live wTradeItem value.");
+        itemScreen.ActivateSelection();
+        FailIf(
+            !itemInventory.HasTreasure(TreasureId.TradeItem) ||
+            itemInventory.TradeItem != 0x03 ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [0] TRADEITEM_02", StringComparison.Ordinal) ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [1] TRADEITEM_03", StringComparison.Ordinal),
+            "The debug item toggle did not switch to exact trade item $03.");
+        itemScreen.ActivateSelection();
+        FailIf(
+            itemInventory.HasTreasure(TreasureId.TradeItem) ||
+            itemSave.HasTreasure(TreasureId.TradeItem) ||
+            itemInventory.TradeItem != 0x03 ||
+            !itemScreen.RenderedText.Contains(
+                "$41 [0] TRADEITEM_03", StringComparison.Ordinal),
+            "The debug item toggle did not deactivate trade item $03.");
+
+        itemScreen.SelectRingForValidation((int)RingId.Protection);
+        FailIf(
+            !itemScreen.RenderedText.Contains("Protection Ring", StringComparison.Ordinal) ||
+            itemInventory.HasAppraisedRing((int)RingId.Protection),
+            "The debug appraised-ring browser did not display the imported ring text.");
+        itemScreen.ActivateSelection();
+        FailIf(
+            !itemInventory.HasAppraisedRing((int)RingId.Protection) ||
+            (itemSave.ReadWramByte(0xc61d) & 0x80) == 0,
+            "The debug appraised-ring grant did not update wRingsObtained.");
+        itemScreen.QueueFree();
+
+        _debugFlagMenu.CloseImmediatelyForValidation();
+        FailIf(
+            _debugFlagMenu.IsActive || _debugFlagScreen.Visible ||
+            !_player.IsPhysicsProcessing() || !_player.IsProcessing(),
+            "Closing the debug flag menu did not restore Link processing.");
+
+        GD.Print("Validated F1 global/room flag editor, linked-game toggle, exact trade-item " +
+            "and ordinary treasure toggles, appraised-ring grants, navigation, mutation, " +
+            "and gameplay freezing.");
+    }
+
+    private void ValidateDebugCollision()
+    {
+        bool hasF2Binding = InputMap.HasAction("debug_collision") &&
+            InputMap.ActionGetEvents("debug_collision")
+                .OfType<InputEventKey>()
+                .Any(input => input.PhysicalKeycode == Key.F2);
+        FailIf(
+            !hasF2Binding || _debugCollision.CollisionsDisabled,
+            "The disabled-by-default F2 debug_collision input action was not registered.");
+
+        LoadValidationRoom(4, 0x09);
+        Vector2 wallApproach = new(20, 24);
+        _player.WarpTo(wallApproach);
+        _player.Face(Vector2I.Left);
+        FailIf(
+            _playerWorld.ResolveMovement(
+            wallApproach, Vector2.Left, allowWallSlide: true) != Vector2.Zero,
+            "Room 4:09's left wall was not available for debug collision validation.");
+
+        _player.UpdatePushingState(Vector2.Left);
+        FailIf(!_player.IsPushing, "Link did not detect the wall before noclip was enabled.");
+
+        _debugCollision.ToggleForValidation();
+        _player.UpdatePushingState(Vector2.Left);
+        UpdateRoomDebugLabel();
+        FailIf(
+            !_debugCollision.CollisionsDisabled ||
+            _playerWorld.ResolveMovement(
+                wallApproach, Vector2.Left, allowWallSlide: true) != Vector2.Left ||
+            _player.IsPushing || _roomDebug.Text != "4:09 NOCLIP",
+            "F2 noclip did not bypass Link's wall resolution and pushing state or expose its status.");
+
+        _debugCollision.ToggleForValidation();
+        UpdateRoomDebugLabel();
+        FailIf(
+            _debugCollision.CollisionsDisabled ||
+            _playerWorld.ResolveMovement(
+                wallApproach, Vector2.Left, allowWallSlide: true) != Vector2.Zero ||
+            _roomDebug.Text != "4:09",
+            "Disabling F2 noclip did not restore ordinary Link collision and debug status.");
+
+        GD.Print("Validated F2 Link noclip toggle, wall bypass, push suppression, and status label.");
+    }
+
+    private void ValidateRemovedDebugRoomShortcuts()
+    {
+        string[] removedActions =
+        [
+            "debug_sign",
+            "debug_animation",
+            "debug_bush",
+            "debug_house",
+            "debug_chest",
+            "debug_bracelet_chest",
+            "debug_room_warp",
+            "debug_maple"
+        ];
+        FailIf(
+            removedActions.Any(action => InputMap.HasAction(action)),
+            "A removed debug input action remained registered.");
+
+        FailIf(
+            InputMap.GetActions().Any(action => InputMap.ActionGetEvents(action)
+                .OfType<InputEventKey>()
+                .Any(key => (key.PhysicalKeycode == Key.V || key.Keycode == Key.V) &&
+                    !key.CtrlPressed && !key.AltPressed &&
+                    !key.MetaPressed && !key.ShiftPressed)),
+            "The removed V debug shortcut remained bound to an input action.");
+
+        FailIf(
+            InputMap.GetActions().Any(action => InputMap.ActionGetEvents(action)
+                .OfType<InputEventKey>()
+                .Any(key => key.PhysicalKeycode == Key.F3 || key.Keycode == Key.F3)),
+            "The removed F3 Maple shortcut remained bound to an input action.");
+
+        GD.Print("Validated removal of fixed test-room shortcuts and the F3 Maple shortcut.");
+    }
+
+    private void ValidateDebugSavestates()
+    {
+        static DebugSavestateCommand Decode(InputEventKey key)
+        {
+            FailIf(
+                !DebugSavestateController.TryDecodeInput(key, out var command),
+                "A valid debug-savestate number key was not decoded.");
+            return command;
+        }
+
+        DebugSavestateCommand saveCommand = Decode(new InputEventKey
+        {
+            Pressed = true,
+            PhysicalKeycode = Key.Key3,
+            ShiftPressed = true
+        });
+        DebugSavestateCommand loadCommand = Decode(new InputEventKey
+        {
+            Pressed = true,
+            PhysicalKeycode = Key.Key3
+        });
+        FailIf(
+            saveCommand != new DebugSavestateCommand(
+                3, DebugSavestateCommandKind.Save) ||
+            loadCommand != new DebugSavestateCommand(
+                3, DebugSavestateCommandKind.Load) ||
+            DebugSavestateController.TryDecodeInput(
+                new InputEventKey
+                {
+                    Pressed = true,
+                    Echo = true,
+                    PhysicalKeycode = Key.Key3
+                },
+                out _) ||
+            DebugSavestateController.TryDecodeInput(
+                new InputEventKey
+                {
+                    Pressed = true,
+                    CtrlPressed = true,
+                    PhysicalKeycode = Key.Key3
+                },
+                out _) ||
+            DebugSavestateController.TryDecodeInput(
+                new InputEventKey
+                {
+                    Pressed = false,
+                    PhysicalKeycode = Key.Key3
+                },
+                out _) ||
+            DebugSavestateController.TryDecodeInput(
+                new InputEventKey
+                {
+                    Pressed = true,
+                    PhysicalKeycode = Key.F4
+                },
+                out _),
+            "Debug-savestate input did not reserve Shift+number for save " +
+            "and an unmodified number for load.");
+
+        FailIf(
+            DebugSavestateStore.PathForSlot(0) !=
+                "user://oracle_of_ages_debug_state_0.state" ||
+            DebugSavestateStore.PathForSlot(9) !=
+                "user://oracle_of_ages_debug_state_9.state",
+            "Debug-savestate slots do not have stable independent paths.");
+
+        LoadValidationRoom(4, 0x09);
+        Vector2 savedPosition = new(0x58, 0x68);
+        _player.WarpTo(savedPosition);
+        _player.Face(Vector2I.Left);
+        _animationTicks = 1234.5;
+        const int runtimeAddress = 0xc123;
+        _runtimeState.SetWramByte(runtimeAddress, 0xab);
+        _inventory.GiveTreasure(TreasureId.Id60, 0);
+        _inventory.GiveTreasure(TreasureId.Id67, 7);
+        _random.Next();
+        _random.Next();
+        bool savedFlag =
+            _saveData.HasGlobalFlag(AgesGlobalFlag.SavedNayru);
+        DebugSavestateData captured = CaptureDebugSavestate();
+        byte[] expectedSaveImage = captured.CreateSaveData().Serialize();
+        OracleRandomState expectedRandom = _random.CaptureState();
+        RoomEntityManagerState expectedEntities = _entities.CaptureDebugState();
+
+        byte[] serialized = captured.Serialize();
+        FailIf(
+            !DebugSavestateData.TryDeserialize(
+            serialized,
+            out DebugSavestateData? decoded),
+            "A freshly serialized debug state did not validate.");
+        serialized[^1] ^= 0xff;
+        FailIf(
+            DebugSavestateData.TryDeserialize(serialized, out _),
+            "A corrupt debug-state hash was accepted.");
+
+        string temporaryPath = Path.Combine(
+            Path.GetTempPath(),
+            $"ooa_debug_state_validation_{Guid.NewGuid():N}.state");
+        try
+        {
+            SaveResult saveResult =
+                DebugSavestateStore.Save(decoded!, temporaryPath);
+            DebugSavestateLoadResult loaded =
+                DebugSavestateStore.Load(temporaryPath);
+            FailIf(
+                !saveResult.Success || !loaded.Success ||
+                DebugSavestateStore.Load(temporaryPath + ".missing").Found,
+                "Debug-state atomic storage or missing-slot detection failed.");
+
+            _saveData.SetGlobalFlag(
+                AgesGlobalFlag.SavedNayru,
+                !savedFlag);
+            _runtimeState.SetWramByte(runtimeAddress, 0x11);
+            _random.Next();
+            _animationTicks = 42.0;
+            LoadValidationRoom(0, 0x11);
+            _player.WarpTo(new Vector2(24, 24));
+            _player.Face(Vector2I.Up);
+
+            RestoreDebugSavestate(loaded.State!);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+            if (File.Exists(temporaryPath + ".tmp"))
+                File.Delete(temporaryPath + ".tmp");
+        }
+
+        OracleRandomState restoredRandom = _random.CaptureState();
+        RoomEntityManagerState restoredEntities = _entities.CaptureDebugState();
+        FailIf(!_inventory.HasUpgrade(0) || !_inventory.HasUpgrade(7) ||
+            _runtimeState.ReadWramByte(AgesWramAddress.wUpgradesObtained) != 0x81,
+            "Debug savestate restore lost shared $cca8 upgrade flags for treasures $60/$67.");
+        FailIf(
+            _rooms.ActiveGroup != 4 ||
+            _rooms.CurrentRoom.Id != 0x09 ||
+            _player.PrecisePosition != savedPosition ||
+            _player.FacingVector != Vector2I.Left ||
+            _animationTicks != 1234.5 ||
+            _saveData.HasGlobalFlag(
+                AgesGlobalFlag.SavedNayru) != savedFlag ||
+            !_saveData.Serialize().AsSpan().SequenceEqual(expectedSaveImage) ||
+            _runtimeState.ReadWramByte(runtimeAddress) != 0xab ||
+            restoredRandom.Rng1 != expectedRandom.Rng1 ||
+            restoredRandom.Rng2 != expectedRandom.Rng2 ||
+            restoredRandom.PlacementIndex != expectedRandom.PlacementIndex ||
+            restoredRandom.PlacementBufferReady !=
+                expectedRandom.PlacementBufferReady ||
+            restoredRandom.Calls != expectedRandom.Calls ||
+            restoredRandom.LastResult != expectedRandom.LastResult ||
+            !restoredRandom.PlacementBuffer.AsSpan().SequenceEqual(
+                expectedRandom.PlacementBuffer) ||
+            restoredEntities.ActiveTriggers != expectedEntities.ActiveTriggers ||
+            restoredEntities.FrameAccumulator != expectedEntities.FrameAccumulator ||
+            restoredEntities.FrameCounter != expectedEntities.FrameCounter ||
+            restoredEntities.RecentEnemyDefeats.Tail !=
+                expectedEntities.RecentEnemyDefeats.Tail ||
+            restoredEntities.RecentEnemyDefeats.ActiveRoom !=
+                expectedEntities.RecentEnemyDefeats.ActiveRoom ||
+            !restoredEntities.RecentEnemyDefeats.Rooms.AsSpan().SequenceEqual(
+                expectedEntities.RecentEnemyDefeats.Rooms) ||
+            !restoredEntities.RecentEnemyDefeats.KilledEnemies.AsSpan().SequenceEqual(
+                expectedEntities.RecentEnemyDefeats.KilledEnemies),
+            "Loading a debug state did not restore the exact save image, " +
+            "live WRAM, RNG, entity frame/recent-kill state, room, Link " +
+            "transform, or animation clock.");
+
+        ClearDebugSavestateStatus();
+        GD.Print("Validated Shift+0-9 debug-state saves, plain 0-9 loads, " +
+            "versioned/hash-checked atomic storage, missing/corrupt rejection, " +
+            "and reconstruction of save image, live WRAM, RNG, entity phase, " +
+            "recent kills, room, Link, and animation state.");
+    }
+
+    private void ValidateMapScreen()
+    {
+        int mapFrame = 0;
+        // Synchronous scenarios share one Godot host frame, so released actions
+        // can retain just-pressed edges. Every simulated update owns its input.
+        void TickMap()
+        {
+            Input.BeginOriginalUpdate(new ApplicationInputSnapshot([], [], Vector2.Zero));
+            try { _mapMenu.Update(1.0 / 60.0); }
+            finally { Input.EndOriginalUpdate(); }
+        }
+        _mapScreen.Initialize(_rooms, _inventory, () => mapFrame);
+        FailIf(
+            !Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f),
+            "The map menu must use the 11-update fast palette fade.");
+        FailIf(
+            MapScreen.GetSpriteShadeForValidation(Colors.Black, true) != 0 ||
+            MapScreen.GetSpriteShadeForValidation(Color.Color8(85, 85, 85), true) != 1 ||
+            MapScreen.GetSpriteShadeForValidation(Color.Color8(170, 170, 170), true) != 2 ||
+            MapScreen.GetSpriteShadeForValidation(Colors.White, true) != 3 ||
+            MapScreen.GetSpriteShadeForValidation(Colors.White, false) != 0 ||
+            MapScreen.GetSpriteShadeForValidation(Colors.Black, false) != 3,
+            "Map OAM grayscale no longer handles inverted spr_ and normal gfx sheets separately.");
+        FailIf(
+            MapScreen.UsesInvertedSpriteGrayscale(MapMode.Present, 0x0e) ||
+            MapScreen.UsesInvertedSpriteGrayscale(MapMode.Present, 0x22) ||
+            MapScreen.UsesInvertedSpriteGrayscale(MapMode.Dungeon, 0x88) ||
+            !MapScreen.UsesInvertedSpriteGrayscale(MapMode.Dungeon, 0x00),
+            "Map OAM sheets no longer honor spr_minimap_icons invert:false separately " +
+            "from the default-inverted dungeon item sheet.");
+        FailIf(
+            (MapScreen.LocationArrowAttributes & 0x40) == 0,
+            "The map location arrow lost OAM Y-flip attribute $47.");
+
+        OracleSaveData presentationSave = OracleSaveData.CreateStandardGame();
+        var presentationInventory = new InventoryState(_treasures, presentationSave);
+        var presentation = new MapPresentationState(
+            presentationSave, presentationInventory);
+        var presentationRooms = new RoomSession(
+            0, 0x38, static () => 0, static () => { }, presentationSave);
+        var presentationData = new MapDataDatabase();
+
+        FailIf(
+            presentationSave.TimePortalGroup != 0xff ||
+            presentation.TryGetTimePortalRoom(0, out _) ||
+            presentation.TryGetTimePortalRoom(1, out _),
+            "A standard game exposed a map time portal despite wPortalGroup=$ff.");
+        presentationSave.SetTimePortalLocation(0, 0x38);
+        FailIf(
+            !presentation.TryGetTimePortalRoom(0, out int portalRoom) ||
+            portalRoom != 0x38 || presentation.TryGetTimePortalRoom(1, out _),
+            "The present-era time portal did not resolve through typed map state.");
+        presentationSave.SetTimePortalLocation(1, 0x48);
+        FailIf(
+            !presentation.TryGetTimePortalRoom(1, out portalRoom) ||
+            portalRoom != 0x48 || presentation.TryGetTimePortalRoom(0, out _),
+            "The past-era time portal did not resolve through typed map state.");
+        presentationSave.ClearTimePortalLocation();
+        FailIf(
+            presentation.TryGetTimePortalRoom(0, out _) ||
+            presentation.TryGetTimePortalRoom(1, out _),
+            "Clearing the typed time-portal location did not restore map absence.");
+
+        string[] companionObjects =
+        {
+            "TREASURE_OBJECT_FLUTE_00",
+            "TREASURE_OBJECT_FLUTE_01",
+            "TREASURE_OBJECT_FLUTE_02"
+        };
+        for (int companion = 0; companion < companionObjects.Length; companion++)
+        {
+            presentationInventory.GiveTreasure(
+                _treasures.GetObject(companionObjects[companion]));
+            FailIf(
+                presentation.AnimalCompanion != 0x0b + companion ||
+                presentation.AnimalCompanionAreaTextId != 0x032d + companion,
+                $"Animal companion {companion} did not select its typed map region.");
+        }
+
+        FailIf(
+            presentation.ResolveMakuAdviceTextId(0) != 0x0323 ||
+            presentation.ResolveMakuAdviceTextId(1) != 0x0324 ||
+            !presentationData.TryResolveAreaText(
+                presentationRooms, presentation, 0, 0x38, out MapText presentAdvice) ||
+            presentAdvice.TextId != 0x0323,
+            "Unmet present/past Maku advice did not use TX_0323/TX_0324.");
+        presentationSave.SetMakuMapTextPresent(0x4f);
+        presentationSave.SetGlobalFlag(
+            AgesGlobalFlag.MakuGivesAdviceFromPresentMap);
+        FailIf(
+            !presentationData.TryResolveAreaText(
+                presentationRooms, presentation, 0, 0x38, out presentAdvice) ||
+            presentAdvice.TextId != 0x054f,
+            "Present Maku advice did not observe the live typed $4f update.");
+        presentationSave.SetMakuMapTextPresent(0xb0);
+        FailIf(
+            presentation.ResolveMakuAdviceTextId(0) != 0x05b0,
+            "Present Maku advice retained a stale resolved text.");
+        presentationSave.SetMakuMapTextPast(0xd6);
+        presentationSave.SetGlobalFlag(
+            AgesGlobalFlag.MakuGivesAdviceFromPastMap);
+        FailIf(
+            !presentationData.TryResolveAreaText(
+                presentationRooms, presentation, 1, 0x38, out MapText pastAdvice) ||
+            pastAdvice.TextId != 0x05d6,
+            "Past Maku advice did not observe the live typed $d6 update.");
+        presentationSave.SetMakuMapTextPast(0xc0);
+        FailIf(
+            presentation.ResolveMakuAdviceTextId(1) != 0x05c0,
+            "Past Maku advice retained a stale resolved text.");
+
+        LoadValidationRoom(0, 0x11);
+        int openMenuRequests = _sound.PlayRequestsFor(SoundId.SndOpenMenu);
+        _mapMenu.BeginOpeningForValidation();
+        FailIf(
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests,
+            "MENU_MAP played SND_OPENMENU $54 before its opening fade.");
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
+        {
+            TickMap();
+            FailIf(
+                _mapScreen.Visible ||
+                _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests,
+                "MENU_MAP appeared or played SND_OPENMENU $54 before full white.");
+        }
+        TickMap();
+        FailIf(
+            !_mapScreen.Visible ||
+            _sound.LastPlayRequestForValidation() != SoundId.SndOpenMenu ||
+            _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests + 1,
+            "MENU_MAP did not request SND_OPENMENU $54 at the full-white screen swap.");
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
+            TickMap();
+        FailIf(
+            _mapScreen.Mode != MapMode.Present || _mapScreen.CursorRoom != 0x11,
+            $"Present map should open at room 11, got {_mapScreen.Mode} / {_mapScreen.CursorRoom:x2}.");
+        FailIf(
+            !_gameplayPause.IsOwnedBy(_mapMenu) ||
+            _player.IsPhysicsProcessing() || _player.IsProcessing(),
+            "Link continued updating while the map menu was open.");
+
+        int mapMoveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
+        FailIf(
+            !_mapMenu.NavigateForValidation(Vector2I.Left) ||
+            !_mapMenu.NavigateForValidation(Vector2I.Left) ||
+            _mapScreen.CursorRoom != 0x1d ||
+            _sound.LastPlayRequestForValidation() != SoundId.SndMenuMove ||
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != mapMoveRequests + 2,
+            $"The overworld cursor did not wrap 11 -> 10 -> 1d with two " +
+            $"SND_MENU_MOVE $84 requests; got {_mapScreen.CursorRoom:x2}.");
+
+        FailIf(!_mapScreen.LocationArrowVisible, "The map location arrow was hidden on frame 0.");
+        mapFrame = 32;
+        _mapScreen.Update(32.0 / 60.0);
+        FailIf(_mapScreen.LocationArrowVisible, "The map location arrow did not toggle after 32 updates.");
+        mapFrame = 64;
+        _mapScreen.Update(32.0 / 60.0);
+        FailIf(!_mapScreen.LocationArrowVisible, "The map location arrow did not restore after 64 updates.");
+        _mapMenu.CloseImmediatelyForValidation();
+        FailIf(
+            !_player.IsPhysicsProcessing() || !_player.IsProcessing(),
+            "Link processing was not restored after closing the map.");
+
+        LoadValidationRoom(0, 0x45);
+        _mapMenu.OpenImmediatelyForValidation();
+        FailIf(
+            !_mapScreen.TryGetSelectedAreaText(out MapText areaText) ||
+            areaText.TextId != 0x0343 || string.IsNullOrWhiteSpace(areaText.Message),
+            "Present room 45 did not resolve its imported TX_0343 map text.");
+        _mapScreen.Update(7.0 / 60.0);
+        FailIf(
+            _mapScreen.PopupPrimary != 0x01 || _mapScreen.PopupSize != 4,
+            $"Room 45's house popup did not expand in 7 updates: " +
+            $"icon={_mapScreen.PopupPrimary:x2}, size={_mapScreen.PopupSize}.");
+        _mapMenu.CloseImmediatelyForValidation();
+
+        LoadValidationRoom(1, 0x11);
+        _mapMenu.OpenImmediatelyForValidation();
+        FailIf(
+            _mapScreen.Mode != MapMode.Past || _mapScreen.CursorRoom != 0x11,
+            $"Past map should open at room 11, got {_mapScreen.Mode} / {_mapScreen.CursorRoom:x2}.");
+        _mapMenu.CloseImmediatelyForValidation();
+
+        DungeonInfo dungeon = _rooms.DungeonMaps.GetDungeon(0x0d);
+        FailIf(
+            !dungeon.TryGetRoom(0x09, out DungeonCell cell) ||
+            cell.Floor != 0 || cell.X != 2 || cell.Y != 2,
+            "Dungeon 0d room 09 was not imported at floor 0, cell (2,2).");
+        LoadValidationRoom(4, 0x09);
+        _mapMenu.OpenImmediatelyForValidation();
+        FailIf(
+            _mapScreen.Mode != MapMode.Dungeon ||
+            _mapScreen.DisplayedDungeonFloor != 0 ||
+            _mapScreen.DungeonLinkIconPosition != new Vector2(96, 48),
+            "Dungeon 0d room 09 did not open on floor 0 with Link's 8x16 " +
+            $"map icon at source position (96,48); got " +
+            $"{_mapScreen.DungeonLinkIconPosition}.");
+        ulong floorListHash = _mapScreen.BackgroundRegionPixelHashForValidation(
+            new Rect2I(0, 72, 40, 48));
+        FailIf(
+            floorListHash != 0x7d999edd39262a04UL,
+            $"Dungeon 0d's imported floor-list rendering changed " +
+            $"({floorListHash:x16}).");
+        _mapMenu.CloseImmediatelyForValidation();
+
+        byte oldCompasses = _saveData.ReadWramByte(AgesWramAddress.wDungeonCompasses);
+        byte oldMaps = _saveData.ReadWramByte(AgesWramAddress.wDungeonMaps);
+        byte oldRoom30Flags = _saveData.GetRoomFlags(4, 0x30);
+        _saveData.WriteWramByte(AgesWramAddress.wDungeonCompasses, (byte)(oldCompasses | 0x04));
+        _saveData.WriteWramByte(AgesWramAddress.wDungeonMaps, (byte)(oldMaps | 0x04));
+        _saveData.SetRoomFlag(4, 0x30, OracleSaveData.RoomFlagItem, value: false);
+        var mapInventory = new InventoryState(_treasures, _saveData);
+        _mapScreen.Initialize(_rooms, mapInventory);
+        LoadValidationRoom(4, 0x46);
+        _mapMenu.OpenImmediatelyForValidation();
+        DungeonInfo dungeon02 = _rooms.DungeonMaps.GetDungeon(0x02);
+        FailIf(
+            dungeon02.CompassFloors != 0x01 ||
+            _mapScreen.DisplayedDungeonFloor != 1 || _mapScreen.DungeonTileAt(6, 1) != 0x83,
+            "Dungeon 02's map/compass did not reveal its imported boss room and floor mask.");
+        mapMoveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
+        FailIf(!_mapMenu.NavigateForValidation(Vector2I.Down),
+            "Dungeon 02 did not accept the downward scroll.");
+        // dungeonMap_scrollingState1 moves ten rows, then unlocks on zero.
+        for (int frame = 1; frame <= 11; frame++)
+        {
+            TickMap();
+            FailIf(!_mapMenu.IsOpen || _mapScreen.DungeonScrollY != System.Math.Min(frame, 10) ||
+                _mapScreen.IsScrolling != (frame < 11),
+                $"Dungeon $02 floor scroll update ${frame:x2}: " +
+                $"open={_mapMenu.IsOpen}, scrollY={_mapScreen.DungeonScrollY}, " +
+                $"scrolling={_mapScreen.IsScrolling}.");
+        }
+        FailIf(
+            _mapScreen.DisplayedDungeonFloor != 0 || _mapScreen.DungeonTileAt(5, 1) != 0xae ||
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != mapMoveRequests + 1,
+            "Dungeon 02's floor navigation did not reveal room 30 on floor 0 " +
+            $"and request SND_MENU_MOVE $84: floor=${_mapScreen.DisplayedDungeonFloor:x2}, " +
+            $"tile=${_mapScreen.DungeonTileAt(5, 1):x2}, scrollY={_mapScreen.DungeonScrollY}, " +
+            $"scrolling={_mapScreen.IsScrolling}, open={_mapMenu.IsOpen}, " +
+            $"dialogue={_dialogue.BlocksPlayerInput}, " +
+            $"move requests={_sound.PlayRequestsFor(SoundId.SndMenuMove) - mapMoveRequests}.");
+        FailIf(
+            _mapMenu.NavigateForValidation(Vector2I.Down) ||
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != mapMoveRequests + 1,
+            "Blocked dungeon-floor navigation played SND_MENU_MOVE $84.");
+        _mapMenu.CloseImmediatelyForValidation();
+        _saveData.WriteWramByte(AgesWramAddress.wDungeonCompasses, oldCompasses);
+        _saveData.WriteWramByte(AgesWramAddress.wDungeonMaps, oldMaps);
+        _saveData.SetRoomFlag(4, 0x30, 0xff, value: false);
+        if (oldRoom30Flags != 0)
+            _saveData.SetRoomFlag(4, 0x30, oldRoom30Flags);
+        _mapScreen.Initialize(_rooms, _inventory);
+        LoadValidationRoom(4, 0x09);
+        // Seed the debug browser's start cell explicitly; normal dungeon room
+        // entry now correctly writes wMinimapGroup/wMinimapRoom.
+        _saveData.SetMinimapLocation(1, 0x11);
+
+        _mapMenu.OpenDebugImmediatelyForValidation();
+        FailIf(
+            !_mapScreen.DebugFastTravel || _mapScreen.Mode != MapMode.Past,
+            "Debug fast travel did not retain the most recent past-overworld map from dungeon 0d.");
+        _mapScreen.CycleDebugPage();
+        bool hasTarget = _mapScreen.TryGetFastTravelTarget(out int group, out int room);
+        FailIf(
+            _mapScreen.Mode != MapMode.Interior || _mapScreen.InteriorGroup != 2 ||
+            !hasTarget || group != 2 || room != 0x11,
+            $"Expected first interior fast-travel page at 2:11, got " +
+            $"{_mapScreen.Mode} / {group}:{room:x2}.");
+        _mapScreen.CycleDebugPage();
+        FailIf(
+            _mapScreen.InteriorGroup != 3 ||
+            !_mapScreen.TryGetFastTravelTarget(out group, out room) || group != 3 || room != 0x11,
+            $"Expected second interior fast-travel page at 3:11, got {group}:{room:x2}.");
+        _mapScreen.CycleDebugPage();
+        FailIf(
+            _mapScreen.InteriorGroup != 4 || _mapScreen.CursorRoom != 0x09,
+            "Group 4 interior page did not select active room 4:09.");
+        mapMoveRequests = _sound.PlayRequestsFor(SoundId.SndMenuMove);
+        for (int step = 0; step < 10; step++)
+        {
+            FailIf(
+                !_mapMenu.NavigateForValidation(Vector2I.Left),
+                "The interior room cursor rejected a left move.");
+        }
+        FailIf(
+            _mapScreen.CursorRoom != 0x0f ||
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) != mapMoveRequests + 10,
+            $"The 16x16 interior cursor did not wrap 09 left to 0f with ten move sounds; " +
+            $"got {_mapScreen.CursorRoom:x2}.");
+        _mapScreen.CycleDebugPage();
+        FailIf(
+            _mapScreen.InteriorGroup != 5 ||
+            !_mapScreen.TryGetFastTravelTarget(out group, out room) || group != 5 || room != 0x11,
+            $"Expected fourth interior fast-travel page at 5:11, got {group}:{room:x2}.");
+        _mapScreen.CycleDebugPage();
+        FailIf(
+            _mapScreen.Mode != MapMode.Present ||
+            !_mapScreen.TryGetFastTravelTarget(out group, out room) || group != 0 || room != 0x11,
+            $"Interior group 5 did not cycle back to present room 0:11; got {group}:{room:x2}.");
+        _mapScreen.CycleDebugPage();
+        _mapScreen.CycleDebugPage();
+        _mapScreen.CycleDebugPage();
+        _mapScreen.CycleDebugPage();
+        FailIf(
+            _mapScreen.Mode != MapMode.Interior || _mapScreen.InteriorGroup != 4 ||
+            _mapScreen.CursorRoom != 0x0f ||
+            !_mapScreen.TryGetFastTravelTarget(out group, out room) || group != 4 || room != 0x0f,
+            $"Group 4 did not retain interior selection 4:0f; got {group}:{room:x2}.");
+        FailIf(
+            !_mapMenu.BeginTravelToSelectionForValidation(),
+            "Debug map rejected the valid interior target 4:0f.");
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
+        {
+            TickMap();
+            FailIf(
+                _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x09,
+                "Debug fast travel loaded before the fade reached white.");
+        }
+        TickMap();
+        FailIf(
+            _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x0f,
+            "Debug map fast travel did not load interior room 4:0f at full white.");
+        for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
+            TickMap();
+        FailIf(
+            _mapMenu.IsActive || !_player.IsPhysicsProcessing() || !_player.IsProcessing(),
+            "Debug fast travel did not restore gameplay processing.");
+
+        GD.Print("Validated original present/past/dungeon map tilemaps, imported TX_03XX area " +
+            "text, source-specific color-0 OAM transparency, arrow Y-flip, 7-update popup " +
+            "expansion, typed portal/companion/Maku presentation state, " +
+            "dungeon Link-icon OAM bias, map/compass floor and " +
+            "boss/treasure reveals, SND_OPENMENU/SND_MENU_MOVE boundaries, 14x14 cursor " +
+            "wrapping, 32-update marker blink, 11-update " +
+            "fast fades, Link input freezing, 16x16 group 2-5 interior browsing, per-page " +
+            "selection retention, and fade-safe interior debug fast travel.");
+    }
+
+    private void ValidateInventoryFoundation()
+    {
+        // Arrange the story state this validation inspects. The case must not
+        // rely on ValidateNayruIntroCutscene having awarded Impa's sword.
+        _inventory.GiveTreasure(
+            _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
+        FailIf(
+            !_inventory.HasTreasure(TreasureId.Sword) ||
+            _inventory.EquippedB != TreasureId.Sword ||
+            _inventory.SwordLevel != 1,
+            "Impa's TREASURE_OBJECT_SWORD_00 gift was not added to the first empty " +
+            "inventory slot, wInventoryB.");
+
+        // The menu swap checks below begin from their established sword-on-A
+        // arrangement; move Impa's B-slot gift there through the normal path.
+        _inventory.EquipA(TreasureId.Sword);
+
+        var chests = new ChestDatabase();
+        FailIf(
+            !chests.TryGet(4, 0x87, 0x65, out ChestRecord switchHookChest) ||
+            switchHookChest.TreasureObject != "TREASURE_OBJECT_SWITCH_HOOK_00" ||
+            switchHookChest.TreasureId != TreasureId.SwitchHook ||
+            switchHookChest.Parameter != 1,
+            "The original 4:87/$65 Switch Hook chest did not resolve to TREASURE_SWITCH_HOOK parameter 1.");
+
+        var tempInventory = new InventoryState(_treasures);
+        tempInventory.GiveTreasure(new TreasureObjectRecord(
+            switchHookChest.TreasureObject,
+            switchHookChest.TreasureId,
+            switchHookChest.SubId,
+            switchHookChest.Parameter,
+            switchHookChest.TextId,
+            switchHookChest.Graphic,
+            switchHookChest.Message));
+        FailIf(
+            !tempInventory.HasTreasure(TreasureId.SwitchHook) ||
+            tempInventory.SwitchHookLevel != 1 ||
+            tempInventory.EquippedB != TreasureId.SwitchHook,
+            "TREASURE_OBJECT_SWITCH_HOOK_00 did not update obtained flags, level, and first free button slot.");
+
+        GD.Print("Validated disassembly-backed inventory state, equipped A/B slots, " +
+            "Impa's TREASURE_OBJECT_SWORD_00 gift, and non-rupee chest treasure give path.");
+    }
+
+    private void ValidateRingFunctionality()
+    {
+        RingId[] ids = Enum.GetValues<RingId>();
+        FailIf(
+            ids.Length != 0x40 ||
+            ids.Select(id => (int)id).Distinct().Count() != 0x40 ||
+            ids.Min(id => (int)id) != 0 || ids.Max(id => (int)id) != 0x3f,
+            "The imported ring index contract no longer covers exactly $00-$3f.");
+
+        var transformedLink = new TransformedLinkDatabase();
+        foreach (int specialObject in new[] { 3, 4, 5, 6, 7 })
+        for (int direction = 0; direction < 4; direction++)
+        for (int frame = 0; frame < 2; frame++)
+        {
+            FrameRecord record =
+                transformedLink.Record(specialObject, direction, frame);
+            Image image = transformedLink.Texture(
+                specialObject, direction, frame).GetImage();
+            bool hasOpaquePixel = false;
+            for (int y = 0; y < image.GetHeight() && !hasOpaquePixel; y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+            {
+                if (image.GetPixel(x, y).A > 0.1f)
+                {
+                    hasOpaquePixel = true;
+                    break;
+                }
+            }
+            FailIf(
+                record.InitialDuration != 2 || record.LoopDuration != 6 ||
+                image.GetSize() != new Vector2I(32, 32) || !hasOpaquePixel,
+                $"Transformed-Link frame {specialObject:x2}:{direction}:{frame} regressed.");
+        }
+
+        var swordBeamData = new SwordBeamDatabase();
+        FailIf(swordBeamData.Records.Count != 4, "ITEM_SWORD_BEAM did not import four directions.");
+        // itemData.s $27: gfx $00, tile $38, flags $0c; GFXH_COMMON_SPRITES
+        // supplies fixed VRAM bank 1, not the dynamically loaded item sheet.
+        FailIf(swordBeamData.Records.Any(record => record.Sprite != "spr_common_sprites" ||
+            record.TileBase != 0x38 || record.Palette != 4),
+            "ITEM_SWORD_BEAM $27 must render fixed-bank tiles $38/$3a with OBJ palettes 4/5.");
+        for (int direction = 0; direction < 4; direction++)
+        for (int palettePhase = 0; palettePhase < 2; palettePhase++)
+        {
+            Image image = swordBeamData.Texture(direction, palettePhase).GetImage();
+            bool hasOpaquePixel = false;
+            for (int y = 0; y < image.GetHeight() && !hasOpaquePixel; y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+                hasOpaquePixel |= image.GetPixel(x, y).A > 0.1f;
+            FailIf(
+                image.GetSize() != new Vector2I(32, 32) ||
+                !hasOpaquePixel,
+                $"Sword-beam direction {direction}/palette {palettePhase} did not render.");
+        }
+        OracleRoomData beamRoom = _world.LoadRoom(0, 0x00);
+        SwordBeamDatabaseRecord rightBeam = swordBeamData.Get(1);
+        Vector2 beamLinkPosition = Vector2.Zero;
+        bool foundBeamPath = false;
+        for (int y = 16; y < beamRoom.Height - 16 && !foundBeamPath; y++)
+        for (int x = 16; x < beamRoom.Width - 24; x++)
+        {
+            Vector2 candidate = new(x, y);
+            Vector2 origin = candidate + new Vector2(
+                rightBeam.OffsetX, rightBeam.OffsetY);
+            if (!beamRoom.IsSolid(origin) && !beamRoom.IsSolid(origin + Vector2.Right * 3))
+            {
+                beamLinkPosition = candidate;
+                foundBeamPath = true;
+                break;
+            }
+        }
+        FailIf(!foundBeamPath, "Could not find a clear sword-beam validation path.");
+        var beamSounds = new List<int>();
+        var beamSpawns = new List<RoomEntitySpawn>();
+        var beam = new SwordBeamEffect();
+        beam.Initialize(
+            swordBeamData, beamRoom, beamLinkPosition, 1,
+            static point => point, beamSounds.Add);
+        Vector2 initialBeamPosition = beamLinkPosition + new Vector2(
+            rightBeam.OffsetX, rightBeam.OffsetY);
+        beam.UpdateFrame(3, beamSpawns);
+        FailIf(
+            !beam.CollisionEnabled || beam.PrecisePosition != initialBeamPosition ||
+            beamSounds.Count != 1 || beamSounds[0] != SoundId.SndSwordBeam,
+            "Sword-beam state 0 offset, collision enable, or sound regressed.");
+        beam.UpdateFrame(4, beamSpawns);
+        FailIf(
+            beam.Finished || beam.PrecisePosition != initialBeamPosition + Vector2.Right * 3 ||
+            beam.PalettePhase != 1,
+            "Sword beam did not move at SPEED_300 or toggle palette on a four-update boundary.");
+        beam.OnEnemyCollision(beamSpawns);
+        FailIf(
+            !beam.Finished || beamSpawns.Count != 1 ||
+            beamSpawns[0] is not SwordBeamClinkSpawn { Position: var clinkPosition } ||
+            clinkPosition != beam.Position,
+            "Sword-beam collision did not create INTERAC_CLINK:$81 and delete the item.");
+        beam.Free();
+
+        var beamRoot = new Node();
+        using var beamFixture = RoomEntityValidationFixture.ForRoot(beamRoot);
+        RoomEntityManager beamManager = beamFixture.Manager;
+        beamManager.LoadRoom(0, beamRoom);
+        FailIf(
+            !beamManager.TrySpawnSwordBeam(beamLinkPosition, 1) ||
+            beamManager.TrySpawnSwordBeam(beamLinkPosition, 1) ||
+            beamManager.Entities<SwordBeamEffect>().Count != 1,
+            "ITEM_SWORD_BEAM did not retain its one-object cap.");
+        beamManager.Clear();
+        beamRoot.Free();
+
+        ulong[] ringBoxLayoutHashes = new ulong[3];
+        for (int level = 1; level <= 3; level++)
+        {
+            OracleSaveData layoutSave = OracleSaveData.CreateStandardGame();
+            layoutSave.WriteWramByte(AgesWramAddress.wRingBoxLevel, (byte)level);
+            var layoutInventory = new InventoryState(_treasures, layoutSave);
+            var layoutScreen = new RingMenuScreen
+            {
+                Name = $"RingBoxL{level}LayoutValidation"
+            };
+            AddChild(layoutScreen);
+            layoutScreen.Initialize(layoutInventory);
+            layoutScreen.Open(RingMenuMode.List);
+            ringBoxLayoutHashes[level - 1] = layoutScreen.BackgroundHashForValidation;
+            layoutScreen.Free();
+        }
+        ulong[] expectedRingBoxLayoutHashes =
+        [
+            0xe266f7d27924bb95UL,
+            0xf6a1e59462846015UL,
+            0x1a58a1235c7d5e95UL
+        ];
+        FailIf(
+            !ringBoxLayoutHashes.SequenceEqual(expectedRingBoxLayoutHashes),
+            "The source L-1/L-2/L-3 Ring Box substitutions no longer expose " +
+            $"their 1/3/5-slot layouts ({string.Join(", ",
+                ringBoxLayoutHashes.Select(hash => $"{hash:x16}"))}).");
+
+        _ringMenu.OpenImmediatelyForValidation(RingMenuMode.List, static () => { });
+        _ringMenuScreen.SetSelectingList(true);
+        FailIf(
+            _ringMenuScreen.BackgroundHashForValidation == 0 ||
+            _ringMenuScreen.ListCursorPositionForValidation != new Vector2(20, 46),
+            $"GFXH_APPRAISED_RING_LIST failed to build or used the wrong " +
+            $"upper cursor OAM position " +
+            $"(hash {_ringMenuScreen.BackgroundHashForValidation:x16}, " +
+            $"cursor {_ringMenuScreen.ListCursorPositionForValidation}).");
+        _ringMenuScreen.SetPageAndCursor(0, 8);
+        _ringMenuScreen.SetRingName("Power Ring L-1");
+        FailIf(
+            _ringMenuScreen.ListCursorPositionForValidation != new Vector2(20, 70) ||
+            _ringMenuScreen.DisplayedRingNameForValidation != "Power Ring L-1" ||
+            _ringMenuScreen.RingNamePositionForValidation != new Vector2(24, 88),
+            "The lower ring-list cursor or centered showItemText2 name line regressed.");
+
+        var ringDescriptionDialogue = new DialogueBox();
+        ringDescriptionDialogue.ShowPassiveMessage("Ring description", 0, 4);
+        FailIf(
+            ringDescriptionDialogue.Position != new Vector2(0, 104) ||
+            ringDescriptionDialogue.VisiblePanelHeight != 32,
+            "Ring-list text position 4 did not begin immediately below the " +
+            "y=88 name line or stop above the LCD-split bottom border.");
+        ringDescriptionDialogue.Free();
+        _ringMenuScreen.SetPageAndCursor(0, 0);
+        FailIf(
+            !_ringMenuScreen.BeginPageTransition(1, 0, 1),
+            "The ring list did not begin its rightward page scroll.");
+        for (int update = 1; update < RingMenuScreen.PageScrollUpdates; update++)
+        {
+            _ringMenuScreen.AdvanceAnimation(1.0 / 60.0, out bool completedEarly);
+            FailIf(
+                completedEarly || !_ringMenuScreen.PageTransitionActive ||
+                _ringMenuScreen.Page != 0,
+                "The ring-list page arrived before its original 19 movement updates.");
+        }
+        _ringMenuScreen.AdvanceAnimation(1.0 / 60.0, out bool completedScroll);
+        FailIf(
+            !completedScroll || _ringMenuScreen.PageTransitionActive ||
+            _ringMenuScreen.Page != 1 || _ringMenuScreen.ListCursor != 0,
+            "The ring-list page did not finish after 19 8-pixel updates.");
+        _ringMenu.CloseImmediatelyForValidation();
+
+        Vector2 hudPositionBeforeAppraisal = _hud.Position;
+        bool hudVisibleBeforeAppraisal = _hud.Visible;
+        _ringMenu.OpenImmediatelyForValidation(
+            RingMenuMode.Appraisal, static () => { });
+        FailIf(_dialogue.IsOpen,
+            "Appraisal initialization must clear the name strip without opening TX_3004 before its first normal dispatch.");
+        var appraisalPresentation = new ApplicationValidationFixture(this);
+        appraisalPresentation.Step(1, Vector2.Zero, [], [], false);
+        FailIf(
+            _ringMenuScreen.BackgroundSizeForValidation !=
+                new Vector2I(OracleRoomData.ViewportWidth, OracleRoomData.ScreenHeight) ||
+            !Mathf.IsZeroApprox(_ringMenuScreen.BackgroundAlphaForValidation(
+                new Vector2I(80, 8))) ||
+            Mathf.IsZeroApprox(_ringMenuScreen.BackgroundAlphaForValidation(
+                new Vector2I(80, 16))) ||
+            _hud.Position != Vector2.Zero ||
+            _hud.Visible != hudVisibleBeforeAppraisal ||
+            !_dialogue.IsOpen || _dialogue.Position != new Vector2(0, 96),
+            "GFXH_UNAPPRAISED_RING_LIST did not preserve the status bar at y=0-15, " +
+            "draw its full map at y=16-143, or place textbox position $02 at y=96.");
+        _ringMenu.CloseImmediatelyForValidation();
+        FailIf(
+            _hud.Position != hudPositionBeforeAppraisal ||
+            _hud.Visible != hudVisibleBeforeAppraisal,
+            "Ring appraisal mutated the global top-HUD placement or visibility.");
+
+        OracleSaveData appraisalSave = OracleSaveData.CreateStandardGame();
+        var appraisal = new InventoryState(_treasures, appraisalSave);
+        appraisal.AddRupees(100);
+        appraisal.GiveUnappraisedRing((int)RingId.PowerL1);
+        FailIf(
+            !appraisal.TryBeginRingAppraisal(0, 20, out int firstRing) ||
+            firstRing != (int)RingId.PowerL1 || appraisal.Rupees != 80 ||
+            appraisal.RingsAppraised != 1 || appraisal.UnappraisedRingAt(0) != firstRing,
+            "Paid appraisal did not debit 20 rupees, increment c6ce, and reveal bit 6.");
+        RingAppraisalResult first =
+            appraisal.CompleteRingAppraisal(0, 30);
+        FailIf(
+            first.Duplicate || first.Refund != 0 ||
+            !appraisal.HasAppraisedRing(firstRing) || appraisal.UnappraisedRingCount != 0,
+            "A newly appraised ring did not move from c5c0 into the c616 bitset.");
+        appraisal.GiveUnappraisedRing(firstRing);
+        FailIf(
+            !appraisal.TryBeginRingAppraisal(0, 20, out _) || appraisal.Rupees != 60,
+            "Duplicate appraisal did not charge 20 rupees.");
+        RingAppraisalResult duplicate =
+            appraisal.CompleteRingAppraisal(0, 30);
+        FailIf(
+            !duplicate.Duplicate || duplicate.Refund != 30 || appraisal.Rupees != 60,
+            "Duplicate appraisal did not defer its 30-rupee refund.");
+        appraisal.ApplyRingAppraisalRefund(duplicate.Refund);
+        FailIf(
+            appraisal.Rupees != 90 || appraisal.RingsAppraised != 2 ||
+            appraisalSave.ReadWramByte(AgesWramAddress.wNumRingsAppraised) != 2,
+            "Duplicate refund or wNumRingsAppraised persistence regressed.");
+
+        OracleSaveData boxSave = OracleSaveData.CreateStandardGame();
+        boxSave.WriteWramByte(AgesWramAddress.wRingBoxLevel, 2);
+        var box = new InventoryState(_treasures, boxSave);
+        box.GrantAppraisedRingForDebug((int)RingId.Red);
+        box.GrantAppraisedRingForDebug((int)RingId.Blue);
+        FailIf(
+            !box.SetRingBoxSlotFromList(0, (int)RingId.Red) ||
+            !box.SetRingBoxSlotFromList(1, (int)RingId.Red) ||
+            box.RingAt(0) != 0xff || box.RingAt(1) != (int)RingId.Red ||
+            !box.SetRingBoxSlotFromList(0, (int)RingId.Blue) ||
+            !box.EquipRingAt(0) || box.ActiveRing != (int)RingId.Blue ||
+            !box.SetRingBoxSlotFromList(0, (int)RingId.Blue) ||
+            box.RingAt(0) != 0xff || !box.DeactivateRingIfMissingFromBox() ||
+            box.ActiveRing != 0xff,
+            "Ring-list move/toggle uniqueness or active-ring cleanup regressed.");
+        box.SetRingBoxSlotFromList(2, (int)RingId.Blue);
+        box.EquipRingAt(2);
+        FailIf(
+            !OracleSaveData.TryDeserialize(boxSave.Serialize(), out OracleSaveData? restored) ||
+            new InventoryState(_treasures, restored!).ActiveRing != (int)RingId.Blue ||
+            !new InventoryState(_treasures, restored).HasAppraisedRing((int)RingId.Red),
+            "Ring list, box, and equipped selection did not survive save serialization.");
+
+        InventoryState Wearing(RingId ring)
+        {
+            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
+            save.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)ring);
+            var inventory = new InventoryState(_treasures, save);
+            FailIf(!inventory.EquipRingAt(0), $"Could not equip ring ${(int)ring:x2} for validation.");
+            return inventory;
+        }
+
+        (Player Player, ValidationRingPlayerWorld World) RingPlayer(
+            RingId ring,
+            int swordLevel = 0,
+            int health = 12,
+            int maxHealth = 12)
+        {
+            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
+            save.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)ring);
+            save.WriteWramByte(AgesWramAddress.wLinkHealth, (byte)health);
+            save.WriteWramByte(AgesWramAddress.wLinkMaxHealth, (byte)maxHealth);
+            save.WriteWramByte(AgesWramAddress.wSwordLevel, (byte)swordLevel);
+            var inventory = new InventoryState(_treasures, save);
+            FailIf(!inventory.EquipRingAt(0), $"Could not equip ring ${(int)ring:x2} for Player validation.");
+            ValidationRingPlayerWorld world = new ValidationRingPlayerWorld();
+            var player = new Player();
+            player.Initialize(world, inventory, new Vector2(80, 80), new OracleRandom());
+            return (player, world);
+        }
+
+        InventoryState friendship = Wearing(RingId.Friendship);
+        // linkApplyDamage retains w1Link.health's half-quarter between hits.
+        // The first Blue Ring hit is accepted even with no displayed HP loss;
+        // a room warp and health refill must not erase its fractional damage.
+        (Player fractionalPlayer, _) = RingPlayer(RingId.Blue);
+        FailIf(!fractionalPlayer.ApplyEnemyContactDamage(new(64, 80), 1) ||
+            fractionalPlayer.HealthQuarters != 12 || fractionalPlayer.InvincibilityFrames != 0x22,
+            "A half-quarter hit must retain damage and still apply contact recoil.");
+        fractionalPlayer._PhysicsProcess(1.0 / 60.0);
+        fractionalPlayer.WarpTo(new(80, 80));
+        fractionalPlayer.RefillHealth();
+        FailIf(!fractionalPlayer.ApplyEnemyContactDamage(new(64, 80), 1),
+            "The second half-quarter contact was rejected.");
+        fractionalPlayer._PhysicsProcess(1.0 / 60.0);
+        FailIf(fractionalPlayer.HealthQuarters != 11,
+            "Two half-quarter hits must subtract one quarter across a warp/refill.");
+        fractionalPlayer.Free();
+        FailIf(
+            RingEffects.BaseSwordDamage(1) != 2 || RingEffects.BaseSwordDamage(2) != 3 ||
+            RingEffects.BaseSwordDamage(3) != 5 ||
+            RingEffects.SwordDamage(Wearing(RingId.PowerL1), 1, 0xff) != 3 ||
+            RingEffects.SwordDamage(Wearing(RingId.PowerL2), 1, 0xff) != 4 ||
+            RingEffects.SwordDamage(Wearing(RingId.PowerL3), 1, 0xff) != 5 ||
+            RingEffects.SwordDamage(Wearing(RingId.ArmorL1), 1, 0xff) != 1 ||
+            RingEffects.SwordDamage(Wearing(RingId.Red), 1, 0xff) != 4 ||
+            RingEffects.SwordDamage(Wearing(RingId.Green), 1, 0xff) != 3 ||
+            RingEffects.SwordDamage(Wearing(RingId.Cursed), 1, 0xff) != 1 ||
+            RingEffects.SwordDamage(Wearing(RingId.DoubleEdged), 1, 0xff) != 10 ||
+            RingEffects.SwordDamage(Wearing(RingId.Whimsical), 1, 1) != 1 ||
+            RingEffects.SwordDamage(Wearing(RingId.Whimsical), 1, 0) != 12,
+            "Sword damage did not match commonCode2.s and sword.s ring arithmetic.");
+
+        FailIf(
+            RingEffects.IncomingDamageRaw(friendship, 4, RingDamageSource.Generic) != -8 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.PowerL1), 4, RingDamageSource.Generic) != -10 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.PowerL2), 4, RingDamageSource.Generic) != -12 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.PowerL3), 4, RingDamageSource.Generic) != -16 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.ArmorL1), 4, RingDamageSource.Generic) != -7 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.ArmorL2), 4, RingDamageSource.Generic) != -6 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.ArmorL3), 4, RingDamageSource.Generic) != -5 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Blue), 4, RingDamageSource.Generic) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Green), 4, RingDamageSource.Generic) != -6 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Cursed), 4, RingDamageSource.Generic) != -16 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Protection), 1, RingDamageSource.Generic) != -8,
+            "Incoming damage did not match linkUpdateDamageToApplyForRings.");
+
+        FailIf(
+            RingEffects.IncomingDamageRaw(Wearing(RingId.GreenLuck), 4, RingDamageSource.BladeTrap) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.BlueLuck), 4, RingDamageSource.Beam) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.GoldLuck), 4, RingDamageSource.Hole) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.RedLuck), 4, RingDamageSource.Spike) != -4 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.RedHoly), 4, RingDamageSource.OctorokProjectile) != 0 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.BlueHoly), 4, RingDamageSource.ZoraFire) != 0 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.GreenHoly), 4, RingDamageSource.Electric) != 0 ||
+            RingEffects.IncomingDamageRaw(Wearing(RingId.Bombproof), 4, RingDamageSource.OwnBomb) != 0,
+            "Luck/Holy/Bombproof source-specific protection table regressed.");
+
+        FailIf(
+            RingEffects.KnockbackFrames(Wearing(RingId.Steadfast), 40) != 20 ||
+            RingEffects.SwordChargeStep(Wearing(RingId.Charge)) != 4 ||
+            RingEffects.SwordSpinCounter(Wearing(RingId.Spin)) != 9 ||
+            RingEffects.SwordSpinFrames(Wearing(RingId.Spin), 23, 20) != 43 ||
+            !RingEffects.EnergyBeamOnCharge(Wearing(RingId.Energy)) ||
+            RingEffects.SwordBeamMaximumMissingQuarters(Wearing(RingId.LightL1)) != 8 ||
+            RingEffects.SwordBeamMaximumMissingQuarters(Wearing(RingId.LightL2)) != 12,
+            "Steadfast/Charge/Spin/Energy/Light ring policy regressed.");
+
+        FailIf(
+            RingEffects.BombDamage(4, Wearing(RingId.Blast)) != 6 ||
+            RingEffects.BoomerangDamage(1, Wearing(RingId.RangL1)) != 2 ||
+            RingEffects.BoomerangDamage(1, Wearing(RingId.RangL2)) != 3 ||
+            RingEffects.BombObjectLimit(Wearing(RingId.Bombers)) != 2 ||
+            RingEffects.BombsExplode(Wearing(RingId.Peace)) ||
+            RingEffects.MapleKillThreshold(Wearing(RingId.Maples)) != 15 ||
+            RingEffects.PegasusSeedTimerDecrement(Wearing(RingId.Pegasus)) != 1 ||
+            !RingEffects.UsesStrongThrow(Wearing(RingId.Toss)) ||
+            !RingEffects.UsesFastSwim(Wearing(RingId.Swimmers)),
+            "Blast/Rang/Bomber/Peace/Maple/Pegasus/Toss/Swimmer policy regressed.");
+
+        FailIf(
+            !RingEffects.IgnoresIce(Wearing(RingId.Snowshoe)) ||
+            !RingEffects.ProtectsCrackedFloor(Wearing(RingId.Rocs)) ||
+            !RingEffects.IgnoresQuicksand(Wearing(RingId.Quicksand)) ||
+            RingEffects.DropMultiplier(Wearing(RingId.RedJoy), RingDropKind.Rupee) != 2 ||
+            RingEffects.DropMultiplier(Wearing(RingId.BlueJoy), RingDropKind.Heart) != 2 ||
+            RingEffects.DropMultiplier(Wearing(RingId.GreenJoy), RingDropKind.Ore) != 2 ||
+            RingEffects.DropMultiplier(Wearing(RingId.GoldJoy), RingDropKind.Other) != 2 ||
+            !RingEffects.DetectsSoftSoil(Wearing(RingId.Discovery)),
+            "Terrain/Joy/Discovery ring policy regressed.");
+
+        FailIf(
+            RingEffects.LinkTransformation(Wearing(RingId.Octo)) != 5 ||
+            RingEffects.LinkTransformation(Wearing(RingId.Moblin)) != 6 ||
+            RingEffects.LinkTransformation(Wearing(RingId.LikeLike)) != 7 ||
+            RingEffects.LinkTransformation(Wearing(RingId.Subrosian)) != 3 ||
+            RingEffects.LinkTransformation(Wearing(RingId.FirstGen)) != 4 ||
+            !RingEffects.PreventsJinx(Wearing(RingId.Whisp)) ||
+            RingEffects.GashaKillCredits(Wearing(RingId.Gasha)) != 2 ||
+            !RingEffects.RemovesDiveTimer(Wearing(RingId.Zora)) ||
+            !RingEffects.CanPunch(Wearing(RingId.Fist), bothButtonsEmpty: true) ||
+            !RingEffects.CanPunch(Wearing(RingId.Experts), bothButtonsEmpty: true) ||
+            !RingEffects.UsesExpertPunch(Wearing(RingId.Experts)),
+            "Transformation/Whisp/Gasha/Zora/Fist/Expert ring policy regressed.");
+
+        Rect2[] expectedPunchHitboxes =
+        [
+            new(new Vector2(92, 83), new Vector2(10, 10)),
+            new(new Vector2(107, 95), new Vector2(10, 10)),
+            new(new Vector2(98, 107), new Vector2(10, 10)),
+            new(new Vector2(83, 95), new Vector2(10, 10))
+        ];
+        for (int direction = 0; direction < 4; direction++)
+        {
+            FailIf(
+                Player.GetSwordHitboxForValidation(
+                    new Vector2(100, 100), 24 + direction) !=
+                expectedPunchHitboxes[direction],
+                $"Punch collision arc ${24 + direction:x2} regressed.");
+        }
+
+        (Player fistPlayer, ValidationRingPlayerWorld fistWorld) =
+            RingPlayer(RingId.Fist);
+        fistPlayer.StartPunchActionForValidation(Vector2.Up);
+        FailIf(
+            !fistPlayer.IsUsingPunch || fistPlayer.SwordDamage != 1 ||
+            fistWorld.SwordHitCalls != 1 || fistWorld.LastSwordDamage != 1 ||
+            !fistWorld.Sounds.Contains(SoundId.SndStrike),
+            "Fist Ring did not begin its four-update, one-damage punch collision.");
+        fistPlayer.AdvancePunchForValidation(3);
+        FailIf(
+            fistWorld.SwordHitCalls != 4 || !fistPlayer.IsUsingPunch,
+            "Fist Ring punch collision duration regressed.");
+
+        (Player expertPlayer, ValidationRingPlayerWorld expertWorld) =
+            RingPlayer(RingId.Experts);
+        expertPlayer.StartPunchActionForValidation(Vector2.Right);
+        FailIf(
+            !expertPlayer.IsUsingPunch || expertPlayer.SwordDamage != 4 ||
+            expertWorld.ExpertTileHitCalls != 1 || expertWorld.SwordHitCalls != 1 ||
+            !expertWorld.Sounds.Contains(SoundId.SndExplosion),
+            "Expert's Ring did not apply source $03 tile breakage and four damage.");
+
+        (Player transformedPlayer, ValidationRingPlayerWorld transformedWorld) =
+            RingPlayer(RingId.Octo);
+        transformedPlayer.RefreshTransformationForValidation();
+        transformedPlayer.AdvanceTransformationForValidation(walking: true, frames: 2);
+        FailIf(
+            transformedPlayer.ActiveTransformation != 5 ||
+            transformedPlayer.TransformationFrame != 1,
+            "Octo Ring did not select SPECIALOBJECT_LINK_AS_OCTOROK or honor 2/6 timing.");
+        transformedWorld.RingTransformationsAllowed = false;
+        transformedPlayer.RefreshTransformationForValidation();
+        FailIf(
+            transformedPlayer.ActiveTransformation != 0,
+            "Transformation suppression did not restore ordinary Link.");
+
+        (Player fullBeamPlayer, ValidationRingPlayerWorld fullBeamWorld) =
+            RingPlayer(RingId.Friendship, swordLevel: 2);
+        fullBeamPlayer.Face(Vector2I.Up);
+        fullBeamPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        fullBeamPlayer.AdvanceSwordForValidation(6, buttonHeld: false);
+        FailIf(
+            fullBeamWorld.SwordBeamCalls != 1 ||
+            fullBeamWorld.LastSwordBeamDirection != 0,
+            "Level-2 sword did not create a full-health beam on swing marker bit 5.");
+
+        (Player hurtBeamPlayer, ValidationRingPlayerWorld hurtBeamWorld) =
+            RingPlayer(RingId.Friendship, swordLevel: 2, health: 11, maxHealth: 12);
+        hurtBeamPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        hurtBeamPlayer.AdvanceSwordForValidation(6, buttonHeld: false);
+        (Player lightBeamPlayer, ValidationRingPlayerWorld lightBeamWorld) =
+            RingPlayer(RingId.LightL1, swordLevel: 2, health: 12, maxHealth: 20);
+        lightBeamPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        lightBeamPlayer.AdvanceSwordForValidation(6, buttonHeld: false);
+        (Player weakSwordPlayer, ValidationRingPlayerWorld weakSwordWorld) =
+            RingPlayer(RingId.LightL2, swordLevel: 1, health: 12, maxHealth: 12);
+        weakSwordPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        weakSwordPlayer.AdvanceSwordForValidation(6, buttonHeld: false);
+        FailIf(
+            hurtBeamWorld.SwordBeamCalls != 0 || lightBeamWorld.SwordBeamCalls != 1 ||
+            weakSwordWorld.SwordBeamCalls != 0,
+            "Base/Light Ring health thresholds or the level-2 sword beam gate regressed.");
+
+        (Player energyPlayer, ValidationRingPlayerWorld energyWorld) =
+            RingPlayer(RingId.Energy, swordLevel: 1);
+        energyPlayer.StartSwordAttackForValidation(Vector2.Zero);
+        energyPlayer.AdvanceSwordForValidation(17, buttonHeld: true);
+        energyPlayer.AdvanceSwordForValidation(41, buttonHeld: true);
+        FailIf(
+            energyWorld.SwordBeamCalls != 1 ||
+            energyPlayer.SwordState != SwordActionState.Poke ||
+            energyWorld.Sounds.Contains(SoundId.SndChargeSword),
+            "Energy Ring did not replace completed charge with a beam and sword poke.");
+        foreach (Player validationPlayer in new[]
+        {
+            fistPlayer, expertPlayer, transformedPlayer, fullBeamPlayer,
+            hurtBeamPlayer, lightBeamPlayer, weakSwordPlayer, energyPlayer
+        })
+        {
+            validationPlayer.Free();
+        }
+
+        OracleSaveData slayerSave = OracleSaveData.CreateStandardGame();
+        slayerSave.WriteWramByte(AgesWramAddress.wTotalEnemiesKilled, 0xe7);
+        slayerSave.WriteWramByte(0xc621, 0x03);
+        var slayer = new InventoryState(_treasures, slayerSave);
+        slayer.RecordEnemyKill();
+        slayer.RecordEnemyKill();
+        OracleSaveData gashaSave = OracleSaveData.CreateStandardGame();
+        gashaSave.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
+        gashaSave.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)RingId.Gasha);
+        var gasha = new InventoryState(_treasures, gashaSave);
+        gasha.EquipRingAt(0);
+        gasha.RecordEnemyKill();
+        OracleSaveData wealthSave = OracleSaveData.CreateStandardGame();
+        wealthSave.WriteWramByte(AgesWramAddress.wTotalRupeesCollected, 0x99);
+        wealthSave.WriteWramByte(0xc628, 0x99);
+        var wealth = new InventoryState(_treasures, wealthSave);
+        wealth.AddRupees(1);
+        FailIf(
+            slayer.TotalEnemiesKilled != 1000 || !slayerSave.HasGlobalFlag(GlobalFlag.Flag1000EnemiesKilled) ||
+            slayerSave.ReadWramByte(AgesWramAddress.wMapleKillCounter) != 2 ||
+            slayerSave.ReadWramByte(AgesWramAddress.wGashaSpotKillCounters) != 2 || slayerSave.GashaMaturity != 6 ||
+            gashaSave.ReadWramByte(AgesWramAddress.wMapleKillCounter) != 1 ||
+            Enumerable.Range(0, 0x10).Any(
+                spot => gashaSave.ReadWramByte(0xc64f + spot) != 2) ||
+            gashaSave.GashaMaturity != 3 ||
+            wealth.TotalRupeesCollected != 6363 || !wealthSave.HasGlobalFlag(GlobalFlag.Flag10000RupeesCollected),
+            "Slayer/Rupee awards or Maple/Gasha enemy counters regressed.");
+
+        GD.Print("Validated all 64 ring IDs, appraisal/list/box/equip persistence, " +
+            "L-1/L-2/L-3 slot substitutions, LCD-split selection/name/" +
+            "bottom-border rows, " +
+            "cleared name-buffer tiles, centered name text, source OAM cursor rows, " +
+            "damage arithmetic, protections, native punches/transformations/sword beams, " +
+            "movement/item/drop policies, and Vasu/Maple/Gasha award counters.");
+    }
+}

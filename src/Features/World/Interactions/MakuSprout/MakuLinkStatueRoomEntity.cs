@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Native Link statue $6b:$0e and its finished-game $15 placement.
@@ -19,11 +19,11 @@ internal sealed class MakuLinkStatueRoomEntity
     internal MakuLinkStatueRoomEntity(NpcCharacter npc, MakuSproutRoomDatabase database, OracleRoomData room,
         OracleSaveData save, Func<long> animationTick, Func<Color[]> paletteLoader) : base(npc, npc.SetTransitionDrawOffset)
     {
-        if (npc.Record is not { Id: InteractionId.Miscellaneous1, SubId: 0x15 })
+        if (npc.Record is not { Id: AgesInteractionId.Miscellaneous1, SubId: 0x15 })
             throw new InvalidOperationException("Finished-game Link statue requires INTERAC $6b:$15.");
         npc.Visible = false;
         _initializeNative = () => {
-            if (!save.HasGlobalFlag(GlobalFlag.FinishedGame)) { Finished = true; return; }
+            if (!save.HasGlobalFlag(AgesGlobalFlag.FinishedGame)) { Finished = true; return; }
             byte tile = room.GetMetatile(npc.Position);
             room.SetPositionTileAndCollision(npc.Position, tile, (byte)database.Record.StatueCollision, animationTick());
             npc.SetScriptPaletteOverride(paletteLoader());
@@ -44,7 +44,7 @@ internal sealed class MakuLinkStatueRoomEntity
         MakuSproutRoomRecord record = database.Record;
         if(nativePaletteLoader is not null)
         {
-            if(npc.Record is not {Id:InteractionId.Miscellaneous1,SubId:0x0e})
+            if(npc.Record is not {Id:AgesInteractionId.Miscellaneous1,SubId:0x0e})
                 throw new InvalidOperationException("Native Link statue requires INTERAC $6b:$0e.");
             _initializeNative=()=>
             {
@@ -60,7 +60,7 @@ internal sealed class MakuLinkStatueRoomEntity
             {
                 Group: 1,
                 Room: 0x38,
-                Id: InteractionId.Miscellaneous1,
+                Id: AgesInteractionId.Miscellaneous1,
                 SubId: 0x15,
                 Y: 0x40,
                 X: 0x84

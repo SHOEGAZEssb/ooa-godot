@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// The placed subid-$00-$02 form of ENEMY_FLYING_TILE. It owns the original

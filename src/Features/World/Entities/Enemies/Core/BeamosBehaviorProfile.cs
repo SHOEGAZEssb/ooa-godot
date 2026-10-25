@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Source operands for ENEMY_BEAMOS $16 and PART_BEAM $29.</summary>
 internal sealed class BeamosBehaviorProfile(

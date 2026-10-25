@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed runtime view of non-side-view Flippers/Mermaid linkUpdateSwimming,
@@ -47,7 +47,7 @@ internal sealed class TopDownSwimmingDatabase
     private TopDownSwimmingDatabase()
     {
         GeneratedTable constantTable = GeneratedTable.Load(
-            "res://assets/oracle/metadata/top_down_swim_constants.tsv",
+            AgesGameContent.AssetRoot + "metadata/top_down_swim_constants.tsv",
             new GeneratedTableSchema(
                 "top-down Link swimming constants",
                 GeneratedTableKeySemantics.Unique,
@@ -58,7 +58,7 @@ internal sealed class TopDownSwimmingDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
         GeneratedTable frameTable = GeneratedTable.Load(
-            "res://assets/oracle/metadata/top_down_swim_frames.tsv",
+            AgesGameContent.AssetRoot + "metadata/top_down_swim_frames.tsv",
             new GeneratedTableSchema(
                 "top-down Link swimming frames",
                 GeneratedTableKeySemantics.Unique,
@@ -85,7 +85,7 @@ internal sealed class TopDownSwimmingDatabase
         }
 
         GeneratedTable diveFrameTable = GeneratedTable.Load(
-            "res://assets/oracle/metadata/top_down_dive_frames.tsv",
+            AgesGameContent.AssetRoot + "metadata/top_down_dive_frames.tsv",
             new GeneratedTableSchema(
                 "top-down Link diving frames",
                 GeneratedTableKeySemantics.Unique,

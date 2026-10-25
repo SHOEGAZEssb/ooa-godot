@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_PICKAXE_WORKER $57:$03.</summary>
 internal sealed class BlackTowerPickaxeWorkerRoomEntity : BlackTowerNpcRoomEntity,

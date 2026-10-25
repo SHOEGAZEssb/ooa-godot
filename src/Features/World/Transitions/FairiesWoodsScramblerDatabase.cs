@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported bank1.screenTransitionForestScrambler destinations. A zero entry
@@ -15,7 +15,7 @@ internal sealed class FairiesWoodsScramblerDatabase
     internal FairiesWoodsScramblerDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/cutscenes/fairies_woods_scrambler.tsv",
+            AgesGameContent.AssetRoot + "cutscenes/fairies_woods_scrambler.tsv",
             new GeneratedTableSchema(
                 "Fairies' Woods screen scrambler",
                 GeneratedTableKeySemantics.Unique,

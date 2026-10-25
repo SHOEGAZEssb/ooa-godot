@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BlackTowerFlameDatabase
 {
@@ -11,7 +11,7 @@ internal sealed class BlackTowerFlameDatabase
     internal int Damage { get; }
     internal BlackTowerFlameDatabase()
     {
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/black_tower_flames.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/black_tower_flames.tsv",
             new("PART $59 routes", GeneratedTableKeySemantics.Unique, ["subid", "delay", "route", "source"], ["subid"], headerRequired: true)).Rows)
         {
             int subid = row.HexByte(0);
@@ -22,7 +22,7 @@ internal sealed class BlackTowerFlameDatabase
         }
         for (int i = 0; i < 4; i++)
             if (_routes[i] is null) throw new InvalidOperationException($"kingMoblinMinionMain.s: missing PART $59:${i:x2} route.");
-        var visual = GeneratedTable.Load("res://assets/oracle/effects/black_tower_flame.tsv",
+        var visual = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/black_tower_flame.tsv",
             new("PART $59 visual", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "radius", "damage-quarters", "source-grayscale-inverted", "animation", "source"], ["sprite"], headerRequired: true)).SingleRow();
         Visual = new("black-tower-flame", [visual.RequiredString(0)], visual.Decimal(1), visual.Decimal(2), visual.Boolean01(5), [visual.RequiredString(6)]);

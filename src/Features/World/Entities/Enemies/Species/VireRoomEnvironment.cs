@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed record VireRoomEnvironment(
     Action<bool> InitializeBossRoom, Action BeginBattle, Action DisableLinkCollisionsAndMenu,

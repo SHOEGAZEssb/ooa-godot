@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $24:$x0/$x1 never leaves state0; enabled bit 1 deletes before writing.
 internal sealed partial class SwitchTriggerTranslatorRoomEntity(DungeonObjectRecord record,
@@ -26,8 +26,8 @@ internal sealed partial class SwitchTriggerTranslatorRoomEntity(DungeonObjectRec
         if (isOutgoing(this)) { Finished = true; return; }
         int bit = (record.SubId >> 4) & 7;
         int address = (record.SubId & 15) switch {
-            0 => OracleRuntimeState.ToggleBlocksStateAddress,
-            1 => OracleRuntimeState.SwitchStateAddress,
+            0 => AgesGameContent.ToggleBlocksStateAddress,
+            1 => AgesGameContent.SwitchStateAddress,
             _ => throw new InvalidOperationException($"{record.Source}: unsupported translator $24:${record.SubId:x2}.") };
         setTrigger(bit, (runtime.ReadWramByte(address) & (1 << bit)) != 0);
     }

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Ages wStaticObjects ($cd80-$cdbf) plus the active SPECIALOBJECT_MINECART

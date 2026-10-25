@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>PART_BEAM $29: a separately allocated segment, not a continuous ray.</summary>
 internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
@@ -33,7 +33,7 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
         Angle = spawn.Angle;
         SubId = spawn.SubId;
         _animation = new EnemyAnimationPlayer(this, data.Animations.Length);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{data.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{data.Sprite}.png"),
             data.Animations, data.TileBase, data.Palette);
         _animation.SetAnimation(0);
         Visible = false;

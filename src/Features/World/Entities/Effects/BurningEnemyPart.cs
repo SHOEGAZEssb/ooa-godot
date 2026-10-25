@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal partial class BurningEnemyPart : TransitionOffsetNode2D
 {
@@ -18,7 +18,7 @@ internal partial class BurningEnemyPart : TransitionOffsetNode2D
     internal void Initialize(IBurningEnemyTarget target)
     {
         _target = target;
-        var table = GeneratedTable.Load("res://assets/oracle/effects/burning_enemy.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/burning_enemy.tsv",
             new GeneratedTableSchema("PART_BURNING_ENEMY $12", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "frames", "gravity", "animation", "source"], ["source"], headerRequired: true));
         if (table.Rows.Count != 1) throw new System.InvalidOperationException("Expected one PART_BURNING_ENEMY $12 row.");
@@ -26,7 +26,7 @@ internal partial class BurningEnemyPart : TransitionOffsetNode2D
         Counter = row.UnsignedDecimal(3);
         _gravity = row.UnsignedDecimal(4);
         _animation = new EnemyAnimationPlayer(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{row.RequiredString(0)}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{row.RequiredString(0)}.png"),
             [row.RequiredString(5)], row.UnsignedDecimal(1), row.UnsignedDecimal(2));
         _animation.SetAnimation(0);
         Visible = false;

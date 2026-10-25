@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal partial class SpikedBallPart : TransitionOffsetNode2D
 {
@@ -35,7 +35,7 @@ internal partial class SpikedBallPart : TransitionOffsetNode2D
             throw new ArgumentException("PART_SPIKED_BALL $2a requires head0 or linked chain1..3.");
         _soldier = soldier; _head = head; SubId = subid; _visual = visual;
         _animation = new(this, visual.Animations.Length);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{visual.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
             visual.Animations, visual.TileBase, visual.Palette);
         _animation.SetAnimation(0);
         Visible = false;

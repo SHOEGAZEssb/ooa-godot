@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal readonly record struct ActiveCollisionModeSet(int Mask)
 {

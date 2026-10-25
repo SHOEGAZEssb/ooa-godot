@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Native INTERAC $6d introduction and $6e rescue actors execute at their
 // own live INTERACTION slots. cfd0 belongs to the shared WRAM owner.
@@ -197,8 +197,8 @@ internal sealed class PalacePossessionRoomEntity : CutsceneCommandHost, IRoomEnt
     private void Finish() { Finished=true; _actor.SetActive(false); }
     private void SetControl(bool disabled)
     {
-        _owner.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,disabled?(byte)1:(byte)0);
-        _owner.RuntimeState.SetWramByte(WramAddress.wMenuDisabled,disabled?(byte)1:(byte)0);
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,disabled?(byte)1:(byte)0);
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled,disabled?(byte)1:(byte)0);
     }
     private void Show(int id) => _owner.OnRoomEntityDialogueRequested(id,_data.Text(id),Node.Position);
     public override bool HasActorBinding(CutsceneActorId actor) => actor.Value=="Actor";

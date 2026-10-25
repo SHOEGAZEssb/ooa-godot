@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // commonCode1.s:itemUpdateThrowingVertically. State lives with the item; the
 // helper returns the contact and effect for its caller's deletion policy.

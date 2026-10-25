@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class NpcDatabase
 {
@@ -18,7 +18,7 @@ public sealed class NpcDatabase
     public NpcDatabase()
     {
         GeneratedTable npcs = GeneratedTable.Load(
-            "res://assets/oracle/objects/npcs.tsv",
+            AgesGameContent.AssetRoot + "objects/npcs.tsv",
             new GeneratedTableSchema(
                 "room NPCs",
                 GeneratedTableKeySemantics.Grouped,
@@ -39,7 +39,7 @@ public sealed class NpcDatabase
         }
 
         GeneratedTable family = GeneratedTable.Load(
-            "res://assets/oracle/objects/bipin_blossom_family.tsv",
+            AgesGameContent.AssetRoot + "objects/bipin_blossom_family.tsv",
             new GeneratedTableSchema(
                 "Bipin and Blossom family NPCs",
                 GeneratedTableKeySemantics.Grouped,

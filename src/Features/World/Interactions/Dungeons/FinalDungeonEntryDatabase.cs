@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FinalDungeonEntryDatabase
 {
@@ -16,7 +16,7 @@ internal sealed class FinalDungeonEntryDatabase
     internal DungeonInteractionVisual Decoration { get; }
     internal FinalDungeonEntryDatabase()
     {
-        const string root = "res://assets/oracle/objects/final_dungeon_";
+        const string root = AgesGameContent.AssetRoot + "objects/final_dungeon_";
         var row = GeneratedTable.Load(root + "entry.tsv", new("final dungeon entry",
             GeneratedTableKeySemantics.Unique,
             ["flag", "wait-updates", "reveal-delay", "fade-delay", "y", "x", "source"], ["flag"], headerRequired: true)).Rows.Single();

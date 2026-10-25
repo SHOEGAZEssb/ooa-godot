@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Owns the live w1Companion slot and the remembered-companion room fields.
@@ -30,8 +30,8 @@ internal static class CompanionRuntimeState
     private const int RememberedX = 0xcc28;
 
     // Ages wDisallowMountingCompanion. The interaction owns its countdown.
-    internal static bool MountingDisabled(OracleRuntimeState state) => state.ReadWramByte(WramAddress.wDisallowMountingCompanion) != 0;
-    internal static void SetMountingLock(OracleRuntimeState state, int frames) => state.SetWramByte(WramAddress.wDisallowMountingCompanion, checked((byte)frames));
+    internal static bool MountingDisabled(OracleRuntimeState state) => state.ReadWramByte(AgesWramAddress.wDisallowMountingCompanion) != 0;
+    internal static void SetMountingLock(OracleRuntimeState state, int frames) => state.SetWramByte(AgesWramAddress.wDisallowMountingCompanion, checked((byte)frames));
 
     internal static bool IsActive(OracleRuntimeState state, int id) =>
         state.ReadWramByte(Active) != 0 &&

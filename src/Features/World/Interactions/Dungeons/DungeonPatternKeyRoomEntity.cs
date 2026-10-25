@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_DUNGEON_EVENTS $21:$01/$05/$10.</summary>
 internal sealed partial class DungeonPatternKeyRoomEntity : Node2D,

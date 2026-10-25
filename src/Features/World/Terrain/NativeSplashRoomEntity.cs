@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // breakTileDebris.s subid00 sets enabled bit$80 during state0. The shared
 // interaction walk admits it under text, DISABLE_INTERACTIONS $02 and scroll

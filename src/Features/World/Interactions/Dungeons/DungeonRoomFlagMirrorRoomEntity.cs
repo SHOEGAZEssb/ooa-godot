@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // These native handlers retain state0: text, object masks and scrolling admit
 // them. Outgoing deletion must precede sampling the current room's flags.

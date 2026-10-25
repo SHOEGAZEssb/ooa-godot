@@ -8,7 +8,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class GeneratedTable
 {
@@ -39,11 +39,7 @@ internal sealed class GeneratedTable
 
     private static GeneratedTable LoadUncached(string path, GeneratedTableSchema schema)
     {
-        if (!path.StartsWith("res://assets/oracle/", StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                $"Generated table '{path}' is outside res://assets/oracle/.", nameof(path));
-        }
+        _ = OracleAssetPack.RootFor(path);
         if (!FileAccess.FileExists(path))
             throw new InvalidOperationException($"Generated table '{path}' does not exist.");
 

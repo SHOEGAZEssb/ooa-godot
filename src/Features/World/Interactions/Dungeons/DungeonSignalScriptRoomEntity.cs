@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC$20's signal scripts preserve command carry and initialization.
 // Bridge allocation is intentionally one attempt after flag/sound publication.
@@ -54,7 +54,7 @@ internal sealed partial class DungeonSignalScriptRoomEntity(DungeonSignalScriptP
             // checkflagset advances with carry set, so ASM15 and scriptend
             // execute in the SAME eligible update, unlike checkmemoryeq.
             int signal = profile.Kind == DungeonSignalScriptKind.TriggerBridge ? triggers()
-                : runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress);
+                : runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress);
             if ((signal & profile.TestMask) != profile.TestMask) return;
             setRoomFlag(); sound(SoundId.SndSolvePuzzle);
             _=createBridge(new(profile.Position,profile.HalfSteps,profile.Angle));

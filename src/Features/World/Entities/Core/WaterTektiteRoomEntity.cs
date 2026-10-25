@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class WaterTektiteRoomEntity : CombatEnemyRoomEntityAdapter<WaterTektiteCharacter>,
     IFixedRoomEntity, IScreenTransitionPreloadRoomEntity, IBoomerangCollisionRoomEntity,

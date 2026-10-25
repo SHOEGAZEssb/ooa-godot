@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// MENU_INVENTORY and MENU_SAVEQUIT-specific behavior. Their common

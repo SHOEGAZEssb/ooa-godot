@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
 {

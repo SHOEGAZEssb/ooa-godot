@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class NpcRoomEntity(NpcCharacter npc, bool initializeStoryOnce = false,
     bool animateBeforeDialogue = false, bool deleteIfInactiveOnInitialization = false)

@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Fixed interaction slot for a family actor's script and collision.</summary>
 internal sealed class FamilyNpcRoomEntity(NpcCharacter npc)

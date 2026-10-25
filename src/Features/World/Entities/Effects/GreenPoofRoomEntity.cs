@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_GREENPOOF $02:$00 uses breakTileDebris.s, with its always-update
 // bit, silent ID-table cue and fixed visible80 priority.

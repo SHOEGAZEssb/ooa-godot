@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // introSprites1.s:$4a:$09/$0a and cf.s. Coordinates remain world bytes;
 // the fullscreen OAM owner projects through the authoritative camera.
@@ -35,7 +35,7 @@ internal sealed class CreditsSceneActorRoomEntity(RoomEventContext context,Black
         {
             State=1;var record=data.ActorRecord(id,subid);
             _animation=new(Node,1);
-            _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{record.SpriteName}.png"),
+            _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{record.SpriteName}.png"),
                 [record.UpAnimation],record.TileBase-(id==0x4a?0x60:0),record.Palette,positionedOam:true);
             _animation.SetAnimation(0);
             if(id==0x4a&&subid==10)

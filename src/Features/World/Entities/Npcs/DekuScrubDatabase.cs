@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Source animations used by INTERAC_DEKU_SCRUB $d6:$00.</summary>
 internal sealed class DekuScrubDatabase
@@ -11,7 +11,7 @@ internal sealed class DekuScrubDatabase
     public DekuScrubDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/deku_scrub_animations.tsv",
+            AgesGameContent.AssetRoot + "objects/deku_scrub_animations.tsv",
             new GeneratedTableSchema(
                 "Deku Scrub $d6:$00 animations",
                 GeneratedTableKeySemantics.Unique,

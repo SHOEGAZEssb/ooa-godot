@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class KingMoblinBombRoomEntity(KingMoblinBomb actor)
     : RoomEntityAdapter<KingMoblinBomb>(actor,actor.SetTransitionDrawOffset), IFixedRoomEntity, IRoomEntityLifetime, IBraceletInteractableRoomEntity, IBraceletChildRoomEntity, IPostObjectLinkContactRoomEntity

@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_ESSENCE $7f:$02 in reserved interaction $d1.</summary>
 internal sealed partial class DungeonEssenceGlow : TransitionOffsetNode2D,

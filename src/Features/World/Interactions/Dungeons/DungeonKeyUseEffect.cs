@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_DUNGEON_KEY_SPRITE $17, small-key subid $00 or boss-key subid $01.
@@ -37,7 +37,7 @@ internal partial class DungeonKeyUseEffect : FixedEffectNode2D
         Visible = false;
         Position = position;
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
         bool validSmallKey = visual.Graphic == 0x42 && visual.TileBase == 0x0c;
@@ -48,7 +48,7 @@ internal partial class DungeonKeyUseEffect : FixedEffectNode2D
             throw new System.InvalidOperationException(
                 "INTERAC_DUNGEON_KEY_SPRITE visual no longer matches treasure graphic $42/$43.");
         }
-        (_texture, _textureOffset) = NpcCharacter.BuildPositionedOamTexture(
+        (_texture, _textureOffset) = OracleOamCompositor.BuildPositionedOamTexture(
             source,
             definition.Frames[0].EncodedOam,
             visual.TileBase,

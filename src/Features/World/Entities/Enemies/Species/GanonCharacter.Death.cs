@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class GanonCharacter
 {
@@ -11,7 +11,7 @@ internal sealed partial class GanonCharacter
         // contact signal cleared after Link and any active recoil/invincibility.
         if(!frame.Player.NativePuzzleResetVulnerable||frame.Player.NativeContactSignal)return;
         Health=0x40;State=0x0e;Substate=0;Counter=120;
-        World.Entities.RuntimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,1);
+        World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,1);
         World.Entities.OnSoundRequested(SoundId.SndBossDead);RestartAnimation(14);
         World.Defeated();
         World.Entities.OnSoundRequested(SoundId.SndCtrlStopMusic);
@@ -38,7 +38,7 @@ internal sealed partial class GanonCharacter
                 World.ReloadArena(0);World.Fade(false,2,false);return;
             case 3:
                 if(World.Entities.PaletteFadeActiveSource()||Dec()!=0)return;
-                World.Entities.RuntimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,0);
+                World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,0);
                 Finish();return;
             default:throw new NotSupportedException($"ganon_stateE: substate${Substate:x2}.");
         }

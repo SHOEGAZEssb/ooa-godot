@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BeamosBeamRoomEntity(BeamosBeamPart beam)
     : RoomEntityAdapter<BeamosBeamPart>(beam, beam.SetTransitionDrawOffset), IFixedRoomEntity,

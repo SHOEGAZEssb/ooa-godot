@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class KeyholeControllerDatabase
 {
@@ -11,7 +11,7 @@ internal sealed class KeyholeControllerDatabase
     internal KeyholeControllerDatabase()
     {
         foreach (GeneratedTableRow row in GeneratedTable.Load(
-            "res://assets/oracle/cutscenes/keyhole_controllers.tsv",
+            AgesGameContent.AssetRoot + "cutscenes/keyhole_controllers.tsv",
             new GeneratedTableSchema("placed keyhole controllers", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "order", "id", "subid", "x", "y", "source"],
                 ["group", "room"], headerRequired: true)).Rows)

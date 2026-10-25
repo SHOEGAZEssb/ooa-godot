@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/nayruRalphCredits.s:$df, independently ordered signal/RNG producers.
 internal sealed class NayruRalphCreditsRoomEntity(RoomEventContext context,BlackTowerEndingDatabase data,int subid,Vector2 position) :

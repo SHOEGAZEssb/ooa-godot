@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed runtime view of special objects $02-$07: baby Link and the five
@@ -24,7 +24,7 @@ internal sealed class TransformedLinkDatabase
         _textures = new();
 
     internal TransformedLinkDatabase(
-        string path = "res://assets/oracle/metadata/transformed_link.tsv")
+        string path = AgesGameContent.AssetRoot + "metadata/transformed_link.tsv")
     {
         GeneratedTable table = GeneratedTable.Load(
             path,
@@ -72,7 +72,7 @@ internal sealed class TransformedLinkDatabase
                     $"Missing transformed-Link frame {specialObject:x2}:{direction}:{frame}.");
             }
         }
-        var baby = GeneratedTable.Load("res://assets/oracle/metadata/baby_link.tsv",
+        var baby = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/baby_link.tsv",
             new GeneratedTableSchema("Baby Link behavior", GeneratedTableKeySemantics.Ordered,
                 ["duration", "speed-shift", "step-parameter", "source"], headerRequired: true));
         if (baby.Rows.Count != 1) throw new InvalidOperationException("Baby Link requires one native behavior profile.");
@@ -102,10 +102,10 @@ internal sealed class TransformedLinkDatabase
         if (!_images.TryGetValue(record.Sprite, out Image? image))
         {
             image = OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{record.Sprite}.png");
+                AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
             _images.Add(record.Sprite, image);
         }
-        texture = NpcCharacter.BuildOamTexture(
+        texture = OracleOamCompositor.BuildOamTexture(
             image,
             record.Oam,
             record.TileBase,

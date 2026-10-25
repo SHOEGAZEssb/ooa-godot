@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 public partial class Player
 {

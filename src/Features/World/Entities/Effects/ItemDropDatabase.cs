@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class ItemDropDatabase
 {
@@ -31,7 +31,7 @@ public sealed class ItemDropDatabase
 
     public ItemDropDatabase()
     {
-        _selectionData = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/itemDrops.bin");
+        _selectionData = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/itemDrops.bin");
         if (_selectionData.Length != SelectionDataSize)
         {
             throw new InvalidOperationException(
@@ -39,7 +39,7 @@ public sealed class ItemDropDatabase
         }
 
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/item_drops.tsv",
+            AgesGameContent.AssetRoot + "effects/item_drops.tsv",
             new GeneratedTableSchema(
                 "item-drop visuals",
                 GeneratedTableKeySemantics.Unique,

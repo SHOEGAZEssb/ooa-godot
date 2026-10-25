@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_EXPLOSION $56; var03 selects its fixed draw priority.
@@ -40,7 +40,7 @@ internal sealed partial class InteractionExplosionEffect : FixedEffectNode2D
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{visual.Sprite}.png"),
+                AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
             [visual.Animation],
             visual.TileBase,
             visual.Palette);

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Common PART_SWITCH $05 handler. The tile supplies the visible switch; this
@@ -186,10 +186,10 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     private void Toggle()
     {
         byte switchState = _runtime.ReadWramByte(
-            OracleRuntimeState.SwitchStateAddress);
+            AgesGameContent.SwitchStateAddress);
         switchState ^= (byte)SwitchMask;
         _runtime.SetWramByte(
-            OracleRuntimeState.SwitchStateAddress, switchState);
+            AgesGameContent.SwitchStateAddress, switchState);
         if (_record.Group == 0)
         {
             // switch.s writes the visible $9e tile, then clears only the

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported native presentation state for the three petrified rabbits in
@@ -15,7 +15,7 @@ internal sealed class StoneRabbitDatabase
     public StoneRabbitDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/stone_rabbit.tsv",
+            AgesGameContent.AssetRoot + "objects/stone_rabbit.tsv",
             new GeneratedTableSchema(
                 "room 1:84 stone rabbit",
                 GeneratedTableKeySemantics.Unique,
@@ -56,7 +56,7 @@ internal sealed class StoneRabbitDatabase
 
         // PALH_a2: preserve color zero's RGB beneath its transparent alpha.
         StonePalette = OracleGraphicsData.LoadPaletteColors(
-            "res://assets/oracle/cutscenes/nayru_stone_sprite_palette.bin");
+            AgesGameContent.AssetRoot + "cutscenes/nayru_stone_sprite_palette.bin");
         StonePalette[0].A = 0.0f;
     }
 

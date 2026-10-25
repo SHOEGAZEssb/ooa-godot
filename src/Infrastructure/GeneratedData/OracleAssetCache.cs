@@ -4,7 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Immutable packaged inputs are retained for the session. Mutable room layouts
 // and palette buffers always receive their own copy.
@@ -16,8 +16,7 @@ internal static class OracleAssetCache
 
     private static byte[] ReadShared(string path)
     {
-        if (!path.StartsWith("res://assets/oracle/", StringComparison.Ordinal))
-            throw new ArgumentException($"Not a generated asset: {path}.", nameof(path));
+        _ = OracleAssetPack.RootFor(path);
         return Bytes.GetOrAdd(path, static key => new Lazy<byte[]>(() =>
         {
             if (!FileAccess.FileExists(key))
@@ -27,10 +26,12 @@ internal static class OracleAssetCache
     }
 
     // Only file I/O and managed data run here; no nodes, images or GPU resources.
-    internal static string[] Preload(CancellationToken cancellation)
+    internal static string[] Preload(string root, CancellationToken cancellation)
     {
+        if (OracleAssetPack.RootFor(root + "preload") != root)
+            throw new ArgumentException($"Preload requires a pack root: {root}.", nameof(root));
         var images = new HashSet<string>(StringComparer.Ordinal);
-        Visit("res://assets/oracle/");
+        Visit(root);
         var orderedImages = new List<string>(images);
         orderedImages.Sort(StringComparer.Ordinal);
         return orderedImages.ToArray();

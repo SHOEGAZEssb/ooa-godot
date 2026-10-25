@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
 {
@@ -38,7 +38,7 @@ internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
         Position = position;
         _zFixed = zHigh << 8;
         _animation = new EnemyAnimationPlayer(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{record.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png"),
             [record.Animation], record.TileBase, record.Palette);
         _animation.SetAnimation(0);
         Visible = false;

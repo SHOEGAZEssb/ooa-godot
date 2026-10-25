@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_SOLDIER $40:$0c.</summary>
 internal sealed class BlackTowerSoldierRoomEntity : BlackTowerNpcRoomEntity,

@@ -1,4 +1,4 @@
-using OracleOfAges.Importer;
+using Oracles.Importer;
 using System.Text;
 
 string temporaryRoot = Path.Combine(
@@ -8,8 +8,8 @@ Directory.CreateDirectory(temporaryRoot);
 try
 {
     RunSourceModelTests(temporaryRoot);
-    OracleOfAges.Importer.Tests.AssemblySourceRangeTests.Run(temporaryRoot);
-    OracleOfAges.Importer.Tests.ImportCacheTests.Run(temporaryRoot);
+    Oracles.Importer.Tests.AssemblySourceRangeTests.Run(temporaryRoot);
+    Oracles.Importer.Tests.ImportCacheTests.Run(temporaryRoot);
     RunManifestTests(temporaryRoot);
     GeneratedGrayscalePngTests.Run(temporaryRoot);
     RunImporterBoundaryTests();
@@ -216,7 +216,9 @@ static void RunImporterBoundaryTests()
     string[] stagePaths = Directory.GetFiles(
         importerRoot,
         "*.ps1",
-        SearchOption.TopDirectoryOnly);
+        SearchOption.AllDirectories);
+    Assert(stagePaths.Any(path => Path.GetFileName(path) == "Import-EnemyData.ps1"),
+        "importer boundary scan omitted the game-specific stage directories");
     foreach (string path in stagePaths)
     {
         string source = File.ReadAllText(path);
@@ -249,7 +251,7 @@ static void RunImporterBoundaryTests()
 static void RunBallAndChainSourceContractTests()
 {
     string stage = Path.Combine(Environment.CurrentDirectory,
-        "tools", "import_oracles", "Import-EnemyData.ps1");
+        "tools", "import_oracles", "Ages", "Import-EnemyData.ps1");
     string pattern = File.ReadLines(stage).Single(line =>
         line.TrimStart().StartsWith("'ballAndChain_spawnSpikedBall:", StringComparison.Ordinal))
         .Trim().Trim('\'');

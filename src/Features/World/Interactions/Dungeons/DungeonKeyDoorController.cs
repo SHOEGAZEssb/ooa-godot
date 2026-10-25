@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Implements nextToKeyBlock for imported dungeon tile $1e and nextToKeyDoor

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ENEMY_PINCER $45: spawner, head, and three independently dispatched body slots.</summary>
 internal sealed partial class PincerCharacter : EnemyCharacter,ITerrainShadowSource

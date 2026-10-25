@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Common ecom_getAdjacentWallsBitset and ecom_bounceOffWalls* terrain probe.
@@ -26,7 +26,7 @@ internal sealed class EnemyAdjacentWallResolver
     internal EnemyAdjacentWallResolver()
     {
         GeneratedTable offsets = GeneratedTable.Load(
-            "res://assets/oracle/metadata/enemy_adjacent_wall_offsets.tsv",
+            AgesGameContent.AssetRoot + "metadata/enemy_adjacent_wall_offsets.tsv",
             new GeneratedTableSchema(
                 "enemy adjacent-wall offsets",
                 GeneratedTableKeySemantics.Unique,
@@ -56,7 +56,7 @@ internal sealed class EnemyAdjacentWallResolver
         }
 
         GeneratedTable topDownOffsets = GeneratedTable.Load(
-            "res://assets/oracle/metadata/enemy_topdown_adjacent_wall_offsets.tsv",
+            AgesGameContent.AssetRoot + "metadata/enemy_topdown_adjacent_wall_offsets.tsv",
             new GeneratedTableSchema(
                 "top-down enemy adjacent-wall offsets",
                 GeneratedTableKeySemantics.Unique,
@@ -89,7 +89,7 @@ internal sealed class EnemyAdjacentWallResolver
         }
 
         GeneratedTable angles = GeneratedTable.Load(
-            "res://assets/oracle/metadata/enemy_bounce_angles.tsv",
+            AgesGameContent.AssetRoot + "metadata/enemy_bounce_angles.tsv",
             new GeneratedTableSchema(
                 "enemy bounce angles",
                 GeneratedTableKeySemantics.Unique,

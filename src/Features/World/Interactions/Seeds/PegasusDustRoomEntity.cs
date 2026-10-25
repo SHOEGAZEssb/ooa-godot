@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ITEM_DUST in reserved item F; two alternating clouds share one OAM object.</summary>
 internal sealed partial class PegasusDustRoomEntity : TransitionOffsetNode2D,
@@ -104,7 +104,7 @@ internal sealed partial class PegasusDustRoomEntity : TransitionOffsetNode2D,
                 fields[3] = (int.Parse(fields[3]) ^ (OamFlags & 0x60)).ToString();
                 return string.Join(',', fields);
             }));
-            visual = NpcCharacter.BuildPositionedOamTexture(_source, oam, TileBase,
+            visual = OracleOamCompositor.BuildPositionedOamTexture(_source, oam, TileBase,
                 OamFlags & 7, paletteOverride: null, sourceGrayscaleInverted: true);
             _textures.Add(key, visual);
         }

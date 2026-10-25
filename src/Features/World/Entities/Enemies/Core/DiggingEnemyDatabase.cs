@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>PART_ITEM_DROP:$0f's ordered enemy selection and Beetle walk table.</summary>
 internal sealed class DiggingEnemyDatabase
@@ -12,7 +12,7 @@ internal sealed class DiggingEnemyDatabase
     internal DiggingEnemyDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/digging_enemies.tsv",
+            AgesGameContent.AssetRoot + "metadata/digging_enemies.tsv",
             new GeneratedTableSchema("digging enemies", GeneratedTableKeySemantics.Unique,
                 ["index", "enemy-id", "collision-mode", "shield-l1", "shield-l2", "shield-l3", "source"],
                 ["index"], headerRequired: true));
@@ -28,7 +28,7 @@ internal sealed class DiggingEnemyDatabase
                 row.RequiredString(6), row.HexByte(3), row.HexByte(4), row.HexByte(5),
                 "data/ages/objectCollisionTable.s");
         }
-        BeetleCounters = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/beetle_counters.bin");
+        BeetleCounters = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/beetle_counters.bin");
         if (index != 8 || BeetleCounters.Length != 8)
             throw new InvalidOperationException("itemDrop_spawnEnemy / beetle_chooseRandomAngleAndCounter1: expected eight table entries.");
     }

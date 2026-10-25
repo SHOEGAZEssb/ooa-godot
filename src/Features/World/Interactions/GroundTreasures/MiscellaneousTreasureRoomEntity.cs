@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_MISCELLANEOUS_1 $6b:$0a-$0c and its shared source script. Unlike

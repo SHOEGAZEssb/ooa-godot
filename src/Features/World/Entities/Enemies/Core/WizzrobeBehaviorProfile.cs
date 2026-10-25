@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed record WizzrobeBehaviorProfile(
     IReadOnlyList<EnemyBehaviorValue> State,

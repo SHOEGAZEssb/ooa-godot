@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // companionCutscene.s:$11 -> $10 -> $0f. One owner retains the physical
 // w1Companion slot while native replacements clear id..$3f, but not enabled.
@@ -48,7 +48,7 @@ internal sealed partial class CompanionCreditsRoomEntity(RoomEventContext contex
             default:throw new NotSupportedException($"companionCutscene.s: SPECIALOBJECT${Id:x2}.");
         }
         _animation=new(this,animations.Length);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{sprite}.png"),animations,tile,palette,
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{sprite}.png"),animations,tile,palette,
             positionedOam:true,animationSourceOffsets:offsets,paletteOverrides:context.Entities.NativeObjectPalettes);
         ZIndex=ObjectDrawPriority.FixedHighPriorityZIndex;Visible=true;
     }

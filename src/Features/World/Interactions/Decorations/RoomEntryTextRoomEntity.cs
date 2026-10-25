@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $dc:$0f initializes only during warp loading ($02), below Y=$78.
 internal sealed partial class RoomEntryTextRoomEntity(DungeonObjectRecord record, OracleRuntimeState runtime,
@@ -30,7 +30,7 @@ internal sealed partial class RoomEntryTextRoomEntity(DungeonObjectRecord record
         if (!_initialized)
         {
             _initialized = true;
-            Finished = (runtime.ReadWramByte(WramAddress.wScrollMode) & 2) == 0 ||
+            Finished = (runtime.ReadWramByte(AgesWramAddress.wScrollMode) & 2) == 0 ||
                 (unchecked((byte)(int)player.Position.Y)) < 0x78;
             return;
         }

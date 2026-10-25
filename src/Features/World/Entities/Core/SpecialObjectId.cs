@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // Source symbols retain their clean-US/Ages values. Keep IDs distinct from table indices,
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.

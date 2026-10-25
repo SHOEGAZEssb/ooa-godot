@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_SPINNER $7d:$02 is a separately allocated interaction. A full
 // pool omits it without retrying or preventing the parent from turning.

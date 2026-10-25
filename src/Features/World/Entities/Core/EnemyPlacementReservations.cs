@@ -1,13 +1,13 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class EnemyPlacementReservations
 {
     private readonly OracleRuntimeState _runtime;
 
     internal EnemyPlacementReservations(OracleRuntimeState? runtime = null) =>
-        _runtime = runtime ?? new OracleRuntimeState();
+        _runtime = runtime ?? AgesGameContent.CreateRuntimeState();
 
     internal int Count => _runtime.ReadWramByte(EnemyPlacementMemory.Count);
 
@@ -17,7 +17,7 @@ internal sealed class EnemyPlacementReservations
         for (int address = EnemyPlacementMemory.RandomBufferIndex;
             address < EnemyPlacementMemory.RandomBufferIndex + EnemyPlacementMemory.ResetByteCount; address++)
             runtime.SetWramByte(address, 0);
-        runtime.SetWramByte(WramAddress.wTmpcfc0, 0);
+        runtime.SetWramByte(AgesWramAddress.wTmpcfc0, 0);
     }
 
     internal bool Contains(int packedPosition)

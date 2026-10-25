@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class CuccoRoomEntity(CuccoCharacter cucco, RoomObjectRecord source)
     : RoomEntityAdapter<CuccoCharacter>(

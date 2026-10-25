@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_DARK_ROOM_HANDLER $08. State 0 scans all 176 wRoomLayout bytes in

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // breakTileDebris.s sets the always-update bit for INTERAC$05 subids with
 // bit 1 clear. Spark/Whisp use subid$02, which has ordinary eligibility. Outgoing

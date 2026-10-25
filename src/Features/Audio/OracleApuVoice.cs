@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>One physical CGB channel, independent of the eight driver programs.</summary>
 internal sealed class OracleApuVoice

@@ -267,11 +267,11 @@ to script commands.
 6. Validate actor state, exact counters, source-ordered updates, dialogue and
    input boundaries, scroll/warp entry, cancellation, re-entry, and persistence.
 7. Update the affected table entries and summary counts in
-   [NPC interaction coverage](npc-interaction-coverage.md). This is required for
+   [NPC interaction coverage](ages/npc-interaction-coverage.md). This is required for
    implemented, partial, suppressed, or reclassified NPC records.
 
 Useful starting points are `data/ages/interactions.s`,
-`object_code/ages/interactions/`, `tools/import_oracles/Import-NpcData.ps1`,
-`tools/import_oracles/Import-CutsceneData.ps1`, `src/Features/World/Entities/`,
-`src/Features/Story/`, and `validation/Features/Npcs/` or
-`validation/Features/Story/`.
+`object_code/ages/interactions/`, `tools/import_oracles/Ages/Import-NpcData.ps1`,
+`tools/import_oracles/Shared/Import-CutsceneData.ps1`, `src/Features/World/Entities/`,
+`src/Games/Ages/Features/Story/`, and `validation/Ages/Features/Npcs/` or
+`validation/Ages/Features/Story/`.

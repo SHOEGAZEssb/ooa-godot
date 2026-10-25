@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared decPushingAgainstTileCounter arithmetic for handlers which invoke

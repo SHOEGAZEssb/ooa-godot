@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC $20 exact-trigger script followed by spawnChestAfterPuff.</summary>
 internal sealed partial class DungeonTriggerChestScriptRoomEntity : Node2D,

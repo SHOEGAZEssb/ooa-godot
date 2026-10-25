@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // ghini.s:ghini_subid02. Targets and movement use byte coordinates and 8.8
 // positions; this variant never checks terrain or bounces during ordinary flight.

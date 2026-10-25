@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Original shared miscPuzzles_subid13 dispatch; invisible $90 is allocated
 // by the entity manager, while this owner runs its script and modal lifetime.
@@ -77,7 +77,7 @@ internal sealed class LibraryKeyholeEvent : RoomCutsceneCommandHost, IRoomEntryE
         switch (handler)
         {
             case "KeyholeSignal":
-                if ((Context.Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) & 1) == 0)
+                if ((Context.Entities.RuntimeState.ReadWramByte(AgesWramAddress.wTmpcfc0) & 1) == 0)
                     throw UnsupportedCommand("keyhole signal without cfc0 bit0");
                 break;
             case "OpenLeft": Context.Rooms.TrySetTile(0x22,0xee); break;

@@ -1,6 +1,6 @@
-using OracleOfAges.Importer;
+using Oracles.Importer;
 
-namespace OracleOfAges.Importer.Tests;
+namespace Oracles.Importer.Tests;
 
 internal static class ImportCacheTests
 {
@@ -14,9 +14,9 @@ internal static class ImportCacheTests
             Directory.CreateDirectory(Path.Combine(tools, directory));
         Directory.CreateDirectory(sources);
         Directory.CreateDirectory(output);
-        foreach (string file in new[] { "import_oracles.ps1", "Resolve-OracleRom.ps1", "rom-build/pins.json", "rom-build/build.sh" })
+        foreach (string file in new[] { "import_oracles.ps1", "Resolve-OracleRom.ps1", "rom-build/ages.json", "rom-build/build.sh" })
             File.WriteAllText(Path.Combine(tools, file), "fixture");
-        string linked = Path.Combine(project, "src/Features/Story/Commands/CutsceneFieldShape.cs");
+        string linked = Path.Combine(project, "src/Features/Scripting/CutsceneFieldShape.cs");
         Directory.CreateDirectory(Path.GetDirectoryName(linked)!);
         File.WriteAllText(linked, "schema");
         string source = Path.Combine(sources, "fixture.s");

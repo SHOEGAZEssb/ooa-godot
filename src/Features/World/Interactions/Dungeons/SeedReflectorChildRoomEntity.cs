@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class SeedReflectorChildRoomEntity(RotatableSeedThingRoomEntity parent,
     Vector2 offset,int z) : Node2D, IRoomEntity, IFixedRoomEntity, ISeedBounceTarget,

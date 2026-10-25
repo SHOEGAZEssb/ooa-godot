@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class DungeonBossKeyMirrorDatabase
 {
     private readonly Dictionary<(int Id,int SubId),int> _dungeons = new();
     internal DungeonBossKeyMirrorDatabase()
     {
-        var table=GeneratedTable.Load("res://assets/oracle/objects/dungeon_boss_key_mirrors.tsv",
+        var table=GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/dungeon_boss_key_mirrors.tsv",
             new GeneratedTableSchema("Dungeon boss-key mirrors",GeneratedTableKeySemantics.Unique,
                 ["id","subid","dungeon","source"],["id","subid"],headerRequired:true));
         foreach (var row in table.Rows)

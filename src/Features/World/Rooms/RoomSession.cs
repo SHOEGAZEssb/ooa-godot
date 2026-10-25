@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class RoomSession
 {
@@ -23,15 +23,15 @@ public sealed class RoomSession
     private readonly OracleRuntimeState _runtimeState;
     private readonly TileInfoTextDatabase _tileInfoTexts = new();
     private readonly RoomShopDatabase _shopRooms = new();
-    internal bool InShop => _runtimeState.ReadWramByte(WramAddress.wInShop) != 0;
+    internal bool InShop => _runtimeState.ReadWramByte(AgesWramAddress.wInShop) != 0;
 
     internal byte TilePushCounter
     {
-        get => _runtimeState.ReadWramByte(WramAddress.wPushingAgainstTileCounter);
-        set => _runtimeState.SetWramByte(WramAddress.wPushingAgainstTileCounter,value);
+        get => _runtimeState.ReadWramByte(AgesWramAddress.wPushingAgainstTileCounter);
+        set => _runtimeState.SetWramByte(AgesWramAddress.wPushingAgainstTileCounter,value);
     }
 
-    internal byte InformativeTextsShown => _runtimeState.ReadWramByte(WramAddress.wInformativeTextsShown);
+    internal byte InformativeTextsShown => _runtimeState.ReadWramByte(AgesWramAddress.wInformativeTextsShown);
     internal bool TileInfoTextShown(int textId) =>
         (InformativeTextsShown & _tileInfoTexts.Get(textId).Mask) != 0;
     internal string? PrepareTileInfoMessage(int textId)
@@ -40,7 +40,7 @@ public sealed class RoomSession
         var text = _tileInfoTexts.Get(textId);
         byte shown = InformativeTextsShown;
         if ((shown & text.Mask) != 0) return null;
-        _runtimeState.SetWramByte(WramAddress.wInformativeTextsShown,(byte)(shown | text.Mask));
+        _runtimeState.SetWramByte(AgesWramAddress.wInformativeTextsShown,(byte)(shown | text.Mask));
         return text.Message;
     }
 
@@ -78,10 +78,10 @@ public sealed class RoomSession
         OracleWorldData? world = null,
         OracleRuntimeState? runtimeState = null)
     {
-        _runtimeState = runtimeState ?? new OracleRuntimeState();
+        _runtimeState = runtimeState ?? AgesGameContent.CreateRuntimeState();
         // The session starts at the ordinary initialized-room boundary.
         // bank1.setScreenTransitionState02 selects wScrollMode=$01.
-        if (countAsRoomEntry) _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
+        if (countAsRoomEntry) _runtimeState.SetWramByte(AgesWramAddress.wScrollMode, 1);
         _animationTick = animationTick;
         _resetAnimationTick = resetAnimationTick;
         _saveData = saveData;
@@ -116,7 +116,7 @@ public sealed class RoomSession
         BlockPushAngle = 0; // clearMemoryOnScreenReload: $cc5c..$cce8 includes $cca6.
         _changedTiles.Clear(); // clearMemoryOnScreenReload includes $ccdf/$cce0.
         ClearActiveTileState();
-        _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
+        _runtimeState.SetWramByte(AgesWramAddress.wScrollMode, 1);
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         ActiveGroup = group;
@@ -131,7 +131,7 @@ public sealed class RoomSession
 
     internal void EnterPreparedRoom()
     {
-        _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
+        _runtimeState.SetWramByte(AgesWramAddress.wScrollMode, 1);
         _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
         CurrentRoom = GetRoom(ActiveGroup, CurrentRoom.Id);
         InitializeShopState();
@@ -160,7 +160,7 @@ public sealed class RoomSession
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         // disableLcdAndLoadRoom_body restores $01 after func_131f; scripts
         // may subsequently stop the boundary owner by writing $00 again.
-        _runtimeState.SetWramByte(WramAddress.wScrollMode, 1);
+        _runtimeState.SetWramByte(AgesWramAddress.wScrollMode, 1);
         return CurrentRoom;
     }
     // bank0.func_131f replaces room layout/graphics without clearing WRAM1,
@@ -193,25 +193,25 @@ public sealed class RoomSession
     private void ClearActiveTileState()
     {
         // clearMemoryOnScreenReload and func_49c9 both include this mask.
-        _runtimeState.SetWramByte(WramAddress.wDisabledObjects,0);
+        _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects,0);
         // Reload, cutscene and scroll clear ranges all include $cca3/$cca4.
-        _runtimeState.SetWramByte(WramAddress.wChestContentsOverride,0);
-        _runtimeState.SetWramByte(WramAddress.wChestContentsOverride + 1,0);
+        _runtimeState.SetWramByte(AgesWramAddress.wChestContentsOverride,0);
+        _runtimeState.SetWramByte(AgesWramAddress.wChestContentsOverride + 1,0);
         // Both room reload's $cc5c clear and scroll's $cc8a clear include
         // these shared cube publications; outgoing state0 handlers see zero.
-        _runtimeState.SetWramByte(WramAddress.wRotatingCubeColor,0);
-        _runtimeState.SetWramByte(WramAddress.wRotatingCubePos,0);
-        _runtimeState.SetWramByte(WramAddress.wInShop,0);
+        _runtimeState.SetWramByte(AgesWramAddress.wRotatingCubeColor,0);
+        _runtimeState.SetWramByte(AgesWramAddress.wRotatingCubePos,0);
+        _runtimeState.SetWramByte(AgesWramAddress.wInShop,0);
         // Both ordinary reload and scroll/cutscene clears include $ccd7.
-        _runtimeState.SetWramByte(WramAddress.wInformativeTextsShown,0);
+        _runtimeState.SetWramByte(AgesWramAddress.wInformativeTextsShown,0);
         // clearMemoryOnScreenReload / func_49c9 include $cc99/$cc9a/$cc9f.
-        _runtimeState.SetWramByte(WramAddress.wActiveTilePos, 0);
-        _runtimeState.SetWramByte(WramAddress.wActiveTileIndex, 0);
-        _runtimeState.SetWramByte(WramAddress.wLinkOnChest, 0);
+        _runtimeState.SetWramByte(AgesWramAddress.wActiveTilePos, 0);
+        _runtimeState.SetWramByte(AgesWramAddress.wActiveTileIndex, 0);
+        _runtimeState.SetWramByte(AgesWramAddress.wLinkOnChest, 0);
     }
 
     private void InitializeShopState() =>
-        _runtimeState.SetWramByte(WramAddress.wInShop,_shopRooms.InitialFlags(ActiveGroup,CurrentRoom.Id));
+        _runtimeState.SetWramByte(AgesWramAddress.wInShop,_shopRooms.InitialFlags(ActiveGroup,CurrentRoom.Id));
 
     private void SynchronizeAnimation(int previousAnimationGroup, OracleRoomData room)
     {
@@ -235,7 +235,7 @@ public sealed class RoomSession
             _saveData.HasRoomFlag(group, room, OracleSaveData.RoomFlagLayoutSwap)
             ? group + 2
             : group;
-        OracleRoomData loaded = World.LoadRoom(group, room, dataGroup, _saveData.ReadWramByte(WramAddress.wAnimalCompanion),
+        OracleRoomData loaded = World.LoadRoom(group, room, dataGroup, _saveData.ReadWramByte(AgesWramAddress.wAnimalCompanion),
             World.ResolveLayoutOverride(group, room, _saveData),
             World.ResolveJabuTilesetOverride(group, room, _saveData, DungeonMaps));
         diagnostics?.Mark("data");
@@ -248,7 +248,7 @@ public sealed class RoomSession
         _singleTileChanges.Apply(
             group, loaded, _saveData, _animationTick());
         _standardTileSubstitutions.Apply(loaded, roomFlags, _animationTick());
-        _switchTiles.Apply(group,loaded,_runtimeState.ReadWramByte(OracleRuntimeState.SwitchStateAddress),_animationTick());
+        _switchTiles.Apply(group,loaded,_runtimeState.ReadWramByte(AgesGameContent.SwitchStateAddress),_animationTick());
         _toggleTiles.Apply(group, World.GetDungeonIndex(group, room), _toggleState(), loaded, _animationTick());
         int dungeon = World.GetDungeonIndex(group, room);
         int? floor = dungeon == 7 && DungeonMaps.GetDungeon(7).TryGetRoom(room, out DungeonCell cell)
@@ -322,7 +322,7 @@ public sealed class RoomSession
         // including $cc3e. Non-dungeon loads retain the previous properties.
         int dungeon = CurrentDungeonIndex;
         if (dungeon < 0) return;
-        _runtimeState.SetWramByte(WramAddress.wDungeonWallmasterDestRoom,
+        _runtimeState.SetWramByte(AgesWramAddress.wDungeonWallmasterDestRoom,
             (byte)DungeonMaps.GetDungeon(dungeon).WallmasterDestinationRoom);
     }
 
@@ -335,8 +335,8 @@ public sealed class RoomSession
         int dungeon = CurrentDungeonIndex;
         if (dungeon >= 0 && DungeonMaps.GetDungeon(dungeon).TryGetRoom(CurrentRoom.Id, out DungeonCell cell))
         {
-            _saveData.WriteWramByte(WramAddress.wMinimapDungeonMapPosition, (byte)(cell.Y * 8 + cell.X));
-            _saveData.WriteWramByte(WramAddress.wMinimapDungeonFloor, (byte)cell.Floor);
+            _saveData.WriteWramByte(AgesWramAddress.wMinimapDungeonMapPosition, (byte)(cell.Y * 8 + cell.X));
+            _saveData.WriteWramByte(AgesWramAddress.wMinimapDungeonFloor, (byte)cell.Floor);
         }
         _saveData.SetMinimapLocation(ActiveGroup, CurrentRoom.Id);
     }

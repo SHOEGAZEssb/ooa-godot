@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared imported definitions for dungeon bosses and minibosses.
@@ -47,7 +47,7 @@ internal sealed class DungeonBossDatabase
     private void LoadEnemies()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_bosses.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_bosses.tsv",
             new GeneratedTableSchema(
                 "implemented dungeon bosses",
                 GeneratedTableKeySemantics.Unique,
@@ -82,7 +82,7 @@ internal sealed class DungeonBossDatabase
     private void LoadHeadThwompPalettes()
     {
         Color[,] palettes = OracleGraphicsData.LoadPalette(
-            "res://assets/oracle/objects/dungeon_head_thwomp_palette.bin",
+            AgesGameContent.AssetRoot + "objects/dungeon_head_thwomp_palette.bin",
             1,
             6);
         var colors = new Color[4];
@@ -94,7 +94,7 @@ internal sealed class DungeonBossDatabase
     private void LoadSubterrorPalettes()
     {
         Color[,] palettes = OracleGraphicsData.LoadPalette(
-            "res://assets/oracle/objects/dungeon_subterror_palette.bin",
+            AgesGameContent.AssetRoot + "objects/dungeon_subterror_palette.bin",
             1,
             6);
         var colors = new Color[4];
@@ -106,7 +106,7 @@ internal sealed class DungeonBossDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_boss_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_boss_constants.tsv",
             new GeneratedTableSchema(
                 "implemented dungeon boss constants",
                 GeneratedTableKeySemantics.Unique,
@@ -127,32 +127,32 @@ internal sealed class DungeonBossDatabase
     private void ValidateContract()
     {
         if (_enemies.Count != 33 ||
-            Enemy(EnemyId.Ramrock) is not { Sprites.Length: 2, Animations.Length: 5 } ||
-            Enemy(EnemyId.RamrockArms, 5) is not { Sprites: ["spr_ramrock_2"], Animations.Length: 8 } ||
-            Enemy(EnemyId.BlueStalfos,1) is not { Sprites.Length: 3, Animations.Length: 5 } ||
-            Enemy(EnemyId.AnglerFish) is not { Health: 30, RadiusY: 12, RadiusX: 12, Animations.Length: 7 } ||
-            Enemy(EnemyId.AnglerFish,1).Sprites is not ["spr_anglerfish"] ||
+            Enemy(AgesEnemyId.Ramrock) is not { Sprites.Length: 2, Animations.Length: 5 } ||
+            Enemy(AgesEnemyId.RamrockArms, 5) is not { Sprites: ["spr_ramrock_2"], Animations.Length: 8 } ||
+            Enemy(AgesEnemyId.BlueStalfos,1) is not { Sprites.Length: 3, Animations.Length: 5 } ||
+            Enemy(AgesEnemyId.AnglerFish) is not { Health: 30, RadiusY: 12, RadiusX: 12, Animations.Length: 7 } ||
+            Enemy(AgesEnemyId.AnglerFish,1).Sprites is not ["spr_anglerfish"] ||
             Enemy(EnemyId.AnglerFishBubble) is not { Health: 127, Animations.Length: 2 } ||
-            Enemy(EnemyId.Plasmarine) is not { Health: 7, RadiusY: 10, RadiusX: 8, Sprites.Length: 3, Animations.Length: 3 } ||
-            Enemy(EnemyId.Eyesoar, 0) is not { Health: 20, RadiusY: 6, RadiusX: 6, DamageQuarters: 4, Animations.Length: 2 } ||
-            Enemy(EnemyId.Eyesoar, 1) is not { Health: 20, Sprites.Length: 1 } ||
-            Enemy(EnemyId.EyesoarChild, 0) is not { Health: 4, RadiusY: 4, RadiusX: 4, DamageQuarters: 1, Animations.Length: 1 } ||
-            Enemy(EnemyId.GiantGhiniChild) is not
+            Enemy(AgesEnemyId.Plasmarine) is not { Health: 7, RadiusY: 10, RadiusX: 8, Sprites.Length: 3, Animations.Length: 3 } ||
+            Enemy(AgesEnemyId.Eyesoar, 0) is not { Health: 20, RadiusY: 6, RadiusX: 6, DamageQuarters: 4, Animations.Length: 2 } ||
+            Enemy(AgesEnemyId.Eyesoar, 1) is not { Health: 20, Sprites.Length: 1 } ||
+            Enemy(AgesEnemyId.EyesoarChild, 0) is not { Health: 4, RadiusY: 4, RadiusX: 4, DamageQuarters: 1, Animations.Length: 1 } ||
+            Enemy(AgesEnemyId.GiantGhiniChild) is not
                 { Health: 2, DamageQuarters: 128, Sprites.Length: 2 } ||
-            Enemy(EnemyId.ShadowHagBug) is not
+            Enemy(AgesEnemyId.ShadowHagBug) is not
                 { Health: 2, DamageQuarters: 1, Sprites.Length: 1 } ||
-            Enemy(EnemyId.GiantGhini) is not
+            Enemy(AgesEnemyId.GiantGhini) is not
                 { Health: 12, DamageQuarters: 1, Sprites.Length: 2 } ||
-            Enemy(EnemyId.Swoop).Sprites is not ["spr_swoop", "spr_pound"] ||
-            Enemy(EnemyId.Subterror) is not
+            Enemy(AgesEnemyId.Swoop).Sprites is not ["spr_swoop", "spr_pound"] ||
+            Enemy(AgesEnemyId.Subterror) is not
                 { Health: 20, DamageQuarters: 2, Sprites.Length: 3 } ||
-            Enemy(EnemyId.ArmosWarrior, 0) is not { Health: 10, Sprites.Length: 3 } ||
-            Enemy(EnemyId.ArmosWarrior, 1) is not { Health: 10, Palette: 1, Animations.Length: 12 } ||
-            Enemy(EnemyId.ArmosWarrior, 2) is not { Health: 3, Palette: 2, RadiusY: 12, RadiusX: 6 } ||
-            Enemy(EnemyId.ArmosWarrior, 3) is not { Health: 127, Palette: 3, RadiusY: 0, RadiusX: 0 } ||
-            Enemy(EnemyId.PumpkinHead) is not { Health: 8, Sprites.Length: 3 } ||
-            Enemy(EnemyId.HeadThwomp).Sprites.Length != 3 ||
-            Enemy(EnemyId.ShadowHag) is not
+            Enemy(AgesEnemyId.ArmosWarrior, 0) is not { Health: 10, Sprites.Length: 3 } ||
+            Enemy(AgesEnemyId.ArmosWarrior, 1) is not { Health: 10, Palette: 1, Animations.Length: 12 } ||
+            Enemy(AgesEnemyId.ArmosWarrior, 2) is not { Health: 3, Palette: 2, RadiusY: 12, RadiusX: 6 } ||
+            Enemy(AgesEnemyId.ArmosWarrior, 3) is not { Health: 127, Palette: 3, RadiusY: 0, RadiusX: 0 } ||
+            Enemy(AgesEnemyId.PumpkinHead) is not { Health: 8, Sprites.Length: 3 } ||
+            Enemy(AgesEnemyId.HeadThwomp).Sprites.Length != 3 ||
+            Enemy(AgesEnemyId.ShadowHag) is not
                 { Health: 12, DamageQuarters: 3, Sprites.Length: 2 } ||
             _constants.Count != 2 ||
             Constant("pumpkin-body-palette") != 1 ||

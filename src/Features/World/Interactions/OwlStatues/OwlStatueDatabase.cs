@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed PART_OWL_STATUE ($13) behavior, visuals, TX_39xx text, and
@@ -15,7 +15,7 @@ internal sealed class OwlStatueDatabase
     internal OwlStatueDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/owl_statues.tsv",
+            AgesGameContent.AssetRoot + "objects/owl_statues.tsv",
             new GeneratedTableSchema(
                 "owl statues",
                 GeneratedTableKeySemantics.Unique,

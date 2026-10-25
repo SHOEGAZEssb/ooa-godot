@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class ChestDatabase
 {
@@ -14,7 +14,7 @@ public sealed class ChestDatabase
     public ChestDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/chests.tsv",
+            AgesGameContent.AssetRoot + "objects/chests.tsv",
             new GeneratedTableSchema(
                 "chests",
                 GeneratedTableKeySemantics.Unique,

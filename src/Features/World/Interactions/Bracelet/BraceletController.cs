@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ITEM_BRACELET ($16) parent and its lifted-metatile child. The controller

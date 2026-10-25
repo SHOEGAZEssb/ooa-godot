@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 public sealed record GeneratedAssetEntry(
     string Path,

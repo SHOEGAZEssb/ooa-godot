@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>itemPassableCliffTilesTable, indexed by collision set and direction.</summary>
 internal sealed class ItemCliffDatabase
@@ -11,7 +11,7 @@ internal sealed class ItemCliffDatabase
     internal ItemCliffDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/item_passable_cliffs.tsv",
+            AgesGameContent.AssetRoot + "metadata/item_passable_cliffs.tsv",
             new GeneratedTableSchema("item-passable cliffs", GeneratedTableKeySemantics.Unique,
                 ["collision-set", "direction", "order", "tile", "elevation-delta", "source"],
                 ["collision-set", "direction", "tile"], headerRequired: true));

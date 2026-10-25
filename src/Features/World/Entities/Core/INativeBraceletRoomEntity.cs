@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Native objects publish pickup candidates during their handler. Link reads
 // the preceding update's buffer; the final carried-position copy runs last.

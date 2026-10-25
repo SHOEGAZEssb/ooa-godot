@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscellaneous1.s: $6b:$03/$12 initialize/show on their first visit,
 // then animate. Neither shares the Link statue's collision/palette handler.

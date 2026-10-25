@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source placement and script constants for room 5:b6's $6b:$0b Cheval
@@ -9,7 +9,7 @@ namespace oracleofages;
 internal sealed class Room5b6Database
 {
     private const string Path =
-        "res://assets/oracle/objects/room5b6_interactions.tsv";
+        AgesGameContent.AssetRoot + "objects/room5b6_interactions.tsv";
 
     internal Room5b6InteractionRecord Record { get; }
 

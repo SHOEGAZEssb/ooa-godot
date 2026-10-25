@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // enemyCode21 shares moblin_state_8 and the alternating arrow routine.
 internal sealed partial class ArrowDarknutCharacter : ArrowMoblinCharacter

@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FaroreMemoryScriptHost : NpcInteractionCommandHost
 {
@@ -18,7 +18,7 @@ internal sealed class FaroreMemoryScriptHost : NpcInteractionCommandHost
     public override void SetDisabledObjects(int value)
     {
         if (value != 0x91) throw UnsupportedCommand($"book disabled mask ${value:x2}");
-        Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0x91); _ownsMask = true;
+        Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0x91); _ownsMask = true;
     }
     public override void SetInputEnabled(bool enabled)
     {

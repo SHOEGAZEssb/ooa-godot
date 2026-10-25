@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC$20: native tile scripts retain each command's carry/yield result.
 internal sealed partial class DungeonTileScriptRoomEntity : Node2D,
@@ -75,8 +75,8 @@ internal sealed partial class DungeonTileScriptRoomEntity : Node2D,
                 if (Step == 1) { if (_triggers() == _profile.GateValue) Step = 2; return; }
                 if (Step == 2)
                 {
-                    _runtime.SetWramByte(WramAddress.wDisabledObjects, 0x81);
-                    _runtime.SetWramByte(WramAddress.wMenuDisabled, 0x80);
+                    _runtime.SetWramByte(AgesWramAddress.wDisabledObjects, 0x81);
+                    _runtime.SetWramByte(AgesWramAddress.wMenuDisabled, 0x80);
                     player.ClearNativeItemParents();
                     player.ApplyInteractionInvincibility(0x80);
                     Counter = _profile.Wait; Step = 3; return;

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class SecretListController(SecretListScreen screen, OracleMenuLifecycle lifecycle,
     OracleSaveData save, Action<int> playSound) : IOracleMenuLifecycleClient

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // spark_state9/stateA are also Whisp's handlers. relatedObj2 addresses the
 // live interaction page, not an effect reference: a deleted puff reads zero

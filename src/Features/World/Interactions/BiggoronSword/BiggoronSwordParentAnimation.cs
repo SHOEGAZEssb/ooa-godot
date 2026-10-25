@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // otherSwordsParent.s state1 tests bit7 before advancing. Its final pose
 // lasts one update; a caller freeze retains both the counter and parameter.

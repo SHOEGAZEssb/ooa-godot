@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Native fixed-update owner for past INTERAC_BIPIN $28:$0a. Its loaded

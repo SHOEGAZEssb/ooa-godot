@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_TOKAY_MEAT $8c; the reserved ITEM C owns thrown physics.
 internal partial class WildTokayMeat : TransitionOffsetNode2D
@@ -30,10 +30,10 @@ internal partial class WildTokayMeat : TransitionOffsetNode2D
     internal void Initialize(WildTokayMeatDatabase database,OracleRoomData room,BombRecord throwing,Action<int> soundRequested)
     {
         _data=database;_room=room;_throwing=throwing;_sound=soundRequested;Position=new(database.StartX,database.StartY);Visible=false;
-        Image image=OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{database.Sprite}.png");
+        Image image=OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{database.Sprite}.png");
         foreach(var frame in OracleGraphicsCache.GetAnimationDefinition(database.Animation).Frames)
         {
-            var (texture,offset)=NpcCharacter.BuildPositionedOamTexture(image,frame.EncodedOam,database.TileBase,database.Palette,null,true);
+            var (texture,offset)=OracleOamCompositor.BuildPositionedOamTexture(image,frame.EncodedOam,database.TileBase,database.Palette,null,true);
             _frames.Add(new(texture,offset));
         }
         TreeExiting+=Finish;

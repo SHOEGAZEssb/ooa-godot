@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class MinibossPortal : TransitionOffsetNode2D
 {
@@ -22,7 +22,7 @@ internal sealed partial class MinibossPortal : TransitionOffsetNode2D
 
         DungeonEntranceInteractionDatabaseVisualRecord visual = data.PortalVisual;
         Image image = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             image, new[] { visual.Animation }, visual.TileBase, visual.Palette);

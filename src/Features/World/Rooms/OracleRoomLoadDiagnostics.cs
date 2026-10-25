@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Diagnostics;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Opt-in device timings only; no gameplay state or scheduling lives here.
 internal sealed class OracleRoomLoadDiagnostics : IDisposable

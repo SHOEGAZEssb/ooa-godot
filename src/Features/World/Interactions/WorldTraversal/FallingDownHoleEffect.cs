@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_FALLDOWNHOLE $0f:$00. It moves at SPEED_60 toward the metatile
@@ -110,7 +110,7 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
     private static FallingDownHoleEffectDefinition LoadDefinition()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/fall_down_hole.tsv",
+            AgesGameContent.AssetRoot + "effects/fall_down_hole.tsv",
             new GeneratedTableSchema(
                 "fall-down-hole effect",
                 GeneratedTableKeySemantics.Ordered,
@@ -127,14 +127,14 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
         }
 
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_sprites.png");
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(3));
         var frames = new List<FallingDownHoleEffectFrameRecord>();
         foreach (AnimationFrameDefinition frame in animation.Frames)
         {
             (Texture2D texture, Vector2 offset) =
-                NpcCharacter.BuildPositionedOamTexture(
+                OracleOamCompositor.BuildPositionedOamTexture(
                     source,
                     frame.EncodedOam,
                     tileBase,

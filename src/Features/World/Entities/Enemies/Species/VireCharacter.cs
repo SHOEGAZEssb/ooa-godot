@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // ENEMY_VIRE $75, both native forms. State, health and children follow their
 // ENEMY pages; projectiles and puffs resolve live pointers through room owners.

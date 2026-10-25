@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // checkGrabbableObjects projects Link's high coordinates, then tests the
 // buffered object against Link (the reverse of ordinary enemy contact).
@@ -12,7 +12,7 @@ internal sealed class BraceletGrabGeometry
     private readonly int[] _zRadius = new int[4];
     internal BraceletGrabGeometry()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/bracelet_grab_geometry.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/bracelet_grab_geometry.tsv",
             new GeneratedTableSchema("checkGrabbableObjects", GeneratedTableKeySemantics.Unique,
                 ["direction","x","y","z-subtract","z-radius","source"], ["direction"], headerRequired: true));
         if (table.Rows.Count != 4) throw new InvalidOperationException("checkGrabbableObjects requires four ordered direction rows.");

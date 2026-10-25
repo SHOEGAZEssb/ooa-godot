@@ -1,5 +1,11 @@
 # Saves and state
 
+The live byte owner and disk I/O remain shared mechanisms. Ages-specific address
+and save-layout catalogs and runtime initialization live under `src/Games/Ages/`.
+Keep existing Ages save filenames, verification bytes and the Godot user-data
+identity when renaming application assemblies. Seasons must supply its own
+verified layout and filenames before it can create a playable session.
+
 ## Authoritative state
 
 `OracleSaveData` owns the original 0x550-byte image copied between WRAM

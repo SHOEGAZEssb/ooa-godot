@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed record TwinrovaEnvironment(TwinrovaDatabase Data, RoomEntityManager Entities,
     Func<Vector2, int> CameraY, Action<int> Cutscene, Action<bool, int,int> PaletteFade,

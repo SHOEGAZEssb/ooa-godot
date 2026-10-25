@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // bank0.s setTile / loadTilesToRam.s updateChangedTileQueue. One empty
 // ring position distinguishes full from empty, leaving 31 usable entries.

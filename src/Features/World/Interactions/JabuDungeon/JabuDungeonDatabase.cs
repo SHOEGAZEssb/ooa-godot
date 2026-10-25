@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class JabuDungeonDatabase
 {
@@ -13,7 +13,7 @@ internal sealed class JabuDungeonDatabase
 
     internal JabuDungeonDatabase()
     {
-        var objects = GeneratedTable.Load("res://assets/oracle/objects/jabu_dungeon_objects.tsv",
+        var objects = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/jabu_dungeon_objects.tsv",
             new GeneratedTableSchema("Jabu-Jabu native objects", GeneratedTableKeySemantics.Grouped,
                 ["group","room","order","kind","id","subid","y","x","condition","source"],
                 ["group","room"], headerRequired:true));
@@ -33,7 +33,7 @@ internal sealed class JabuDungeonDatabase
                 DungeonObjectData.ParseCondition(row,8),row.RequiredString(9));
             _records.GetOrAdd((record.Group << 8) | record.Room).Add(record);
         }
-        var pattern = GeneratedTable.Load("res://assets/oracle/objects/jabu_hook_key_tiles.tsv",
+        var pattern = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/jabu_hook_key_tiles.tsv",
             new GeneratedTableSchema("Jabu Switch Hook key",GeneratedTableKeySemantics.Unique,
                 ["position","tile","source"],["position"],headerRequired:true));
         HookKeyPattern = [pattern.Rows.Select(row => {
@@ -41,7 +41,7 @@ internal sealed class JabuDungeonDatabase
             _ = row.RequiredString(2);
             return (byte)row.HexByte(0);
         }).ToArray()];
-        var texts = GeneratedTable.Load("res://assets/oracle/objects/jabu_dungeon_text.tsv",
+        var texts = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/jabu_dungeon_text.tsv",
             new GeneratedTableSchema("Jabu native text",GeneratedTableKeySemantics.Unique,
                 ["text-id","text-position","message-base64","source"],["text-id"],headerRequired:true));
         foreach (var row in texts.Rows)
@@ -51,7 +51,7 @@ internal sealed class JabuDungeonDatabase
             string message=System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(row.RequiredString(2)));
             _texts.Add(row.HexWord(0),position==0 ? message : $"\\pos({position})"+message);
         }
-        var essence = GeneratedTable.Load("res://assets/oracle/objects/jabu_dungeon_essence.tsv",
+        var essence = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/jabu_dungeon_essence.tsv",
             new GeneratedTableSchema("Rolling Sea Essence",GeneratedTableKeySemantics.Ordered,
                 ["index","destination-group","destination-room","destination-position","destination-transition","source"],
                 headerRequired:true)).SingleRow();

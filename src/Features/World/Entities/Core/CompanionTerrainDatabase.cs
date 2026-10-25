@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class CompanionTerrainDatabase
 {
@@ -25,7 +25,7 @@ internal sealed class CompanionTerrainDatabase
 
     internal CompanionTerrainDatabase()
     {
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/cutscenes/dimitri_native_probes.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/dimitri_native_probes.tsv",
             new GeneratedTableSchema("Dimitri native probes", GeneratedTableKeySemantics.Ordered,
                 ["kind", "index", "x", "y", "source"], headerRequired: true)).Rows)
         {
@@ -36,7 +36,7 @@ internal sealed class CompanionTerrainDatabase
         }
         if (_probes.Count != 3 || Probes("carry").Count != 4 || Probes("cliff").Count != 4 || Probes("collision").Count != 8)
             throw new InvalidOperationException("Dimitri/commonCode.s native probe shape changed.");
-        var masks = GeneratedTable.Load("res://assets/oracle/cutscenes/companion_collision_masks.tsv",
+        var masks = GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/companion_collision_masks.tsv",
             new GeneratedTableSchema("Companion collision masks", GeneratedTableKeySemantics.Ordered,
                 ["index", "mask", "source"], headerRequired: true));
         if (masks.Rows.Count != 16) throw new InvalidOperationException("bank0.s companion collision masks require 16 rows.");

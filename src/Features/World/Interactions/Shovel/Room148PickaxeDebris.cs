@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_FALLING_ROCK $92:$06, including its state-0 return and exact 8.8 Z
@@ -39,8 +39,8 @@ internal partial class Room148PickaxeDebris : FixedEffectNode2D
             throw new InvalidOperationException(
                 "INTERAC_FALLING_ROCK $92:$06 has no imported animation frame.");
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.DebrisSpriteName}.png");
-        _texture = NpcCharacter.BuildOamTexture(
+            AgesGameContent.AssetRoot + $"gfx/{record.DebrisSpriteName}.png");
+        _texture = OracleOamCompositor.BuildOamTexture(
             source,
             frames[0].EncodedOam,
             record.DebrisTileBase,

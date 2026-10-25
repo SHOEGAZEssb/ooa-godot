@@ -1,6 +1,6 @@
 # Exercise real stage scopes without reading the ROM or disassembly.
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot '..\import_oracles\Invoke-ImportStage.ps1')
+. (Join-Path $PSScriptRoot '..\import_oracles\Shared\Invoke-ImportStage.ps1')
 $temporary = Join-Path ([IO.Path]::GetTempPath()) "ooa-stage-tests [0] $([Guid]::NewGuid().ToString('N'))"
 [void][IO.Directory]::CreateDirectory($temporary)
 $modules = [Collections.Generic.List[Management.Automation.PSModuleInfo]]::new()

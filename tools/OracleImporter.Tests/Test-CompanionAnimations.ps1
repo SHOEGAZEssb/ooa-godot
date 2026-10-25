@@ -2,8 +2,8 @@ $ErrorActionPreference = 'Stop'
 # Function signatures carry their parameters outside the body, so retain each
 # complete definition when loading it into the fixture's script scope.
 $definitions = @(
-    @{ Path = 'Initialize-Import.ps1'; Names = @('Convert-AssemblyInteger') },
-    @{ Path = 'Import-CompanionData.ps1'; Names = @('New-CompanionAnimationIndex', 'Get-CompanionAnimationLabels', 'Get-CompanionNodesInRange', 'Resolve-MooshOam', 'Resolve-MooshOamTiles', 'Resolve-MooshSpecialAnimation', 'Resolve-CompanionSpecialAnimation') }
+    @{ Path = 'Shared/Initialize-Import.ps1'; Names = @('Convert-AssemblyInteger') },
+    @{ Path = 'Ages/Import-CompanionData.ps1'; Names = @('New-CompanionAnimationIndex', 'Get-CompanionAnimationLabels', 'Get-CompanionNodesInRange', 'Resolve-MooshOam', 'Resolve-MooshOamTiles', 'Resolve-MooshSpecialAnimation', 'Resolve-CompanionSpecialAnimation') }
 )
 foreach ($spec in $definitions) {
     $tokens = $null; $errors = $null

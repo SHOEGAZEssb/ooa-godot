@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Raw terrain-effect OAM drawn around grounded Link by
@@ -19,7 +19,7 @@ internal sealed class LinkTerrainEffectDatabase
     internal LinkTerrainEffectDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/link_terrain_effects.tsv",
+            AgesGameContent.AssetRoot + "effects/link_terrain_effects.tsv",
             new GeneratedTableSchema(
                 "Link terrain effects",
                 GeneratedTableKeySemantics.Unique,
@@ -76,9 +76,9 @@ internal sealed class LinkTerrainEffectDatabase
             tiles[kind] = tile;
 
             Image image = OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{sprite}.png");
+                AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
             (Texture2D texture, Vector2 offset) =
-                NpcCharacter.BuildPositionedOamTexture(
+                OracleOamCompositor.BuildPositionedOamTexture(
                     image,
                     oam,
                     tileBase,

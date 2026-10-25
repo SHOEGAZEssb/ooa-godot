@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscellaneous1.s:INTERAC $6b:$10, the unfinished credits statue.
 internal sealed class MakuStatueConstructionRoomEntity : RoomCutsceneCommandHost,IRoomEntity,IFixedRoomEntity,

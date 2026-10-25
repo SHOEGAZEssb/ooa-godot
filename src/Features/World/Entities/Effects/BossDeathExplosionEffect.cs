@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_BOSS_DEATH_EXPLOSION ($04). Unlike an ordinary death puff, this part
@@ -90,7 +90,7 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
     private static List<BossDeathExplosionEffectFrameRecord> LoadDefinition()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/boss_death_explosion.tsv",
+            AgesGameContent.AssetRoot + "effects/boss_death_explosion.tsv",
             new GeneratedTableSchema(
                 "boss death explosion",
                 GeneratedTableKeySemantics.Ordered,
@@ -100,13 +100,13 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         int tileBase = row.UnsignedDecimal(0);
         int palette = row.UnsignedDecimal(1);
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_sprites.png");
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
         var animation = new List<BossDeathExplosionEffectFrameRecord>();
         foreach (AnimationFrameDefinition frame in
             OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(2)).Frames)
         {
             (Texture2D texture, Vector2 offset) =
-                NpcCharacter.BuildPositionedOamTexture(
+                OracleOamCompositor.BuildPositionedOamTexture(
                     source, frame.EncodedOam, tileBase, palette,
                     paletteOverride: null, sourceGrayscaleInverted: true);
             animation.Add(new BossDeathExplosionEffectFrameRecord(

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed runtime view of parentItemCode_feather and the top-down
@@ -36,7 +36,7 @@ internal sealed class TopDownAirDatabase
     private TopDownAirDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/top_down_air_constants.tsv",
+            AgesGameContent.AssetRoot + "metadata/top_down_air_constants.tsv",
             new GeneratedTableSchema(
                 "top-down Link air constants",
                 GeneratedTableKeySemantics.Unique,

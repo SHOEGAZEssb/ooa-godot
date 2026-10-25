@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MISCELLANEOUS_1 $6b:$0f and its native simple script.</summary>
 internal sealed partial class NuunBridgeRoomEntity : DungeonMechanicRoomEntity,
@@ -61,7 +61,7 @@ internal sealed partial class NuunBridgeRoomEntity : DungeonMechanicRoomEntity,
         }
         if (_state == 1)
         {
-            if (_runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress) != 0)
+            if (_runtime.ReadWramByte(AgesGameContent.SwitchStateAddress) != 0)
             {
                 _save.SetRoomFlag(_record.Group, _record.Room, OracleSaveData.RoomFlag40);
                 _state = 2;

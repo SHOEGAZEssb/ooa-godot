@@ -6,7 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Declares the complete top-level shape and key contract of one generated TSV.

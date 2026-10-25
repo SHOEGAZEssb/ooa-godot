@@ -1,0 +1,830 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace Oracles;
+
+public sealed partial class ValidationRoot
+{
+    private void ValidateGameOverRestart()
+    {
+        const int respawnGroup = 1;
+        const int respawnRoom = 0xa7;
+        const int respawnFacing = 3;
+        const int respawnY = 0x28;
+        const int respawnX = 0x48;
+
+        _saveData.SetDeathRespawnPoint(
+            respawnGroup,
+            respawnRoom,
+            stateModifier: 0,
+            respawnFacing,
+            respawnY,
+            respawnX);
+        _saveData.WriteWramByte(AgesWramAddress.wLinkHealth, 0);
+        int deathCount = _saveData.DeathCount;
+        int saveWrites = _saveWriteRequests;
+        int musicRequests =
+            _sound.PlayRequestsFor(SoundId.MusGameOver);
+        GameSceneGraph dyingScene = _scene;
+        RoomEntityManager dyingEntities = _entities;
+
+        BeginGameOver();
+        FailIf(
+            _saveData.DeathCount != Math.Min(999, deathCount + 1) ||
+            _sound.ActiveMusic != SoundId.MusGameOver ||
+            _sound.PlayRequestsFor(SoundId.MusGameOver) !=
+                musicRequests + 1 ||
+            !_inventoryMenu.GameOver ||
+            !_saveQuitScreen.Visible ||
+            !_saveQuitScreen.IsGameOver,
+            "The collapsed-Link handoff did not restart sound, increment " +
+            "the BCD death count, play MUS_GAMEOVER, and open the forced menu.");
+
+        byte[] stoppedPlaytime = Enumerable.Range(0xc622, 4).Select(_saveData.ReadWramByte).ToArray();
+        StepGameplayUpdates((int)InventoryMenuController.FastFadeFrames, Vector2.Zero, batched: true);
+        FailIf(!stoppedPlaytime.SequenceEqual(Enumerable.Range(0xc622, 4).Select(_saveData.ReadWramByte)),
+            "Game Over must leave playtime frozen while THREAD_1 is stopped.");
+        _inventoryMenu.SelectSaveOption();
+        for (int update = 0;
+            update < InventoryMenuController.SaveSelectionDelayFrames;
+            update++)
+        {
+            _inventoryMenu.Update(1.0 / 60.0);
+        }
+
+        FailIf(
+            ReferenceEquals(_scene, dyingScene) ||
+            !dyingScene.IsQueuedForDeletion() ||
+            !dyingEntities.IsDisposed ||
+            _scene.IsQueuedForDeletion() ||
+            _scene.GetParent() != this ||
+            _saveWriteRequests != saveWrites ||
+            _inventory.HealthQuarters != Math.Max(0x0c, (_inventory.MaxHealthQuarters >> 1) & 0xfc) ||
+            _rooms.ActiveGroup != respawnGroup ||
+            _rooms.CurrentRoom.Id != respawnRoom ||
+            _player.Position != new Vector2(respawnX, respawnY) ||
+            _player.FacingVector != Vector2I.Left ||
+            _inventoryMenu.IsActive ||
+            _saveQuitScreen.Visible,
+            "Game-over Continue did not preserve the live unsaved image, " +
+            "replace one gameplay scene, refill health, and restart at the " +
+            "maintained death checkpoint.");
+
+        ValidateDisposedRoomEntitySaveSubscription();
+
+        FailIf(
+            CheckTileWarp(_player),
+            "Saved checkpoint reload on Rafton's exterior doorway " +
+            "1:a7/$24 immediately re-entered room 2:1e.");
+        _player.WarpTo(new Vector2(0x48, 0x48), recordSafe: false);
+        FailIf(
+            CheckTileWarp(_player),
+            "Leaving Rafton's exterior doorway 1:a7/$24 unexpectedly " +
+            "activated another warp.");
+        _player.WarpTo(new Vector2(respawnX, respawnY), recordSafe: false);
+        FailIf(
+            !CheckTileWarp(_player) ||
+            _rooms.ActiveGroup != 2 || _rooms.CurrentRoom.Id != 0x1e,
+            "Rafton's exterior doorway 1:a7/$24 did not reactivate after " +
+            "Link left and returned to it.");
+
+        GD.Print(
+            "Validated collapsed-Link root handoff, MUS_GAMEOVER and BCD death " +
+            "count, unsaved Continue, one-root scene replacement, restored-health " +
+            "initialization, maintained-checkpoint respawn, saved doorway warp " +
+            "deactivation, and disposed entity subscription cleanup.");
+    }
+
+    private void ValidateDisposedRoomEntitySaveSubscription()
+    {
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var worldRoot = new Node2D
+        {
+            Name = "DisposedRoomEntitySubscriptionValidation"
+        };
+        AddChild(worldRoot);
+        using var entitiesFixture = RoomEntityValidationFixture.ForRoot(
+            worldRoot, new() { SaveData = save });
+        RoomEntityManager entities = entitiesFixture.Manager;
+        entities.LoadRoom(0, _world.LoadRoom(0, 0x66));
+        if (entities.Entities<NpcCharacter>().Count == 0)
+        {
+            entities.Dispose();
+            worldRoot.Free();
+            throw new InvalidOperationException(
+                "Disposed room-entity subscription validation room 0:66 " +
+                "did not create an NPC fixture.");
+        }
+
+        entities.Dispose();
+        worldRoot.Free();
+
+        // This reproduces the Maku Tree checkpoint write after Continue. The
+        // disposed manager must no longer refresh its freed NPC nodes.
+        save.SetDeathRespawnPoint(
+            group: 0,
+            room: 0x66,
+            stateModifier: 0,
+            facing: 2,
+            y: 0x48,
+            x: 0x50);
+    }
+
+    private void ValidateSaveAndQuitToTitle()
+    {
+        // The suite runs synchronously in one Godot host frame. Each simulated
+        // update must own its input, including neutral updates after an error.
+        static void TickSaveMenu(InventoryMenuController menu, string? action = null)
+        {
+            string[] actions = action is null ? [] : [action];
+            Input.BeginOriginalUpdate(new ApplicationInputSnapshot(actions, actions, Vector2.Zero));
+            try { menu.Update(1.0 / 60.0); }
+            finally { Input.EndOriginalUpdate(); }
+        }
+
+        GameSceneGraph gameplayScene = _scene;
+        // Reproduce a released B edge left by an earlier synchronous scenario.
+        Input.ActionPress("item");
+        Input.ActionRelease("item");
+        FailIf(
+            Godot.Input.IsActionPressed("item") || !Godot.Input.IsActionJustPressed("item"),
+            "The save-error regression did not arrange a released native B edge.");
+        bool quitAfterFailure = false;
+        var failedMenu = new InventoryMenuController(
+            _inventoryScreen,
+            _saveQuitScreen,
+            _menuLifecycle,
+            () => true,
+            () => true,
+            () => SaveResult.Failed("validation failure"),
+            () => quitAfterFailure = true,
+            _sound.PlaySound);
+        failedMenu.OpenSaveImmediatelyForValidation();
+        _saveQuitScreen.Move(1);
+        _saveQuitScreen.Move(1);
+        int failedAttempts = 0;
+        foreach (string dismissAction in new[] { "attack", "item", "inventory" })
+        {
+            TickSaveMenu(failedMenu, "attack");
+            failedAttempts++;
+            for (int frame = 0; frame <= InventoryMenuController.SaveSelectionDelayFrames; frame++)
+            {
+                FailIf(
+                    !_saveQuitScreen.SaveErrorVisible ||
+                    failedMenu.LastSaveError != "validation failure" ||
+                    !failedMenu.SaveMenuOpen || quitAfterFailure ||
+                    failedMenu.SaveRequests != failedAttempts || failedMenu.QuitRequests != 0 ||
+                    _saveQuitScreen.Cursor != 2 || _saveQuitScreen.DelayCounter != 0,
+                    $"Save and Quit failure {failedAttempts}, neutral update {frame}: " +
+                    $"visible={_saveQuitScreen.SaveErrorVisible}, error={failedMenu.LastSaveError}, " +
+                    $"open={failedMenu.SaveMenuOpen}, saves={failedMenu.SaveRequests}, " +
+                    $"quits={failedMenu.QuitRequests}, cursor={_saveQuitScreen.Cursor}, " +
+                    $"delay={_saveQuitScreen.DelayCounter}, quit={quitAfterFailure}.");
+                if (frame < InventoryMenuController.SaveSelectionDelayFrames)
+                    TickSaveMenu(failedMenu);
+            }
+            TickSaveMenu(failedMenu, dismissAction);
+            TickSaveMenu(failedMenu);
+            FailIf(
+                _saveQuitScreen.SaveErrorVisible || !failedMenu.SaveMenuOpen ||
+                failedMenu.SaveRequests != failedAttempts || quitAfterFailure ||
+                _saveQuitScreen.Cursor != 2 || _saveQuitScreen.DelayCounter != 0,
+                $"The Save and Quit error's {dismissAction} dismissal saved, closed, " +
+                "or failed to leave the same selection ready for retry.");
+        }
+        failedMenu.CloseImmediatelyForValidation();
+
+        _inventoryMenu.OpenSaveImmediatelyForValidation();
+        _saveQuitScreen.Move(1);
+        _saveQuitScreen.Move(1);
+        int saveRequests = _inventoryMenu.SaveRequests;
+        int saveWrites = _saveWriteRequests;
+        TickSaveMenu(_inventoryMenu, "attack");
+        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames - 1; frame++)
+            TickSaveMenu(_inventoryMenu);
+        FailIf(
+            !_inventoryMenu.SaveMenuOpen || _inventoryMenu.QuitRequests != 0 ||
+            _saveQuitScreen.DelayCounter != 1 || gameplayScene.IsQueuedForDeletion(),
+            "Save and Quit left gameplay before the original $1e-update delay expired.");
+        TickSaveMenu(_inventoryMenu);
+        FailIf(
+            _inventoryMenu.SaveRequests != saveRequests + 1 ||
+            _saveWriteRequests != saveWrites + 1 ||
+            _inventoryMenu.QuitRequests != 1 ||
+            _frontendIntro is null ||
+            _frontendIntro.Stage != FrontendIntroStage.Title ||
+            _frontendIntroScreen is null || _frontendIntroScreen.Visible ||
+            _mainMenu is not null ||
+            _mainMenuScreen is null || !_mainMenuScreen.Visible ||
+            _inventoryMenu.IsActive || !gameplayScene.IsQueuedForDeletion() ||
+            _sound.IsQueuedForDeletion() ||
+            _frontendIntroScreen.GetParent() != this ||
+            _mainMenuScreen.GetParent() != this,
+            "Save and Quit did not save, free the gameplay scene as one lifecycle unit, " +
+            "preserve application audio, and return to the frontend title after 30 updates.");
+        GD.Print("Validated Save and Quit input isolation from released native B edges, " +
+            "A/B/Start error dismissal and repeated retries, successful persistence " +
+            "request, one-root gameplay cleanup, persistent application audio, and return to " +
+            "the frontend title after 30 updates.");
+    }
+
+    private void ValidateExplicitSavePersistence()
+    {
+        int saveWrites = _saveWriteRequests;
+        bool flagWasSet = _saveData.HasGlobalFlag(AgesGlobalFlag.SavedNayru);
+        int rupees = _inventory.Rupees;
+        int rupeeDelta = rupees == 999 ? -1 : 1;
+
+        _saveData.SetGlobalFlag(AgesGlobalFlag.SavedNayru, !flagWasSet);
+        _inventory.AddRupees(rupeeDelta);
+        _inventory.AddRupees(-rupeeDelta);
+        _saveData.SetGlobalFlag(AgesGlobalFlag.SavedNayru, flagWasSet);
+
+        // Exit an actual application root. Calling this live root's callback
+        // directly leaves its tree/resources active after pretending to exit.
+        var stoppedSave = OracleSaveData.CreateStandardGame();
+        stoppedSave.SetLinkName("Link");
+        stoppedSave.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
+        using var stopped = new FrontendValidationRoot();
+        AddChild(stopped);
+        try
+        {
+            stopped.Initialize(stoppedSave);
+            byte[] stored = stopped.FileSlotSnapshot(0);
+            stopped.Step(241, false);
+            stopped.Step(1, false, "inventory");
+            stopped.Step(9, false);
+            stopped.Step(1, false, "inventory");
+            stopped.Step(32, false);
+            stopped.Step(1, false, "inventory");
+            stopped.Step(1, false);
+            stopped.Step(1, false, "inventory");
+            stopped.Step(MainMenuController.WhiteFadeFrames, false);
+            stopped.CompleteSavedGameLoading(false);
+            FailIf(stopped._rooms is null || stopped._inventory is null,
+                "The exit-persistence fixture must load its isolated saved file into gameplay.");
+            stopped._saveData.SetGlobalFlag(AgesGlobalFlag.SavedNayru);
+            stopped._inventory.AddRupees(1);
+            FailIf(stopped._saveData.Serialize().SequenceEqual(stored),
+                "The exit-persistence fixture must retain unsaved live changes.");
+            stopped.Free();
+            FailIf(stopped._saveWriteRequests != 0 || !stopped.FileSlotSnapshot(0).SequenceEqual(stored),
+                "Application exit wrote unsaved live changes back to its isolated file slot.");
+        }
+        finally
+        {
+            if (GodotObject.IsInstanceValid(stopped)) stopped.Free();
+        }
+
+        _inventoryMenu.OpenSaveImmediatelyForValidation();
+        int menuSaveRequests = _inventoryMenu.SaveRequests;
+        _inventoryMenu.SelectSaveOption();
+        FailIf(
+            _saveWriteRequests != saveWrites ||
+            _inventoryMenu.SaveRequests != menuSaveRequests ||
+            _saveQuitScreen.DelayCounter != InventoryMenuController.SaveSelectionDelayFrames,
+            "Ordinary save-image changes, application exit, or Continue unexpectedly wrote the active file.");
+        _inventoryMenu.CloseImmediatelyForValidation();
+
+        GD.Print("Validated explicit-only persistence: gameplay changes and Continue remain " +
+            "in memory, and application exit does not save.");
+    }
+
+    private void ValidateSaveDataFoundation()
+    {
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var standardInventory = new InventoryState(_treasures, save);
+        FailIf(save.TextSpeed != 0x02,
+            "initialFileVariables must initialize wTextSpeed to $02 (display speed 3).");
+        FailIf(save.ReadWramByte(0xc611) != 1 || save.ReadWramByte(0xc6af) != 1 || save.HasTreasure(TreasureId.Shield),
+            "initializeFile/saveFile lost the Ages byte or standard-table fallthrough shield level without ownership.");
+        save.WriteWramByte(0xc622, 0xff);
+        save.WriteWramByte(0xc623, 0xff);
+        save.WriteWramByte(0xc624, 0xff);
+        save.WriteWramByte(0xc625, 0x7f);
+        save.AdvancePlaytime();
+        FailIf(save.ReadWramByte(0xc622) != 0 || save.ReadWramByte(0xc623) != 0 ||
+            save.ReadWramByte(0xc624) != 0 || save.ReadWramByte(0xc625) != 0x80,
+            "mainThread's playtime carry did not propagate through all four bytes.");
+        for (int address = 0xc622; address <= 0xc625; address++) save.WriteWramByte(address, 0xff);
+        save.AdvancePlaytime();
+        FailIf(Enumerable.Range(0xc622, 4).Any(address => save.ReadWramByte(address) != 0),
+            "The four-byte playtime counter failed to wrap at $ffffffff.");
+        FailIf(
+            save.HasGlobalFlag(AgesGlobalFlag.MakuTreeDisappeared) ||
+            save.GetRoomFlags(0, 0x38) != 0 ||
+            save.RespawnGroup != 0 || save.RespawnRoom != 0x8a ||
+            save.RespawnStateModifier != 0 || save.RespawnFacing != 0 ||
+            save.RespawnY != 0x38 || save.RespawnX != 0x48 ||
+            standardInventory.HasTreasure(TreasureId.Sword) ||
+            standardInventory.SwordLevel != 0 ||
+            standardInventory.EquippedA == TreasureId.Sword ||
+            standardInventory.EquippedB == TreasureId.Sword,
+            "A standard file did not begin swordless, with clear flags and the " +
+            "original 0:8a/$38/$48 checkpoint.");
+
+        save.SetGlobalFlag(AgesGlobalFlag.MakuTreeDisappeared);
+        save.SetRoomFlag(2, 0x38, OracleSaveData.RoomFlagLayoutSwap);
+        save.SetRoomFlag(6, 0x87, OracleSaveData.RoomFlagItem);
+        save.SetRoomFlag(7, 0xa6, OracleSaveData.RoomFlag80);
+        save.SetRoomFlag(1, 0x41, OracleSaveData.RoomFlagPortalSpotDiscovered);
+        save.SetMinimapLocation(1, 0x41);
+        save.SetMakuTreeState(1);
+        FailIf(
+            !save.HasGlobalFlag(AgesGlobalFlag.MakuTreeDisappeared) ||
+            !save.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
+            !save.HasRoomFlag(4, 0x87, OracleSaveData.RoomFlagItem) ||
+            !save.HasRoomFlag(5, 0xa6, OracleSaveData.RoomFlag80) ||
+            !save.HasRoomFlag(3, 0x41, OracleSaveData.RoomFlagPortalSpotDiscovered) ||
+            save.MinimapGroup != 1 || save.MinimapRoom != 0x41 || save.MakuTreeState != 1,
+            "Global flags, room flags, or the original 0/2, 1/3, 4/6 group aliases diverged.");
+
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SWITCH_HOOK_00"));
+        inventory.AddRupees(987);
+        save.SetDeathRespawnPoint(5, 0xa6, 2, 3, 0x78, 0x88);
+        byte[] encoded = save.Serialize();
+        bool decodedSuccessfully =
+            OracleSaveData.TryDeserialize(encoded, out OracleSaveData? decoded);
+        FailIf(
+            encoded.Length != OracleSaveData.FileSize ||
+            !encoded.AsSpan(2, 8).SequenceEqual("Z21216-0"u8) ||
+            !decodedSuccessfully,
+            "The $550-byte Ages save image did not pass its signature/checksum round trip.");
+
+        var restoredInventory = new InventoryState(_treasures, decoded!);
+        FailIf(
+            !restoredInventory.HasTreasure(TreasureId.SwitchHook) ||
+            restoredInventory.SwitchHookLevel != 1 ||
+            restoredInventory.EquippedB != TreasureId.SwitchHook ||
+            restoredInventory.Rupees != 987 || !decoded!.HasGlobalFlag(AgesGlobalFlag.MakuTreeDisappeared) ||
+            !decoded.HasRoomFlag(0, 0x38, OracleSaveData.RoomFlagLayoutSwap) ||
+            decoded.RespawnGroup != 5 || decoded.RespawnRoom != 0xa6 ||
+            decoded.RespawnStateModifier != 2 || decoded.RespawnFacing != 3 ||
+            decoded.RespawnY != 0x78 || decoded.RespawnX != 0x88,
+            "Inventory, BCD rupees, story flags, or room flags were lost across save reload.");
+
+        encoded[^1] ^= 0x80;
+        FailIf(OracleSaveData.TryDeserialize(encoded, out _), "A corrupted Ages save checksum was accepted.");
+
+        OracleSaveData deathSave = OracleSaveData.CreateStandardGame();
+        deathSave.WriteWramByte(AgesWramAddress.wDeathCounter, 0x98);
+        deathSave.WriteWramByte(0xc61f, 0x09);
+        deathSave.IncrementDeathCount();
+        deathSave.IncrementDeathCount();
+        deathSave.WriteWramByte(AgesWramAddress.wLinkHealth, 0x00);
+        byte[] depletedImage = deathSave.Serialize();
+        deathSave.ResetHealthIfDepleted();
+        FailIf(
+            deathSave.DeathCount != 999 ||
+            deathSave.ReadWramByte(AgesWramAddress.wDeathCounter) != 0x99 ||
+            deathSave.ReadWramByte(0xc61f) != 0x09 ||
+            deathSave.ReadWramByte(AgesWramAddress.wLinkHealth) != Math.Max(0x0c, (deathSave.MaxHealthQuarters >> 1) & 0xfc) ||
+            !OracleSaveData.TryDeserialize(
+                depletedImage,
+                out OracleSaveData? persistedDepleted) ||
+            persistedDepleted!.ReadWramByte(AgesWramAddress.wLinkHealth) != 0,
+            "The live BCD death counter, $999 saturation, or zero-health " +
+            "save/load reset boundary regressed.");
+
+        GD.Print("Validated original $550-byte save signature/checksum, 128 global flags, " +
+            "four aliased room-flag tables, initial/current death checkpoint, inventory fields, " +
+            "swordless standard-game state, BCD rupee/death counters, and depleted-health reload.");
+    }
+
+    private static void ValidateSaveStore()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(), $"ooa-save-validation-{Guid.NewGuid():N}");
+        string primary = Path.Combine(directory, "save.sav");
+        string backup = primary + ".bak";
+        try
+        {
+            var save = OracleSaveData.CreateStandardGame();
+            save.SetLinkName("ONE");
+            SaveResult result = OracleSaveStore.Save(save, primary);
+            FailIf(
+                !result.Success || !File.Exists(primary) || !File.Exists(backup) ||
+                !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)) ||
+                OracleSaveStore.LoadOrCreate(primary).LinkName != "ONE",
+                $"The first save did not write identical native primary/backup images: {result.ErrorMessage}");
+
+            save.SetLinkName("TWO");
+            result = OracleSaveStore.Save(save, primary);
+            FailIf(
+                !result.Success ||
+                OracleSaveStore.LoadOrCreate(primary).LinkName != "TWO" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? first) ||
+                first!.LinkName != "TWO" ||
+                !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)),
+                $"The second save retained a previous-generation backup: {result.ErrorMessage}");
+
+            save.SetLinkName("THREE");
+            result = OracleSaveStore.Save(save, primary);
+            FailIf(
+                !result.Success ||
+                OracleSaveStore.LoadOrCreate(primary).LinkName != "THREE" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? second) ||
+                second!.LinkName != "THREE" ||
+                !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)),
+                $"A later save did not update both native copies: {result.ErrorMessage}");
+
+            File.WriteAllBytes(primary, new byte[] { 0xde, 0xad, 0xbe, 0xef });
+            OracleSaveData recovered = OracleSaveStore.LoadOrCreate(primary);
+            FailIf(recovered.LinkName != "THREE", "A corrupt primary rolled back progress instead of loading the current backup.");
+            recovered.SetLinkName("FOUR");
+            result = OracleSaveStore.Save(recovered, primary);
+            FailIf(
+                !result.Success || OracleSaveStore.LoadOrCreate(primary).LinkName != "FOUR" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? preserved) ||
+                preserved!.LinkName != "FOUR",
+                "Saving after native backup recovery did not update both copies.");
+
+            File.WriteAllBytes(primary, new byte[] { 0xde });
+            File.WriteAllBytes(backup, new byte[] { 0xad });
+            bool rejected = false;
+            try { OracleSaveStore.LoadOrCreate(primary); }
+            catch (InvalidDataException) { rejected = true; }
+            FailIf(!rejected || !File.ReadAllBytes(primary).SequenceEqual(new byte[] { 0xde }) ||
+                !File.ReadAllBytes(backup).SequenceEqual(new byte[] { 0xad }),
+                "Two invalid save copies must be rejected without manufacturing a new game or rewriting them.");
+            string absent = Path.Combine(directory, "absent.sav");
+            FailIf(!OracleSaveStore.LoadOrCreate(absent).Serialize().SequenceEqual(OracleSaveData.CreateStandardGame().Serialize()) ||
+                File.Exists(absent) || File.Exists(absent + ".bak"),
+                "An absent development-launch save must initialize in memory without an implicit commit.");
+
+            string blockingFile = Path.Combine(directory, "not-a-directory");
+            File.WriteAllText(blockingFile, "blocked");
+            result = OracleSaveStore.Save(
+                recovered, Path.Combine(blockingFile, "save.sav"));
+            FailIf(
+                result.Success || string.IsNullOrWhiteSpace(result.ErrorMessage),
+                "A save I/O failure escaped or returned success.");
+            FailIf(
+                File.Exists(primary + ".tmp") || File.Exists(primary + ".bak.tmp"),
+                "A completed save left temporary files behind.");
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+
+        GD.Print("Validated durable temporary save serialization, first-save promotion, " +
+            "identical native primary/backup images, invalid-copy rejection, cleanup, and surfaced I/O errors.");
+    }
+
+    private void ValidateTreasureInterpreter()
+    {
+        FailIf(
+            _treasures.BehaviourCount != 0x68,
+            $"Expected `$68 typed treasure behaviours, found {_treasures.BehaviourCount}.");
+        for (int treasure = 0; treasure < 0x68; treasure++)
+        {
+            BehaviourRecord behaviour = _treasures.GetBehaviour(treasure);
+            FailIf(
+                behaviour.TreasureId != treasure,
+                $"Treasure ${treasure:x2} resolved to another behaviour.");
+        }
+
+        static TreasureObjectRecord Reward(int treasure, int parameter) => new(
+            $"VALIDATION_TREASURE_{treasure:x2}", treasure, 0, parameter, 0xff, 0, string.Empty);
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        int inventoryCommits = 0;
+        int saveCommits = 0;
+        int rupeeNotifications = 0;
+        bool inspectSeedSatchelCommit = false;
+        bool inventorySeedSatchelSnapshotComplete = true;
+        bool saveSeedSatchelSnapshotComplete = true;
+
+        bool SeedSatchelSnapshotComplete() =>
+            inventory.SeedSatchelLevel == 1 &&
+            inventory.EmberSeeds == 0x20 &&
+            inventory.HasTreasure(TreasureId.SeedSatchel) &&
+            inventory.HasTreasure(TreasureId.EmberSeeds) &&
+            save.ReadWramByte(AgesWramAddress.wSeedSatchelLevel) == 1 &&
+            save.ReadWramByte(AgesWramAddress.wNumEmberSeeds) == 0x20 &&
+            save.HasTreasure(TreasureId.SeedSatchel) &&
+            save.HasTreasure(TreasureId.EmberSeeds);
+
+        inventory.Changed += () =>
+        {
+            inventoryCommits++;
+            if (inspectSeedSatchelCommit)
+                inventorySeedSatchelSnapshotComplete &= SeedSatchelSnapshotComplete();
+        };
+        inventory.RupeesChanged += () => rupeeNotifications++;
+        save.Changed += () =>
+        {
+            saveCommits++;
+            if (inspectSeedSatchelCommit)
+                saveSeedSatchelSnapshotComplete &= SeedSatchelSnapshotComplete();
+        };
+
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_RUPEES_04"));
+        FailIf(
+            inventory.Rupees != 30 || inventoryCommits != 1 || saveCommits != 1 ||
+            rupeeNotifications != 1,
+            "A mode `$0e rupee grant did not commit exactly once.");
+
+        inventoryCommits = saveCommits = 0;
+        inspectSeedSatchelCommit = true;
+        inventory.GiveTreasure(Reward(TreasureId.SeedSatchel, 1));
+        inspectSeedSatchelCommit = false;
+        FailIf(
+            inventory.SeedSatchelLevel != 1 || inventory.EmberSeeds != 0x20 ||
+            save.ReadWramByte(AgesWramAddress.wNumEmberSeeds) != 0x20 || inventoryCommits != 1 ||
+            saveCommits != 1 || !inventorySeedSatchelSnapshotComplete ||
+            !saveSeedSatchelSnapshotComplete,
+            "The Seed Satchel did not expose and persist its complete compound grant in one callback.");
+
+        OracleSaveData maturitySave = OracleSaveData.CreateStandardGame();
+        var maturityInventory = new InventoryState(_treasures, maturitySave);
+        int maturityInventoryCommits = 0;
+        int maturitySaveCommits = 0;
+        bool maturityInventorySnapshotComplete = true;
+        bool maturitySaveSnapshotComplete = true;
+
+        bool MaturitySnapshotComplete() =>
+            maturityInventory.HeartPieces == 1 &&
+            maturityInventory.HasTreasure(TreasureId.HeartPiece) &&
+            maturitySave.GashaMaturity == 36 &&
+            maturitySave.ReadWramByte(AgesWramAddress.wNumHeartPieces) == 1 &&
+            maturitySave.HasTreasure(TreasureId.HeartPiece);
+
+        maturityInventory.Changed += () =>
+        {
+            maturityInventoryCommits++;
+            maturityInventorySnapshotComplete &= MaturitySnapshotComplete();
+        };
+        maturitySave.Changed += () =>
+        {
+            maturitySaveCommits++;
+            maturitySaveSnapshotComplete &= MaturitySnapshotComplete();
+        };
+        maturityInventory.GiveTreasure(
+            Reward(TreasureId.HeartPiece, 1));
+        FailIf(
+            maturityInventoryCommits != 1 || maturitySaveCommits != 1 ||
+            !maturityInventorySnapshotComplete || !maturitySaveSnapshotComplete,
+            "A maturity-bearing treasure exposed partial state or emitted duplicate callbacks.");
+
+        inventory.GiveTreasure(Reward(TreasureId.SatchelUpgrade, 0));
+        inventory.GiveTreasure(Reward(TreasureId.EmberSeeds, 0x15));
+        inventory.GiveTreasure(Reward(TreasureId.ScentSeeds, 0x09));
+        inventory.GiveTreasure(Reward(TreasureId.PegasusSeeds, 0x09));
+        inventory.GiveTreasure(Reward(TreasureId.GaleSeeds, 0x09));
+        inventory.GiveTreasure(Reward(TreasureId.MysterySeeds, 0x09));
+        FailIf(
+            inventory.SeedSatchelLevel != 2 || inventory.EmberSeeds != 0x35 ||
+            inventory.ScentSeeds != 0x09 || inventory.PegasusSeeds != 0x09 ||
+            inventory.GaleSeeds != 0x09 || inventory.MysterySeeds != 0x09,
+            "Typed mode `$0f seed counters or the satchel capacity table diverged.");
+
+        inventory.GiveTreasure(Reward(TreasureId.Bombchus, 0x10));
+        inventory.GiveTreasure(Reward(TreasureId.Flute, 0x0c));
+        inventory.GiveTreasure(Reward(TreasureId.ChevalRope, 0x07));
+        inventory.GiveTreasure(Reward(TreasureId.RodOfSeasons, 0x02));
+        inventory.GiveTreasure(Reward(TreasureId.MagnetGloves, 0x01));
+        inventory.GiveTreasure(Reward(TreasureId.FairyPowder, 0x22));
+        inventory.GiveTreasure(Reward(TreasureId.Shovel, 0x00));
+        FailIf(
+            inventory.Bombchus != 0x10 || inventory.AnimalCompanion != 0x0c ||
+            inventory.RememberedCompanionId != 0x07 || inventory.ObtainedSeasons != 0 ||
+            inventory.MagnetGlovePolarity != 0 ||
+            save.ReadWramByte(AgesWramAddress.wShortSecretIndex) != 0x23,
+            "An imported typed WRAM binding did not execute or persist its collection mode.");
+
+        inventory.GiveTreasure(Reward(TreasureId.Boomerang, 1));
+        inventory.GiveTreasure(Reward(TreasureId.Feather, 1));
+        inventory.GiveTreasure(Reward(TreasureId.Slingshot, 1));
+        inventory.SelectSatchelSeeds(2);
+        inventory.SelectShooterSeeds(3);
+        inventory.GiveTreasure(Reward(TreasureId.Id60, 0));
+        FailIf(
+            save.ReadWramByte(AgesWramAddress.wGroup0RoomFlags) != 0 || save.ReadWramByte(0xc701) != 0 ||
+            save.ReadWramByte(0xc6ff) != 0 || save.ReadWramByte(AgesWramAddress.wSatchelSelectedSeeds) != 2 ||
+            save.ReadWramByte(AgesWramAddress.wShooterSelectedSeeds) != 3 || save.ReadWramByte(0xc705) != 0 ||
+            !inventory.HasUpgrade(0) || !inventory.HasTreasure(TreasureId.Id60),
+            "Item levels, selected seeds, or transient wUpgradesObtained were not updated.");
+
+        // Clean US Ages has no Boomerang/Feather level byte. Room flags
+        // must neither receive inventory writes nor be interpreted as levels.
+        save.SetRoomFlag(0, 0x00, 0x80);
+        inventory.GiveTreasure(Reward(TreasureId.EmberSeeds, 0x01));
+        FailIf(save.ReadWramByte(AgesWramAddress.wGroup0RoomFlags) != 0x80, "Inventory persistence clobbered room flag $0:$00.");
+
+        FailIf(
+            !OracleSaveData.TryDeserialize(save.Serialize(), out OracleSaveData? restoredSave),
+            "Typed treasure WRAM state did not deserialize.");
+        var restored = new InventoryState(_treasures, restoredSave);
+        FailIf(
+            restored.SeedSatchelLevel != 2 || restored.EmberSeeds != 0x36 ||
+            restored.ScentSeeds != 0x09 || restored.Bombchus != 0x10 ||
+            restored.BoomerangLevel != 1 || restored.FeatherLevel != 1 ||
+            restored.SlingshotLevel != 0 || restored.SatchelSelectedSeeds != 2 ||
+            restored.ShooterSelectedSeeds != 3 || restored.SlingshotSelectedSeeds != 0,
+            "Typed treasure variables were lost across the `$550-byte save round trip.");
+
+        OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
+        var ringInventory = new InventoryState(_treasures, ringSave);
+        ringInventory.GiveTreasure(Reward(TreasureId.Ring, 0x1e));
+        FailIf(
+            ringInventory.UnappraisedRingCount != 1 ||
+            ringInventory.UnappraisedRingAt(0) != 0x5e ||
+            ringInventory.UnappraisedRingAt(1) != 0xff ||
+            ringSave.ReadWramByte(AgesWramAddress.wNumUnappraisedRingsBcd) != 0x01,
+            "Treasure mode `$09 did not append an unappraised ring and update its BCD count.");
+
+        var fullRings = new byte[0x40];
+        Array.Fill(fullRings, (byte)0x41);
+        ringSave.WriteWramBytes(AgesWramAddress.wUnappraisedRings, fullRings);
+        ringSave.WriteWramByte(AgesWramAddress.wNumUnappraisedRingsBcd, 0x64);
+        ringInventory = new InventoryState(_treasures, ringSave);
+        ringInventory.GiveTreasure(Reward(TreasureId.Ring, 0x02));
+        FailIf(
+            ringInventory.UnappraisedRingCount != 0x40 ||
+            ringInventory.UnappraisedRingAt(0x3e) != 0x41 ||
+            ringInventory.UnappraisedRingAt(0x3f) != 0x42 ||
+            ringSave.ReadWramByte(AgesWramAddress.wNumUnappraisedRingsBcd) != 0x64,
+            "A full unappraised-ring list did not replace a duplicate like mode `$09.");
+
+        GD.Print("Validated all `$68 typed treasure behaviours, seed counters/capacities, " +
+            "mode `$09 ring storage, clean US item/selection bindings, transient upgrade bits, " +
+            "atomic callback-time treasure snapshots, and save persistence.");
+    }
+
+    private void ValidateDungeonCollectibles()
+    {
+        int currentDungeon = -1;
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(
+            _treasures, save, () => currentDungeon);
+        TreasureObjectRecord smallKey =
+            _treasures.GetObject("TREASURE_OBJECT_SMALL_KEY_03");
+        TreasureObjectRecord bossKey =
+            _treasures.GetObject("TREASURE_OBJECT_BOSS_KEY_03");
+        TreasureObjectRecord compass =
+            _treasures.GetObject("TREASURE_OBJECT_COMPASS_02");
+        TreasureObjectRecord map =
+            _treasures.GetObject("TREASURE_OBJECT_MAP_02");
+
+        void GiveDungeonSet()
+        {
+            inventory.GiveTreasure(smallKey);
+            inventory.GiveTreasure(bossKey);
+            inventory.GiveTreasure(compass);
+            inventory.GiveTreasure(map);
+        }
+
+        // A malformed/non-dungeon reward must not silently mutate dungeon 0.
+        GiveDungeonSet();
+        for (int dungeon = 0; dungeon < 16; dungeon++)
+        {
+            FailIf(
+                inventory.GetDungeonSmallKeys(dungeon) != 0 ||
+                inventory.HasDungeonBossKey(dungeon) ||
+                inventory.HasDungeonCompass(dungeon) ||
+                inventory.HasDungeonMap(dungeon),
+                "A dungeon collectible obtained with wDungeonIndex `$ff mutated dungeon state.");
+        }
+
+        int[] boundaryDungeons = { 0, 7, 8, 15 };
+        foreach (int dungeon in boundaryDungeons)
+        {
+            currentDungeon = dungeon;
+            GiveDungeonSet();
+        }
+        currentDungeon = 8;
+        inventory.GiveTreasure(smallKey);
+
+        for (int dungeon = 0; dungeon < 16; dungeon++)
+        {
+            bool expected = boundaryDungeons.Contains(dungeon);
+            int expectedKeys = dungeon == 8 ? 2 : expected ? 1 : 0;
+            FailIf(
+                inventory.GetDungeonSmallKeys(dungeon) != expectedKeys ||
+                inventory.HasDungeonBossKey(dungeon) != expected ||
+                inventory.HasDungeonCompass(dungeon) != expected ||
+                inventory.HasDungeonMap(dungeon) != expected,
+                $"Dungeon collectible indexing failed for dungeon {dungeon}: " +
+                $"keys={inventory.GetDungeonSmallKeys(dungeon)}, " +
+                $"boss={inventory.HasDungeonBossKey(dungeon)}, " +
+                $"compass={inventory.HasDungeonCompass(dungeon)}, " +
+                $"map={inventory.HasDungeonMap(dungeon)}.");
+        }
+
+        FailIf(
+            save.ReadWramByte(AgesWramAddress.wDungeonSmallKeys) != 1 ||
+            save.ReadWramByte(0xc679) != 1 ||
+            save.ReadWramByte(0xc67a) != 2 ||
+            save.ReadWramByte(0xc681) != 1 ||
+            save.ReadWramByte(AgesWramAddress.wDungeonBossKeys) != 0x81 ||
+            save.ReadWramByte(0xc683) != 0x81 ||
+            save.ReadWramByte(AgesWramAddress.wDungeonCompasses) != 0x81 ||
+            save.ReadWramByte(0xc685) != 0x81 ||
+            save.ReadWramByte(AgesWramAddress.wDungeonMaps) != 0x81 ||
+            save.ReadWramByte(0xc687) != 0x81,
+            "Dungeon collectibles did not retain the original 16 key bytes and " +
+            "two-byte boss-key/compass/map bitsets in WRAM.");
+
+        byte[] encoded = save.Serialize();
+        FailIf(
+            !OracleSaveData.TryDeserialize(encoded, out OracleSaveData? decoded),
+            "Dungeon collectible save data did not deserialize.");
+        var restored = new InventoryState(_treasures, decoded);
+        for (int dungeon = 0; dungeon < 16; dungeon++)
+        {
+            bool expected = boundaryDungeons.Contains(dungeon);
+            int expectedKeys = dungeon == 8 ? 2 : expected ? 1 : 0;
+            FailIf(
+                restored.GetDungeonSmallKeys(dungeon) != expectedKeys ||
+                restored.HasDungeonBossKey(dungeon) != expected ||
+                restored.HasDungeonCompass(dungeon) != expected ||
+                restored.HasDungeonMap(dungeon) != expected,
+                $"Dungeon {dungeon} collectibles were lost across save serialization.");
+        }
+
+        GD.Print("Validated treasure behaviour modes `$87/`$86 against live dungeon " +
+            "indices 0, 7, 8, and 15, non-dungeon rejection, both bitset bytes, " +
+            "and save round-trip persistence.");
+    }
+
+    private void ValidateDeathRespawnCheckpoints()
+    {
+        FailIf(
+            !_deathRespawnPoints.RecordsRoomInitialization(0, 0x38) ||
+            !_deathRespawnPoints.RecordsRoomInitialization(1, 0x38) ||
+            _deathRespawnPoints.RecordsRoomInitialization(0, 0x39),
+            "The imported roomSpecificCode $06 death-respawn room table regressed.");
+
+        int saveWrites = _saveWriteRequests;
+        LoadValidationRoom(0, 0x38);
+        _player.WarpTo(new Vector2(0x38, 0x58));
+        _player.Face(Vector2I.Left);
+        _deathRespawnPoints.RecordRoomInitialization();
+        FailIf(
+            _saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x38 ||
+            _saveData.RespawnFacing != 3 || _saveData.RespawnY != 0x58 ||
+            _saveData.RespawnX != 0x38 || _saveWriteRequests != saveWrites,
+            "Room 0:38 did not update its live death checkpoint without autosaving.");
+
+        StepGameplayUpdates(4, Vector2.Right);
+        FailIf(_saveData.RespawnX != 0x38 || _saveData.RespawnY != 0x58,
+            "Room 0:38 must retain its initialization checkpoint while Link moves.");
+
+        LoadValidationRoom(0, 0x39);
+        _player.WarpTo(new Vector2(0x78, 0x68));
+        _player.Face(Vector2I.Down);
+        _deathRespawnPoints.RecordRoomInitialization();
+        FailIf(
+            !OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? restored) ||
+            restored!.RespawnGroup != 0 || restored.RespawnRoom != 0x38 ||
+            restored.RespawnFacing != 3 || restored.RespawnY != 0x58 ||
+            restored.RespawnX != 0x38,
+            "An ordinary room replaced the checkpoint, or saving captured Link's arbitrary position.");
+
+        foreach (bool batched in new[] { false, true })
+        {
+            ReinitializeGameplayForValidation();
+            _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
+            _saveData.SetGlobalFlag(AgesGlobalFlag.MakuTreeDisappeared);
+            _saveData.SetMakuTreeState(0x0f);
+            LoadValidationRoom(0, 0x48);
+            _saveData.SetDeathRespawnPoint(0, 0x48, 0, 2, 0x58, 0x50);
+            _transitions.ApplyWarp(_player, new Warp(0, 0x48, -1, 0, WarpSourceTransition.FadeOut,
+                0, 0x38, 0x65, 0, WarpDestinationTransition.Basic));
+            int updates = 0;
+            bool loaded = false;
+            while (IsTransitioning && updates < 256)
+                StepGameplayUpdates(4, Vector2.Zero, batched: batched, afterUpdate: () =>
+                {
+                    updates++;
+                    if (_rooms.CurrentRoom.Id != 0x38)
+                    {
+                        FailIf(_saveData.RespawnRoom != 0x48, "Warp changed its checkpoint before initializeRoom.");
+                        return;
+                    }
+                    loaded = true;
+                    // bank4.applyWarpDest_b04 writes packed $65 before
+                    // initializeRoom, with the cleared Link direction $00.
+                    FailIf(_saveData.RespawnGroup != 0 || _saveData.RespawnRoom != 0x38 ||
+                        _saveData.RespawnX != 0x58 || _saveData.RespawnY != 0x68 || _saveData.RespawnFacing != 0,
+                        "Room 0:38 must capture packed $65 and direction $00 before Link's warp handler, retaining them through arrival.");
+                });
+            FailIf(!loaded || IsTransitioning, "Room 0:38 checkpoint warp did not finish.");
+            StepGameplayUpdates(4, Vector2.Down, batched: batched);
+            FailIf(_saveData.RespawnX != 0x58 || _saveData.RespawnY != 0x68 || _saveData.RespawnFacing != 0,
+                "Room 0:38 movement overwrote the initialization checkpoint after arrival.");
+        }
+
+        GD.Print("Validated imported roomSpecificCode $06 checkpoint rooms and save-image " +
+            "retention of the maintained checkpoint instead of Link's arbitrary position.");
+    }
+
+}

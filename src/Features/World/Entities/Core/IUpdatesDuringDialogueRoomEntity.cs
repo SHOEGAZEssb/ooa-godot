@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Objects eligible for the native text-time dispatcher: interactions whose

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class CheepCheepRoomEntity
     : CombatEnemyRoomEntityAdapter<CheepCheepCharacter>, IFixedRoomEntity,

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_ITEM_FROM_MAPLE $14/$15. Scattered items share the global RNG, 8.8
@@ -81,7 +81,7 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D, ITerrainShadowSo
         _zFixed = (sourceZFixed >> 8) << 8;
         _state = MapleDroppedItemState.Initializing;
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(record.Animation);
         if (definition.Frames.Length != 1)
@@ -89,7 +89,7 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D, ITerrainShadowSo
             throw new InvalidOperationException(
                 $"Maple item ${record.Index:x2} should have one static frame.");
         }
-        _texture = NpcCharacter.BuildOamTexture(
+        _texture = OracleOamCompositor.BuildOamTexture(
             source,
             definition.Frames[0].EncodedOam,
             record.TileBase,

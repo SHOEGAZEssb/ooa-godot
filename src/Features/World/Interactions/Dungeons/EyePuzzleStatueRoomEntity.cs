@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // statueEyeball.s:$e2:$04: one counter/RNG consumer per physical slot.
 internal sealed class EyePuzzleStatueRoomEntity(StatueEyeball eye, RoomEntityManager owner)

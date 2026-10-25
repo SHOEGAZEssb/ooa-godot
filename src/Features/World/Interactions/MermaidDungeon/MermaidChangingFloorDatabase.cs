@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class MermaidChangingFloorDatabase
 {
@@ -9,7 +9,7 @@ internal sealed class MermaidChangingFloorDatabase
     private readonly Dictionary<int,MermaidFloorWorkerProfile> _workers = new();
     internal MermaidChangingFloorDatabase()
     {
-        var patterns = GeneratedTable.Load("res://assets/oracle/objects/mermaid_changing_floor_patterns.tsv",
+        var patterns = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_changing_floor_patterns.tsv",
             new GeneratedTableSchema("Mermaid changing floor streams",GeneratedTableKeySemantics.Unique,
                 ["state","half","offset","value","source"],["state","half","offset"],headerRequired:true));
         int order = 0;
@@ -21,7 +21,7 @@ internal sealed class MermaidChangingFloorDatabase
             _ = row.RequiredString(4);
         }
         if (order != 260) throw new InvalidOperationException("Mermaid changing floor requires four 65-byte source streams.");
-        var workers = GeneratedTable.Load("res://assets/oracle/objects/mermaid_changing_floor_workers.tsv",
+        var workers = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_changing_floor_workers.tsv",
             new GeneratedTableSchema("Mermaid serpentine floor workers",GeneratedTableKeySemantics.Unique,
                 ["subid","position","y-step","x-step","buffer-offset","source"],["subid"],headerRequired:true));
         foreach (var row in workers.Rows)
@@ -38,7 +38,7 @@ internal sealed class MermaidChangingFloorDatabase
     {
         for (int half = 0; half < 2; half++)
         for (int offset = 0; offset < 65; offset++)
-            runtime.SetWramByte(WramAddress.wBigBuffer+half*0x80+offset,_patterns[state,half,offset]);
+            runtime.SetWramByte(AgesWramAddress.wBigBuffer+half*0x80+offset,_patterns[state,half,offset]);
     }
 }
 

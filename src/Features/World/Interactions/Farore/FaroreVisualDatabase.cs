@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FaroreVisualDatabase
 {
@@ -18,7 +18,7 @@ internal sealed class FaroreVisualDatabase
 
     internal FaroreVisualDatabase()
     {
-        const string root = "res://assets/oracle/cutscenes/";
+        const string root = AgesGameContent.AssetRoot + "cutscenes/";
         var sparkles = new List<FaroreSparkleRecord>();
         foreach (var row in GeneratedTable.Load(root + "farore_sparkles.tsv",
             new("Farore sparkle objects", GeneratedTableKeySemantics.Ordered,

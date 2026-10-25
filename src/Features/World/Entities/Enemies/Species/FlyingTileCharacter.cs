@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Active subid-$80 form of ENEMY_FLYING_TILE $52.</summary>
 internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSource

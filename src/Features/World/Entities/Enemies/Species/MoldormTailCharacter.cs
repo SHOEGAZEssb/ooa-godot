@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Native $4f:$02/$03 tail and its independent eight-byte displacement buffer.</summary>
 internal partial class MoldormTailCharacter : EnemyCharacter

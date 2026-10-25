@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Common PART_ENEMY_DESTROYED ($02) effect used when an enemy is defeated.
@@ -92,7 +92,7 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
     private static EnemyDeathPuffEffectDefinition LoadDefinition()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/enemy_death_puff.tsv",
+            AgesGameContent.AssetRoot + "effects/enemy_death_puff.tsv",
             new GeneratedTableSchema(
                 "enemy death puff",
                 GeneratedTableKeySemantics.Ordered,
@@ -107,7 +107,7 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
         int paletteB = row.UnsignedDecimal(2);
 
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_sprites.png");
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
 
         int[] palettes = { paletteA, paletteB };
         List<EnemyDeathPuffEffectFrameRecord> normal = BuildAnimation(
@@ -132,7 +132,7 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
             var textures = new Texture2D[palettes.Length];
             for (int palette = 0; palette < palettes.Length; palette++)
             {
-                textures[palette] = NpcCharacter.BuildOamTexture(
+                textures[palette] = OracleOamCompositor.BuildOamTexture(
                     source, frame.EncodedOam, tileBase, palettes[palette]);
             }
             animation.Add(new EnemyDeathPuffEffectFrameRecord(textures, frame.Duration));

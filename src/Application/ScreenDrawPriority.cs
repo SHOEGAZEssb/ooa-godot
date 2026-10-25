@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // Screen-space layers are independent of the native world-object OAM queues.
 internal static class ScreenDrawPriority

@@ -1,0 +1,180 @@
+using Godot;
+using System;
+
+namespace Oracles;
+
+/// <summary>
+/// Shared runtime services and common operations available to room-entry
+/// events. Individual event implementations keep their own state while actor
+/// resolution and player-relative dialogue follow one consistent path.
+/// </summary>
+internal sealed class RoomEventContext(
+    RoomSession rooms,
+    RoomEntityManager entities,
+    RoomTransitionController transitions,
+    DialogueBox dialogue,
+    Player player,
+    RoomView roomView,
+    Func<Vector2, Vector2> worldToScreen,
+    Func<long> animationTick,
+    CanvasLayer interfaceLayer,
+    ColorRect fade,
+    Hud hud,
+    InventoryState inventory,
+    TreasureDatabase treasures,
+    OracleSoundEngine sound,
+    Camera2D roomCamera)
+{
+    private readonly DialogueBox _dialogue = dialogue;
+    private readonly Func<Vector2, Vector2> _worldToScreen = worldToScreen;
+    private Action<bool>? _interruptBracelet;
+    private Action? _advanceBracelet;
+
+    public RoomSession Rooms { get; } = rooms;
+    public RoomEntityManager Entities { get; } = entities;
+    public RoomTransitionController Transitions { get; } = transitions;
+    public Player Player { get; } = player;
+    public RoomView RoomView { get; } = roomView;
+    public Func<long> AnimationTick { get; } = animationTick;
+    public CanvasLayer InterfaceLayer { get; } = interfaceLayer;
+    public ColorRect Fade { get; } = fade;
+    public Hud Hud { get; } = hud;
+    public InventoryState Inventory { get; } = inventory;
+    public TreasureDatabase Treasures { get; } = treasures;
+    public OracleSoundEngine Sound { get; } = sound;
+    public Camera2D RoomCamera { get; } = roomCamera;
+    public bool DialogueOpen => _dialogue.IsOpen;
+    internal bool TextPrintingComplete => _dialogue.PrintingComplete;
+    internal bool ScriptDialogueOpen => _dialogue.IsOpen && !_dialogue.AllowsNativeScriptCommands;
+    internal void RegisterHeartPiecePresentation(Action filled, Action accepted)
+    {
+        _dialogue.HeartPieceSetFilled += filled;
+        _dialogue.HeartPieceSetAccepted += accepted;
+    }
+    internal DialogueScreenDatabase DialogueScreens { get; } = new();
+    internal Func<DialogueScreenContext?> NativeDialogueScreen { get; set; } = () => null;
+    internal Func<SaveResult> SaveFile {get;set;}=()=>throw new InvalidOperationException("Room scripts have no application save binding.");
+    internal Action ResetGame {get;set;}=()=>throw new InvalidOperationException("Room cutscenes have no application reset binding.");
+    internal ICutsceneCommandTraceSink? CommandTraceSink { get; set; }
+
+    internal void SetBraceletActions(
+        Action<bool> interruptBracelet,
+        Action advanceBracelet)
+    {
+        _interruptBracelet = interruptBracelet;
+        _advanceBracelet = advanceBracelet;
+    }
+
+    internal void InterruptBracelet(bool discard)
+    {
+        if (_interruptBracelet is null)
+        {
+            throw new InvalidOperationException(
+                "Room events have no Bracelet interruption binding.");
+        }
+        _interruptBracelet(discard);
+    }
+
+    internal void AdvanceBracelet()
+    {
+        if (_advanceBracelet is null)
+        {
+            throw new InvalidOperationException(
+                "Room events have no Bracelet update binding.");
+        }
+        _advanceBracelet();
+    }
+
+    public NpcCharacter RequireNpc(
+        int group,
+        int room,
+        int interactionId,
+        int subId,
+        string interactionName)
+    {
+        foreach (NpcCharacter npc in Entities.Entities<NpcCharacter>())
+        {
+            if (Matches(npc, interactionId, subId))
+                return npc;
+        }
+
+        throw new InvalidOperationException(
+            $"Room {group:x}:{room:x2} did not instantiate " +
+            $"{interactionName} ${interactionId:x2}:${subId:x2}.");
+    }
+
+    public void DeactivateNpcs(int interactionId, int subId)
+    {
+        foreach (NpcCharacter npc in Entities.Entities<NpcCharacter>())
+        {
+            if (Matches(npc, interactionId, subId))
+                npc.SetActive(false);
+        }
+    }
+
+    public void ShowDialogue(
+        string message,
+        int? textboxPosition = null,
+        int textboxFlags = 0,
+        int? sourceTextId = null)
+    {
+        float playerScreenY = _worldToScreen(Player.Position).Y;
+        DialogueScreenContext screen = NativeDialogueScreen() ??
+            DialogueScreenContext.Gameplay(Player.Position.Y, Player.Position.Y - playerScreenY);
+        _dialogue.ShowMessage(message, screen, textboxPosition, textboxFlags, sourceTextId);
+    }
+
+    public void ShowChoiceDialogue(
+        string message,
+        int initialChoice = 0,
+        int? textboxPosition = null,
+        int textboxFlags = 0,
+        int? sourceTextId = null)
+    {
+        float playerScreenY = _worldToScreen(Player.Position).Y;
+        DialogueScreenContext screen = NativeDialogueScreen() ??
+            DialogueScreenContext.Gameplay(Player.Position.Y, Player.Position.Y - playerScreenY);
+        _dialogue.ShowChoiceMessage(message, screen, initialChoice, textboxPosition, textboxFlags,sourceTextId);
+    }
+
+    public bool TryTakeDialogueChoice(out int choice) =>
+        _dialogue.TryTakeChoiceResult(out choice);
+    internal void CloseDialogue()=>_dialogue.Close();
+
+    public GroundTreasurePickup GrantScriptTreasure(
+        int group,
+        int room,
+        int treasureId,
+        int parameter,
+        string treasureObject,
+        string source,
+        int textboxFlags = 0,
+        int? objectParameter = null,
+        bool nativeDispatch = false)
+    {
+        Vector2 position = Player.Position;
+        var request = new GroundTreasureGrantRequest(
+            group,
+            room,
+            0,
+            Mathf.FloorToInt(position.Y),
+            Mathf.FloorToInt(position.X),
+            treasureObject,
+            source)
+        {
+            SpawnMode = TreasureSpawnMode.Instant,
+            GrabMode = TreasureGrabMode.TwoHands,
+            TextboxFlags = textboxFlags,
+            ExpectedTreasureId = treasureId,
+            ExpectedSubId = parameter,
+            ExpectedObjectParameter = objectParameter ?? parameter
+        };
+        if (!nativeDispatch) return Entities.GrantGroundTreasure(request, Player);
+        var treasure = Entities.SpawnGroundTreasure(request);
+        treasure.BeginScriptGrant();
+        return treasure;
+    }
+
+    private static bool Matches(NpcCharacter npc, int interactionId, int subId) =>
+        npc.Record.Id == interactionId && npc.Record.SubId == subId;
+}

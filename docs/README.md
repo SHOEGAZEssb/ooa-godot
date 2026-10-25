@@ -32,8 +32,8 @@ entry point.
 | Composition, scene ownership, fixed updates, or input ordering | [Runtime architecture](runtime-architecture.md) |
 | Rooms, transitions, terrain, entities, enemies, placement, or RNG | [Rooms and entities](rooms-and-entities.md) |
 | NPCs, native interactions, linked actors, or room events | [NPCs and events](npcs-and-events.md) |
-| Which imported NPC records are implemented, partial, or unsupported | [NPC interaction coverage](npc-interaction-coverage.md) |
-| Source-wide interaction, room-event and cutscene inventory and missing work | [Interaction, event and cutscene coverage](interaction-event-cutscene-coverage.md) |
+| Which imported NPC records are implemented, partial, or unsupported | [NPC interaction coverage](ages/npc-interaction-coverage.md) |
+| Source-wide interaction, room-event and cutscene inventory and missing work | [Interaction, event and cutscene coverage](ages/interaction-event-cutscene-coverage.md) |
 | An `interactionRunScript` stream or a new script command | [Command runner](command-runner.md) |
 | Menus, dialogue/modal input, fades, or pause ownership | [Menus and input](menus-and-input.md) |
 | WRAM fields, flags, inventory, checkpoints, or disk persistence | [Saves and state](saves-and-state.md) |
@@ -50,8 +50,8 @@ class inventories, per-feature test summaries, or unowned plans.
 Fidelity audits and working findings belong in untracked `local-audits/`,
 excluded through `.git/info/exclude`. Do not link tracked guides to them.
 
-The [NPC coverage ledger](npc-interaction-coverage.md) and
-[interaction, event and cutscene ledger](interaction-event-cutscene-coverage.md)
+The [NPC coverage ledger](ages/npc-interaction-coverage.md) and
+[interaction, event and cutscene ledger](ages/interaction-event-cutscene-coverage.md)
 are the deliberate inventory exceptions. Update affected statuses, counts and
 checklist items together. Keep the NPC ledger's updates within its tables;
 keep audit narratives out of both ledgers.

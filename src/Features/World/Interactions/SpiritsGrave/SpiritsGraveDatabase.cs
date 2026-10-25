@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Spirit's Grave-owned native placements, constants, and text. Globally
@@ -36,7 +36,7 @@ internal sealed class SpiritsGraveDatabase
     private void LoadObjects()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/spirits_grave_objects.tsv",
+            AgesGameContent.AssetRoot + "objects/spirits_grave_objects.tsv",
             new GeneratedTableSchema(
                 "Spirit's Grave native objects",
                 GeneratedTableKeySemantics.Grouped,
@@ -68,7 +68,7 @@ internal sealed class SpiritsGraveDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/spirits_grave_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/spirits_grave_constants.tsv",
             new GeneratedTableSchema(
                 "Spirit's Grave constants",
                 GeneratedTableKeySemantics.Unique,
@@ -86,7 +86,7 @@ internal sealed class SpiritsGraveDatabase
     private void LoadText()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/spirits_grave_text.tsv",
+            AgesGameContent.AssetRoot + "objects/spirits_grave_text.tsv",
             new GeneratedTableSchema(
                 "Spirit's Grave text",
                 GeneratedTableKeySemantics.Unique,

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Native D1 two-torch staircase script in room $4:$1b.</summary>
 internal sealed partial class SpiritsGraveTorchStairs : Node2D,

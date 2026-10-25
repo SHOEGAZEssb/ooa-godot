@@ -1,0 +1,3688 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace Oracles;
+
+public sealed partial class ValidationRoot
+{
+    private void ValidateBombs()
+    {
+        BombRecord record = new BombDatabase().Data;
+        AnimationDefinition fuse =
+            OracleGraphicsCache.GetAnimationDefinition(record.FuseAnimation);
+        AnimationDefinition explosion =
+            OracleGraphicsCache.GetAnimationDefinition(
+                record.ExplosionAnimation);
+        FailIf(
+            record.Item != TreasureId.Bombs ||
+            record.TreasureId != TreasureId.Bombs ||
+            record.Sprite != "spr_common_items" ||
+            record.TileBase != 0x10 || record.Palette != 0x04 ||
+            record.Collision != 0x18 ||
+            record.RadiusY != 4 || record.RadiusX != 4 ||
+            record.BaseDamage != 4 ||
+            record.ExplosionSprite != "spr_common_sprites" ||
+            record.ExplosionTileBase != 0x0c ||
+            record.ExplosionPalette != 2 ||
+            record.PickupSound != SoundId.SndPickup ||
+            record.ThrowSound != SoundId.SndThrow ||
+            record.LandingSound != SoundId.SndBombLand ||
+            record.ExplosionSound != SoundId.SndExplosion ||
+            record.Gravity != 0x1c ||
+            record.InitialSpeedZ != -0xf0 ||
+            record.SpeedRaw != 0x3c ||
+            record.TossSpeedRaw != 0x64 ||
+            record.ConveyorSpeedRaw != 0x14 ||
+            record.CreationLiftLowFrames != 4 ||
+            record.LiftLowFrames != 7 ||
+            record.LiftMidFrames != 4 ||
+            record.LiftHighFrames != 2 ||
+            record.ThrowFrames != 8,
+            "The imported ITEM_BOMB record diverged from itemData, " +
+            "itemAttributes, bombsBraceletParent, or weight-0 throwing data.");
+        FailIf(
+            !record.EdgeOffsets.SequenceEqual(
+                [new Vector2I(0, -3), new Vector2I(3, 0),
+                 new Vector2I(0, 7), new Vector2I(-3, 0)]) ||
+            record.ReducedBounceSpeed(0) != 0 ||
+            record.ReducedBounceSpeed(0x3c) != 0x1e ||
+            record.ReducedBounceSpeed(0x64) != 0x32 ||
+            !record.BreakProbes.SequenceEqual(
+            [
+                new BombBreakProbe(-8, new Vector2I(-13, -13)),
+                new BombBreakProbe(-8, new Vector2I(-13, 12)),
+                new BombBreakProbe(-8, new Vector2I(12, 12)),
+                new BombBreakProbe(-8, new Vector2I(12, -13)),
+                new BombBreakProbe(-12, new Vector2I(-13, 0)),
+                new BombBreakProbe(-12, new Vector2I(0, 12)),
+                new BombBreakProbe(-12, new Vector2I(12, 0)),
+                new BombBreakProbe(-12, new Vector2I(0, -13)),
+                new BombBreakProbe(-14, Vector2I.Zero)
+            ]) ||
+            fuse.Frames.Length != 11 ||
+            fuse.Frames.Take(10).Sum(frame => frame.Duration) != 116 ||
+            fuse.Frames[^1].Parameter != 1 ||
+            explosion.Frames.Length != 7 ||
+            !explosion.Frames.Select(frame => frame.Parameter)
+                .SequenceEqual([6, 6, 6, 10, 15, 0x40, 0xff]),
+            "ITEM_BOMB edge probes, bounce mapping, 116-update fuse, or " +
+            "explosion-radius animation diverged from the imported source.");
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(TreasureId.Bombs, 0x10);
+        var rooms = new RoomSession(
+            0, 0x06, () => 0, () => { }, save);
+        var root = new Node { Name = "BombValidationRoot" };
+        AddChild(root);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            root,
+            new()
+            {
+                SaveData = save,
+                Inventory = inventory,
+                Treasures = _treasures,
+                Rooms = rooms
+            });
+        RoomEntityManager manager = fixture.Manager;
+        manager.LoadRoom(0, rooms.CurrentRoom);
+        var sounds = new List<int>();
+        manager.SoundRequested += sounds.Add;
+        var player = new Player { Name = "BombValidationPlayer" };
+        root.AddChild(player);
+        player.Initialize(
+            new ValidationRingPlayerWorld(),
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        var controller = new BombController(
+            inventory,
+            manager,
+            rooms,
+            sounds.Add,
+            static () => false,
+            new BombDatabase());
+
+        int inventoryChanges = 0;
+        int saveChanges = 0;
+        inventory.Changed += () => inventoryChanges++;
+        save.Changed += () => saveChanges++;
+        FailIf(
+            !controller.TryUse(player) ||
+            controller.State != BombParentState.Lifting ||
+            controller.Bomb is not { State: BombState.Held } ||
+            manager.ActiveBombCount != 1 ||
+            inventory.Bombs != 0x09 ||
+            inventoryChanges != 1 || saveChanges != 1 ||
+            sounds.Count(sound => sound == SoundId.SndPickup) != 1,
+            "ITEM_BOMB did not allocate before one packed-BCD decrement and " +
+            "begin the shared lift parent.");
+        BombEffect allocated = controller.Bomb ??
+            throw new InvalidOperationException(
+                "Bomb allocation validation lost its actor.");
+        manager.Update(1.0 / 60.0, player);
+        for (int update = 1; update <= 10; update++)
+        {
+            bool movementLocked =
+                controller.Update(
+                    player,
+                    Vector2.Zero,
+                    itemButtonJustPressed: false);
+            manager.Update(1.0 / 60.0, player);
+            FailIf(
+                update < 10 && !movementLocked,
+                $"ITEM_BOMB lift released movement before update {update}.");
+        }
+        FailIf(
+            controller.State != BombParentState.Holding ||
+            !player.IsCarryingObject ||
+            player.BraceletLiftCollisionsDisabled ||
+            allocated.State != BombState.Held,
+            "A created ITEM_BOMB did not enter its carried state after 4/4/2 lift updates.");
+
+        player.Face(Vector2I.Right);
+        FailIf(
+            !controller.Update(
+                player,
+                Vector2.Zero,
+                itemButtonJustPressed: true) ||
+            controller.State != BombParentState.Throwing ||
+            allocated.State != BombState.Thrown ||
+            allocated.ThrowDirection != Vector2I.Zero ||
+            allocated.SpeedZ != 0 ||
+            allocated.SpeedRaw != 0 ||
+            player.IsCarryingObject ||
+            sounds.Count(sound => sound == SoundId.SndThrow) != 1,
+            "ITEM_BOMB did not preserve wLinkAngle=$ff as an in-place " +
+            "weight-0 drop when no direction was held.");
+        manager.Update(1.0 / 60.0, player);
+        for (int update = 1; update <= record.ThrowFrames + 1; update++)
+        {
+            controller.Update(
+                player,
+                Vector2.Zero,
+                itemButtonJustPressed: false);
+        }
+        Vector2 thrownPosition = allocated.Position;
+        player.SetScriptedPosition(new Vector2(16, 16));
+        int bombsBeforeCapProbe = inventory.Bombs;
+        FailIf(
+            controller.State != BombParentState.Idle ||
+            controller.TryUse(player) ||
+            inventory.Bombs != bombsBeforeCapProbe ||
+            manager.ActiveBombCount != 1,
+            "The normal ITEM_BOMB object cap did not reject a distant second " +
+            "allocation without consuming ammo.");
+
+        for (int update = 0; update < 40; update++) manager.Update(1.0 / 60.0, player);
+        FailIf(allocated.State != BombState.Grounded, "The re-pickup fixture must let the dropped bomb land first.");
+        player.SetScriptedPosition(thrownPosition);
+        FailIf(
+            !controller.TryUse(player) ||
+            controller.Bomb != allocated ||
+            inventory.Bombs != bombsBeforeCapProbe ||
+            manager.ActiveBombCount != 1,
+            "ITEM_BOMB did not prioritize re-picking a touching live Bomb " +
+            "without consuming another count.");
+        for (int update = 1; update <= 13; update++)
+        {
+            controller.Update(
+                player,
+                Vector2.Zero,
+                itemButtonJustPressed: false);
+            manager.Update(1.0 / 60.0, player);
+        }
+        FailIf(
+            !controller.Update(
+                player,
+                Vector2.Left,
+                itemButtonJustPressed: true) ||
+            allocated.ThrowDirection != Vector2I.Left ||
+            allocated.SpeedZ != record.InitialSpeedZ ||
+            allocated.SpeedRaw != record.SpeedRaw ||
+            player.FacingVector != Vector2I.Left,
+            "A held direction did not select Link's current input-facing " +
+            "weight-0 Bomb throw.");
+        controller.Interrupt(player, discard: true);
+        manager.Update(1.0 / 60.0, player);
+        FailIf(
+            manager.ActiveBombCount != 0,
+            "Discarded ITEM_BOMB remained allocated in the room-entity set.");
+
+        InventoryState Wearing(RingId ring)
+        {
+            OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
+            ringSave.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
+            ringSave.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)ring);
+            var wearing = new InventoryState(_treasures, ringSave);
+            FailIf(
+                !wearing.EquipRingAt(0),
+                $"Could not equip ring ${(int)ring:x2} for Bomb validation.");
+            return wearing;
+        }
+        FailIf(
+            RingEffects.BombObjectLimit(inventory) != 1 ||
+            RingEffects.BombObjectLimit(Wearing(RingId.Bombers)) != 2,
+            "BOMBERS_RING no longer raises the active ITEM_BOMB cap from one to two.");
+
+        OracleRoomData effectRoom = rooms.CurrentRoom;
+        Vector2 explosionPoint = new(80, 80);
+        player.SetScriptedPosition(explosionPoint);
+        FailIf(
+            effectRoom.ActiveCollisions is not (0 or 4),
+            "Bomb validation room no longer uses a breakable collision set.");
+        effectRoom.SetPositionTileAndCollision(
+            explosionPoint, 0xc5, null, 0);
+        var effectSpawns = new List<RoomEntitySpawn>();
+        var effectSounds = new List<int>();
+        var effect = new BombEffect();
+        effect.Initialize(
+            record,
+            effectRoom,
+            new BreakableTileDatabase(),
+            player,
+            0,
+            bomb => bomb.ReleaseExploding(player, Vector2I.Zero),
+            effectSounds.Add,
+            (_, _, _) => { },
+            () => { },
+            () => 0,
+            _ => null,
+            save,
+            null);
+        effect.SetHeldOffset(player, Vector2I.Zero);
+        effect.UpdateFrame(player, effectSpawns);
+        for (int update = 0; update < 115; update++)
+            effect.UpdateFrame(player, effectSpawns);
+        FailIf(
+            effect.State != BombState.Exploding ||
+            effect.ElapsedFrames != 116 ||
+            effect.AnimationFrame != 0 ||
+            effect.ExplosionRadius != 4 ||
+            effect.Damage != 4 ||
+            !effectSounds.SequenceEqual([SoundId.SndExplosion]),
+            "ITEM_BOMB did not initialize its explosion on update 116 while retaining its radius-4 collision until the first blast update.");
+        int healthBeforeExplosion = player.HealthQuarters;
+        effect.UpdateFrame(player, effectSpawns);
+        FailIf(
+            effectRoom.GetMetatile(explosionPoint) != 0x3a ||
+            effect.BreakProbe != 7 ||
+            player.HealthQuarters != healthBeforeExplosion - 2 ||
+            !effectSpawns.Any(spawn => spawn is GrassDebrisSpawn),
+            "ITEM_BOMB's first explosion update did not damage Link and apply " +
+            "the center-first BREAKABLETILESOURCE_BOMB probe.");
+        while (!effect.Finished && effect.ElapsedFrames < 200)
+            effect.UpdateFrame(player, effectSpawns);
+        FailIf(
+            !effect.Finished || effect.ElapsedFrames != 151,
+            "ITEM_BOMB explosion did not delete on parameter $ff after 35 updates.");
+        effect.Free();
+
+        // itemUpdateThrowingLaterally observes ordinary solidity before
+        // itemCheckCanPassSolidTileAt exempts these imported dungeon fences.
+        var fenceRooms = new RoomSession(
+            4, 0x61, () => 0, () => { }, save);
+        OracleRoomData fenceRoom = fenceRooms.CurrentRoom;
+        Vector2 fenceEdge = default;
+        bool foundFenceEdge = false;
+        for (int y = 1; y < fenceRoom.Height - 1 && !foundFenceEdge; y++)
+        for (int x = 4; x < fenceRoom.Width - 1; x++)
+        {
+            Vector2 candidate = new(x, y);
+            byte tile = fenceRoom.GetMetatile(candidate);
+            if (tile is not (0x94 or 0x96) ||
+                !fenceRoom.IsSolid(candidate) ||
+                !record.CanPassSolidTile(fenceRoom, candidate) ||
+                fenceRoom.IsSolid(candidate - new Vector2(3, 0)))
+            {
+                continue;
+            }
+            fenceEdge = candidate;
+            foundFenceEdge = true;
+        }
+        FailIf(
+            !foundFenceEdge,
+            "Room 4:61 lost its solid, item-passable fence edge `$94/`$96.");
+        Vector2 fenceStart = fenceEdge - new Vector2(3, 0);
+        player.SetScriptedPosition(fenceStart - Vector2.Right);
+        player.Face(Vector2I.Right);
+        var fenceBomb = new BombEffect();
+        fenceBomb.Initialize(
+            record, fenceRoom, new BreakableTileDatabase(),
+            player, 4, _ => { }, _ => { }, (_, _, _) => { },
+            () => { }, () => 0, _ => null, saveData: null,
+            linkedRoomNeighbor: null);
+        fenceBomb.UpdateFrame(player, effectSpawns);
+        fenceBomb.Throw(
+            player, Vector2I.Zero, Vector2I.Right,
+            record.InitialSpeedZ, record.SpeedRaw);
+        Vector2 beforeFenceUpdate = fenceBomb.PrecisePosition;
+        fenceBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            fenceBomb.ThrowDirection != Vector2I.Right ||
+            fenceBomb.SpeedRaw != record.SpeedRaw ||
+            fenceBomb.PrecisePosition.X <= beforeFenceUpdate.X,
+            "A thrown ITEM_BOMB stopped on room 4:61's item-passable " +
+            "dungeon fence instead of crossing it.");
+        fenceBomb.Free();
+
+        InventoryState peaceInventory = Wearing(RingId.Peace);
+        var peacePlayer = new Player { Name = "PeaceBombValidationPlayer" };
+        peacePlayer.Initialize(
+            new ValidationRingPlayerWorld(),
+            peaceInventory,
+            explosionPoint,
+            new OracleRandom());
+        var peaceBomb = new BombEffect();
+        peaceBomb.Initialize(
+            record, effectRoom, new BreakableTileDatabase(),
+            peacePlayer, 0, _ => { }, _ => { }, (_, _, _) => { },
+            () => { }, () => 0, _ => null, saveData: null,
+            linkedRoomNeighbor: null);
+        peaceBomb.UpdateFrame(peacePlayer, effectSpawns);
+        for (int update = 0; update < 200; update++)
+            peaceBomb.UpdateFrame(peacePlayer, effectSpawns);
+        FailIf(
+            peaceBomb.State != BombState.Held ||
+            peaceBomb.AnimationFrame != 0 ||
+            peaceBomb.AnimationCounter != 0x50,
+            "PEACE_RING did not reset a held Bomb's fuse to animation 0 each update.");
+        peaceBomb.Free();
+        peacePlayer.Free();
+
+        InventoryState blastInventory = Wearing(RingId.Blast);
+        var blastPlayer = new Player { Name = "BlastBombValidationPlayer" };
+        blastPlayer.Initialize(
+            new ValidationRingPlayerWorld(),
+            blastInventory,
+            explosionPoint,
+            new OracleRandom());
+        var blastBomb = new BombEffect();
+        blastBomb.Initialize(
+            record, effectRoom, new BreakableTileDatabase(),
+            blastPlayer, 0,
+            bomb => bomb.ReleaseExploding(blastPlayer, Vector2I.Zero),
+            _ => { }, (_, _, _) => { }, () => { }, () => 0,
+            _ => null, saveData: null, linkedRoomNeighbor: null);
+        int blastHealth = blastPlayer.HealthQuarters;
+        for (int update = 0; update < 118; update++)
+            blastBomb.UpdateFrame(blastPlayer, effectSpawns);
+        FailIf(
+            blastBomb.State != BombState.Exploding ||
+            blastBomb.Damage != 6 ||
+            blastPlayer.HealthQuarters != blastHealth - 3,
+            "BLAST_RING did not raise raw Bomb damage from 4 to 6 and own-Bomb quarter damage from 2 to 3.");
+        blastBomb.Free();
+        blastPlayer.Free();
+
+        InventoryState bombproofInventory = Wearing(RingId.Bombproof);
+        var bombproofPlayer = new Player
+        {
+            Name = "BombproofBombValidationPlayer"
+        };
+        bombproofPlayer.Initialize(
+            new ValidationRingPlayerWorld(),
+            bombproofInventory,
+            explosionPoint,
+            new OracleRandom());
+        var bombproofBomb = new BombEffect();
+        bombproofBomb.Initialize(
+            record, effectRoom, new BreakableTileDatabase(),
+            bombproofPlayer, 0,
+            bomb => bomb.ReleaseExploding(
+                bombproofPlayer, Vector2I.Zero),
+            _ => { }, (_, _, _) => { }, () => { }, () => 0,
+            _ => null, saveData: null, linkedRoomNeighbor: null);
+        for (int update = 0; update < 118; update++)
+            bombproofBomb.UpdateFrame(bombproofPlayer, effectSpawns);
+        FailIf(
+            bombproofPlayer.HealthQuarters !=
+                bombproofPlayer.MaxHealthQuarters,
+            "BOMBPROOF_RING did not suppress live own-Bomb damage.");
+        bombproofBomb.Free();
+        bombproofPlayer.Free();
+
+        var sideRooms = new RoomSession(
+            6, 0x29, () => 0, () => { }, save);
+        OracleRoomData sideRoom = sideRooms.CurrentRoom;
+        FailIf(
+            (sideRoom.TilesetFlags & 0x20) == 0,
+            "The ITEM_BOMB side-view validation did not load source room 6:29.");
+        bool foundSideLanding = false;
+        Vector2 sideLanding = default;
+        for (int y = 8; y < sideRoom.Height - 6 && !foundSideLanding; y++)
+        for (int x = 8; x < sideRoom.Width - 8; x++)
+        {
+            Vector2 candidate = new(x, y);
+            if (!sideRoom.IsSolid(candidate) &&
+                sideRoom.IsSolid(candidate + new Vector2(0, 5)) &&
+                sideRoom.GetTerrainInfo(candidate).Hazard == HazardType.None)
+            {
+                sideLanding = candidate;
+                foundSideLanding = true;
+                break;
+            }
+        }
+        FailIf(
+            !foundSideLanding,
+            "Room 6:29 no longer contains a clear side-view Bomb landing probe.");
+
+        player.SetScriptedPosition(sideLanding);
+        var sideBombSounds = new List<int>();
+        var sideBomb = new BombEffect();
+        sideBomb.Initialize(
+            record, sideRoom, new BreakableTileDatabase(),
+            player, 6, _ => { }, sideBombSounds.Add, (_, _, _) => { },
+            () => { }, () => 0, _ => null, saveData: null,
+            linkedRoomNeighbor: null);
+        sideBomb.UpdateFrame(player, effectSpawns);
+        sideBomb.Throw(
+            player,
+            -player.FacingVector,
+            Vector2I.Zero,
+            speedZ: 0x80,
+            speedRaw: ObjectSpeed.Speed0);
+        sideBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            sideBomb.State != BombState.Thrown ||
+            sideBomb.SpeedZ != 0x80 ||
+            sideBombSounds.Count != 0,
+            "A side-view Bomb bounced on the first floor collision instead " +
+            "of setting Item.var3b bit 4.");
+        sideBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            sideBomb.State != BombState.Grounded ||
+            sideBomb.SpeedZ != 0 ||
+            !sideBombSounds.SequenceEqual(
+                [SoundId.SndBombLand]),
+            "A side-view Bomb did not stop on its second consecutive floor " +
+            "collision.");
+        sideBomb.Free();
+
+        // bombUpdateThrowingVerticallyAndCheckDelete skips the ordinary room
+        // boundary for wrapping Y high bytes $00-$07 and $f8-$ff.
+        player.SetScriptedPosition(new Vector2(80, 1));
+        var wrappingBomb = new BombEffect();
+        wrappingBomb.Initialize(
+            record, sideRoom, new BreakableTileDatabase(),
+            player, 6, _ => { }, _ => { }, (_, _, _) => { },
+            () => { }, () => 0, _ => null, saveData: null,
+            linkedRoomNeighbor: null);
+        wrappingBomb.UpdateFrame(player, effectSpawns);
+        wrappingBomb.Throw(
+            player,
+            Vector2I.Zero,
+            Vector2I.Zero,
+            speedZ: 0,
+            speedRaw: ObjectSpeed.Speed0);
+        wrappingBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            wrappingBomb.Finished,
+            "A side-view Bomb at wrapping Y high byte $01 was incorrectly " +
+            "deleted by the ordinary room boundary.");
+        wrappingBomb.Free();
+
+        // itemMergeZPositionIfSidescrollingArea also runs when a held Bomb
+        // starts exploding and dropLinkHeldItem releases it.
+        player.SetScriptedPosition(new Vector2(80, 80));
+        var heldSideBomb = new BombEffect();
+        heldSideBomb.Initialize(
+            record, sideRoom, new BreakableTileDatabase(),
+            player, 6,
+            bomb => bomb.ReleaseExploding(
+                player, new Vector2I(0, -8)),
+            _ => { }, (_, _, _) => { }, () => { }, () => 0,
+            _ => null, saveData: null, linkedRoomNeighbor: null);
+        heldSideBomb.SetHeldOffset(player, new Vector2I(0, -8));
+        heldSideBomb.UpdateFrame(player, effectSpawns);
+        for (int update = 0; update < 116; update++)
+            heldSideBomb.UpdateFrame(player, effectSpawns);
+        FailIf(
+            heldSideBomb.State != BombState.Exploding ||
+            heldSideBomb.ZFixed != 0 ||
+            heldSideBomb.PrecisePosition != new Vector2(80, 72),
+            "A released exploding side-view Bomb did not merge signed zh " +
+            "into yh and clear Z.");
+        heldSideBomb.Free();
+
+        manager.SoundRequested -= sounds.Add;
+        manager.Clear();
+        root.RemoveChild(player);
+        player.Free();
+        RemoveChild(root);
+        root.Free();
+
+        GD.Print(
+            "Validated ITEM_BOMB imported OAM/physics/probes, packed-BCD " +
+            "allocation, live pickup and object cap, 4/4/2 creation and " +
+            "7/4/2 pickup lift, eight-update throw animation plus terminal update, " +
+            "angle-$ff in-place drop, directional throw, 116-update fuse, " +
+            "room 4:61 fence crossing, center-first bombable tile break, " +
+            "35-update expanding explosion, and Bomber/Peace/Blast/Bombproof rings.");
+    }
+
+    private void ValidateLinkTopDownSwimming()
+    {
+        const double UpdateDelta = 1.0 / 60.0;
+        const float Speed80CardinalComponent = 0x80 / 256.0f;
+        const int WaterGroup = 0;
+        const int WaterRoom = 0x00;
+        const int WaterPackedPosition = 0x14;
+        Vector2 waterPosition = new(72, 24);
+        TerrainInfo waterTerrain = _world.LoadRoom(WaterGroup, WaterRoom)
+            .GetTerrainInfo(waterPosition);
+        FailIf(
+            waterTerrain.Tile != 0xfa ||
+            waterTerrain.Type != TerrainType.Water ||
+            waterTerrain.Hazard != HazardType.Water,
+            "Canonical room 0:00/$14 no longer exposes ordinary swimmable " +
+            "water; " +
+            $"tile=${waterTerrain.Tile:x2}, " +
+            $"type={waterTerrain.Type}, hazard={waterTerrain.Hazard}.");
+
+        TopDownSwimmingDatabase database = TopDownSwimmingDatabase.Shared;
+        TopDownSwimmingParameters parameters = database.Parameters;
+        TopDownSwimmingFrame rightFrame0 = database.Frame(0, 1);
+        TopDownSwimmingFrame downFrame1 = database.Frame(1, 2);
+        TopDownDivingFrame diveFrame0 = database.DiveFrame(0);
+        TopDownDivingFrame diveFrame1 = database.DiveFrame(1);
+        FailIf(
+            parameters.BaseSpeed != 0x14 ||
+            parameters.FastSpeed != 0x23 ||
+            parameters.EntryUpdates != 0x0a ||
+            parameters.VelocityInterval != 0x03 ||
+            parameters.BurstTurnUpdates != 0x08 ||
+            parameters.BurstAccelerateUpdates != 0x0d ||
+            parameters.BurstDecelerateUpdates != 0x0c ||
+            parameters.BurstSpeedStep != 0x05 ||
+            parameters.SwimSound != SoundId.SndLinkSwim ||
+            !parameters.AnimationFrameDurations.AsSpan().SequenceEqual([6, 6]) ||
+            parameters.DiveUpdates != 0x78 ||
+            !parameters.DiveAnimationFrameDurations.AsSpan()
+                .SequenceEqual([0x10, 0x10]) ||
+            rightFrame0.SourceOffset != 0x0ec0 ||
+            rightFrame0.OamIndex != 0x11 ||
+            rightFrame0.Oam != "12,0,2,32;12,8,0,32" ||
+            downFrame1.SourceOffset != 0x0ea0 ||
+            downFrame1.OamIndex != 0x12 ||
+            downFrame1.Oam != "12,0,0,0;12,8,0,32" ||
+            diveFrame0.SourceOffset != 0x0f40 ||
+            diveFrame0.OamIndex != 0x12 ||
+            diveFrame0.Oam != "12,0,0,0;12,8,0,32" ||
+            diveFrame1.SourceOffset != 0x0f60 ||
+            diveFrame1.OamIndex != 0x12 ||
+            diveFrame1.Oam != "12,0,0,0;12,8,0,32",
+            "Imported linkUpdateSwimming/linkUpdateDiving constants, " +
+            "LINK_ANIM_MODE_SWIM graphics, or LINK_ANIM_MODE_DIVE graphics " +
+            "changed.");
+
+        ActiveTerrainInfo normal = new(
+            new TerrainInfo(
+                0x00, 0x00, TerrainType.Normal, HazardType.None),
+            Vector2.Zero,
+            Vector2.Zero,
+            0x00);
+        ActiveTerrainInfo water = new(
+            waterTerrain,
+            waterPosition,
+            waterPosition,
+            WaterPackedPosition);
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
+        save.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)RingId.Zora);
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(TreasureId.Flippers, 0);
+        var world = new ValidationRingPlayerWorld { ActiveTerrain = normal };
+        var player = new Player
+        {
+            Name = "TopDownSwimmingValidationPlayer",
+            ZIndex = Player.NormalZIndex
+        };
+        AddChild(player);
+        player.Initialize(
+            world,
+            inventory,
+            new Vector2(40.25f, 80.75f),
+            new OracleRandom());
+
+        var idleBurstWorld = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = water
+        };
+        var idleBurst = new Player
+        {
+            Name = "TopDownIdleBurstValidationPlayer",
+            ZIndex = Player.NormalZIndex
+        };
+        AddChild(idleBurst);
+        idleBurst.Initialize(
+            idleBurstWorld,
+            inventory,
+            new Vector2(120, 80),
+            new OracleRandom());
+
+        var noFlippersWorld = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = water
+        };
+        var noFlippers = new Player
+        {
+            Name = "TopDownNoFlippersValidationPlayer"
+        };
+        AddChild(noFlippers);
+        noFlippers.Initialize(
+            noFlippersWorld,
+            new InventoryState(_treasures, OracleSaveData.CreateStandardGame()),
+            new Vector2(80, 80),
+            new OracleRandom());
+
+        var seaWaterWorld = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = new ActiveTerrainInfo(
+                new TerrainInfo(
+                    0xfc, 0x10, TerrainType.SeaWater, HazardType.Water),
+                Vector2.Zero,
+                Vector2.Zero,
+                0x00)
+        };
+        var seaWater = new Player
+        {
+            Name = "TopDownSeaWaterValidationPlayer"
+        };
+        AddChild(seaWater);
+        seaWater.Initialize(
+            seaWaterWorld,
+            inventory,
+            new Vector2(96, 80),
+            new OracleRandom());
+
+        try
+        {
+            Input.ActionPress("move_right");
+            player._PhysicsProcess(UpdateDelta);
+            Vector2 waterEntryPosition = player.PrecisePosition;
+            world.ActiveTerrain = water;
+            player._PhysicsProcess(UpdateDelta);
+            FailIf(
+                !player.TopDownSwimming ||
+                player.TopDownSwimmingState != 2 ||
+                player.TopDownSwimmingEntryCounter != 0x0a ||
+                player.TopDownSwimAngle != 0x08 ||
+                player.TopDownSwimSpeedRaw != 0x14 ||
+                player.TopDownSwimTargetSpeedRaw != 0x14 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 6 ||
+                player.PrecisePosition != waterEntryPosition ||
+                player.IsDrowning || player.IsGroundedForFloorButton ||
+                player.CurrentTerrainEffect is not null ||
+                world.DrowningSplashes.Count != 1 ||
+                world.DrowningSplashes[0].Hazard != HazardType.Water ||
+                world.Sounds.Contains(SoundId.SndDamageLink) ||
+                player.TopDownSwimAtlasPixelHash == 0,
+                "Flippers water entry did not select state 2, preserve the " +
+                "incoming `$08 trajectory for `$0a updates, create one " +
+                "splash, and suppress drowning/ground effects.");
+
+            for (int update = 0; update < 9; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            Vector2 expectedLockedPosition = waterEntryPosition +
+                new Vector2(9 * Speed80CardinalComponent, 0);
+            FailIf(
+                player.TopDownSwimmingState != 2 ||
+                player.TopDownSwimmingEntryCounter != 1 ||
+                player.TopDownSwimAngle != 0x08 ||
+                player.PrecisePosition != expectedLockedPosition,
+                "overworldSwimmingState2 did not retain the entry angle and " +
+                "SPEED_80 displacement through its first nine updates.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            expectedLockedPosition.X += Speed80CardinalComponent;
+            FailIf(
+                player.TopDownSwimmingState != 3 ||
+                player.TopDownSwimmingEntryCounter != 0 ||
+                player.TopDownSwimAngle != 0x08 ||
+                player.TopDownSwimSpeedRaw != 0x14 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 5 ||
+                player.PrecisePosition != expectedLockedPosition,
+                "The tenth locked swimming update did not fall through to " +
+                "state 3 and its first animation/inertia update.");
+
+            for (int update = 0; update < 4; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 1,
+                "LINK_ANIM_MODE_SWIM left its first six-update graphic early.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                attackJustPressed: true);
+            FailIf(
+                player.TopDownSwimAnimationFrame != 1 ||
+                player.TopDownSwimAnimationCounter != 6 ||
+                player.TopDownSwimBurstState != 1 ||
+                player.TopDownSwimBurstCounter != 0x0c ||
+                player.TopDownSwimTargetSpeedRaw != 0x19 ||
+                player.TopDownSwimSpeedRaw != 0x14 ||
+                world.Sounds.Count(
+                    sound => sound == SoundId.SndLinkSwim) != 1,
+                "A-button swimming did not perform eight facing turns, " +
+                "decrement `$0d to `$0c, add five target-speed units, play " +
+                "SND_LINK_SWIM `$88, or advance the 6/6 animation.");
+
+            idleBurst.AdvanceTopDownSwimmingUpdateForValidation(
+                entryAngle: 0xff);
+            for (int update = 0; update < 10; update++)
+                idleBurst.AdvanceTopDownSwimmingUpdateForValidation();
+            Vector2 idleBurstStart = idleBurst.PrecisePosition;
+            FailIf(
+                idleBurst.TopDownSwimmingState != 3 ||
+                idleBurst.TopDownSwimAngle != 0xff ||
+                idleBurst.TopDownSwimSpeedRaw != 0x14 ||
+                idleBurst.FacingVector != Vector2I.Down ||
+                idleBurst.PrecisePosition != new Vector2(120, 80),
+                "A no-input Flippers setup did not retain stopped `$ff " +
+                "momentum and Link's stored DIR_DOWN facing.");
+            idleBurst.AdvanceTopDownSwimmingUpdateForValidation(
+                attackJustPressed: true);
+            FailIf(
+                idleBurst.TopDownSwimAngle != 0x10 ||
+                idleBurst.TopDownSwimSpeedRaw != 0x14 ||
+                idleBurst.TopDownSwimTargetSpeedRaw != 0x19 ||
+                idleBurst.TopDownSwimBurstState != 1 ||
+                idleBurst.TopDownSwimBurstCounter != 0x0c ||
+                idleBurst.PrecisePosition !=
+                    idleBurstStart + new Vector2(0, 0x80 / 256.0f) ||
+                idleBurstWorld.Sounds.Count(
+                    sound => sound == SoundId.SndLinkSwim) != 1,
+                "An idle A press did not run eight DIR_DOWN steering calls, " +
+                "start the 13/12 burst, and propel Link along his stored " +
+                "direction without D-pad input.");
+
+            for (int update = 0; update < 24; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                player.TopDownSwimBurstState != 0 ||
+                player.TopDownSwimBurstCounter != 0 ||
+                player.TopDownSwimSpeedRaw != 0x14 ||
+                player.TopDownSwimTargetSpeedRaw != 0x14 ||
+                world.Sounds.Count(
+                    sound => sound == SoundId.SndLinkSwim) != 1,
+                "The 13-update acceleration and 12-update deceleration " +
+                "phases did not return Flippers to SPEED_80 exactly once.");
+
+            int transitionState = player.TopDownSwimmingState;
+            int transitionAngle = player.TopDownSwimAngle;
+            int transitionSpeed = player.TopDownSwimSpeedRaw;
+            int transitionTargetSpeed = player.TopDownSwimTargetSpeedRaw;
+            int transitionBurstState = player.TopDownSwimBurstState;
+            int transitionBurstCounter = player.TopDownSwimBurstCounter;
+            int transitionAnimationFrame = player.TopDownSwimAnimationFrame;
+            int transitionAnimationCounter = player.TopDownSwimAnimationCounter;
+            int transitionSplashCount = world.DrowningSplashes.Count;
+            Vector2 transitionDestination =
+                player.PrecisePosition + new Vector2(160, 0);
+            player.BeginScrollingTransition(
+                player.PrecisePosition);
+            player.SetScrollingTransitionPosition(
+                transitionDestination,
+                new Vector2(80, 0));
+            player.FinishScrollingTransition(transitionDestination);
+            FailIf(
+                !player.TopDownSwimming || player.TopDownDiving ||
+                player.TopDownSwimmingState != transitionState ||
+                player.TopDownSwimAngle != transitionAngle ||
+                player.TopDownSwimSpeedRaw != transitionSpeed ||
+                player.TopDownSwimTargetSpeedRaw != transitionTargetSpeed ||
+                player.TopDownSwimBurstState != transitionBurstState ||
+                player.TopDownSwimBurstCounter != transitionBurstCounter ||
+                player.TopDownSwimAnimationFrame != transitionAnimationFrame ||
+                player.TopDownSwimAnimationCounter !=
+                    transitionAnimationCounter ||
+                player.PrecisePosition != transitionDestination ||
+                player.ZIndex != Player.NormalZIndex ||
+                world.DrowningSplashes.Count != transitionSplashCount,
+                "A scrolling screen transition cleared or restarted the " +
+                "active Flippers state, exposed standing Link, or replayed " +
+                "the water-entry splash.");
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            FailIf(
+                player.TopDownSwimmingState != 3 ||
+                player.TopDownSwimmingEntryCounter != 0 ||
+                world.DrowningSplashes.Count != transitionSplashCount,
+                "The first destination-room water update restarted state 2 " +
+                "or replayed the entry splash after scrolling.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                diveJustPressed: true);
+            FailIf(
+                !player.TopDownDiving ||
+                player.TopDownDiveCounter != 0x78 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 0x10 ||
+                player.ZIndex != Player.DivingZIndex ||
+                player.AcceptsRoomEntityContact ||
+                world.DrowningSplashes.Count != transitionSplashCount + 1 ||
+                player.TopDownDiveAtlasPixelHash == 0,
+                "B did not set swimming bit 7, counter2 `$78, collision-off/" +
+                "priority c3, LINK_ANIM_MODE_DIVE, and one dive splash.");
+
+            for (int update = 0; update < 15; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                !player.TopDownDiving ||
+                player.TopDownDiveCounter != 0x69 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 1,
+                "Normal diving did not retain its first `$10-update graphic " +
+                "while decrementing counter2 once per update.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            FailIf(
+                !player.TopDownDiving ||
+                player.TopDownDiveCounter != 0x68 ||
+                player.TopDownSwimAnimationFrame != 1 ||
+                player.TopDownSwimAnimationCounter != 0x10,
+                "LINK_ANIM_MODE_DIVE did not switch to its second graphic " +
+                "on the sixteenth update.");
+
+            for (int update = 0; update < 103; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                !player.TopDownDiving || player.TopDownDiveCounter != 1,
+                "Normal diving surfaced before counter2 reached zero.");
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            FailIf(
+                player.TopDownDiving || player.TopDownDiveCounter != 0 ||
+                player.TopDownSwimAnimationFrame != 0 ||
+                player.TopDownSwimAnimationCounter != 6 ||
+                player.ZIndex != Player.NormalZIndex ||
+                !player.AcceptsRoomEntityContact ||
+                world.DrowningSplashes.Count != transitionSplashCount + 1,
+                "The `$78 normal-dive timeout did not surface into " +
+                "LINK_ANIM_MODE_SWIM without another splash.");
+
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                diveJustPressed: true);
+            FailIf(
+                !inventory.EquipRingAt(0) ||
+                inventory.ActiveRing != (int)RingId.Zora,
+                "Could not equip ZORA_RING `$3c for normal-dive validation.");
+            for (int update = 0; update < 0x79; update++)
+            {
+                player.AdvanceTopDownSwimmingUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                !player.TopDownDiving ||
+                player.TopDownDiveCounter != 0x78 ||
+                world.DrowningSplashes.Count != transitionSplashCount + 2,
+                "ZORA_RING `$3c did not suppress the normal dive timer.");
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                diveJustPressed: true);
+            FailIf(
+                // linkUpdateDiving@surface preserves counter2 when B is
+                // pressed; ZORA_RING has retained its original $78 value.
+                player.TopDownDiving || player.TopDownDiveCounter != 0x78 ||
+                player.ZIndex != Player.NormalZIndex ||
+                world.DrowningSplashes.Count != transitionSplashCount + 2,
+                "B did not surface immediately from a Zora Ring dive " +
+                "without creating another splash.");
+            FailIf(
+                !inventory.EquipRingAt(0) || inventory.ActiveRing != 0xff,
+                "Could not unequip ZORA_RING `$3c after dive validation.");
+
+            Vector2 exitStart = player.PrecisePosition;
+            world.ActiveTerrain = normal;
+            player._PhysicsProcess(UpdateDelta);
+            FailIf(
+                player.TopDownSwimming || !player.IsGroundedForFloorButton ||
+                player.PrecisePosition != exitStart + Vector2.Right ||
+                world.DrowningSplashes.Count != transitionSplashCount + 2,
+                "Leaving water did not clear swimming and resume ordinary " +
+                "SPEED_100 top-down movement without another splash.");
+
+            world.ActiveTerrain = new ActiveTerrainInfo(
+                new TerrainInfo(
+                    0xe3, 0x00, TerrainType.RightCurrent, HazardType.Water),
+                Vector2.Zero,
+                Vector2.Zero,
+                0x00);
+            Vector2 currentStart = player.PrecisePosition;
+            player.AdvanceTopDownSwimmingUpdateForValidation(
+                Vector2.Right,
+                entryAngle: 0x08);
+            FailIf(
+                player.TopDownSwimmingState != 2 ||
+                player.PrecisePosition != currentStart +
+                    new Vector2(0xc0 / 256.0f, 0) ||
+                world.DrowningSplashes.Count != transitionSplashCount + 3,
+                "TILETYPE_RIGHTCURRENT `$e3 did not apply its independent " +
+                "SPEED_c0 displacement on the Flippers entry update.");
+            currentStart = player.PrecisePosition;
+            player.AdvanceTopDownSwimmingUpdateForValidation(Vector2.Right);
+            FailIf(
+                player.PrecisePosition != currentStart +
+                    new Vector2((0xc0 + 0x80) / 256.0f, 0),
+                "Swimming in TILETYPE_RIGHTCURRENT `$e3 did not compose " +
+                "SPEED_c0 current and SPEED_80 entry-lock momentum.");
+
+            noFlippers._PhysicsProcess(UpdateDelta);
+            FailIf(
+                !noFlippers.IsDrowning || noFlippers.TopDownSwimming ||
+                noFlippersWorld.DrowningSplashes.Count != 1 ||
+                noFlippersWorld.Sounds.Count(
+                    sound => sound == SoundId.SndDamageLink) != 1,
+                "Ordinary water did not retain source drowning for Link " +
+                "without TREASURE_FLIPPERS `$2e.");
+
+            seaWater._PhysicsProcess(UpdateDelta);
+            FailIf(
+                !seaWater.IsDrowning || seaWater.TopDownSwimming ||
+                seaWaterWorld.DrowningSplashes.Count != 1 ||
+                seaWaterWorld.Sounds.Count(
+                    sound => sound == SoundId.SndDamageLink) != 1,
+                "Ages TILETYPE_SEAWATER `$fc incorrectly entered the " +
+                "normal-water Flippers path.");
+        }
+        finally
+        {
+            Input.ActionRelease("move_right");
+            player.Free();
+            idleBurst.Free();
+            noFlippers.Free();
+            seaWater.Free();
+        }
+
+        GD.Print(
+            "Validated top-down TREASURE_FLIPPERS `$2e swimming/diving: " +
+            "canonical water entry/splash, `$0a trajectory lock, exact " +
+            "func_5933 inertia, 6/6 directional animation, A-button " +
+            "8/13/12 directional and idle-facing bursts with " +
+            "SND_LINK_SWIM `$88, scrolling-state retention, B-toggle `$78 " +
+            "normal diving, 16/16 dive animation, ZORA_RING timer " +
+            "suppression, current composition, water exit, and " +
+            "no-Flippers/SeaWater drowning boundaries.");
+    }
+
+    private void ValidateLinkSideScrollSwimming()
+    {
+        const double UpdateDelta = 1.0 / 60.0;
+        const int WaterGroup = 7;
+        const int WaterRoom = 0x07;
+        Vector2 roomWaterPosition = new(0x08, 0x78);
+        SideScrollPlayerDatabase database = SideScrollPlayerDatabase.Shared;
+        OracleRoomData room = _world.LoadRoom(WaterGroup, WaterRoom);
+        byte waterTile = room.GetMetatile(roomWaterPosition);
+        FailIf(
+            room.TilesetId != 0x5c ||
+            (room.TilesetFlags & 0x30) != 0x30 ||
+            room.WidthInTiles != OracleRoomData.LargeRoomWidthInTiles ||
+            room.HeightInTiles != OracleRoomData.LargeRoomHeightInTiles ||
+            waterTile != 0x1b ||
+            database.TileType(waterTile) != SideScrollTileType.Water,
+            "Room 7:07 did not retain underwater side-view tileset `$5c, " +
+            "flags `$30, or TILETYPE_SS_WATER `$1b at `$70.");
+
+        SideScrollSwimmingFrame flippersRight = database.SwimmingFrame(
+            mermaidSuit: false, frame: 0, direction: (int)Facing.Right);
+        SideScrollSwimmingFrame flippersLeft = database.SwimmingFrame(
+            mermaidSuit: false, frame: 1, direction: (int)Facing.Left);
+        SideScrollSwimmingFrame mermaidRight = database.SwimmingFrame(
+            mermaidSuit: true, frame: 0, direction: (int)Facing.Right);
+        SideScrollSwimmingFrame mermaidLeft = database.SwimmingFrame(
+            mermaidSuit: true, frame: 1, direction: (int)Facing.Left);
+        FailIf(
+            flippersRight.Duration != 9 ||
+            flippersRight.SourceOffset != 0x0f80 ||
+            flippersRight.OamIndex != 0x01 ||
+            flippersLeft.Duration != 9 ||
+            flippersLeft.SourceOffset != 0x0fc0 ||
+            flippersLeft.OamIndex != 0x00 ||
+            mermaidRight.Duration != 9 ||
+            mermaidRight.SourceOffset != 0x1680 ||
+            mermaidRight.OamIndex != 0x01 ||
+            mermaidLeft.Duration != 9 ||
+            mermaidLeft.SourceOffset != 0x16c0 ||
+            mermaidLeft.OamIndex != 0x00,
+            "LINK_ANIM_MODE_SWIM_2D `$17 or LINK_ANIM_MODE_MERMAID `$11 " +
+            "lost its exact 9/9 directional graphics.");
+
+        LinkItemDatabase linkItems = LinkItemDatabase.Shared;
+        LinkGraphicRecord underwaterPhase0 = linkItems.Graphic(
+            "underwater-attack", 0, 0, (int)Facing.Right);
+        LinkGraphicRecord underwaterPhase1 = linkItems.Graphic(
+            "underwater-attack", 0, 1, (int)Facing.Left);
+        LinkGraphicRecord underwaterPhase2 = linkItems.Graphic(
+            "underwater-attack", 0, 2, (int)Facing.Down);
+        FailIf(
+            underwaterPhase0.GraphicsIndex != 0xbd ||
+            underwaterPhase0.OamIndex != 0x01 ||
+            underwaterPhase0.ByteOffset != 0x1880 ||
+            underwaterPhase1.GraphicsIndex != 0xc3 ||
+            underwaterPhase1.OamIndex != 0x00 ||
+            underwaterPhase1.ByteOffset != 0x1840 ||
+            underwaterPhase2.GraphicsIndex != 0xc6 ||
+            underwaterPhase2.OamIndex != 0x0a ||
+            underwaterPhase2.ByteOffset != 0x17c0,
+            "Underwater ITEM_SWORD LINK_ANIM_MODE_2d lost its exact " +
+            "`$bc/`$c0/`$c4 directional Link graphics.");
+
+        SideScrollTerrainState water = new(
+            ActiveTile: 0x1b,
+            BelowTile: 0x1b,
+            ActiveType: SideScrollTileType.Water,
+            BelowType: SideScrollTileType.Water);
+        var flippersInventory = new InventoryState(
+            _treasures, OracleSaveData.CreateStandardGame());
+        flippersInventory.GiveTreasure(
+            TreasureId.Flippers, 0);
+        flippersInventory.GiveTreasure(
+            TreasureId.Sword, 0);
+        var flippersWorld = new ValidationRingPlayerWorld
+        {
+            SideScrolling = true,
+            SideScrollTerrain = water
+        };
+        var flippersPlayer = new Player
+        {
+            Name = "SideScrollFlippersValidationPlayer"
+        };
+        AddChild(flippersPlayer);
+        flippersPlayer.Initialize(
+            flippersWorld,
+            flippersInventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+
+        var noFlippersWorld = new ValidationRingPlayerWorld
+        {
+            SideScrolling = true,
+            SideScrollTerrain = water
+        };
+        var noFlippersPlayer = new Player
+        {
+            Name = "SideScrollNoFlippersValidationPlayer"
+        };
+        AddChild(noFlippersPlayer);
+        noFlippersPlayer.Initialize(
+            noFlippersWorld,
+            new InventoryState(
+                _treasures, OracleSaveData.CreateStandardGame()),
+            new Vector2(96, 80),
+            new OracleRandom());
+
+        var mermaidInventory = new InventoryState(
+            _treasures, OracleSaveData.CreateStandardGame());
+        mermaidInventory.GiveTreasure(
+            TreasureId.Flippers, 0);
+        mermaidInventory.GiveTreasure(
+            TreasureId.MermaidSuit, 0);
+        var mermaidWorld = new ValidationRingPlayerWorld
+        {
+            SideScrolling = true,
+            SideScrollTerrain = water
+        };
+        var mermaidPlayer = new Player
+        {
+            Name = "SideScrollMermaidValidationPlayer"
+        };
+        AddChild(mermaidPlayer);
+        mermaidPlayer.Initialize(
+            mermaidWorld,
+            mermaidInventory,
+            new Vector2(112, 80),
+            new OracleRandom());
+
+        try
+        {
+            Vector2 entryPosition = flippersPlayer.PrecisePosition;
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+            FailIf(
+                flippersPlayer.SideScrollSwimmingState != 2 ||
+                flippersPlayer.IsDrowning ||
+                flippersPlayer.SideScrollSpeedRaw != 0x14 ||
+                flippersPlayer.SideScrollSwimAnimationFrame != 0 ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 9 ||
+                flippersPlayer.SideScrollSwimMermaidAnimation ||
+                flippersPlayer.PrecisePosition != entryPosition ||
+                flippersWorld.DrowningSplashes.Count != 1 ||
+                flippersPlayer.SideScrollSwimAtlasPixelHash == 0 ||
+                flippersPlayer.SideScrollMermaidAtlasPixelHash == 0,
+                "Room 7:07-style water entry with TREASURE_FLIPPERS `$2e " +
+                "did not select swimming state 2, SPEED_80, one splash, " +
+                "and LINK_ANIM_MODE_SWIM_2D instead of drowning.");
+
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+            FailIf(
+                flippersPlayer.IsDrowning ||
+                flippersPlayer.FacingVector != Vector2I.Left ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 8 ||
+                flippersPlayer.PrecisePosition != entryPosition,
+                "An idle DIR_DOWN side-view swimmer was not forced to " +
+                "DIR_LEFT by linkUpdateSwimming_sidescroll state 2.");
+
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            FailIf(
+                flippersPlayer.IsDrowning ||
+                flippersPlayer.FacingVector != Vector2I.Right ||
+                flippersPlayer.SideScrollAngle != 0x08 ||
+                flippersPlayer.PrecisePosition.X <= entryPosition.X ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 7,
+                "Flippers did not allow horizontal side-view swimming in " +
+                "room 7:07-style water.");
+
+            for (int update = 0; update < 6; update++)
+            {
+                flippersPlayer.AdvanceSideScrollUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                flippersPlayer.SideScrollSwimAnimationFrame != 0 ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 1,
+                "LINK_ANIM_MODE_SWIM_2D left its first nine-update " +
+                "graphic early.");
+
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(
+                Vector2.Right,
+                attackJustPressed: true);
+            FailIf(
+                flippersPlayer.SideScrollSwimAnimationFrame != 1 ||
+                flippersPlayer.SideScrollSwimAnimationCounter != 9 ||
+                flippersPlayer.SideScrollSwimBurstState != 1 ||
+                flippersPlayer.SideScrollSwimBurstCounter != 0x0c ||
+                flippersWorld.Sounds.Count(
+                    sound => sound == SoundId.SndLinkSwim) != 1,
+                "A-button side-view swimming did not advance the 9/9 " +
+                "animation or begin the shared 8/13/12 Flippers burst.");
+
+            for (int update = 0; update < 24; update++)
+            {
+                flippersPlayer.AdvanceSideScrollUpdateForValidation(
+                    Vector2.Right);
+            }
+            FailIf(
+                flippersPlayer.SideScrollSwimBurstState != 0 ||
+                flippersPlayer.SideScrollSwimBurstCounter != 0 ||
+                flippersPlayer.SideScrollSpeedRaw != 0x14,
+                "The side-view Flippers burst did not return to SPEED_80 " +
+                "after its exact acceleration/deceleration counters.");
+
+            int[] swimBurstPrimaryItems =
+            [
+                TreasureId.None,
+                TreasureId.Sword,
+                TreasureId.Shield,
+                TreasureId.Bombs,
+                TreasureId.Harp,
+                TreasureId.Shovel,
+                TreasureId.Bracelet,
+                TreasureId.Feather,
+                TreasureId.SeedSatchel
+            ];
+            foreach (int item in swimBurstPrimaryItems)
+            {
+                flippersInventory.SetScriptedEquippedItems(
+                    TreasureId.None,
+                    item);
+                int swimSoundCount = flippersWorld.Sounds.Count(
+                    sound => sound == SoundId.SndLinkSwim);
+                Input.ActionRelease("attack");
+                Input.ActionPress("attack");
+                flippersPlayer._PhysicsProcess(UpdateDelta);
+                Input.ActionRelease("attack");
+                FailIf(
+                    flippersPlayer.SideScrollSwimBurstState != 1 ||
+                    flippersPlayer.SideScrollSwimBurstCounter != 0x0c ||
+                    flippersWorld.Sounds.Count(
+                        sound => sound == SoundId.SndLinkSwim) !=
+                        swimSoundCount + 1,
+                    $"A-button side-view swimming with equipped item " +
+                    $"`${item:x2} did not begin the shared Flippers burst.");
+
+                for (int update = 0; update < 24; update++)
+                {
+                    flippersPlayer.AdvanceSideScrollUpdateForValidation(
+                        Vector2.Right);
+                }
+                FailIf(
+                    flippersPlayer.SideScrollSwimBurstState != 0 ||
+                    flippersPlayer.SideScrollSwimBurstCounter != 0,
+                    $"The item `${item:x2} side-view Flippers burst did not " +
+                    "complete before the next equipped-item branch.");
+            }
+
+            flippersInventory.SetScriptedEquippedItems(
+                TreasureId.Sword,
+                TreasureId.None);
+            int swordSwimSoundCount = flippersWorld.Sounds.Count(
+                sound => sound == SoundId.SndLinkSwim);
+            Vector2 swordStart = flippersPlayer.PrecisePosition;
+            Input.ActionRelease("item");
+            Input.ActionPress("item");
+            flippersPlayer._PhysicsProcess(UpdateDelta);
+            Input.ActionRelease("item");
+            FailIf(
+                flippersInventory.EquippedB != TreasureId.Sword ||
+                !flippersPlayer.SideScrollSwimming ||
+                !flippersPlayer.UsesSideScrollSwimmingSwordPose ||
+                flippersPlayer.SwordUsesUnderwaterAnimation ||
+                flippersPlayer.SwordState != SwordActionState.Swing ||
+                flippersPlayer.SwordStateFrame != 0 ||
+                flippersPlayer.GetSwordHitbox().Size == Vector2.Zero ||
+                flippersPlayer.SwordAtlasPixelHash == 0 ||
+                flippersPlayer.UnderwaterAttackAtlasPixelHash == 0 ||
+                flippersPlayer.SideScrollSwimBurstState != 0 ||
+                flippersPlayer.SideScrollSwimBurstCounter != 0 ||
+                flippersPlayer.PrecisePosition != swordStart ||
+                flippersWorld.Sounds.Count(
+                    sound => sound == SoundId.SndLinkSwim) !=
+                    swordSwimSoundCount,
+                "A B-button ITEM_SWORD press while side-view swimming " +
+                "started Flippers momentum/SND_LINK_SWIM, moved Link, or " +
+                "failed to select the ordinary $22 sword body with Flippers.");
+
+            flippersPlayer.AdvanceSwordForValidation(
+                17,
+                buttonHeld: true);
+            FailIf(
+                flippersPlayer.SwordState != SwordActionState.Held ||
+                !flippersPlayer.UsesSideScrollSwimmingSwordPose,
+                "A held side-view swimming sword stopped composing with " +
+                "Link's independently advancing swim body.");
+            flippersPlayer.AdvanceSwordForValidation(
+                1,
+                buttonHeld: false);
+
+            int transitionState = flippersPlayer.SideScrollSwimmingState;
+            int transitionAngle = flippersPlayer.SideScrollAngle;
+            int transitionSpeed = flippersPlayer.SideScrollSpeedRaw;
+            int transitionBurstState =
+                flippersPlayer.SideScrollSwimBurstState;
+            int transitionBurstCounter =
+                flippersPlayer.SideScrollSwimBurstCounter;
+            int transitionAnimationFrame =
+                flippersPlayer.SideScrollSwimAnimationFrame;
+            int transitionAnimationCounter =
+                flippersPlayer.SideScrollSwimAnimationCounter;
+            int transitionSplashCount = flippersWorld.DrowningSplashes.Count;
+            Vector2 transitionDestination =
+                flippersPlayer.PrecisePosition + new Vector2(160, 0);
+            flippersPlayer.BeginScrollingTransition(
+                flippersPlayer.PrecisePosition);
+            flippersPlayer.SetScrollingTransitionPosition(
+                transitionDestination,
+                new Vector2(80, 0));
+            flippersPlayer.FinishScrollingTransition(transitionDestination);
+            FailIf(
+                !flippersPlayer.SideScrollSwimming ||
+                flippersPlayer.SideScrollSwimmingState != transitionState ||
+                flippersPlayer.SideScrollAngle != transitionAngle ||
+                flippersPlayer.SideScrollSpeedRaw != transitionSpeed ||
+                flippersPlayer.SideScrollSwimBurstState !=
+                    transitionBurstState ||
+                flippersPlayer.SideScrollSwimBurstCounter !=
+                    transitionBurstCounter ||
+                flippersPlayer.SideScrollSwimAnimationFrame !=
+                    transitionAnimationFrame ||
+                flippersPlayer.SideScrollSwimAnimationCounter !=
+                    transitionAnimationCounter ||
+                flippersPlayer.SideScrollYFixed !=
+                    Mathf.FloorToInt(transitionDestination.Y * 256.0f) ||
+                flippersPlayer.PrecisePosition != transitionDestination ||
+                flippersWorld.DrowningSplashes.Count != transitionSplashCount,
+                "A water-to-water side-view scroll cleared or restarted " +
+                "the live swim state, exposed standing Link for one frame, " +
+                "or replayed the entry splash.");
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            FailIf(
+                !flippersPlayer.SideScrollSwimming ||
+                flippersWorld.DrowningSplashes.Count != transitionSplashCount,
+                "The first destination-water update restarted side-view " +
+                "swimming after a screen transition.");
+
+            noFlippersPlayer.AdvanceSideScrollUpdateForValidation(
+                Vector2.Zero);
+            FailIf(
+                !noFlippersPlayer.IsDrowning ||
+                noFlippersPlayer.SideScrollSwimmingState != 3 ||
+                noFlippersWorld.DrowningSplashes.Count != 1,
+                "Side-view water no longer retained source drowning for " +
+                "Link without TREASURE_FLIPPERS `$2e.");
+
+            mermaidPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+            FailIf(
+                mermaidPlayer.IsDrowning ||
+                mermaidPlayer.SideScrollSwimmingState != 2 ||
+                !mermaidPlayer.SideScrollSwimMermaidAnimation ||
+                mermaidPlayer.SideScrollSwimAnimationCounter != 9,
+                "TREASURE_MERMAID_SUIT `$4a did not select the source " +
+                "side-view Mermaid animation after the Flippers gate.");
+            mermaidPlayer.StartSwordAttack();
+            FailIf(!mermaidPlayer.SwordUsesUnderwaterAnimation,
+                "Mermaid Suit side-view water did not latch sword animation $2d.");
+
+            flippersWorld.SideScrollTerrain = default;
+            int splashCount = flippersWorld.DrowningSplashes.Count;
+            flippersPlayer.AdvanceSideScrollUpdateForValidation(Vector2.Right);
+            FailIf(
+                flippersPlayer.SideScrollSwimming ||
+                !flippersPlayer.SideScrollAirborne ||
+                flippersPlayer.SideScrollSpeedZ >= 0 ||
+                flippersWorld.DrowningSplashes.Count != splashCount + 1,
+                "Leaving side-view water did not clear swimming, create " +
+                "one splash, and begin the source -`$01a0 hop-out arc.");
+        }
+        finally
+        {
+            Input.ActionRelease("attack");
+            Input.ActionRelease("item");
+            flippersPlayer.Free();
+            noFlippersPlayer.Free();
+            mermaidPlayer.Free();
+        }
+
+        GD.Print(
+            "Validated room 7:07 side-view swimming: tileset `$5c/flags " +
+            "`$30 and water `$1b, TREASURE_FLIPPERS `$2e entry/movement, " +
+            "forced horizontal facing, exact 9/9 Flippers and Mermaid " +
+            "graphics, equipment-dependent sword composition with immobilized " +
+            "B-button sword use, shared A burst across every " +
+            "equipped item, water-to-water " +
+            "scroll retention, water exit, and no-Flippers drowning.");
+    }
+
+    private void ValidateLinkTerrainEffects()
+    {
+        Vector2 grassPosition = new(56, 120);
+        Vector2 puddlePosition = new(56, 72);
+        TerrainInfo grassTerrain =
+            _world.LoadRoom(0, 0x06).GetTerrainInfo(grassPosition);
+        TerrainInfo puddleTerrain =
+            _world.LoadRoom(0, 0x38).GetTerrainInfo(puddlePosition);
+        FailIf(
+            grassTerrain.Tile != 0xf8 ||
+            grassTerrain.Type != TerrainType.Grass ||
+            puddleTerrain.Tile != 0xf9 ||
+            puddleTerrain.Type != TerrainType.Puddle,
+            "Canonical rooms 0:06 `$73 and 0:38 `$43 no longer expose " +
+            "Ages grass `$f8 and shallow water `$f9.");
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        var world = new ValidationRingPlayerWorld
+        {
+            ActiveTerrain = new ActiveTerrainInfo(
+                grassTerrain, grassPosition, grassPosition, 0x73)
+        };
+        var player = new Player { Name = "TerrainEffectValidationPlayer" };
+        AddChild(player);
+        player.Initialize(
+            world, inventory, grassPosition, new OracleRandom());
+
+        ReadOnlySpan<PlayerGroundDrawPass> groundDrawPasses =
+            Player.GroundDrawPasses;
+        FailIf(
+            groundDrawPasses.Length != 2 ||
+            groundDrawPasses[0] != PlayerGroundDrawPass.Body ||
+            groundDrawPasses[1] != PlayerGroundDrawPass.TerrainEffect,
+            "Link's grass/puddle OAM no longer has foreground priority " +
+            "over his body.");
+
+        LinkTerrainEffectFrame? grass = player.CurrentTerrainEffect;
+        FailIf(
+            grass is null ||
+            grass.Kind != LinkTerrainEffectKind.Grass ||
+            grass.Tile != 0xf8 || grass.Frame != 0 || grass.Duration != 0 ||
+            grass.Sound != 0 || grass.SoundStart != 0 ||
+            grass.SoundPeriod != 0 || grass.SoundDuration != 0 ||
+            grass.Offset != new Vector2(-7, 1) ||
+            grass.Texture.GetSize() != new Vector2(14, 16) ||
+            !grass.Source.Contains(
+                "greenGrassAnimationFrame0",
+                StringComparison.Ordinal),
+            "Link did not select green grass terrain-effect OAM frame 0 " +
+            "at its source `(-7,+1)` anchor in room 0:06.");
+        ulong grassFrame0Hash =
+            OracleGraphicsCache.PixelHash(grass.Texture.GetImage());
+        FailIf(
+            grassFrame0Hash != 0x75dc0350c7f62b4aUL,
+            "Link grass terrain-effect frame 0 pixel hash changed: " +
+            $"{grassFrame0Hash:x16}.");
+
+        player.SetScriptedPosition(new Vector2(60, 120));
+        LinkTerrainEffectFrame? grassFrame1 = player.CurrentTerrainEffect;
+        FailIf(
+            grassFrame1 is null ||
+            grassFrame1.Kind != LinkTerrainEffectKind.Grass ||
+            grassFrame1.Frame != 1 || grassFrame1.Duration != 0 ||
+            grassFrame1.Sound != 0 ||
+            grassFrame1.Offset != new Vector2(-7, 1) ||
+            grassFrame1.Texture.GetSize() != new Vector2(14, 16) ||
+            !grassFrame1.Source.Contains(
+                "greenGrassAnimationFrame1",
+                StringComparison.Ordinal),
+            "Link's `(xh XOR yh) bit 2 did not select green grass " +
+            "terrain-effect OAM frame 1 within room 0:06 tile `$73.");
+        ulong grassFrame1Hash =
+            OracleGraphicsCache.PixelHash(grassFrame1.Texture.GetImage());
+        FailIf(
+            grassFrame1Hash != 0xe204832ae00b118aUL,
+            "Link grass terrain-effect frame 1 pixel hash changed: " +
+            $"{grassFrame1Hash:x16}.");
+        player.SetScriptedPosition(puddlePosition);
+
+        world.ActiveTerrain = new ActiveTerrainInfo(
+            puddleTerrain, puddlePosition, puddlePosition, 0x43);
+        int[] counters = [0, 7, 8, 15, 16, 23, 24, 31, 32];
+        int[] expectedFrames = [0, 0, 1, 1, 2, 2, 3, 3, 0];
+        Vector2[] expectedOffsets =
+        [
+            new(-5, 6),
+            new(-6, 6),
+            new(-7, 7),
+            new(-8, 8)
+        ];
+        Vector2[] expectedSizes =
+        [
+            new(10, 16),
+            new(12, 16),
+            new(14, 16),
+            new(16, 16)
+        ];
+        ulong[] expectedPuddleHashes =
+        [
+            0x60764db388700bdaUL,
+            0x3a7d8efe3de45a9fUL,
+            0x4295bf38614c83beUL,
+            0xb5f1e08fe1b74228UL
+        ];
+        for (int index = 0; index < counters.Length; index++)
+        {
+            world.FrameCounter = counters[index];
+            LinkTerrainEffectFrame? puddle = player.CurrentTerrainEffect;
+            int expectedFrame = expectedFrames[index];
+            FailIf(
+                puddle is null ||
+                puddle.Kind != LinkTerrainEffectKind.Puddle ||
+                puddle.Tile != 0xf9 ||
+                puddle.Frame != expectedFrame ||
+                puddle.Duration != 8 ||
+                puddle.Sound != SoundId.SndSplash ||
+                puddle.SoundStart != 3 ||
+                puddle.SoundPeriod != 18 ||
+                puddle.SoundDuration != 6 ||
+                puddle.Offset != expectedOffsets[expectedFrame] ||
+                puddle.Texture.GetSize() != expectedSizes[expectedFrame] ||
+                !puddle.Source.Contains(
+                    $"puddleAnimationFrame{expectedFrame}",
+                    StringComparison.Ordinal),
+                $"Link shallow-water terrain effect selected the wrong " +
+                $"OAM frame at global update ${counters[index]:x2}; " +
+                $"expected frame {expectedFrame}.");
+            ulong puddleHash =
+                OracleGraphicsCache.PixelHash(puddle.Texture.GetImage());
+            FailIf(
+                puddleHash != expectedPuddleHashes[expectedFrame],
+                $"Link shallow-water terrain-effect frame {expectedFrame} " +
+                $"pixel hash changed: {puddleHash:x16}.");
+        }
+
+        world.Sounds.Clear();
+        player.AdvanceTerrainWalkAnimation(walking: false);
+        int[] expectedSplashUpdates = [3, 21, 39, 57];
+        for (int update = 1; update <= expectedSplashUpdates[^1]; update++)
+        {
+            int soundsBefore = world.Sounds.Count;
+            player.ApplyTerrainWalkSoundParameter();
+            bool expectedSplash =
+                Array.IndexOf(expectedSplashUpdates, update) >= 0;
+            FailIf(
+                (world.Sounds.Count != soundsBefore) != expectedSplash ||
+                (expectedSplash &&
+                    world.Sounds[^1] != SoundId.SndSplash),
+                $"Link's puddle walk animation selected the wrong sound " +
+                $"cadence at update {update}; expected splash={expectedSplash}.");
+            player.AdvanceTerrainWalkAnimation(walking: true);
+        }
+
+        player.AdvanceTerrainWalkAnimation(walking: false);
+        world.Sounds.Clear();
+        world.ActiveTerrain = new ActiveTerrainInfo(
+            new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
+            Vector2.Zero,
+            Vector2.Zero,
+            0);
+        for (int update = 1; update <= 3; update++)
+        {
+            player.ApplyTerrainWalkSoundParameter();
+            player.AdvanceTerrainWalkAnimation(walking: true);
+        }
+        world.ActiveTerrain = new ActiveTerrainInfo(
+            puddleTerrain, puddlePosition, puddlePosition, 0x43);
+        player.ApplyTerrainWalkSoundParameter();
+        player.ApplyTerrainWalkSoundParameter();
+        player.AdvanceTerrainWalkAnimation(walking: true);
+        player.ApplyTerrainWalkSoundParameter();
+        FailIf(
+            world.Sounds.Count != 1 ||
+            world.Sounds[0] != SoundId.SndSplash,
+            "Link's unconsumed walk-animation sound parameter did not " +
+            "survive until he entered shallow water, or played twice.");
+
+        player.AdvanceTerrainWalkAnimation(walking: false);
+        world.Sounds.Clear();
+        player.ApplyTerrainWalkSoundParameter();
+        player.AdvanceTerrainWalkAnimation(walking: true);
+        player.ApplyTerrainWalkSoundParameter();
+        player.AdvanceTerrainWalkAnimation(walking: true);
+        world.MovementDisabled = true;
+        player.ApplyTerrainWalkSoundParameter();
+        world.MovementDisabled = false;
+        player.ApplyTerrainWalkSoundParameter();
+        FailIf(
+            world.Sounds.Count != 0,
+            "wLinkImmobilized did not consume and suppress the pending " +
+            "shallow-water step sound.");
+        player.AdvanceTerrainWalkAnimation(walking: false);
+
+        player.BeginForcedRoomEntryMovement(Vector2I.Right);
+        FailIf(
+            !player.Walking || player.CurrentTerrainEffect is null,
+            "Walking Link lost the shallow-water terrain effect.");
+        player.EndForcedRoomEntryMovement();
+
+        world.ScreenScrolling = true;
+        FailIf(
+            player.CurrentTerrainEffect is not null,
+            "wScrollMode `$08 did not suppress Link's grounded terrain effect.");
+        world.ScreenScrolling = false;
+        world.SideScrolling = true;
+        FailIf(
+            player.CurrentTerrainEffect is not null,
+            "TILESETFLAG_SIDESCROLL did not suppress Link's grounded terrain effect.");
+        world.SideScrolling = false;
+        world.RidingObject = true;
+        FailIf(
+            player.CurrentTerrainEffect is null,
+            "wLinkRidingObject incorrectly suppressed Link's grounded " +
+            "terrain effect without a source visible-bit-6 clear.");
+        world.RidingObject = false;
+        world.ActiveTerrain = new ActiveTerrainInfo(
+            new TerrainInfo(0x00, 0x00, TerrainType.Normal, HazardType.None),
+            Vector2.Zero,
+            Vector2.Zero,
+            0);
+        FailIf(
+            player.CurrentTerrainEffect is not null,
+            "Ordinary terrain incorrectly selected a Link grass/puddle effect.");
+
+        player.Free();
+        GD.Print(
+            "Validated Link grass/shallow-water terrain effects: canonical " +
+            "`$f8/`$f9 probes, position-selected grass OAM, four eight-update " +
+            "puddle frames, foreground OAM priority, positioned pixels, " +
+            "18-update splash cadence/suppression, draw-state suppression, " +
+            "and walking.");
+    }
+
+    private void ValidateLinkItemGeneratedData()
+    {
+        LinkItemDatabase database = LinkItemDatabase.Shared;
+        LinkItemConstants constants = database.Constants;
+        FailIf(
+            constants.SwordSwingFrames != 17 ||
+            constants.SwordTileHitFrame != 6 ||
+            constants.SwordRestartFrame != 3 ||
+            constants.SwordChargeCounter != 0x28 ||
+            constants.SwordPokeFrames != 12 ||
+            constants.SwordSpinFrames != 23 ||
+            constants.ShovelActionFrames != 23 ||
+            constants.ShovelDigFrame != 4 ||
+            constants.ShovelSecondPoseFrame != 8 ||
+            constants.ShieldSound != SoundId.SndShield ||
+            constants.ShieldCollisionEffect != 0x1f ||
+            constants.ShieldLinkResponse != 0x20 ||
+            constants.ShieldProjectileResponse != 0x34 ||
+            constants.ProjectileCollisionMode != 0x06 ||
+            constants.RingProjectileCollisionMode != 0x07 ||
+            !constants.SwingPhaseStarts.SequenceEqual([0, 3, 6, 14]) ||
+            !constants.SpinPhaseStarts.SequenceEqual(
+                [0, 3, 5, 8, 10, 13, 15, 18, 20]),
+            "Imported Link/item action constants lost their exact source boundaries.");
+
+        int[] expectedSwingPhases =
+            [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3];
+        for (int frame = 0; frame < expectedSwingPhases.Length; frame++)
+        {
+            FailIf(
+                database.SwingPhase(frame) != expectedSwingPhases[frame],
+                $"Imported sword swing selected the wrong phase at update {frame}.");
+        }
+        int[] expectedSpinPhases =
+            [0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6, 7, 7, 0];
+        for (int frame = 0; frame < expectedSpinPhases.Length; frame++)
+        {
+            FailIf(
+                database.SpinPhase(frame) != expectedSpinPhases[frame],
+                $"Imported swordspin selected the wrong phase at update {frame}.");
+        }
+
+        Vector2[] attackPoseOffsets =
+            [new(0, -3), new(3, 0), new(0, 3), new(-3, 0)];
+        Vector2[] shovelOffsets =
+            [new(0, -8), new(6, 4), new(0, 7), new(-7, 4)];
+        Vector2[] shieldCenters =
+            [new(1, -7), new(6, 0), new(-1, 6), new(-7, 0)];
+        Vector2[] shieldRadii =
+            [new(6, 1), new(1, 7), new(6, 1), new(1, 7)];
+        Vector2[] swordTileOffsets =
+        [
+            new(0, -14), new(13, -14), new(13, 0), new(13, 13),
+            new(0, 13), new(-14, 13), new(-14, 0), new(-14, -14),
+            Vector2.Zero
+        ];
+        Vector2I[,] braceletOffsets =
+        {
+            { new(0, -8), new(7, 0), new(0, 6), new(-8, 0) },
+            { new(0, -6), new(3, -8), new(0, 4), new(-4, -8) },
+            { new(0, -13), new(0, -14), new(0, -13), new(0, -14) },
+            { new(0, -13), new(0, -13), new(0, -13), new(0, -13) }
+        };
+        for (int direction = 0; direction < 4; direction++)
+        {
+            FailIf(
+                database.AttackPoseOffset(direction) !=
+                    attackPoseOffsets[direction] ||
+                database.ShovelOffset(direction) != shovelOffsets[direction] ||
+                database.ShieldCenterOffset(direction) !=
+                    shieldCenters[direction] ||
+                database.ShieldCollisionRadius(direction) !=
+                    shieldRadii[direction],
+                $"Imported directional Link/item geometry row {direction} changed.");
+            for (int frame = 0; frame < 4; frame++)
+            {
+                FailIf(
+                    database.BraceletLiftOffset(frame, direction) !=
+                        braceletOffsets[frame, direction],
+                    $"Imported Bracelet weight-0 offset {frame}/{direction} changed.");
+            }
+        }
+        for (int direction = 0; direction < swordTileOffsets.Length; direction++)
+        {
+            FailIf(
+                database.SwordTileOffset(direction) !=
+                    swordTileOffsets[direction],
+                $"Imported sword-tile probe offset {direction} changed.");
+        }
+
+        int[,] expectedAnimations =
+        {
+            { 2, 1, 0, 0 },
+            { 0, 1, 2, 2 },
+            { 6, 5, 4, 4 },
+            { 0, 7, 6, 6 }
+        };
+        for (int direction = 0; direction < 4; direction++)
+        for (int phase = 0; phase < 4; phase++)
+        {
+            FailIf(
+                database.SwordAnimation(direction, phase) !=
+                    expectedAnimations[direction, phase],
+                $"Imported sword animation row {direction}/{phase} changed.");
+        }
+
+        int[] expectedSounds =
+        [
+            SoundId.SndSwordSlash,
+            SoundId.SndUnknown5,
+            SoundId.SndBoomerang,
+            SoundId.SndSwordSlash,
+            SoundId.SndSwordSlash,
+            SoundId.SndUnknown5,
+            SoundId.SndSwordSlash,
+            SoundId.SndSwordSlash
+        ];
+        for (int index = 0; index < expectedSounds.Length; index++)
+        {
+            FailIf(
+                database.SwordSlashSound(index) != expectedSounds[index],
+                $"Imported sword slash-sound row {index} changed.");
+        }
+
+        SwordPart[][] expectedOam =
+        [
+            [new SwordPart(8, 4, 4)],
+            [new SwordPart(8, 0, 8, true), new SwordPart(8, 8, 6, true)],
+            [new SwordPart(8, 0, 2, true), new SwordPart(8, 8, 0, true)],
+            [
+                new SwordPart(8, 0, 8, true, true),
+                new SwordPart(8, 8, 6, true, true)
+            ],
+            [new SwordPart(8, 4, 4, false, true)],
+            [
+                new SwordPart(8, 0, 6, false, true),
+                new SwordPart(8, 8, 8, false, true)
+            ],
+            [new SwordPart(8, 0, 0), new SwordPart(8, 8, 2)],
+            [new SwordPart(8, 0, 6), new SwordPart(8, 8, 8)]
+        ];
+        for (int animation = 0; animation < expectedOam.Length; animation++)
+        {
+            FailIf(
+                !database.SwordOam(animation).SequenceEqual(
+                    expectedOam[animation]),
+                $"Imported ITEM_SWORD OAM composition {animation} changed.");
+        }
+        SwordArc[] punchArcs =
+        [
+            new(5, 5, -12, -3), new(5, 5, 0, 12),
+            new(5, 5, 12, 3), new(5, 5, 0, -12)
+        ];
+        FailIf(
+            database.SwordArcs.Count != 28 ||
+            !database.SwordArcs.Skip(24).SequenceEqual(punchArcs),
+            "Imported punch aliases at swordArcData rows $18-$1b changed.");
+
+        int[] attackBases = [0xac, 0xb0, 0xb4];
+        for (int phase = 0; phase < attackBases.Length; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            LinkGraphicRecord record =
+                database.Graphic("attack", 0, phase, direction);
+            FailIf(
+                record.GraphicsIndex != attackBases[phase] + direction ||
+                string.IsNullOrEmpty(record.Oam),
+                $"Imported attack graphic {phase}/{direction} changed.");
+        }
+        int[] minecartAttackBases = [0xc8, 0xcc, 0xcc, 0x58];
+        for (int phase = 0; phase < minecartAttackBases.Length; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            LinkGraphicRecord record =
+                database.Graphic("minecart-attack", 0, phase, direction);
+            FailIf(
+                record.GraphicsIndex !=
+                    minecartAttackBases[phase] + direction ||
+                string.IsNullOrEmpty(record.Oam),
+                $"Imported minecart attack graphic {phase}/{direction} changed.");
+        }
+        int[] shovelBases = [0xf8, 0xfc];
+        for (int phase = 0; phase < shovelBases.Length; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            FailIf(
+                database.Graphic("shovel", 0, phase, direction).GraphicsIndex !=
+                    shovelBases[phase] + direction,
+                $"Imported shovel graphic {phase}/{direction} changed.");
+        }
+        int[] braceletBases = [0xdc, 0xe0, 0xb0];
+        for (int pose = 0; pose < braceletBases.Length; pose++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            FailIf(
+                database.Graphic("bracelet", pose, 0, direction).GraphicsIndex !=
+                    braceletBases[pose] + direction,
+                $"Imported Bracelet Link graphic {pose}/{direction} changed.");
+        }
+        for (int variant = 0; variant < 4; variant++)
+        for (int phase = 0; phase < 2; phase++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            int expectedGraphics =
+                0x68 + variant * 4 + phase * 0x2c + direction;
+            FailIf(
+                database.Graphic(
+                    "shield", variant, phase, direction).GraphicsIndex !=
+                    expectedGraphics,
+                $"Imported shield graphic {variant}/{phase}/{direction} changed.");
+        }
+
+        ClinkTileRecord[] clinkRows = database.ClinkRows.ToArray();
+        FailIf(
+            clinkRows.Length != 68 ||
+            clinkRows.Count(record => record.Terminal) != 12 ||
+            clinkRows.Any(record =>
+                record.Terminal && (record.Tile != 0 || record.Order < 0)) ||
+            !database.IsBombableClinkTile(0, 0xc1) ||
+            !database.IsBombableClinkTile(4, 0xcf) ||
+            !database.IsBombableClinkTile(1, 0x69) ||
+            !database.IsBombableClinkTile(2, 0x30) ||
+            !database.IsBombableClinkTile(3, 0x12) ||
+            !database.IsBombableClinkTile(5, 0x38) ||
+            !database.IsSilentClinkTile(0, 0xfd) ||
+            !database.IsSilentClinkTile(4, 0xff) ||
+            !database.IsSilentClinkTile(1, 0x0a) ||
+            !database.IsSilentClinkTile(2, 0x0b) ||
+            database.IsSilentClinkTile(3, 0x0a) ||
+            !database.IsSilentClinkTile(5, 0x0b),
+            "Imported aliased clinkSoundTable rows or terminal zeroes changed.");
+
+        ulong[] braceletHashes = new ulong[12];
+        for (int pose = 0; pose < 3; pose++)
+        for (int direction = 0; direction < 4; direction++)
+        {
+            braceletHashes[pose * 4 + direction] =
+                _player.BraceletActionPixelHash(pose, direction);
+        }
+        ulong[] expectedBraceletHashes =
+        [
+            0x130b4ac9d7502459UL, 0xf1012272bded617eUL,
+            0xa3ab9759565b4828UL, 0x69a466130e99f61eUL,
+            0x440f60ecb7d47160UL, 0xa71e2d9d3d2bc769UL,
+            0x2c3be5cae23b9510UL, 0xef69b079d1a96f19UL,
+            0x997ee6d2d76d2925UL, 0x0030bdac653b5e39UL,
+            0xfdd494921f9b713dUL, 0x3a8738decc4cd051UL
+        ];
+        FailIf(
+            _player.AttackAtlasPixelHash != 0xd97fede215433c60UL ||
+            _player.MinecartAttackAtlasPixelHash != 0x64a25aeb9b7db45aUL ||
+            _player.ShovelAtlasPixelHash != 0x5d009ee6640952eeUL ||
+            _player.SwordAtlasPixelHash != 0x61e9abb0e1173ec7UL ||
+            _player.ShieldAtlasPixelHash != 0xe4598edf4d896e5cUL ||
+            !braceletHashes.SequenceEqual(expectedBraceletHashes),
+            $"Imported Link/item OAM pixels changed " +
+            $"(shield={_player.ShieldAtlasPixelHash:x16}, " +
+            $"minecartAttack={_player.MinecartAttackAtlasPixelHash:x16}).");
+
+        GD.Print(
+            "Validated generated Link/item/sword data: ordered action, graphics, " +
+            "offset, arc, OAM, sound, aliased clink, and terminal-zero records.");
+    }
+
+    private void ValidateShield()
+    {
+        // Independent imported-asset goldens and lowered body-contact.
+        // Raised lifecycle, scrolling, release/reuse and
+        // projectile bounce are owned by the executed Shield ROM scenarios.
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
+        inventory.EquipA(TreasureId.Shield);
+        FailIf(inventory.ShieldLevel != 1 || inventory.EquippedA != TreasureId.Shield ||
+            save.ReadWramByte(AgesWramAddress.wShieldLevel) != 1,
+            "TREASURE_SHIELD mode $08 did not persist/equip its level-1 item.");
+        ValidateShieldDisplay(inventory, 1, 0x93, 0x00, 0x20);
+        var world = new ValidationRingPlayerWorld();
+        var player = new Player { Name = "ShieldValidationPlayer" };
+        AddChild(player);
+        player.Initialize(world, inventory, new Vector2(80, 80), new OracleRandom());
+        FailIf(!player.IsShieldEquipped || player.IsUsingShield || player.ShieldAtlasPixelHash == 0,
+            "Equipped Wooden Shield did not select the source Link pose atlas.");
+        Vector2I[] directions = [Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left];
+        Vector2[] centers = [new(81, 73), new(86, 80), new(79, 86), new(73, 80)];
+        Vector2[] radii = [new(6, 1), new(1, 7), new(6, 1), new(1, 7)];
+        for (int direction = 0; direction < 4; direction++)
+        {
+            player.Face(directions[direction]);
+            Rect2 bounds = player.ShieldCollisionBounds;
+            FailIf(bounds.GetCenter() != centers[direction] || bounds.Size / 2 != radii[direction] ||
+                player.ShieldGraphicsIndex != 0x68 + direction,
+                $"ITEM_SHIELD direction {direction} lost its imported center/radius/equipped graphic.");
+        }
+        player.Face(Vector2I.Up);
+        LoadBushValidationRoom();
+        var unblockedRock = new OctorokRockProjectile();
+        unblockedRock.Initialize(new EnemyDatabase().OctorokProjectile, _currentRoom, player.Position, ObjectAngle.Up);
+        unblockedRock.UpdateFrame(player);
+        int healthBefore = player.HealthQuarters;
+        ((ILinkContactEntity)unblockedRock).HandleLinkContact(player);
+        unblockedRock.UpdateFrame(player);
+        FailIf(!unblockedRock.Finished || player.HealthQuarters != healthBefore || (player.PendingContactDamageRaw & 0xff) != 0xfc ||
+            world.Sounds.Count(sound => sound == SoundId.SndDamageLink) != 1,
+            "Equipped but lowered Shield incorrectly blocked an Octorok projectile.");
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_01"));
+        FailIf(inventory.ShieldLevel != 2 || player.ShieldGraphicsIndex != 0x6c,
+            "Iron Shield upgrade did not select the level-2 equipped pose.");
+        ValidateShieldDisplay(inventory, 2, 0x94, 0x05, 0x21);
+        inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_02"));
+        ValidateShieldDisplay(inventory, 3, 0x95, 0x04, 0x22);
+        unblockedRock.Free(); player.Free();
+        GD.Print("Validated independent Shield asset/display goldens and lowered projectile body contact.");
+    }
+
+    private void ValidateShieldDisplay(
+        InventoryState inventory,
+        int level,
+        int sprite,
+        int palette,
+        int textLow)
+    {
+        DisplayRecord display =
+            _treasures.GetButtonDisplay(TreasureId.Shield, inventory);
+        DisplayRecord parameterDisplay =
+            _treasures.GetTreasureDisplay(
+                TreasureId.Shield, level, inventory);
+        FailIf(
+            display != parameterDisplay ||
+            display.TreasureId != TreasureId.Shield ||
+            display.LeftSprite != sprite || display.LeftPalette != palette ||
+            display.RightSprite != 0 || display.RightPalette != 0 ||
+            display.ExtraMode != 0 || display.TextLow != textLow ||
+            inventory.LevelForInventoryDisplay(
+                TreasureId.Shield) != level ||
+            ItemIconAtlas.EquippedLeftPalette(
+                display.LeftSprite, display.LeftPalette) != palette,
+            $"Shield level {level} did not select its exact inventory/equipped display row.");
+
+        Image icons1 = OracleGraphicsCache.LoadImage(
+            AgesGameContent.AssetRoot + "gfx/spr_item_icons_1_spr.png");
+        Image icons2 = OracleGraphicsCache.LoadImage(
+            AgesGameContent.AssetRoot + "gfx/spr_item_icons_2.png");
+        Image icons3 = OracleGraphicsCache.LoadImage(
+            AgesGameContent.AssetRoot + "gfx/spr_item_icons_3.png");
+        FailIf(
+            !ItemIconAtlas.Select(
+                display.LeftSprite, icons1, icons2, icons3,
+                out Image source, out int cell) ||
+            source != icons2 || cell != sprite - 0x90 ||
+            ItemIconAtlas.DecodedCellHash(source, cell) == 0,
+            $"Shield level {level} did not resolve to its source item-icons-2 cell.");
+    }
+
+    private void ValidateSeedSatchel()
+    {
+        var database = new SeedSatchelDatabase();
+        SeedRecord record = database.Ember;
+        SeedRecord mystery = database.Mystery;
+        FailIf(
+            record.ParentItem != 0x19 || record.SeedItem != 0x20 ||
+            record.TreasureId != 0x20 || record.Sprite != "spr_common_items" ||
+            record.TileBase != 0x12 || record.Palette != 2 ||
+            record.Collision != 0x9b || record.CollisionRadiusY != 4 ||
+            record.CollisionRadiusX != 4 || record.Damage != 0xfe ||
+            record.InitialZ != -2 || record.SpeedZ != -0x20 ||
+            record.Gravity != 0x1c || record.SpeedRaw != 0x1e ||
+            record.LinkFrames != 8 || record.FlameSprite != "spr_common_sprites" ||
+            record.FlameTileBase != 0x06 || record.FlameOamFlags != 0x0a ||
+            record.FlamePalette != 2 || record.FlameCounter != 0x3a ||
+            record.LandingSound != 0x52 || record.FlameSound != 0x72,
+            "The imported ITEM_SEED_SATCHEL/ITEM_EMBER_SEED record diverged from its source tables.");
+        FailIf(
+            mystery.ParentItem != 0x19 || mystery.SeedItem != 0x24 ||
+            mystery.TreasureId != 0x24 ||
+            mystery.Sprite != "spr_common_items" ||
+            mystery.TileBase != 0x1a || mystery.Palette != 0 ||
+            mystery.Collision != 0x9a ||
+            mystery.CollisionRadiusY != 4 ||
+            mystery.CollisionRadiusX != 4 ||
+            mystery.Damage != 0xfe ||
+            mystery.FlameSprite != "spr_common_sprites" ||
+            mystery.FlameTileBase != 0x18 ||
+            mystery.FlameOamFlags != 0x08 ||
+            mystery.FlameCounter != 0 ||
+            mystery.LandingSound != 0x52 ||
+            mystery.FlameSound != SoundId.SndMysterySeed,
+            "The imported ITEM_MYSTERY_SEED record diverged from " +
+            "itemCode24 / itemAttributes.");
+
+        Vector2I[] directions =
+            { Vector2I.Up, Vector2I.Right, Vector2I.Down, Vector2I.Left };
+        Vector2I[] offsets =
+            { new(0, -4), new(4, 1), new(0, 5), new(-5, 1) };
+        for (int index = 0; index < directions.Length; index++)
+        {
+            FailIf(
+                record.Offset(directions[index]) != offsets[index],
+                $"Satchel direction {index} lost its signed Y/X child offset.");
+        }
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        int grantInventoryChanges = 0;
+        int grantSaveChanges = 0;
+        inventory.Changed += () => grantInventoryChanges++;
+        save.Changed += () => grantSaveChanges++;
+        inventory.GiveTreasure(new TreasureObjectRecord(
+            "VALIDATION_SATCHEL", TreasureId.SeedSatchel, 0, 1, 0xff, 0, string.Empty));
+        FailIf(
+            inventory.EmberSeeds != 0x20 || grantInventoryChanges != 1 ||
+            grantSaveChanges != 1,
+            "The Seed Satchel did not expose its initial BCD 20 Ember Seeds in the grant transaction.");
+        AnimationDefinition emberAnimation =
+            OracleGraphicsCache.GetAnimationDefinition(record.Animation);
+        string[] expectedOam =
+        {
+            "8,4,0,0",
+            "8,4,0,0",
+            "8,0,2,0;8,8,2,32",
+            "8,0,4,7;8,8,4,39",
+            "8,0,4,0;8,8,4,32"
+        };
+        FailIf(
+            emberAnimation.LoopStart != 2 || emberAnimation.Frames.Length != 5 ||
+            !emberAnimation.Frames.Select(frame => frame.EncodedOam)
+                .SequenceEqual(expectedOam),
+            "itemAnimation1e818 did not resolve its item20OamDataPointers compositions.");
+        int inventoryChanges = 0;
+        int saveChanges = 0;
+        inventory.Changed += () => inventoryChanges++;
+        save.Changed += () => saveChanges++;
+        FailIf(
+            !inventory.TryConsumeSelectedSatchelSeed(out int seedItem) ||
+            seedItem != 0x20 || inventory.EmberSeeds != 0x19 ||
+            save.ReadWramByte(AgesWramAddress.wNumEmberSeeds) != 0x19 ||
+            inventoryChanges != 1 || saveChanges != 1,
+            "decNumActiveSeeds did not decrement/persist the selected Satchel count as packed BCD once.");
+        for (int count = 0; count < 19; count++)
+            inventory.TryConsumeSelectedSatchelSeed(out _);
+        FailIf(
+            inventory.EmberSeeds != 0 || inventory.TryConsumeSelectedSatchelSeed(out _),
+            "The Satchel consumed a seed at zero or failed to reach BCD $00 from $20.");
+        ValidateSeedInventorySubmenu();
+
+        LoadBushValidationRoom();
+        Vector2 linkPosition = new(80, 80);
+        // State 0 consumes one update. Eight moving/gravity updates put this
+        // up-facing throw at (80,70), where its flame expires.
+        Vector2 flamePoint = new(80, 70);
+        _currentRoom.SetPositionTileAndCollision(
+            flamePoint, 0xc5, null, (long)_animationTicks);
+        var sounds = new List<int>();
+        var hazards = new List<HazardType>();
+        var emberSpawns = new List<RoomEntitySpawn>();
+        int tileChanges = 0;
+        var ember = new EmberSeedEffect();
+        ember.Initialize(
+            record, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            Vector2I.Up, sounds.Add, (_, hazard) => hazards.Add(hazard),
+            () => tileChanges++, () => (long)_animationTicks,
+            _ => null, _saveData, _activeGroup);
+        Image flameSource = OracleGraphicsCache.LoadImage(
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+        Texture2D expectedFlameTexture = OracleOamCompositor.BuildOamTextureUncachedForValidation(
+            flameSource, emberAnimation.Frames[2].EncodedOam,
+            record.FlameTileBase, record.FlamePalette);
+        ulong expectedFlameHash = OracleGraphicsCache.PixelHash(
+            expectedFlameTexture.GetImage());
+        expectedFlameTexture.Dispose();
+        FailIf(
+            ember.FlameTextureHashForValidation(2) != expectedFlameHash,
+            "ITEM_EMBER_SEED ignition did not switch OAM flag `$0a to " +
+            "GFXH_COMMON_SPRITES bank-1 flame tiles `$06/`$08/`$0a.");
+        ember.UpdateFrame(emberSpawns);
+        FailIf(
+            ember.State != EmberState.Flying ||
+            ember.ElapsedFrames != 1 || ember.ZFixed != -0x200 ||
+            ember.PrecisePosition != linkPosition + (Vector2)record.UpOffset,
+            "ITEM_EMBER_SEED state 0 did not preserve the setup-only update and initial Z/offset.");
+        for (int frame = 0; frame < 7; frame++)
+            ember.UpdateFrame(emberSpawns);
+        FailIf(
+            ember.State != EmberState.Flying ||
+            ember.ZFixed != -0x94 || ember.SpeedZ != 0xa4,
+            "ITEM_EMBER_SEED did not retain its SPEED_c0/$1c 8.8 flight arc before landing.");
+        ember.UpdateFrame(emberSpawns);
+        FailIf(
+            ember.State != EmberState.Burning ||
+            ember.ElapsedFrames != 9 || ember.ZFixed != 0 ||
+            ember.PrecisePosition != flamePoint || ember.FlameCounter != 0x3a ||
+            ember.AnimationFrame != 1 ||
+            !sounds.SequenceEqual(new[] { 0x52, 0x72 }) || hazards.Count != 0,
+            "The Satchel Ember Seed did not land on update 9 and initialize its flame/sounds exactly.");
+        ember.UpdateFrame(emberSpawns);
+        FailIf(
+            ember.FlameCounter != 0x39 || ember.AnimationFrame != 1,
+            "emberSeedBurn did not decrement before advancing itemAnimation1e818.");
+        for (int frame = 1; frame < 58; frame++)
+            ember.UpdateFrame(emberSpawns);
+        FailIf(
+            !ember.Finished || ember.ElapsedFrames != 67 ||
+            _currentRoom.GetMetatile(flamePoint) != 0x3a || tileChanges != 1,
+            "The Ember flame did not apply BREAKABLETILESOURCE_EMBER_SEED on counter $3a expiry.");
+        ember.Free();
+
+        var standardSubstitutions = new StandardTileSubstitutionDatabase();
+        FailIf(
+            standardSubstitutions.RecordCount != 50,
+            "The imported standard tile-substitution table did not retain all 50 Ages rows.");
+
+        OracleSaveData watchedTreeSave = OracleSaveData.CreateStandardGame();
+        var watchedTreeRooms = new RoomSession(
+            0, 0x48, () => 0, () => { }, watchedTreeSave);
+        OracleRoomData watchedTreeRoom = watchedTreeRooms.CurrentRoom;
+        Vector2 watchedTreePoint = new(0x88, 0x68);
+        var watcherDatabase = new RoomTileChangeWatcherDatabase();
+        RoomTileChangeWatcherDatabaseRecord[] watcherRecords = watcherDatabase
+            .GetRoomRecords(0, 0x48).ToArray();
+        FailIf(
+            watcherDatabase.RecordCount != 8 || watcherRecords is not
+            [{ Position: 0x68, RoomFlag: 0x02, Order: 1 }] ||
+            watchedTreeRoom.GetPackedPosition(watchedTreePoint) != 0x68 ||
+            watchedTreeRoom.GetMetatile(watchedTreePoint) != 0xce,
+            "Room 0:48 did not retain its imported $dc:$08 watcher and burnable tree $68/$ce.");
+
+        var watcherRoot = new Node();
+        AddChild(watcherRoot);
+        using var watcherManagerFixture = RoomEntityValidationFixture.ForRoot(
+            watcherRoot, new() { SaveData = watchedTreeSave });
+        RoomEntityManager watcherManager = watcherManagerFixture.Manager;
+        watcherManager.LoadRoom(0, watchedTreeRoom);
+        FailIf(
+            !watcherManager.Entities<Node2D>().Any(
+            node => node.Name == "TileChangeWatcher_1"),
+            "RoomEntityFactory did not instantiate room 0:48's imported $dc:$08 watcher.");
+        var watchedTreeSpawns = new List<RoomEntitySpawn>();
+        watcherManager.Update(1.0 / 60.0, _player);
+        FailIf(
+            watchedTreeSave.HasRoomFlag(0, 0x48, 0x02),
+            "Room 0:48's $dc:$08 watcher set flag $02 during its snapshot state.");
+
+        var watchedTreeSeed = new EmberSeedEffect();
+        watchedTreeSeed.Initialize(
+            record, watchedTreeRoom, new BreakableTileDatabase(),
+            watchedTreePoint + new Vector2(0, 10), Vector2I.Up,
+            _ => { }, (_, _) => { }, () => { }, () => 0,
+            _ => null, watchedTreeSave, 0);
+        for (int frame = 0; frame < 67; frame++)
+            watchedTreeSeed.UpdateFrame(watchedTreeSpawns);
+        FailIf(
+            !watchedTreeSeed.Finished ||
+            watchedTreeRoom.GetMetatile(watchedTreePoint) != 0x3a ||
+            watchedTreeSave.HasRoomFlag(0, 0x48, 0x02),
+            "Room 0:48's tree did not burn to $3a before its watcher update.");
+        watcherManager.Update(1.0 / 60.0, _player);
+        FailIf(
+            !watchedTreeSave.HasRoomFlag(0, 0x48, 0x02) ||
+            watcherManager.Entities<Node2D>().Any(
+                node => node.Name == "TileChangeWatcher_1"),
+            "Room 0:48's $dc:$08 watcher did not set room flag $02 after tile $68 changed.");
+        watchedTreeSeed.Free();
+        watcherManager.Clear();
+        RemoveChild(watcherRoot);
+        watcherRoot.Free();
+        watchedTreeRooms.Load(0, 0x47);
+        FailIf(
+            watchedTreeRooms.Load(0, 0x48).GetMetatile(watchedTreePoint) != 0x3a,
+            "Room 0:48's single-tile change did not preserve burnt tree $68/$3a on re-entry.");
+        FailIf(
+            !OracleSaveData.TryDeserialize(
+                watchedTreeSave.Serialize(), out OracleSaveData? reloadedTreeSave) ||
+            new RoomSession(0, 0x48, () => 0, () => { }, reloadedTreeSave!)
+                .CurrentRoom.GetMetatile(watchedTreePoint) != 0x3a,
+            "Room 0:48's burnt tree did not remain removed after save serialization and reload.");
+
+        OracleSaveData persistentSave = OracleSaveData.CreateStandardGame();
+        var persistentRooms = new RoomSession(
+            0, 0x8a, () => 0, () => { }, persistentSave);
+        int burnGroup = -1;
+        int burnRoomId = -1;
+        Vector2 burnPoint = Vector2.Zero;
+        for (int group = 0; group <= 3 && burnRoomId < 0; group++)
+        for (int roomId = 0; roomId <= 0xff && burnRoomId < 0; roomId++)
+        {
+            if (!persistentRooms.World.HasRoom(group, roomId))
+                continue;
+            OracleRoomData candidate = persistentRooms.World.LoadRoom(group, roomId);
+            if (candidate.ActiveCollisions != 0)
+                continue;
+            for (int y = 0; y < candidate.HeightInTiles && burnRoomId < 0; y++)
+            for (int x = 0; x < candidate.WidthInTiles; x++)
+            {
+                Vector2 point = new(
+                    x * OracleRoomData.MetatileSize + 8,
+                    y * OracleRoomData.MetatileSize + 8);
+                if (candidate.GetMetatile(point) != 0xcf)
+                    continue;
+                burnGroup = group;
+                burnRoomId = roomId;
+                burnPoint = point;
+                break;
+            }
+        }
+        FailIf(burnRoomId < 0, "Could not find an overworld burnable tree tile $cf.");
+
+        OracleRoomData burnRoom = persistentRooms.Load(burnGroup, burnRoomId);
+        int maturityBeforeBurn = persistentSave.GashaMaturity;
+        var burnSounds = new List<int>();
+        var burnSpawns = new List<RoomEntitySpawn>();
+        var burningTreeSeed = new EmberSeedEffect();
+        burningTreeSeed.Initialize(
+            record, burnRoom, new BreakableTileDatabase(),
+            burnPoint + new Vector2(0, 10), Vector2I.Up,
+            burnSounds.Add, (_, _) => { }, () => { }, () => 0,
+            _ => null, persistentSave, burnGroup);
+        for (int frame = 0; frame < 67; frame++)
+            burningTreeSeed.UpdateFrame(burnSpawns);
+        FailIf(
+            !burningTreeSeed.Finished || burnRoom.GetMetatile(burnPoint) != 0xdc ||
+            !persistentSave.HasRoomFlag(burnGroup, burnRoomId, OracleSaveData.RoomFlag80) ||
+            persistentSave.GashaMaturity != maturityBeforeBurn + 30 ||
+            burnSounds.Count(sound => sound == SoundId.SndSolvePuzzle) != 1,
+            "Burning overworld tree $cf did not set room flag $80, add 30 maturity, " +
+            "play SND_SOLVEPUZZLE, and become $dc.");
+        burningTreeSeed.Free();
+
+        int otherRoomId = Enumerable.Range(0, 0x100).First(roomId =>
+            roomId != burnRoomId && persistentRooms.World.HasRoom(burnGroup, roomId));
+        persistentRooms.Load(burnGroup, otherRoomId);
+        OracleRoomData sameSessionReload = persistentRooms.Load(burnGroup, burnRoomId);
+        FailIf(
+            sameSessionReload.GetMetatile(burnPoint) != 0xdc,
+            "ROOMFLAG $80 did not retain standard substitution $cf->$dc after live re-entry.");
+
+        FailIf(
+            !OracleSaveData.TryDeserialize(
+            persistentSave.Serialize(), out OracleSaveData? restoredPersistentSave),
+            "The burnable-tree room flag did not survive save-image serialization.");
+        var reloadedRooms = new RoomSession(
+            burnGroup, burnRoomId, () => 0, () => { }, restoredPersistentSave!);
+        FailIf(
+            reloadedRooms.CurrentRoom.GetMetatile(burnPoint) != 0xdc,
+            "ROOMFLAG $80 did not reapply standard substitution $cf->$dc after saved re-entry.");
+
+        if (_inventory.EmberSeeds == 0)
+        {
+            _inventory.GiveTreasure(new TreasureObjectRecord(
+                "VALIDATION_EMBER_SEED", TreasureId.EmberSeeds, 0, 1, 0xff, 0, string.Empty));
+        }
+        _inventory.SelectSatchelSeeds(0);
+        int beforeAmount = _inventory.EmberSeeds;
+        int beforeEntities = _entities.Entities<EmberSeedEffect>().Count;
+        _player.WarpTo(linkPosition);
+        _player.Face(Vector2I.Right);
+        _player.StartSeedSatchelAction();
+        int expectedAmount = ((beforeAmount >> 4) * 10 + (beforeAmount & 0x0f)) - 1;
+        expectedAmount = ((expectedAmount / 10) << 4) | expectedAmount % 10;
+        FailIf(
+            !_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 0 ||
+            _player.FacingVector != Vector2I.Right ||
+            _inventory.EmberSeeds != expectedAmount ||
+            _entities.Entities<EmberSeedEffect>().Count != beforeEntities + 1,
+            "ITEM_SEED_SATCHEL did not allocate its child, decrement BCD ammo, and lock Link.");
+
+        var hudQuantity = _hud.QuantityOverlayForValidation(
+            TreasureId.SeedSatchel, isA: false);
+        var inventoryQuantity = _inventoryScreen.QuantityOverlayForValidation(
+            TreasureId.SeedSatchel);
+        int expectedTens = 0x10 + ((expectedAmount >> 4) & 0x0f);
+        int expectedOnes = 0x10 + (expectedAmount & 0x0f);
+        FailIf(
+            hudQuantity is not { } hud || hud.TensTile != expectedTens ||
+            hud.OnesTile != expectedOnes || hud.Position != new Vector2(16, 8) ||
+            inventoryQuantity is not { } menu || menu.TensTile != expectedTens ||
+            menu.OnesTile != expectedOnes || menu.Attributes != 0x07,
+            "drawTreasureExtraTiles mode $01 did not expose both selected-seed BCD digits.");
+
+        _player.AdvanceSeedSatchelForValidation(7);
+        FailIf(
+            !_player.IsUsingSeedSatchel || _player.SeedSatchelFrame != 7,
+            "LINK_ANIM_MODE_21 ended before its eighth update.");
+        _player.AdvanceSeedSatchelForValidation(1);
+        FailIf(!_player.IsUsingSeedSatchel, "Satchel parent did not retain the animation terminator on update 8.");
+        _player.AdvanceSeedSatchelForValidation(1);
+        FailIf(_player.IsUsingSeedSatchel, "Satchel parent did not clear on update 9 after observing the terminator.");
+
+        int activeSeedAmount = _inventory.EmberSeeds;
+        int activeSeedCount = _entities.Entities<EmberSeedEffect>().Count;
+        _player.Face(Vector2I.Left);
+        _player.StartSeedSatchelAction();
+        FailIf(
+            _player.IsUsingSeedSatchel ||
+            _inventory.EmberSeeds != activeSeedAmount ||
+            _entities.Entities<EmberSeedEffect>().Count != activeSeedCount,
+            "ITEM_SEED_SATCHEL allocated or consumed ammo while its first seed was still active.");
+
+        GD.Print("Validated ITEM_SEED_SATCHEL immediate BCD-20 grant/persistence, quantity overlays, " +
+            "owned-seed/Mystery selection submenu, distinct inventory/equipped icon " +
+            "sheets and equipped palette transform, " +
+            "four offsets, Link pose, one-active-seed cap, Ember flight/Z, " +
+            "fixed-bank-1 flame OAM/sounds, break effects, direct ROOMFLAG-$80 tree ignition, " +
+            "and room 0:48's watcher-backed permanent tree removal across re-entry/save reload.");
+    }
+
+    private void ValidateScentSeed()
+    {
+        SeedRecord scent = new SeedSatchelDatabase().Scent;
+        AnimationDefinition flying =
+            OracleGraphicsCache.GetAnimationDefinition(scent.Animation);
+        AnimationDefinition smell =
+            OracleGraphicsCache.GetAnimationDefinition(scent.EffectAnimation);
+        FailIf(
+            scent.ParentItem != 0x19 || scent.SeedItem != 0x21 ||
+            scent.TreasureId != 0x21 || scent.TileBase != 0x14 ||
+            scent.Palette != 3 || scent.Collision != 0x9c ||
+            scent.CollisionRadiusY != 4 || scent.CollisionRadiusX != 4 ||
+            scent.Damage != 0xfe || scent.InitialZ != -2 ||
+            scent.SpeedZ != -0x20 || scent.Gravity != 0x1c ||
+            scent.SpeedRaw != 0x1e || scent.FlameTileBase != 0x3c ||
+            scent.FlameOamFlags != 0x0b || scent.FlameCounter != 0x96 ||
+            scent.LandingSound != SoundId.SndBombLand ||
+            scent.FlameSound != SoundId.SndScentSeed ||
+            scent.CollisionEffectTileBase != 0x10 ||
+            scent.CollisionEffectOamFlags != 0x0b ||
+            scent.CollisionEffectCounter != 0x3c ||
+            scent.CollisionEffectSound != SoundId.SndPirateBell ||
+            flying.Frames.Length != 5 || flying.LoopStart != 0 ||
+            smell.Frames.Length != 2 || smell.LoopStart != 0,
+            "The imported ITEM_SCENT_SEED `$21 data, fake `$27 landed " +
+            "effect, collision effect, or animations diverged from source.");
+
+        LoadBushValidationRoom();
+        Vector2 linkPosition = new(80, 80);
+        Vector2 scentPoint = new(80, 70);
+        _currentRoom.SetPositionTileAndCollision(
+            scentPoint, 0xc5, null, (long)_animationTicks);
+        var sounds = new List<int>();
+        var hazards = new List<HazardType>();
+        var spawns = new List<RoomEntitySpawn>();
+        var effect = new EmberSeedEffect();
+        effect.Initialize(
+            scent, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            Vector2I.Up, sounds.Add, (_, hazard) => hazards.Add(hazard),
+            () => { }, () => (long)_animationTicks, _ => null,
+            _saveData, _activeGroup);
+
+        for (int frame = 1; frame <= 8; frame++)
+            effect.UpdateFrame(frame, spawns);
+        FailIf(
+            effect.State != EmberState.Flying ||
+            effect.ScentTarget is not null,
+            "ITEM_SCENT_SEED landed before completing its setup plus eight-update arc.");
+        effect.UpdateFrame(9, spawns);
+        FailIf(
+            effect.State != EmberState.Scent ||
+            effect.PrecisePosition != scentPoint ||
+            effect.FlameCounter != 0x96 || effect.ScentTarget is not null ||
+            effect.ZIndex != ObjectDrawPriority.FixedLowPriorityZIndex ||
+            !sounds.SequenceEqual(new[]
+            {
+                SoundId.SndBombLand,
+                SoundId.SndScentSeed
+            }) || hazards.Count != 0,
+            "The landed Scent Seed did not initialize its `$96 counter, " +
+            "priority-3 draw layer, and two sounds without publishing " +
+            "wScentSeedActive on the landing update.");
+        effect.UpdateFrame(10, spawns);
+        FailIf(
+            effect.FlameCounter != 0x95 ||
+            effect.ScentTarget != scentPoint,
+            "scentSeedSmell did not decrement on the next even global update " +
+            "and publish its room-coordinate target.");
+        for (int frame = 11; frame <= 249; frame++)
+            effect.UpdateFrame(frame, spawns);
+        FailIf(
+            effect.FlameCounter != 0x1e || !effect.Visible ||
+            effect.ScentTarget != scentPoint,
+            "The Scent Seed's half-rate lifetime or pre-flash boundary changed.");
+        effect.UpdateFrame(250, spawns);
+        FailIf(
+            effect.FlameCounter != 0x1d || effect.Visible ||
+            effect.ScentTarget != scentPoint,
+            "The Scent Seed did not begin per-update flashing below counter `$1e.");
+        effect.UpdateFrame(251, spawns);
+        FailIf(!effect.Visible,
+            "The Scent Seed did not toggle back on the following flash update.");
+        for (int frame = 252; frame <= 307; frame++)
+            effect.UpdateFrame(frame, spawns);
+        FailIf(
+            effect.Finished || effect.FlameCounter != 1 ||
+            effect.ScentTarget != scentPoint,
+            "The Scent Seed ended before its final counter-1 attraction update.");
+        effect.UpdateFrame(308, spawns);
+        FailIf(
+            !effect.Finished || effect.ScentTarget is not null,
+            "The Scent Seed's zero update still published attraction or failed to delete.");
+        effect.Free();
+
+        sounds.Clear();
+        var collided = new EmberSeedEffect();
+        collided.Initialize(
+            scent, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            Vector2I.Up, sounds.Add, (_, _) => { }, () => { },
+            () => (long)_animationTicks, _ => null,
+            _saveData, _activeGroup);
+        collided.UpdateFrame(1, spawns);
+        collided.OnCollision(SeedHitResult.Activate);
+        FailIf(
+            collided.State != EmberState.Dissipating ||
+            collided.CollisionEnabled || collided.ScentTarget is not null ||
+            !sounds.SequenceEqual(new[] { SoundId.SndPirateBell }),
+            "A flying ITEM_SCENT_SEED collision did not enter its short " +
+            "non-attracting state-3 animation with sound `$d0.");
+        for (int frame = 2; frame <= 9; frame++)
+            collided.UpdateFrame(frame, spawns);
+        FailIf(collided.Finished,
+            "The collided Scent Seed deleted before the terminal animation parameter.");
+        collided.UpdateFrame(10, spawns);
+        FailIf(!collided.Finished,
+            "The collided Scent Seed survived its terminal animation parameter `$ff.");
+        collided.Free();
+
+        if (_inventory.ScentSeeds == 0)
+        {
+            _inventory.GiveTreasure(new TreasureObjectRecord(
+                "VALIDATION_SCENT_SEED", TreasureId.ScentSeeds, 0, 1, 0xff, 0,
+                string.Empty));
+        }
+        _inventory.SelectSatchelSeeds(1);
+        int scentSeedsBeforeUse = _inventory.ScentSeeds;
+        int expectedScentSeeds =
+            (scentSeedsBeforeUse >> 4) * 10 +
+            (scentSeedsBeforeUse & 0x0f) - 1;
+        expectedScentSeeds =
+            (expectedScentSeeds / 10 << 4) | expectedScentSeeds % 10;
+        int activeSeedsBeforeUse =
+            _entities.Entities<EmberSeedEffect>().Count;
+        _player.WarpTo(linkPosition);
+        _player.Face(Vector2I.Right);
+        _player.StartSeedSatchelAction();
+        FailIf(
+            !_player.IsUsingSeedSatchel ||
+            _inventory.ScentSeeds != expectedScentSeeds ||
+            _entities.Entities<EmberSeedEffect>().Count !=
+                activeSeedsBeforeUse + 1 ||
+            _entities.Entities<EmberSeedEffect>()[^1].SeedItem != 0x21,
+            "Selecting Scent Seeds did not allocate ITEM `$21 and consume " +
+            "one packed-BCD Satchel seed.");
+
+        GD.Print("Validated ITEM_SCENT_SEED `$21 imported visuals/collision data, " +
+            "nine-update throw, landed priority 3/sounds, half-rate `$96 lifetime, delayed " +
+            "target publication, final flashing, zero-before-publish deletion, " +
+            "short non-attracting collision animation, and Satchel allocation/consumption.");
+    }
+
+    private void ValidateSeedShooter()
+    {
+        SeedShooterRecord record = SeedShooterRecord.Load();
+        Vector2I[] offsets =
+        [
+            new(-4, -14), new(11, -4), new(12, 5), new(11, 9),
+            new(3, 13), new(-8, 10), new(-13, 5), new(-8, -8)
+        ];
+        FailIf(
+            record.Item != TreasureId.Shooter ||
+            record.SpeedRaw != 0x78 ||
+            record.Bounces != 3 || record.AimLockout != 16 ||
+            record.PostShotWait != 12 ||
+            record.Sound != SoundId.SndSeedShooter ||
+            !record.Offsets.SequenceEqual(offsets) ||
+            !record.NonBounceTiles[0].SequenceEqual(new byte[] { 0xce, 0xcf, 0xc5, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca }) ||
+            !record.NonBounceTiles[2].SequenceEqual(new byte[] { 0x08, 0x09 }) ||
+            record.ItemPassableTiles.Length != 6 ||
+            !record.ItemPassableTiles[2].SequenceEqual(new byte[]
+            {
+                0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+                0x98, 0x99, 0x9a, 0x9b, 0x0a, 0x0b, 0x0e, 0x0f
+            }) ||
+            record.WeaponSprite != "spr_seed_shooter" ||
+            record.WeaponVramTileBase != 0x52 ||
+            record.WeaponPalette != 0 ||
+            record.WeaponSourceGrayscaleInverted ||
+            record.WeaponOam.Length != 8,
+            "The imported ITEM_SHOOTER parent/child constants diverged from " +
+            "parentItemCode_shooter or seedItemUpdateBouncing.");
+
+        ulong[] shooterLinkHashes = Enumerable.Range(0, 3)
+            .SelectMany(variant => Enumerable.Range(0, 8)
+                .Select(angle =>
+                    _player.SeedShooterLinkTextureHash(angle, variant)))
+            .ToArray();
+        ulong[] shooterWeaponHashes = Enumerable.Range(0, 8)
+            .Select(_player.SeedShooterWeaponTextureHash).ToArray();
+        FailIf(
+            shooterLinkHashes.Any(hash => hash == 0) ||
+            shooterWeaponHashes.Any(hash => hash == 0) ||
+            shooterLinkHashes.Distinct().Count() != 24 ||
+            shooterWeaponHashes.Distinct().Count() != 8,
+            "ITEM_SHOOTER did not compose func_4553's 24 `$38-$4f Link " +
+            "poses and eight distinct spr_seed_shooter overlays " +
+            $"(Link hashes={shooterLinkHashes.Distinct().Count()}, " +
+            $"weapon hashes={shooterWeaponHashes.Distinct().Count()}).");
+        int[] shooterBases = [0x38, 0x40, 0x48];
+        for (int variant = 0; variant < shooterBases.Length; variant++)
+        for (int angle = ObjectAngle.Up; angle < 8; angle++)
+        {
+            FailIf(
+                LinkItemDatabase.Shared.Graphic(
+                    "shooter", variant, 0, angle).GraphicsIndex !=
+                    shooterBases[variant] + angle,
+                "ITEM_SHOOTER parent priority did not override Link with " +
+                $"func_4553 frame `${shooterBases[variant] + angle:x2}.");
+        }
+        int[] shooterOpaquePixels = Enumerable.Range(0, 8)
+            .Select(_player.SeedShooterWeaponOpaquePixels).ToArray();
+        int[] shooterLinkOpaquePixels = Enumerable.Range(0, 8)
+            .Select(angle => _player.SeedShooterLinkOpaquePixels(angle))
+            .ToArray();
+        FailIf(
+            !shooterOpaquePixels.SequenceEqual(
+                [94, 88, 94, 88, 94, 88, 94, 88]),
+            "ITEM_SHOOTER weapon composition did not preserve white as " +
+            "source color 0 from spr_seed_shooter.properties invert:false.");
+        var shooterPoseSizes = new List<Vector2I>();
+        var shooterPoseOpaquePixels = new List<int>();
+        var shooterPoseHashes = new List<ulong>();
+        for (int angle = ObjectAngle.Up; angle < 8; angle++)
+        {
+            Image image = _player.SeedShooterPoseImage(angle);
+            shooterPoseSizes.Add(new Vector2I(
+                image.GetWidth(), image.GetHeight()));
+            int opaque = 0;
+            for (int y = 0; y < image.GetHeight(); y++)
+            for (int x = 0; x < image.GetWidth(); x++)
+            {
+                if (image.GetPixel(x, y).A > 0.1f)
+                    opaque++;
+            }
+            shooterPoseOpaquePixels.Add(opaque);
+            shooterPoseHashes.Add(OracleGraphicsCache.PixelHash(image));
+        }
+        FailIf(
+            !shooterPoseSizes.SequenceEqual(new Vector2I[]
+            {
+                new(16, 30), new(30, 24), new(30, 24), new(30, 27),
+                new(16, 30), new(27, 27), new(30, 24), new(27, 30)
+            }) ||
+            !shooterPoseOpaquePixels.SequenceEqual(
+                [246, 236, 267, 256, 251, 230, 267, 270]) ||
+            !shooterPoseHashes.SequenceEqual(new ulong[]
+                {
+                    0x62aad1428817d634UL, 0x50aa30324ca79b35UL,
+                    0x30e6ad88174f1692UL, 0x755972de44069befUL,
+                    0x9df8d83b5b34bde1UL, 0xc2fc8d99e2a9aa61UL,
+                    0x28a69101fcbb2ecaUL, 0xc13b9bc4fa8b35b5UL
+                }),
+            "ITEM_SHOOTER's exact Link/weapon union changed or regained an " +
+            "opaque source-background rectangle compared with clean-ROM " +
+            "VRAM/OAM captures " +
+            $"(sizes={string.Join(',', shooterPoseSizes)}, " +
+            $"opaque={string.Join(',', shooterPoseOpaquePixels)}, " +
+            $"hashes={string.Join(',', shooterPoseHashes.Select(
+                hash => hash.ToString("x16")))}, " +
+            $"linkHashes={string.Join(',', shooterLinkHashes.Take(8).Select(
+                hash => hash.ToString("x16")))}, " +
+            $"linkOpaque={string.Join(',', shooterLinkOpaquePixels)}, " +
+            $"weaponHashes={string.Join(',', shooterWeaponHashes.Select(
+                hash => hash.ToString("x16")))})." );
+        Vector2[] shooterOffsets = Enumerable.Range(0, 8)
+            .Select(angle => _player.SeedShooterPoseOffset(angle)).ToArray();
+        FailIf(
+            !shooterOffsets.SequenceEqual(new Vector2[]
+            {
+                new(-8, -22), new(-8, -16), new(-8, -8), new(-8, -8),
+                new(-8, -8), new(-19, -8), new(-22, -8), new(-19, -22)
+            }),
+            "ITEM_SHOOTER did not retain the union of Link and child item's " +
+            "signed OAM bounds.");
+
+        var fenceRooms = new RoomSession(
+            4, 0x59, () => 0, () => { }, _saveData);
+        OracleRoomData fenceRoom = fenceRooms.CurrentRoom;
+        Vector2 fencePoint = new(2 * OracleRoomData.MetatileSize + 8,
+            5 * OracleRoomData.MetatileSize + 8);
+        Vector2 flyingStart = new(29, fencePoint.Y);
+        var fenceSeed = new EmberSeedEffect();
+        SeedRecord emberRecord = new SeedSatchelDatabase().Ember;
+        fenceSeed.Initialize(
+            emberRecord,
+            fenceRoom,
+            new BreakableTileDatabase(),
+            flyingStart - record.Offsets[2],
+            Vector2I.Right,
+            _ => { },
+            (_, _) => { },
+            () => { },
+            () => 0,
+            _ => null,
+            _saveData,
+            4,
+            launchKind: SeedLaunchKind.Shooter,
+            angle: 2);
+        var fenceSpawns = new List<RoomEntitySpawn>();
+        fenceSeed.UpdateFrame(1, fenceSpawns);
+        ulong flyingFrameHash = fenceSeed.FlyingTextureHashForValidation(0);
+        for (int frame = 2; frame <= 9; frame++)
+            fenceSeed.UpdateFrame(frame, fenceSpawns);
+        FailIf(
+            fenceRoom.GetMetatile(fencePoint) != 0x94 ||
+            !fenceRoom.IsSolid(fencePoint) ||
+            !record.CanPassSolidTile(fenceRoom, fencePoint) ||
+            fenceSeed.State != EmberState.Flying ||
+            fenceSeed.PrecisePosition != flyingStart + new Vector2(24, 0) ||
+            fenceSeed.Angle != 2 || fenceSeed.BouncesRemaining != 3 ||
+            fenceSeed.AnimationFrame != 0 ||
+            fenceSeed.FlyingTextureHashForValidation(
+                fenceSeed.AnimationFrame) != flyingFrameHash,
+            "ITEM_SHOOTER seed did not cross room 4:59's solid `$94 fence " +
+            "without bouncing while holding its source-static flight frame.");
+        fenceSeed.Free();
+
+        var bushRooms = new RoomSession(
+            0, 0x69, () => 0, () => { }, OracleSaveData.CreateStandardGame());
+        OracleRoomData bushRoom = bushRooms.CurrentRoom;
+        Vector2 bushPoint = new(24, 56);
+        bushRoom.ReplaceMetatile(bushPoint, 0x3a, 0xc5, 0);
+        Vector2 bushSeedStart = bushPoint + new Vector2(0, 16);
+        int bushTileChanges = 0;
+        var bushSeed = new EmberSeedEffect();
+        bushSeed.Initialize(
+            emberRecord,
+            bushRoom,
+            new BreakableTileDatabase(),
+            bushSeedStart - record.Offsets[0],
+            Vector2I.Up,
+            _ => { },
+            (_, _) => { },
+            () => bushTileChanges++,
+            () => 0,
+            _ => null,
+            null,
+            0,
+            launchKind: SeedLaunchKind.Shooter,
+            angle: ObjectAngle.Up);
+        var bushSpawns = new List<RoomEntitySpawn>();
+        for (int update = 0; update < 80 && !bushSeed.Finished; update++)
+            bushSeed.UpdateFrame(update + 1, bushSpawns);
+        FailIf(
+            !bushSeed.Finished || bushRoom.GetMetatile(bushPoint) != 0x3a ||
+            bushTileChanges != 1,
+            "A shooter-fired Ember Seed did not retain its collided-tile " +
+            "position through the `$3a flame countdown and burn bush `$c5 " +
+            $"(state={bushSeed.State}, position={bushSeed.PrecisePosition}, " +
+            $"tile=${bushRoom.GetMetatile(bushPoint):x2}, " +
+            $"changes={bushTileChanges}).");
+        bushSeed.Free();
+
+        _sound.ClearPlayRequestAudit();
+        _inventory.GiveTreasure(new TreasureObjectRecord(
+            "VALIDATION_SHOOTER", TreasureId.Shooter, 0,
+            1, 0xff, 0, string.Empty));
+        if (_inventory.EmberSeeds == 0)
+        {
+            _inventory.GiveTreasure(new TreasureObjectRecord(
+                "VALIDATION_EMBER_SEEDS", TreasureId.EmberSeeds, 0,
+                1, 0xff, 0, string.Empty));
+        }
+        _inventory.SelectShooterSeeds(0);
+        var sounds = new List<int>();
+        var controller = new SeedSatchelController(
+            _inventory, _entities, new SeedSatchelDatabase(), _rooms,
+            sounds.Add);
+        _player.Face(Vector2I.Right);
+        int amountBefore = _inventory.EmberSeeds;
+        FailIf(
+            !controller.TryBeginShooter(
+                _player, primaryButton: true, Vector2.Right) ||
+            !controller.ShooterActive || controller.ShooterAngle != 2 ||
+            controller.ShooterAimCounter != 16 ||
+            _inventory.EmberSeeds != amountBefore,
+            "ITEM_SHOOTER state 0 did not hold the parent at the facing angle " +
+            "without consuming ammo.");
+
+        var diagonalController = new SeedSatchelController(
+            _inventory, _entities, new SeedSatchelDatabase(), _rooms);
+        _player.Face(Vector2I.Left);
+        FailIf(
+            !diagonalController.TryBeginShooter(
+                _player, primaryButton: true, new Vector2(1, -1)) ||
+            diagonalController.ShooterAngle != 1 ||
+            _player.FacingVector != Vector2I.Up,
+            "ITEM_SHOOTER state 0 did not derive its immediate up-right " +
+            "angle and Link-facing component from wLinkAngle.");
+        diagonalController.UpdateShooter(
+            _player,
+            Vector2.Left,
+            primaryHeld: true,
+            secondaryHeld: false,
+            directionJustPressed: true);
+        FailIf(
+            diagonalController.ShooterAngle != 0 ||
+            diagonalController.ShooterAimCounter != 16,
+            "A newly pressed direction did not bypass ITEM_SHOOTER's active " +
+            "`$10 repeat counter and rotate one eighth-turn immediately.");
+        diagonalController.InterruptShooter();
+        _player.Face(Vector2I.Right);
+        for (int update = 0; update < 16; update++)
+        {
+            controller.UpdateShooter(
+                _player, Vector2.Down, primaryHeld: true,
+                secondaryHeld: false);
+        }
+        FailIf(
+            controller.ShooterAngle != 3 || controller.ShooterAimCounter != 16,
+            "ITEM_SHOOTER did not rotate one eighth-turn on its `$10 repeat boundary.");
+
+        int childCount = _entities.Entities<EmberSeedEffect>().Count;
+        controller.UpdateShooter(
+            _player, Vector2.Zero, primaryHeld: false,
+            secondaryHeld: false);
+        int expectedAmount = ((amountBefore >> 4) * 10 +
+            (amountBefore & 0x0f)) - 1;
+        expectedAmount = ((expectedAmount / 10) << 4) |
+            expectedAmount % 10;
+        EmberSeedEffect shooterSeed = _entities.Entities<EmberSeedEffect>().Last();
+        FailIf(
+            _inventory.EmberSeeds != expectedAmount ||
+            _entities.Entities<EmberSeedEffect>().Count != childCount + 1 ||
+            shooterSeed.LaunchKind != SeedLaunchKind.Shooter ||
+            shooterSeed.Angle != 3 || shooterSeed.BouncesRemaining != 3 ||
+            shooterSeed.PrecisePosition != _player.Position + offsets[3] ||
+            !sounds.SequenceEqual([SoundId.SndSeedShooter]) ||
+            controller.ShooterPostShotCounter != 12,
+            "Releasing ITEM_SHOOTER did not allocate subid `$63, consume one " +
+            "packed-BCD seed, or begin its `$0c cooldown.");
+        for (int update = 0; update < 11; update++)
+            controller.UpdateShooter(
+                _player, Vector2.Zero, primaryHeld: false,
+                secondaryHeld: false);
+        FailIf(!controller.ShooterActive || controller.ShooterPostShotCounter != 1,
+            "ITEM_SHOOTER ended before the `$0c post-shot boundary.");
+        controller.UpdateShooter(
+            _player, Vector2.Zero, primaryHeld: false,
+            secondaryHeld: false);
+        FailIf(controller.ShooterActive,
+            "ITEM_SHOOTER did not clear on the twelfth post-shot update.");
+
+        GD.Print("Validated ITEM_SHOOTER imported aiming/offset/speed/bounce " +
+            "contract, 24 func_4553 `$38-$4f Link poses, positioned weapon OAM " +
+            "rotations, source transparency, immediate diagonal aim, room 4:59 " +
+            "item-passable fences, collided-tile bush burning, static seed flight, release-time " +
+            "BCD consumption, subid `$63 allocation, sound, and `$0c cleanup boundary.");
+    }
+
+    private void ValidateSeedInventorySubmenu()
+    {
+        MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;
+        InventoryItemSubmenuLayout twoOptions =
+            layouts.InventoryItemSubmenu(2);
+        InventoryItemSubmenuLayout fiveOptions =
+            layouts.InventoryItemSubmenu(5);
+        FailIf(
+            twoOptions.MaxWidth != 8 ||
+            !twoOptions.Positions.Select(position => position.RawX)
+                .SequenceEqual([0x07, 0x0b]) ||
+            fiveOptions.MaxWidth != 0x10 ||
+            !fiveOptions.Positions.Select(position => position.RawX)
+                .SequenceEqual([0x03, 0x06, 0x09, 0x0c, 0x0f]) ||
+            !layouts.InventorySeedSubmenuSprites
+                .Select(sprite => sprite.Tile)
+                .SequenceEqual([0x06, 0x08, 0x0a, 0x0c, 0x0e]) ||
+            !layouts.InventorySeedSubmenuSprites
+                .Select(sprite => sprite.Attributes)
+                .SequenceEqual([0x0a, 0x0b, 0x09, 0x09, 0x08]) ||
+            layouts.InventorySeedSubmenuSprites.Any(
+                sprite => sprite.VramBank != 1),
+            "Imported inventoryMenuState2 widths, table_5ae5 positions, or " +
+            "seedAndHarpSpriteTable seed OAM/VRAM-bank selection diverged " +
+            "from bank2.s.");
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(TreasureId.SeedSatchel, 0);
+        inventory.GiveTreasure(
+            TreasureId.EmberSeeds + 4, 0x20);
+        // New button items occupy B first; move the Satchel into storage so
+        // the inventory cursor can exercise inventoryMenuState2.
+        inventory.SwapStorageSlotWithButton(0, isA: false);
+        FailIf(
+            inventory.StorageItemAt(0) != TreasureId.SeedSatchel ||
+            !inventory.ObtainedSeedTypes().SequenceEqual([0, 4]) ||
+            inventory.MysterySeeds != 0x20,
+            "Seed Satchel/Mystery grants did not produce the source ordered " +
+            "owned-seed list [Ember, Mystery].");
+
+        var screen = new InventoryScreen
+        {
+            Name = "SeedInventorySubmenuValidation",
+            Visible = false
+        };
+        AddChild(screen);
+        screen.Initialize(_treasures, inventory);
+        screen.Open();
+        var menu = new InventoryMenuController(
+            screen,
+            _saveQuitScreen,
+            _menuLifecycle,
+            () => true,
+            () => true,
+            () => SaveResult.Succeeded,
+            () => { },
+            _sound.PlaySound);
+        int selectRequests =
+            _sound.PlayRequestsFor(SoundId.SndSelectItem);
+        FailIf(
+            menu.EquipToA() ||
+            !screen.ItemSubmenuActive ||
+            screen.ItemSubmenuReady ||
+            screen.ItemSubmenuWidth != 0 ||
+            screen.ItemSubmenuHeight != 1 ||
+            screen.ItemSubmenuOptionForValidation != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) !=
+                selectRequests,
+            "Equipping a Satchel with two owned seed types did not enter " +
+            "inventoryMenuState2 without swapping or playing SND_SELECTITEM.");
+        for (int update = 0; update < 14; update++)
+            menu.UpdateItemSubmenuForValidation(HarpFrame);
+        FailIf(
+            screen.ItemSubmenuReady ||
+            screen.ItemSubmenuWidth != 8 ||
+            screen.ItemSubmenuHeight != 4,
+            "Two-seed Satchel submenu reached input before source update 15.");
+        menu.UpdateItemSubmenuForValidation(HarpFrame);
+        FailIf(!screen.ItemSubmenuReady,
+            "Two-seed Satchel submenu did not finish substate 1 on source update 15.");
+        screen.UpdateInventoryText(HarpFrame);
+        FailIf(
+            screen.ActiveTextKey != _treasures
+                .GetButtonDisplay(TreasureId.EmberSeeds, inventory)
+                .TextLow,
+            "Two-seed Satchel submenu did not select Ember text on the following substate-2 update.");
+
+        int moveRequests =
+            _sound.PlayRequestsFor(SoundId.SndMenuMove);
+        FailIf(
+            !menu.MoveItemSubmenu(-1) ||
+            screen.ItemSubmenuIndex != 1 ||
+            screen.ItemSubmenuOptionForValidation != 4 ||
+            screen.ActiveTextKey != _treasures
+                .GetButtonDisplay(
+                    TreasureId.EmberSeeds + 4, inventory)
+                .TextLow ||
+            _sound.PlayRequestsFor(SoundId.SndMenuMove) !=
+                moveRequests + 1,
+            "Satchel submenu did not wrap from Ember to the non-contiguous " +
+            "owned Mystery Seed option and select its text.");
+        FailIf(
+            !menu.ConfirmItemSubmenu() ||
+            screen.ItemSubmenuActive ||
+            inventory.SatchelSelectedSeeds != 4 ||
+            inventory.EquippedA != TreasureId.SeedSatchel ||
+            _sound.PlayRequestsFor(SoundId.SndSelectItem) !=
+                selectRequests + 1,
+            "Satchel submenu did not select Mystery Seeds, equip to A, and " +
+            "request SND_SELECTITEM.");
+        var quantity = screen.QuantityOverlayForValidation(
+            TreasureId.SeedSatchel);
+        FailIf(
+            quantity is not { } selectedQuantity ||
+            selectedQuantity.TensTile != 0x12 ||
+            selectedQuantity.OnesTile != 0x10 ||
+            !OracleSaveData.TryDeserialize(
+                save.Serialize(), out OracleSaveData? restored) ||
+            new InventoryState(_treasures, restored!).SatchelSelectedSeeds != 4,
+            "Selected Mystery Seed quantity/display or " +
+            "wSatchelSelectedSeeds persistence regressed.");
+        screen.QueueFree();
+    }
+
+    private void ValidateSwordBush()
+    {
+        OracleRandomResult ExpectedNextRandom()
+        {
+            var replay = new OracleRandom();
+            for (int call = 0; call < _random.Calls; call++)
+                replay.Next();
+            return replay.Next();
+        }
+
+        int SoundFor(OracleRandomResult result) => (result.Value & 0x07) switch
+        {
+            0 or 3 or 4 or 6 or 7 => SoundId.SndSwordSlash,
+            1 or 5 => SoundId.SndUnknown5,
+            _ => SoundId.SndBoomerang
+        };
+
+        void StepEntities(int count = 1)
+        {
+            for (int frame = 0; frame < count; frame++)
+                _entities.Update(1.0 / 60.0, _player);
+        }
+
+        // This case previously inherited both the sword grant and the
+        // post-intro room state. Declare them before using room 0:6a as the
+        // scrolling destination so no story event can take ownership of Link.
+        _inventory.GiveTreasure(
+            _treasures.GetObject("TREASURE_OBJECT_SWORD_00"));
+        _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
+        _saveData.SetRoomFlag(
+            0, 0x6a, OracleSaveData.RoomFlag40, value: true);
+        LoadBushValidationRoom();
+        Vector2 bushPoint = new(24, 56);
+        FailIf(_currentRoom.GetMetatile(bushPoint) != 0xc5, "Expected overworld bush $c5 in room 69 at $31.");
+        Vector2 objectPosition = _player.Position;
+        _sound.ClearPlayRequestAudit();
+        int randomCalls = _random.Calls;
+        OracleRandomResult expectedRandom = ExpectedNextRandom();
+        _player.StartSwordAttack();
+        int slashRequests = _sound.PlayRequestsFor(SoundId.SndSwordSlash) +
+            _sound.PlayRequestsFor(SoundId.SndUnknown5) +
+            _sound.PlayRequestsFor(SoundId.SndBoomerang);
+        FailIf(
+            slashRequests != 1 || _player.SwordState != SwordActionState.Swing ||
+            _player.SwordStateFrame != 0 || _player.SwordArcIndex != 0 ||
+            _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
+            _random.Calls != randomCalls + 1 || _random.LastResult != expectedRandom ||
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1,
+            "Starting ITEM_SWORD did not select one entry from the original 8-sound table " +
+            "from shared RNG and initialize LINK_ANIM_MODE_22 at sword arc $00.");
+        _player.AdvanceSwordForValidation(2, buttonHeld: false);
+        _sound.ClearPlayRequestAudit();
+        randomCalls = _random.Calls;
+        _player.StartSwordAttack();
+        FailIf(
+            _player.SwordCanRestart || _player.SwordStateFrame != 2 ||
+            _random.Calls != randomCalls ||
+            _sound.PlayRequestsFor(SoundId.SndSwordSlash) +
+            _sound.PlayRequestsFor(SoundId.SndUnknown5) +
+            _sound.PlayRequestsFor(SoundId.SndBoomerang) != 0,
+            "The protected first three sword updates accepted an equal-priority restart.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(
+            !_player.SwordCanRestart,
+            "The sword did not become restartable when animation parameter `$02 cleared enabled bit 7.");
+        randomCalls = _random.Calls;
+        expectedRandom = ExpectedNextRandom();
+        _player.StartSwordAttackForValidation(Vector2.Right);
+        slashRequests = _sound.PlayRequestsFor(SoundId.SndSwordSlash) +
+            _sound.PlayRequestsFor(SoundId.SndUnknown5) +
+            _sound.PlayRequestsFor(SoundId.SndBoomerang);
+        FailIf(
+            slashRequests != 1 || _player.SwordStateFrame != 0 ||
+            _player.SwordArcIndex != 1 || _player.FacingVector != Vector2I.Right ||
+            _player.SwordCanRestart || _random.Calls != randomCalls + 1 ||
+            _random.LastResult != expectedRandom ||
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1,
+            "An equal-priority sword press did not consume shared RNG, restart, and " +
+            "retarget the single swing after update 3.");
+        _player.AdvanceSwordForValidation(3, buttonHeld: false);
+        _sound.ClearPlayRequestAudit();
+        randomCalls = _random.Calls;
+        expectedRandom = ExpectedNextRandom();
+        _player.StartSwordAttackForValidation(Vector2.Up);
+        slashRequests = _sound.PlayRequestsFor(SoundId.SndSwordSlash) +
+            _sound.PlayRequestsFor(SoundId.SndUnknown5) +
+            _sound.PlayRequestsFor(SoundId.SndBoomerang);
+        FailIf(
+            slashRequests != 1 || _player.SwordStateFrame != 0 ||
+            _player.SwordArcIndex != 0 || _player.FacingVector != Vector2I.Up ||
+            _player.SwordCanRestart || _random.Calls != randomCalls + 1 ||
+            _random.LastResult != expectedRandom ||
+            _sound.PlayRequestsFor(SoundFor(expectedRandom)) != 1,
+            "Spammed sword input did not consume shared RNG and retarget a subsequent swing upward.");
+        FailIf(
+            _player.AttackSpriteOrigin != new Vector2(-8, -8),
+            $"Sword frame $ac displaced Link from the standard OAM origin: {_player.AttackSpriteOrigin}.");
+        FailIf(
+            _player.SwordSpritePosition != new Vector2(16, -4),
+            $"Sword arc phase $00 did not include the child item's -2 Z draw offset: {_player.SwordSpritePosition}.");
+        _player._Process(7.0 / 60.0);
+        FailIf(_player.Position != objectPosition, "Swinging the sword changed Link's object position.");
+        FailIf(
+            _player.AttackSpriteOrigin != new Vector2(-8, -11),
+            $"Sword frame $b4 did not apply only its original OAM $08 pose offset: {_player.AttackSpriteOrigin}.");
+        FailIf(
+            _player.SwordSpritePosition != new Vector2(-4, -19),
+            $"Sword arc phase $08 did not include the child item's -2 Z draw offset: {_player.SwordSpritePosition}.");
+        FailIf(
+            _currentRoom.GetMetatile(bushPoint) != 0x3a,
+            "The level-1 sword did not replace bush $c5 with ground $3a.");
+        FailIf(_currentRoom.IsSolid(bushPoint), "The cut bush's replacement tile remained solid.");
+        GrassDebrisEffect bushDebris =
+            _entities.Entities<GrassDebrisEffect>().SingleOrDefault()!;
+        FailIf(
+            bushDebris is null,
+            "Cutting overworld bush $c5 did not create one " +
+            "INTERAC_GRASSDEBRIS $00.");
+        using (Image firstGrassDebrisFrame = bushDebris.CurrentTexture.GetImage())
+        {
+            ulong firstGrassDebrisHash =
+                OracleGraphicsCache.PixelHash(firstGrassDebrisFrame);
+            FailIf(
+                bushDebris.Position != bushPoint ||
+                firstGrassDebrisHash != 0xb2317fc7033b5eb0UL,
+                "INTERAC_GRASSDEBRIS $00 did not use its tile-centered " +
+                "first four-piece OAM frame " +
+                $"(position={bushDebris.Position}, hash={firstGrassDebrisHash:x16}).");
+        }
+        var underwaterDebris = new GrassDebrisEffect();
+        underwaterDebris.Initialize(bushPoint, underwater: true);
+        using (Image underwaterGrassDebrisFrame =
+            underwaterDebris.CurrentTexture.GetImage())
+        {
+            ulong underwaterGrassDebrisHash =
+                OracleGraphicsCache.PixelHash(underwaterGrassDebrisFrame);
+            FailIf(
+                underwaterGrassDebrisHash != 0x00748b1a794afda4UL,
+                "Underwater INTERAC_GRASSDEBRIS $00 did not apply " +
+                "its specialized OBJ palette 6 " +
+                $"(hash={underwaterGrassDebrisHash:x16}).");
+        }
+        underwaterDebris.Free();
+        FailIf(
+            bushDebris.Flickers ||
+            _sound.PlayRequestsFor(SoundId.SndCutGrass) != 0,
+            "The bush's non-flickering debris updated before its " +
+            "interaction state-0 update.");
+        StepEntities();
+        FailIf(
+            bushDebris.ElapsedUpdates != 1 ||
+            bushDebris.AnimationFrame != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndCutGrass) != 1,
+            "INTERAC_GRASSDEBRIS state 0 did not request SND_CUTGRASS " +
+            "without advancing animation 0.");
+        for (int frame = 1; frame <= 8; frame++)
+        {
+            StepEntities(4);
+            FailIf(
+                bushDebris.AnimationFrame != frame || bushDebris.Finished,
+                $"INTERAC_GRASSDEBRIS did not enter animation frame " +
+                $"{frame} after {frame * 4} state-1 updates.");
+        }
+        FailIf(
+            (bushDebris.CurrentParameter & 0x80) == 0 ||
+            bushDebris.ElapsedUpdates != 33,
+            "INTERAC_GRASSDEBRIS did not expose terminal parameter $ff " +
+            "after its eight 4-update frames.");
+        StepEntities();
+        FailIf(
+            !bushDebris.Finished ||
+            bushDebris.ElapsedUpdates != 34 ||
+            _entities.Entities<GrassDebrisEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndCutGrass) != 1,
+            "INTERAC_GRASSDEBRIS did not delete one update after its " +
+            "terminal frame without replaying SND_CUTGRASS.");
+
+        // Breakable mode $00 is cuttable grass $f8. Effect bit 4 becomes
+        // subid bit 0 on INTERAC_GRASSDEBRIS and flickers every update.
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0xf8, null, (long)_animationTicks);
+        _sound.ClearPlayRequestAudit();
+        FailIf(
+            !_combat.ApplySwordTileHit(
+                _player, direction: 0, swordPoke: false) ||
+            _currentRoom.GetMetatile(bushPoint) != 0x3a ||
+            _entities.Entities<GrassDebrisEffect>() is not
+                [{ Flickers: true }],
+            "Cutting grass $f8 did not apply effect $10 as flickering " +
+            "INTERAC_GRASSDEBRIS $00.");
+        GrassDebrisEffect grassDebris =
+            _entities.Entities<GrassDebrisEffect>().Single();
+        StepEntities();
+        FailIf(
+            _sound.PlayRequestsFor(SoundId.SndCutGrass) != 1 ||
+            grassDebris.ElapsedUpdates != 1,
+            "Flickering grass debris did not retain the state-0 " +
+            "SND_CUTGRASS boundary.");
+        StepEntities();
+        bool firstFlickerVisibility = grassDebris.Visible;
+        StepEntities();
+        FailIf(
+            grassDebris.Visible == firstFlickerVisibility ||
+            grassDebris.AnimationFrame != 0,
+            "INTERAC_GRASSDEBRIS subid $01 did not toggle visibility " +
+            "on consecutive original updates.");
+        StepEntities(30);
+        FailIf(
+            (grassDebris.CurrentParameter & 0x80) == 0 ||
+            grassDebris.ElapsedUpdates != 33,
+            "Flickering grass debris changed the shared 32-update " +
+            "animation boundary.");
+        StepEntities();
+        FailIf(
+            _entities.Entities<GrassDebrisEffect>().Count != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndCutGrass) != 1,
+            "Flickering grass debris did not delete silently after its " +
+            "terminal update.");
+
+        // tryToBreakTile_body owns these effects for every accepted source.
+        // The former sword-local path replaced the tile but silently omitted
+        // effect bit 7 persistence, effect bit 6 sound, and gasha maturity.
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0xc6, null, (long)_animationTicks);
+        _saveData.SetRoomFlag(
+            _activeGroup, _currentRoom.Id,
+            OracleSaveData.RoomFlag80, value: false);
+        int maturityBeforeSwordBreak = _saveData.GashaMaturity;
+        _sound.ClearPlayRequestAudit();
+        FailIf(
+            !_combat.ApplySwordTileHit(
+                _player, direction: 0, swordPoke: false) ||
+            _currentRoom.GetMetatile(bushPoint) != 0xdc ||
+            !_saveData.HasRoomFlag(
+                _activeGroup, _currentRoom.Id,
+                OracleSaveData.RoomFlag80) ||
+            _saveData.GashaMaturity != maturityBeforeSwordBreak + 30 ||
+            _sound.PlayRequestsFor(
+                SoundId.SndSolvePuzzle) != 1 ||
+            _entities.Entities<GrassDebrisEffect>().Count != 1,
+            "Sword source $01 did not execute shared tryToBreakTile effects " +
+            "for tile $c6 (replacement $dc, flag $80, +30 maturity, " +
+            "SND_SOLVEPUZZLE, and INTERAC_GRASSDEBRIS $00).");
+        StepEntities(34);
+
+        // Complete LINK_ANIM_MODE_22 while preserving the initiating button.
+        // State 6 must re-enable movement but keep turning disabled and expose
+        // the fourth normal swordArcData row continuously while charging.
+        _player.AdvanceSwordForValidation(9, buttonHeld: true);
+        FailIf(
+            _player.SwordState != SwordActionState.Swing ||
+            _player.SwordStateFrame != 16,
+            "The sword swing ended before its 17th update.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        FailIf(
+            _player.SwordState != SwordActionState.Held ||
+            !_player.SwordAllowsMovement || !_player.SwordCanRestart || _player.SwordArcIndex != 12 ||
+            _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
+            _player.SwordSpritePosition != new Vector2(-4, -12),
+            "Holding the sword button did not enter the movable ITEMCOLLISION_SWORD_HELD state " +
+            "with the original up-facing arc $0c.");
+        FailIf(
+            _player.LinkAnimationCounter != 2,
+            "Held sword state did not expose Link's reset two-update " +
+            "LINK_ANIM_MODE_WALK clock.");
+        FailIf(
+            Player.GetSwordSpritePositionForValidation(13) != new Vector2(12, 0) ||
+            Player.GetSwordSpritePositionForValidation(15) != new Vector2(-12, 0),
+            "Held horizontal sword sprites did not apply the child item's -2 Z draw offset.");
+
+        _player.AdvanceSwordForValidation(40, buttonHeld: true);
+        FailIf(
+            _player.SwordState != SwordActionState.Held ||
+            _sound.PlayRequestsFor(SoundId.SndChargeSword) != 0,
+            "Sword counter `$28 charged without the original underflow update.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        FailIf(
+            _player.SwordState != SwordActionState.Charged ||
+            _player.SwordCanRestart || _player.SwordUsesChargedPalette ||
+            _player.SwordKnockbackStrength != EnemyKnockbackStrength.Low ||
+            _sound.PlayRequestsFor(SoundId.SndChargeSword) != 1,
+            "The 41st held update did not enter the charged state with SND_CHARGE_SWORD.");
+        _player.AdvanceSwordForValidation(3, buttonHeld: true);
+        FailIf(
+            _player.SwordUsesChargedPalette,
+            "The charged sword selected palette 5 before counter bit 2 was set.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        FailIf(
+            !_player.SwordUsesChargedPalette,
+            "The charged sword did not select palette 5 when counter bit 2 became set.");
+
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(
+            _player.SwordState != SwordActionState.Spin ||
+            _player.SwordStateFrame != 0 || _player.SwordAllowsMovement ||
+            _player.SwordArcIndex != 16 ||
+            _player.SwordKnockbackStrength != EnemyKnockbackStrength.High ||
+            _sound.PlayRequestsFor(SoundId.SndSwordSpin) != 1,
+            "Releasing a charged up-facing sword did not begin the immobilized arc `$10 spin with SND_SWORDSPIN.");
+        _player.AdvanceSwordForValidation(2, buttonHeld: false);
+        FailIf(
+            _player.SwordArcIndex != 16,
+            "Swordspin arc `$10 did not retain its original 3-update duration.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(_player.SwordArcIndex != 17, "Swordspin did not enter diagonal arc `$11 on update 3.");
+        _player.AdvanceSwordForValidation(2, buttonHeld: false);
+        FailIf(_player.SwordArcIndex != 18, "Swordspin did not enter right-facing arc `$12 on update 5.");
+        _player.AdvanceSwordForValidation(17, buttonHeld: false);
+        FailIf(
+            _player.SwordState != SwordActionState.Spin ||
+            _player.SwordStateFrame != 22 || _player.SwordArcIndex != 16,
+            "Swordspin did not retain its wrapped arc through update 22.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(_player.IsAttacking, "Swordspin did not end on its original 23rd update.");
+
+        // A held sword pressed into a full wall switches to LINK_ANIM_MODE_1f,
+        // clears weapon collision for 12 updates, and emits the ordinary clink.
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0x3a, 0x0f, (long)_animationTicks);
+        _player.WarpTo(new Vector2(bushPoint.X, 66));
+        _player.Face(Vector2I.Up);
+        _player.StartSwordAttack();
+        _player.AdvanceSwordForValidation(17, buttonHeld: true);
+        _sound.ClearPlayRequestAudit();
+        _combatEffectAudit.Clear();
+        _player.AdvanceSwordForValidation(1, buttonHeld: true, movementInput: Vector2.Up);
+        FailIf(
+            _player.SwordState != SwordActionState.Poke ||
+            !_player.SwordCanRestart || _player.GetSwordHitbox().Size != Vector2.Zero ||
+            _player.AttackSpriteOrigin != new Vector2(-8, -11) ||
+            _player.SwordSpritePosition != new Vector2(-4, -19) ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != 0,
+            "Held-sword wall pressure must enter its 12-update poke before the later interaction pass plays SND_CLINK.");
+        ClinkEffect? ordinaryClink = _combatEffectAudit.LastClinkEffect;
+        Vector2 expectedClinkPosition = _player.Position + new Vector2(0, -14);
+        FailIf(
+            _combatEffectAudit.ClinkEffectsSpawned != 1 || ordinaryClink is null ||
+            ordinaryClink.Position != expectedClinkPosition || !ordinaryClink.Flickers ||
+            ordinaryClink.DurationFrames != 10 || ordinaryClink.AnimationFrame != 0 ||
+            !ordinaryClink.EffectVisible,
+            "Ordinary wall pressure did not spawn flickering INTERAC_CLINK at the up-facing `$f2/$00 probe.");
+        _entities.Update(1.0 / 60.0, _player);
+        FailIf(
+            !ordinaryClink.EffectVisible || ordinaryClink.AnimationFrame != 0 ||
+            _sound.PlayRequestsFor(SoundId.SndClink) != 1,
+            "INTERAC_CLINK state0 must show its first frame and play the deferred sound once.");
+        _entities.Update(4.0 / 60.0, _player);
+        FailIf(
+            ordinaryClink.EffectVisible != (((_entities.FrameCounter ^ _entities.InteractionSlot(ordinaryClink)) & 1) == 0) ||
+            ordinaryClink.AnimationFrame != 1,
+            "INTERAC_CLINK must select its second OAM frame after four animation updates with native slot flicker.");
+        _player.AdvanceSwordForValidation(11, buttonHeld: true);
+        FailIf(
+            _player.SwordState != SwordActionState.Poke ||
+            _player.SwordStateFrame != 11,
+            "LINK_ANIM_MODE_1f ended before update 12.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        FailIf(_player.SwordState != SwordActionState.Poke || _player.SwordStateFrame != 12,
+            "Wall poke update12 must select native state $06 before returning to held.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: true);
+        FailIf(
+            _player.SwordState != SwordActionState.Held ||
+            _player.SwordArcIndex != 12,
+            "A wall poke did not reinitialize the held sword on update13.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(_player.IsAttacking, "Releasing an uncharged held sword did not clear the parent item.");
+
+        // ITEMCOLLISION_SWORD_HELD writes ordinary enemy contact into the
+        // weapon child's var2a. swordParent enters LINK_ANIM_MODE_1f with
+        // subid $00, disables the hitbox, and deletes itself after update 12
+        // even if the initiating button remains held.
+        var enemyContactWorld = new ValidationRingPlayerWorld();
+        var enemyContactPlayer = new Player
+        {
+            Name = "HeldSwordEnemyContactValidationPlayer"
+        };
+        AddChild(enemyContactPlayer);
+        enemyContactPlayer.Initialize(
+            enemyContactWorld,
+            _inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        enemyContactPlayer.Face(Vector2I.Up);
+        enemyContactPlayer.StartSwordAttack();
+        enemyContactPlayer.AdvanceSwordForValidation(
+            17, buttonHeld: true);
+        int swordHitCallsBeforeContact = enemyContactWorld.SwordHitCalls;
+        enemyContactWorld.AcceptSwordHits = true;
+        enemyContactPlayer.AdvanceSwordForValidation(
+            1, buttonHeld: true);
+        FailIf(
+            enemyContactPlayer.SwordState != SwordActionState.Poke ||
+            enemyContactPlayer.SwordStateFrame != 0 ||
+            enemyContactPlayer.GetSwordHitbox().Size != Vector2.Zero ||
+            enemyContactWorld.SwordHitCalls !=
+                swordHitCallsBeforeContact + 1,
+            "Accepted ITEMCOLLISION_SWORD_HELD enemy contact did not enter " +
+            "the collision-disabled LINK_ANIM_MODE_1f poke.");
+        enemyContactPlayer.AdvanceSwordForValidation(
+            11, buttonHeld: true);
+        FailIf(
+            enemyContactPlayer.SwordState != SwordActionState.Poke ||
+            enemyContactPlayer.SwordStateFrame != 11,
+            "The enemy-contact sword poke ended before update 12.");
+        enemyContactPlayer.AdvanceSwordForValidation(
+            1, buttonHeld: true);
+        FailIf(
+            enemyContactPlayer.IsAttacking,
+            "The enemy-contact sword poke returned to held instead of " +
+            "deleting the sword after update 12.");
+        enemyContactPlayer.Free();
+
+        // Bombable wall tiles bypass the poke-only ordinary clink condition.
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0xc1, null, (long)_animationTicks);
+        _sound.ClearPlayRequestAudit();
+        _combatEffectAudit.Clear();
+        _player.StartSwordAttack();
+        _player.AdvanceSwordForValidation(6, buttonHeld: false);
+        ClinkEffect? bombableClink = _combatEffectAudit.LastClinkEffect;
+        FailIf(
+            _sound.PlayRequestsFor(SoundId.SndClink2) != 1 ||
+            _combatEffectAudit.ClinkEffectsSpawned != 1 || bombableClink is null ||
+            bombableClink.Position != expectedClinkPosition || bombableClink.Flickers ||
+            !bombableClink.EffectVisible,
+            "Bombable overworld tile `$c1 did not play SND_CLINK2 and spawn non-flickering INTERAC_CLINK.");
+        _player.AdvanceSwordForValidation(11, buttonHeld: false);
+        _currentRoom.SetPositionTileAndCollision(
+            bushPoint, 0x3a, null, (long)_animationTicks);
+
+        (int RadiusY, int RadiusX, int OffsetY, int OffsetX)[] expectedArcs =
+        {
+            (9, 6, -2, 16), (6, 9, -14, 0), (9, 6, 0, -15), (6, 9, -14, 0),
+            (7, 7, -11, 13), (7, 7, -11, 13), (7, 7, 17, -13), (7, 7, -11, -13),
+            (9, 6, -17, -4), (6, 9, 2, 19), (9, 6, 21, 3), (6, 9, 2, -19),
+            (9, 6, -10, -4), (4, 9, 2, 12), (9, 6, 16, 3), (6, 9, 2, -12),
+            (9, 9, -17, -4), (9, 9, -14, 16), (9, 9, 2, 19), (9, 9, 18, 16),
+            (9, 9, 21, 3), (9, 9, 17, -13), (9, 9, 2, -19), (9, 9, -11, -13)
+        };
+        Vector2 auditPosition = new(80, 64);
+        for (int index = 0; index < expectedArcs.Length; index++)
+        {
+            var arc = expectedArcs[index];
+            Rect2 expected = new(
+                auditPosition + new Vector2(
+                    arc.OffsetX - arc.RadiusX,
+                    arc.OffsetY - arc.RadiusY),
+                new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
+            Rect2 actual = Player.GetSwordHitboxForValidation(auditPosition, index);
+            FailIf(
+                actual != expected,
+                $"swordArcData row `${index:x2} mismatch: expected {expected}, got {actual}.");
+        }
+
+        // wScrollMode $08 freezes initialized item objects. The held sword
+        // parent and its locked facing must therefore survive both ends of a
+        // scrolling transition without charging or observing button release.
+        _player.Face(Vector2I.Up);
+        _player.StartSwordAttack();
+        _player.AdvanceSwordForValidation(17, buttonHeld: true);
+        _transitions.BeginScroll(_player, Vector2I.Right, 0x6a);
+        FailIf(
+            !_transitions.ScrollActive ||
+            _player.SwordState != SwordActionState.Held ||
+            _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12,
+            "Scrolling right did not preserve the up-facing held sword parent " +
+            $"item. scroll={_transitions.ScrollActive}, " +
+            $"state={_player.SwordState}, facing={_player.FacingVector}, " +
+            $"arc={_player.SwordArcIndex}, room=" +
+            $"{_rooms.ActiveGroup:x}:{_rooms.CurrentRoom.Id:x2}, " +
+            $"cutscene={_player.CutsceneControlled}.");
+        _player._Process(1.0);
+        FailIf(
+            _player.SwordState != SwordActionState.Held ||
+            _player.SwordStateFrame != 0 || _player.FacingVector != Vector2I.Up,
+            "wScrollMode $08 did not freeze the held sword for the scrolling transition.");
+        _transitions.UpdateScroll(1.0);
+        FailIf(
+            _transitions.ScrollActive ||
+            _player.SwordState != SwordActionState.Held ||
+            _player.FacingVector != Vector2I.Up || _player.SwordArcIndex != 12,
+            "Finishing the scrolling transition cleared or redirected the held sword.");
+        _player.AdvanceSwordForValidation(1, buttonHeld: false);
+
+        GD.Print(
+            "Validated ITEM_SWORD's 17-update swing/3-update directional restart gate, " +
+            "held collision/movement and scrolling-transition persistence, " +
+            "41-update charge, " +
+            "held/charged standing/walking body, child-item Z/layer rendering, charged palette cadence, " +
+            "12-update wall/enemy pokes with enemy-contact retraction and 10-update INTERAC_CLINK sprites, 23-update swordspin, " +
+            "shared-RNG slash sounds, blocked-restart RNG preservation, exact grass/bush debris, " +
+            "and all 24 swordArcData hitboxes.");
+    }
+
+    private void ValidateAirborneSwordRendering()
+    {
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var inventory = new InventoryState(_treasures, save);
+        inventory.GiveTreasure(TreasureId.Feather, 1);
+        var swordFirstWorld = new ValidationRingPlayerWorld();
+        var swordFirst = new Player { Name = "SwordFirstAirValidationPlayer" };
+        AddChild(swordFirst);
+        swordFirst.Initialize(
+            swordFirstWorld,
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        swordFirst.Face(Vector2I.Up);
+        swordFirst.StartSwordAttack();
+        swordFirst.AdvanceSwordForValidation(17, buttonHeld: true);
+        FailIf(
+            swordFirst.SwordState != SwordActionState.Held,
+            "Airborne sword rendering setup did not reach the held state.");
+
+        // The Sword parent has already set wLinkTurningDisabled, so the
+        // Feather's @startedJump branch skips LINK_ANIM_MODE_JUMP. The WALK
+        // animation that was reset to its initial two-update $54 frame keeps
+        // advancing even though airborne movement leaves _walking false.
+        swordFirst.AdvanceTopDownAirUpdateForValidation(startJump: true);
+        Vector2 topDownDrawOffset = new(0, swordFirst.TopDownAirZ);
+        FailIf(
+            !swordFirst.TopDownAirborne || swordFirst.TopDownAirZ >= 0 ||
+            !swordFirst.UsesAirborneSwordPose ||
+            swordFirst.AirborneLinkUsesJumpAnimation ||
+            swordFirst.AirborneLinkBodyFrame != 0 ||
+            swordFirst.LinkAnimationCounter != 1 ||
+            swordFirst.SwordDrawOffset != topDownDrawOffset ||
+            swordFirst.ActiveSwordSpritePosition !=
+                swordFirst.SwordSpritePosition + topDownDrawOffset ||
+            swordFirst.MeleeItemZ != swordFirst.TopDownAirZ - 2,
+            "A sword-first top-down jump installed JUMP instead of preserving " +
+            "and advancing Link's WALK clock, or lost the child item's Z.");
+
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        FailIf(
+            swordFirst.AirborneLinkBodyFrame != 1 ||
+            swordFirst.LinkAnimationCounter != 6,
+            "Sword-first air did not leave WALK's two-update $54 entry for " +
+            "its first six-update $80 entry.");
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        FailIf(
+            swordFirst.AirborneLinkBodyFrame != 1 ||
+            swordFirst.LinkAnimationCounter != 1,
+            "The airborne $80 WALK graphic did not retain its six-update duration.");
+        swordFirst.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(
+            swordFirst.IsAttacking || swordFirst.AirborneLinkUsesJumpAnimation ||
+            swordFirst.AirborneLinkBodyFrame != 1,
+            "Releasing a sword-first held sword replaced its preserved WALK " +
+            "animation with LINK_ANIM_MODE_JUMP.");
+        swordFirst.AdvanceTopDownAirUpdateForValidation();
+        FailIf(
+            swordFirst.AirborneLinkBodyFrame != 0 ||
+            swordFirst.LinkAnimationCounter != 6,
+            "The exposed WALK clock did not continue after midair sword release.");
+
+        var jumpFirstWorld = new ValidationRingPlayerWorld();
+        var jumpFirst = new Player { Name = "JumpFirstAirValidationPlayer" };
+        AddChild(jumpFirst);
+        jumpFirst.Initialize(
+            jumpFirstWorld,
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        jumpFirst.Face(Vector2I.Up);
+        jumpFirst.AdvanceTopDownAirUpdateForValidation(startJump: true);
+        FailIf(
+            !jumpFirst.AirborneLinkUsesJumpAnimation ||
+            jumpFirst.AirborneLinkBodyFrame != 0 ||
+            jumpFirst.LinkAnimationCounter != 8,
+            "A jump-first Feather use did not initialize and immediately " +
+            "advance LINK_ANIM_MODE_JUMP's nine-update $e4 frame.");
+
+        jumpFirst.StartSwordAttack();
+        for (int update = 0; update < 17; update++)
+        {
+            // Link's special-object update precedes the parent-item update.
+            jumpFirst.AdvanceTopDownAirUpdateForValidation();
+            jumpFirst.AdvanceSwordForValidation(1, buttonHeld: true);
+        }
+        FailIf(
+            jumpFirst.SwordState != SwordActionState.Held ||
+            !jumpFirst.UsesAirborneSwordPose ||
+            !jumpFirst.AirborneLinkUsesJumpAnimation ||
+            jumpFirst.AirborneLinkBodyFrame != 2 ||
+            jumpFirst.LinkAnimationCounter != 6,
+            "When sword state 6 lowered Item.var3f to zero, the independently " +
+            "advanced jump animation did not reappear at its $ec frame.");
+        jumpFirst.AdvanceSwordForValidation(1, buttonHeld: false);
+        FailIf(
+            jumpFirst.IsAttacking ||
+            !jumpFirst.AirborneLinkUsesJumpAnimation ||
+            jumpFirst.AirborneLinkBodyFrame != 2,
+            "Releasing a jump-first held sword did not reveal the same JUMP clock.");
+        for (int update = 0; update < 6; update++)
+            jumpFirst.AdvanceTopDownAirUpdateForValidation();
+        FailIf(
+            jumpFirst.AirborneLinkBodyFrame != 3 ||
+            jumpFirst.LinkAnimationCounter != 0,
+            "LINK_ANIM_MODE_JUMP did not enter and hold its terminal $80 frame " +
+            "after the 9/9/6 timed entries.");
+
+        var sideWorld = new ValidationRingPlayerWorld { SideScrolling = true };
+        var sideSwordFirst = new Player
+        {
+            Name = "SideSwordFirstAirValidationPlayer"
+        };
+        AddChild(sideSwordFirst);
+        sideSwordFirst.Initialize(
+            sideWorld,
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        sideSwordFirst.Face(Vector2I.Up);
+        sideSwordFirst.StartSwordAttack();
+        sideSwordFirst.AdvanceSwordForValidation(17, buttonHeld: true);
+        sideSwordFirst.AdvanceSideScrollUpdateForValidation(
+            Vector2.Zero,
+            startJump: true);
+        FailIf(
+            !sideSwordFirst.SideScrollAirborne ||
+            !sideSwordFirst.UsesAirborneSwordPose ||
+            sideSwordFirst.AirborneLinkUsesJumpAnimation ||
+            sideSwordFirst.AirborneLinkBodyFrame != 0 ||
+            sideSwordFirst.LinkAnimationCounter != 1 ||
+            sideSwordFirst.SwordDrawOffset != Vector2.Zero ||
+            sideSwordFirst.ActiveSwordSpritePosition !=
+                sideSwordFirst.SwordSpritePosition ||
+            sideSwordFirst.SwordState != SwordActionState.Held,
+            "A sword-first side-view jump did not preserve WALK ownership and " +
+            "the already height-adjusted child sword position.");
+
+        var sideJumpFirst = new Player
+        {
+            Name = "SideJumpFirstAirValidationPlayer"
+        };
+        AddChild(sideJumpFirst);
+        sideJumpFirst.Initialize(
+            sideWorld,
+            inventory,
+            new Vector2(80, 80),
+            new OracleRandom());
+        sideJumpFirst.Face(Vector2I.Up);
+        sideJumpFirst.AdvanceSideScrollUpdateForValidation(
+            Vector2.Zero,
+            startJump: true);
+        sideJumpFirst.StartSwordAttack();
+        for (int update = 0; update < 17; update++)
+        {
+            sideJumpFirst.AdvanceSideScrollUpdateForValidation(Vector2.Zero);
+            sideJumpFirst.AdvanceSwordForValidation(1, buttonHeld: true);
+        }
+        FailIf(
+            sideJumpFirst.SwordState != SwordActionState.Held ||
+            !sideJumpFirst.SideScrollAirborne ||
+            !sideJumpFirst.AirborneLinkUsesJumpAnimation ||
+            sideJumpFirst.AirborneLinkBodyFrame != 2 ||
+            sideJumpFirst.LinkAnimationCounter != 6,
+            "A jump-first side-view Sword did not reveal the independently " +
+            "advanced $ec JUMP frame when it became held.");
+
+        swordFirst.Free();
+        jumpFirst.Free();
+        sideSwordFirst.Free();
+        sideJumpFirst.Free();
+        GD.Print(
+            "Validated sword-first and jump-first airborne animation ownership, " +
+            "WALK/JUMP clock continuation through held state and release, " +
+            "LINK_ANIM_MODE_JUMP's terminal frame, and top-down child-item Z.");
+    }
+
+    private void ValidateHealth()
+    {
+        _dialogue.Close();
+        _player.RefillHealth();
+        _statusBar.SynchronizeHealth();
+
+        FailIf(
+            _player.HealthQuarters != 12 || _hud.HealthQuarters != 12 ||
+            _hud.MaxHealthQuarters != _player.MaxHealthQuarters,
+            "Expected Link and the HUD to start with three full hearts.");
+
+        _player.ApplyDamage(1);
+        FailIf(
+            _player.HealthQuarters != 11 || _hud.HealthQuarters != 12,
+            "Direct quarter-heart damage changed the HUD before its update.");
+        AdvanceStatusBarUpdates(1);
+        FailIf(_hud.HealthQuarters != 11, "Displayed damage did not subtract one quarter per update.");
+
+        _player.Heal(1);
+        FailIf(
+            _player.HealthQuarters != 12 || _hud.HealthQuarters != 11,
+            "Direct healing changed the HUD before its divisor-4 update.");
+        for (int update = 0; update < 4 && _hud.HealthQuarters != 12; update++)
+            AdvanceStatusBarUpdates(1);
+        FailIf(_hud.HealthQuarters != 12, "Displayed healing did not add a quarter on a divisor-4 update.");
+
+        // Terrain request/recovery has native gameplay coverage. Declare its
+        // completed half-heart health write to isolate deferred HUD ownership.
+        _inventory.ApplyDamage(2);
+        FailIf(
+            _player.HealthQuarters != 10 || _hud.HealthQuarters != 12,
+            "Half-heart damage changed displayed health before updateStatusBar_body.");
+        AdvanceStatusBarUpdates(2);
+        FailIf(
+            _hud.HealthQuarters != 10,
+            "Half-heart damage did not synchronize its delayed write to the HUD.");
+
+        GD.Print("Validated quarter-heart health, divisor-4 healing display/SND_GAINHEART cadence, " +
+            "per-update damage display, and delayed half-heart damage.");
+    }
+
+    private void ValidateLinkDamagePaletteAssets()
+    {
+        var player = new Player();
+        player.Initialize(new ValidationRingPlayerWorld(), new InventoryState(_treasures),
+            new Vector2(80, 80), new OracleRandom());
+        FailIf(player.LinkAtlasPixelHash == player.DamageLinkAtlasPixelHash ||
+            PlayerSpriteLibrary.RecolorLinkPixel(Color.Color8(85, 85, 85), damagePalette: true) !=
+                new Color(0x1f / 31.0f, 0x16 / 31.0f, 0x06 / 31.0f),
+            "Imported Link palette 5 must remain distinct and map the gray ramp to its source yellow.");
+        player.Free();
+        GD.Print("Validated independent imported Link damage-palette assets; ROM fixtures own hit, potion and death behavior.");
+    }
+
+    private void ValidateAnimations()
+    {
+        OracleRoomData water = _world.LoadRoom(0, 0xb8);
+        ulong waterStart = water.GetAnimationChecksum(0);
+        bool waterChanged = false;
+        for (int tick = 1; tick <= 120 && !waterChanged; tick++)
+            waterChanged = water.GetAnimationChecksum(tick) != waterStart;
+
+        OracleRoomData lava = _world.LoadRoom(0, 0x03);
+        ulong lavaStart = lava.GetAnimationChecksum(0);
+        bool lavaChanged = false;
+        for (int tick = 1; tick <= 60 && !lavaChanged; tick++)
+            lavaChanged = lava.GetAnimationChecksum(tick) != lavaStart;
+
+        FailIf(
+            !waterChanged || !lavaChanged,
+            $"Expected animated water and lava frames; water={waterChanged}, lava={lavaChanged}.");
+
+        OracleRoomData waterfall = _world.LoadRoom(0, 0x45);
+        const int settledWaterfallTick = 32;
+        FailIf(
+            waterfall.AnimationGroup != 0 ||
+            !waterfall.HasAnimationOverride(4, settledWaterfallTick) ||
+            !waterfall.HasAnimationOverride(236, settledWaterfallTick) ||
+            !waterfall.HasAnimationOverride(238, settledWaterfallTick),
+            "Waterfall animation did not preserve its three alternating VRAM destination writes.");
+
+        // Room textures are cached independently, but the original engine has
+        // one shared animated-tile VRAM state. Prime 0:56 with a stale phase,
+        // then verify that beginning the 0:55 -> 0:56 scroll synchronizes it
+        // to the outgoing room before both textures are shown together.
+        OracleRoomData target = _world.LoadRoom(0, 0x56);
+        target.UpdateAnimation(0);
+        int staleTargetSignature = target.CurrentAnimationSignature;
+        _activeGroup = 0;
+        _currentRoom = _world.LoadRoom(0, 0x55);
+        OracleRoomData source = _currentRoom;
+        FailIf(
+            !Mathf.IsZeroApprox((float)_animationTicks),
+            "Changing animation groups did not reset their shared clock.");
+        _animationTicks = 13.0;
+        source.UpdateAnimation((long)_animationTicks);
+        FailIf(
+            source.CurrentAnimationSignature == staleTargetSignature,
+            "Animation phase-lock validation chose indistinguishable ticks.");
+
+        _roomView.SetRoom(source.Texture);
+        _entities.LoadRoom(_activeGroup, source);
+        _player.WarpTo(new Vector2(source.Width + 2.0f, source.Height / 2.0f));
+        _player.UpdatePushingState(Vector2.Right);
+        CheckRoomExit(_player);
+        FailIf(
+            !IsTransitioning || _activeGroup != 0 || _currentRoom.Id != 0x56,
+            "Room 0:55 did not begin its rightward scroll into 0:56.");
+        FailIf(
+            source.AnimationGroup != _currentRoom.AnimationGroup ||
+            source.CurrentAnimationSignature != _currentRoom.CurrentAnimationSignature,
+            "Outgoing and incoming water/waterfall tiles began the scroll in different phases.");
+
+        ValidateLinkScrollsForOneTransitionFrame();
+        FailIf(
+            source.CurrentAnimationSignature != _currentRoom.CurrentAnimationSignature,
+            "Animated-tile phases diverged during the frozen scroll.");
+        FinishActiveScrollingTransitionForValidation();
+
+        GD.Print("Validated disassembly-driven water and lava animation plus persistent " +
+            "three-range waterfall VRAM updates and 0:55 -> 0:56 phase locking.");
+    }
+}

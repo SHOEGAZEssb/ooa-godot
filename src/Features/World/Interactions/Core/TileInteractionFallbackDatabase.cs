@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source-defined fallback outcomes for common sign and chest tile handlers.
@@ -17,7 +17,7 @@ internal sealed class TileInteractionFallbackDatabase
     {
         ArgumentNullException.ThrowIfNull(treasures);
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/tile_interaction_fallbacks.tsv",
+            AgesGameContent.AssetRoot + "objects/tile_interaction_fallbacks.tsv",
             new GeneratedTableSchema(
                 "common tile-interaction fallbacks",
                 GeneratedTableKeySemantics.Unique,

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MOVING_SIDESCROLL_PLATFORM $a1:$00-$0e.</summary>
 internal sealed partial class MovingSideScrollPlatformRoomEntity :

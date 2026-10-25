@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // seaEffects.s PART_SEA_EFFECTS $2e. A checked room-initialization
 // allocation precedes placed PARTs. It stays allocated even after pits change.
@@ -35,7 +35,7 @@ internal sealed partial class SuctionPitRoomEntity : TransitionOffsetNode2D,
         if (State == 0) { State = 1; Counter = 0x20; return; }
         Player player = frame.Player;
         if (!player.NativeNormalStateForInteraction) return;
-        _owner.RuntimeState.SetWramByte(WramAddress.wDisableScreenTransitions, 0);
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wDisableScreenTransitions, 0);
         if (!player.NativeInteractionCollisionsEnabled && !player.TopDownDiving) return;
         OracleRoomData room = _owner.ActiveRoom;
         Vector2 contactPosition = player.EnemyContactPosition;
@@ -71,7 +71,7 @@ internal sealed partial class SuctionPitRoomEntity : TransitionOffsetNode2D,
                 player.RequestSuctionPitFall(center);
                 return;
             }
-            _owner.RuntimeState.SetWramByte(WramAddress.wDisableScreenTransitions, 0xff);
+            _owner.RuntimeState.SetWramByte(AgesWramAddress.wDisableScreenTransitions, 0xff);
             int angle = OracleObjectMovement.Shared.RelativeAngle(new(linkX, linkY), center);
             if (Counter != 0) Counter--;
             int speed = _data.Speeds[(Counter & 0x1c) >> 2];

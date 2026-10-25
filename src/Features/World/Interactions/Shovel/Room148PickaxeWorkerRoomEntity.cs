@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Native fixed-update owner for INTERAC_PICKAXE_WORKER $57:$00. The original

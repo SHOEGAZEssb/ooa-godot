@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // One world-owned presentation of initializeVramMaps' tile $00 / attribute $80.
 // Signed addressing selects gfx_hud tile 0 at $9000, with live BG palette 0.

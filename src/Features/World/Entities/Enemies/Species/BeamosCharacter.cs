@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Common enemyCode16: a solid tile with a rotating, charging eye.</summary>
 internal sealed partial class BeamosCharacter : EnemyCharacter

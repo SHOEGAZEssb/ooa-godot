@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class PuzzleTrapResetDatabase
 {
     private readonly Lookup<int,PuzzleTrapResetRecord> _records = new();
     internal PuzzleTrapResetDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/puzzle_trap_resets.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/puzzle_trap_resets.tsv",
             new GeneratedTableSchema("INTERAC $90:$1f trap reset",GeneratedTableKeySemantics.Unique,
                 ["group","room","order","interval","delay","offsets","dest-group","dest-room",
                     "source-transition","dest-position","dest-transition","source"],

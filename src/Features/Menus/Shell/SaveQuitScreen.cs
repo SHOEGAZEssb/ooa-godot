@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using static oracleofages.OracleGraphicsData;
-using static oracleofages.OracleTileRenderer;
+using static Oracles.OracleGraphicsData;
+using static Oracles.OracleTileRenderer;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Original save actions with an experimental Options entry outside game over.
@@ -12,7 +12,6 @@ namespace oracleofages;
 public partial class SaveQuitScreen : Node2D
 {
     private const int SaveErrorZIndex = 1;
-    private const int MapStride = 32;
     // These ten finished backgrounds depend only on packaged graphics, maps,
     // and palettes. Publish the complete set after staged preparation; never
     // share cursor, options, error, or other live menu state.
@@ -68,8 +67,8 @@ public partial class SaveQuitScreen : Node2D
     internal System.Collections.Generic.IEnumerable<bool> PrepareResources()
     {
         if (_resourcesPrepared) yield break;
-        _fileSprites = LoadPng("res://assets/oracle/menu/spr_fileselect_decorations.png");
-        _spritePalette = LoadPalette("res://assets/oracle/menu/palette_file_sprites.bin");
+        _fileSprites = LoadPng(AgesGameContent.AssetRoot + "menu/spr_fileselect_decorations.png");
+        _spritePalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_sprites.bin");
         if (_sharedBackgrounds is { } shared)
         {
             _standardBackground = shared.Standard;
@@ -78,19 +77,19 @@ public partial class SaveQuitScreen : Node2D
         }
         else
         {
-            _standardBackground = BuildBackground(gameOver: false);
+            _standardBackground = NativeMenuPresentation.BuildBackground(gameOver: false);
             yield return false;
-            _gameOverBackground = BuildBackground(gameOver: true);
+            _gameOverBackground = NativeMenuPresentation.BuildBackground(gameOver: true);
             yield return false;
             using (Image original = _standardBackground.GetImage())
             {
                 for (int i = 0; i < 8; i++)
                 {
-                    _optionsBackgrounds[i] = SaveOptionsPresentation.BuildOptions(
+                    _optionsBackgrounds[i] = NativeMenuPresentation.BuildOptions(
                         original, (i & 1) != 0, (i & 2) != 0, (i & 4) != 0);
                     yield return false;
                 }
-                _standardBackground = SaveOptionsPresentation.BuildSave(original);
+                _standardBackground = NativeMenuPresentation.BuildSave(original);
             }
             _sharedBackgrounds = (_standardBackground, _gameOverBackground,
                 (Texture2D[])_optionsBackgrounds.Clone());
@@ -214,56 +213,6 @@ public partial class SaveQuitScreen : Node2D
         }
     }
 
-    internal static Texture2D BuildBackground(bool gameOver)
-    {
-        (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
-            "map_save_menu_middle.bin", "flags_save_menu_middle.bin",
-            "map_save_menu_bottom.bin", "flags_save_menu_bottom.bin",
-            bottomLength: 128);
 
-        Color[,] palette = LoadPalette(gameOver
-            ? "res://assets/oracle/menu/palette_file_erase_bg.bin"
-            : "res://assets/oracle/menu/palette_file_bg.bin");
-        var sources = new List<
-            (Image Image, int FirstTile, int Bank, bool Interleaved)>
-        {
-            (LoadPng("res://assets/oracle/gfx/gfx_hud.png"), 0x00, 0, false),
-            (LoadPng("res://assets/oracle/gfx/gfx_hud.png"), 0x00, 1, false),
-            (LoadPng("res://assets/oracle/menu/gfx_savescreen.png"),
-                0x80, 1, true),
-            (LoadPng("res://assets/oracle/menu/gfx_fileselect.png"), 0x20, 1, false)
-        };
-        if (gameOver)
-        {
-            // saveQuitMenu_state0 loads GFXH_SAVE_MENU_GFX at $8801 first,
-            // then GFXH_GAME_OVER_GFX at the same address. gfx_gameover is
-            // only $20 tiles long: it replaces the title tiles $80-$9f while
-            // the option graphics $a0-$ff remain from gfx_savescreen.
-            sources.Insert(
-                3,
-                (LoadPng("res://assets/oracle/menu/gfx_gameover.png"),
-                    0x80, 1, true));
-        }
-        using Image output = Image.CreateEmpty(160, 144, false, Image.Format.Rgba8);
-        for (int row = 0; row < 18; row++)
-        for (int column = 0; column < 20; column++)
-        {
-            int offset = row * MapStride + column;
-            int bank = flags[offset] >> 3 & 1;
-            (Image Image, int FirstTile, int Bank, bool Interleaved)? selected = null;
-            foreach (var source in sources)
-            {
-                int count = source.Image.GetWidth() / 8 * (source.Image.GetHeight() / 8);
-                if (source.Bank == bank && map[offset] >= source.FirstTile &&
-                    map[offset] < source.FirstTile + count)
-                    selected = source;
-            }
-            if (selected is not { } tileSource)
-                continue;
-            DrawBackgroundTile(output, tileSource.Image, map[offset] - tileSource.FirstTile,
-                flags[offset], palette, column * 8, row * 8, tileSource.Interleaved);
-        }
-        return ImageTexture.CreateFromImage(output);
-    }
 
 }

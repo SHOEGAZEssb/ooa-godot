@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Creation shares the manager's authoritative state and named operations.
 // Live providers are sampled by the owner when actors call them, including
@@ -316,7 +316,7 @@ internal sealed class RoomEntityFactory
             var placements = new Dictionary<int, IRoomEntity>();
             foreach (var ship in PirateShipDatabase.Shared.Placements)
                 if (ship.Group == group && ship.Room == room.Id &&
-                    _saveData.IsLinkedGame == (ship.SubId == 2) && _saveData.HasGlobalFlag(GlobalFlag.PiratesGone) &&
+                    _saveData.IsLinkedGame == (ship.SubId == 2) && _saveData.HasGlobalFlag(AgesGlobalFlag.PiratesGone) &&
                     !_saveData.HasRoomFlag(group, room.Id, PirateShipRoomEntity.DepartureCompletedRoomFlag))
                     placements.Add(ship.Order, new PirateShipRoomEntity(owner,
                         PirateShipDatabase.Shared.Ship(group, room.Id, ship.SubId, ship.Y, ship.X)));
@@ -465,7 +465,7 @@ internal sealed class RoomEntityFactory
         LightableTorchState? lightableTorchState = null;
         foreach (DungeonMechanicDatabaseRecord record in dungeonRecords)
         {
-            if (record is { Id: InteractionId.TriggerTranslator, SubId: 0x02 } or
+            if (record is { Id: AgesInteractionId.TriggerTranslator, SubId: 0x02 } or
                 { Id: InteractionId.CreateObjectAtEachTileIndex, SubId: 0x08 })
             {
                 lightableTorchState = new LightableTorchState();
@@ -568,7 +568,7 @@ internal sealed class RoomEntityFactory
                     LeverProfile profile = Resources.Levers.Profile(record.SubId);
                     var lever = new LeverRoomEntity(profile.ToNpcRecord(record),
                         new LeverState(_runtimeState, (record.SubId & 0x40) == 0
-                            ? WramAddress.wLever1PullDistance : WramAddress.wLever2PullDistance),
+                            ? AgesWramAddress.wLever1PullDistance : AgesWramAddress.wLever2PullDistance),
                         profile.Behavior, owner.OnSoundRequested,
                         parent => owner.TryCreateLeverConnection(parent,profile.ToNpcRecord(record,connection:true),profile));
                     yield return lever;
@@ -668,7 +668,7 @@ internal sealed class RoomEntityFactory
                     DungeonObjectKind.PushBlockSynchronizer => new PushBlockSynchronizerRoomEntity(
                         room,Resources.PushSynchronizers,() => owner.RequiredReservedPushBlock,owner.TryCreateSynchronizedBlock),
                     DungeonObjectKind.WallSquish => new WallSquishRoomEntity(room,
-                        () => rooms!.BlockPushAngle, () => _runtimeState.ReadWramByte(WramAddress.wLinkRaisedFloorOffset), record.Source),
+                        () => rooms!.BlockPushAngle, () => _runtimeState.ReadWramByte(AgesWramAddress.wLinkRaisedFloorOffset), record.Source),
                     DungeonObjectKind.ButtonBridge => new ButtonBridgeRoomEntity(Resources.CrownDungeon.ButtonBridge,room,
                         () => owner.ActiveTriggers,(position,tile) =>
                         {
@@ -713,7 +713,7 @@ internal sealed class RoomEntityFactory
                     DungeonObjectKind.ToggleFloor => CreateToggleFloor(room),
                     DungeonObjectKind.FloorColorChanger => CreateFloorColorChanger(record),
                     DungeonObjectKind.LeverLavaFiller => new LeverLavaFillerRoomEntity(
-                        room, Resources.LeverLava.Script(record.SubId), new LeverState(_runtimeState, WramAddress.wLever1PullDistance),
+                        room, Resources.LeverLava.Script(record.SubId), new LeverState(_runtimeState, AgesWramAddress.wLever1PullDistance),
                         _random, owner.OnSoundRequested, (position, tile) =>
                         {
                             if (rooms is null || !ReferenceEquals(rooms.CurrentRoom, room))
@@ -740,7 +740,7 @@ internal sealed class RoomEntityFactory
                     DungeonObjectKind.MermaidBossKey => new MermaidBossKeyRoomEntity(record,_runtimeState,_random,
                         DungeonChestItemFlagSet,() => owner.RoomEnemyCount,owner.SetTrigger,
                         () => owner.ParseRandomEnemies(Resources.MermaidDungeon.BossKeyFailureEnemies,
-                            EnemyPlacementContext.FromWarpDestination(_runtimeState.ReadWramByte(WramAddress.wWarpDestPos))),
+                            EnemyPlacementContext.FromWarpDestination(_runtimeState.ReadWramByte(AgesWramAddress.wWarpDestPos))),
                         owner.OnSoundRequested,() => {
                             owner.OnSoundRequested(SoundId.SndSolvePuzzle);
                             WriteDungeonChest(record);
@@ -939,7 +939,7 @@ internal sealed class RoomEntityFactory
                     placed.Kind == DungeonObjectKind.Zelda && placed.Id == n.Id && placed.SubId == n.SubId &&
                     placed.X == n.X && placed.Y == n.Y)).ToArray();
         diagnostics?.Mark("npc-resolution");
-        if (group == 0 && roomNpcs.Any(record => record.Id == InteractionId.Carpenter))
+        if (group == 0 && roomNpcs.Any(record => record.Id == AgesInteractionId.Carpenter))
         {
             if (room.Id == 0x25 && _saveData?.HasGlobalFlag(Resources.Carpenters.Constant("bridge-flag")) == true)
             {
@@ -955,24 +955,24 @@ internal sealed class RoomEntityFactory
                     _runtimeState, _saveData, room, _animationTick());
             }
         }
-        else if (roomNpcs.Any(record => record.Id == InteractionId.Patch))
+        else if (roomNpcs.Any(record => record.Id == AgesInteractionId.Patch))
         {
             foreach (NpcRecord record in roomNpcs)
             {
                 RequireNpcImplementation(record, NpcImplementationClassification.EventOwned);
-                if (record.Id != InteractionId.Patch || record.SubId > 2)
+                if (record.Id != AgesInteractionId.Patch || record.SubId > 2)
                     throw new InvalidOperationException($"patch.s: unexpected room NPC ${record.Id:x2}:${record.SubId:x2}.");
                 yield return new PatchRoomEntity(NpcCharacter.CreateFromRecord(record));
             }
         }
-        else if (roomNpcs.Any(record => record.Id == InteractionId.SymmetryNpc))
+        else if (roomNpcs.Any(record => record.Id == AgesInteractionId.SymmetryNpc))
         {
             if (group == Resources.TuniNut.Constant("group") && room.Id == Resources.TuniNut.Constant("room"))
                 yield return new TuniNutRoomEntity(Resources.TuniNut, Resources.Symmetry, _inventory, _saveData, room);
             foreach (NpcRecord record in roomNpcs)
             {
                 RequireNpcImplementation(record, NpcImplementationClassification.EventOwned);
-                if (record.Id != InteractionId.SymmetryNpc)
+                if (record.Id != AgesInteractionId.SymmetryNpc)
                     throw new InvalidOperationException($"symmetryNpc.s: unexpected NPC ${record.Id:x2}:${record.SubId:x2} in room ${group:x}:${room.Id:x2}.");
                 yield return new SymmetryRoomEntity(NpcCharacter.CreateFromRecord(record), Resources.Symmetry, _saveData);
             }
@@ -1065,7 +1065,7 @@ internal sealed class RoomEntityFactory
                 switch (record.Implementation)
                 {
                     case NpcImplementationClassification.OrdinaryGeneric:
-                        if (record.Id == InteractionId.Tokay)
+                        if (record.Id == AgesInteractionId.Tokay)
                         {
                             var tokay = new TokayCharacter { Name=$"Npc_48_{record.SubId:x2}" };
                             tokay.Initialize(record);
@@ -1074,28 +1074,28 @@ internal sealed class RoomEntityFactory
                             yield return new TokayNpcRoomEntity(tokay);
                             break;
                         }
-                        yield return record.Id == InteractionId.Zora
+                        yield return record.Id == AgesInteractionId.Zora
                             ? new ZoraNpcRoomEntity(NpcCharacter.CreateFromRecord(record))
                             : new NpcRoomEntity(NpcCharacter.CreateFromRecord(record),
-                                initializeStoryOnce: record is { Id: InteractionId.MiscMan, SubId: 2 or 3 or 5 or 6 }
-                                    or { Id: InteractionId.MiscMan2, SubId: 3 }
-                                    or { Id: InteractionId.PastOldLady, SubId: 1 }
-                                    or { Id: InteractionId.OldLady, SubId: 2 }
-                                    or { Id: InteractionId.MaleVillager, SubId: 8 }
-                                    or { Id: InteractionId.MaleVillager, SubId: 7 }
-                                    or { Id: InteractionId.FemaleVillager, SubId: 3 }
-                                    or { Id: InteractionId.FemaleVillager, SubId: 4 }
-                                    or { Id: InteractionId.Subrosian, SubId: 0 }
-                                    or { Id: InteractionId.Subrosian, SubId: 2 }
-                                    or { Id: InteractionId.Zelda, SubId: 8 }
-                                    or { Id: InteractionId.Ambi, SubId: 0x0a }
-                                    or { Id: InteractionId.Ralph, SubId: 0x12 }
-                                    or { Id: InteractionId.Nayru, SubId: 0x0c }
+                                initializeStoryOnce: record is { Id: AgesInteractionId.MiscMan, SubId: 2 or 3 or 5 or 6 }
+                                    or { Id: AgesInteractionId.MiscMan2, SubId: 3 }
+                                    or { Id: AgesInteractionId.PastOldLady, SubId: 1 }
+                                    or { Id: AgesInteractionId.OldLady, SubId: 2 }
+                                    or { Id: AgesInteractionId.MaleVillager, SubId: 8 }
+                                    or { Id: AgesInteractionId.MaleVillager, SubId: 7 }
+                                    or { Id: AgesInteractionId.FemaleVillager, SubId: 3 }
+                                    or { Id: AgesInteractionId.FemaleVillager, SubId: 4 }
+                                    or { Id: AgesInteractionId.Subrosian, SubId: 0 }
+                                    or { Id: AgesInteractionId.Subrosian, SubId: 2 }
+                                    or { Id: AgesInteractionId.Zelda, SubId: 8 }
+                                    or { Id: AgesInteractionId.Ambi, SubId: 0x0a }
+                                    or { Id: AgesInteractionId.Ralph, SubId: 0x12 }
+                                    or { Id: AgesInteractionId.Nayru, SubId: 0x0c }
                                     or { Id: 0x39, SubId: 2 or 3 },
                                 // Both postgame actors call npcFaceLinkAndAnimate
                                 // before interactionRunScript consumes the A-button.
-                                animateBeforeDialogue: record is { Id: InteractionId.Ambi, SubId: 0x0a }
-                                    or { Id: InteractionId.Ralph, SubId: 0x12 },
+                                animateBeforeDialogue: record is { Id: AgesInteractionId.Ambi, SubId: 0x0a }
+                                    or { Id: AgesInteractionId.Ralph, SubId: 0x12 },
                                 deleteIfInactiveOnInitialization: record is { Id: 0x39, SubId: 2 or 3 });
                         break;
                     case NpcImplementationClassification.SpecializedNative:
@@ -1125,7 +1125,7 @@ internal sealed class RoomEntityFactory
                                 throw new InvalidOperationException("INTERAC_RALPH $37:$0c requires its Black Tower event owner.");
                             break;
                         }
-                        if (record.Id == InteractionId.PirateCaptain)
+                        if (record.Id == AgesInteractionId.PirateCaptain)
                         {
                             yield return new PirateCaptainRoomEntity(NpcCharacter.CreateFromRecord(record), owner);
                             break;
@@ -1141,7 +1141,7 @@ internal sealed class RoomEntityFactory
                             yield return new SeaFairyNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
                             break;
                         }
-                        if (record.Id == InteractionId.KingZora || record.Id == InteractionId.Zora && record.SubId is 0x10 or 0x11 or 0x12)
+                        if (record.Id == AgesInteractionId.KingZora || record.Id == AgesInteractionId.Zora && record.SubId is 0x10 or 0x11 or 0x12)
                         {
                             yield return new OceanScriptNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
                             break;
@@ -1151,17 +1151,17 @@ internal sealed class RoomEntityFactory
                                 entryDirection: placementContext.BossEntryDirection==Vector2I.Down?2:
                                     placementContext.BossEntryDirection==Vector2I.Left?3:
                                     placementContext.BossEntryDirection==Vector2I.Right?1:0)
-                            : record is { Id: InteractionId.Ralph, SubId: 0x09 }
+                            : record is { Id: AgesInteractionId.Ralph, SubId: 0x09 }
                             ? new PalaceRalphRoomEntity(NpcCharacter.CreateFromRecord(record))
-                            : record is { Id: InteractionId.Plen, SubId: 0 }
+                            : record is { Id: AgesInteractionId.Plen, SubId: 0 }
                             ? new PlenRoomEntity(NpcCharacter.CreateFromRecord(record))
-                            : record is { Id: InteractionId.KingMoblinDefeated, SubId: 0 }
+                            : record is { Id: AgesInteractionId.KingMoblinDefeated, SubId: 0 }
                             ? new DefeatedMoblinActorRoomEntity(NpcCharacter.CreateFromRecord(record))
-                            : record is { Id: InteractionId.BombUpgradeFairy, SubId: 0 }
+                            : record is { Id: AgesInteractionId.BombUpgradeFairy, SubId: 0 }
                             ? new BombUpgradeFairyRoomEntity(NpcCharacter.CreateFromRecord(record))
-                            : record.Id is InteractionId.Goron or InteractionId.GoronElder || record is {Id:InteractionId.ShootingGallery,SubId:1} or {Id:InteractionId.Troy,SubId:0}
+                            : record.Id is AgesInteractionId.Goron or AgesInteractionId.GoronElder || record is {Id:AgesInteractionId.ShootingGallery,SubId:1} or {Id:AgesInteractionId.Troy,SubId:0}
                                 ? new GoronCaveRoomEntity(NpcCharacter.CreateFromRecord(record))
-                                : record is { Id: InteractionId.Zelda, SubId: 0 }
+                                : record is { Id: AgesInteractionId.Zelda, SubId: 0 }
                                 ? owner.RoomOfRitesZeldaFactory?.Invoke(record) ?? throw new InvalidOperationException("Room $5:$f1 requires its Zelda $ad:$00 native owner.")
                                 : record is { Id: 0x31, SubId: 0x07 } or { Id: 0x4c, SubId: 0x04 }
                                 ? owner.ZeldaRescueFactory?.Invoke(record) ?? throw new InvalidOperationException("Room $0:$65 requires its Zelda rescue native owner.")
@@ -1501,14 +1501,14 @@ internal sealed class RoomEntityFactory
                     ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex
                 };
                 giantGhini.Initialize(
-                    Resources.DungeonBosses.Enemy(EnemyId.GiantGhini), room, record.Position, _random,
+                    Resources.DungeonBosses.Enemy(AgesEnemyId.GiantGhini), room, record.Position, _random,
                     owner.OnSoundRequested, owner.BossShuttersClosed,
                     owner.DisableLinkCollisionsAndMenu,
                     () => owner.OnRoomMusicRequested(record.Group, record.Room),owner.ToScreen);
                 return new GiantGhiniBossRoomEntity(
                     giantGhini, placementContext.BossEntryDirection);
             case DungeonObjectKind.PumpkinHead:
-                ImportedEnemyDefinition pumpkin = Resources.DungeonBosses.Enemy(EnemyId.PumpkinHead);
+                ImportedEnemyDefinition pumpkin = Resources.DungeonBosses.Enemy(AgesEnemyId.PumpkinHead);
                 return new PumpkinHeadBossRoomEntity(
                     new PumpkinHeadBoss(
                         pumpkin, room, record.Position, _random, owner.OnSoundRequested,
@@ -1642,7 +1642,7 @@ internal sealed class RoomEntityFactory
             owner.IsScriptTextActive);
 
     private ToggleFloorRoomEntity CreateToggleFloor(OracleRoomData room) => new(room,Resources.DungeonInteractions,
-        () => _runtimeState.ReadWramByte(WramAddress.wActiveTilePos),owner.TryCreateFloorToggleTile,
+        () => _runtimeState.ReadWramByte(AgesWramAddress.wActiveTilePos),owner.TryCreateFloorToggleTile,
         () => owner.Entities<ToggleFloorTileRoomEntity>().Count,owner.IsOutgoingEntity,owner.OnRoomTileChanged,_animationTick);
 
     private DungeonSignalScriptRoomEntity CreateDungeonSignalScript(DungeonObjectRecord record)
@@ -1713,7 +1713,7 @@ internal sealed class RoomEntityFactory
                     return owner.NativeObjectPalettes![6];
                 }),
             DungeonObjectKind.MoblinFlag => new DecorationRoomEntity(record, Resources.SharedInteractions.MoblinFlag,
-                () => _saveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed)),
+                () => _saveData.HasGlobalFlag(AgesGlobalFlag.MoblinsKeepDestroyed)),
             DungeonObjectKind.PortalDecoration => new MakuPortalDecorationRoomEntity(record, room,
                 () => owner.TryCreatePortalDecoration(record)),
             DungeonObjectKind.SavedMonkeys => CreateSavedMonkey(record),
@@ -1723,7 +1723,7 @@ internal sealed class RoomEntityFactory
     }
 
     internal DecorationRoomEntity CreatePortalDecoration(DungeonObjectRecord producer) =>
-        new(producer with { Id = InteractionId.Decoration, SubId = 0, Kind = DungeonObjectKind.Decoration },
+        new(producer with { Id = AgesInteractionId.Decoration, SubId = 0, Kind = DungeonObjectKind.Decoration },
             Resources.FinalDungeonEntry.Decoration);
 
     internal IRoomEntity? CreateRoomLoadReward(int group, int room) =>
@@ -1747,8 +1747,8 @@ internal sealed class RoomEntityFactory
                 if (rooms.TrySetTile(position,tile)) owner.OnRoomTileChanged();
             },owner.OnSoundRequested,() => {
                 // FF~(DISABLE_ITEMS|DISABLE_ALL_BUT_INTERACTIONS) = $6f.
-                _runtimeState.SetWramByte(WramAddress.wDisabledObjects,0x6f);
-                _runtimeState.SetWramByte(WramAddress.wMenuDisabled,0x6f);
+                _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects,0x6f);
+                _runtimeState.SetWramByte(AgesWramAddress.wMenuDisabled,0x6f);
                 _saveData.SetRoomFlag(owner.ActiveRoom.Group,0x25,0x40);
                 owner.OnWallRetractionTriggered();
             });
@@ -1862,7 +1862,7 @@ internal sealed class RoomEntityFactory
                     Resources.DungeonInteractions.CircularSidePlatform(record.SubId));
             case DungeonObjectKind.HeadThwomp:
                 ImportedEnemyDefinition headThwomp =
-                    Resources.DungeonBosses.Enemy(EnemyId.HeadThwomp);
+                    Resources.DungeonBosses.Enemy(AgesEnemyId.HeadThwomp);
                 var headThwompBoss = new HeadThwompBoss();
                 headThwompBoss.Initialize(
                     headThwomp,
@@ -1880,7 +1880,7 @@ internal sealed class RoomEntityFactory
                     placementContext.BossEntryDirection);
             case DungeonObjectKind.Swoop:
                 ImportedEnemyDefinition swoopRecord =
-                    Resources.DungeonBosses.Enemy(EnemyId.Swoop);
+                    Resources.DungeonBosses.Enemy(AgesEnemyId.Swoop);
                 var swoop = new SwoopBoss();
                 swoop.Initialize(
                     swoopRecord,
@@ -1999,7 +1999,7 @@ internal sealed class RoomEntityFactory
                     owner.EnableLinkCollisionsAndMenu, owner.TryCreateMinibossPortal);
             case DungeonObjectKind.Subterror:
                 ImportedEnemyDefinition definition =
-                    Resources.DungeonBosses.Enemy(EnemyId.Subterror);
+                    Resources.DungeonBosses.Enemy(AgesEnemyId.Subterror);
                 var subterror = new SubterrorBoss();
                 subterror.Initialize(
                     definition,
@@ -2020,7 +2020,7 @@ internal sealed class RoomEntityFactory
                     placementContext.BossEntryDirection);
             case DungeonObjectKind.ShadowHag:
                 ImportedEnemyDefinition shadowHagDefinition =
-                    Resources.DungeonBosses.Enemy(EnemyId.ShadowHag);
+                    Resources.DungeonBosses.Enemy(AgesEnemyId.ShadowHag);
                 var shadowHag = new ShadowHagBoss();
                 shadowHag.Initialize(
                     shadowHagDefinition,
@@ -2111,7 +2111,7 @@ internal sealed class RoomEntityFactory
     {
         var actor = new ArmosWarriorActor();
         var entry = new BossEntryMovement(placementContext.BossEntryDirection);
-        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.ArmosWarrior), new ArmosWarriorEnvironment(room, Resources.ArmosWarrior, Resources.DungeonBosses,
+        actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.ArmosWarrior), new ArmosWarriorEnvironment(room, Resources.ArmosWarrior, Resources.DungeonBosses,
             _random, owner.BossShuttersClosed, () => owner.PartSlotAvailable, owner.CanAllocateEnemies,
             () => -(int)owner.ToScreen(Vector2.Zero).Y, owner.OnSoundRequested, owner.BeginScreenShake,
             owner.DisableLinkCollisionsAndMenu, owner.EnableLinkCollisionsAndMenu,
@@ -2131,7 +2131,7 @@ internal sealed class RoomEntityFactory
             () => owner.CanAllocateVireBats(3), (parent, subid, counted) =>
                 owner.TryAllocateEnemy(_ => {
                     var child = new BlueStalfosCharacter { Name = $"BlueStalfos_{subid:x2}" };
-                    child.Initialize(Resources.DungeonBosses.Enemy(EnemyId.BlueStalfos, subid), parent.Position, world!,
+                    child.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.BlueStalfos, subid), parent.Position, world!,
                         subid == 1 ? -1 : parent.Slot, parent.ZFixed);
                     return new BlueStalfosRoomEntity(child, world!, counted, killableIndex);
                 })?.Node as BlueStalfosCharacter,
@@ -2141,10 +2141,10 @@ internal sealed class RoomEntityFactory
             (position, z) => owner.TryCreateVirePuff(position, z, 2), owner.InteractionAnimationParameter,
             parent => owner.TryCreatePart(new BlueStalfosProjectileSpawn(parent.Position, parent.ZFixed, parent.Slot, parent.Angle)),
             owner.DisableLinkCollisionsAndMenu,
-            parent => owner.TryCreatePart(new BossDeathExplosionSpawn(parent.Position, EnemyId.BlueStalfos, parent.ZFixed >> 8)),
+            parent => owner.TryCreatePart(new BossDeathExplosionSpawn(parent.Position, AgesEnemyId.BlueStalfos, parent.ZFixed >> 8)),
             () => owner.OnRoomMusicRequested(record.Group, record.Room), owner.OnNativeSoundRequested, entry);
         var actor = new BlueStalfosCharacter { Name = "BlueStalfos_Spawner" };
-        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.BlueStalfos, 0), record.Position, world);
+        actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.BlueStalfos, 0), record.Position, world);
         return new BlueStalfosRoomEntity(actor, world, true, killableIndex);
     }
 
@@ -2158,12 +2158,12 @@ internal sealed class RoomEntityFactory
             owner.SetNativeActiveMusic(0xff); owner.SetNativeObjectPalette(RamrockProfile.Shared.Palette(0x83));
             owner.BeginBossEntrySignal(); entry.Arm();
         }, () => {
-            _runtimeState.SetWramByte(WramAddress.wDisabledObjects, 0); _runtimeState.SetWramByte(WramAddress.wMenuDisabled, 0);
+            _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0); _runtimeState.SetWramByte(AgesWramAddress.wMenuDisabled, 0);
             owner.SetNativeActiveMusic(SoundId.MusBoss); owner.OnNativeSoundRequested(SoundId.MusBoss);
         }, () => owner.BossEntrySignal != 0,
         (parent, subid) => owner.TryAllocateEnemy(_ => {
             var hand = new RamrockCharacter { Name = $"RamrockHand_{subid:x2}" };
-            hand.Initialize(Resources.DungeonBosses.Enemy(EnemyId.RamrockArms, subid), Vector2.Zero, world!, parent.Slot);
+            hand.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.RamrockArms, subid), Vector2.Zero, world!, parent.Slot);
             return new RamrockRoomEntity(hand, world!, 0);
         })?.Node as RamrockCharacter,
         slot => owner.ResolveEnemySlot(slot)?.Node as RamrockCharacter,
@@ -2173,10 +2173,10 @@ internal sealed class RoomEntityFactory
         () => owner.EntityAdapters<BombRoomEntity>().Where(b => !b.Finished).OrderBy(owner.DynamicItemSlotOf).Select(b => b.Bomb).ToArray(),
         owner.ToScreen,
         owner.DisableLinkCollisionsAndMenu,
-        parent => owner.TryCreatePart(new BossDeathExplosionSpawn(parent.Position, EnemyId.Ramrock, parent.ZFixed >> 8)),
+        parent => owner.TryCreatePart(new BossDeathExplosionSpawn(parent.Position, AgesEnemyId.Ramrock, parent.ZFixed >> 8)),
         owner.OnNativeSoundRequested, entry);
         var actor = new RamrockCharacter { Name = "Ramrock_07" };
-        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.Ramrock), record.Position, world);
+        actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.Ramrock), record.Position, world);
         return new RamrockRoomEntity(actor, world, killableIndex);
     }
 
@@ -2218,7 +2218,7 @@ internal sealed class RoomEntityFactory
             _ => (owner.TryAllocateEnemy(slot =>
             {
                 var child = new SmasherCharacter { Name = "Smasher_74_Parent" };
-                child.InitializePending(enemies.ImportedEnemy(EnemyId.Smasher,1),room,Vector2.Zero,_random,slot);
+                child.InitializePending(enemies.ImportedEnemy(AgesEnemyId.Smasher,1),room,Vector2.Zero,_random,slot);
                 return new SmasherRoomEntity(child,environment!,false);
             }) as SmasherRoomEntity)?.Character,
             () => { owner.EnableLinkCollisionsAndMenu(); owner.OnSoundRequested(SoundId.SndCtrlStopMusic); },
@@ -2226,7 +2226,7 @@ internal sealed class RoomEntityFactory
             () => owner.InteractionSlotAvailable,() => owner.PartSlotAvailable,owner.DisableLinkCollisionsAndMenu,
             () => owner.OnRoomMusicRequested(record.Group,record.Room),owner.OnSoundRequested,0,true,entry,() => owner.FrameCounter,owner.TryCreatePuzzlePuff);
         var ball = new SmasherCharacter { Name = "Smasher_74_Ball" };
-        ball.InitializePending(enemies.ImportedEnemy(EnemyId.Smasher,0),room,record.Position,_random,0);
+        ball.InitializePending(enemies.ImportedEnemy(AgesEnemyId.Smasher,0),room,record.Position,_random,0);
         return new SmasherRoomEntity(ball,environment,true);
     }
 
@@ -2265,8 +2265,8 @@ internal sealed class RoomEntityFactory
         AnglerFishEnvironment? world = null;
         void SetLinkMask(int value)
         {
-            _runtimeState.SetWramByte(WramAddress.wDisabledObjects,(byte)value);
-            _runtimeState.SetWramByte(WramAddress.wMenuDisabled,(byte)value);
+            _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects,(byte)value);
+            _runtimeState.SetWramByte(AgesWramAddress.wMenuDisabled,(byte)value);
         }
         world = new(room,_random,scrolling => {
             owner.EnableLinkCollisionsAndMenu();
@@ -2274,7 +2274,7 @@ internal sealed class RoomEntityFactory
             owner.SetNativeActiveMusic(0xff);owner.BeginBossEntrySignal();entry.Arm();
         },parent => (owner.TryAllocateEnemy(_ => {
             var child = new AnglerFishCharacter { Name = "AnglerFish_76_Antenna" };
-            child.Initialize(Resources.DungeonBosses.Enemy(EnemyId.AnglerFish,1),Vector2.Zero,world!,false,parent);
+            child.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.AnglerFish,1),Vector2.Zero,world!,false,parent);
             return new AnglerFishRoomEntity(child,world!);
         })?.Node as AnglerFishCharacter),parent => owner.TryAllocateEnemy(_ => {
             var bubble = new AnglerFishCharacter { Name = "AnglerFishBubble_26" };
@@ -2286,12 +2286,12 @@ internal sealed class RoomEntityFactory
         },() => SetLinkMask(1),() => {
             SetLinkMask(0);owner.SetNativeActiveMusic(SoundId.MusMiniboss);owner.OnNativeSoundRequested(SoundId.MusMiniboss);
         },owner.DisableLinkCollisionsAndMenu,
-        point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,EnemyId.AnglerFish)),
+        point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,AgesEnemyId.AnglerFish)),
         () => owner.OnRoomMusicRequested(record.Group,record.Room),owner.OnNativeSoundRequested,
         point => owner.TryCreatePart(new ItemDropSpawn(ItemDropDatabase.ScentSeeds,point,InvincibilityCounter:0xf0)),
         point => owner.TryCreateCandleExplosion(point)>=0,entry);
         var actor = new AnglerFishCharacter { Name = "AnglerFish_76_Main" };
-        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.AnglerFish),record.Position,world,true);
+        actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.AnglerFish),record.Position,world,true);
         return new AnglerFishRoomEntity(actor,world);
     }
 
@@ -2300,8 +2300,8 @@ internal sealed class RoomEntityFactory
         var entry = new BossEntryMovement(placementContext.BossEntryDirection);
         void SetLinkMask(int value)
         {
-            _runtimeState.SetWramByte(WramAddress.wDisabledObjects,(byte)value);
-            _runtimeState.SetWramByte(WramAddress.wMenuDisabled,(byte)value);
+            _runtimeState.SetWramByte(AgesWramAddress.wDisabledObjects,(byte)value);
+            _runtimeState.SetWramByte(AgesWramAddress.wMenuDisabled,(byte)value);
         }
         var world = new PlasmarineEnvironment(_random,() => {
             SetLinkMask(1);owner.EnableLinkCollisionsAndMenu();owner.OnNativeSoundRequested(SoundId.SndCtrlStopMusic);
@@ -2309,9 +2309,9 @@ internal sealed class RoomEntityFactory
         },() => {
             SetLinkMask(0);owner.SetNativeActiveMusic(SoundId.MusBoss);owner.OnNativeSoundRequested(SoundId.MusBoss);
         },parent => owner.TryCreatePart(new PlasmarineProjectileSpawn(parent.Position.Floor()+new Vector2(0,-20),parent.CurrentOamFlags-1,parent.Slot)),
-        owner.DisableLinkCollisionsAndMenu,point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,EnemyId.Plasmarine)),owner.OnNativeSoundRequested,entry);
+        owner.DisableLinkCollisionsAndMenu,point => owner.TryCreatePart(new BossDeathExplosionSpawn(point,AgesEnemyId.Plasmarine)),owner.OnNativeSoundRequested,entry);
         var actor = new PlasmarineCharacter {Name="Plasmarine_7e"};
-        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.Plasmarine),record.Position,world);
+        actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.Plasmarine),record.Position,world);
         return new PlasmarineRoomEntity(actor,world);
     }
 
@@ -2340,13 +2340,13 @@ internal sealed class RoomEntityFactory
             owner.TryAllocateEnemy(slot => {
                 childSlot = slot;
                 var shell = new OctogonCharacter { Name = "Octogon_7d_Shell" };
-                shell.Initialize(enemies.ImportedEnemy(EnemyId.Octogon,2),Vector2.Zero,_random,_runtimeState,world!,parent.Slot);
+                shell.Initialize(enemies.ImportedEnemy(AgesEnemyId.Octogon,2),Vector2.Zero,_random,_runtimeState,world!,parent.Slot);
                 return new OctogonRoomEntity(shell,world!);
             });
             return childSlot;
         },slot => owner.ResolveEnemySlot(slot)?.Node as OctogonCharacter,owner.TryCreatePart,SpawnInteraction,entry);
         var actor = new OctogonCharacter { Name = $"Octogon_7d_{record.SubId:x2}" };
-        actor.Initialize(enemies.ImportedEnemy(EnemyId.Octogon,record.SubId),position,_random,_runtimeState,world);
+        actor.Initialize(enemies.ImportedEnemy(AgesEnemyId.Octogon,record.SubId),position,_random,_runtimeState,world);
         return new OctogonRoomEntity(actor,world);
     }
 
@@ -2380,7 +2380,7 @@ internal sealed class RoomEntityFactory
     {
         var actor = new EyesoarActor();
         var entry = new BossEntryMovement(placementContext.BossEntryDirection);
-        actor.Initialize(Resources.DungeonBosses.Enemy(EnemyId.Eyesoar), new EyesoarEnvironment(room, Resources.Eyesoar, Resources.DungeonBosses,
+        actor.Initialize(Resources.DungeonBosses.Enemy(AgesEnemyId.Eyesoar), new EyesoarEnvironment(room, Resources.Eyesoar, Resources.DungeonBosses,
             Resources.DungeonVisuals.Visual("eyesoar-spawn"), _random, owner.BossShuttersClosed, () => owner.PartSlotAvailable,
             owner.CanAllocateEnemies, () => owner.InteractionSlotAvailable, owner.OnSoundRequested, owner.DisableLinkCollisionsAndMenu,
             owner.EnableLinkCollisionsAndMenu, entry), record.Position);
@@ -2560,11 +2560,11 @@ internal sealed class RoomEntityFactory
     {
         // These source families are placed INTERACTION records. Test their
         // pool before constructors can write tiles or create linked state.
-        if (record.Id is InteractionId.DoorController or InteractionId.TriggerTranslator or InteractionId.CreateObjectAtEachTileIndex && !owner.InteractionSlotAvailable)
+        if (record.Id is InteractionId.DoorController or AgesInteractionId.TriggerTranslator or InteractionId.CreateObjectAtEachTileIndex && !owner.InteractionSlotAvailable)
             return null;
-        if (record.Id == InteractionId.Miscellaneous1 && record.SubId == 0x0f && !owner.InteractionSlotAvailable)
+        if (record.Id == AgesInteractionId.Miscellaneous1 && record.SubId == 0x0f && !owner.InteractionSlotAvailable)
             return null;
-        if (record.Id == InteractionId.Miscellaneous1 && record.SubId == 0x0f)
+        if (record.Id == AgesInteractionId.Miscellaneous1 && record.SubId == 0x0f)
             return new NuunBridgeRoomEntity(record, room,
                 _saveData ?? throw new InvalidOperationException("INTERAC $6b:$0f requires live save state."),
                 _runtimeState, _animationTick, owner.OnRoomTileChanged, owner.OnSoundRequested,
@@ -2573,7 +2573,7 @@ internal sealed class RoomEntityFactory
                         throw new InvalidOperationException("INTERAC$6b:$0f setTile requires its active room session.");
                     return rooms.TrySetTile(position,tile);
                 });
-        if (record.Id == InteractionId.Miscellaneous2 && record.SubId == 0x12)
+        if (record.Id == AgesInteractionId.Miscellaneous2 && record.SubId == 0x12)
         {
             if (!owner.InteractionSlotAvailable) return null;
             return new OrbBridgeControllerRoomEntity(record,
@@ -2581,7 +2581,7 @@ internal sealed class RoomEntityFactory
                     $"Room {group:x1}:{room.Id:x2} $dc:$12 requires live save state."),
                 _runtimeState, owner.OnSoundRequested, Resources.DungeonMechanics.SolveSound, rooms, owner.TryCreateBridgeSpawner);
         }
-        if (record.Id == InteractionId.Miscellaneous2 && record.SubId == 0x0e)
+        if (record.Id == AgesInteractionId.Miscellaneous2 && record.SubId == 0x0e)
         {
             if (!owner.InteractionSlotAvailable) return null;
             return new AncientTombEntranceRoomEntity(record, room,
@@ -2594,7 +2594,7 @@ internal sealed class RoomEntityFactory
                     rooms.TrySetTile(position, tile);
                 }, owner.TryCreatePuzzlePuff, owner.OnSoundRequested) { Visible = false };
         }
-        if (record.Id == InteractionId.Miscellaneous2 && record.SubId is 0x15 or 0x16)
+        if (record.Id == AgesInteractionId.Miscellaneous2 && record.SubId is 0x15 or 0x16)
         {
             if (!owner.InteractionSlotAvailable) return null;
             var save = _saveData ?? throw new InvalidOperationException($"Room {group:x1}:{room.Id:x2} $dc:${record.SubId:x2} requires live save state.");
@@ -2603,7 +2603,7 @@ internal sealed class RoomEntityFactory
                 () => _treasures.GetObject(Resources.ChestContents.Object(record.SubId, save.IsLinkedGame)))
                 { Visible = false, Name = $"ChestContents_{record.SubId:x2}" };
         }
-        if (record.Id == InteractionId.Miscellaneous2 && record.SubId is 0x0c or 0x0d)
+        if (record.Id == AgesInteractionId.Miscellaneous2 && record.SubId is 0x0c or 0x0d)
             return new RidgeBridgeControllerRoomEntity(record,
                 _saveData ?? throw new InvalidOperationException($"$dc:${record.SubId:x2} requires live save state."),
                 () => owner.ActiveTriggers, () => owner.PartSlotAvailable, owner.OnSoundRequested, Resources.DungeonMechanics);
@@ -2618,7 +2618,7 @@ internal sealed class RoomEntityFactory
                 _animationTick,
                 owner.OnSoundRequested);
         }
-        if (record.Id == InteractionId.ExtendableBridge)
+        if (record.Id == AgesInteractionId.ExtendableBridge)
         {
             return new ExtendableBridgeRoomEntity(
                 record,
@@ -2629,7 +2629,7 @@ internal sealed class RoomEntityFactory
                 owner.OnRoomTileChanged,
                 owner.OnSoundRequested);
         }
-        if (record.Id == InteractionId.SmogBoss)
+        if (record.Id == AgesInteractionId.SmogBoss)
         {
             // obj_Part skips an allocation failure before any
             // object state or constructor side effects can run.
@@ -2642,7 +2642,7 @@ internal sealed class RoomEntityFactory
                 _runtimeState,
                 _animationTick,owner.TryCreateSeedReflectorChild);
         }
-        if (record.Id == InteractionId.TriggerTranslator && record.SubId == 0x02)
+        if (record.Id == AgesInteractionId.TriggerTranslator && record.SubId == 0x02)
         {
             return new TorchTriggerTranslatorRoomEntity(
                 record,
@@ -2664,7 +2664,7 @@ internal sealed class RoomEntityFactory
             if (!owner.PartSlotAvailable) return null;
             return Create(new RespawnableBushSpawn(record.PackedPosition, record.SubId), room);
         }
-        if (record.Id == InteractionId.DungeonEvents && record.SubId == 0x09)
+        if (record.Id == AgesInteractionId.DungeonEvents && record.SubId == 0x09)
         {
             if (!owner.InteractionSlotAvailable) return null;
             return new DungeonTilePatternFallingKeyRoomEntity(
@@ -2676,7 +2676,7 @@ internal sealed class RoomEntityFactory
                     "dungeon_mechanics.tsv:INTERAC_DUNGEON_EVENTS $21:$09"),
                 () => owner.ActiveRoomHasFlag(_saveData,OracleSaveData.RoomFlagItem),owner.TryCreateGroundTreasure);
         }
-        if (record.Id == InteractionId.DungeonEvents && record.SubId is 0x0a or 0x0c)
+        if (record.Id == AgesInteractionId.DungeonEvents && record.SubId is 0x0a or 0x0c)
         {
             return new MoonlitGrottoArmosEventRoomEntity(
                 record,
@@ -2695,7 +2695,7 @@ internal sealed class RoomEntityFactory
                     : null,
                 owner.TryCreateInteraction);
         }
-        if (record.Id == InteractionId.DungeonEvents && record.SubId == 0x0d)
+        if (record.Id == AgesInteractionId.DungeonEvents && record.SubId == 0x0d)
         {
             if (_saveData?.HasGlobalFlag(Resources.DungeonMechanics.MoonlitGlobalFlag) == true ||
                 _saveData?.HasRoomFlag(
@@ -2715,7 +2715,7 @@ internal sealed class RoomEntityFactory
                 owner.OnRoomEntityDialogueRequested,
                 owner.IsTextActive);
         }
-        if (record.Id == InteractionId.DungeonEvents && record.SubId == 0x0e)
+        if (record.Id == AgesInteractionId.DungeonEvents && record.SubId == 0x0e)
         {
             if (!owner.InteractionSlotAvailable) return null;
             return new MoonlitGrottoFallingKeyRoomEntity(
@@ -2727,7 +2727,7 @@ internal sealed class RoomEntityFactory
                     "dungeon_mechanics.tsv:INTERAC_DUNGEON_EVENTS $21:$0e"),
                 () => owner.ActiveRoomHasFlag(_saveData,OracleSaveData.RoomFlagItem),owner.TryCreateGroundTreasure);
         }
-        if (record.Id == InteractionId.TriggerTranslator)
+        if (record.Id == AgesInteractionId.TriggerTranslator)
         {
             return new MoonlitGrottoCrystalRoomEntity(
                 record,
@@ -2756,7 +2756,7 @@ internal sealed class RoomEntityFactory
                     if (rooms.TrySetTile(position,tile)) owner.OnRoomTileChanged();
                 }, owner.OnSoundRequested);
         }
-        if (record.Id == InteractionId.DungeonEvents && record.SubId == 0x17)
+        if (record.Id == AgesInteractionId.DungeonEvents && record.SubId == 0x17)
         {
             // No object updates occur between these placed interaction rows;
             // a full pool leaves this record unallocated, without retry.
@@ -2829,8 +2829,8 @@ internal sealed class RoomEntityFactory
                 },owner.UpdateBossShutterSignal,owner.IsScriptTextActive,owner.IsOutgoingEntity,() => owner.DoorPaletteFadeActive,
                 record.SubId >= 0x14
                     ? () => (lightableTorchState ?? throw MissingLightableTorchState(record)).LitCount : null,
-                () => _runtimeState.SetWramByte(WramAddress.wTmpcfc0,
-                    (byte)(_runtimeState.ReadWramByte(WramAddress.wTmpcfc0)^Resources.DungeonMechanics.DoorEntryScratchMask))),
+                () => _runtimeState.SetWramByte(AgesWramAddress.wTmpcfc0,
+                    (byte)(_runtimeState.ReadWramByte(AgesWramAddress.wTmpcfc0)^Resources.DungeonMechanics.DoorEntryScratchMask))),
             _ => throw new InvalidOperationException(
                 $"Unsupported dungeon interaction ${record.Id:x2}:" +
                 $"${record.SubId:x2} in room {group:x1}:{room.Id:x2}.")
@@ -2971,7 +2971,7 @@ internal sealed class RoomEntityFactory
     {
         if (!owner.CanAllocateEnemies(1)) throw new NotSupportedException("smog.s unchecked ENEMY$7c allocation into a full native pool is not represented.");
         var actor = new SmogCharacter();
-        var record = enemies.ImportedEnemy(EnemyId.Smog,0);
+        var record = enemies.ImportedEnemy(AgesEnemyId.Smog,0);
         byte Collision(int packed)
         {
             int x = packed & 15, y = packed >> 4;
@@ -3329,7 +3329,7 @@ internal sealed class RoomEntityFactory
         new(spawn, room, Resources.Dimitri, _saveData ?? throw new InvalidOperationException("Dimitri requires live save state."),
             _runtimeState, owner.OnSoundRequested, owner.OnRoomEntityDialogueRequested, owner.IsTextActive,
             destination => CreateCompanionTileBreaker(spawn.Group, destination.Id, destination),
-            nativeRescueScript:Resources.TokayDimitri.Matches(spawn.Group,room.Id)&&(_saveData.ReadWramByte(WramAddress.wDimitriState)&0x20)==0);
+            nativeRescueScript:Resources.TokayDimitri.Matches(spawn.Group,room.Id)&&(_saveData.ReadWramByte(AgesWramAddress.wDimitriState)&0x20)==0);
 
     private MooshCompanionRoomEntity CreateMoosh(
         MooshCompanionSpawn spawn,
@@ -3465,7 +3465,7 @@ internal sealed class RoomEntityFactory
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
         child.Initialize(
-            Resources.DungeonBosses.Enemy(EnemyId.GiantGhiniChild), spawn.Owner, room, spawn.Index, _random);
+            Resources.DungeonBosses.Enemy(AgesEnemyId.GiantGhiniChild), spawn.Owner, room, spawn.Index, _random);
         return new GiantGhiniChildRoomEntity(
             child, owner.OnSoundRequested);
     }
@@ -3474,7 +3474,7 @@ internal sealed class RoomEntityFactory
     {
         var bug = new ShadowHagBug();
         bug.Initialize(
-            Resources.DungeonBosses.Enemy(EnemyId.ShadowHagBug),
+            Resources.DungeonBosses.Enemy(AgesEnemyId.ShadowHagBug),
             spawn.Owner,
             _random,
             spawn.Position);
@@ -3604,32 +3604,32 @@ internal sealed class RoomEntityFactory
             return new DekuScrubRoomEntity(
                 NpcCharacter.CreateFromRecord(record), Resources.DekuScrub);
 
-        if (record is { Id: InteractionId.Pirate, SubId: <= 3 })
+        if (record is { Id: AgesInteractionId.Pirate, SubId: <= 3 })
             return new PirateCrewRoomEntity(NpcCharacter.CreateFromRecord(record), owner);
 
-        if (record.Id == InteractionId.ChildJabu && record.SubId == 0)
+        if (record.Id == AgesInteractionId.ChildJabu && record.SubId == 0)
             return new ChildJabuRoomEntity(record);
 
-        if (record is { Id: InteractionId.Soldier, SubId: 0x0d })
+        if (record is { Id: AgesInteractionId.Soldier, SubId: 0x0d })
             return new PalaceFriendlySoldierRoomEntity(NpcCharacter.CreateFromRecord(record),
                 Resources.PalaceSoldiers, _saveData!, _runtimeState, owner.IsScriptTextActive,
                 owner.OnRoomEntityDialogueRequested);
 
-        if (record is { Id: InteractionId.Miscellaneous1, SubId: 0x13 or 0x14 })
+        if (record is { Id: AgesInteractionId.Miscellaneous1, SubId: 0x13 or 0x14 })
             return new GoronBombStatueRoomEntity(
                 NpcCharacter.CreateFromRecord(record), room, _animationTick);
 
-        if (record.Id == InteractionId.KnowItAllBird)
+        if (record.Id == AgesInteractionId.KnowItAllBird)
         {
             var bird = new KnowItAllBirdCharacter { Name = $"Npc_e3_{record.SubId:x2}" };
             bird.InitializeBird(record, Resources.KnowItAllBirds, _random, owner.IsTextActive);
             return new KnowItAllBirdRoomEntity(bird);
         }
 
-        if (record is { Id: InteractionId.ForestFairy, SubId: >= 0x0e and <= 0x10 })
+        if (record is { Id: AgesInteractionId.ForestFairy, SubId: >= 0x0e and <= 0x10 })
             return new ForestHintFairyRoomEntity(NpcCharacter.CreateFromRecord(record));
 
-        if (record is { Id: InteractionId.ForestFairy, SubId: >= 5 and <= 0x0d })
+        if (record is { Id: AgesInteractionId.ForestFairy, SubId: >= 5 and <= 0x0d })
             return new ForestNpcRoomEntity(NpcCharacter.CreateFromRecord(record));
         if (record is { Id: 0x5d, SubId: 2, Var03: 0 })
             return new WaitingNayruAnimalRoomEntity(NpcCharacter.CreateFromRecord(record), owner,
@@ -3641,7 +3641,7 @@ internal sealed class RoomEntityFactory
             or { Id: 0x2e, SubId: 0 })
             return new SharedScriptNpcRoomEntity(NpcCharacter.CreateFromRecord(record), Resources.SharedNpcs, owner);
 
-        if (record is { Id: InteractionId.ImpaNpc, SubId: 1 })
+        if (record is { Id: AgesInteractionId.ImpaNpc, SubId: 1 })
         {
             var impa = NpcCharacter.CreateFromRecord(record);
             int text = _saveData?.IsLinkedGame == true ? 0x012e : 0x012b;
@@ -3649,11 +3649,11 @@ internal sealed class RoomEntityFactory
             return new PastImpaRoomEntity(impa);
         }
 
-        if (record is { Id: InteractionId.HardhatWorker, SubId: 3 })
+        if (record is { Id: AgesInteractionId.HardhatWorker, SubId: 3 })
             return new BlackTowerPatrollingWorkerRoomEntity(
                 NpcCharacter.CreateFromRecord(record), Resources.BlackTower);
 
-        if (record is { Group: 1, Room: 0xba, Id: InteractionId.Pirate, SubId: 0x04 })
+        if (record is { Group: 1, Room: 0xba, Id: AgesInteractionId.Pirate, SubId: 0x04 })
         {
             if (_saveData is null || _inventory is null)
             {
@@ -3681,7 +3681,7 @@ internal sealed class RoomEntityFactory
             return new TingleRoomEntity(record, Resources.Tingle, _inventory);
         }
 
-        if (record is { Id: InteractionId.Tokay, SubId: >= 0x06 and <= 0x0a })
+        if (record is { Id: AgesInteractionId.Tokay, SubId: >= 0x06 and <= 0x0a })
         {
             if (_saveData is null)
             {
@@ -3713,13 +3713,13 @@ internal sealed class RoomEntityFactory
             return new TokayNpcRoomEntity(holder);
         }
 
-        if (record.Id == InteractionId.Tokay)
+        if (record.Id == AgesInteractionId.Tokay)
         {
             var tokay = new TokayCharacter { Name = $"Npc_48_{record.SubId:x2}" };
             tokay.Initialize(record);
             ConfigureTokayActor(tokay);
             if (record.SubId == 0x0b && tokay.Active)
-                _runtimeState.SetWramByte(WramAddress.wDiggingUpEnemiesForbidden, 1);
+                _runtimeState.SetWramByte(AgesWramAddress.wDiggingUpEnemiesForbidden, 1);
             if (record.SubId == 0x1e)
             {
                 room.SetPositionTileAndCollision(tokay.Position, 0, 0x0f,
@@ -3744,7 +3744,7 @@ internal sealed class RoomEntityFactory
             return new TokayNpcRoomEntity(tokay);
         }
 
-        if (record is { Group: 1, Room: 0xcb, Id: InteractionId.Rosa, SubId: 0x00 })
+        if (record is { Group: 1, Room: 0xcb, Id: AgesInteractionId.Rosa, SubId: 0x00 })
         {
             NpcCharacter tokayActor = NpcCharacter.CreateFromRecord(record);
             ConfigureTokayActor(tokayActor);
@@ -3783,7 +3783,7 @@ internal sealed class RoomEntityFactory
             comedian.InitializeComedian(record, Resources.Comedian.Record);
             return new NpcTalkRoomEntity(comedian, scriptSensitive: true);
         }
-        if (record.Id == InteractionId.Tokkey && record.SubId == 0)
+        if (record.Id == AgesInteractionId.Tokkey && record.SubId == 0)
             return new TokkeyRoomEntity(NpcCharacter.CreateFromRecord(record));
         if (record.Group == Resources.DumbbellMan.Record.Group &&
             record.Room == Resources.DumbbellMan.Record.Room &&
@@ -3798,7 +3798,7 @@ internal sealed class RoomEntityFactory
             man.InitializeDumbbellMan(record, Resources.DumbbellMan.Record);
             return new NpcTalkRoomEntity(man);
         }
-        if (record.Id == InteractionId.OldZora && record.SubId == 0)
+        if (record.Id == AgesInteractionId.OldZora && record.SubId == 0)
         {
             var zora = new OldZoraCharacter
             {
@@ -3831,7 +3831,7 @@ internal sealed class RoomEntityFactory
             cheval.InitializeCheval(record, Resources.Cheval.Record);
             return new ChevalRoomEntity(cheval, Resources.Cheval.Record);
         }
-        if (Resources.RalphAfterCheval.Matches(record) || record is { Id: InteractionId.Ralph, SubId: 0x0b })
+        if (Resources.RalphAfterCheval.Matches(record) || record is { Id: AgesInteractionId.Ralph, SubId: 0x0b })
         {
             var ralph = new RalphAfterChevalCharacter
             {
@@ -3900,7 +3900,7 @@ internal sealed class RoomEntityFactory
             {
                 Group: 2,
                 Room: 0x2f,
-                Id: InteractionId.Postman,
+                Id: AgesInteractionId.Postman,
                 SubId: 0x00,
                 Var03: 0x00
             })
@@ -3917,7 +3917,7 @@ internal sealed class RoomEntityFactory
             {
                 Group: 2,
                 Room: 0x3e,
-                Id: InteractionId.ToiletHand,
+                Id: AgesInteractionId.ToiletHand,
                 SubId: 0x00,
                 Var03: 0x00
             })
@@ -3933,23 +3933,23 @@ internal sealed class RoomEntityFactory
         }
 
         NpcCharacter npc = NpcCharacter.CreateFromRecord(record);
-        if (record.Id == InteractionId.OldMan && record.SubId <= 6)
+        if (record.Id == AgesInteractionId.OldMan && record.SubId <= 6)
             return new LibraryActorRoomEntity(npc, Resources.Library, _saveData, _runtimeState);
         if (Resources.Library.IsReader(record))
             return new LibraryReaderRoomEntity(npc, Resources.Library, _saveData, owner);
-        if (record.Id == InteractionId.MamamuYan && record.SubId == 0)
+        if (record.Id == AgesInteractionId.MamamuYan && record.SubId == 0)
         {
             npc.SetAnimationRate(0);
             npc.SetScriptButtonSensitive(false);
             return new MamamuRoomEntity(npc);
         }
-        if (record.Id == InteractionId.MamamuDog && record.SubId == 0)
+        if (record.Id == AgesInteractionId.MamamuDog && record.SubId == 0)
         {
             if (_saveData is not null)
                 npc.SetActive(new NpcVisibilityRuleDatabase().ShouldShow(record, _saveData, _runtimeState));
             return new MamamuDogRoomEntity(npc, () => _random.Next().Value, owner.IsTextActive);
         }
-        if (record.Id == InteractionId.MamamuDog && record.SubId == 1)
+        if (record.Id == AgesInteractionId.MamamuDog && record.SubId == 1)
         {
             if (_saveData is null)
                 throw new InvalidOperationException($"{NpcSource(record)} requires save data for roaming dog $54:$01.");
@@ -3957,7 +3957,7 @@ internal sealed class RoomEntityFactory
                 () => _random.Next().Value,owner.OnRoomEntityDialogueRequested,
                 owner.OnSoundRequested,owner.OnRoomWarpRequested,owner.IsTextActive);
         }
-        if (record is { Id: InteractionId.OldManWithRupees, SubId: 0x01 })
+        if (record is { Id: AgesInteractionId.OldManWithRupees, SubId: 0x01 })
             return new OldManRupeesRoomEntity(npc);
         if (Resources.StoneRabbit.Matches(record))
         {
@@ -4000,7 +4000,7 @@ internal sealed class RoomEntityFactory
             {
                 Group: 0,
                 Room: 0x83,
-                Id: InteractionId.GreatFairy,
+                Id: AgesInteractionId.GreatFairy,
                 SubId: 0x00,
                 Var03: 0x00
             })
@@ -4011,7 +4011,7 @@ internal sealed class RoomEntityFactory
             {
                 Group: 0,
                 Room: 0x5d,
-                Id: InteractionId.LinkedGameGhini,
+                Id: AgesInteractionId.LinkedGameGhini,
                 SubId: 0x00,
                 Var03: 0x00
             })
@@ -4102,11 +4102,11 @@ internal sealed class RoomEntityFactory
                     $"{NpcSource(record)} is not part of room 3:9e's " +
                     "imported native interaction set.");
             }
-            if (record is { Id: InteractionId.ImpaNpc, SubId: 0x00 })
+            if (record is { Id: AgesInteractionId.ImpaNpc, SubId: 0x00 })
                 impas.Add(record);
-            else if (record is { Id: InteractionId.Nayru, SubId: 0x0b })
+            else if (record is { Id: AgesInteractionId.Nayru, SubId: 0x0b })
                 nayru = record;
-            else if (record is { Id: InteractionId.Zelda, SubId: 0x07 })
+            else if (record is { Id: AgesInteractionId.Zelda, SubId: 0x07 })
                 zelda = record;
         }
 
@@ -4219,7 +4219,7 @@ internal sealed class RoomEntityFactory
         bool foundWorker = false;
         foreach (NpcRecord record in records)
         {
-            if (record is { Id: InteractionId.PickaxeWorker, SubId: 0x00 })
+            if (record is { Id: AgesInteractionId.PickaxeWorker, SubId: 0x00 })
             {
                 RequireNpcImplementation(
                     record,
@@ -4336,7 +4336,7 @@ internal sealed class RoomEntityFactory
             throw new InvalidOperationException(
                 "Room 2:e4 Tokay trading hut requires live inventory and save state.");
         }
-        if (records.Count != 1 || records[0] is not { Id: InteractionId.Tokay, SubId: 0x0e })
+        if (records.Count != 1 || records[0] is not { Id: AgesInteractionId.Tokay, SubId: 0x0e })
         {
             throw new InvalidOperationException(
                 $"Room 2:e4 must contain Tokay shopkeeper $48:$0e, got {records.Count} NPC records.");
@@ -4408,16 +4408,16 @@ internal sealed class RoomEntityFactory
             return;
 
         NpcRecord record = npc.Record;
-        if (record.Id == InteractionId.Rosa)
+        if (record.Id == AgesInteractionId.Rosa)
         {
             // rosa.s:@@state0 reads wEssencesObtained directly after the
             // linked-game check; the inventory view may not have refreshed yet.
             bool visible = _saveData.IsLinkedGame &&
-                (_saveData.ReadWramByte(WramAddress.wEssencesObtained) & 0x04) == 0;
+                (_saveData.ReadWramByte(AgesWramAddress.wEssencesObtained) & 0x04) == 0;
             npc.SetActive(visible);
             return;
         }
-        if (record.Id != InteractionId.Tokay)
+        if (record.Id != AgesInteractionId.Tokay)
             return;
 
         if (record.SubId is 0x0f or 0x10)
@@ -4470,16 +4470,16 @@ internal sealed class RoomEntityFactory
 
             IRoomEntity entity = record switch
             {
-                { Id: InteractionId.MaleVillager, SubId: 0x02 } =>
+                { Id: AgesInteractionId.MaleVillager, SubId: 0x02 } =>
                     new BlackTowerBlockingVillagerRoomEntity(npc, Resources.BlackTower),
-                { Id: InteractionId.Soldier, SubId: 0x0c } =>
+                { Id: AgesInteractionId.Soldier, SubId: 0x0c } =>
                     new BlackTowerSoldierRoomEntity(npc, Resources.BlackTower, _random),
-                { Id: InteractionId.PickaxeWorker, SubId: 0x03 } =>
+                { Id: AgesInteractionId.PickaxeWorker, SubId: 0x03 } =>
                     new BlackTowerPickaxeWorkerRoomEntity(
                         npc, Resources.Room148.Record, Resources.BlackTower, _random, owner.OnSoundRequested),
-                { Id: InteractionId.HardhatWorker, SubId: 0x00 } =>
+                { Id: AgesInteractionId.HardhatWorker, SubId: 0x00 } =>
                     new BlackTowerShovelWorkerRoomEntity(npc, Resources.BlackTower),
-                { Id: InteractionId.HardhatWorker, SubId: 0x03 } =>
+                { Id: AgesInteractionId.HardhatWorker, SubId: 0x03 } =>
                     new BlackTowerPatrollingWorkerRoomEntity(
                         npc, Resources.BlackTower),
                 _ => throw new InvalidOperationException(
@@ -4584,7 +4584,7 @@ internal sealed class RoomEntityFactory
         {
             0 => false,
             1 => _saveData is null ||
-                !_saveData.HasGlobalFlag(GlobalFlag.MakuTreeSaved),
+                !_saveData.HasGlobalFlag(AgesGlobalFlag.MakuTreeSaved),
             2 => _saveData is null ||
                 !_saveData.HasTreasure(TreasureId.SeedSatchel),
             _ => false
@@ -4854,7 +4854,7 @@ internal sealed class RoomEntityFactory
                 // bombs.s:bombUpdateThrowingVerticallyAndCheckDelete writes
                 // this signal for any landed hazard, after the room-boundary check.
                 if (owner.ActiveRoom.Group == 0 && owner.ActiveRoom.Id == 0x50)
-                    _runtimeState.SetWramByte(WramAddress.wTmpcfc0, 1);
+                    _runtimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 1);
                 if (hazard is HazardType.Water or HazardType.Lava)
                     owner.OnItemDropEnteredHazard(position, hazard);
                 else if (hazard == HazardType.Hole)
@@ -5304,7 +5304,7 @@ internal sealed class RoomEntityFactory
 
     private IEnumerable<IRoomEntity> CreateRoom5bfInteractions()
     {
-        var state = new LeverState(_runtimeState, WramAddress.wLever1PullDistance);
+        var state = new LeverState(_runtimeState, AgesWramAddress.wLever1PullDistance);
         LeverRoomEntity? lever = null;
         foreach (Room5bfInteractionRecord record in Resources.Room5bf.Records)
         {
@@ -5473,7 +5473,7 @@ internal sealed class RoomEntityFactory
             ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
         portal.InitializeTemporary(timePortals.TemporaryVisual, room, position, _saveData,
-            () => _runtimeState.ReadWramByte(WramAddress.wcde0) != 0);
+            () => _runtimeState.ReadWramByte(AgesWramAddress.wcde0) != 0);
         return new TimePortalRoomEntity(portal, owner.OnTimePortalEntered);
     }
 
@@ -5487,7 +5487,7 @@ internal sealed class RoomEntityFactory
             stateModifier++;
         // roomInitialization.s:calculateRoomStateModifier uses the selected
         // companion for pack $7f, with the standard branch for value $00.
-        int companion = _saveData?.ReadWramByte(WramAddress.wAnimalCompanion) ?? 0;
+        int companion = _saveData?.ReadWramByte(AgesWramAddress.wAnimalCompanion) ?? 0;
         if (room.IsCompanionRegion && companion != 0) stateModifier = companion - 0x0b;
         return (record.ConditionMask & (1 << stateModifier)) != 0;
     }

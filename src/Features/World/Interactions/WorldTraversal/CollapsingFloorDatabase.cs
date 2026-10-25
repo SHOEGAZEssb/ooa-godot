@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class CollapsingFloorDatabase
 {
     private readonly List<CollapsingFloorRecord> _records = new();
     internal CollapsingFloorDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/collapsing_floor.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/collapsing_floor.tsv",
             new GeneratedTableSchema("$dc:$0b collapsing floor", GeneratedTableKeySemantics.Grouped,
                 ["group", "room", "order", "y", "x", "radius", "wait", "interval", "tile", "clink", "rumble", "tiles", "dest-group", "dest-room", "dest-transition", "dest-position"],
                 ["group", "room"], headerRequired: true));

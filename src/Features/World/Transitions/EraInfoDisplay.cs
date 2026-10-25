@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_ERA_OR_SEASON_INFO $e0. The four-cell present/past symbol enters
@@ -44,7 +44,7 @@ internal sealed partial class EraInfoDisplay : TransitionOffsetNode2D
         Visible = false;
 
         Image image = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{record.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             image,

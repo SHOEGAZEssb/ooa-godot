@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Ordered Ages staticDungeonObjects lists, loaded on dungeon entry.</summary>
 internal sealed class StaticDungeonObjectDatabase
@@ -11,7 +11,7 @@ internal sealed class StaticDungeonObjectDatabase
     internal StaticDungeonObjectDatabase()
     {
         for (int dungeon = 0; dungeon < _minecarts.Length; dungeon++) _minecarts[dungeon] = new();
-        var table = GeneratedTable.Load("res://assets/oracle/objects/dungeon_static_minecarts.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/dungeon_static_minecarts.tsv",
             new GeneratedTableSchema("dungeon static minecarts", GeneratedTableKeySemantics.Unique,
                 ["dungeon", "slot", "room", "y", "x", "source"], ["dungeon", "slot"], headerRequired: true));
         foreach (var row in table.Rows)

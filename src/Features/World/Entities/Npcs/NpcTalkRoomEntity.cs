@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Event owners advance the actor; this adapter only supplies blocking and talk selection.
 internal class NpcTalkRoomEntity(NpcCharacter npc, bool scriptSensitive = false)

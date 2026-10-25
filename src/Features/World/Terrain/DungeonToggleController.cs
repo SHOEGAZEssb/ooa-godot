@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class DungeonToggleController : IPlayerRestriction
 {
@@ -28,20 +28,20 @@ internal sealed class DungeonToggleController : IPlayerRestriction
         Reset();
     }
 
-    private byte Current => _runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress);
+    private byte Current => _runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress);
     // cutscene00 samples this after the last loading object's update. An
     // entrance's state0 may have reset the byte after RoomChanged fired.
     internal void CompleteRoomInitialization() => Reset();
     private void Reset()
     {
         State = -1; Counter = 0;
-        _runtime.SetWramByte(WramAddress.wLastToggleBlocksState, Current);
+        _runtime.SetWramByte(AgesWramAddress.wLastToggleBlocksState, Current);
     }
 
     internal void CheckAfterObjects()
     {
         if (Active || !_data.Supports(_rooms.CurrentDungeonIndex)) return;
-        if (((Current ^ _runtime.ReadWramByte(WramAddress.wLastToggleBlocksState)) & 1) != 0)
+        if (((Current ^ _runtime.ReadWramByte(AgesWramAddress.wLastToggleBlocksState)) & 1) != 0)
             State = 0;
     }
 

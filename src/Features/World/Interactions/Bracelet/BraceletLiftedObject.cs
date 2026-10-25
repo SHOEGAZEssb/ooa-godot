@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ITEM_BRACELET ($16) child used for a lifted metatile. While held it is a

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MISCELLANEOUS_2 $dc:$12, cave bridge trigger.</summary>
 internal sealed partial class OrbBridgeControllerRoomEntity : DungeonMechanicRoomEntity,
@@ -57,7 +57,7 @@ internal sealed partial class OrbBridgeControllerRoomEntity : DungeonMechanicRoo
             Finished = true;
             return;
         }
-        if (_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) == 0)
+        if (_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) == 0)
             return;
 
         // updateParts has already run: the new PART_BRIDGE_SPAWNER starts

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class Room20eNpcRoomEntity
     : NpcCharacterRoomEntityAdapter, IFixedRoomEntity, IRoomBlocker,
@@ -62,7 +62,7 @@ internal sealed class Room20eNpcRoomEntity
     public void RefreshSaveState()
     {
         bool savedNayru = _save?.HasGlobalFlag(
-            GlobalFlag.SavedNayru) == true;
+            AgesGlobalFlag.SavedNayru) == true;
         Room20eNpcStateRecord state =
             _database.State(Entity.Record, savedNayru);
         string phase = state.SavedNayru

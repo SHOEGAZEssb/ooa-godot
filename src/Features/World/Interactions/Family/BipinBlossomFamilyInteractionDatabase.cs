@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Dialogue used by scripted Bipin/Blossom interactions which are not an
@@ -15,7 +15,7 @@ internal sealed class BipinBlossomFamilyInteractionDatabase
     public BipinBlossomFamilyInteractionDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/bipin_blossom_family_texts.tsv",
+            AgesGameContent.AssetRoot + "objects/bipin_blossom_family_texts.tsv",
             new GeneratedTableSchema(
                 "Bipin and Blossom interaction text",
                 GeneratedTableKeySemantics.Unique,
@@ -33,7 +33,7 @@ internal sealed class BipinBlossomFamilyInteractionDatabase
                 $"Expected eight Bipin/Blossom interaction texts, got {_texts.Count}.");
 
         GeneratedTable runningBipin = GeneratedTable.Load(
-            "res://assets/oracle/objects/running_bipin.tsv",
+            AgesGameContent.AssetRoot + "objects/running_bipin.tsv",
             new GeneratedTableSchema(
                 "Running Bipin",
                 GeneratedTableKeySemantics.Ordered,

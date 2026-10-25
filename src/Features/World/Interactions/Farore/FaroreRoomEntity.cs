@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_FARORE state-zero initialization and state-one script slot.</summary>
 internal sealed class FaroreRoomEntity(NpcCharacter npc)

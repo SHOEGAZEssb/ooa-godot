@@ -4,11 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>OracleOfAges.Importer</RootNamespace>
-    <AssemblyName>OracleOfAges.Importer</AssemblyName>
+    <RootNamespace>Oracles.Importer</RootNamespace>
+    <AssemblyName>Oracles.Importer</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/Features/Story/Commands/CutsceneFieldShape.cs" Link="CutsceneFieldShape.cs" />
+    <Compile Include="../../src/Features/Scripting/CutsceneFieldShape.cs" Link="CutsceneFieldShape.cs" />
   </ItemGroup>
 </Project>

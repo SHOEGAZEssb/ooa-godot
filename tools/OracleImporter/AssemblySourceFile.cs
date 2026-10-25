@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 public sealed class AssemblySourceFile
 {

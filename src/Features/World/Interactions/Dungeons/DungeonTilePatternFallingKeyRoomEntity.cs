@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_DUNGEON_EVENTS $21:$09, verifyTilesAndDropSmallKey.</summary>
 internal sealed partial class DungeonTilePatternFallingKeyRoomEntity : Node2D,
@@ -23,7 +23,7 @@ internal sealed partial class DungeonTilePatternFallingKeyRoomEntity : Node2D,
         IReadOnlyList<DungeonTilePatternRecord> pattern,Func<OracleRoomData> activeRoom,
         GroundTreasureGrantRequest request,Func<bool> itemFlagSet,Func<GroundTreasureGrantRequest,bool> createTreasure)
     {
-        if (record.Id != InteractionId.DungeonEvents || record.SubId != 0x09 || pattern.Count == 0)
+        if (record.Id != AgesInteractionId.DungeonEvents || record.SubId != 0x09 || pattern.Count == 0)
             throw new ArgumentOutOfRangeException(nameof(record));
         foreach (DungeonTilePatternRecord cell in pattern)
             if (cell.Id != record.Id || cell.SubId != record.SubId)

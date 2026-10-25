@@ -1,14 +1,14 @@
 using System;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class MermaidTorchOrderDatabase
 {
     internal MermaidTorchStep[] Steps { get; }
     internal MermaidTorchOrderDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/mermaid_torch_order.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/mermaid_torch_order.tsv",
             new GeneratedTableSchema("Mermaid torch order",GeneratedTableKeySemantics.Unique,
                 ["order","position","expected-mask","reset-position","source"],["order"],headerRequired:true));
         Steps = table.Rows.Select((row,index) =>

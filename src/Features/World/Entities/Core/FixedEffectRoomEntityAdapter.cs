@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal class FixedEffectRoomEntityAdapter<T>(T effect)
     : RoomEntityAdapter<T>(effect, effect.SetTransitionDrawOffset),

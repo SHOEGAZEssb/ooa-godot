@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Native worker metadata and imported script streams shared by Black Tower interactions.
@@ -19,15 +19,15 @@ internal sealed class BlackTowerWorkerDatabase
     internal int Speed80 => Constant("speed-80");
     internal int Speed100 => Constant("speed-100");
     internal IReadOnlyList<CutsceneCommand> BlockerTalk { get; } = CutsceneCommandCatalog.Load(
-        "res://assets/oracle/cutscenes/black_tower_blocker_talk_commands.tsv");
+        AgesGameContent.AssetRoot + "cutscenes/black_tower_blocker_talk_commands.tsv");
     internal IReadOnlyList<CutsceneCommand> BlockerMove { get; } = CutsceneCommandCatalog.Load(
-        "res://assets/oracle/cutscenes/black_tower_blocker_move_commands.tsv");
+        AgesGameContent.AssetRoot + "cutscenes/black_tower_blocker_move_commands.tsv");
     internal IReadOnlyList<CutsceneCommand> PatrolCommands { get; } = CutsceneCommandCatalog.Load(
-        "res://assets/oracle/cutscenes/black_tower_patrol_commands.tsv");
+        AgesGameContent.AssetRoot + "cutscenes/black_tower_patrol_commands.tsv");
     public BlackTowerWorkerDatabase()
     {
         GeneratedTable texts = GeneratedTable.Load(
-            "res://assets/oracle/objects/black_tower_texts.tsv",
+            AgesGameContent.AssetRoot + "objects/black_tower_texts.tsv",
             new GeneratedTableSchema(
                 "lower Black Tower text",
                 GeneratedTableKeySemantics.Unique,
@@ -40,7 +40,7 @@ internal sealed class BlackTowerWorkerDatabase
         }
 
         GeneratedTable selectors = GeneratedTable.Load(
-            "res://assets/oracle/objects/black_tower_selectors.tsv",
+            AgesGameContent.AssetRoot + "objects/black_tower_selectors.tsv",
             new GeneratedTableSchema(
                 "lower Black Tower selectors",
                 GeneratedTableKeySemantics.Unique,
@@ -67,7 +67,7 @@ internal sealed class BlackTowerWorkerDatabase
         }
 
         GeneratedTable visuals = GeneratedTable.Load(
-            "res://assets/oracle/objects/black_tower_visuals.tsv",
+            AgesGameContent.AssetRoot + "objects/black_tower_visuals.tsv",
             new GeneratedTableSchema(
                 "lower Black Tower visuals",
                 GeneratedTableKeySemantics.Unique,
@@ -82,7 +82,7 @@ internal sealed class BlackTowerWorkerDatabase
         }
 
         GeneratedTable constants = GeneratedTable.Load(
-            "res://assets/oracle/objects/black_tower_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/black_tower_constants.tsv",
             new GeneratedTableSchema(
                 "lower Black Tower constants",
                 GeneratedTableKeySemantics.Unique,

@@ -2,7 +2,12 @@
 $oracleRomToolsRoot = $PSScriptRoot
 
 function Get-OracleRomBuildPins {
-    return Get-Content -LiteralPath (Join-Path $oracleRomToolsRoot 'rom-build/pins.json') -Raw |
+    $pinsPath = Join-Path $oracleRomToolsRoot 'rom-build/ages.json'
+    # Release rebuilds may install this resolver into a tag preceding the rename.
+    if (-not [IO.File]::Exists($pinsPath)) {
+        $pinsPath = Join-Path $oracleRomToolsRoot 'rom-build/pins.json'
+    }
+    return Get-Content -LiteralPath $pinsPath -Raw |
         ConvertFrom-Json
 }
 

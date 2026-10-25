@@ -1,14 +1,14 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class WaterfallWarpDatabase
 {
     internal IReadOnlyList<WaterfallWarpRecord> Records { get; }
     internal WaterfallWarpDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/waterfall_warps.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/waterfall_warps.tsv",
             new GeneratedTableSchema("specialWarp.s subids $01/$02", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "subid", "y", "x", "radius-y", "radius-x", "destination-group",
                  "destination-room", "destination-position", "transition", "exit-y"], ["group", "room"], headerRequired: true));

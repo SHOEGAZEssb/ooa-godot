@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC$90:$00: first pull always fails; subsequent pulls have a 1/4 chance.
 internal sealed partial class MermaidBossKeyRoomEntity : Node2D, IRoomEntity, IFixedRoomEntity,
@@ -38,14 +38,14 @@ internal sealed partial class MermaidBossKeyRoomEntity : Node2D, IRoomEntity, IF
         if (State == 0) State = 1; // Native initialization falls through.
         if (State == 2) { if (_enemyCount() == 0) State = 1; return; }
         if (State == 3) { PublishTrigger(); _spawnChest(); Finished = true; return; }
-        if ((_runtime.ReadWramByte(WramAddress.wLever1PullDistance)&0x80) == 0 &&
-            (_runtime.ReadWramByte(WramAddress.wLever2PullDistance)&0x80) == 0) return;
+        if ((_runtime.ReadWramByte(AgesWramAddress.wLever1PullDistance)&0x80) == 0 &&
+            (_runtime.ReadWramByte(AgesWramAddress.wLever2PullDistance)&0x80) == 0) return;
         if (_itemFlagSet()) { PublishTrigger(); Finished = true; return; }
         State = 2;
         if (_firstFailure && (_random.Next().Value&3) == 0) { State = 3; return; }
         _firstFailure = true;
         _playSound(SoundId.SndError);
-        _runtime.SetWramByte(WramAddress.wWarpDestPos,_runtime.ReadWramByte(WramAddress.wActiveTilePos));
+        _runtime.SetWramByte(AgesWramAddress.wWarpDestPos,_runtime.ReadWramByte(AgesWramAddress.wActiveTilePos));
         // Unlike parseObjectData, this does not also clear wTmpcfc0.
         for (int address = 0xcec0; address < 0xcee0; address++) _runtime.SetWramByte(address,0);
         _random.GeneratePermutation();

@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal readonly record struct KeeseFireRecord(string Sprite, int TileBase, int Palette, int Frames,
     int Radius, int Damage, int LinkInvincibility, int LinkKnockback, int ShieldInvincibility,
@@ -10,7 +10,7 @@ internal readonly record struct KeeseFireRecord(string Sprite, int TileBase, int
     internal static KeeseFireRecord Shared => Record.Value;
     private static KeeseFireRecord Load()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/effects/keese_fire.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/keese_fire.tsv",
             new GeneratedTableSchema("PART_FIRE $20", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "frames", "radius", "damage-quarters", "link-invincibility", "link-knockback",
                  "shield-invincibility", "shield-knockback", "shield-sound", "animation", "source"], ["source"], headerRequired: true));

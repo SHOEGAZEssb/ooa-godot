@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Original WRAM state outside the serialized $c5b0-$caff file image. These
@@ -10,15 +10,6 @@ public sealed class OracleRuntimeState
 {
     public const int WramStart = 0xc000;
     public const int WramEnd = 0xdfff;
-    public const int MamamuDogLocationAddress = 0xcde2;
-    // Ages uses $cdd2-$cdd4; Seasons uses $cc31-$cc33.
-    // include/wram.s: wToggleBlocksState
-    public const int ToggleBlocksStateAddress = 0xcdd2;
-    // include/wram.s: wSwitchState
-    public const int SwitchStateAddress = 0xcdd3;
-    // include/wram.s: wSpinnerState
-    public const int SpinnerStateAddress = 0xcdd4;
-    public const int ArmosTriggerAddress = WramAddress.wcca2;
     internal const int SeedTreeRefillLocationCount = 16;
     internal const int SeedTreeRefillRoomsPerLocation = 8;
 
@@ -28,13 +19,7 @@ public sealed class OracleRuntimeState
 
     public event Action? Changed;
 
-    public OracleRuntimeState()
-    {
-        // initializeSeedTreeRefillData starts Ages with bits $04-$0f set and
-        // clears the sixteen eight-room refill histories.
-        _wram[WramAddress.wSeedTreeRefilledBitset - WramStart] = 0xf0;
-        _wram[WramAddress.wSeedTreeRefilledBitset + 1 - WramStart] = 0xff;
-    }
+
 
     public byte ReadWramByte(int address)
     {

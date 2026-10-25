@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // smallKeyOnEnemy.s, including the clean-US @nextEnemy carry bug. The
 // related pointer remains the native slot, so a reused slot is followed.

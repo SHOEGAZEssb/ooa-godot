@@ -11,8 +11,8 @@ specialized controllers.
 The owner is still an ordinary entity, linked interaction, or room event. See
 [NPCs and events](npcs-and-events.md) before choosing the runner.
 
-Start with `tools/import_oracles/Import-CutsceneData.ps1` and
-`src/Features/Story/Commands/` for the schema, runner, hosts, and lane scheduler.
+Start with `tools/import_oracles/Shared/Import-CutsceneData.ps1` and
+`src/Features/Scripting/` for the schema, runner, hosts, and lane scheduler.
 
 ## Generated commands
 

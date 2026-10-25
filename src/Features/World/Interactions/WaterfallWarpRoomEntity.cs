@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class WaterfallWarpRoomEntity(WaterfallWarpRecord record,
     OracleSaveData save, OracleRuntimeState runtime, Func<bool> riding, Action<Warp> warpRequested)
@@ -27,7 +27,7 @@ internal sealed partial class WaterfallWarpRoomEntity(WaterfallWarpRecord record
             Math.Abs(position.Y - record.Position.Y) < record.Radii.Y + 6;
         if (State == 0)
         {
-            if (record.Subid == 1 && save.ReadWramByte(WramAddress.wAnimalCompanion) != CompanionRuntimeState.DimitriId)
+            if (record.Subid == 1 && save.ReadWramByte(AgesWramAddress.wAnimalCompanion) != CompanionRuntimeState.DimitriId)
             { Finished = true; return; }
             State = record.Subid == 1 && !colliding ? 2 : 1;
             return;

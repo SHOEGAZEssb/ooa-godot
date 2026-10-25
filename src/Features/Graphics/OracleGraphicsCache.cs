@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Game-wide cache for imported source graphics and immutable OAM compositions.
@@ -49,7 +49,7 @@ internal static class OracleGraphicsCache
         var result = new Texture2D[frames.Length];
         for (int index = 0; index < frames.Length; index++)
         {
-            result[index] = NpcCharacter.BuildOamTexture(
+            result[index] = OracleOamCompositor.BuildOamTexture(
                 source, frames[index].EncodedOam, tileBase, palette);
         }
         return result;

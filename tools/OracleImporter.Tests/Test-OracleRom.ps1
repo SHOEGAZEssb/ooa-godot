@@ -2,6 +2,7 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../Resolve-OracleRom.ps1')
 $realBuilder = ${function:Invoke-OracleRomBuild}
+$realPinsLoader = ${function:Get-OracleRomBuildPins}
 $temporary = Join-Path ([IO.Path]::GetTempPath()) "ooa-rom-tests ' [0] $([Guid]::NewGuid().ToString('N'))"
 [void][IO.Directory]::CreateDirectory($temporary)
 $fixture = Join-Path $temporary 'reference ROM [US].gbc'
@@ -37,6 +38,17 @@ function Assert-RomFailure([scriptblock]$Action, [string]$Message) {
     Assert-Rom $caught "Expected ROM failure containing '$Message'; got $failureMessage."
 }
 try {
+    $previousToolsRoot = $oracleRomToolsRoot
+    try {
+        $oracleRomToolsRoot = Join-Path $temporary 'pin lookup'
+        $pinDirectory = Join-Path $oracleRomToolsRoot 'rom-build'
+        [void][IO.Directory]::CreateDirectory($pinDirectory)
+        [IO.File]::WriteAllText((Join-Path $pinDirectory 'pins.json'), '{"revision":"legacy-tag"}')
+        Assert-Rom ((& $realPinsLoader).revision -eq 'legacy-tag') 'Historical tag pins were not found.'
+        [IO.File]::WriteAllText((Join-Path $pinDirectory 'ages.json'), '{"revision":"ages-pack"}')
+        Assert-Rom ((& $realPinsLoader).revision -eq 'ages-pack') 'Ages pins did not take precedence over the historical name.'
+    }
+    finally { $oracleRomToolsRoot = $previousToolsRoot }
     $previousBash = $env:OOA_ROM_BUILD_BASH
     try {
         $env:OOA_ROM_BUILD_BASH = Join-Path $temporary 'missing-bash'

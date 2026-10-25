@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_SEEDS_ON_TREE ($5a). The invisible controller finds the room-owned

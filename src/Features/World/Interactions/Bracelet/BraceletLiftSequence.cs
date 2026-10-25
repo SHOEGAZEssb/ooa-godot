@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared ITEM_BRACELET/ITEM_BOMB state-2 pickup animation.

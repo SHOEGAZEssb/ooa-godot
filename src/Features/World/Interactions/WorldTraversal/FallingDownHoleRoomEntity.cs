@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_FALLDOWNHOLE $0f sets interactionSetAlwaysUpdateBit in state 0.

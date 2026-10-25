@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $20: state0 runs the script but ignores its end carry.
 internal sealed partial class SharedDungeonScriptRoomEntity : Node2D,

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // parentItemGenericState1 owns only the throw pose and movement/turning lock.
 // Physical children retain their independent lifetime after the parent clears.
@@ -20,7 +20,7 @@ internal sealed class ItemThrowParent
 
     internal ItemThrowParent()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/item_throw_parent_animations.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/item_throw_parent_animations.tsv",
             new GeneratedTableSchema("parentItemGenericState1 animations", GeneratedTableKeySemantics.Unique,
                 ["mode", "frame", "duration", "graphic", "parameter", "source"],
                 ["mode", "frame"], headerRequired: true));

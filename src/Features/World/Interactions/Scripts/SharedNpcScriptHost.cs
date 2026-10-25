@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class SharedNpcScriptHost : NpcInteractionCommandHost
 {
@@ -20,8 +20,8 @@ internal sealed class SharedNpcScriptHost : NpcInteractionCommandHost
     {
         _slot = slot; _data = data; _inventory = inventory; _rupeeDisplayUpdated = rupeeDisplayUpdated;
         var save = rooms.SaveData;
-        _adlarState = save.HasGlobalFlag(GlobalFlag.FinishedGame) ? 4 :
-            save.HasRoomFlag(4, 0xfc, 0x80) ? 3 : save.HasGlobalFlag(GlobalFlag.SavedNayru) ? 2 :
+        _adlarState = save.HasGlobalFlag(AgesGlobalFlag.FinishedGame) ? 4 :
+            save.HasRoomFlag(4, 0xfc, 0x80) ? 3 : save.HasGlobalFlag(AgesGlobalFlag.SavedNayru) ? 2 :
             save.HasRoomFlag(slot.Npc.Record.Group, slot.Npc.Record.Room, 0x40) ? 1 : 0;
         BindObject(slot.Npc);
     }
@@ -67,7 +67,7 @@ internal sealed class SharedNpcScriptHost : NpcInteractionCommandHost
                 break;
             case "monkey_setAnimationFromVar3a": ScriptActor.SetScriptAnimation(_data.Animation(0x39, 5)); break;
             case "boy_orCfde04":
-                const int audienceTalkSignal = WramAddress.wTmpcfc0 + 0x1e;
+                const int audienceTalkSignal = AgesWramAddress.wTmpcfc0 + 0x1e;
                 Entities.RuntimeState.SetWramByte(audienceTalkSignal, (byte)(Entities.RuntimeState.ReadWramByte(audienceTalkSignal) | 4)); break;
             case "oldMan_giveRupees": _inventory.GiveTreasure(TreasureId.Rupees, RupeeValue200); break;
             default: throw UnsupportedCommand(handler);

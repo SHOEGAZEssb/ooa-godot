@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BlueEnergyBeadDatabase
 {
@@ -13,7 +13,7 @@ internal sealed class BlueEnergyBeadDatabase
 
     private BlueEnergyBeadDatabase()
     {
-        var row = GeneratedTable.Load("res://assets/oracle/objects/blue_energy_bead.tsv",
+        var row = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/blue_energy_bead.tsv",
             new GeneratedTableSchema("PART_BLUE_ENERGY_BEAD inward swirl", GeneratedTableKeySemantics.Unique,
                 ["id", "count", "speed", "radius", "delay-mask", "delete-address", "source"],
                 ["id"], headerRequired: true)).SingleRow();

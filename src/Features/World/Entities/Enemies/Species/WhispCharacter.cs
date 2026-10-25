@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ENEMY_WHISP $19 diagonal bouncing state.</summary>
 internal partial class WhispCharacter : EnemyCharacter

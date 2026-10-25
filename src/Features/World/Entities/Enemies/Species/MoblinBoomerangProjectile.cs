@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
 {

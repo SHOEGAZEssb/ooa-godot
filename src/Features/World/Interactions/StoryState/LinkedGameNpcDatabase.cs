@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source-derived linkedGameNpcScript records and the shared secret encoder
@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 public sealed partial class LinkedGameNpcDatabase
 {
-    private const int GameIdAddress = WramAddress.wUnappraisedRingsEnd;
+    private const int GameIdAddress = AgesWramAddress.wUnappraisedRingsEnd;
     private const int SecretType = 3;
 
     private readonly Dictionary<
@@ -25,7 +25,7 @@ public sealed partial class LinkedGameNpcDatabase
     public LinkedGameNpcDatabase()
     {
         GeneratedTable cipher = GeneratedTable.Load(
-            "res://assets/oracle/objects/linked_secret_cipher.tsv",
+            AgesGameContent.AssetRoot + "objects/linked_secret_cipher.tsv",
             new GeneratedTableSchema(
                 "linked-secret XOR cipher",
                 GeneratedTableKeySemantics.Unique,
@@ -43,7 +43,7 @@ public sealed partial class LinkedGameNpcDatabase
         _xorCipher = cipherValues.ToArray();
 
         GeneratedTable symbols = GeneratedTable.Load(
-            "res://assets/oracle/objects/linked_secret_symbols.tsv",
+            AgesGameContent.AssetRoot + "objects/linked_secret_symbols.tsv",
             new GeneratedTableSchema(
                 "linked-secret symbols",
                 GeneratedTableKeySemantics.Unique,
@@ -64,7 +64,7 @@ public sealed partial class LinkedGameNpcDatabase
         _secretSymbols = symbolValues.ToArray();
 
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/linked_game_npcs.tsv",
+            AgesGameContent.AssetRoot + "objects/linked_game_npcs.tsv",
             new GeneratedTableSchema(
                 "linked-game NPC",
                 GeneratedTableKeySemantics.Ordered,
@@ -98,7 +98,7 @@ public sealed partial class LinkedGameNpcDatabase
         }
 
         if (_records.Count != 10 ||
-            Get(3, 0x5e, InteractionId.Subrosian, 0x03) is not
+            Get(3, 0x5e, AgesInteractionId.Subrosian, 0x03) is not
                 {
                     SecretIndex: 0x02,
                     ShortSecretIndex: 0x22,
@@ -107,9 +107,9 @@ public sealed partial class LinkedGameNpcDatabase
                     FinalTextId: 0x4d0e,
                     HasExtraText: true
                 } ||
-            Get(3, 0xf8, InteractionId.OldLady, 5) is not { SecretIndex: 9, ShortSecretIndex: 0x29,
+            Get(3, 0xf8, AgesInteractionId.OldLady, 5) is not { SecretIndex: 9, ShortSecretIndex: 0x29,
                 BeganFlag: 0x59, OfferTextId: 0x4d2d, FinalTextId: 0x4d31, HasExtraText: true } ||
-            Get(0, 0x5d, InteractionId.LinkedGameGhini, 0x00) is not
+            Get(0, 0x5d, AgesInteractionId.LinkedGameGhini, 0x00) is not
                 {
                     SecretIndex: 0x01,
                     ShortSecretIndex: 0x21,
@@ -118,7 +118,7 @@ public sealed partial class LinkedGameNpcDatabase
                     FinalTextId: 0x4d09,
                     HasExtraText: true
                 } ||
-            Get(0, 0x83, InteractionId.GreatFairy, 0x00) is not
+            Get(0, 0x83, AgesInteractionId.GreatFairy, 0x00) is not
                 {
                     SecretIndex: 0x06,
                     ShortSecretIndex: 0x26,
@@ -126,18 +126,18 @@ public sealed partial class LinkedGameNpcDatabase
                     OfferTextId: 0x4d1e,
                     FinalTextId: 0x4d22,
                     HasExtraText: true
-                } || Get(2,0xf6,InteractionId.Goron,0x0f) is not {SecretIndex:8,ShortSecretIndex:0x28,BeganFlag:0x58,
+                } || Get(2,0xf6,AgesInteractionId.Goron,0x0f) is not {SecretIndex:8,ShortSecretIndex:0x28,BeganFlag:0x58,
                     OfferTextId:0x4d28,FinalTextId:0x4d2c,HasExtraText:false} ||
-            Get(1,0x96,InteractionId.FemaleVillager,0x06) is not
+            Get(1,0x96,AgesInteractionId.FemaleVillager,0x06) is not
                 {SecretIndex:0x05,ShortSecretIndex:0x25,BeganFlag:0x55,
                     OfferTextId:0x4d19,FinalTextId:0x4d1d,HasExtraText:false} ||
-            Get(0,0x78,InteractionId.OldLady,0x04) is not
+            Get(0,0x78,AgesInteractionId.OldLady,0x04) is not
                 {SecretIndex:0x00,ShortSecretIndex:0x20,BeganFlag:0x50,
                     OfferTextId:0x4d00,FinalTextId:0x4d04,HasExtraText:true} ||
-            Get(0,0xa0,InteractionId.MasterDiver,0x00) is not
+            Get(0,0xa0,AgesInteractionId.MasterDiver,0x00) is not
                 {SecretIndex:0x03,ShortSecretIndex:0x23,BeganFlag:0x53,
                     OfferTextId:0x4d0f,FinalTextId:0x4d13,HasExtraText:false} ||
-            Get(1,0x2d,InteractionId.Subrosian,0x04) is not
+            Get(1,0x2d,AgesInteractionId.Subrosian,0x04) is not
                 {SecretIndex:0x04,ShortSecretIndex:0x24,BeganFlag:0x54,
                     OfferTextId:0x4d14,FinalTextId:0x4d18,HasExtraText:false} ||
             Get(1,0x90,0xd6,0x00) is not
@@ -210,7 +210,7 @@ public sealed partial class LinkedGameNpcDatabase
         int gameIdLow = save.ReadWramByte(GameIdAddress);
         int gameIdHigh = save.ReadWramByte(GameIdAddress + 1) & 0x7f;
         save.WriteWramByte(
-            WramAddress.wShortSecretIndex, (byte)shortSecretIndex);
+            AgesWramAddress.wShortSecretIndex, (byte)shortSecretIndex);
 
         int sum = (gameIdLow + gameIdHigh) & 0xff;
         int swappedHighNibble = (shortSecretIndex >> 4) & 0x0f;
@@ -294,9 +294,9 @@ public sealed partial class LinkedGameNpcDatabase
             return;
         }
 
-        byte low = save.ReadWramByte(WramAddress.wPlaytimeCounter);
+        byte low = save.ReadWramByte(AgesWramAddress.wPlaytimeCounter);
         byte high =
-            (byte)(save.ReadWramByte(WramAddress.wPlaytimeCounter + 1) & 0x7f);
+            (byte)(save.ReadWramByte(AgesWramAddress.wPlaytimeCounter + 1) & 0x7f);
         if (low == 0 && high == 0)
         {
             // The hardware source repeatedly reads R_DIV until nonzero. A

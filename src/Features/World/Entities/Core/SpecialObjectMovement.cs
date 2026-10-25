@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // link.s:specialObjectUpdatePositionGivenVelocity, shared by Link, raft,
 // and commonCode.s:companionUpdateMovement. Callers own collision probes.

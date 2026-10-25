@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_RESPAWNABLE_BUSH $0f. Sword/spin and bomb hits cut it, consume one

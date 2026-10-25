@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscPuzzles_subid11/12/13 and interactiondc_subid01 retain their slot after scriptend (the
 // caller ignores interactionRunScript's carry). Script/modal state belongs

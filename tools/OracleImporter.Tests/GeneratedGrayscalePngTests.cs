@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Text;
-using OracleOfAges.Importer;
+using Oracles.Importer;
 
 internal static class GeneratedGrayscalePngTests
 {

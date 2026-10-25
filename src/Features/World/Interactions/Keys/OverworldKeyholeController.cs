@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Implements nextToOverworldKeyhole for imported collision-table parameter
@@ -99,8 +99,8 @@ public partial class OverworldKeyholeController : Node
         _rooms.SaveData.SetRoomFlag(group, roomId, _database.Constants.RoomFlag);
         // The room controller reads this shared signal without clearing it.
         OracleRuntimeState memory = _entities.RuntimeState;
-        memory.SetWramByte(WramAddress.wTmpcfc0,
-            (byte)(memory.ReadWramByte(WramAddress.wTmpcfc0) | 1));
+        memory.SetWramByte(AgesWramAddress.wTmpcfc0,
+            (byte)(memory.ReadWramByte(AgesWramAddress.wTmpcfc0) | 1));
         _triggerEvent(group, roomId);
         if (_entities.InteractionSlotAvailable)
             _entities.Spawn<OverworldKeyUseEffect>(new OverworldKeyUseSpawn(center,record,_database.Constants));

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_TROY $ca:$01. The native handler is otherwise an ordinary NPC;

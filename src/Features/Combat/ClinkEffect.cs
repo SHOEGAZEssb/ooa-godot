@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_CLINK ($07), spawned for sword contact with a solid tile or an
@@ -76,7 +76,7 @@ public partial class ClinkEffect : Node2D
     private static Texture2D BuildTexture()
     {
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_sprites.png");
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
         Image output = Image.CreateEmpty(FrameCount * 16, 16, false, Image.Format.Rgba8);
 
         // INTERAC_CLINK uses tile base $10 and palette $01. OAM $50205 uses

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Original 8.8 enemy Z position and speed integration with a fixed gravity.

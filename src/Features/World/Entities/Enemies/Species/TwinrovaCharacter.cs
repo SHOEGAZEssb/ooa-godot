@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/enemies/twinrova.s:$03. The two native slots keep independent
 // counters; shared signals are read through the live related enemy slot.
@@ -72,7 +72,7 @@ internal sealed partial class TwinrovaCharacter : EnemyCharacter
             {
                 case 0:
                     World.Entities.RuntimeState.SetWramByte(0xcc1d, 3); // wEnemyIDToLoadExtraGfx.
-                    World.Entities.RuntimeState.SetWramByte(WramAddress.wLoadedTreeGfxIndex, 1);
+                    World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wLoadedTreeGfxIndex, 1);
                     if ((Var03 & 1) != 0) { Initialize(frame); break; }
                     State = 1; frame.Player.Face(Vector2I.Up); Input(false);
                     goto case 1;
@@ -245,8 +245,8 @@ internal sealed partial class TwinrovaCharacter : EnemyCharacter
     private void Text(int id) => World.Entities.OnRoomEntityDialogueRequested(id, Data.Text(id), Position);
     private void Input(bool enabled)
     {
-        World.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, enabled ? (byte)0 : (byte)1);
-        World.Entities.RuntimeState.SetWramByte(WramAddress.wMenuDisabled, enabled ? (byte)0 : (byte)1);
+        World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, enabled ? (byte)0 : (byte)1);
+        World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wMenuDisabled, enabled ? (byte)0 : (byte)1);
     }
     private NotSupportedException Unsupported() => new($"twinrova.s: ENEMY $03:${Subid:x2}, state${State:x2}, substate${Substate:x2}.");
 }

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_TOUCHING_BOOK $a5 owns its admission, flight and trade protocol.
 // Maple consumes its previous INTERACTION-pass angle in SPECIALOBJECT order.
@@ -37,8 +37,8 @@ internal sealed partial class MapleTouchingBookRoomEntity : TransitionOffsetNode
         Visible = false;
         var visual = spawn.Visual;
         AnimationFrameDefinition frame = OracleGraphicsCache.GetAnimationDefinition(visual.Animation).Frames[0];
-        _texture = NpcCharacter.BuildOamTexture(OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.Sprite}.png"), frame.EncodedOam, visual.TileBase, visual.Palette);
+        _texture = OracleOamCompositor.BuildOamTexture(OracleGraphicsCache.LoadImage(
+            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"), frame.EncodedOam, visual.TileBase, visual.Palette);
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -47,7 +47,7 @@ internal sealed partial class MapleTouchingBookRoomEntity : TransitionOffsetNode
         if (State == 0)
         {
             // touchingBook.s state0 writes the menu lock even while waiting.
-            _memory.SetWramByte(WramAddress.wMenuDisabled, 1);
+            _memory.SetWramByte(AgesWramAddress.wMenuDisabled, 1);
             if (frame.Player.KnockbackFrames != 0) return;
             // HL still addresses w1Link.knockbackCounter when objectTakePosition
             // copies high XYZ, never Maple's precise position or height.
@@ -124,7 +124,7 @@ internal sealed partial class MapleTouchingBookRoomEntity : TransitionOffsetNode
             case 8:
                 if (_counter != 0) { _counter--; return; }
                 if (_maple.BookTextActive) return;
-                _memory.SetWramByte(WramAddress.wDisabledObjects, 1);
+                _memory.SetWramByte(AgesWramAddress.wDisabledObjects, 1);
                 _maple.SignalBookDeparture();
                 Finish();
                 return;

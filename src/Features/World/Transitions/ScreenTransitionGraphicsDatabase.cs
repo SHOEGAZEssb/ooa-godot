@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class ScreenTransitionGraphicsDatabase
 {
@@ -8,7 +8,7 @@ internal sealed class ScreenTransitionGraphicsDatabase
     internal ScreenTransitionGraphicsDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/screen_transition_graphics.tsv",
+            AgesGameContent.AssetRoot + "metadata/screen_transition_graphics.tsv",
             new GeneratedTableSchema("screen transition graphics",
                 GeneratedTableKeySemantics.Unique,
                 ["tileset", "unique-gfx", "entries", "source"], ["tileset"],
@@ -26,7 +26,7 @@ internal sealed class ScreenTransitionGraphicsDatabase
         if (table.Rows.Count != 103)
             throw new System.InvalidOperationException("Expected $67 clean-US tileset transition records.");
         GeneratedTable uploads = GeneratedTable.Load(
-            "res://assets/oracle/metadata/screen_transition_uploads.tsv",
+            AgesGameContent.AssetRoot + "metadata/screen_transition_uploads.tsv",
             new GeneratedTableSchema("screen transition VRAM uploads", GeneratedTableKeySemantics.Unique,
                 ["unique-gfx", "order", "vram-address", "tiles", "palette-header", "data", "source"],
                 ["unique-gfx", "order"], headerRequired: true));

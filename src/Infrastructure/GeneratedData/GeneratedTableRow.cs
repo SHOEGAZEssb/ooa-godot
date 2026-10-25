@@ -6,7 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class GeneratedTableRow
 {

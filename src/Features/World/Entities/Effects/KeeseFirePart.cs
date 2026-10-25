@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal partial class KeeseFirePart : TransitionOffsetNode2D
 {
@@ -24,7 +24,7 @@ internal partial class KeeseFirePart : TransitionOffsetNode2D
         ZHigh = zHigh;
         _sound = sound;
         _animation = new EnemyAnimationPlayer(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{_record.Sprite}.png"), [_record.Animation], _record.TileBase, _record.Palette);
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{_record.Sprite}.png"), [_record.Animation], _record.TileBase, _record.Palette);
         _animation.SetAnimation(0);
         Visible = false;
     }

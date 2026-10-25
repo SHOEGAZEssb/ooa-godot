@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://src/Features/World/Rooms/RoomView.cs" id="2_room_view"]
 [ext_resource type="Script" path="res://src/Features/Player/Player.cs" id="3_player"]
 [ext_resource type="Script" path="res://src/Features/Interface/Hud.cs" id="4_hud"]
-[ext_resource type="Script" path="res://src/Features/Interface/DialogueBox.cs" id="5_dialogue"]
+[ext_resource type="Script" path="res://src/Features/Dialogue/DialogueBox.cs" id="5_dialogue"]
 [ext_resource type="Script" path="res://src/Features/Menus/Map/MapScreen.cs" id="6_map"]
 [ext_resource type="Script" path="res://src/Features/Menus/Inventory/InventoryScreen.cs" id="7_inventory"]
 [ext_resource type="Script" path="res://src/Features/Menus/Shell/SaveQuitScreen.cs" id="8_save_quit"]
@@ -12,7 +12,7 @@
 [ext_resource type="Script" path="res://src/Features/Menus/Inventory/RingMenuScreen.cs" id="10_ring_menu"]
 [ext_resource type="Script" path="res://src/Features/World/Transitions/RoomLoadColumnRevealOverlay.cs" id="11_room_load_reveal"]
 [ext_resource type="Script" path="res://src/Features/Development/DebugObjectSpawnerScreen.cs" id="12_debug_spawner"]
-[ext_resource type="Script" path="res://src/Features/Story/BlackTower/EndingScreen.cs" id="13_ending"]
+[ext_resource type="Script" path="res://src/Games/Ages/Features/Story/BlackTower/EndingScreen.cs" id="13_ending"]
 [ext_resource type="Script" path="res://src/Features/Menus/Shell/SecretListScreen.cs" id="14_secret_list"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_palette_fade"]

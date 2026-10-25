@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// SPECIALOBJECT_MAPLE $0e, states $00-$0c. This owns the entrance flight,
@@ -87,8 +87,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
     internal void SetBookMovementAngle(int angle) => _angle = angle & 0xff;
     internal void ShowBookText(int textId, Player player) => RequestDialogue(textId, player);
     internal void SignalBookDeparture() => _substate = 2;
-    internal bool ScreenTransitionsDisabled => (_nativeMemory?.ReadWramByte(WramAddress.wDisableScreenTransitions) ?? 0) != 0;
-    internal bool MenusDisabled => (_nativeMemory?.ReadWramByte(WramAddress.wMenuDisabled) ?? 0) != 0;
+    internal bool ScreenTransitionsDisabled => (_nativeMemory?.ReadWramByte(AgesWramAddress.wDisableScreenTransitions) ?? 0) != 0;
+    internal bool MenusDisabled => (_nativeMemory?.ReadWramByte(AgesWramAddress.wMenuDisabled) ?? 0) != 0;
     internal bool ObjectsDisabled => _encounter.ObjectsDisabled;
     internal bool Finished { get; private set; }
 
@@ -133,7 +133,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{visual.Sprite}.png"),
+                AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
             visual.Animations,
             visual.TileBase,
             visual.Palette,
@@ -318,8 +318,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         ICollection<RoomEntitySpawn> spawns)
     {
         GenerateDropsOrBook(player, spawns);
-        _nativeMemory?.SetWramByte(WramAddress.wDisableScreenTransitions, 1);
-        _nativeMemory?.SetWramByte(WramAddress.wMenuDisabled, 1);
+        _nativeMemory?.SetWramByte(AgesWramAddress.wDisableScreenTransitions, 1);
+        _nativeMemory?.SetWramByte(AgesWramAddress.wMenuDisabled, 1);
         int towardLink =
             OracleObjectMovement.Shared.RelativeAngle(
                 _precisePosition, player.Position) & ObjectAngle.CardinalMask;
@@ -411,7 +411,7 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         }
 
         Stage = MapleEncounterStage.Racing;
-        _nativeMemory?.SetWramByte(WramAddress.wMenuDisabled, 0);
+        _nativeMemory?.SetWramByte(AgesWramAddress.wMenuDisabled, 0);
         RequestGreeting(player);
         _encounter.ObjectsDisabled = false;
         ChooseNextTarget();
@@ -596,8 +596,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
                 UpdateOscillation();
                 if (_dialogueOpen())
                     return;
-                _nativeMemory?.SetWramByte(WramAddress.wTextIsActive, 0x80);
-                _nativeMemory?.SetWramByte(WramAddress.wDisabledObjects, 0x1f);
+                _nativeMemory?.SetWramByte(AgesWramAddress.wTextIsActive, 0x80);
+                _nativeMemory?.SetWramByte(AgesWramAddress.wDisabledObjects, 0x1f);
                 _angle = ObjectAngle.Left;
                 _speedRaw = _database.Constant("departure-speed-raw");
                 _substate = 2;
@@ -782,14 +782,14 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         {
             if (meetings == 0)
             {
-                _save.SetGlobalFlag(GlobalFlag.MapleMetInPast);
+                _save.SetGlobalFlag(AgesGlobalFlag.MapleMetInPast);
                 RequestDialogue(0x0712, player);
                 return;
             }
             if (!_save.HasGlobalFlag(
-                    GlobalFlag.MapleMetInPast))
+                    AgesGlobalFlag.MapleMetInPast))
             {
-                _save.SetGlobalFlag(GlobalFlag.MapleMetInPast);
+                _save.SetGlobalFlag(AgesGlobalFlag.MapleMetInPast);
                 RequestDialogue(0x0713, player);
                 return;
             }
@@ -952,8 +952,8 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         !player.CompanionRideActive && !player.MinecartRideActive && !player.RaftRideActive &&
         !player.IsDrowning &&
         !player.IsFallingInHole &&
-        (_nativeMemory?.ReadWramByte(WramAddress.wMenuDisabled) ?? 0) == 0 &&
-        (_nativeMemory?.ReadWramByte(WramAddress.wDisableLinkCollisionsAndMenu) ?? 0) == 0;
+        (_nativeMemory?.ReadWramByte(AgesWramAddress.wMenuDisabled) ?? 0) == 0 &&
+        (_nativeMemory?.ReadWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu) ?? 0) == 0;
 
     private void EndEncounter(Player player)
     {
@@ -966,10 +966,10 @@ public partial class MapleEncounter : TransitionOffsetNode2D
         _save.SetMapleState(state);
         // mapleEndEncounter clears the menu byte also written by INTERAC$a5.
         // The entrance abort jumps straight to mapleDeleteSelf and preserves it.
-        _nativeMemory?.SetWramByte(WramAddress.wMenuDisabled, 0);
-        _nativeMemory?.SetWramByte(WramAddress.wTextIsActive, 0);
-        _nativeMemory?.SetWramByte(WramAddress.wDisabledObjects, 0);
-        _nativeMemory?.SetWramByte(WramAddress.wDisableScreenTransitions, 0);
+        _nativeMemory?.SetWramByte(AgesWramAddress.wMenuDisabled, 0);
+        _nativeMemory?.SetWramByte(AgesWramAddress.wTextIsActive, 0);
+        _nativeMemory?.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
+        _nativeMemory?.SetWramByte(AgesWramAddress.wDisableScreenTransitions, 0);
         FinishCommon();
     }
 

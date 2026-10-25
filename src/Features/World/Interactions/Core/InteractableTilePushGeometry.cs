@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared Link-to-metatile geometry used by original interactable-tile push handlers.

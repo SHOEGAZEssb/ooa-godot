@@ -1,13 +1,13 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal readonly record struct StalfosBoneRecord(string Sprite, int TileBase, int Palette,
     int RadiusY, int RadiusX, int DamageQuarters, int SpeedRaw, string Animation, string Source)
 {
     internal static StalfosBoneRecord Load()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/effects/stalfos_bone.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/stalfos_bone.tsv",
             new GeneratedTableSchema("Stalfos bone", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "radius-y", "radius-x", "damage-quarters", "speed-raw", "animation", "source"],
                 ["source"], headerRequired: true));

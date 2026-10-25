@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // businessScrub.s:$ce:$80 is an independently allocated always-update slot.
 // The related parent's sprite tree holds its tile image; this slot owns the

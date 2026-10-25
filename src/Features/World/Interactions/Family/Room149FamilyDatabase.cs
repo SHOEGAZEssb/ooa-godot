@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported visuals and text used by the linked father/son/observer
@@ -18,7 +18,7 @@ internal sealed class Room149FamilyDatabase
     public Room149FamilyDatabase()
     {
         GeneratedTable visuals = GeneratedTable.Load(
-            "res://assets/oracle/objects/room149_family_visuals.tsv",
+            AgesGameContent.AssetRoot + "objects/room149_family_visuals.tsv",
             new GeneratedTableSchema(
                 "room 1:49 family visuals",
                 GeneratedTableKeySemantics.Unique,
@@ -37,7 +37,7 @@ internal sealed class Room149FamilyDatabase
                 $"Expected six room 1:49 visuals, got {_visuals.Count}.");
 
         GeneratedTable texts = GeneratedTable.Load(
-            "res://assets/oracle/objects/room149_family_texts.tsv",
+            AgesGameContent.AssetRoot + "objects/room149_family_texts.tsv",
             new GeneratedTableSchema(
                 "room 1:49 family text",
                 GeneratedTableKeySemantics.Unique,
@@ -55,7 +55,7 @@ internal sealed class Room149FamilyDatabase
 
         // PALH_a2: preserve color zero's RGB beneath its transparent alpha.
         StonePalette = OracleGraphicsData.LoadPaletteColors(
-            "res://assets/oracle/cutscenes/nayru_stone_sprite_palette.bin");
+            AgesGameContent.AssetRoot + "cutscenes/nayru_stone_sprite_palette.bin");
         StonePalette[0].A = 0.0f;
     }
 

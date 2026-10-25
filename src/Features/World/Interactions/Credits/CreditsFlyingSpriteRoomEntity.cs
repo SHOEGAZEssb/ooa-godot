@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/interactions/c1.s. Its word hold and six-update sparkle clock are
 // independent; children retain checked allocation and native slot dispatch.

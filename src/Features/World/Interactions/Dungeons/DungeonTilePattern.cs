@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Shared verifyTiles comparison against the live room layout.</summary>
 internal static class DungeonTilePattern

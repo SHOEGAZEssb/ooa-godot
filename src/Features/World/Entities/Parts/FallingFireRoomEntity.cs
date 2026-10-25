@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART_FALLING_FIRE $23: invisible emitters and their falling subid$02 child.
 internal sealed partial class FallingFireRoomEntity : DungeonInteractionVisualEntity,

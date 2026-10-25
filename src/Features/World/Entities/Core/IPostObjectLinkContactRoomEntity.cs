@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Native collision runs after every object, including interaction scripts.
 internal interface IPostObjectLinkContactRoomEntity : ILinkContactEntity

@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class CompanionCreditsRoomEntity
 {
@@ -29,7 +29,7 @@ internal sealed partial class CompanionCreditsRoomEntity
                 if(!Decrement())return;
                 Substate=7;Counter=30;context.Inventory.UnequipRing();context.Player.BeginNativeCreditsJump();context.Sound.PlayNativeSound(SoundId.SndJump);return;
             case 7:
-                if(Decrement()){Substate=8;Counter=20;context.Player.Visible=false;context.Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects,1);}return;
+                if(Decrement()){Substate=8;Counter=20;context.Player.Visible=false;context.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,1);}return;
             case 8:if(Decrement()){Substate=9;Angle=0x18;RickyJump(0x1c);}return;
             case 9:
                 Move();if((((int)Position.X-16)&128)!=0){context.Entities.RuntimeState.SetWramByte(0xcfdf,1);return;}

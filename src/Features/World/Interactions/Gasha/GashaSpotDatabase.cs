@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed runtime view of INTERAC_GASHA_SPOT, its 16 Ages placements, reward
@@ -189,7 +189,7 @@ internal sealed class GashaSpotDatabase
             spot.TreeTopLeft, (byte)spot.ReplacementTile, animationTick);
 
     private Image TreeGraphics => _treeGraphics ??=
-        OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/gfx_gasha_tree.png");
+        OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/gfx_gasha_tree.png");
 
     private Image GroundGraphics(string ground)
     {
@@ -202,7 +202,7 @@ internal sealed class GashaSpotDatabase
             "sand" => "gfx_sand",
             _ => throw new InvalidOperationException($"Unknown Gasha ground graphics '{ground}'.")
         };
-        image = OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{sprite}.png");
+        image = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
         _groundGraphics.Add(ground, image);
         return image;
     }
@@ -210,7 +210,7 @@ internal sealed class GashaSpotDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/gasha_constants.tsv",
+            AgesGameContent.AssetRoot + "metadata/gasha_constants.tsv",
             new GeneratedTableSchema(
                 "Gasha constants",
                 GeneratedTableKeySemantics.Unique,
@@ -222,7 +222,7 @@ internal sealed class GashaSpotDatabase
     private void LoadSpots()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/gasha_spots.tsv",
+            AgesGameContent.AssetRoot + "objects/gasha_spots.tsv",
             new GeneratedTableSchema(
                 "Gasha spots",
                 GeneratedTableKeySemantics.Unique,
@@ -244,7 +244,7 @@ internal sealed class GashaSpotDatabase
     private void LoadProbabilities()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/gasha_probabilities.tsv",
+            AgesGameContent.AssetRoot + "metadata/gasha_probabilities.tsv",
             new GeneratedTableSchema(
                 "Gasha reward probabilities",
                 GeneratedTableKeySemantics.Unique,
@@ -269,7 +269,7 @@ internal sealed class GashaSpotDatabase
     private void LoadRingTiers()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/gasha_ring_tiers.tsv",
+            AgesGameContent.AssetRoot + "metadata/gasha_ring_tiers.tsv",
             new GeneratedTableSchema(
                 "Gasha ring tiers",
                 GeneratedTableKeySemantics.Unique,
@@ -287,7 +287,7 @@ internal sealed class GashaSpotDatabase
     private void LoadRewards()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/gasha_rewards.tsv",
+            AgesGameContent.AssetRoot + "metadata/gasha_rewards.tsv",
             new GeneratedTableSchema(
                 "Gasha rewards",
                 GeneratedTableKeySemantics.Unique,
@@ -306,7 +306,7 @@ internal sealed class GashaSpotDatabase
     private static GashaSpotDatabaseVisualRecord LoadNutVisual()
     {
         GeneratedTableRow row = GeneratedTable.Load(
-            "res://assets/oracle/metadata/gasha_nut.tsv",
+            AgesGameContent.AssetRoot + "metadata/gasha_nut.tsv",
             new GeneratedTableSchema(
                 "Gasha nut visual", GeneratedTableKeySemantics.Ordered,
                 ["sprite", "tile-base", "palette", "animation"], headerRequired: true))
@@ -319,7 +319,7 @@ internal sealed class GashaSpotDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/gasha_text.tsv",
+            AgesGameContent.AssetRoot + "metadata/gasha_text.tsv",
             new GeneratedTableSchema(
                 "Gasha text", GeneratedTableKeySemantics.Unique,
                 ["text-id", "message-base64"], ["text-id"], headerRequired: true));
@@ -330,7 +330,7 @@ internal sealed class GashaSpotDatabase
     private void LoadDisappearance()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/gasha_disappearance.tsv",
+            AgesGameContent.AssetRoot + "metadata/gasha_disappearance.tsv",
             new GeneratedTableSchema(
                 "Gasha disappearance",
                 GeneratedTableKeySemantics.Unique,

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC$90:$05/$06 keeps state0 for its entire life; only substate changes.
 internal sealed partial class MermaidChangingFloorWorkerRoomEntity : Node2D,
@@ -41,12 +41,12 @@ internal sealed partial class MermaidChangingFloorWorkerRoomEntity : Node2D,
         int cursor = _offset;
         for (int scanned = 0; scanned < 256; scanned++)
         {
-            byte tile = _runtime.ReadWramByte(WramAddress.wBigBuffer+cursor);
+            byte tile = _runtime.ReadWramByte(AgesWramAddress.wBigBuffer+cursor);
             cursor = (cursor+1)&0xff;
             if (tile == 0)
             {
-                _runtime.SetWramByte(WramAddress.wDisabledObjects,0);
-                _runtime.SetWramByte(WramAddress.wMenuDisabled,0);
+                _runtime.SetWramByte(AgesWramAddress.wDisabledObjects,0);
+                _runtime.SetWramByte(AgesWramAddress.wMenuDisabled,0);
                 Finished = true;
                 return;
             }

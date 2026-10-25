@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source-ordered native Moonlit Grotto objects which are not represented by
@@ -31,7 +31,7 @@ internal sealed class MoonlitGrottoDatabase
     private void LoadObjects()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/moonlit_grotto_objects.tsv",
+            AgesGameContent.AssetRoot + "objects/moonlit_grotto_objects.tsv",
             new GeneratedTableSchema(
                 "Moonlit Grotto native objects",
                 GeneratedTableKeySemantics.Grouped,
@@ -78,7 +78,7 @@ internal sealed class MoonlitGrottoDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/moonlit_grotto_text.tsv",
+            AgesGameContent.AssetRoot + "objects/moonlit_grotto_text.tsv",
             new GeneratedTableSchema(
                 "Moonlit Grotto native text",
                 GeneratedTableKeySemantics.Unique,
@@ -144,7 +144,7 @@ internal sealed class MoonlitGrottoDatabase
             {
                 Order: 4,
                 Kind: DungeonObjectKind.Subterror,
-                Id: InteractionId.KingMoblinDefeated,
+                Id: AgesInteractionId.KingMoblinDefeated,
                 SubId: 0x00,
                 Y: 0x18,
                 X: 0x78,

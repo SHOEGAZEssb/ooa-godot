@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class PushableTileDatabase
 {
@@ -14,7 +14,7 @@ public sealed class PushableTileDatabase
 
     public PushableTileDatabase()
     {
-        var table=GeneratedTable.Load("res://assets/oracle/metadata/somaria_push_tiles.tsv",
+        var table=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/somaria_push_tiles.tsv",
             new GeneratedTableSchema("Somaria push dispatch",GeneratedTableKeySemantics.Unique,
                 ["active-collisions","tile","parameter","source"],["active-collisions"],headerRequired:true));
         if(table.Rows.Count!=6) throw new InvalidOperationException("Somaria push dispatch requires all six collision modes.");
@@ -26,8 +26,8 @@ public sealed class PushableTileDatabase
             if((_somaria[mode].Parameter&15)!=0) throw row.Invalid(2,"nextToPushableBlock dispatch");
             _=row.RequiredString(3);
         }
-        _records = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/pushableTiles.bin");
-        _nativeProperties = OracleAssetCache.ReadBytes("res://assets/oracle/metadata/native_pushblock_properties.bin");
+        _records = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/pushableTiles.bin");
+        _nativeProperties = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/native_pushblock_properties.bin");
         if (_nativeProperties.Length != CollisionModeCount * TileCount * 3)
             throw new InvalidOperationException("Native INTERAC $14 properties require all six collision-mode tables.");
         int expected = CollisionModeCount * TileCount * RecordSize;

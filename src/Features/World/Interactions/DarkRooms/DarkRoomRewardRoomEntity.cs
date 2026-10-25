@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_MISCELLANEOUS_2 $dc:$00. Its ROOMFLAG_ITEM predicate is checked

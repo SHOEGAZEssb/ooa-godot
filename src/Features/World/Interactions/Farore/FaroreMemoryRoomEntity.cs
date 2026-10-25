@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FaroreMemoryRoomEntity(NpcCharacter actor, OracleSaveData save)
     : NpcCharacterRoomEntityAdapter(actor, actor.SetTransitionDrawOffset), IFixedRoomEntity,
@@ -17,7 +17,7 @@ internal sealed class FaroreMemoryRoomEntity(NpcCharacter actor, OracleSaveData 
     private void Initialize()
     {
         _initialized = true;
-        Finished = !save.IsLinkedGame && !save.HasGlobalFlag(GlobalFlag.FinishedGame);
+        Finished = !save.IsLinkedGame && !save.HasGlobalFlag(AgesGlobalFlag.FinishedGame);
         if (Finished) return;
         Entity.ShowInitializedPresentation(); Entity.SetFixedDrawPriority(ObjectDrawPriority.FromVisible(0x83));
     }

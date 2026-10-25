@@ -2,10 +2,10 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using static oracleofages.OracleGraphicsData;
-using static oracleofages.OracleTileRenderer;
+using static Oracles.OracleGraphicsData;
+using static Oracles.OracleTileRenderer;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// The three Start-menu inventory subscreens. Backgrounds come from the
@@ -252,23 +252,23 @@ public partial class InventoryScreen : Node2D
     {
         if (_resourcesPrepared) return;
         _resourcesPrepared = true;
-        _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
-        _inventoryHud1 = LoadPng("res://assets/oracle/inventory/gfx_inventory_hud_1.png");
-        _presentPastSymbols = LoadPng("res://assets/oracle/inventory/spr_present_past_symbols.png");
-        _questItems5 = LoadPng("res://assets/oracle/inventory/spr_quest_items_5.png");
-        _mapCompassItems = LoadPng("res://assets/oracle/inventory/spr_map_compass_keys_bookofseals.png");
-        _saveTiles = LoadPng("res://assets/oracle/inventory/gfx_save.png");
-        _blankTiles = LoadPng("res://assets/oracle/inventory/gfx_blank.png");
-        _ringTiles = LoadPng("res://assets/oracle/inventory/gfx_rings.png");
-        _inventoryHud2 = LoadPng("res://assets/oracle/inventory/gfx_inventory_hud_2.png");
+        _hudTiles = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png");
+        _inventoryHud1 = LoadPng(AgesGameContent.AssetRoot + "inventory/gfx_inventory_hud_1.png");
+        _presentPastSymbols = LoadPng(AgesGameContent.AssetRoot + "inventory/spr_present_past_symbols.png");
+        _questItems5 = LoadPng(AgesGameContent.AssetRoot + "inventory/spr_quest_items_5.png");
+        _mapCompassItems = LoadPng(AgesGameContent.AssetRoot + "inventory/spr_map_compass_keys_bookofseals.png");
+        _saveTiles = LoadPng(AgesGameContent.AssetRoot + "inventory/gfx_save.png");
+        _blankTiles = LoadPng(AgesGameContent.AssetRoot + "inventory/gfx_blank.png");
+        _ringTiles = LoadPng(AgesGameContent.AssetRoot + "inventory/gfx_rings.png");
+        _inventoryHud2 = LoadPng(AgesGameContent.AssetRoot + "inventory/gfx_inventory_hud_2.png");
         // GFXH_INVENTORY_SCREEN loads the distinct BG-encoded first sheet;
         // equipped A/B sprites continue to copy from spr_item_icons_1.
-        _itemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1_spr.png");
-        _equippedItemIcons1 = LoadPng("res://assets/oracle/gfx/spr_item_icons_1.png");
-        _itemIcons2 = LoadPng("res://assets/oracle/gfx/spr_item_icons_2.png");
-        _itemIcons3 = LoadPng("res://assets/oracle/gfx/spr_item_icons_3.png");
-        _essenceTiles = LoadPng("res://assets/oracle/inventory/spr_essences.png");
-        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font.png");
+        _itemIcons1 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_1_spr.png");
+        _equippedItemIcons1 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_1.png");
+        _itemIcons2 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_2.png");
+        _itemIcons3 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_3.png");
+        _essenceTiles = LoadPng(AgesGameContent.AssetRoot + "inventory/spr_essences.png");
+        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
         using (Image font = _fontTexture.GetImage())
         {
             _fontPixels = font.GetData();
@@ -276,9 +276,9 @@ public partial class InventoryScreen : Node2D
         }
         _questItemTiles = new Image[4];
         for (int sheet = 0; sheet < _questItemTiles.Length; sheet++)
-            _questItemTiles[sheet] = LoadPng($"res://assets/oracle/inventory/spr_quest_items_{sheet + 1}.png");
-        _ringMap = ReadBytes("res://assets/oracle/inventory/map_rings.bin", 68 * 8);
-        _bgPalette = LoadPalette("res://assets/oracle/inventory/palette_bg.bin", 8, 0);
+            _questItemTiles[sheet] = LoadPng(AgesGameContent.AssetRoot + $"inventory/spr_quest_items_{sheet + 1}.png");
+        _ringMap = ReadBytes(AgesGameContent.AssetRoot + "inventory/map_rings.bin", 68 * 8);
+        _bgPalette = LoadPalette(AgesGameContent.AssetRoot + "inventory/palette_bg.bin", 8, 0);
         _spritePalette = ItemIconAtlas.LoadStandardSpritePalettes();
 
         _bank0Sources = new[]
@@ -1262,19 +1262,19 @@ public partial class InventoryScreen : Node2D
         switch (page)
         {
             case 0:
-                Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_screen_1.bin", 416), 0x040);
-                Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_screen_1.bin", 416), 0x040);
+                Overlay(map, ReadBytes(AgesGameContent.AssetRoot + "inventory/map_inventory_screen_1.bin", 416), 0x040);
+                Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + "inventory/flg_inventory_screen_1.bin", 416), 0x040);
                 break;
             case 1:
-                Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_screen_1.bin", 416), 0x040, 32);
-                Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_screen_1.bin", 416), 0x040, 32);
-                Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_screen_2.bin", 384), 0x060);
-                Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_screen_2.bin", 384), 0x060);
+                Overlay(map, ReadBytes(AgesGameContent.AssetRoot + "inventory/map_inventory_screen_1.bin", 416), 0x040, 32);
+                Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + "inventory/flg_inventory_screen_1.bin", 416), 0x040, 32);
+                Overlay(map, ReadBytes(AgesGameContent.AssetRoot + "inventory/map_inventory_screen_2.bin", 384), 0x060);
+                Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + "inventory/flg_inventory_screen_2.bin", 384), 0x060);
                 ClearUnusedRingSlots(map, flags);
                 break;
             case 2:
-                Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_screen_3.bin", 416), 0x040);
-                Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_screen_3.bin", 416), 0x040);
+                Overlay(map, ReadBytes(AgesGameContent.AssetRoot + "inventory/map_inventory_screen_3.bin", 416), 0x040);
+                Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + "inventory/flg_inventory_screen_3.bin", 416), 0x040);
                 // inventorySubscreen2_drawTreasures writes the numerator
                 // alongside the heart-piece graphic at w4TileMap+$14f.
                 if (_inventory.HeartPieces != 0)
@@ -1294,8 +1294,8 @@ public partial class InventoryScreen : Node2D
                 }
                 break;
         }
-        Overlay(map, ReadBytes("res://assets/oracle/inventory/map_inventory_textbar.bin", 96), 0x1e0);
-        Overlay(flags, ReadBytes("res://assets/oracle/inventory/flg_inventory_textbar.bin", 96), 0x1e0);
+        Overlay(map, ReadBytes(AgesGameContent.AssetRoot + "inventory/map_inventory_textbar.bin", 96), 0x1e0);
+        Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + "inventory/flg_inventory_textbar.bin", 96), 0x1e0);
         map[0x0a + StatusBarLayout.ExtraHeartOffset(_inventory.MaxHealthQuarters)] = 0x09;
         WriteRupeeDigits(map);
         WriteHearts(map);
@@ -1606,7 +1606,7 @@ public partial class InventoryScreen : Node2D
         for (int y = 0; y < 16; y++)
         for (int x = 0; x < 8; x++)
         {
-            int shade = ItemIconAtlas.ShadeFromPng(
+            int shade = OracleGraphicsData.ShadeFromPng(
                 source.GetPixel(cell * 8 + x, y), out bool transparent);
             if (!transparent)
                 SetMenuPixel(output, position + new Vector2(x, y),

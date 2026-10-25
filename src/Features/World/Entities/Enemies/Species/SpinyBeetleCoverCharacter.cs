@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // bushOrRock.s: ENEMY $58 is an uncounted, independently dispatched child.
 // Its carried lifetime survives detachment and the original parent's death.

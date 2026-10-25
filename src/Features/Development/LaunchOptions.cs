@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Globalization;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class LaunchOptions
 {

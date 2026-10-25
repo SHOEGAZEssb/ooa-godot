@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ITEM_SWORD_BEAM ($27). State 0 performs setup without movement; subsequent

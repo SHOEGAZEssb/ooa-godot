@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Invisible INTERAC_DUNGEON_STUFF $12:$00.</summary>
 internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
@@ -64,10 +64,10 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
 
             // initializeDungeonStuff clears these three session-persistent
             // dungeon fields before the Ages table supplies wSpinnerState.
-            _runtimeState.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress, 0);
-            _runtimeState.SetWramByte(OracleRuntimeState.SwitchStateAddress, 0);
+            _runtimeState.SetWramByte(AgesGameContent.ToggleBlocksStateAddress, 0);
+            _runtimeState.SetWramByte(AgesGameContent.SwitchStateAddress, 0);
             _runtimeState.SetWramByte(
-                OracleRuntimeState.SpinnerStateAddress, (byte)_record.SpinnerState);
+                AgesGameContent.SpinnerStateAddress, (byte)_record.SpinnerState);
             _initializeStaticObjects(_record.Dungeon);
         }
 

@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed record GanonEnvironment(GanonDatabase Data,RoomEntityManager Entities,
     Action<GanonCharacter> Initialize,Action<bool,int,bool> Fade,Action ClearPalette,Action<bool> StatusBar,

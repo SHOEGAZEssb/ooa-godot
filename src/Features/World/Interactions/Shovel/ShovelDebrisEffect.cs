@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_SHOVELDEBRIS ($0a): initialization, a 14-update directional frame moving at
@@ -44,8 +44,8 @@ internal partial class ShovelDebrisEffect : FixedEffectNode2D
     {
         int index = DirectionIndex(direction);
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_sprites.png");
-        _texture = NpcCharacter.BuildOamTexture(
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+        _texture = OracleOamCompositor.BuildOamTexture(
             source, DirectionalOam[index], tileBase: 0x42, basePalette: 3);
         _precisePosition = position;
         _direction = direction;

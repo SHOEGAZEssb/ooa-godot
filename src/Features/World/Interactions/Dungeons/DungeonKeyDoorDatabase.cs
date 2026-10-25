@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported small-key and boss-key door behavior from interactableTilesTable and the
@@ -19,7 +19,7 @@ internal sealed class DungeonKeyDoorDatabase
     internal DungeonKeyDoorDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_key_doors.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_key_doors.tsv",
             new GeneratedTableSchema(
                 "dungeon key doors",
                 GeneratedTableKeySemantics.Unique,

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed record VeranFinalEnvironment(VeranFinalDatabase Data,RoomEntityManager Entities,OracleRoomData Room,
     Func<VeranFinalCharacter,int,int,bool> SpawnPart,Action<VeranFinalCharacter,int> SpawnBee,

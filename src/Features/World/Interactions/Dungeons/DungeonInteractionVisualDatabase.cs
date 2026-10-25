@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported graphics and animation records owned by globally dispatched
@@ -32,7 +32,7 @@ internal sealed class DungeonInteractionVisualDatabase
     private void LoadVisuals()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_interaction_visuals.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_interaction_visuals.tsv",
             new GeneratedTableSchema(
                 "shared dungeon interaction visuals",
                 GeneratedTableKeySemantics.Unique,
@@ -63,7 +63,7 @@ internal sealed class DungeonInteractionVisualDatabase
     private void LoadCubePalettes()
     {
         Color[,] palettes = OracleGraphicsData.LoadPalette(
-            "res://assets/oracle/objects/colored_cube_palettes.bin", 2, 6);
+            AgesGameContent.AssetRoot + "objects/colored_cube_palettes.bin", 2, 6);
         for (int palette = 6; palette <= 7; palette++)
         {
             var colors = new Color[4];

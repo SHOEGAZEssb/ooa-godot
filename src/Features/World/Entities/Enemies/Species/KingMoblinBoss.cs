@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // ENEMY $7f. The two $56 slots and both bomb parts keep their own dispatches.
 internal sealed partial class KingMoblinBoss : EnemyCharacter

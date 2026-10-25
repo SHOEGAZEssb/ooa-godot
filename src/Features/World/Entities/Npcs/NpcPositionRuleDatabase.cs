@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported save-selected position overrides applied by ordinary NPC handlers
@@ -21,7 +21,7 @@ public sealed class NpcPositionRuleDatabase
     public NpcPositionRuleDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/npc_positions.tsv",
+            AgesGameContent.AssetRoot + "objects/npc_positions.tsv",
             new GeneratedTableSchema(
                 "NPC position rules",
                 GeneratedTableKeySemantics.Grouped,

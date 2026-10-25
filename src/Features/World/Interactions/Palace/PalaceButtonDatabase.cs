@@ -2,11 +2,11 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class PalaceButtonDatabase
 {
-    private readonly PalaceButtonRecord[] _records = GeneratedTable.Load("res://assets/oracle/objects/palace_buttons.tsv",
+    private readonly PalaceButtonRecord[] _records = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/palace_buttons.tsv",
         new GeneratedTableSchema("palace buttons", GeneratedTableKeySemantics.Unique,
             ["group", "room", "subid", "y", "x", "gate-position", "angle", "source"], ["group", "room"], headerRequired: true))
         .Rows.Select(row => new PalaceButtonRecord(row.Decimal(0, 0, 7), row.HexByte(1), row.HexByte(2),

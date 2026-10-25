@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class CompanionWeaponDatabase
 {
@@ -8,7 +8,7 @@ internal sealed class CompanionWeaponDatabase
     private readonly Dictionary<int, CompanionWeapon> _weapons = new();
     private CompanionWeaponDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/cutscenes/companion_weapons.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/companion_weapons.tsv",
             new GeneratedTableSchema("companion weapon attributes", GeneratedTableKeySemantics.Unique,
                 ["item", "collision-type", "damage", "source"], ["item"], headerRequired: true));
         foreach (var row in table.Rows)

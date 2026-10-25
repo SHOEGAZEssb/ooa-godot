@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 internal static partial class AssemblySourceParser
 {

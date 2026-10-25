@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Positioned INTERAC_COMPANION_SCRIPTS $71:$01/$02/$04/$05 records. Once Link mounts,
@@ -17,7 +17,7 @@ internal sealed class CompanionBarrierDatabase
     internal CompanionBarrierDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/companion_barriers.tsv",
+            AgesGameContent.AssetRoot + "objects/companion_barriers.tsv",
             new GeneratedTableSchema(
                 "companion barriers",
                 GeneratedTableKeySemantics.Unique,

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class CreditsLinkDatabase
 {
@@ -10,7 +10,7 @@ internal sealed class CreditsLinkDatabase
     internal static CreditsLinkDatabase Shared {get;}=new();
     private CreditsLinkDatabase()
     {
-        foreach(var row in GeneratedTable.Load("res://assets/oracle/cutscenes/credits_link_loops.tsv",new("Credits Link animation loops",GeneratedTableKeySemantics.Unique,
+        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/credits_link_loops.tsv",new("Credits Link animation loops",GeneratedTableKeySemantics.Unique,
             ["index","loop-start","source"],["index"],headerRequired:true)).Rows)
         {
             int index=row.HexByte(0),loop=row.Decimal(1);

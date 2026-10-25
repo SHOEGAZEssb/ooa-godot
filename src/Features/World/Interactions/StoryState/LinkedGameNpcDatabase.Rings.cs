@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed partial class LinkedGameNpcDatabase
 {
@@ -17,7 +17,7 @@ public sealed partial class LinkedGameNpcDatabase
     {
         var fields = new List<(int Address, int Bits)>();
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/linked_secret_ring_fields.tsv",
+            AgesGameContent.AssetRoot + "objects/linked_secret_ring_fields.tsv",
             new("Ring secret fields", GeneratedTableKeySemantics.Ordered,
                 ["index", "address", "bits", "source"], headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
@@ -26,8 +26,8 @@ public sealed partial class LinkedGameNpcDatabase
                 throw row.Invalid(0, $"contiguous ring field index {fields.Count}");
             int address = row.HexWord(1);
             int bits = row.Decimal(2, 1, 8);
-            if (fields.Count < 8 ? address is < WramAddress.wRingsObtained or >= WramAddress.wRingsObtained + 8 || bits != 8
-                : address != WramAddress.wLinkName + 5 || bits != 2)
+            if (fields.Count < 8 ? address is < AgesWramAddress.wRingsObtained or >= AgesWramAddress.wRingsObtained + 8 || bits != 8
+                : address != AgesWramAddress.wLinkName + 5 || bits != 2)
                 throw row.Invalid(1, "eight $c616-$c61d ring bytes followed by two bits of wLinkName+5");
             fields.Add((address, bits));
         }
@@ -41,7 +41,7 @@ public sealed partial class LinkedGameNpcDatabase
     {
         var spacing = new List<byte>();
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/linked_secret_ring_spacing.tsv",
+            AgesGameContent.AssetRoot + "objects/linked_secret_ring_spacing.tsv",
             new("Ring secret spacing", GeneratedTableKeySemantics.Ordered,
                 ["index", "value", "source"], headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
@@ -125,8 +125,8 @@ public sealed partial class LinkedGameNpcDatabase
         foreach ((int address, int bits) in RingFields)
         {
             int value = ReadBits(bits);
-            if (address >= WramAddress.wRingsObtained && address < WramAddress.wRingsObtained + 8)
-                rings[address - WramAddress.wRingsObtained] = (byte)value;
+            if (address >= AgesWramAddress.wRingsObtained && address < AgesWramAddress.wRingsObtained + 8)
+                rings[address - AgesWramAddress.wRingsObtained] = (byte)value;
         }
         return true;
     }

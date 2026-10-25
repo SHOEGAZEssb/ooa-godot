@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART_DETECTION_HELPER $0e uses the actual shared PART allocation order.
 // Invisible rays test Link before moving, then test one collision quadrant.
@@ -36,10 +36,10 @@ internal sealed class DetectionHelperRoomEntity : IRoomEntity, IFixedRoomEntity,
         if (_subid >= 2) { _counter1 = 4; _angle = (_angle + (_subid == 2 ? -1 : 1) * 2 * (_variation + 1)) & 31; }
         var velocity = NativeObjectMovement.Velocity(_owner.RuntimeState, 0x64, _angle);
         _speedY = unchecked((short)(velocity.YFixed * 4)); _speedX = unchecked((short)(velocity.XFixed * 4));
-        _owner.RuntimeState.SetWramByte(WramAddress.wTmpcec0, unchecked((byte)_speedY));
-        _owner.RuntimeState.SetWramByte(WramAddress.wTmpcec0 + 1, unchecked((byte)(_speedY >> 8)));
-        _owner.RuntimeState.SetWramByte(WramAddress.wTmpcec0 + 2, unchecked((byte)_speedX));
-        _owner.RuntimeState.SetWramByte(WramAddress.wTmpcec0 + 3, unchecked((byte)(_speedX >> 8)));
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wTmpcec0, unchecked((byte)_speedY));
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wTmpcec0 + 1, unchecked((byte)(_speedY >> 8)));
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wTmpcec0 + 2, unchecked((byte)_speedX));
+        _owner.RuntimeState.SetWramByte(AgesWramAddress.wTmpcec0 + 3, unchecked((byte)(_speedX >> 8)));
     }
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {

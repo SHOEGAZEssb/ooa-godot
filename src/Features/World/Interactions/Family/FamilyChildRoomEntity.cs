@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_CHILD $35 native movement before its stage talk script.</summary>
 internal sealed class FamilyChildRoomEntity : NpcCharacterRoomEntityAdapter,

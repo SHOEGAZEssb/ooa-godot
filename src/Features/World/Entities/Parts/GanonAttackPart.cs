@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Native PART $50/$52; each child retains its own live PART slot and fractions.
 internal sealed partial class GanonAttackPart : EnemyCharacter,IRoomEntity,IFixedRoomEntity,IRoomEntityLifetime,

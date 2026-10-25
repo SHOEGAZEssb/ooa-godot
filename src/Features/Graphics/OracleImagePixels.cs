@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>CPU pixel access without per-pixel native calls for RGBA8 images.</summary>
 internal sealed class OracleImagePixels

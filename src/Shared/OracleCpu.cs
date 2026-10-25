@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>LR35902 instruction execution; memory and peripheral time belong to the caller.</summary>
 internal sealed class OracleCpu

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 internal sealed class Particle
 {
     public Vector2 PrecisePosition;

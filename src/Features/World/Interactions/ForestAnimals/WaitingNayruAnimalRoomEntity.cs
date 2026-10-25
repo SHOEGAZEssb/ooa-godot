@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // bear.s:$02/v$00 owns parseGivenObjectData even when later gates delete the
 // bear. Its two monkey $39:$07 children and rabbit $4b:$07 retain separate slots.
@@ -28,9 +28,9 @@ internal sealed class WaitingNayruAnimalRoomEntity : NpcCharacterRoomEntityAdapt
         if (_initialized) return;
         _initialized=true;
         int id=Entity.Record.Id;
-        bool saved=_save.HasGlobalFlag(GlobalFlag.SavedNayru);
-        bool finished=_save.HasGlobalFlag(GlobalFlag.FinishedGame);
-        bool maku=_save.HasGlobalFlag(GlobalFlag.MakuTreeSaved);
+        bool saved=_save.HasGlobalFlag(AgesGlobalFlag.SavedNayru);
+        bool finished=_save.HasGlobalFlag(AgesGlobalFlag.FinishedGame);
+        bool maku=_save.HasGlobalFlag(AgesGlobalFlag.MakuTreeSaved);
         if (id==0x5d)
         {
             if (!_save.HasGlobalFlag(GlobalFlag.IntroDone)) { Delete(); return; }

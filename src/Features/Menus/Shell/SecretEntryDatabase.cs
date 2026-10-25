@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class SecretEntryDatabase
 {
@@ -15,11 +15,11 @@ internal sealed class SecretEntryDatabase
     }
     internal SecretEntryDatabase()
     {
-        _keyboard = OracleAssetCache.ReadBytes("res://assets/oracle/menu/map_secret_entry_middle.bin");
-        Glyphs = GeneratedTable.Load("res://assets/oracle/menu/secret_glyphs.tsv",
+        _keyboard = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "menu/map_secret_entry_middle.bin");
+        Glyphs = GeneratedTable.Load(AgesGameContent.AssetRoot + "menu/secret_glyphs.tsv",
             new GeneratedTableSchema("Secret-entry glyphs", GeneratedTableKeySemantics.Ordered,
                 ["index", "glyph"], ["index"], headerRequired: true)).Rows.Select(row => (byte)row.HexByte(1)).ToArray();
-        LowerOffsets = GeneratedTable.Load("res://assets/oracle/menu/secret_lower_offsets.tsv",
+        LowerOffsets = GeneratedTable.Load(AgesGameContent.AssetRoot + "menu/secret_lower_offsets.tsv",
             new GeneratedTableSchema("Secret-entry lower options", GeneratedTableKeySemantics.Ordered,
                 ["index", "x"], ["index"], headerRequired: true)).Rows.Select(row => row.Decimal(1)).ToArray();
         if (Glyphs.Length != 64 || LowerOffsets.Length != 4 || _keyboard.Length != 320)

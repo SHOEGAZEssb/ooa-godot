@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source-ordered placements and native constants for the Mermaid's Cave
@@ -10,7 +10,7 @@ namespace oracleofages;
 /// </summary>
 internal sealed class Room5bfDatabase
 {
-    private const string Root = "res://assets/oracle/objects/";
+    private const string Root = AgesGameContent.AssetRoot + "objects/";
 
     internal IReadOnlyList<Room5bfInteractionRecord> Records { get; }
     internal Room5bfConstants Constants { get; }

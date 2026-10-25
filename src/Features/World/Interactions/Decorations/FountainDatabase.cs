@@ -2,7 +2,7 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FountainDatabase
 {
@@ -14,7 +14,7 @@ internal sealed class FountainDatabase
 
     internal FountainDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/fountain_visuals.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/fountain_visuals.tsv",
             new GeneratedTableSchema("INTERAC_DECORATION fountain visuals", GeneratedTableKeySemantics.Unique,
                 ["subid", "sprite", "tile-base", "palette", "animation", "source"], ["subid"], headerRequired: true));
         foreach (var row in table.Rows)
@@ -25,13 +25,13 @@ internal sealed class FountainDatabase
                 row.UnsignedDecimal(3), row.RequiredString(4)));
             _ = row.RequiredString(5);
         }
-        table = GeneratedTable.Load("res://assets/oracle/objects/fountain_placements.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/fountain_placements.tsv",
             new GeneratedTableSchema("INTERAC_DECORATION fountain placements", GeneratedTableKeySemantics.Ordered,
                 ["group", "room", "subid", "y", "x", "source"], headerRequired: true));
         foreach (var row in table.Rows)
             _placements.Add(new(row.UnsignedDecimal(0), row.HexByte(1), row.HexByte(2),
                 new(row.HexByte(4), row.HexByte(3)), row.RequiredString(5)));
-        table = GeneratedTable.Load("res://assets/oracle/objects/fountain_palette_rooms.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/fountain_palette_rooms.tsv",
             new GeneratedTableSchema("decoration.s Symmetry City palette keys", GeneratedTableKeySemantics.Unique,
                 ["room", "source"], ["room"], headerRequired: true));
         foreach (var row in table.Rows)
@@ -50,7 +50,7 @@ internal sealed class FountainDatabase
 
     private static IReadOnlyDictionary<int, Color[]> Palette(string name) =>
         new Dictionary<int, Color[]> { [6] = OracleGraphicsData.LoadPaletteColors(
-            $"res://assets/oracle/objects/fountain_{name}_palette.bin", transparentZero: true) };
+            AgesGameContent.AssetRoot + $"objects/fountain_{name}_palette.bin", transparentZero: true) };
 }
 
 internal sealed record FountainVisual(string Sprite, int TileBase, int Palette, string Animation);

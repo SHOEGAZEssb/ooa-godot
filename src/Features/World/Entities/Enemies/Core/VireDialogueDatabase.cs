@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class VireDialogueDatabase
 {
     private readonly Dictionary<int,string> _texts = new();
     internal VireDialogueDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/vire_text.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/vire_text.tsv",
             new GeneratedTableSchema("Vire dialogue",GeneratedTableKeySemantics.Unique,
                 ["id","message-base64","source"],["id"],headerRequired:true));
         foreach (var row in table.Rows) _texts.Add(row.HexWord(0),System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(row.RequiredString(1))));

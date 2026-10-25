@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/banana.s:$c0. Construction only writes relatedObj1; the first
 // initialized frame remains at zero, before taking Moosh's high XYZ bytes.

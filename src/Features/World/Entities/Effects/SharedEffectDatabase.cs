@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class SharedEffectDatabase
 {
-    private const string Path = "res://assets/oracle/cutscenes/nayru_intro_effects.tsv";
+    private const string Path = AgesGameContent.AssetRoot + "cutscenes/nayru_intro_effects.tsv";
     private readonly Dictionary<string, EffectRecord> _effects = new(StringComparer.Ordinal);
 
     internal SharedEffectDatabase()

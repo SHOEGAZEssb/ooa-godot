@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 public partial class DebugFlagScreen : Control
 {

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 public sealed class DungeonInfo
 {
     private readonly Dictionary<int, DungeonCell> _roomCells = new();

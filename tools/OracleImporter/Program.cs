@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 internal static class Program
 {
@@ -23,7 +23,7 @@ internal static class Program
             }
 
             Console.Error.WriteLine(
-                "Usage: OracleOfAges.Importer serve | manifest <asset-root> <output.tsv>");
+                "Usage: Oracles.Importer serve | manifest <asset-root> <output.tsv>");
             return 2;
         }
         catch (Exception exception)
@@ -100,7 +100,7 @@ internal static class Program
                             int delimiter = payload.IndexOf('\0');
                             if (delimiter < 0)
                                 throw new InvalidDataException("CUTSCENE_SCALAR requires shape and value.");
-                            WriteSuccess(oracleofages.CutsceneFieldShape.IsValid(
+                            WriteSuccess(Oracles.CutsceneFieldShape.IsValid(
                                 payload[..delimiter], payload[(delimiter + 1)..]) ? "1" : "0", utf8);
                             break;
                         }

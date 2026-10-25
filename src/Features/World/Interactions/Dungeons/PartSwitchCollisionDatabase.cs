@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class PartSwitchCollisionDatabase
 {
@@ -9,7 +9,7 @@ internal sealed class PartSwitchCollisionDatabase
 
     private PartSwitchCollisionDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/part_switch_collisions.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/part_switch_collisions.tsv",
             new GeneratedTableSchema("PART_SWITCH collision responses", GeneratedTableKeySemantics.Unique,
                 ["item", "enabled", "effect", "lockout", "source"], ["item"], headerRequired: true));
         if (table.Rows.Count != 32) throw new InvalidOperationException("Incomplete PART_SWITCH collision row $03.");

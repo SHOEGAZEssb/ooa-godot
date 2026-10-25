@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // getFreeItemSlot scans $d7-$db. Reserved $d6/$dc-$df never participate.
 // A liveness predicate represents itemDelete without waiting for scene cleanup.

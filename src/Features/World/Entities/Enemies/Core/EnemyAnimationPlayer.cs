@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Immutable OAM frames plus the original update-count animation clock.
@@ -129,7 +129,7 @@ internal sealed class EnemyAnimationPlayer
                 if (positionedOam)
                 {
                     (texture, offset) = paletteOverrides is null
-                        ? NpcCharacter.BuildPositionedOamTexture(
+                        ? OracleOamCompositor.BuildPositionedOamTexture(
                             source,
                             frame.EncodedOam,
                             tileBase,
@@ -137,7 +137,7 @@ internal sealed class EnemyAnimationPlayer
                             paletteOverride: null,
                             sourceGrayscaleInverted,
                             sourceOffset)
-                        : NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(
+                        : OracleOamCompositor.BuildPositionedOamTextureWithPaletteOverrides(
                             source,
                             frame.EncodedOam,
                             tileBase,
@@ -149,12 +149,12 @@ internal sealed class EnemyAnimationPlayer
                     {
                         Vector2 damageOffset;
                         (damageTexture, damageOffset) =
-                            NpcCharacter.BuildPositionedOamTexture(
+                            OracleOamCompositor.BuildPositionedOamTexture(
                                 source,
                                 frame.EncodedOam,
                                 tileBase,
                                 palette,
-                                NpcCharacter.GetStandardSpritePalette(
+                                OracleOamCompositor.GetStandardSpritePalette(
                                     damagePalette.Value),
                                 sourceGrayscaleInverted,
                                 sourceOffset);
@@ -169,19 +169,19 @@ internal sealed class EnemyAnimationPlayer
                 {
                     offset = new Vector2(-16, -16);
                     texture = paletteOverrides is null
-                        ? NpcCharacter.BuildOamTexture(
+                        ? OracleOamCompositor.BuildOamTexture(
                             source, frame.EncodedOam, tileBase, palette,
                             sourceGrayscaleInverted: sourceGrayscaleInverted)
-                        : NpcCharacter.BuildOamTextureWithPaletteOverrides(
+                        : OracleOamCompositor.BuildOamTextureWithPaletteOverrides(
                             source, frame.EncodedOam, tileBase, palette,
                             paletteOverrides, sourceGrayscaleInverted);
                     damageTexture = damagePalette.HasValue
-                        ? NpcCharacter.BuildOamTexture(
+                        ? OracleOamCompositor.BuildOamTexture(
                             source,
                             frame.EncodedOam,
                             tileBase,
                             palette,
-                            NpcCharacter.GetStandardSpritePalette(
+                            OracleOamCompositor.GetStandardSpritePalette(
                                 damagePalette.Value),
                             sourceGrayscaleInverted)
                         : null;
@@ -202,7 +202,7 @@ internal sealed class EnemyAnimationPlayer
                             Vector2 variantOffset;
                             (variantTexture, variantOffset) =
                                 paletteOverrides is null
-                                    ? NpcCharacter.BuildPositionedOamTexture(
+                                    ? OracleOamCompositor.BuildPositionedOamTexture(
                                         source,
                                         frame.EncodedOam,
                                         tileBase,
@@ -210,7 +210,7 @@ internal sealed class EnemyAnimationPlayer
                                         paletteOverride: null,
                                         sourceGrayscaleInverted,
                                         sourceOffset)
-                                    : NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(
+                                    : OracleOamCompositor.BuildPositionedOamTextureWithPaletteOverrides(
                                         source,
                                         frame.EncodedOam,
                                         tileBase,
@@ -227,14 +227,14 @@ internal sealed class EnemyAnimationPlayer
                         else
                         {
                             variantTexture = paletteOverrides is null
-                                ? NpcCharacter.BuildOamTexture(
+                                ? OracleOamCompositor.BuildOamTexture(
                                     source,
                                     frame.EncodedOam,
                                     tileBase,
                                     variantPalette,
                                     sourceGrayscaleInverted:
                                         sourceGrayscaleInverted)
-                                : NpcCharacter.BuildOamTextureWithPaletteOverrides(
+                                : OracleOamCompositor.BuildOamTextureWithPaletteOverrides(
                                     source,
                                     frame.EncodedOam,
                                     tileBase,
@@ -253,9 +253,9 @@ internal sealed class EnemyAnimationPlayer
                     frame.Duration,
                     frame.Parameter,
                     (baseSlot, colors) => positionedOam
-                        ? NpcCharacter.BuildPositionedOamTextureWithPaletteOverrides(source, frame.EncodedOam,
+                        ? OracleOamCompositor.BuildPositionedOamTextureWithPaletteOverrides(source, frame.EncodedOam,
                             tileBase, baseSlot, colors, sourceGrayscaleInverted, sourceOffset).Texture
-                        : NpcCharacter.BuildOamTextureWithPaletteOverrides(source, frame.EncodedOam, tileBase,
+                        : OracleOamCompositor.BuildOamTextureWithPaletteOverrides(source, frame.EncodedOam, tileBase,
                             baseSlot, colors, sourceGrayscaleInverted, sourceOffset)));
             }
         }

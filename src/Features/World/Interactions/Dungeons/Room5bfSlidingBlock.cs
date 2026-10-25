@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MISCELLANEOUS_1 $6b:$0d in room 5:bf.</summary>
 internal sealed partial class Room5bfSlidingBlock : NpcCharacter,

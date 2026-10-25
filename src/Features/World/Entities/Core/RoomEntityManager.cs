@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Owns the active and outgoing room-entity sets. Per-type behavior is exposed
@@ -55,17 +55,17 @@ public sealed class RoomEntityManager : IDisposable
     internal Action UpdatePirateCaptain { get; set; } = null!;
     internal void CheckLoadPirateShip()
     {
-        if (_saveData is null || _saveData.HasGlobalFlag(GlobalFlag.PiratesGone)) return;
+        if (_saveData is null || _saveData.HasGlobalFlag(AgesGlobalFlag.PiratesGone)) return;
         var room = _roomForActiveEntities;
         var flags = (TilesetFlags)room.TilesetFlags;
         if ((flags & (TilesetFlags.Outdoors | TilesetFlags.Underwater)) != TilesetFlags.Outdoors ||
             ((flags & TilesetFlags.Past) == 0) != _saveData.IsLinkedGame ||
-            room.Id != _saveData.ReadWramByte(WramAddress.wPirateShipRoom) ||
+            room.Id != _saveData.ReadWramByte(AgesWramAddress.wPirateShipRoom) ||
             ReservedPushBlock is { Active: true } ||
             _interactionSlots.Any(pair => pair.Value == 1 && pair.Key is not IRoomEntityLifetime { Finished: true })) return;
         var data = PirateShipDatabase.Shared;
         AddEntity(new PirateShipRoomEntity(this, data.Ship(room.Group, room.Id, 0,
-            _saveData.ReadWramByte(WramAddress.wPirateShipY), _saveData.ReadWramByte(WramAddress.wPirateShipX))));
+            _saveData.ReadWramByte(AgesWramAddress.wPirateShipY), _saveData.ReadWramByte(AgesWramAddress.wPirateShipX))));
     }
     internal PushBlockController? ReservedPushBlock { get; set; }
     internal DungeonKeyDoorController? ReservedKeyDoor { get; set; }
@@ -172,7 +172,7 @@ public sealed class RoomEntityManager : IDisposable
 
     internal void SpawnDiggingEnemy(int roll, int subId, Vector2 position)
     {
-        if (_runtimeState.ReadWramByte(WramAddress.wDiggingUpEnemiesForbidden) != 0)
+        if (_runtimeState.ReadWramByte(AgesWramAddress.wDiggingUpEnemiesForbidden) != 0)
             return;
         TryAllocateEnemy(_ => _factory.CreateDiggingEnemy(
             _diggingEnemies.Enemy(roll, subId), position, _roomForActiveEntities,
@@ -212,7 +212,7 @@ public sealed class RoomEntityManager : IDisposable
             byte count = (byte)RoomEnemyCount;
             var merged = new MergedTwinrovaRoomEntity(new(parent.World, parent.Position, parent.ZFixed));
             RegisterEnemySlot(merged, slot); AddEntity(merged);
-            RuntimeState.SetWramByte(WramAddress.wLoadedTreeGfxIndex, 1);
+            RuntimeState.SetWramByte(AgesWramAddress.wLoadedTreeGfxIndex, 1);
             parent.DeleteNative(); SetNativeRoomEnemyCount(count);
             return;
         }
@@ -283,7 +283,7 @@ public sealed class RoomEntityManager : IDisposable
         if (!InteractionSlotAvailable) return false;
         var record=new NpcRecord(4,0xfc,0x4d,7,(int)position.Y,(int)position.X,0,0,"",0,0,0,false,"","","","","",NpcImplementationClassification.EventOwned);
         AddEntity(BlackTowerAmbiFactory?.Invoke(record) ?? throw new InvalidOperationException("veranPossessionBoss.s: Ambi $4d:$07 requires its Black Tower event owner."));
-        RuntimeState.SetWramByte(WramAddress.wLoadedTreeGfxIndex,1);
+        RuntimeState.SetWramByte(AgesWramAddress.wLoadedTreeGfxIndex,1);
         return true;
     }
     internal PossessedNayruRoomEntity? TryCreatePalacePossessionEnemy(Vector2 position,int subid,PossessedNayruCharacter? parent=null) =>
@@ -390,8 +390,8 @@ public sealed class RoomEntityManager : IDisposable
     private int _screenShakeMagnitude;
     private bool _linkCollisionsAndMenuDisabled
     {
-        get => _runtimeState.ReadWramByte(WramAddress.wDisableLinkCollisionsAndMenu)!=0;
-        set => _runtimeState.SetWramByte(WramAddress.wDisableLinkCollisionsAndMenu,value?(byte)1:(byte)0);
+        get => _runtimeState.ReadWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu)!=0;
+        set => _runtimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,value?(byte)1:(byte)0);
     }
     private bool _smogLinkAndMenuLocked;
     private readonly BossShutterSignal _bossShutterSignal = new();
@@ -469,7 +469,7 @@ public sealed class RoomEntityManager : IDisposable
     internal Func<bool> CameraUpdatesDisabledSource { get; set; } = static () => false;
     internal Action PartPhaseUpdate { get; set; } = static () => { };
     internal Action InteractionPhaseUpdate { get; set; } = static () => { };
-    private byte NativeObjectMask => _runtimeState.ReadWramByte(WramAddress.wDisabledObjects);
+    private byte NativeObjectMask => _runtimeState.ReadWramByte(AgesWramAddress.wDisabledObjects);
     // wDisabledObjects=$1e uses the same initialization/always-update
     // dispatch branches as text, without making dialogue active.
     internal Func<bool> InitializedObjectsDisabledSource { get; set; } =
@@ -810,7 +810,7 @@ public sealed class RoomEntityManager : IDisposable
     {
         get
         {
-            if (_runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0 || _smogLinkAndMenuLocked || _linkCollisionsAndMenuDisabled || SwitchHook?.ExchangeActive == true)
+            if (_runtimeState.ReadWramByte(AgesWramAddress.wMenuDisabled) != 0 || _smogLinkAndMenuLocked || _linkCollisionsAndMenuDisabled || SwitchHook?.ExchangeActive == true)
                 return true;
             return HasPlayerRestriction(
                 static restriction => restriction.DisablesMenus);
@@ -825,7 +825,7 @@ public sealed class RoomEntityManager : IDisposable
     // INTERAC$33 writes wMenuDisabled, which checkTileWarps also reads.
     // The separate wDisableLinkCollisionsAndMenu byte is not that gate.
     internal bool WarpTilesDisabled => MenuDisablesWarpTiles || NativeWarpTilesDisabled;
-    internal bool MenuDisablesWarpTiles => _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) != 0 || _smogLinkAndMenuLocked ||
+    internal bool MenuDisablesWarpTiles => _runtimeState.ReadWramByte(AgesWramAddress.wMenuDisabled) != 0 || _smogLinkAndMenuLocked ||
         HasPlayerRestriction(static restriction => restriction.MenuDisablesWarpTiles);
     // func_60e9 reads wDisableWarpTiles before the entered-position marker;
     // checkTileWarps reads wMenuDisabled only after that marker is updated.
@@ -869,7 +869,7 @@ public sealed class RoomEntityManager : IDisposable
         _saveData = saveData;
         _inventory = inventory;
         _treasures = treasures ?? new TreasureDatabase();
-        _runtimeState = runtimeState ?? new OracleRuntimeState();
+        _runtimeState = runtimeState ?? AgesGameContent.CreateRuntimeState();
         _random.BindPlacementMemory(_runtimeState);
         _animationTick = animationTick ?? (() => 0);
         _familyState = new BipinBlossomFamilyStateResolver(npcs);
@@ -1066,7 +1066,7 @@ public sealed class RoomEntityManager : IDisposable
             // before the species handler. The later entity pass cannot undo
             // an update already consumed in this earlier special-object pass.
             if (entity is RickyCompanionRoomEntity or DimitriCompanionRoomEntity or MooshCompanionRoomEntity &&
-                ((NativeObjectMask&0xa0)!=0 || (_runtimeState.ReadWramByte(WramAddress.wScrollMode)&0x0e)!=0) &&
+                ((NativeObjectMask&0xa0)!=0 || (_runtimeState.ReadWramByte(AgesWramAddress.wScrollMode)&0x0e)!=0) &&
                 entity is not IRoomInitializedCompanion { RoomInitialization.Pending: true })
                 continue;
             if (entity is MapleEncounterRoomEntity)
@@ -1228,7 +1228,7 @@ public sealed class RoomEntityManager : IDisposable
             // so reuse does not substitute scene insertion order for $d7-$db.
             // updateItems samples the palette thread separately from text
             // and $90 object masks; state-zero items remain eligible.
-            bool itemPassFrozen = textActive || _runtimeState.ReadWramByte(WramAddress.wScrollMode)==8 || (NativeObjectMask&0x90) != 0 ||
+            bool itemPassFrozen = textActive || _runtimeState.ReadWramByte(AgesWramAddress.wScrollMode)==8 || (NativeObjectMask&0x90) != 0 ||
                 NativeObjectMask == 0 && roomEntityFreezeActive || PaletteFadeActiveSource();
             // companionCreateWeaponItem owns $d6, before dynamic $d7-$db.
             // These children use updateItems' $90/palette/text admission,
@@ -1316,7 +1316,7 @@ public sealed class RoomEntityManager : IDisposable
                 // worker clearing it doesn't resume initialized actors in the
                 // same interaction pass.
                 bool interactionsDisabled = phase == 2 && ((NativeObjectMask&0x02) != 0 ||
-                    _runtimeState.ReadWramByte(WramAddress.wScrollMode) == 0x08 || FloorToggle?.Frozen == true ||
+                    _runtimeState.ReadWramByte(AgesWramAddress.wScrollMode) == 0x08 || FloorToggle?.Frozen == true ||
                     _activeEntities.Any(entity => entity is IRoomEntityUpdateFreeze
                         { FreezesRoomEntities: true, FreezesInteractions: true }));
                 if (phase == 2)
@@ -1325,14 +1325,14 @@ public sealed class RoomEntityManager : IDisposable
                 // text, category masks or a palette thread. Sample before the
                 // slot walk so an earlier actor cannot resume later slots.
                 bool enemyPassDisabled = phase == 0 && (enemiesDisabled || PaletteFadeActiveSource() ||
-                    (_runtimeState.ReadWramByte(WramAddress.wScrollMode) & 0x0e) != 0);
+                    (_runtimeState.ReadWramByte(AgesWramAddress.wScrollMode) & 0x0e) != 0);
                 bool categoryFrozen = LegacyRoomEntityFreezeActive() ||
-                    phase == 1 && _runtimeState.ReadWramByte(WramAddress.wScrollMode) == 8 ||
+                    phase == 1 && _runtimeState.ReadWramByte(AgesWramAddress.wScrollMode) == 8 ||
                     (NativeObjectMask & (phase == 0 ? 0x84 : phase == 1 ? 0x88 : 0x02)) != 0;
                 if (phase == 1)
                 {
                     InitializedPartUpdatesAllowed = !textActive && !categoryFrozen &&
-                        _runtimeState.ReadWramByte(WramAddress.wScrollMode) != 0x08;
+                        _runtimeState.ReadWramByte(AgesWramAddress.wScrollMode) != 0x08;
                     PartPhaseUpdate();
                 }
                 if (phase == 2)
@@ -1465,7 +1465,7 @@ public sealed class RoomEntityManager : IDisposable
         // contact. Ordinary Feather air is eligible; interaction callers
         // retain their separate ground-contact dispatch boundary.
         if (_enemySlots.ContainsKey(entity) || _partSlots.ContainsKey(entity))
-            return _runtimeState.ReadWramByte(WramAddress.wMenuDisabled) == 0 &&
+            return _runtimeState.ReadWramByte(AgesWramAddress.wMenuDisabled) == 0 &&
                 player.PatchCollisionsEnabled && player.EnemyContactHeightOverlaps(
                 entity is IObjectCollisionHeightRoomEntity height ? height.CollisionZ : 0);
         return player.AcceptsRoomEntityContact;
@@ -2403,7 +2403,7 @@ public sealed class RoomEntityManager : IDisposable
         // parseObjectData clears wNumEnemies even when outgoing slots are
         // retained during a scroll. Failed allocation counts are room-local.
         // Its $cfc0 clear does not clear the later persistent scratch bytes.
-        _runtimeState.SetWramByte(WramAddress.wTmpcfc0, 0);
+        _runtimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 0);
         _unreleasedEnemyCounts = 0;
         _enemyCountOffset = 0;
         _bossShutterSignal.Clear();
@@ -2415,9 +2415,9 @@ public sealed class RoomEntityManager : IDisposable
         // wActiveTriggers is room-local scratch state cleared by room loading.
         _activeTriggers = 0;
         _platformRiding.BeginUpdate(0);
-        _runtimeState.SetWramByte(WramAddress.wLever1PullDistance, 0);
-        _runtimeState.SetWramByte(WramAddress.wLever2PullDistance, 0);
-        _runtimeState.SetWramByte(WramAddress.wDiggingUpEnemiesForbidden, 0);
+        _runtimeState.SetWramByte(AgesWramAddress.wLever1PullDistance, 0);
+        _runtimeState.SetWramByte(AgesWramAddress.wLever2PullDistance, 0);
+        _runtimeState.SetWramByte(AgesWramAddress.wDiggingUpEnemiesForbidden, 0);
         // parseObjectData loads wEnemyPlacement.killedEnemiesBitset from the
         // last-eight-room list before rebuilding w4RandomBuffer.
         _recentEnemyDefeats.BeginRoom(room.Id);

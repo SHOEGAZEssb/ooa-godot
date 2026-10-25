@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class VolcanoRockRoomEntity(VolcanoRock rock)
     : RoomEntityAdapter<VolcanoRock>(rock, rock.SetTransitionDrawOffset),

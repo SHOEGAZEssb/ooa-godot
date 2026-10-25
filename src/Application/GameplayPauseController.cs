@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Owns the clone-side equivalent of exclusive menu/input suspension. A lease

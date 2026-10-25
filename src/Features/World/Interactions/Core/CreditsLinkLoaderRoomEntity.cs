@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $a8:$64 / $04 initializes Link during the interaction pass, after
 // his special-object update. The loader still occupies its native slot.

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // bird.s $4c:$01..$03 and bear.s $5d:$01 dispatch interactionAnimate.
 // Birds initialize speedZ=-$c0 but these subids never call the gravity helper.

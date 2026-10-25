@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using static oracleofages.OracleGraphicsData;
-using static oracleofages.OracleTileRenderer;
+using static Oracles.OracleGraphicsData;
+using static Oracles.OracleTileRenderer;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Renders MENU_MAP from the original 20x18 tilemaps, attributes, graphics,
@@ -123,31 +123,31 @@ public partial class MapScreen : Node2D
         if (_resourcesPrepared) return;
         _resourcesPrepared = true;
         _commonTiles = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/map/tiles_common.png");
+            AgesGameContent.AssetRoot + "map/tiles_common.png");
         _presentTiles1 = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/map/tiles_present_1.png");
+            AgesGameContent.AssetRoot + "map/tiles_present_1.png");
         _presentTiles2 = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/map/tiles_present_2.png");
+            AgesGameContent.AssetRoot + "map/tiles_present_2.png");
         _pastTiles1 = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/map/tiles_past_1.png");
+            AgesGameContent.AssetRoot + "map/tiles_past_1.png");
         _pastTiles2 = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/map/tiles_past_2.png");
+            AgesGameContent.AssetRoot + "map/tiles_past_2.png");
         _dungeonTiles = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/map/tiles_dungeon.png");
+            AgesGameContent.AssetRoot + "map/tiles_dungeon.png");
         _spriteTiles = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/map/sprites.png");
+            AgesGameContent.AssetRoot + "map/sprites.png");
         _dungeonSpriteTiles = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/inventory/spr_map_compass_keys_bookofseals.png");
+            AgesGameContent.AssetRoot + "inventory/spr_map_compass_keys_bookofseals.png");
         _presentPalette = LoadPaletteWithCommonBackgroundFallback(
-            "res://assets/oracle/map/palette_present.bin", 8, 0);
+            AgesGameContent.AssetRoot + "map/palette_present.bin", 8, 0);
         _pastPalette = LoadPaletteWithCommonBackgroundFallback(
-            "res://assets/oracle/map/palette_past.bin", 8, 0);
+            AgesGameContent.AssetRoot + "map/palette_past.bin", 8, 0);
         _dungeonPalette = LoadPaletteWithCommonBackgroundFallback(
-            "res://assets/oracle/map/palette_dungeon.bin", 4, 2);
+            AgesGameContent.AssetRoot + "map/palette_dungeon.bin", 4, 2);
         _spritePalette = LoadPaletteWithCommonBackgroundFallback(
-            "res://assets/oracle/map/palette_sprites.bin", 8, 0);
+            AgesGameContent.AssetRoot + "map/palette_sprites.bin", 8, 0);
         _dungeonSpritePalette = LoadPaletteWithCommonBackgroundFallback(
-            "res://assets/oracle/inventory/palette_sprites.bin", 6, 0);
+            AgesGameContent.AssetRoot + "inventory/palette_sprites.bin", 6, 0);
     }
 
     public void Initialize(RoomSession rooms, InventoryState inventory, Func<int>? frameCounter = null)
@@ -424,8 +424,8 @@ public partial class MapScreen : Node2D
         if (DebugFastTravel && ((_cursorRoom & 0x0f) >= OverworldWidth ||
             ((_cursorRoom >> 4) & 0x0f) >= OverworldHeight))
             _cursorRoom = 0x00;
-        byte[] map = ReadBytes($"res://assets/oracle/map/map_{Mode.ToString().ToLowerInvariant()}.bin", 576);
-        byte[] flags = ReadBytes($"res://assets/oracle/map/flags_{Mode.ToString().ToLowerInvariant()}.bin", 576);
+        byte[] map = ReadBytes(AgesGameContent.AssetRoot + $"map/map_{Mode.ToString().ToLowerInvariant()}.bin", 576);
+        byte[] flags = ReadBytes(AgesGameContent.AssetRoot + $"map/flags_{Mode.ToString().ToLowerInvariant()}.bin", 576);
         ApplyOverworldTileSubstitutions(map, flags);
         int group = Mode == MapMode.Past ? 1 : 0;
         for (int y = 0; y < OverworldHeight; y++)
@@ -509,8 +509,8 @@ public partial class MapScreen : Node2D
 
     private void RebuildDungeonBackground(DungeonInfo info)
     {
-        byte[] map = ReadBytes("res://assets/oracle/map/map_dungeon.bin", 576);
-        byte[] flags = ReadBytes("res://assets/oracle/map/flags_dungeon.bin", 576);
+        byte[] map = ReadBytes(AgesGameContent.AssetRoot + "map/map_dungeon.bin", 576);
+        byte[] flags = ReadBytes(AgesGameContent.AssetRoot + "map/flags_dungeon.bin", 576);
         DrawFloorList(map, flags, info);
         DrawSmallKeyCount(map, info.Index);
         // dungeonMap_generateScrollableTilemap: five blank rows, then each
@@ -568,7 +568,7 @@ public partial class MapScreen : Node2D
         _dungeonMapTiles = map;
         DungeonBlurbLayout blurbLayout = _layouts.DungeonBlurb(_dungeonIndex);
         Image blurb = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/map/blurb_{blurbLayout.Asset}.png");
+            AgesGameContent.AssetRoot + $"map/blurb_{blurbLayout.Asset}.png");
         _background = BuildBackground(map, flags, blurb);
     }
 
@@ -881,7 +881,7 @@ public partial class MapScreen : Node2D
             case 0x0c:
                 return 0x0e;
             case 0x0d:
-                return _rooms.SaveData.HasGlobalFlag(GlobalFlag.MoblinsKeepDestroyed) ? 0x10 : 0x0f;
+                return _rooms.SaveData.HasGlobalFlag(AgesGlobalFlag.MoblinsKeepDestroyed) ? 0x10 : 0x0f;
             case 0x0e:
                 if (_rooms.SaveData.HasRoomFlag(0, 0x90, OracleSaveData.RoomFlag40))
                     return 0x13;

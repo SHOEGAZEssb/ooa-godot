@@ -1,14 +1,14 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FaroreMemoryDatabase
 {
     internal IReadOnlyList<CutsceneCommand> Script { get; } = CutsceneCommandCatalog.LoadPrograms(
-        "res://assets/oracle/cutscenes/farore_memory.tsv")["faroresMemoryScript"];
+        AgesGameContent.AssetRoot + "cutscenes/farore_memory.tsv")["faroresMemoryScript"];
     internal NpcCharacter CreateActor(DungeonObjectRecord placement)
     {
-        var row = GeneratedTable.Load("res://assets/oracle/objects/farore_memory.tsv", new(
+        var row = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/farore_memory.tsv", new(
             "Farore's Memory graphics $1c:$00", GeneratedTableKeySemantics.Unique,
             ["sprite", "tile-base", "palette", "animation", "source"], ["sprite"], headerRequired: true)).SingleRow();
         string animation = row.RequiredString(3);

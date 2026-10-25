@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Common PART_ORB $03 placed directly or spawned by an event.</summary>
 internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
@@ -35,7 +35,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
     internal int HitLockout => _hitLockout;
     internal bool PendingHit => _pending;
     internal bool IsOn =>
-        (_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) &
+        (_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) &
          ToggleMask) != 0;
     internal Texture2D CurrentTexture =>
         _animation.CurrentTextureForPalette(Palette);
@@ -134,8 +134,8 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
             _hitLockout--;
         if (!_pending) return;
         _pending = false;
-        _runtime.SetWramByte(OracleRuntimeState.ToggleBlocksStateAddress,
-            (byte)(_runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress) ^ ToggleMask));
+        _runtime.SetWramByte(AgesGameContent.ToggleBlocksStateAddress,
+            (byte)(_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) ^ ToggleMask));
         Palette = (Palette & 1) + 1;
         _playSound(_data.SwitchSound);
         QueueRedraw();

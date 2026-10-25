@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_ITEM_DROP_PRODUCER ($59), created by Ages object opcode $fa. It is

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal static class TerrainShadow
 {
@@ -19,7 +19,7 @@ internal static class TerrainShadow
             return _definition;
 
         GeneratedTableRow row = GeneratedTable.Load(
-            "res://assets/oracle/effects/terrain_shadow.tsv",
+            AgesGameContent.AssetRoot + "effects/terrain_shadow.tsv",
             new GeneratedTableSchema(
                 "default terrain-effect shadow",
                 GeneratedTableKeySemantics.Ordered,
@@ -28,9 +28,9 @@ internal static class TerrainShadow
                 ],
                 headerRequired: true)).SingleRow();
         (Texture2D texture, Vector2 offset) =
-            NpcCharacter.BuildPositionedOamTexture(
+            OracleOamCompositor.BuildPositionedOamTexture(
                 OracleGraphicsCache.LoadImage(
-                    $"res://assets/oracle/gfx/{row.RequiredString(0)}.png"),
+                    AgesGameContent.AssetRoot + $"gfx/{row.RequiredString(0)}.png"),
                 row.RequiredString(3),
                 row.UnsignedDecimal(1),
                 row.UnsignedDecimal(2),

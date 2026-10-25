@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // commonTileSubstitutions.s:replaceSwitchTiles precedes object parsing.
 internal sealed class SwitchTileReplacementDatabase
@@ -11,7 +11,7 @@ internal sealed class SwitchTileReplacementDatabase
 
     internal SwitchTileReplacementDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/switch_tile_replacements.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/switch_tile_replacements.tsv",
             new GeneratedTableSchema("switch tile replacements",GeneratedTableKeySemantics.Grouped,
                 ["group","room","mask","position","tile","source"],["group","room"],headerRequired:true));
         foreach (var row in table.Rows)

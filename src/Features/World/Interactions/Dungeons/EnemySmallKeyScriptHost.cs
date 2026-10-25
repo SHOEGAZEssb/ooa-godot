@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class EnemySmallKeyScriptHost(DungeonRewardRoomEntity owner) : CutsceneCommandHost
 {

@@ -3,7 +3,7 @@ using System;
 using System.IO;
 using System.Security;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal static class DebugSavestateStore
 {

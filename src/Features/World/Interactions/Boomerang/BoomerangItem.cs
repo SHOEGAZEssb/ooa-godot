@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // The dynamic ITEM$06 child outlives the parent throw animation. Returning
 // states ignore terrain and keep their collision enabled until the catch.
@@ -45,7 +45,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
         _clink = clink;
         _animation = new(this, 1);
         // The $84e1 upload maps item tile base$4e to sprite offset zero.
-        _animation.Load(OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_boomerang.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_boomerang.png"),
             [_data.Animation], 0, _data.OamFlags & 7, sourceGrayscaleInverted: _data.SourceInverted);
         Visible = false;
     }

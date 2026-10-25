@@ -1,13 +1,13 @@
 using System;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal static class DeathRespawnPresets
 {
     private static readonly Lazy<(byte Mask,byte[] Values)[]> Presets=new(()=>
     {
-        var rows=GeneratedTable.Load("res://assets/oracle/metadata/death_respawn_presets.tsv",new("Death respawn presets",GeneratedTableKeySemantics.Ordered,
+        var rows=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/death_respawn_presets.tsv",new("Death respawn presets",GeneratedTableKeySemantics.Ordered,
             ["index","mask","values","source"],headerRequired:true)).Rows;
         int index=0;
         var presets=rows.Select(row=>

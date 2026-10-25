@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported placements and common constants for PART_ORB $03, PART_SWITCH $05,
@@ -123,7 +123,7 @@ internal sealed class DungeonMechanicDatabase
     {
         int count = 0;
         GeneratedTable mechanics = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_mechanics.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_mechanics.tsv",
             new GeneratedTableSchema(
                 "dungeon mechanics",
                 GeneratedTableKeySemantics.Grouped,
@@ -151,19 +151,19 @@ internal sealed class DungeonMechanicDatabase
                     _ => throw row.Invalid(7, "one of none, bit, exact")
                 },
                 row.Boolean01(8));
-            if (record.Id is not (PartId.RespawnableBush or InteractionId.Splash or InteractionId.Puff or InteractionId.SnowDebris or InteractionId.DungeonStuff or InteractionId.PushBlockTrigger or InteractionId.DoorController or InteractionId.DungeonScript or InteractionId.DungeonEvents or InteractionId.ExtendableBridge or InteractionId.TriggerTranslator or InteractionId.SmogBoss or InteractionId.Miscellaneous1 or InteractionId.CreateObjectAtEachTileIndex or InteractionId.Miscellaneous2) ||
+            if (record.Id is not (PartId.RespawnableBush or InteractionId.Splash or InteractionId.Puff or InteractionId.SnowDebris or InteractionId.DungeonStuff or InteractionId.PushBlockTrigger or InteractionId.DoorController or InteractionId.DungeonScript or AgesInteractionId.DungeonEvents or AgesInteractionId.ExtendableBridge or AgesInteractionId.TriggerTranslator or AgesInteractionId.SmogBoss or AgesInteractionId.Miscellaneous1 or InteractionId.CreateObjectAtEachTileIndex or AgesInteractionId.Miscellaneous2) ||
                 record.Id == PartId.RespawnableBush && record.SubId is not (0x04 or 0x06) ||
-                record.Id == InteractionId.Miscellaneous1 && record.SubId != 0x0f ||
-                record.Id == InteractionId.Miscellaneous2 && (record.SubId is not (0x0c or 0x0d or 0x0e or 0x12 or 0x15 or 0x16) ||
+                record.Id == AgesInteractionId.Miscellaneous1 && record.SubId != 0x0f ||
+                record.Id == AgesInteractionId.Miscellaneous2 && (record.SubId is not (0x0c or 0x0d or 0x0e or 0x12 or 0x15 or 0x16) ||
                     record.SubId is 0x0c or 0x0d or 0x12 && record.Parameter == 0) ||
                 record.Id == InteractionId.Splash && record.SubId > 0x07 ||
                 record.Id == InteractionId.DungeonStuff && record.SubId is not (0x01 or 0x02 or 0x04) ||
                 record.Id == InteractionId.DoorController && record.SubId is not (>= 0x04 and <= 0x0b or >= 0x10 and <= 0x17) ||
                 record.Id == InteractionId.DungeonScript && record.SubId != 0x00 ||
-                record.Id == InteractionId.DungeonEvents && record.SubId is not (0x09 or 0x0a or 0x0c or 0x0d or 0x0e or 0x17) ||
-                record.Id == InteractionId.ExtendableBridge && record.SubId > 0x07 ||
-                record.Id == InteractionId.TriggerTranslator && record.SubId is not (0x02 or 0x10 or 0x20 or 0x40 or 0x80) ||
-                record.Id == InteractionId.SmogBoss && record.SubId is not (0x0a or 0x08 or 0x88) ||
+                record.Id == AgesInteractionId.DungeonEvents && record.SubId is not (0x09 or 0x0a or 0x0c or 0x0d or 0x0e or 0x17) ||
+                record.Id == AgesInteractionId.ExtendableBridge && record.SubId > 0x07 ||
+                record.Id == AgesInteractionId.TriggerTranslator && record.SubId is not (0x02 or 0x10 or 0x20 or 0x40 or 0x80) ||
+                record.Id == AgesInteractionId.SmogBoss && record.SubId is not (0x0a or 0x08 or 0x88) ||
                 record.Id == InteractionId.CreateObjectAtEachTileIndex && record.SubId is not (0x04 or 0x08))
                 throw row.Invalid(3, "a supported dungeon mechanic interaction id");
             List<DungeonMechanicDatabaseRecord> records =
@@ -181,7 +181,7 @@ internal sealed class DungeonMechanicDatabase
         RecordCount = count;
 
         GeneratedTable tilePatterns = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_event_tile_patterns.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_event_tile_patterns.tsv",
             new GeneratedTableSchema(
                 "dungeon event tile patterns",
                 GeneratedTableKeySemantics.Unique,
@@ -209,7 +209,7 @@ internal sealed class DungeonMechanicDatabase
         }
 
         GeneratedTable constants = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_mechanic_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_mechanic_constants.tsv",
             new GeneratedTableSchema(
                 "dungeon mechanic constants",
                 GeneratedTableKeySemantics.Unique,
@@ -222,7 +222,7 @@ internal sealed class DungeonMechanicDatabase
         }
 
         GeneratedTable texts = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_mechanic_text.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_mechanic_text.tsv",
             new GeneratedTableSchema(
                 "dungeon mechanic text",
                 GeneratedTableKeySemantics.Unique,
@@ -248,11 +248,11 @@ internal sealed class DungeonMechanicDatabase
         IReadOnlyList<DungeonMechanicDatabaseRecord> room64 = GetRoomRecords(4, 0x64);
         IReadOnlyList<DungeonMechanicDatabaseRecord> room7a = GetRoomRecords(4, 0x7a);
         IReadOnlyList<DungeonTilePatternRecord> room64Pattern =
-            TilePattern(InteractionId.DungeonEvents, 0x09);
+            TilePattern(AgesInteractionId.DungeonEvents, 0x09);
         if (RecordCount != 244 || _constants.Count != 127 || _texts.Count != 2 ||
             Constant("ancient-tomb-grave-tile") != 0x02 || Constant("ancient-tomb-solve-wait") != 45 ||
-            GetRoomRecords(1, 0x8c) is not [{ Id: InteractionId.Miscellaneous2, SubId: 0x0e, Order: 0, PackedPosition: 0x34 }] ||
-            TilePattern(InteractionId.Miscellaneous2, 0x0e).Count != 4 ||
+            GetRoomRecords(1, 0x8c) is not [{ Id: AgesInteractionId.Miscellaneous2, SubId: 0x0e, Order: 0, PackedPosition: 0x34 }] ||
+            TilePattern(AgesInteractionId.Miscellaneous2, 0x0e).Count != 4 ||
             DoorTorchWait != 30 || DoorEntryScratchMask != 1 ||
             OverworldSwitchOnTile != 0x9e ||
             BridgeSpawnerWait != 8 || BridgeSpawnerHalfTile != 0x6e ||
@@ -301,11 +301,11 @@ internal sealed class DungeonMechanicDatabase
                 TriggerPredicate.None, true) ||
             room4e.Count != 8 ||
             room4e[0] != new DungeonMechanicDatabaseRecord(
-                4, 0x4e, 0, InteractionId.ExtendableBridge, 0x01, 0x39, 0x02,
+                4, 0x4e, 0, AgesInteractionId.ExtendableBridge, 0x01, 0x39, 0x02,
                 TriggerPredicate.None, true) ||
-            room4e[1] is not { Order: 1, Id: InteractionId.ExtendableBridge, SubId: 0x01,
+            room4e[1] is not { Order: 1, Id: AgesInteractionId.ExtendableBridge, SubId: 0x01,
                 PackedPosition: 0x42, Parameter: 0x03 } ||
-            room4e[2] is not { Order: 2, Id: InteractionId.ExtendableBridge, SubId: 0x01,
+            room4e[2] is not { Order: 2, Id: AgesInteractionId.ExtendableBridge, SubId: 0x01,
                 PackedPosition: 0x4c, Parameter: 0x04 } ||
             room4e[3] is not { Order: 3, Id: InteractionId.Splash, SubId: 0x02,
                 PackedPosition: 0x31 } ||
@@ -313,17 +313,17 @@ internal sealed class DungeonMechanicDatabase
                 PackedPosition: 0x3d } ||
             room4e[5] is not { Order: 5, Id: InteractionId.Puff, SubId: 0x02,
                 PackedPosition: 0x68 } ||
-            room4e[6] is not { Order: 6, Id: InteractionId.SmogBoss, SubId: 0x0a,
+            room4e[6] is not { Order: 6, Id: AgesInteractionId.SmogBoss, SubId: 0x0a,
                 PackedPosition: 0x18, Parameter: 0x0c } ||
             room4e[7] is not { Order: 7, Id: InteractionId.CreateObjectAtEachTileIndex, SubId: 0x04,
                 PackedPosition: 0x0f, Parameter: 0x16 } ||
             room56.Count != 1 || room56[0] !=
                 new DungeonMechanicDatabaseRecord(
-                    4, 0x56, 0, InteractionId.DungeonEvents, 0x0a, 0x00, 0x00,
+                    4, 0x56, 0, AgesInteractionId.DungeonEvents, 0x0a, 0x00, 0x00,
                     TriggerPredicate.None, true) ||
             room59.Count != 3 ||
             room59[0] != new DungeonMechanicDatabaseRecord(
-                4, 0x59, 0, InteractionId.TriggerTranslator, 0x02, 0x01, 0x01,
+                4, 0x59, 0, AgesInteractionId.TriggerTranslator, 0x02, 0x01, 0x01,
                 TriggerPredicate.Exact, true) ||
             room59[1] != new DungeonMechanicDatabaseRecord(
                 4, 0x59, 1, InteractionId.DoorController, 0x06, 0xa3, 0x00,
@@ -333,24 +333,24 @@ internal sealed class DungeonMechanicDatabase
                 TriggerPredicate.None, true) ||
             room5e.Count != 2 ||
             room5e[0] != new DungeonMechanicDatabaseRecord(
-                4, 0x5e, 0, InteractionId.DungeonEvents, 0x0c, 0x00, 0x00,
+                4, 0x5e, 0, AgesInteractionId.DungeonEvents, 0x0c, 0x00, 0x00,
                 TriggerPredicate.None, true) ||
             room5e[1] != new DungeonMechanicDatabaseRecord(
                 4, 0x5e, 1, InteractionId.SnowDebris, 0x00, 0x19, 0x00,
                 TriggerPredicate.None, true) ||
             room61.Count != 3 ||
             room61[0] != new DungeonMechanicDatabaseRecord(
-                4, 0x61, 0, InteractionId.DungeonEvents, 0x0d, 0x00, 0x00,
+                4, 0x61, 0, AgesInteractionId.DungeonEvents, 0x0d, 0x00, 0x00,
                 TriggerPredicate.None, true) ||
             room61[1] != new DungeonMechanicDatabaseRecord(
-                4, 0x61, 1, InteractionId.DungeonEvents, 0x0e, 0x58, 0xb8,
+                4, 0x61, 1, AgesInteractionId.DungeonEvents, 0x0e, 0x58, 0xb8,
                 TriggerPredicate.None, true) ||
             room61[2] != new DungeonMechanicDatabaseRecord(
-                4, 0x61, 2, InteractionId.TriggerTranslator, 0x40, 0x57, 0x00,
+                4, 0x61, 2, AgesInteractionId.TriggerTranslator, 0x40, 0x57, 0x00,
                 TriggerPredicate.None, true) ||
             room64.Count != 1 || room64[0] !=
                 new DungeonMechanicDatabaseRecord(
-                    4, 0x64, 0, InteractionId.DungeonEvents, 0x09, 0x68, 0xb8,
+                    4, 0x64, 0, AgesInteractionId.DungeonEvents, 0x09, 0x68, 0xb8,
                     TriggerPredicate.None, true) ||
             room64Pattern.Count != 3 ||
             room64Pattern[0] != new DungeonTilePatternRecord(
@@ -362,7 +362,7 @@ internal sealed class DungeonMechanicDatabase
             room64Pattern[2].PackedPosition != 0x5d ||
             room7a.Count != 2 || room7a[0] !=
                 new DungeonMechanicDatabaseRecord(
-                    4, 0x7a, 0, InteractionId.DungeonEvents, 0x17, 0x39, 0x01,
+                    4, 0x7a, 0, AgesInteractionId.DungeonEvents, 0x17, 0x39, 0x01,
                     TriggerPredicate.Exact, true) ||
             room0c.Count != 2 ||
             room0c[0] != new DungeonMechanicDatabaseRecord(

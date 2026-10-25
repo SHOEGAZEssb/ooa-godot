@@ -122,8 +122,9 @@ longer-lived publisher.
 ```text
 src/
 |-- Application/       composition, fixed updates, input, pause ownership
-|-- Features/          Audio, Combat, Graphics, Interface, Menus,
-|                      Persistence, Player, Story, and World use cases
+|-- Features/          shared gameplay/presentation, including Dialogue and Scripting
+|-- Games/Ages/        source-specific content, data bindings and composition
+|-- Games/Seasons/     implemented Seasons content (currently launcher preview)
 |-- Infrastructure/    generated-data and external boundaries
 `-- Shared/            small behavior-neutral primitives
 ```
@@ -135,8 +136,16 @@ dungeon-specific placements, puzzles, events, or source dispatch.
 
 Use one class or interface per C# file and match the filename. Narrow records
 and enums may live with their constructing owner. All types remain in the
-shared `oracleofages` namespace so folder moves do not change runtime identity
-or Godot bindings.
+neutral `Oracles` namespace. Folder ownership separates shared mechanisms from
+game-specific content without duplicating the engine. Preserve script UIDs
+when moving resources and update scene/retained-script paths together.
+
+`GameRoot` keeps the single application/session state owner and fixed-update
+loop. Its Ages frontend, arrival and controller composition live in the Ages
+partial; the launcher and common gameplay loop remain in Application. A new
+game must supply its own content/rules and preserve common ordering contracts.
+Current default data bindings are explicitly Ages; they do not establish
+Seasons behavior. Common enemies, dialogue and command execution stay shared.
 
 ## Authoritative owners
 

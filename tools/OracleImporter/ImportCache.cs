@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 public sealed class ImportCache : IDisposable
 {
@@ -134,7 +134,7 @@ public sealed class ImportCache : IDisposable
         foreach (string path in EnumerateTree(_disassembly, codeOnly: false)) yield return path;
         foreach (string path in EnumerateTree(Path.Combine(_tools, "import_oracles"), codeOnly: false)) yield return path;
         foreach (string path in EnumerateTree(Path.Combine(_tools, "OracleImporter"), codeOnly: true)) yield return path;
-        foreach (string file in new[] { "import_oracles.ps1", "Resolve-OracleRom.ps1", "rom-build/pins.json", "rom-build/build.sh" })
+        foreach (string file in new[] { "import_oracles.ps1", "Resolve-OracleRom.ps1", "rom-build/ages.json", "rom-build/build.sh" })
             yield return Path.Combine(_tools, file);
         string project = Path.GetFullPath(Path.Combine(_tools, ".."));
         foreach (string file in new[] { "Directory.Build.props", "Directory.Build.targets", "global.json", "NuGet.Config" })
@@ -142,7 +142,7 @@ public sealed class ImportCache : IDisposable
             string path = Path.Combine(project, file);
             if (File.Exists(path)) yield return path;
         }
-        yield return Path.Combine(project, "src/Features/Story/Commands/CutsceneFieldShape.cs");
+        yield return Path.Combine(project, "src/Features/Scripting/CutsceneFieldShape.cs");
         string assembly = typeof(ImportCache).Assembly.Location;
         yield return assembly;
         foreach (string extension in new[] { ".deps.json", ".runtimeconfig.json" })

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported ITEM_SEED_SATCHEL parent/seed-child data for the supported active
@@ -16,7 +16,7 @@ public sealed class SeedSatchelDatabase
     public SeedSatchelDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/seed_satchel.tsv",
+            AgesGameContent.AssetRoot + "metadata/seed_satchel.tsv",
             new GeneratedTableSchema(
                 "seed satchel",
                 GeneratedTableKeySemantics.Unique,

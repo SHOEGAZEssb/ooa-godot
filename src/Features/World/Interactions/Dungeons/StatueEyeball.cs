@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class StatueEyeball : TransitionOffsetNode2D
 {
@@ -33,7 +33,7 @@ internal sealed partial class StatueEyeball : TransitionOffsetNode2D
             animations[index] = data.EyeVisuals[index].Animation;
         DungeonEntranceInteractionDatabaseVisualRecord visual = data.EyeVisuals[0];
         Image image = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{visual.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
         _animation.Load(image, animations, visual.TileBase, visual.Palette);
         _animation.SetAnimation(4);
         QueueRedraw();

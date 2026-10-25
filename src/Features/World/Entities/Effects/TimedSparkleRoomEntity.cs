@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_SPARKLE $84:$04: stationary, timed, animated flickering glow.</summary>
 internal sealed partial class TimedSparkleRoomEntity : TransitionOffsetNode2D,
@@ -27,7 +27,7 @@ internal sealed partial class TimedSparkleRoomEntity : TransitionOffsetNode2D,
         _animation = new EnemyAnimationPlayer(this, 1);
         int frameCount = OracleGraphicsCache.GetAnimationDefinition(spawn.Visual.Animation).Frames.Length;
         _animation.Load(OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{spawn.Visual.Sprite}.png"),
+                AgesGameContent.AssetRoot + $"gfx/{spawn.Visual.Sprite}.png"),
             [spawn.Visual.Animation], spawn.Visual.TileBase, spawn.Visual.Palette,
             positionedOam: true,
             animationSourceOffsets: [Enumerable.Repeat(spawn.Visual.SourceOffset, frameCount).ToArray()]);

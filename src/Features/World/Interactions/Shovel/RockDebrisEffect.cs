@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_ROCKDEBRIS ($06) and INTERAC_ROCKDEBRIS2 ($0c). State 0
@@ -98,7 +98,7 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
     private static IReadOnlyDictionary<int, Definition> LoadDefinitions()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/rock_debris.tsv",
+            AgesGameContent.AssetRoot + "effects/rock_debris.tsv",
             new GeneratedTableSchema(
                 "rock debris",
                 GeneratedTableKeySemantics.Unique,
@@ -137,14 +137,14 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
             }
 
             Image source = OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{sprite}.png");
+                AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
             var animation = new List<RockDebrisEffectFrameRecord>();
             foreach (AnimationFrameDefinition frame in
                 OracleGraphicsCache.GetAnimationDefinition(
                     row.RequiredString(5)).Frames)
             {
                 animation.Add(new RockDebrisEffectFrameRecord(
-                    NpcCharacter.BuildOamTexture(
+                    OracleOamCompositor.BuildOamTexture(
                         source, frame.EncodedOam, tileBase, palette),
                     frame.Duration,
                     frame.Parameter));

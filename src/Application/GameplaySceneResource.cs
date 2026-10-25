@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Resource preparation is independent of gameplay initialization: no nodes,
 // save bytes, room objects or RNG are advanced by loading the packed scene.

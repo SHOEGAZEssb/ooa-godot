@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_ITEM_DROP ($01). Top-down drops use vertical 8.8 Z motion; shovel
@@ -724,7 +724,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
         bool flipX = false)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_items.png");
+            AgesGameContent.AssetRoot + "gfx/spr_common_items.png");
 
         AnimationFrameDefinition[] frames =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation).Frames;
@@ -734,7 +734,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
         string encodedOam = frames[0].EncodedOam;
         if (flipX)
             encodedOam = ToggleOamHorizontalFlip(encodedOam, visual.SubId);
-        return NpcCharacter.BuildOamTexture(
+        return OracleOamCompositor.BuildOamTexture(
             source, encodedOam, visual.TileBase, visual.Palette);
     }
 

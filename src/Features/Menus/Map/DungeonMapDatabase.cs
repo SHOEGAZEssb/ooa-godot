@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class DungeonMapDatabase
 {
@@ -13,7 +13,7 @@ public sealed class DungeonMapDatabase
     public DungeonMapDatabase()
     {
         GeneratedTable adjacency = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_adjacency.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_adjacency.tsv",
             new GeneratedTableSchema(
                 "dungeon adjacency",
                 GeneratedTableKeySemantics.Unique,
@@ -130,7 +130,7 @@ public sealed class DungeonMapDatabase
     private void LoadMapLayouts()
     {
         GeneratedTable maps = GeneratedTable.Load(
-            "res://assets/oracle/objects/dungeon_maps.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_maps.tsv",
             new GeneratedTableSchema(
                 "dungeon map layouts",
                 GeneratedTableKeySemantics.Grouped,

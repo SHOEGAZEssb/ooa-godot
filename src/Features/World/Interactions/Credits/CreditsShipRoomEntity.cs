@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/interactions/linkShip.s:$d4. High subid bits phase the seagulls;
 // their poses are static, while the ship uses the shared frame counter.

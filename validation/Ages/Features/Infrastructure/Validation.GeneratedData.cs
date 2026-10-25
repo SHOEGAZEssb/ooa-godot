@@ -1,0 +1,279 @@
+using Godot;
+using System;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace Oracles;
+
+public sealed partial class ValidationRoot
+{
+    private static void ValidateSpritePaletteReaders()
+    {
+        // Independent pins from data/ages/paletteData.s, including the RGB
+        // beneath alpha zero. Transparent black and transparent RGB differ.
+        Color[] stone = [new(31/31f, 26/31f, 17/31f, 0), new(0, 0, 0),
+            new(17/31f, 17/31f, 25/31f), new(27/31f, 27/31f, 31/31f)]; // $44e8
+        Color[] block = [new(27/31f, 18/31f, 10/31f, 0), new(23/31f, 14/31f, 0),
+            new(13/31f, 8/31f, 1/31f), new(0, 0, 0)]; // $5958
+        var impa = new ImpaIntroEventDatabase();
+        foreach (var (actual, expected, source) in new (Color[], Color[], string)[]
+        {
+            (new StoneRabbitDatabase().StonePalette, stone, "PALH_a2 rabbit $4b:$06"),
+            (new Room20eNpcDatabase().StonePalette, stone, "PALH_a2 room $2:$0e"),
+            (new Room149FamilyDatabase().StonePalette, stone, "PALH_a2 room $1:$49"),
+            (new Room5bfDatabase().BlockPalette, block, "PALH_a3 room $5:$bf"),
+            (impa.StonePalette, [Colors.Transparent, new(12/31f, 18/31f, 17/31f),
+                new(11/31f, 9/31f, 11/31f), new(0, 0, 0)], "PALH_98 $4428"),
+            (impa.PossessedPalette, [Colors.Transparent, new(0, 0, 0),
+                new(25/31f, 1/31f, 5/31f), new(18/31f, 26/31f, 31/31f)], "PALH_97 slot $07")
+        })
+        {
+            FailIf(actual.Length != 4, $"{source}: expected four colors.");
+            for (int i = 0; i < 4; i++)
+                FailIf(actual[i] != expected[i], $"{source}: color ${i:x2} lost source RGBA.");
+        }
+        const string path = AgesGameContent.AssetRoot + "cutscenes/nayru_stone_sprite_palette.bin";
+        Color[] mutable = OracleGraphicsData.LoadPaletteColors(path);
+        mutable[1] = Colors.Red;
+        FailIf(OracleGraphicsData.LoadPaletteColors(path)[1] != stone[1],
+            "Palette loads must not share mutable color arrays.");
+        try
+        {
+            OracleGraphicsData.ReadBytes(path, 11);
+            throw new InvalidOperationException("Palette length mismatch was accepted.");
+        }
+        catch (InvalidOperationException error) when (error.Message.Contains(path) &&
+            error.Message.Contains("11") && error.Message.Contains("12")) { }
+        GD.Print("Validated source-pinned sprite palettes, transparent RGB, array ownership and length diagnostics.");
+    }
+
+    private static void ValidateGeneratedTableReader()
+    {
+        const string cachedPath = AgesGameContent.AssetRoot + "metadata/maku_tree_layout_override.tsv";
+        string[] cachedColumns = ["group", "room", "flag-group", "flag-room", "flag-mask", "layout-group"];
+        var cachedSchema = new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
+            cachedColumns, headerRequired: true);
+        GeneratedTable cached = GeneratedTable.Load(cachedPath, cachedSchema);
+        FailIf(!ReferenceEquals(cached, GeneratedTable.Load(cachedPath,
+                new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
+                    cachedColumns, headerRequired: true))),
+            "Equivalent generated-table contracts did not reuse the validated rows.");
+        ExpectGeneratedTableFailure(() => GeneratedTable.Load(cachedPath,
+            new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
+                cachedColumns, version: 2, headerRequired: true)), cachedPath, "runtime expects 2");
+        ExpectGeneratedTableFailure(() => GeneratedTable.Load(cachedPath,
+            new GeneratedTableSchema("cache contract", GeneratedTableKeySemantics.Ordered,
+                ["group", "wrong"], headerRequired: true)), cachedPath, "header is");
+        var singletonSchema = new GeneratedTableSchema(
+            "source singleton", GeneratedTableKeySemantics.Ordered, ["id", "source"], [], headerRequired: true);
+        const string singletonPath = "validation://singleton.tsv";
+        GeneratedTable Singleton(string rows) => GeneratedTable.ParseForValidation(
+            singletonPath, "# id\tsource\n" + rows, singletonSchema);
+        FailIf(Singleton("a2\tfirst\n").SingleRow().HexByte(0) != 0xa2,
+            "SingleRow did not retain its original source row.");
+        foreach (string rows in new[] { "", "a2\tfirst\na3\tsecond\n" })
+            ExpectGeneratedTableFailure(() => Singleton(rows).SingleRow(),
+                singletonPath, "source singleton", "exactly one data row", rows.Length == 0 ? "got 0" : "got 2");
+
+        var lookup = new Lookup<string, int>(StringComparer.Ordinal);
+        lookup.Add("second", 2);
+        lookup.Add("first", 1);
+        lookup.Add("second", 3);
+        FailIf(
+            lookup.KeyCount != 2 || lookup.Count != 2 ||
+            lookup.Keys[0] != "second" || lookup.Keys[1] != "first" ||
+            lookup["second"].Count != 2 ||
+            lookup["second"][0] != 2 || lookup["second"][1] != 3,
+            "Lookup did not preserve first-key and per-key insertion order.");
+
+        var schema = new GeneratedTableSchema(
+            "validation records",
+            GeneratedTableKeySemantics.Unique,
+            [
+                "kind", "key", "hex", "decimal", "boolean", "float",
+                "message", "optional"
+            ],
+            ["kind", "key"],
+            headerRequired: true);
+        const string path = "validation://generated-table.tsv";
+        const string source =
+            "# kind`tkey`thex`tdecimal`tboolean`tfloat`tmessage`toptional\r\n" +
+            "first\tA\tff\t-2\t1\t1.5\tSGk=\t\r\n" +
+            "second\tB\t00\t4\t0\t-0.25\tV29ybGQ=\ttail\r\n";
+        GeneratedTable table = GeneratedTable.ParseForValidation(path, source, schema);
+        FailIf(
+            table.Rows.Count != 2 ||
+            table.Rows[0].LineNumber != 2 || table.Rows[1].LineNumber != 3 ||
+            table.Rows[0].RequiredString(0) != "first" ||
+            table.Rows[1].RequiredString(0) != "second" ||
+            table.Rows[0].HexByte(2) != 0xff ||
+            table.Rows[0].Decimal(3) != -2 ||
+            !table.Rows[0].Boolean01(4) ||
+            !Mathf.IsEqualApprox(table.Rows[0].FiniteFloat(5), 1.5f) ||
+            table.Rows[0].Base64Utf8(6) != "Hi" ||
+            table.Rows[0].String(7) != string.Empty ||
+            table.Rows[1].Base64Utf8(6) != "World",
+            "The shared generated-table reader did not preserve rows, empty fields, or typed values.");
+
+        ExpectGeneratedTableFailure(
+            () => GeneratedTable.ParseForValidation(
+                path,
+                "# kind\tkey\thex\tdecimal\tboolean\tfloat\tmessage\toptional\n" +
+                "first\tA\t00\t0\t0\t0\t\t\n" +
+                "first\tA\t01\t1\t1\t1\t\t\n",
+                schema),
+            "duplicate unique key",
+            "first declared at line 2");
+        ExpectGeneratedTableFailure(
+            () => GeneratedTable.ParseForValidation(
+                path,
+                "# kind\tkey\twrong\nfirst\tA\t00\n",
+                schema),
+            "header is",
+            "expected");
+        var boundarySchema = new GeneratedTableSchema(
+            "line boundaries", GeneratedTableKeySemantics.Unique,
+            ["key", "value", "empty"], ["key"], headerRequired: true);
+        const string boundarySource =
+            "\r\n\u2003\r\n# key\tvalue\tempty\r\n" +
+            "a\t embedded\rcarriage return \t\r\r\n" +
+            "# ignored\n\tb\t";
+        foreach (string ending in new[] { "", "\n", "\r\n" })
+        {
+            GeneratedTable boundaries = GeneratedTable.ParseForValidation(
+                path, boundarySource + ending, boundarySchema);
+            FailIf(boundaries.Rows.Count != 2 ||
+                boundaries.Rows[0].LineNumber != 4 || boundaries.Rows[1].LineNumber != 6 ||
+                boundaries.Rows[0].String(1) != " embedded\rcarriage return " ||
+                boundaries.Rows[0].String(2) != "" || boundaries.Rows[1].String(0) != "" ||
+                boundaries.Rows[1].String(1) != "b" || boundaries.Rows[1].String(2) != "",
+                "TSV scanning changed whitespace, embedded CR, empty cells, or final-line handling.");
+        }
+        ExpectGeneratedTableFailure(
+            () => GeneratedTable.ParseForValidation(
+                path, boundarySource + "\n\n\ta\t", boundarySchema),
+            $"{path}:8:", "duplicate unique key", "first declared at line 6");
+        ExpectGeneratedTableFailure(
+            () => GeneratedTable.ParseForValidation(
+                path, "# key\tvalue\tempty\n\nonly-one", boundarySchema),
+            $"{path}:3:", "expected 3 columns", "got 1");
+        ExpectGeneratedTableFailure(
+            () => GeneratedTable.ParseForValidation(
+                path,
+                "# kind\tkey\thex\tdecimal\tboolean\tfloat\tmessage\toptional\n" +
+                "first\tA\t00\n",
+                schema),
+            "expected 8 columns",
+            "got 3");
+
+        GeneratedTable invalidValue = GeneratedTable.ParseForValidation(
+            path,
+            "# kind\tkey\thex\tdecimal\tboolean\tfloat\tmessage\toptional\n" +
+            "first\tA\t100\t0\t0\t0\t\t\n",
+            schema);
+        ExpectGeneratedTableFailure(
+            () => invalidValue.Rows[0].HexByte(2),
+            "column 'hex' (3)",
+            "hexadecimal byte");
+
+        foreach (GeneratedTableKeySemantics semantics in new[]
+        {
+            GeneratedTableKeySemantics.Grouped,
+            GeneratedTableKeySemantics.Aliased,
+            GeneratedTableKeySemantics.Repeated,
+            GeneratedTableKeySemantics.Ordered
+        })
+        {
+            string[]? keys = semantics == GeneratedTableKeySemantics.Grouped
+                ? ["key"]
+                : null;
+            var repeatedSchema = new GeneratedTableSchema(
+                $"{semantics} validation",
+                semantics,
+                ["key", "value"],
+                keys,
+                headerRequired: true);
+            GeneratedTable repeated = GeneratedTable.ParseForValidation(
+                path,
+                "# key\tvalue\nsame\tfirst\nsame\tsecond\n",
+                repeatedSchema);
+            FailIf(
+                repeated.Rows.Count != 2 ||
+                repeated.Rows[0].RequiredString(1) != "first" ||
+                repeated.Rows[1].RequiredString(1) != "second",
+                $"Generated-table {semantics} semantics did not preserve repeated row order.");
+        }
+
+        byte[] manifestPayload = Encoding.UTF8.GetBytes("one\ntwo\n");
+        string sha256 = Convert.ToHexString(SHA256.HashData(manifestPayload)).ToLowerInvariant();
+        GeneratedTableManifest.ValidateMetadataForValidation(
+            path, 1, manifestPayload, 2, 1, 2, sha256);
+        ExpectGeneratedTableFailure(
+            () => GeneratedTableManifest.ValidateMetadataForValidation(
+                path, 2, manifestPayload, 2, 1, 2, sha256),
+            "manifest schema version 1",
+            "runtime expects 2");
+        ExpectGeneratedTableFailure(
+            () => GeneratedTableManifest.ValidateMetadataForValidation(
+                path, 1, manifestPayload, 2, 1, 2, new string('0', 64)),
+            "SHA-256",
+            "does not match");
+        ExpectGeneratedTableFailure(
+            () => GeneratedTableManifest.ValidateMetadataForValidation(
+                path, 1, manifestPayload, 1, 1, 2, sha256),
+            "parsed 1 records",
+            "expects 2");
+
+        int manifestEntries = GeneratedTableManifest.EntryCount(AgesGameContent.AssetRoot);
+        var listSchema = new GeneratedTableSchema(
+            "list fields", GeneratedTableKeySemantics.Ordered,
+            ["values", "unused"], headerRequired: true);
+        GeneratedTableRow ListRow(string value) => GeneratedTable.ParseForValidation(
+            path, "# values\tunused\n" + value + "\t\n", listSchema).Rows[0];
+        string[] names = ListRow(" second, ,first,second ").SplitRequired(0, ',');
+        string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(" first \n\nsecond\n"));
+        string[] animations = ListRow(encoded).EncodedAnimations(0);
+        Vector2[] offsets = ListRow(" -8,12 ; ; 16,-4 ").Offsets(0);
+        FailIf(
+            names.Length != 3 || names[0] != "second" || names[1] != "first" || names[2] != "second" ||
+            animations.Length != 2 || animations[0] != " first " || animations[1] != "second" ||
+            offsets.Length != 2 || offsets[0] != new Vector2(-8, 12) || offsets[1] != new Vector2(16, -4),
+            "Shared list readers changed ordering, duplicates, whitespace, or signed x,y offsets.");
+        ExpectGeneratedTableFailure(() => ListRow(" , , ").SplitRequired(0, ','),
+            path + ":2", "column 'values'", "one or more values");
+        ExpectGeneratedTableFailure(() => ListRow("Cg==").EncodedAnimations(0),
+            path + ":2", "one or more encoded animations");
+        ExpectGeneratedTableFailure(() => ListRow("?").EncodedAnimations(0),
+            path + ":2", "valid base64");
+        ExpectGeneratedTableFailure(() => ListRow("1,2,3").Offsets(0),
+            path + ":2", "semicolon-separated x,y pairs");
+        FailIf(manifestEntries <= 0, "The generated-table manifest is empty.");
+        GD.Print($"Validated shared generated-table schemas, named diagnostics, unique/grouped/" +
+            $"aliased/repeated ordering, and {manifestEntries} manifest versions/counts/SHA-256 hashes.");
+    }
+
+    private static void ExpectGeneratedTableFailure(
+        Action action,
+        params string[] fragments)
+    {
+        try
+        {
+            action();
+        }
+        catch (InvalidOperationException exception)
+        {
+            foreach (string fragment in fragments)
+            {
+                if (!exception.Message.Contains(fragment, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"Generated-table diagnostic '{exception.Message}' omitted '{fragment}'.",
+                        exception);
+                }
+            }
+            return;
+        }
+        throw new InvalidOperationException(
+            $"Expected generated-table failure containing: {string.Join(", ", fragments)}.");
+    }
+}

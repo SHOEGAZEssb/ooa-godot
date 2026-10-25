@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Schema-neutral tokenization can run during startup I/O. Typed table loads
 // still validate the caller's header, keys, version, hash and record count.

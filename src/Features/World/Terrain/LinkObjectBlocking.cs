@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // bank0.s:preventObjectHFromPassingObjectD, for an interaction and Link.
 internal static class LinkObjectBlocking

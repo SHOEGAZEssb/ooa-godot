@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART_SMALL_FAIRY $28 has no drop lifetime and uses its own bounded flight.
 internal sealed partial class SmallFairyRoomEntity : DungeonInteractionVisualEntity,

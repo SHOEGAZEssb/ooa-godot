@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>linkedGameNpcScript for Ages linked-secret givers.</summary>
 internal sealed class LinkedGameNpcScriptHost : NpcInteractionCommandHost

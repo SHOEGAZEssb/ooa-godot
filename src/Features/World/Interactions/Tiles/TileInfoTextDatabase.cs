@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // code/interactableTiles.s:showInfoTextForTile@data. Several tile kinds share
 // one suppression bit; the live byte belongs to RoomSession's runtime memory.
@@ -11,7 +11,7 @@ internal sealed class TileInfoTextDatabase
 
     internal TileInfoTextDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/tile_info_texts.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/tile_info_texts.tsv",
             new GeneratedTableSchema("showInfoTextForTile",GeneratedTableKeySemantics.Unique,
                 ["index","mask","text-id","message-utf8-base64","source"],["text-id"],headerRequired:true));
         foreach (var row in table.Rows)

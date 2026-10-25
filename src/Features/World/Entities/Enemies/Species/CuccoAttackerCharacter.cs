@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// PART_CUCCO_ATTACKER $22. A revenge Cucco consumes one shared RNG value,

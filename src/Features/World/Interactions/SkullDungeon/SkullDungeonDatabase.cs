@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Native Skull Dungeon objects merged with the shared source stream.</summary>
 internal sealed class SkullDungeonDatabase
@@ -12,7 +12,7 @@ internal sealed class SkullDungeonDatabase
 
     internal SkullDungeonDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/skull_dungeon_objects.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/skull_dungeon_objects.tsv",
             new GeneratedTableSchema("Skull Dungeon native objects", GeneratedTableKeySemantics.Grouped,
                 ["group", "room", "order", "kind", "id", "subid", "y", "x", "condition", "source", "var03"],
                 ["group", "room"], headerRequired: true));
@@ -60,7 +60,7 @@ internal sealed class SkullDungeonDatabase
             GetRoomRecords(4, 0x72).Count != 3 || GetRoomRecords(4, 0x78).Count != 4 ||
             GetRoomRecords(4, 0x79).Count != 2 || GetRoomRecords(4, 0x7b).Count != 2 || GetRoomRecords(4, 0x90).Count != 7)
             throw new InvalidOperationException("Incomplete Skull Dungeon native object record set.");
-        var essence = GeneratedTable.Load("res://assets/oracle/objects/skull_dungeon_essence.tsv",
+        var essence = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/skull_dungeon_essence.tsv",
             new GeneratedTableSchema("Skull Dungeon Essence", GeneratedTableKeySemantics.Ordered,
                 ["index", "text-id", "text-position", "message-base64", "destination-group", "destination-room",
                  "destination-position", "destination-transition", "source"], headerRequired: true)).SingleRow();
@@ -72,7 +72,7 @@ internal sealed class SkullDungeonDatabase
         if (Essence.Index != 3 || essence.HexWord(1) != 0x0011 || Essence.ExitWarp is not
             { DestinationGroup: 0, DestinationRoom: 3, DestinationPosition: 0x35, DestinationTransition: WarpDestinationTransition.XShifted })
             throw new InvalidOperationException("Skull Dungeon Essence source mapping is incomplete.");
-        var patterns = GeneratedTable.Load("res://assets/oracle/objects/skull_dungeon_patterns.tsv",
+        var patterns = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/skull_dungeon_patterns.tsv",
             new GeneratedTableSchema("Skull Dungeon tile patterns", GeneratedTableKeySemantics.Unique,
                 ["subid", "color", "positions", "source"], ["subid", "color"], headerRequired: true));
         foreach (var row in patterns.Rows)

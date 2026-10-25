@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class PlacedPartDatabase
 {
@@ -12,7 +12,7 @@ internal sealed class PlacedPartDatabase
 
     internal PlacedPartDatabase()
     {
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/placed_parts.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/placed_parts.tsv",
             new("placed PART definitions", GeneratedTableKeySemantics.Unique,
                 ["id", "sprite", "tile-base", "palette", "source-grayscale-inverted", "radius-y", "radius-x",
                     "damage-quarters", "health", "mode", "initial-collision", "animations-base64", "source"],
@@ -26,7 +26,7 @@ internal sealed class PlacedPartDatabase
                 row.Boolean01(4), animations), row.Decimal(5), row.Decimal(6), row.Decimal(7), row.Decimal(8), row.HexByte(9),
                 row.Boolean01(10)));
         }
-        foreach (var row in GeneratedTable.Load("res://assets/oracle/objects/placed_part_tables.tsv",
+        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/placed_part_tables.tsv",
             new("placed PART tables", GeneratedTableKeySemantics.Unique,
                 ["profile", "values", "source"], ["profile"], headerRequired: true)).Rows)
             _tables.Add(row.RequiredString(0), row.SplitRequired(1, ',').Select(value => Convert.ToByte(value, 16)).ToArray());

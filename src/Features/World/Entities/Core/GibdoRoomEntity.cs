@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class GibdoRoomEntity : CombatEnemyRoomEntityAdapter<GibdoCharacter>, IFixedRoomEntity,
     IRoomEnemyReplacementSource, IBurningEnemyTarget, ISeedCollisionTarget

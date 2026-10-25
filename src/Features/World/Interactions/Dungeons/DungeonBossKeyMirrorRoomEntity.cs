@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // DC:$11 retains state0 and never deletes. Even outgoing/disabled dispatches
 // sample the current room's item flag, then OR the shared boss-key bit.

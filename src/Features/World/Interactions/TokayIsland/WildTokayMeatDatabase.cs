@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Source-derived INTERAC_TOKAY_MEAT physics, sound, and visual contract.
@@ -28,7 +28,7 @@ internal sealed class WildTokayMeatDatabase
     internal WildTokayMeatDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/wild_tokay_meat_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/wild_tokay_meat_constants.tsv",
             new GeneratedTableSchema(
                 "Wild Tokay meat constants",
                 GeneratedTableKeySemantics.Unique,

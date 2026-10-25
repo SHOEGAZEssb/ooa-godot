@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed partial class LinkedGameNpcDatabase
 {
@@ -45,7 +45,7 @@ public sealed partial class LinkedGameNpcDatabase
     {
         var values=GenerateGameTransferSecretValues(save);var glyphs=new SecretEntryDatabase().Glyphs;
         var text=new List<byte>();int valueIndex=0,spacingIndex=0;bool terminated=false;
-        foreach(var row in GeneratedTable.Load("res://assets/oracle/objects/linked_secret_transfer_spacing.tsv",new("Transfer secret spacing",GeneratedTableKeySemantics.Ordered,
+        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/linked_secret_transfer_spacing.tsv",new("Transfer secret spacing",GeneratedTableKeySemantics.Ordered,
             ["index","value","source"],headerRequired:true)).Rows)
         {
             if(terminated||row.Decimal(0)!=spacingIndex++)throw row.Invalid(0,"contiguous spacing bytes before the terminator");
@@ -61,7 +61,7 @@ public sealed partial class LinkedGameNpcDatabase
     private static ((int Address,int Bits)[] Header,(int Address,int Bits)[] Body) LoadTransferFields()
     {
         var header=new List<(int Address,int Bits)>();var body=new List<(int Address,int Bits)>();
-        foreach(var row in GeneratedTable.Load("res://assets/oracle/objects/linked_secret_transfer_fields.tsv",new("Game transfer secret fields",GeneratedTableKeySemantics.Ordered,
+        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/linked_secret_transfer_fields.tsv",new("Game transfer secret fields",GeneratedTableKeySemantics.Ordered,
             ["stream","index","address","bits","source"],headerRequired:true)).Rows)
         {
             var fields=row.RequiredString(0) switch {"header"=>header,"body"=>body,_=>throw row.Invalid(0,"header or body")};
@@ -77,13 +77,13 @@ public sealed partial class LinkedGameNpcDatabase
     internal byte[] GenerateGameTransferSecretValues(OracleSaveData save)
     {
         _transferFields??=LoadTransferFields();var fields=_transferFields.Value;
-        byte linked=save.ReadWramByte(WramAddress.wFileIsLinkedGame),hero=save.ReadWramByte(WramAddress.wFileIsHeroGame);
+        byte linked=save.ReadWramByte(AgesWramAddress.wFileIsLinkedGame),hero=save.ReadWramByte(AgesWramAddress.wFileIsHeroGame);
         try
         {
             // bank3.s:generateGameTransferSecret temporarily transforms the
             // source file flags, then restores both bytes in their source order.
-            save.WriteWramByte(WramAddress.wFileIsHeroGame,(byte)(linked|hero));
-            save.WriteWramByte(WramAddress.wFileIsLinkedGame,(byte)((linked^1)|hero));
+            save.WriteWramByte(AgesWramAddress.wFileIsHeroGame,(byte)(linked|hero));
+            save.WriteWramByte(AgesWramAddress.wFileIsLinkedGame,(byte)((linked^1)|hero));
             EnsureGameId(save);
             int cipher=(save.ReadWramByte(GameIdAddress)+save.ReadWramByte(GameIdAddress+1))&7;
             save.WriteWramByte(fields.Header[0].Address,(byte)cipher);
@@ -95,8 +95,8 @@ public sealed partial class LinkedGameNpcDatabase
         }
         finally
         {
-            save.WriteWramByte(WramAddress.wFileIsLinkedGame,linked);
-            save.WriteWramByte(WramAddress.wFileIsHeroGame,hero);
+            save.WriteWramByte(AgesWramAddress.wFileIsLinkedGame,linked);
+            save.WriteWramByte(AgesWramAddress.wFileIsHeroGame,hero);
         }
     }
     private byte[] FinishSecretValues(byte[] buffer,int length)

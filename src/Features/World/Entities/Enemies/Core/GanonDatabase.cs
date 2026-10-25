@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class GanonDatabase
 {
@@ -21,7 +21,7 @@ internal sealed class GanonDatabase
     internal IReadOnlyList<int[]> SourceOffsets {get;}
     internal GanonDatabase()
     {
-        const string root="res://assets/oracle/objects/";
+        const string root=AgesGameContent.AssetRoot + "objects/";
         foreach(var row in GeneratedTable.Load(root+"ganon_actors.tsv",new("Ganon actors",GeneratedTableKeySemantics.Unique,
             ["id","subid","sprites","tile-base","palette","source-grayscale-inverted","radius-y","radius-x","damage-quarters","health","animations-base64"],
             ["id","subid"],headerRequired:true)).Rows)
@@ -30,7 +30,7 @@ internal sealed class GanonDatabase
         foreach(var row in GeneratedTable.Load(root+"ganon_tables.tsv",new("Ganon native tables",GeneratedTableKeySemantics.Unique,
             ["profile","values","source"],["profile"],headerRequired:true)).Rows)
             _tables.Add(row.RequiredString(0),Array.ConvertAll(row.SplitRequired(1,','),s=>Convert.ToByte(s,16)));
-        foreach(var row in GeneratedTable.Load("res://assets/oracle/cutscenes/ganon_texts.tsv",new("Ganon text",GeneratedTableKeySemantics.Unique,
+        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/ganon_texts.tsv",new("Ganon text",GeneratedTableKeySemantics.Unique,
             ["text-id","message-base64","source"],["text-id"],headerRequired:true)).Rows)
             _texts.Add(row.HexWord(0),row.Base64Utf8(1));
         var sprite=OracleGraphicsData.LoadPaletteColors(root+"ganon_sprite_palette_6.bin",transparentZero:true);
@@ -50,7 +50,7 @@ internal sealed class GanonDatabase
                 offset=next;banks.Add(key,offset);
                 foreach(string name in row.SplitRequired(1,','))
                 {
-                    sources.Add(name);var image=OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{name}.png");
+                    sources.Add(name);var image=OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{name}.png");
                     if(image.GetHeight()!=16||image.GetWidth()>128)throw row.Invalid(1,"native 32-tile OBJ graphics sheet");
                     // AppendGraphics aligns each sheet to a $200-byte VRAM
                     // block even when a PNG omits its unused trailing cells.

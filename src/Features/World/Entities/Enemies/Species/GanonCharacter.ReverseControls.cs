@@ -1,13 +1,13 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed partial class GanonCharacter
 {
     private int _reversePalette;
     private void ReversePalette()
     {
-        if((World.Entities.RuntimeState.ReadWramByte(WramAddress.wScrollMode)&1)==0||
+        if((World.Entities.RuntimeState.ReadWramByte(AgesWramAddress.wScrollMode)&1)==0||
             World.Entities.PaletteFadeActiveSource()||(World.Entities.FrameCounter&1)!=0)return;
         World.BackgroundPalette(_reversePalette++&7);
     }

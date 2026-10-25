@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_SWITCH_TILE_TOGGLER $78.</summary>
 internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
@@ -34,7 +34,7 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
         _roomTileChanged = roomTileChanged;
         _setTile = setTile;
         _lastSwitchState = runtime.ReadWramByte(
-            OracleRuntimeState.SwitchStateAddress);
+            AgesGameContent.SwitchStateAddress);
         Name = $"SwitchTileToggler_{record.Group}_{record.Room:x2}_{record.Order}";
     }
 
@@ -46,7 +46,7 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
             return;
         }
         int switchState = _runtime.ReadWramByte(
-            OracleRuntimeState.SwitchStateAddress);
+            AgesGameContent.SwitchStateAddress);
         if (switchState == _lastSwitchState)
             return;
         _lastSwitchState = switchState;
@@ -60,7 +60,7 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
         if (!_initialized)
         {
             _initialized = true;
-            _lastSwitchState = _runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress);
+            _lastSwitchState = _runtime.ReadWramByte(AgesGameContent.SwitchStateAddress);
         }
         return ScreenTransitionPresentation.Visible;
     }

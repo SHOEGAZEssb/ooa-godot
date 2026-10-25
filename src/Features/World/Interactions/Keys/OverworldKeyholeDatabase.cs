@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imports nextToOverworldKeyhole's collision-table entries, room-to-key
@@ -22,7 +22,7 @@ internal sealed class OverworldKeyholeDatabase
     internal OverworldKeyholeDatabase()
     {
         GeneratedTable locations = GeneratedTable.Load(
-            "res://assets/oracle/objects/overworld_keyholes.tsv",
+            AgesGameContent.AssetRoot + "objects/overworld_keyholes.tsv",
             new GeneratedTableSchema(
                 "overworld keyholes",
                 GeneratedTableKeySemantics.Unique,
@@ -52,7 +52,7 @@ internal sealed class OverworldKeyholeDatabase
         }
 
         GeneratedTable tiles = GeneratedTable.Load(
-            "res://assets/oracle/metadata/overworld_keyhole_tiles.tsv",
+            AgesGameContent.AssetRoot + "metadata/overworld_keyhole_tiles.tsv",
             new GeneratedTableSchema(
                 "overworld keyhole tiles",
                 GeneratedTableKeySemantics.Unique,
@@ -75,7 +75,7 @@ internal sealed class OverworldKeyholeDatabase
         }
 
         GeneratedTableRow constants = GeneratedTable.Load(
-            "res://assets/oracle/objects/overworld_keyhole_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/overworld_keyhole_constants.tsv",
             new GeneratedTableSchema(
                 "overworld keyhole constants",
                 GeneratedTableKeySemantics.Ordered,

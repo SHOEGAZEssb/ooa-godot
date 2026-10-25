@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/interactions/twinrovaFlame.s. Enabled bit 7 admits every initialized
 // flame even during text and object masks; state zero returns before animating.

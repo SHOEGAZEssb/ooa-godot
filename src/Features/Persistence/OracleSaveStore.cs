@@ -3,12 +3,12 @@ using System;
 using System.IO;
 using System.Security;
 
-namespace oracleofages;
+namespace Oracles;
 
 public static class OracleSaveStore
 {
     public const int SlotCount = 3;
-    public const string DefaultPath = "user://oracle_of_ages.sav";
+    public const string DefaultPath = AgesGameContent.SavePath;
 
     public static OracleSaveData LoadOrCreate(string path = DefaultPath)
     {
@@ -87,7 +87,7 @@ public static class OracleSaveStore
     public static string PathForSlot(int slot)
     {
         ValidateSlot(slot);
-        return slot == 0 ? DefaultPath : $"user://oracle_of_ages_{slot + 1}.sav";
+        return AgesGameContent.SaveSlotPath(slot);
     }
 
     private static bool TryLoad(string path, out OracleSaveData? save)

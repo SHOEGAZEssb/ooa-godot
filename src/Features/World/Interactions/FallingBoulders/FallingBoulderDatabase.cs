@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Text;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class FallingBoulderDatabase
 {
@@ -17,7 +17,7 @@ internal sealed class FallingBoulderDatabase
 
     internal FallingBoulderDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/effects/falling_boulder.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/falling_boulder.tsv",
             new GeneratedTableSchema("PART_FALLING_BOULDER_SPAWNER $45", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "radius", "damage-quarters", "delays", "animation-base64", "source-grayscale-inverted", "source"],
                 ["sprite"], headerRequired: true));

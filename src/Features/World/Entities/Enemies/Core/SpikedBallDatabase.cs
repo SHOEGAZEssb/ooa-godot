@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class SpikedBallDatabase
 {
@@ -14,7 +14,7 @@ internal sealed class SpikedBallDatabase
 
     internal SpikedBallDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/effects/spiked_ball.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/spiked_ball.tsv",
             new GeneratedTableSchema("PART_SPIKED_BALL $2a", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "radius-y", "radius-x",
                  "damage-quarters", "animation", "source"], ["animation-index"], headerRequired: true));

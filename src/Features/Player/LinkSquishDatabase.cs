@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class LinkSquishDatabase
 {
@@ -11,11 +11,11 @@ internal sealed class LinkSquishDatabase
     internal int FlickerCount { get; }
     private LinkSquishDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/link_squish_frames.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/link_squish_frames.tsv",
             new GeneratedTableSchema("Link squish animation",GeneratedTableKeySemantics.Unique,
                 ["mode","frame","duration","graphic","parameter","next","offset","oam","source"],
                 ["mode","frame"],headerRequired:true));
-        Image image = OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_link.png");
+        Image image = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_link.png");
         foreach (var row in table.Rows)
         {
             int mode = row.HexByte(0);
@@ -24,11 +24,11 @@ internal sealed class LinkSquishDatabase
             if (row.UnsignedDecimal(1) != frames.Count) throw row.Invalid(1,"ordered source frames");
             int offset = Convert.ToInt32(row.RequiredString(6),16);
             frames.Add(new(row.Decimal(2,1,254),row.HexByte(3),row.HexByte(4),row.Decimal(5,0,2),
-                NpcCharacter.BuildOamTexture(image,row.RequiredString(7),offset/16,0),row.RequiredString(8)));
+                OracleOamCompositor.BuildOamTexture(image,row.RequiredString(7),offset/16,0),row.RequiredString(8)));
         }
         if (_frames.ValuesOrEmpty(6).Count != 3 || _frames.ValuesOrEmpty(7).Count != 3)
             throw new InvalidOperationException("Link squish requires both three-frame loops.");
-        var control = GeneratedTable.Load("res://assets/oracle/metadata/link_squish_control.tsv",
+        var control = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/link_squish_control.tsv",
             new GeneratedTableSchema("Link squish control",GeneratedTableKeySemantics.Unique,
                 ["flicker-count","source"],["flicker-count"],headerRequired:true));
         if (control.Rows.Count != 1) throw new InvalidOperationException("Link squish requires one control record.");

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>PART_GREAT_FAIRY_HEART $30: 32-angle orbit, three updates per angle.</summary>
 internal sealed partial class FountainFairyHeartRoomEntity : TransitionOffsetNode2D,

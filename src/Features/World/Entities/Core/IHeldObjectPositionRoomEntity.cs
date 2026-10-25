@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // updateHeldGrabbableObjectPosition follows all object handlers, so carried
 // children follow Link's final position even when their parent was frozen.

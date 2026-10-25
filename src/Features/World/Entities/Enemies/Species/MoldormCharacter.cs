@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_MOLDORM $4f:$01 head. Its two linked tails have their own ENEMY slots.

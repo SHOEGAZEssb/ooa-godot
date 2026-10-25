@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ENEMY_BLADE_TRAP $0e:$00/$01/$05: red, center-limited blue and unlimited green.</summary>
 internal partial class BladeTrapCharacter : EnemyCharacter

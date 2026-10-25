@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Godot's first managed node constructor loads its CSharpScript and builds
 // the native script bridge. Retain those resources during staged boot loading.

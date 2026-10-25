@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Liftable INTERAC_SHOP_ITEM $47 product with its source OAM animation and
@@ -44,7 +44,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
             (Record.PriceTile >> 5) * 8);
 
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{Record.Sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{Record.Sprite}.png");
         diagnostics?.Mark("source");
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(Record.Animation);
@@ -52,7 +52,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
             animation.Frames)
         {
             (Texture2D texture, Vector2 offset) =
-                NpcCharacter.BuildPositionedOamTexture(
+                OracleOamCompositor.BuildPositionedOamTexture(
                     source, sourceFrame.EncodedOam,
                     Record.TileBase, Record.Palette,
                     paletteOverride: null,
@@ -75,7 +75,7 @@ internal partial class LynnaShopItem : TransitionOffsetNode2D
         // source's price tile base $30 addresses this sheet's tile $10, not
         // gfx_hud tile $00.
         Image inventoryHud = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/inventory/gfx_inventory_hud_1.png");
+            AgesGameContent.AssetRoot + "inventory/gfx_inventory_hud_1.png");
         diagnostics?.Mark("source");
         var textures = new Texture2D[10];
         for (int digit = 0; digit < textures.Length; digit++)

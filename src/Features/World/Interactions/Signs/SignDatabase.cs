@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class SignDatabase
 {
@@ -10,7 +10,7 @@ public sealed class SignDatabase
     public SignDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/signs.tsv",
+            AgesGameContent.AssetRoot + "objects/signs.tsv",
             new GeneratedTableSchema(
                 "signs",
                 GeneratedTableKeySemantics.Unique,

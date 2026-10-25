@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class DungeonRoomFlagMirrorDatabase
 {
     private readonly Dictionary<(int Id,int SubId),DungeonRoomFlagMirrorProfile> _profiles = new();
     internal DungeonRoomFlagMirrorDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/dungeon_room_flag_mirrors.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/dungeon_room_flag_mirrors.tsv",
             new GeneratedTableSchema("native dungeon room-flag mirrors",GeneratedTableKeySemantics.Unique,
                 ["id","subid","flag","target-room","source"],["id","subid"],headerRequired:true));
         foreach (var row in table.Rows)

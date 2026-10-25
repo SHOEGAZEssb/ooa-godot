@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Permanent PART_LIGHTABLE_TORCH $06:$00. A seed collision selects state 2;

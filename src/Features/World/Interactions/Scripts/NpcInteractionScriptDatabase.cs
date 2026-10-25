@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed command streams for entity-backed interactionRunScript loops.
@@ -10,19 +10,19 @@ namespace oracleofages;
 internal sealed class NpcInteractionScriptDatabase
 {
     public IReadOnlyList<CutsceneCommand> OldManRupees { get; } =
-        CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/old_man_rupees_commands.tsv");
+        CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/old_man_rupees_commands.tsv");
     public IReadOnlyList<CutsceneCommand> LinkedGameNpc { get; } =
         CutsceneCommandCatalog.Load(
-            "res://assets/oracle/cutscenes/linked_game_npc_commands.tsv");
+            AgesGameContent.AssetRoot + "cutscenes/linked_game_npc_commands.tsv");
     public IReadOnlyList<CutsceneCommand> PastBipin { get; } =
         CutsceneCommandCatalog.Load(
-            "res://assets/oracle/cutscenes/past_bipin_commands.tsv");
+            AgesGameContent.AssetRoot + "cutscenes/past_bipin_commands.tsv");
     public IReadOnlyList<CutsceneCommand> HardhatShovel { get; } =
         CutsceneCommandCatalog.Load(
-            "res://assets/oracle/cutscenes/hardhat_shovel_commands.tsv");
+            AgesGameContent.AssetRoot + "cutscenes/hardhat_shovel_commands.tsv");
     public IReadOnlyList<CutsceneCommand> Postman { get; } =
         CutsceneCommandCatalog.Load(
-            "res://assets/oracle/cutscenes/postman_commands.tsv");
+            AgesGameContent.AssetRoot + "cutscenes/postman_commands.tsv");
 
     public NpcInteractionScriptDatabase()
     {

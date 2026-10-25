@@ -3,7 +3,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$sourceRoot = Join-Path $Project 'src'
+$projectRoot = [IO.Path]::GetFullPath($Project).TrimEnd('\', '/')
+$sourceRoot = Join-Path $projectRoot 'src'
 $violations = [Collections.Generic.List[string]]::new()
 
 $allowedDungeonOwnedTypes = [Collections.Generic.HashSet[string]]::new(
@@ -55,7 +56,7 @@ foreach ($file in $sourceFiles) {
         '\b(?:class|record\s+struct|record|enum)\s+(?<name>(?:SpiritsGrave|WingDungeon)\w*)')) {
         $name = $match.Groups['name'].Value
         if (-not $allowedDungeonOwnedTypes.Contains($name)) {
-            $relative = [IO.Path]::GetRelativePath($Project, $file.FullName)
+            $relative = $file.FullName.Substring($projectRoot.Length + 1)
             $violations.Add(
                 "$relative declares non-allowlisted dungeon-owned type $name.")
         }
@@ -63,7 +64,7 @@ foreach ($file in $sourceFiles) {
 
     foreach ($obsolete in $obsoleteSharedTypeNames) {
         if ($text -match "\b$([regex]::Escape($obsolete))\b") {
-            $relative = [IO.Path]::GetRelativePath($Project, $file.FullName)
+            $relative = $file.FullName.Substring($projectRoot.Length + 1)
             $violations.Add(
                 "$relative still references obsolete shared type $obsolete.")
         }
@@ -77,24 +78,18 @@ foreach ($dungeonDirectory in @('SpiritsGrave', 'WingDungeon')) {
         @(Get-ChildItem -LiteralPath $path -Recurse -File -Filter '*.cs').Count -gt 0) {
         $violations.Add(
             "Enemy species must not be owned by dungeon directory " +
-            "$([IO.Path]::GetRelativePath($Project, $path)).")
+            "$($path.Substring($projectRoot.Length + 1)).")
     }
 }
 
-foreach ($relativeRoot in @(
-    'src\Features\World\Interactions\Dungeons',
-    'src\Features\World\Entities\Enemies\Core',
-    'src\Features\World\Entities\Enemies\Species',
-    'src\Features\Story\Dungeons'
-)) {
-    $path = Join-Path $Project $relativeRoot
-    foreach ($file in Get-ChildItem -LiteralPath $path -Recurse -File -Filter '*.cs') {
-        $text = [IO.File]::ReadAllText($file.FullName)
-        if ($text -match '\b(?:SpiritsGrave|WingDungeon)(?:Database|\w*RoomEntity|\w*Behavior)\b') {
-            $relative = [IO.Path]::GetRelativePath($Project, $file.FullName)
-            $violations.Add(
-                "$relative couples shared runtime code to a dungeon owner.")
-        }
+foreach ($file in $sourceFiles) {
+    $relative = $file.FullName.Substring($projectRoot.Length + 1).Replace('\', '/')
+    if ($relative -notmatch '/Features/(?:World/Interactions/Dungeons|World/Entities/Enemies/(?:Core|Species)|Story/Dungeons)/') {
+        continue
+    }
+    $text = [IO.File]::ReadAllText($file.FullName)
+    if ($text -match '\b(?:SpiritsGrave|WingDungeon)(?:Database|\w*RoomEntity|\w*Behavior)\b') {
+        $violations.Add("$relative couples shared runtime code to a dungeon owner.")
     }
 }
 

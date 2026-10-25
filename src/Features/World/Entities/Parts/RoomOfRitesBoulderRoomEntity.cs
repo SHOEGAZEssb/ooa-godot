@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // ages/parts/roomOfRitesFallingBoulder.s, PART $54. The invisible spawner
 // and every falling child retain independent native PART slots.
@@ -30,7 +30,7 @@ internal sealed partial class RoomOfRitesBoulderRoomEntity : TransitionOffsetNod
     {
         _owner=owner;_data=data;Subid=subid;Visible=false;
         _animation=new(this,1);
-        _animation.Load(OracleGraphicsCache.LoadImage($"res://assets/oracle/gfx/{data.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{data.Sprite}.png"),
             [data.Animation],data.TileBase,data.Palette,sourceGrayscaleInverted:data.SourceGrayscaleInverted);
         _animation.SetAnimation(0);ZIndex=ObjectDrawPriority.FromVisible(0xc1);
     }

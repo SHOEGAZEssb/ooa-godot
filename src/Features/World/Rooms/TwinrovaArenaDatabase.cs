@@ -1,19 +1,19 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // ages/roomSpecificTileChanges.s:tileReplacement_group5Mapf5. The request is
 // consumed by loadTilesetAndRoomLayout, including requests from Ganon.
 internal sealed class TwinrovaArenaDatabase
 {
     internal const int ModeAddress = 0xcca9;
-    private readonly byte[] _lava = OracleGraphicsData.ReadBytes("res://assets/oracle/objects/twinrova_lava_layout.bin",176);
-    private readonly byte[] _normal = OracleGraphicsData.ReadBytes("res://assets/oracle/objects/twinrova_normal_layout.bin",176);
+    private readonly byte[] _lava = OracleGraphicsData.ReadBytes(AgesGameContent.AssetRoot + "objects/twinrova_lava_layout.bin",176);
+    private readonly byte[] _normal = OracleGraphicsData.ReadBytes(AgesGameContent.AssetRoot + "objects/twinrova_normal_layout.bin",176);
     private readonly Dictionary<int,int[]> _rectangles = [];
     internal TwinrovaArenaDatabase()
     {
-        foreach(var row in GeneratedTable.Load("res://assets/oracle/objects/twinrova_arena_rectangles.tsv",new("Twinrova arena rectangles",
+        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/twinrova_arena_rectangles.tsv",new("Twinrova arena rectangles",
             GeneratedTableKeySemantics.Unique,["mode","start","height","width","tile","source"],["mode"],headerRequired:true)).Rows)
             _rectangles.Add(row.HexByte(0),[row.HexByte(1),row.Decimal(2,1,11),row.Decimal(3,1,15),row.HexByte(4)]);
         if(_rectangles.Count!=2 || !_rectangles.ContainsKey(2) || !_rectangles.ContainsKey(4))

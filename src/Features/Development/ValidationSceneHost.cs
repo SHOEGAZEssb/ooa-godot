@@ -4,7 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.Loader;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Development-only bridge from the production executable to the separately
@@ -12,8 +12,8 @@ namespace oracleofages;
 /// </summary>
 public partial class ValidationSceneHost : Node
 {
-    private const string ValidationAssemblyName = "oracle-of-ages.validation.dll";
-    private const string ValidationRootType = "oracleofages.ValidationRoot";
+    private const string ValidationAssemblyName = "oracles.validation.dll";
+    private const string ValidationRootType = "Oracles.ValidationRoot";
 
     public override void _Ready()
     {

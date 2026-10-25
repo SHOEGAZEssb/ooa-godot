@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class HardhatBeetleRoomEntity
     : CombatEnemyRoomEntityAdapter<HardhatBeetleCharacter>,
@@ -19,7 +19,7 @@ internal sealed class HardhatBeetleRoomEntity
             EnemyCombatDescriptor.WithContactDamage(
                 combatSource,
                 beetle,
-                beetle.Record.Id == EnemyId.HarmlessHardhatBeetle ? 0 : beetle.Record.DamageQuarters,
+                beetle.Record.Id == AgesEnemyId.HarmlessHardhatBeetle ? 0 : beetle.Record.DamageQuarters,
                 beetle.TakeBumpHit,
                 beetle.TakeBurnHit,
                 beetle.ApplySwordBump,
@@ -38,7 +38,7 @@ internal sealed class HardhatBeetleRoomEntity
 
     public override void HandleLinkContact(Player player)
     {
-        if (Entity.Record.Id != EnemyId.HarmlessHardhatBeetle || player.IsUsingShield && CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
+        if (Entity.Record.Id != AgesEnemyId.HarmlessHardhatBeetle || player.IsUsingShield && CombatDescriptor.Combat.Intersects(player.ShieldCollisionBounds))
         { base.HandleLinkContact(player); return; }
         // Collision $42/$00 selects collisionEffect06: LINKDMG_14 and
         // ENEMYDMG_1c. Only Link recoils, with no health subtraction.

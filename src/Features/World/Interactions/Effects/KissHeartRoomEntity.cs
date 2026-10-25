@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/interactions/kissHeart.s: INTERAC $b7. Subid0 retains bank1's
 // common sprites; subid1 loads that sheet through its own GFX78 row.

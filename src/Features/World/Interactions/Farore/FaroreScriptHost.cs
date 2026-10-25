@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_FARORE $10 script lane and its secret result handoff.</summary>
 internal sealed class FaroreScriptHost : NpcInteractionCommandHost
@@ -56,7 +56,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
     }
 
     internal void InitializeStateZero() =>
-        _save.SetGlobalFlag(GlobalFlag.SecretChestWaiting, false);
+        _save.SetGlobalFlag(AgesGlobalFlag.SecretChestWaiting, false);
 
     internal void Advance(Player player) => AdvanceObject(player);
 
@@ -82,7 +82,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
     }
     internal void MakeChestFinished()
     {
-        Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, 1);
+        Entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 1);
         _ownsPalette = false;
         _transitions.NativeCameraFocus = null;
         _ownsCamera = false;
@@ -103,7 +103,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
     public override void SetDisabledObjects(int value)
     {
         if (value != 0x91) throw UnsupportedCommand($"set disabled objects ${value:x2}");
-        Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0x91);
+        Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0x91);
         _ownsDisabledMask = true;
     }
 
@@ -112,17 +112,17 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
         base.SetInputEnabled(enabled);
         if (enabled && _ownsDisabledMask)
         {
-            Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
+            Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
             _ownsDisabledMask = false;
         }
     }
 
     public override bool MemoryEquals(string binding, int value) => binding switch
     {
-        "GLOBALFLAG_FINISHEDGAME" => (_save.HasGlobalFlag(GlobalFlag.FinishedGame) ? 1 : 0) == value,
+        "GLOBALFLAG_FINISHEDGAME" => (_save.HasGlobalFlag(AgesGlobalFlag.FinishedGame) ? 1 : 0) == value,
         "GLOBALFLAG_SECRET_CHEST_WAITING" =>
-            (_save.HasGlobalFlag(GlobalFlag.SecretChestWaiting) ? 1 : 0) == value,
-        "cfc0bit1" => ((Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) >> 1) & 1) == value,
+            (_save.HasGlobalFlag(AgesGlobalFlag.SecretChestWaiting) ? 1 : 0) == value,
+        "cfc0bit1" => ((Entities.RuntimeState.ReadWramByte(AgesWramAddress.wTmpcfc0) >> 1) & 1) == value,
         _ => throw UnsupportedCommand($"read {binding}")
     };
 
@@ -182,7 +182,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
                 SpawnReward();
                 break;
             case "ClearCfc0Bit1":
-                Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, (byte)(Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) ^ 2));
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcfc0, (byte)(Entities.RuntimeState.ReadWramByte(AgesWramAddress.wTmpcfc0) ^ 2));
                 break;
             default: throw UnsupportedCommand($"Farore native handler {handler}");
         }
@@ -227,7 +227,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
         _rewardIndex = index;
         _rewardPhase = 0;
         _rewardTimer = 0;
-        Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, 0);
+        Entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 0);
         if (Entities.TryCreateInteraction(new FaroreRewardSpawn(this)) is null)
             _rewardIndex = -1;
     }
@@ -245,16 +245,16 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
         switch (_rewardPhase)
         {
             case 0:
-                Entities.RuntimeState.SetWramByte(WramAddress.wLoadedTreeGfxIndex, 1);
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wLoadedTreeGfxIndex, 1);
                 _rewardPhase = 1;
                 break;
             case 1:
-                Entities.RuntimeState.SetWramByte(WramAddress.wcca2, 0);
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wcca2, 0);
                 TreasureObjectRecord objectRecord = _treasures.GetObject(
                     $"TREASURE_OBJECT_{reward.Symbol[9..]}_{reward.SubId:x2}");
-                Entities.RuntimeState.SetWramByte(WramAddress.wChestContentsOverride,
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wChestContentsOverride,
                     (byte)objectRecord.TreasureId);
-                Entities.RuntimeState.SetWramByte(WramAddress.wChestContentsOverride + 1,
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wChestContentsOverride + 1,
                     (byte)objectRecord.SubId);
                 // INTERAC_FARORE_MAKECHEST $11:$00 is another physical slot.
                 // Failed allocation leaves $d9 waiting for a signal forever.
@@ -262,19 +262,19 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
                 _rewardPhase = 2;
                 break;
             case 2:
-                if (Entities.RuntimeState.ReadWramByte(WramAddress.wTmpcfc0) == 0) break;
+                if (Entities.RuntimeState.ReadWramByte(AgesWramAddress.wTmpcfc0) == 0) break;
                 _rewardTimer = 0x3c;
                 _rewardPhase = 3;
                 break;
             case 3:
                 if (--_rewardTimer > 0) break;
-                _save.SetGlobalFlag(GlobalFlag.SecretChestWaiting);
-                Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, 2);
+                _save.SetGlobalFlag(AgesGlobalFlag.SecretChestWaiting);
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 2);
                 ShowText(0x5509, _data.Text(0x5509));
                 _rewardPhase = 4;
                 break;
             case 4:
-                if (Entities.RuntimeState.ReadWramByte(WramAddress.wcca2) == 0) break;
+                if (Entities.RuntimeState.ReadWramByte(AgesWramAddress.wcca2) == 0) break;
                 MarkSecretDone();
                 _rewardTimer = 0x1e;
                 _rewardPhase = 5;
@@ -294,7 +294,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
         switch (_rewardPhase)
         {
             case 0:
-                Entities.RuntimeState.SetWramByte(WramAddress.wLoadedTreeGfxIndex, 1);
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wLoadedTreeGfxIndex, 1);
                 _rewardPhase = 1;
                 break;
             case 1:
@@ -372,7 +372,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
                         TreasureId.PegasusSeeds, TreasureId.GaleSeeds, TreasureId.MysterySeeds })
                         if (_inventory.HasTreasure(seed)) _inventory.GiveTreasure(seed, 0x99);
                 MarkSecretDone();
-                Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, 2);
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 2);
                 ShowText(0x5509, _data.Text(0x5509));
                 _rewardIndex = -1;
                 break;
@@ -381,7 +381,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
                 _upgradeTreasure?.Finish(player);
                 _upgradeTreasure = null;
                 MarkSecretDone();
-                Entities.RuntimeState.SetWramByte(WramAddress.wTmpcfc0, 2);
+                Entities.RuntimeState.SetWramByte(AgesWramAddress.wTmpcfc0, 2);
                 ShowText(0x5509, _data.Text(0x5509));
                 _rewardIndex = -1;
                 break;
@@ -410,7 +410,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
     private void MarkSecretDone()
     {
         _save.SetGlobalFlag(0x5a + _rewardIndex);
-        _save.SetGlobalFlag(GlobalFlag.SecretChestWaiting, false);
+        _save.SetGlobalFlag(AgesGlobalFlag.SecretChestWaiting, false);
     }
 
     protected override void ResetHostState()
@@ -432,7 +432,7 @@ internal sealed class FaroreScriptHost : NpcInteractionCommandHost
         _upgradeTreasure = null;
         if (_ownsDisabledMask)
         {
-            Entities.RuntimeState.SetWramByte(WramAddress.wDisabledObjects, 0);
+            Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
             _ownsDisabledMask = false;
         }
     }

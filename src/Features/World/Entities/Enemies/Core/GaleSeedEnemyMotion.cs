@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // collisionEffect29 and ecom_galeSeedEffect. Completion policy belongs to
 // the native enemy adapter (some linked actors also notify their spawner).

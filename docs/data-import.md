@@ -3,8 +3,16 @@
 ## Boundary
 
 The importer converts the supported ROM and `oracles-disasm` sources into
-address-independent runtime assets under `assets/oracle/`. Production runtime
+address-independent runtime assets in game packs under `assets/oracle/`. The
+current entry point generates Ages plus the Seasons launcher preview. Each pack
+has its own table manifest; table/cache identity includes the full pack path.
+Production runtime
 code consumes those assets and never opens assembly files.
+
+The output root must contain only current generated packs and Godot import
+metadata. When changing the pack layout, start with an empty output directory
+and regenerate; preserve or remove obsolete generated output directly rather
+than adding legacy cleanup behavior to the importer.
 
 The `external/oracles-disasm` submodule pins the vanilla `master` disassembly
 at the supported reference revision, `842c5649b63f5b6fae8ffd55f80f45f86e9c10e7`.
@@ -15,7 +23,7 @@ imports; updating it requires reviewing generated differences and rerunning
 verification. `external/.gdignore` keeps source assets outside Godot's resource
 scan and exports.
 The import submodule is never built or modified. Without `-Rom`, the shared
-ROM resolver builds a separate checkout using `tools/rom-build/pins.json` and
+ROM resolver builds a separate checkout using `tools/rom-build/ages.json` and
 caches the verified image under `.cache/oracle-rom/`. The ROM-build revision
 is intentionally independent of the import revision, matching the proven CI
 recipe. A warm cache requires no build tools or network; concurrent callers
@@ -50,8 +58,11 @@ overrides accept native Linux paths. Windows PowerShell 5.1 remains supported.
 
 `tools/import_oracles.ps1` is the authoritative ordered list of import stages
 and their `ImportStageContract` declarations. `tools/import_oracles/` contains
-feature stages, while `tools/OracleImporter/` contains the typed assembly source
-model and shared parsing infrastructure.
+`Shared/` infrastructure/normalization and per-game feature stages. The Ages
+source configuration supplies the clean-US assembly symbols explicitly;
+`tools/OracleImporter/` contains the typed assembly source model and shared
+parsing infrastructure. A producer may read common assembly while binding
+game-specific tables; that does not make its whole stage game-independent.
 
 Each stage declares its variable and helper inputs and outputs and runs in its
 own PowerShell module scope. The runner supplies only declared inputs and common

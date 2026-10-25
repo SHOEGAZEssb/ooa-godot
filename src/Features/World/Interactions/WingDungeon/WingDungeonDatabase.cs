@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed native interaction records for dungeon $02, imported from the Ages
@@ -42,7 +42,7 @@ internal sealed class WingDungeonDatabase
     private void LoadBossReward()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/wing_dungeon_boss_reward.tsv",
+            AgesGameContent.AssetRoot + "objects/wing_dungeon_boss_reward.tsv",
             new GeneratedTableSchema(
                 "Wing Dungeon boss reward script",
                 GeneratedTableKeySemantics.Unique,
@@ -83,7 +83,7 @@ internal sealed class WingDungeonDatabase
     private void LoadObjects()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/wing_dungeon_objects.tsv",
+            AgesGameContent.AssetRoot + "objects/wing_dungeon_objects.tsv",
             new GeneratedTableSchema(
                 "Wing Dungeon native objects",
                 GeneratedTableKeySemantics.Grouped,
@@ -115,7 +115,7 @@ internal sealed class WingDungeonDatabase
     private void LoadPatterns()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/wing_dungeon_patterns.tsv",
+            AgesGameContent.AssetRoot + "objects/wing_dungeon_patterns.tsv",
             new GeneratedTableSchema(
                 "Wing Dungeon tile patterns",
                 GeneratedTableKeySemantics.Unique,
@@ -160,7 +160,7 @@ internal sealed class WingDungeonDatabase
     private void LoadText()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/wing_dungeon_text.tsv",
+            AgesGameContent.AssetRoot + "objects/wing_dungeon_text.tsv",
             new GeneratedTableSchema(
                 "Wing Dungeon text",
                 GeneratedTableKeySemantics.Unique,

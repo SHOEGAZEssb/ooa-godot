@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_FARORE_GIVEITEM $d9 retains its own interaction slot.</summary>
 internal sealed partial class FaroreRewardRoomEntity(FaroreScriptHost parent) : Node2D,

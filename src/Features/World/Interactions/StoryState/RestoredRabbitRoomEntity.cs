@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // rabbitMain.s native $4b:$03/$04/$05 ending dispatches.
 internal sealed class RestoredRabbitRoomEntity : RoomCutsceneCommandHost,IRoomEntity,IFixedRoomEntity,
@@ -50,7 +50,7 @@ internal sealed class RestoredRabbitRoomEntity : RoomCutsceneCommandHost,IRoomEn
             if(SubId==0){_actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex,withTerrainEffects:true);_runner.Start(_data.Commands("listening-rabbit"));return;}
             if(SubId is 4 or 5)
             {
-                Write(WramAddress.wLoadedTreeGfxIndex,0x4b);Write(WramAddress.wInteractionIDToLoadExtraGfx,0x4b);
+                Write(AgesWramAddress.wLoadedTreeGfxIndex,0x4b);Write(AgesWramAddress.wInteractionIDToLoadExtraGfx,0x4b);
             }
             if(SubId==4){IdleJump();return;}
             Counter=SubId==5?270:120;SetPalette(6);Animation(6);return;

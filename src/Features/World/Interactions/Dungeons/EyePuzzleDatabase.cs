@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 // bank1.s:screenTransitionEyePuzzle and statueEyeball.s:$03/$04 share
 // these live bytes. Preview queries never advance the transition count.
@@ -14,7 +14,7 @@ internal sealed class EyePuzzleDatabase
     internal int SpinUpdates { get; }
     private EyePuzzleDatabase()
     {
-        var row = GeneratedTable.Load("res://assets/oracle/objects/eye_puzzle.tsv",
+        var row = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/eye_puzzle.tsv",
             new GeneratedTableSchema("eye puzzle", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "counter-address", "second-counter-address", "correct-direction-address",
                     "required-transitions", "spin-updates", "excluded-direction", "source"],
@@ -27,7 +27,7 @@ internal sealed class EyePuzzleDatabase
     internal bool PrepareEyes(RoomEntityManager owner)
     {
         var state = owner.RuntimeState;
-        if ((state.ReadWramByte(WramAddress.wScrollMode) & 1) == 0) return false;
+        if ((state.ReadWramByte(AgesWramAddress.wScrollMode) & 1) == 0) return false;
         int direction = 0;
         if (state.ReadWramByte(_counter) < _required)
             do { direction = owner.NextRandomValue() & 3; } while (direction == _excluded);

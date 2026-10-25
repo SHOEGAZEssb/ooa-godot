@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MINIBOSS_PORTAL $7e:$00.</summary>
 internal sealed class MinibossPortalRoomEntity :
@@ -167,7 +167,7 @@ internal sealed class MinibossPortalRoomEntity :
         _controlledPlayer = player;
         _state = PortalState.Spinning;
         _counter = _data.PortalSpinUpdates;
-        _caveRuntime?.SetWramByte(WramAddress.wDisabledObjects, 1);
+        _caveRuntime?.SetWramByte(AgesWramAddress.wDisabledObjects, 1);
         _soundRequested(_data.PortalSound);
     }
 
@@ -180,8 +180,8 @@ internal sealed class MinibossPortalRoomEntity :
         {
             _controlledPlayer.SetScriptedLinkAnimationMode(null);
             _controlledPlayer.EndCutsceneControl(this);
-            if (_caveRuntime?.ReadWramByte(WramAddress.wDisabledObjects) == 1)
-                _caveRuntime.SetWramByte(WramAddress.wDisabledObjects, 0);
+            if (_caveRuntime?.ReadWramByte(AgesWramAddress.wDisabledObjects) == 1)
+                _caveRuntime.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
         }
         _controlledPlayer = null;
     }

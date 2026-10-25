@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Runtime equivalent of wEnemiesKilledList: eight room IDs paired with

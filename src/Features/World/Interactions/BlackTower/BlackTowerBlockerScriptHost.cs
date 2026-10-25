@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BlackTowerBlockerScriptHost : NpcInteractionCommandHost
 {

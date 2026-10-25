@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscellaneous2.s:$dc:$15/$16. State zero only checks ROOMFLAG_ITEM;
 // state one samples linked-game status, publishes the shared override and deletes.
@@ -28,8 +28,8 @@ internal sealed partial class ChestContentsRoomEntity(
             return;
         }
         var reward = contents();
-        runtime.SetWramByte(WramAddress.wChestContentsOverride, checked((byte)reward.TreasureId));
-        runtime.SetWramByte(WramAddress.wChestContentsOverride + 1, checked((byte)reward.SubId));
+        runtime.SetWramByte(AgesWramAddress.wChestContentsOverride, checked((byte)reward.TreasureId));
+        runtime.SetWramByte(AgesWramAddress.wChestContentsOverride + 1, checked((byte)reward.SubId));
         Finished = true;
     }
 

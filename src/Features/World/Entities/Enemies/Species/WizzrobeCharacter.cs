@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/enemies/wizzrobe.s: three profiles share status and reservation ownership.
 internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
@@ -53,7 +53,7 @@ internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEne
             State = 8;
             // Each newly initialized red clears this shared union in native slot order.
             for (int i = 0; i < _data.ReservationBytes; i++)
-                _memory.SetWramByte(WramAddress.wWizzrobePositionReservations + i, 0);
+                _memory.SetWramByte(AgesWramAddress.wWizzrobePositionReservations + i, 0);
         }
         else if (Record.SubId == 2)
         {
@@ -216,10 +216,10 @@ internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEne
         if (_slot < 0) throw new InvalidOperationException("ENEMY$40:$01 needs its native slot to reserve a destination.");
         byte packed = (byte)_room.GetPackedPosition(position);
         for (int i = 0; i < _data.ReservationCount; i++)
-            if (_memory.ReadWramByte(WramAddress.wWizzrobePositionReservations + 2 * i) == packed) return false;
+            if (_memory.ReadWramByte(AgesWramAddress.wWizzrobePositionReservations + 2 * i) == packed) return false;
         for (int i = 0; i < _data.ReservationCount; i++)
         {
-            int address = WramAddress.wWizzrobePositionReservations + 2 * i;
+            int address = AgesWramAddress.wWizzrobePositionReservations + 2 * i;
             if (_memory.ReadWramByte(address) != 0) continue;
             _memory.SetWramByte(address, packed);
             _memory.SetWramByte(address + 1, (byte)(0xd0 + _slot));
@@ -230,7 +230,7 @@ internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEne
     }
     internal void RemoveReservation()
     {
-        int address = (WramAddress.wWizzrobePositionReservations & 0xff00) | Reservation;
+        int address = (AgesWramAddress.wWizzrobePositionReservations & 0xff00) | Reservation;
         if (_slot < 0 || _memory.ReadWramByte(address) != 0xd0 + _slot) return;
         _memory.SetWramByte(address, 0); _memory.SetWramByte(address - 1, 0);
     }

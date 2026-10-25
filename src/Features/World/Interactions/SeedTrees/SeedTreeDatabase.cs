@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed Ages data for ENEMY_SEEDS_ON_TREE ($5a), PART_SEED_ON_TREE ($10),
@@ -58,7 +58,7 @@ internal sealed class SeedTreeDatabase
     {
         ValidateRefillIndex(index);
         int address =
-            WramAddress.wSeedTreeRefilledBitset + (index >> 3);
+            AgesWramAddress.wSeedTreeRefilledBitset + (index >> 3);
         return (runtime.ReadWramByte(address) & (1 << (index & 7))) != 0;
     }
 
@@ -69,7 +69,7 @@ internal sealed class SeedTreeDatabase
     {
         ValidateRefillIndex(index);
         int address =
-            WramAddress.wSeedTreeRefilledBitset + (index >> 3);
+            AgesWramAddress.wSeedTreeRefilledBitset + (index >> 3);
         int mask = 1 << (index & 7);
         byte current = runtime.ReadWramByte(address);
         runtime.SetWramByte(
@@ -162,7 +162,7 @@ internal sealed class SeedTreeDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/seed_tree_constants.tsv",
+            AgesGameContent.AssetRoot + "metadata/seed_tree_constants.tsv",
             new GeneratedTableSchema(
                 "seed-tree constants",
                 GeneratedTableKeySemantics.Unique,
@@ -176,7 +176,7 @@ internal sealed class SeedTreeDatabase
     private void LoadPlacements()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/seed_trees.tsv",
+            AgesGameContent.AssetRoot + "objects/seed_trees.tsv",
             new GeneratedTableSchema(
                 "seed-tree placements",
                 GeneratedTableKeySemantics.Grouped,
@@ -207,7 +207,7 @@ internal sealed class SeedTreeDatabase
     private void LoadRefills()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/seed_tree_refills.tsv",
+            AgesGameContent.AssetRoot + "metadata/seed_tree_refills.tsv",
             new GeneratedTableSchema(
                 "seed-tree refill locations",
                 GeneratedTableKeySemantics.Unique,
@@ -233,7 +233,7 @@ internal sealed class SeedTreeDatabase
     private void LoadTypes()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/seed_tree_types.tsv",
+            AgesGameContent.AssetRoot + "metadata/seed_tree_types.tsv",
             new GeneratedTableSchema(
                 "seed-tree types",
                 GeneratedTableKeySemantics.Unique,
@@ -267,7 +267,7 @@ internal sealed class SeedTreeDatabase
     private static SeedTreeVisualRecord LoadVisual()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/seed_tree_visual.tsv",
+            AgesGameContent.AssetRoot + "metadata/seed_tree_visual.tsv",
             new GeneratedTableSchema(
                 "seed-tree visual",
                 GeneratedTableKeySemantics.Unique,

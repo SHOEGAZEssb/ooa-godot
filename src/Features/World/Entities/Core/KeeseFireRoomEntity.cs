@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class KeeseFireRoomEntity(KeeseFirePart fire)
     : RoomEntityAdapter<KeeseFirePart>(fire, fire.SetTransitionDrawOffset), IFixedRoomEntity, IRoomEntityLifetime, ILinkContactEntity,

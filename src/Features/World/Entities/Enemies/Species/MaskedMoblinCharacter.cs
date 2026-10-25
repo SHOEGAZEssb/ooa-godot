@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared ENEMY_MASKED_MOBLIN $20:$00 walk/turn/arrow state machine. Room

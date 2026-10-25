@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BoomerangDatabase
 {
@@ -21,7 +21,7 @@ internal sealed class BoomerangDatabase
 
     private BoomerangDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/boomerang.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/boomerang.tsv",
             new GeneratedTableSchema("ITEM_BOOMERANG $06", GeneratedTableKeySemantics.Ordered,
                 ["speed-raw", "outward-updates", "catch-updates", "near-radius", "catch-radius", "sound",
                  "collision", "radius-y", "radius-x", "damage", "oam-flags", "source-inverted", "animation", "source"],

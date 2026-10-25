@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class BurningEnemyRoomEntity(BurningEnemyPart part)
     : RoomEntityAdapter<BurningEnemyPart>(part, part.SetTransitionDrawOffset), IFixedRoomEntity, IRoomEntityLifetime,

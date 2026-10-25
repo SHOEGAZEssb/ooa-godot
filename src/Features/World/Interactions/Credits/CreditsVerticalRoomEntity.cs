@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $af directly submits text OAM during its interaction update. It has
 // no ordinary visible sprite; each native credits dispatch clears that OAM.

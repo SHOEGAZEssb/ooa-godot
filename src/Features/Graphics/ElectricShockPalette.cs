@@ -2,16 +2,16 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal static class ElectricShockPalette
 {
     private static readonly Lazy<Color[,]> BackgroundData = new(() =>
-        OracleGraphicsData.LoadPalette("res://assets/oracle/metadata/electric_shock_bg_palette.bin"));
+        OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "metadata/electric_shock_bg_palette.bin"));
     private static readonly Lazy<IReadOnlyDictionary<int, Color[]>> ObjectData = new(() =>
     {
         Color[,] palettes = OracleGraphicsData.LoadPalette(
-            "res://assets/oracle/metadata/electric_shock_obj_palette.bin");
+            AgesGameContent.AssetRoot + "metadata/electric_shock_obj_palette.bin");
         var result = new Dictionary<int, Color[]>();
         for (int slot = 0; slot < 8; slot++)
         {

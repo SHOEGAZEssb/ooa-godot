@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared INTERAC_DUNGEON_EVENTS state consumers layered around the
@@ -140,12 +140,12 @@ internal sealed partial class DungeonStateController : Node2D,
     private void SetSwitchBit(int mask, bool active)
     {
         byte current = _runtime.ReadWramByte(
-            OracleRuntimeState.SwitchStateAddress);
+            AgesGameContent.SwitchStateAddress);
         byte replacement = active
             ? (byte)(current | mask)
             : (byte)(current & ~mask);
         _runtime.SetWramByte(
-            OracleRuntimeState.SwitchStateAddress, replacement);
+            AgesGameContent.SwitchStateAddress, replacement);
     }
 
     private int TileAt(int packedPosition)

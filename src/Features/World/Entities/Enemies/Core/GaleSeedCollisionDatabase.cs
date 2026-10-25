@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class GaleSeedCollisionDatabase
 {
@@ -9,12 +9,12 @@ internal sealed class GaleSeedCollisionDatabase
     internal static GaleSeedCollisionDatabase Shared { get; } = new();
     private GaleSeedCollisionDatabase()
     {
-        GeneratedTable table = GeneratedTable.Load("res://assets/oracle/metadata/gale_collision_effects.tsv",
+        GeneratedTable table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/gale_collision_effects.tsv",
             new GeneratedTableSchema("gale collisions", GeneratedTableKeySemantics.Unique,
                 ["mode", "effect", "source"], ["mode"], headerRequired: true));
         if (table.Rows.Count != 0x7d) throw new InvalidOperationException("Expected 125 vanilla gale collision modes.");
         foreach (GeneratedTableRow row in table.Rows) _effects[row.HexByte(0)] = row.HexByte(1);
-        table = GeneratedTable.Load("res://assets/oracle/metadata/gale_enemy_modes.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/gale_enemy_modes.tsv",
             new GeneratedTableSchema("gale enemy modes", GeneratedTableKeySemantics.Unique,
                 ["id", "mode", "source"], ["id"], headerRequired: true));
         if (table.Rows.Count != 128) throw new InvalidOperationException("Expected 128 source enemy modes.");

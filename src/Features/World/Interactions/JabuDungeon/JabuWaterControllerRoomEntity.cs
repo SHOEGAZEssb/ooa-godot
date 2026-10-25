@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscPuzzles_subid0a. The high nibble remembers the fill buttons; bit 7
 // drains on either edge. Room tiles change on subsequent native room loads.
@@ -34,7 +34,7 @@ internal sealed partial class JabuWaterControllerRoomEntity : Node2D,
     private void Initialize()
     {
         LastTriggers=_triggers();
-        _runtime.SetWramByte(OracleRuntimeState.SwitchStateAddress,(byte)(_save.ReadWramByte(WramAddress.wJabuWaterLevel)&0xf0));
+        _runtime.SetWramByte(AgesGameContent.SwitchStateAddress,(byte)(_save.ReadWramByte(AgesWramAddress.wJabuWaterLevel)&0xf0));
         State=1;
     }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
@@ -45,25 +45,25 @@ internal sealed partial class JabuWaterControllerRoomEntity : Node2D,
             case 1:
                 byte triggers=_triggers(), changed=(byte)(triggers ^ LastTriggers);
                 LastTriggers=triggers;
-                int water=_save.ReadWramByte(WramAddress.wJabuWaterLevel);
-                byte switches=_runtime.ReadWramByte(OracleRuntimeState.SwitchStateAddress);
+                int water=_save.ReadWramByte(AgesWramAddress.wJabuWaterLevel);
+                byte switches=_runtime.ReadWramByte(AgesGameContent.SwitchStateAddress);
                 if ((changed&0x80) != 0)
                 {
                     if ((water&7) == 0) return;
-                    _save.WriteWramByte(WramAddress.wJabuWaterLevel,0);
-                    _runtime.SetWramByte(OracleRuntimeState.SwitchStateAddress,0);
+                    _save.WriteWramByte(AgesWramAddress.wJabuWaterLevel,0);
+                    _runtime.SetWramByte(AgesGameContent.SwitchStateAddress,0);
                     TextId=0x1208;
                 }
                 else
                 {
                     if ((triggers&changed) == 0 || (switches&changed) != 0) return;
                     switches |= changed;
-                    _runtime.SetWramByte(OracleRuntimeState.SwitchStateAddress,switches);
-                    _save.WriteWramByte(WramAddress.wJabuWaterLevel,(byte)(((water&3)+1)|(switches&0xf0)));
+                    _runtime.SetWramByte(AgesGameContent.SwitchStateAddress,switches);
+                    _save.WriteWramByte(AgesWramAddress.wJabuWaterLevel,(byte)(((water&3)+1)|(switches&0xf0)));
                     TextId=0x1209;
                 }
-                _runtime.SetWramByte(WramAddress.wDisabledObjects,0x81);
-                _runtime.SetWramByte(WramAddress.wMenuDisabled,0x81);
+                _runtime.SetWramByte(AgesWramAddress.wDisabledObjects,0x81);
+                _runtime.SetWramByte(AgesWramAddress.wMenuDisabled,0x81);
                 Counter=60; _sound(SoundId.SndCtrlStopMusic); State=2; return;
             case 2:
                 if (--Counter != 0) return;
@@ -71,8 +71,8 @@ internal sealed partial class JabuWaterControllerRoomEntity : Node2D,
             case 3:
                 if (--Counter != 0) return;
                 State=1;
-                _runtime.SetWramByte(WramAddress.wDisabledObjects,0);
-                _runtime.SetWramByte(WramAddress.wMenuDisabled,0);
+                _runtime.SetWramByte(AgesWramAddress.wDisabledObjects,0);
+                _runtime.SetWramByte(AgesWramAddress.wMenuDisabled,0);
                 _text(TextId); _sound(SoundId.SndCtrlStopSfx); _sound(_music()); return;
             default: throw new InvalidOperationException($"INTERAC$90:$0a: invalid state${State:x2}.");
         }

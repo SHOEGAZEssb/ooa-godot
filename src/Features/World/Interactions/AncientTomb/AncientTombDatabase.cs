@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class AncientTombDatabase
 {
@@ -16,9 +16,9 @@ internal sealed class AncientTombDatabase
 
     internal AncientTombDatabase()
     {
-        var palette = OracleGraphicsData.LoadPalette("res://assets/oracle/objects/stone_panel_palette.bin", 1, 6);
+        var palette = OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "objects/stone_panel_palette.bin", 1, 6);
         PanelPalette = new Dictionary<int, Color[]> { [6] = [palette[6, 0], palette[6, 1], palette[6, 2], palette[6, 3]] };
-        var objects = GeneratedTable.Load("res://assets/oracle/objects/ancient_tomb_objects.tsv",
+        var objects = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/ancient_tomb_objects.tsv",
             new GeneratedTableSchema("Ancient Tomb objects", GeneratedTableKeySemantics.Grouped,
                 ["group", "room", "order", "kind", "id", "subid", "y", "x", "condition", "source"],
                 ["group", "room"], headerRequired: true));
@@ -52,7 +52,7 @@ internal sealed class AncientTombDatabase
                 DungeonObjectData.ParseCondition(row, 8), row.RequiredString(9));
             _objects.GetOrAdd((record.Group << 8) | record.Room).Add(record);
         }
-        var texts = GeneratedTable.Load("res://assets/oracle/objects/ancient_tomb_text.tsv",
+        var texts = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/ancient_tomb_text.tsv",
             new GeneratedTableSchema("Ancient Tomb text", GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-position", "message-base64", "source"], ["text-id"], headerRequired: true));
         foreach (var row in texts.Rows)
@@ -62,7 +62,7 @@ internal sealed class AncientTombDatabase
             string message = Encoding.UTF8.GetString(Convert.FromBase64String(row.RequiredString(2)));
             _texts.Add(row.HexWord(0), position == 0 ? message : $"\\pos({position})" + message);
         }
-        var torches = GeneratedTable.Load("res://assets/oracle/objects/slate_slot_torches.tsv",
+        var torches = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/slate_slot_torches.tsv",
             new GeneratedTableSchema("slate socket torches", GeneratedTableKeySemantics.Unique,
                 ["subid", "first", "second", "source"], ["subid"], headerRequired: true));
         foreach (var row in torches.Rows)
@@ -70,7 +70,7 @@ internal sealed class AncientTombDatabase
             _ = row.RequiredString(3);
             _torches.Add(row.HexByte(0), ((byte)row.HexByte(1), (byte)row.HexByte(2)));
         }
-        var scripts = GeneratedTable.Load("res://assets/oracle/objects/ancient_tomb_tile_scripts.tsv",
+        var scripts = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/ancient_tomb_tile_scripts.tsv",
             new GeneratedTableSchema("Ancient Tomb dungeon scripts", GeneratedTableKeySemantics.Unique,
                 ["subid", "kind", "gate-value", "tile", "flag", "wait", "source"], ["subid"], headerRequired: true));
         foreach (var row in scripts.Rows)
@@ -86,7 +86,7 @@ internal sealed class AncientTombDatabase
             _scripts.Add(row.HexByte(0), new(kind, row.HexByte(2), (byte)row.HexByte(3),
                 (byte)row.HexByte(4), row.Decimal(5, 0, 255), row.RequiredString(6)));
         }
-        var essence = GeneratedTable.Load("res://assets/oracle/objects/ancient_tomb_essence.tsv",
+        var essence = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/ancient_tomb_essence.tsv",
             new GeneratedTableSchema("Falling Star Essence", GeneratedTableKeySemantics.Ordered,
                 ["index", "destination-group", "destination-room", "destination-position", "destination-transition", "source"],
                 headerRequired: true)).SingleRow();

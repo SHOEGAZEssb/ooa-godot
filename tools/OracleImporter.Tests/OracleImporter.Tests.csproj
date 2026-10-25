@@ -4,8 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>OracleOfAges.Importer.Tests</RootNamespace>
-    <AssemblyName>OracleOfAges.Importer.Tests</AssemblyName>
+    <RootNamespace>Oracles.Importer.Tests</RootNamespace>
+    <AssemblyName>Oracles.Importer.Tests</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>

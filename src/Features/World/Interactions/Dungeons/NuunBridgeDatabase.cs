@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class NuunBridgeDatabase
 {
@@ -10,7 +10,7 @@ internal sealed class NuunBridgeDatabase
     internal NuunBridgeDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/nuun_bridge_commands.tsv",
+            AgesGameContent.AssetRoot + "objects/nuun_bridge_commands.tsv",
             new GeneratedTableSchema("Nuun bridge simple script", GeneratedTableKeySemantics.Unique,
                 ["order", "opcode", "a", "b", "c", "d", "source"], ["order"], headerRequired: true));
         var commands = new List<NuunBridgeCommand>();

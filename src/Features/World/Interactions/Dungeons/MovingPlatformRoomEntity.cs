@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MOVING_PLATFORM $79, dungeon-keyed native mini-script.</summary>
 internal sealed partial class MovingPlatformRoomEntity : DungeonInteractionVisualEntity,

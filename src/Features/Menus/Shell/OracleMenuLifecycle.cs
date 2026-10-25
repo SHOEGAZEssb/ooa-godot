@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Mirrors bank 2's shared wOpenedMenuType/wMenuLoadState lifecycle. Menu

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Ordered replaceJabuTilesIfUnderwater room-load substitutions.</summary>
 internal sealed class JabuWaterTileDatabase
@@ -11,7 +11,7 @@ internal sealed class JabuWaterTileDatabase
     internal JabuWaterTileDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/jabu_water_tile_substitutions.tsv",
+            AgesGameContent.AssetRoot + "metadata/jabu_water_tile_substitutions.tsv",
             new GeneratedTableSchema("Jabu water tile substitutions", GeneratedTableKeySemantics.Unique,
                 ["index", "replacement", "original", "source"], ["index"], headerRequired: true));
         int index = 0;
@@ -36,7 +36,7 @@ internal sealed class JabuWaterTileDatabase
             (room.TilesetFlags & (int)TilesetFlags.Sidescroll) != 0) return;
         if (!floor.HasValue)
             throw new InvalidOperationException($"tileSubstitutions.s:replaceJabuTilesIfUnderwater lacks the native floor for room {group:x1}:{room.Id:x2}.");
-        if ((save.ReadWramByte(WramAddress.wJabuWaterLevel) & 7) == floor.Value)
+        if ((save.ReadWramByte(AgesWramAddress.wJabuWaterLevel) & 7) == floor.Value)
             room.ApplyMetatileSubstitutions(_substitutions, animationTick);
     }
 }

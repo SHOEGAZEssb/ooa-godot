@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// One explicitly ordered A-button interaction route. NPC handlers receive the

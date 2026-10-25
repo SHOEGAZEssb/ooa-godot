@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // mapleKeepInBounds and itemFromMaple.setDroppedItemPosition share these
 // limits. They replace coordinate high bytes, retaining fractional bytes;

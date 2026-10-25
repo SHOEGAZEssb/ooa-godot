@@ -1,12 +1,14 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Bootstraps and verifies the deterministic generated-table manifest before
@@ -14,34 +16,23 @@ namespace oracleofages;
 /// </summary>
 internal static class GeneratedTableManifest
 {
-    private const string Root = "res://assets/oracle/";
-    private const string ManifestPath = Root + "generated_tables.manifest.tsv";
     private const int ManifestVersion = 1;
-    private static readonly object Sync = new();
-    private static Dictionary<string, Entry>? _entries;
+    private static readonly ConcurrentDictionary<string, Lazy<Dictionary<string, Entry>>> Packs = new(StringComparer.Ordinal);
 
-    internal static int EntryCount
-    {
-        get
-        {
-            EnsureValidated();
-            return _entries!.Count;
-        }
-    }
+    internal static int EntryCount(string root) => EntriesFor(root + "generated_tables.manifest.tsv").Count;
 
     public static void ValidateAsset(string path, int schemaVersion, byte[] bytes)
     {
-        EnsureValidated();
+        Dictionary<string, Entry> entries = EntriesFor(path);
         string relative = Relative(path);
-        if (!_entries!.TryGetValue(relative, out Entry? entry))
+        if (!entries.TryGetValue(relative, out Entry? entry))
             throw new InvalidOperationException($"{path}: missing generated-table manifest entry.");
         ValidateVersionAndHash(path, schemaVersion, bytes, entry);
     }
 
     public static void ValidateRecordCount(string path, int recordCount)
     {
-        EnsureValidated();
-        ValidateCount(path, recordCount, _entries![Relative(path)]);
+        ValidateCount(path, recordCount, EntriesFor(path)[Relative(path)]);
     }
 
     internal static void ValidateMetadataForValidation(
@@ -90,27 +81,20 @@ internal static class GeneratedTableManifest
         }
     }
 
-    private static void EnsureValidated()
-    {
-        if (_entries is not null)
-            return;
-        lock (Sync)
-        {
-            if (_entries is not null)
-                return;
-            _entries = LoadAndValidateAll();
-        }
-    }
+    private static Dictionary<string, Entry> EntriesFor(string path) => Packs.GetOrAdd(
+        OracleAssetPack.RootFor(path), static root => new Lazy<Dictionary<string, Entry>>(
+            () => LoadAndValidateAll(root), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
 
-    private static Dictionary<string, Entry> LoadAndValidateAll()
+    private static Dictionary<string, Entry> LoadAndValidateAll(string root)
     {
-        if (!FileAccess.FileExists(ManifestPath))
+        string manifestPath = root + "generated_tables.manifest.tsv";
+        if (!FileAccess.FileExists(manifestPath))
         {
             throw new InvalidOperationException(
-                $"Generated table manifest '{ManifestPath}' is missing; " +
+                $"Generated table manifest '{manifestPath}' is missing; " +
                 "rerun tools/import_oracles.ps1.");
         }
-        byte[] manifestBytes = OracleAssetCache.ReadBytes(ManifestPath);
+        byte[] manifestBytes = OracleAssetCache.ReadBytes(manifestPath);
         string source;
         try
         {
@@ -119,7 +103,7 @@ internal static class GeneratedTableManifest
         catch (DecoderFallbackException exception)
         {
             throw new InvalidOperationException(
-                $"Generated table manifest '{ManifestPath}' is not valid UTF-8.", exception);
+                $"Generated table manifest '{manifestPath}' is not valid UTF-8.", exception);
         }
 
         var entries = new Dictionary<string, Entry>(StringComparer.Ordinal);
@@ -137,7 +121,7 @@ internal static class GeneratedTableManifest
                 if (versionSeen || value != ManifestVersion.ToString(CultureInfo.InvariantCulture))
                 {
                     throw new InvalidOperationException(
-                        $"{ManifestPath}:{lineNumber}: expected one manifest version " +
+                        $"{manifestPath}:{lineNumber}: expected one manifest version " +
                         $"{ManifestVersion}, got '{value}'.");
                 }
                 versionSeen = true;
@@ -150,7 +134,7 @@ internal static class GeneratedTableManifest
             if (columns.Length != 4)
             {
                 throw new InvalidOperationException(
-                    $"{ManifestPath}:{lineNumber}: expected path, schema-version, " +
+                    $"{manifestPath}:{lineNumber}: expected path, schema-version, " +
                     "record-count, and sha256.");
             }
             string relative = columns[0].Replace('\\', '/');
@@ -158,7 +142,7 @@ internal static class GeneratedTableManifest
                 !relative.EndsWith(".tsv", StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(
-                    $"{ManifestPath}:{lineNumber}: invalid relative TSV path '{columns[0]}'.");
+                    $"{manifestPath}:{lineNumber}: invalid relative TSV path '{columns[0]}'.");
             }
             if (!int.TryParse(columns[1], NumberStyles.None, CultureInfo.InvariantCulture,
                     out int schemaVersion) || schemaVersion <= 0 ||
@@ -167,30 +151,30 @@ internal static class GeneratedTableManifest
                 columns[3].Length != 64 || !columns[3].All(IsHexDigit))
             {
                 throw new InvalidOperationException(
-                    $"{ManifestPath}:{lineNumber}: invalid version/count/SHA-256 for '{relative}'.");
+                    $"{manifestPath}:{lineNumber}: invalid version/count/SHA-256 for '{relative}'.");
             }
             if (!entries.TryAdd(relative, new Entry(schemaVersion, recordCount, columns[3])))
             {
                 throw new InvalidOperationException(
-                    $"{ManifestPath}:{lineNumber}: duplicate path '{relative}'.");
+                    $"{manifestPath}:{lineNumber}: duplicate path '{relative}'.");
             }
         }
         if (!versionSeen)
-            throw new InvalidOperationException($"{ManifestPath}: missing manifest version.");
+            throw new InvalidOperationException($"{manifestPath}: missing manifest version.");
 
         var diskTables = new HashSet<string>(StringComparer.Ordinal);
-        CollectTables(Root, string.Empty, diskTables);
+        CollectTables(root, string.Empty, diskTables);
         if (!diskTables.SetEquals(entries.Keys))
         {
             string missing = string.Join(", ", diskTables.Except(entries.Keys).Order());
             string stale = string.Join(", ", entries.Keys.Except(diskTables).Order());
             throw new InvalidOperationException(
-                $"{ManifestPath}: table set mismatch; unmanifested=[{missing}], missing=[{stale}].");
+                $"{manifestPath}: table set mismatch; unmanifested=[{missing}], missing=[{stale}].");
         }
 
         foreach ((string relative, Entry entry) in entries)
         {
-            string path = Root + relative;
+            string path = root + relative;
             byte[] bytes = OracleAssetCache.ReadBytes(path);
             string actualHash = Hash(bytes);
             if (!string.Equals(actualHash, entry.Sha256, StringComparison.OrdinalIgnoreCase))
@@ -260,9 +244,8 @@ internal static class GeneratedTableManifest
 
     private static string Relative(string path)
     {
-        if (!path.StartsWith(Root, StringComparison.Ordinal))
-            throw new InvalidOperationException($"Generated table path '{path}' is outside '{Root}'.");
-        return path[Root.Length..].Replace('\\', '/');
+        string root = OracleAssetPack.RootFor(path);
+        return path[root.Length..];
     }
 
     private static string Hash(byte[] bytes) =>

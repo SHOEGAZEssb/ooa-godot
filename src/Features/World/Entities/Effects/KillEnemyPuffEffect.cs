@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// INTERAC_KILLENEMYPUFF ($08), used before Zol and Bari split.
@@ -87,7 +87,7 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
     private static List<KillEnemyPuffEffectFrameRecord> LoadDefinition()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/effects/kill_enemy_puff.tsv",
+            AgesGameContent.AssetRoot + "effects/kill_enemy_puff.tsv",
             new GeneratedTableSchema(
                 "kill-enemy puff",
                 GeneratedTableKeySemantics.Ordered,
@@ -98,14 +98,14 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
         int palette = row.UnsignedDecimal(1);
 
         Image source = OracleGraphicsCache.LoadImage(
-            "res://assets/oracle/gfx/spr_common_sprites.png");
+            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
 
         var animation = new List<KillEnemyPuffEffectFrameRecord>();
         foreach (AnimationFrameDefinition frame in
             OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(2)).Frames)
         {
             animation.Add(new KillEnemyPuffEffectFrameRecord(
-                NpcCharacter.BuildOamTexture(
+                OracleOamCompositor.BuildOamTexture(
                     source, frame.EncodedOam, tileBase, palette),
                 frame.Duration, frame.Parameter));
         }

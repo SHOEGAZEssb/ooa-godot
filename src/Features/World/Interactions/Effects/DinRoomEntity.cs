@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // din.s: INTERAC $aa:$00, the linked ending's independent jump/text signal.
 internal sealed class DinRoomEntity(RoomEventContext context,BlackTowerEndingDatabase data,Vector2 position,int subid=0) :

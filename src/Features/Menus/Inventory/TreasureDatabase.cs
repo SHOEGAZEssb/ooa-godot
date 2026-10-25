@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class TreasureDatabase
 {
@@ -72,7 +72,7 @@ public sealed class TreasureDatabase
 
     private void LoadRupeeValues()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/rupee_values.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/rupee_values.tsv",
             new GeneratedTableSchema("bank0.getRupeeValue", GeneratedTableKeySemantics.Unique,
                 ["index", "amount"], ["index"], headerRequired: true));
         if (table.Rows.Count != _rupeeValues.Length)
@@ -88,7 +88,7 @@ public sealed class TreasureDatabase
     private void LoadExtraItems()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/treasure_extra_items.tsv",
+            AgesGameContent.AssetRoot + "metadata/treasure_extra_items.tsv",
             new GeneratedTableSchema(
                 "giveTreasure_body:@extraItemsToAddTable",
                 GeneratedTableKeySemantics.Unique,
@@ -174,7 +174,7 @@ public sealed class TreasureDatabase
     private void LoadObjects()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/treasure_objects.tsv",
+            AgesGameContent.AssetRoot + "metadata/treasure_objects.tsv",
             new GeneratedTableSchema(
                 "treasure objects",
                 GeneratedTableKeySemantics.Aliased,
@@ -204,7 +204,7 @@ public sealed class TreasureDatabase
     private void LoadObjectVisuals()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/treasure_object_visuals.tsv",
+            AgesGameContent.AssetRoot + "metadata/treasure_object_visuals.tsv",
             new GeneratedTableSchema(
                 "treasure object visuals",
                 GeneratedTableKeySemantics.Unique,
@@ -239,7 +239,7 @@ public sealed class TreasureDatabase
     private void LoadBehaviours()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/treasure_behaviours.tsv",
+            AgesGameContent.AssetRoot + "metadata/treasure_behaviours.tsv",
             new GeneratedTableSchema(
                 "treasure collection behaviours",
                 GeneratedTableKeySemantics.Unique,
@@ -266,7 +266,7 @@ public sealed class TreasureDatabase
     private void LoadGashaMaturity()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/treasure_gasha_maturity.tsv",
+            AgesGameContent.AssetRoot + "metadata/treasure_gasha_maturity.tsv",
             new GeneratedTableSchema(
                 "treasure Gasha maturity",
                 GeneratedTableKeySemantics.Unique,
@@ -401,7 +401,7 @@ public sealed class TreasureDatabase
     private void LoadDisplayRows()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/treasure_display.tsv",
+            AgesGameContent.AssetRoot + "metadata/treasure_display.tsv",
             new GeneratedTableSchema(
                 "treasure display rows",
                 GeneratedTableKeySemantics.Grouped,
@@ -434,7 +434,7 @@ public sealed class TreasureDatabase
     private void LoadInventoryTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/inventory_text.tsv",
+            AgesGameContent.AssetRoot + "metadata/inventory_text.tsv",
             new GeneratedTableSchema(
                 "inventory text",
                 GeneratedTableKeySemantics.Unique,
@@ -477,7 +477,7 @@ internal readonly record struct ExtraTreasureRecord(int TreasureId, int Paramete
 
 public readonly record struct DisplayRecord(int TreasureId, int LeftSprite, int LeftPalette, int RightSprite, int RightPalette, int ExtraMode, int TextLow)
 {
-    public static readonly DisplayRecord Empty = new(oracleofages.TreasureId.None, 0, 0, 0, 0, 0xff, 0x00);
+    public static readonly DisplayRecord Empty = new(Oracles.TreasureId.None, 0, 0, 0, 0, 0xff, 0x00);
     public bool HasIcon => LeftSprite != 0 || RightSprite != 0;
 }
 

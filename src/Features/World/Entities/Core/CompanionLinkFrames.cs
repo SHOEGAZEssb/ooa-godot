@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal static class CompanionLinkFrames
 {
@@ -13,7 +13,7 @@ internal static class CompanionLinkFrames
         string sprite, int palette, string[] frames, int[] sourceOffsets)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            $"res://assets/oracle/gfx/{sprite}.png");
+            AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
         var textures = new Texture2D[frames.Length];
         var chargeTextures = new Texture2D[frames.Length];
         var damageTextures = new Texture2D[frames.Length];
@@ -24,7 +24,7 @@ internal static class CompanionLinkFrames
                 OracleGraphicsCache.GetAnimationDefinition(
                     frames[index]).Frames[0];
             (textures[index], offsets[index]) =
-                NpcCharacter.BuildPositionedOamTexture(
+                OracleOamCompositor.BuildPositionedOamTexture(
                     source,
                     frame.EncodedOam,
                     0,
@@ -33,21 +33,21 @@ internal static class CompanionLinkFrames
                     sourceGrayscaleInverted: true,
                     sourceOffset: sourceOffsets[index]);
             (damageTextures[index], Vector2 damageOffset) =
-                NpcCharacter.BuildPositionedOamTexture(
+                OracleOamCompositor.BuildPositionedOamTexture(
                     source,
                     frame.EncodedOam,
                     0,
                     palette,
-                    NpcCharacter.GetStandardSpritePalette(5),
+                    OracleOamCompositor.GetStandardSpritePalette(5),
                     sourceGrayscaleInverted: true,
                     sourceOffset: sourceOffsets[index]);
             (chargeTextures[index], Vector2 chargeOffset) =
-                NpcCharacter.BuildPositionedOamTexture(
+                OracleOamCompositor.BuildPositionedOamTexture(
                     source,
                     frame.EncodedOam,
                     0,
                     palette,
-                    NpcCharacter.GetStandardSpritePalette(2),
+                    OracleOamCompositor.GetStandardSpritePalette(2),
                     sourceGrayscaleInverted: true,
                     sourceOffset: sourceOffsets[index]);
             if (damageOffset != offsets[index] ||

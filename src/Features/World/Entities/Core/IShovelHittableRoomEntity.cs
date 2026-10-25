@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ITEM_SHOVEL ($15) owns an independently colliding child with radius 3.

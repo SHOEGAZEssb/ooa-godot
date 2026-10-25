@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Session-owned wPegasusSeedCounter and the Satchel's parent-only $22 branch.</summary>
 public sealed class PegasusSeedState
@@ -13,12 +13,12 @@ public sealed class PegasusSeedState
 
     internal int RawCounter
     {
-        get => _entities.RuntimeState.ReadWramByte(WramAddress.wPegasusSeedCounter) |
-            (_entities.RuntimeState.ReadWramByte(WramAddress.wPegasusSeedCounter + 1) << 8);
+        get => _entities.RuntimeState.ReadWramByte(AgesWramAddress.wPegasusSeedCounter) |
+            (_entities.RuntimeState.ReadWramByte(AgesWramAddress.wPegasusSeedCounter + 1) << 8);
         private set
         {
-            _entities.RuntimeState.SetWramByte(WramAddress.wPegasusSeedCounter, (byte)value);
-            _entities.RuntimeState.SetWramByte(WramAddress.wPegasusSeedCounter + 1, (byte)(value >> 8));
+            _entities.RuntimeState.SetWramByte(AgesWramAddress.wPegasusSeedCounter, (byte)value);
+            _entities.RuntimeState.SetWramByte(AgesWramAddress.wPegasusSeedCounter + 1, (byte)(value >> 8));
         }
     }
     public bool Active => RawCounter != 0;
@@ -66,7 +66,7 @@ internal sealed record PegasusSeedRecord(int Counter, int NormalSpeed, int Grass
 {
     internal static PegasusSeedRecord Load()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/metadata/pegasus_seed.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/pegasus_seed.tsv",
             new GeneratedTableSchema("Pegasus seed", GeneratedTableKeySemantics.Unique,
                 ["item", "counter", "normal-speed", "grass-speed", "stairs-speed", "dust-tile",
                  "dust-flags", "step-sound", "initial-animation", "cloud1", "cloud2", "cloud3", "source"],

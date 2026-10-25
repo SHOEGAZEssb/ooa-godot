@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Explicit source eligibility for fixed updates during room scrolling, such

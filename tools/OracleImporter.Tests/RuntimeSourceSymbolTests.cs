@@ -1,4 +1,4 @@
-using OracleOfAges.Importer;
+using Oracles.Importer;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -13,7 +13,7 @@ internal static class RuntimeSourceSymbolTests
             ["ROM_AGES", "REGION_US", "AGES_ENGINE", "BUILD_VANILLA", "ENABLE_US_BUGFIXES"]);
         var sources = new Dictionary<string, IReadOnlyDictionary<string, int>>();
         var declaration = new Regex(
-            @"// (?<path>(?:constants|include)/[\w/]+\.s): (?<symbol>[\w.]+)[^\r\n]*\r?\n\s*(?:public const int )?(?<member>\w+) = 0x(?<value>[0-9a-f]+)[;,]");
+            @"// (?<path>(?:constants|include)/[\w/]+\.s): (?<symbol>[\w.]+)[^\r\n]*\r?\n\s*(?:(?:public|internal) const int )?(?<member>\w+) = 0x(?<value>[0-9a-f]+)[;,]");
         int checkedCount = 0;
         foreach (string path in Directory.EnumerateFiles(
             Path.Combine(projectRoot, "src"), "*.cs", SearchOption.AllDirectories))

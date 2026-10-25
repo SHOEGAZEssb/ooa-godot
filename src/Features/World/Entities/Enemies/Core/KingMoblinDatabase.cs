@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class KingMoblinDatabase
 {
@@ -12,7 +12,7 @@ internal sealed class KingMoblinDatabase
     internal IReadOnlyDictionary<int, Color[]> Palettes { get; }
     internal KingMoblinDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/king_moblin_tables.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/king_moblin_tables.tsv",
             new GeneratedTableSchema("King Moblin native tables", GeneratedTableKeySemantics.Unique,
                 ["profile", "values", "source"], ["profile"], headerRequired: true));
         foreach (var row in table.Rows)
@@ -22,7 +22,7 @@ internal sealed class KingMoblinDatabase
             ("GLOBALFLAG_MOBLINS_KEEP_DESTROYED",1), ("GLOBALFLAG_16",1), ("ledge",5), ("collision",32), ("defeat-warp",5) })
             if (!_tables.TryGetValue(name, out var values) || values.Length != count)
                 throw new InvalidOperationException($"ENEMY_KING_MOBLIN $7f: missing source table {name}.");
-        table = GeneratedTable.Load("res://assets/oracle/objects/king_moblin_actors.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/king_moblin_actors.tsv",
             new GeneratedTableSchema("King Moblin actors", GeneratedTableKeySemantics.Unique,
                 ["id","subid","sprites","tile-base","palette","source-grayscale-inverted","radius-y","radius-x","damage-quarters","health","animations-base64"],
                 ["id","subid"], headerRequired: true));
@@ -35,13 +35,13 @@ internal sealed class KingMoblinDatabase
         }
         if (_actors.Count != 5 || Actor(0x7f).Health != 6)
             throw new InvalidOperationException("ENEMY_KING_MOBLIN $7f: incomplete native actor definitions.");
-        table = GeneratedTable.Load("res://assets/oracle/objects/king_moblin_text.tsv",
+        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/king_moblin_text.tsv",
             new GeneratedTableSchema("King Moblin dialogue", GeneratedTableKeySemantics.Unique,
                 ["text-id","message-base64","source"],["text-id"],headerRequired:true));
         foreach(var row in table.Rows) _texts.Add(row.HexWord(0),row.Base64Utf8(1));
         if(_tables.Count!=13 || _texts.Count!=2 || !_texts.ContainsKey(0x2f19) || !_texts.ContainsKey(0x2f1a))
             throw new InvalidOperationException("ENEMY_KING_MOBLIN $7f: unexpected native table or dialogue keys.");
-        var palette = OracleGraphicsData.LoadPalette("res://assets/oracle/objects/king_moblin_palette.bin",1,6);
+        var palette = OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "objects/king_moblin_palette.bin",1,6);
         Palettes = new Dictionary<int, Color[]> { [6] = [palette[6,0],palette[6,1],palette[6,2],palette[6,3]] };
     }
     internal byte[] Bytes(string key) => _tables[key];

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class ChestContentsDatabase
 {
@@ -9,7 +9,7 @@ internal sealed class ChestContentsDatabase
 
     internal ChestContentsDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/chest_contents_overrides.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/chest_contents_overrides.tsv",
             new GeneratedTableSchema("miscellaneous2.s chest overrides", GeneratedTableKeySemantics.Unique,
                 ["subid", "linked", "treasure-object", "source"], ["subid", "linked"], headerRequired: true));
         foreach (var row in table.Rows)

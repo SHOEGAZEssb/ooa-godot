@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 internal sealed class PauseLease : IDisposable
 {
     private GameplayPauseController? _controller;

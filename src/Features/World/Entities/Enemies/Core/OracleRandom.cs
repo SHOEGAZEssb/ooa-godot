@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // getRandomNumber and generateRandomBuffer from bank 0 / bank 2. Enemy RNG
 // is deliberately shared: the original engine does not give each object its

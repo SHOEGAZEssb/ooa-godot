@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class BreakableTileDatabase
 {
@@ -27,7 +27,7 @@ public sealed class BreakableTileDatabase
     public BreakableTileDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/breakable_tiles.tsv",
+            AgesGameContent.AssetRoot + "metadata/breakable_tiles.tsv",
             new GeneratedTableSchema(
                 "breakable tiles",
                 GeneratedTableKeySemantics.Unique,

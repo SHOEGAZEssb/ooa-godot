@@ -1,6 +1,6 @@
 using Godot;
 
-namespace oracleofages;
+namespace Oracles;
 
 // syrup.s calls interactionAnimateAsNpc; syrupCucco.s only sets visible80.
 // Their native updates are ordered by SyrupShopEvent, including during text.

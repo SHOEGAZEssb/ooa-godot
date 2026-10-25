@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // Original updates already carry wGameKeysJustPressed through Input. Direct
 // component callers can run repeatedly in one Godot frame; consume that host

@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // SPECIALOBJECT_MAPLE_CUTSCENE $12 retains w1Companion's pre-Link dispatch.
 internal sealed class MapleCreditsRoomEntity : IRoomEntity,IFixedRoomEntity,IUpdatesDuringDialogueRoomEntity,IUpdatesDuringRoomEntityFreeze

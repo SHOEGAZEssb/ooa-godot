@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC$90:$04 publishes masks and children before copying shared wBigBuffer.
 internal sealed partial class MermaidChangingFloorRoomEntity : Node2D,
@@ -19,13 +19,13 @@ internal sealed partial class MermaidChangingFloorRoomEntity : Node2D,
     public Node2D Node => this;
     public bool UpdatesDuringDialogue => !_initialized;
     public bool UpdatesDuringRoomEntityFreeze => !_initialized;
-    public bool FreezesRoomEntities => _runtime.ReadWramByte(WramAddress.wDisabledObjects) != 0;
-    public bool FreezesInteractions => (_runtime.ReadWramByte(WramAddress.wDisabledObjects)&2) != 0;
-    public bool FreezesPlayerUpdates => (_runtime.ReadWramByte(WramAddress.wDisabledObjects)&0x81) != 0;
-    public bool DisablesItems => (_runtime.ReadWramByte(WramAddress.wDisabledObjects)&0x90) != 0;
-    public bool DisablesCompanion => (_runtime.ReadWramByte(WramAddress.wDisabledObjects)&0xa0) != 0;
+    public bool FreezesRoomEntities => _runtime.ReadWramByte(AgesWramAddress.wDisabledObjects) != 0;
+    public bool FreezesInteractions => (_runtime.ReadWramByte(AgesWramAddress.wDisabledObjects)&2) != 0;
+    public bool FreezesPlayerUpdates => (_runtime.ReadWramByte(AgesWramAddress.wDisabledObjects)&0x81) != 0;
+    public bool DisablesItems => (_runtime.ReadWramByte(AgesWramAddress.wDisabledObjects)&0x90) != 0;
+    public bool DisablesCompanion => (_runtime.ReadWramByte(AgesWramAddress.wDisabledObjects)&0xa0) != 0;
     public bool DisablesSword => false;
-    public bool DisablesMenus => _runtime.ReadWramByte(WramAddress.wMenuDisabled) != 0;
+    public bool DisablesMenus => _runtime.ReadWramByte(AgesWramAddress.wMenuDisabled) != 0;
     public bool MenuDisablesWarpTiles => DisablesMenus;
 
     internal MermaidChangingFloorRoomEntity(MermaidChangingFloorDatabase data,OracleRuntimeState runtime,Func<int,bool> createWorker)
@@ -35,13 +35,13 @@ internal sealed partial class MermaidChangingFloorRoomEntity : Node2D,
     }
     private void Advance()
     {
-        byte toggle = _runtime.ReadWramByte(OracleRuntimeState.ToggleBlocksStateAddress);
+        byte toggle = _runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress);
         if (!_initialized) { _initialized = true; _lastToggle = toggle; return; }
         // Freeze ownership doesn't grant this state1 handler native admission.
         if (FreezesInteractions || toggle == _lastToggle) return;
         _lastToggle = toggle;
-        _runtime.SetWramByte(WramAddress.wDisabledObjects,0xff);
-        _runtime.SetWramByte(WramAddress.wMenuDisabled,0xff);
+        _runtime.SetWramByte(AgesWramAddress.wDisabledObjects,0xff);
+        _runtime.SetWramByte(AgesWramAddress.wMenuDisabled,0xff);
         _pattern = (_pattern+1)&1;
         _createWorker(5); _createWorker(6);
         _data.LoadPattern(_runtime,_pattern);

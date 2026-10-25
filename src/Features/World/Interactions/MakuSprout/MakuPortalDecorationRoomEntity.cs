@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC $dc:$14 attempts its child once, retaining its own slot until after allocation.
 internal sealed partial class MakuPortalDecorationRoomEntity(DungeonObjectRecord record, OracleRoomData room,

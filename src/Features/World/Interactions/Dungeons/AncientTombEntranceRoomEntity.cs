@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscellaneous2.s:interactiondc_subid0E. The placed slot watches the grave
 // after reserved INTERAC_PUSHBLOCK $14 has published its stationary tile.
@@ -44,8 +44,8 @@ internal sealed partial class AncientTombEntranceRoomEntity(
             // var2a/invincibility/knockback, but no ground-height requirement.
             if (room.GetMetatile(Position) != data.AncientTombGraveTile ||
                 frame.Player.NativeContactSignal || !frame.Player.NativePuzzleResetVulnerable) return;
-            runtime.SetWramByte(WramAddress.wDisabledObjects, 0x81);
-            runtime.SetWramByte(WramAddress.wMenuDisabled, 0x81);
+            runtime.SetWramByte(AgesWramAddress.wDisabledObjects, 0x81);
+            runtime.SetWramByte(AgesWramAddress.wMenuDisabled, 0x81);
             Counter = data.AncientTombSolveWait;
             State = 2;
             IReadOnlyList<DungeonTilePatternRecord> tiles = data.TilePattern(record.Id, record.SubId);
@@ -73,7 +73,7 @@ internal sealed partial class AncientTombEntranceRoomEntity(
 
     private void ReleaseInput()
     {
-        runtime.SetWramByte(WramAddress.wDisabledObjects, 0);
-        runtime.SetWramByte(WramAddress.wMenuDisabled, 0);
+        runtime.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
+        runtime.SetWramByte(AgesWramAddress.wMenuDisabled, 0);
     }
 }

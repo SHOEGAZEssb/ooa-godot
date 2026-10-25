@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Dungeon script $20:$00 plays the solve cue, creates a puff, waits 15 updates,

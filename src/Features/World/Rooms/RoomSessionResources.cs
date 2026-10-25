@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // Save-independent source tables. Each session receives its own bundle; no
 // room identity, palette, live tile state, save reference or RNG lives here.

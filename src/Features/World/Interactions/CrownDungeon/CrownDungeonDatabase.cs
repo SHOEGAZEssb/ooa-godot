@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class CrownDungeonDatabase
 {
@@ -13,7 +13,7 @@ internal sealed class CrownDungeonDatabase
     internal DungeonEssenceDefinition Essence { get; }
     internal CrownDungeonDatabase()
     {
-        var table = GeneratedTable.Load("res://assets/oracle/objects/crown_dungeon_objects.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/crown_dungeon_objects.tsv",
             new GeneratedTableSchema("Crown Dungeon native objects", GeneratedTableKeySemantics.Grouped,
                 ["group","room","order","kind","id","subid","y","x","condition","source"],
                 ["group","room"], headerRequired:true));
@@ -38,7 +38,7 @@ internal sealed class CrownDungeonDatabase
             _records.GetOrAdd((record.Group << 8) | record.Room).Add(record);
         }
         if (table.Rows.Count != 13) throw new InvalidOperationException("Crown native objects require thirteen boss/reward/pattern/squish/bridge/essence records.");
-        var essence = GeneratedTable.Load("res://assets/oracle/objects/crown_dungeon_essence.tsv",
+        var essence = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/crown_dungeon_essence.tsv",
             new GeneratedTableSchema("Crown Dungeon Essence", GeneratedTableKeySemantics.Ordered,
                 ["index","text-id","text-position","message-base64","destination-group","destination-room",
                  "destination-position","destination-transition","source"],headerRequired:true)).SingleRow();
@@ -50,19 +50,19 @@ internal sealed class CrownDungeonDatabase
         if(Essence.Index!=4 || essence.HexWord(1)!=0x0012 || Essence.ExitWarp is not
             {DestinationGroup:0,DestinationRoom:0x0a,DestinationPosition:0x17,DestinationTransition:WarpDestinationTransition.SetRespawn})
             throw new InvalidOperationException("Crown Essence source text/exit mapping is incomplete.");
-        var bridge = GeneratedTable.Load("res://assets/oracle/objects/crown_button_bridge.tsv",
+        var bridge = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/crown_button_bridge.tsv",
             new GeneratedTableSchema("Crown button bridge",GeneratedTableKeySemantics.Unique,
                 ["first","last","interval","hole","bridge","diamond","source"],["first"],headerRequired:true));
         GeneratedTableRow b = bridge.SingleRow();
         ButtonBridge = new(b.HexByte(0),b.HexByte(1),b.Decimal(2,1,255),(byte)b.HexByte(3),(byte)b.HexByte(4),(byte)b.HexByte(5),b.RequiredString(6));
-        var script = GeneratedTable.Load("res://assets/oracle/objects/crown_trigger_chest_script.tsv",
+        var script = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/crown_trigger_chest_script.tsv",
             new GeneratedTableSchema("Crown trigger chest script",GeneratedTableKeySemantics.Unique,
                 ["subid","trigger-value","wait","source"],["subid"],headerRequired:true));
         if (script.Rows.Count != 1 || script.Rows[0].HexByte(0) != 2)
             throw new InvalidOperationException("Crown trigger chest requires source subid $02.");
         TriggerChestValue = script.Rows[0].HexByte(1);
         TriggerChestWait = script.Rows[0].UnsignedDecimal(2);
-        var hint = GeneratedTable.Load("res://assets/oracle/objects/crown_pattern_hint.tsv",
+        var hint = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/crown_pattern_hint.tsv",
             new GeneratedTableSchema("Crown pattern hint",GeneratedTableKeySemantics.Unique,
                 ["order","position","show-tile","restore-tile","source"],["order"],headerRequired:true));
         var hintTiles = new List<DungeonPatternHintTile>();

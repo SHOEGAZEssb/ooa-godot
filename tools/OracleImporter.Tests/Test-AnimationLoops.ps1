@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$initialize = Join-Path $PSScriptRoot '../import_oracles/Initialize-Import.ps1'
+$initialize = Join-Path $PSScriptRoot '../import_oracles/Shared/Initialize-Import.ps1'
 $tokens = $null
 $parseErrors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($initialize, [ref]$tokens, [ref]$parseErrors)

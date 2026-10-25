@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 internal sealed class GaleTreeWarpDatabase
 {
@@ -10,7 +10,7 @@ internal sealed class GaleTreeWarpDatabase
     internal GaleTreeWarpDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/gale_tree_warps.tsv",
+            AgesGameContent.AssetRoot + "metadata/gale_tree_warps.tsv",
             new GeneratedTableSchema("gale tree warps", GeneratedTableKeySemantics.Unique,
                 ["era", "index", "room", "position", "popup", "source"],
                 ["era", "index"], headerRequired: true));

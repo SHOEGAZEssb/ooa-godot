@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>PART_BLUE_ENERGY_BEAD $53, inward/outward swirl (var32).</summary>
 internal sealed partial class BlueEnergyBeadRoomEntity : DungeonInteractionVisualEntity,

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_MISCELLANEOUS_2 $dc:$0c/$0d, Rolling Ridge button bridges.</summary>
 internal sealed partial class RidgeBridgeControllerRoomEntity : DungeonMechanicRoomEntity,

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_DUNGEON_STUFF $12:$04 never increments state. It remains eligible
 // under text/disabled-object masks, but returnIfScrollMode01Unset holds it

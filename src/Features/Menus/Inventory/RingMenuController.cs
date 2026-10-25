@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Ports bank 2's MENU_RING_APPRAISAL / MENU_RING_LIST state machines. Vasu

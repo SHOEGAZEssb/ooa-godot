@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Persistent sound request queue, original driver, and CGB audio output.</summary>
 public partial class OracleSoundEngine : Node
@@ -56,7 +56,7 @@ public partial class OracleSoundEngine : Node
     internal void SetNativeActiveMusic(int music) => NativeActiveMusic = music;
     internal void SetNativeMusicSelection(int roomMusic, int activeMusic)
     { NativeRoomMusic = roomMusic; NativeActiveMusic = activeMusic; }
-    public bool Disabled => _driver.ReadState(WramAddress.wSoundDisabled) != 0;
+    public bool Disabled => _driver.ReadState(AgesWramAddress.wSoundDisabled) != 0;
     public int MusicVolume => _requestedVolume;
     internal OracleSoundData Data => _data;
     internal OracleSoundDriver Driver => _driver;

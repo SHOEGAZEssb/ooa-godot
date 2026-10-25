@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // The actor slot owns interactionRunScript and its native animation/collision tail.
 internal sealed class SharedScriptNpcRoomEntity : NpcCharacterRoomEntityAdapter,

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed ITEM_SWORD_BEAM ($27) data. The importer preserves the original
@@ -17,7 +17,7 @@ internal sealed class SwordBeamDatabase
     internal IReadOnlyList<SwordBeamDatabaseRecord> Records => _records;
 
     internal SwordBeamDatabase(
-        string path = "res://assets/oracle/metadata/sword_beam.tsv")
+        string path = AgesGameContent.AssetRoot + "metadata/sword_beam.tsv")
     {
         GeneratedTable table = GeneratedTable.Load(
             path,
@@ -63,10 +63,10 @@ internal sealed class SwordBeamDatabase
         {
             SwordBeamDatabaseRecord record = _records[direction];
             Image image = OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{record.Sprite}.png");
-            _textures[direction, 0] = NpcCharacter.BuildOamTexture(
+                AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
+            _textures[direction, 0] = OracleOamCompositor.BuildOamTexture(
                 image, record.Oam, record.TileBase, record.Palette);
-            _textures[direction, 1] = NpcCharacter.BuildOamTexture(
+            _textures[direction, 1] = OracleOamCompositor.BuildOamTexture(
                 image, record.Oam, record.TileBase, record.Palette ^ 1);
         }
     }

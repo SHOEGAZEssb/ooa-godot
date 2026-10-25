@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // PART $4b/$4d: only native active collision columns can reflect a shot.
 // The pending collision survives frozen PART visits and is consumed once.

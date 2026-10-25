@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscPuzzles_subid0b publishes both arena flags before the first tile. The
 // eight-update timer advances the ladder through packed position $9d.

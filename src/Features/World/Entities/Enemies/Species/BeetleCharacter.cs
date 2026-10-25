@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>ENEMY_BEETLE $51:$02/$03, including itemDrop_spawnEnemy's entry states.</summary>
 internal partial class BeetleCharacter : EnemyCharacter, ITerrainShadowSource

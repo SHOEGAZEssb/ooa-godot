@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Room-local wNumTorchesLit state shared by torch creators and consumers.

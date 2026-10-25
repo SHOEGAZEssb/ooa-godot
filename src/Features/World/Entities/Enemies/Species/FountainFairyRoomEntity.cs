@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>Common enemyCode38, shared by all five Ages fairy fountains.</summary>
 internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,

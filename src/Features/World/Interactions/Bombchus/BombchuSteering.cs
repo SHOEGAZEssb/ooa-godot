@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Native ITEM$0d angle/direction and var31-var34. The physical item will own
 // position/velocity and provide front collisions in the original read order.

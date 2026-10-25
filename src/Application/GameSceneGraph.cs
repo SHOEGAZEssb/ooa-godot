@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed binding for the stable gameplay hierarchy stored in gameplay.tscn.

@@ -1,7 +1,7 @@
 using System.Text.Json;
-using OracleOfAges.Importer;
+using Oracles.Importer;
 
-namespace OracleOfAges.Importer.Tests;
+namespace Oracles.Importer.Tests;
 
 internal static class AssemblySourceRangeTests
 {

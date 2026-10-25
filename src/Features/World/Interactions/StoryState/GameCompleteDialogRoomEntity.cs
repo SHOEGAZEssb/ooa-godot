@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // Shared INTERAC_GAME_COMPLETE_DIALOG $d1. scriptend leaves this invisible
 // interaction allocated until the native ending resets the game.
@@ -22,7 +22,7 @@ internal sealed class GameCompleteDialogRoomEntity : RoomCutsceneCommandHost,
         if(State==0)
         {
             State=1;DeathRespawnPresets.Load(Context.Rooms.SaveData,1);
-            _runner.Start(CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/game_complete_dialog_commands.tsv"));return;
+            _runner.Start(CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/game_complete_dialog_commands.tsv"));return;
         }
         _runner.AdvanceFrame();
     }

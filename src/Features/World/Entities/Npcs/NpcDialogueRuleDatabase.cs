@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Imported save-selected dialogue tables used by ordinary room NPCs. These
@@ -20,7 +20,7 @@ public sealed class NpcDialogueRuleDatabase
     public NpcDialogueRuleDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/npc_dialogue.tsv",
+            AgesGameContent.AssetRoot + "objects/npc_dialogue.tsv",
             new GeneratedTableSchema(
                 "NPC dialogue rules",
                 GeneratedTableKeySemantics.Grouped,

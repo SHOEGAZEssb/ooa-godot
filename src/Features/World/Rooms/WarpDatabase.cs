@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 public sealed class WarpDatabase
 {
@@ -15,7 +15,7 @@ public sealed class WarpDatabase
     public WarpDatabase()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/warps.tsv",
+            AgesGameContent.AssetRoot + "objects/warps.tsv",
             new GeneratedTableSchema(
                 "warps",
                 GeneratedTableKeySemantics.Grouped,
@@ -43,7 +43,7 @@ public sealed class WarpDatabase
             throw new InvalidOperationException($"Expected 529 warp records, loaded {count}.");
 
         GeneratedTable diveTable = GeneratedTable.Load(
-            "res://assets/oracle/objects/dive_warps.tsv",
+            AgesGameContent.AssetRoot + "objects/dive_warps.tsv",
             new GeneratedTableSchema(
                 "dive warps",
                 GeneratedTableKeySemantics.Grouped,

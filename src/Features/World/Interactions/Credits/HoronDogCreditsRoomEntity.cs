@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // common/horonDogCredits.s:$b9. The low wait byte and retained counter2
 // become a word hold for subid0; subid7 reuses counter2 as script movement.

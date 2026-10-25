@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // miscPuzzles.s:$90:$1e waits for scrolling to finish, then sounds only
 // for northward entry. The source retains direction across that wait.
@@ -18,7 +18,7 @@ internal sealed class EyePuzzleExitRoomEntity(OracleRuntimeState memory, Vector2
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns) => ScreenTransitionPresentation.Hidden;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (Finished || (memory.ReadWramByte(WramAddress.wScrollMode) & 1) == 0) return;
+        if (Finished || (memory.ReadWramByte(AgesWramAddress.wScrollMode) & 1) == 0) return;
         Finished = true;
         if (entryDirection == Vector2I.Up || entryDirection == Vector2I.Zero) sound(SoundId.SndSolvePuzzle);
     }

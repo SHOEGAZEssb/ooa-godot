@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_FALLDOWNHOLE $0f:$01: stationary animation1, visible80, then
 // toggle visibility before testing the terminal animation parameter.
@@ -25,12 +25,12 @@ internal sealed partial class KnockbackDustRoomEntity : TransitionOffsetNode2D,
         _z = unchecked((sbyte)z);
         Visible = false;
         ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
-        var table = GeneratedTable.Load("res://assets/oracle/effects/knockback_dust.tsv",
+        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/knockback_dust.tsv",
             new GeneratedTableSchema("INTERAC$0f:$01", GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "animation"], headerRequired: true));
         GeneratedTableRow row = table.SingleRow();
         _animation = new EnemyAnimationPlayer(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage("res://assets/oracle/gfx/spr_common_sprites.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png"),
             [row.RequiredString(2)], row.UnsignedDecimal(0), row.UnsignedDecimal(1));
         _animation.SetAnimation(0);
     }

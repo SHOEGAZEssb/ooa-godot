@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Record-neutral character mechanics shared by single-body enemies. Species
@@ -842,7 +842,7 @@ internal readonly record struct EnemyCharacterConfiguration(
             collisionRadiusX,
             collisionRadiusY,
             OracleGraphicsCache.LoadImage(
-                $"res://assets/oracle/gfx/{spriteName}.png"),
+                AgesGameContent.AssetRoot + $"gfx/{spriteName}.png"),
             animations,
             tileBase,
             palette,

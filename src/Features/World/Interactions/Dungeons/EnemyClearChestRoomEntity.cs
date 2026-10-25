@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_DUNGEON_STUFF $12:$02.</summary>
 internal sealed partial class EnemyClearChestRoomEntity : Node2D,

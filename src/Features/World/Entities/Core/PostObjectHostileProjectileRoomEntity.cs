@@ -1,4 +1,4 @@
-namespace oracleofages;
+namespace Oracles;
 
 // Migrate only projectiles whose post-object handoff is implemented. Other
 // hostile PART adapters retain their own contact dispatch boundary.

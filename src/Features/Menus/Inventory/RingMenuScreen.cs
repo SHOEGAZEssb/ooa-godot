@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using static oracleofages.OracleGraphicsData;
-using static oracleofages.OracleTileRenderer;
+using static Oracles.OracleGraphicsData;
+using static Oracles.OracleTileRenderer;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Renderer for bank 2's GFXH_UNAPPRAISED_RING_LIST and
@@ -94,15 +94,15 @@ public partial class RingMenuScreen : Node2D
     {
         if (_resourcesPrepared) return;
         _resourcesPrepared = true;
-        _hudTiles = LoadPng("res://assets/oracle/gfx/gfx_hud.png");
+        _hudTiles = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png");
         _inventoryHud1 = LoadPng(
-            "res://assets/oracle/inventory/gfx_inventory_hud_1.png");
+            AgesGameContent.AssetRoot + "inventory/gfx_inventory_hud_1.png");
         _questItems5 = LoadPng(
-            "res://assets/oracle/inventory/spr_quest_items_5.png");
-        _ringTiles = LoadPng("res://assets/oracle/inventory/gfx_rings.png");
+            AgesGameContent.AssetRoot + "inventory/spr_quest_items_5.png");
+        _ringTiles = LoadPng(AgesGameContent.AssetRoot + "inventory/gfx_rings.png");
         _inventoryHud2 = LoadPng(
-            "res://assets/oracle/inventory/gfx_inventory_hud_2.png");
-        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture("res://assets/oracle/gfx/gfx_font.png");
+            AgesGameContent.AssetRoot + "inventory/gfx_inventory_hud_2.png");
+        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
         using (Image font = _fontTexture.GetImage())
         {
             _fontPixels = font.GetData();
@@ -110,8 +110,8 @@ public partial class RingMenuScreen : Node2D
         }
         _emptyTextTiles = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
         _emptyTextTiles.Fill(Colors.Black);
-        _ringMap = ReadBytes("res://assets/oracle/inventory/map_rings.bin", 68 * 8);
-        _bgPalette = LoadPalette("res://assets/oracle/inventory/palette_bg.bin", 8);
+        _ringMap = ReadBytes(AgesGameContent.AssetRoot + "inventory/map_rings.bin", 68 * 8);
+        _bgPalette = LoadPalette(AgesGameContent.AssetRoot + "inventory/palette_bg.bin", 8);
         _spritePalette = ItemIconAtlas.LoadStandardSpritePalettes();
 
         // GFXH_UNAPPRAISED_RING_LIST and GFXH_APPRAISED_RING_LIST load these
@@ -557,10 +557,10 @@ public partial class RingMenuScreen : Node2D
         string kind = Mode == RingMenuMode.Appraisal ? "unappraised" : "appraised";
         int rows = Mode == RingMenuMode.Appraisal ? AppraisalRows : ListRows;
         byte[] map = ReadBytes(
-            $"res://assets/oracle/inventory/map_{kind}_ring_list.bin",
+            AgesGameContent.AssetRoot + $"inventory/map_{kind}_ring_list.bin",
             TilemapStride * rows);
         byte[] flags = ReadBytes(
-            $"res://assets/oracle/inventory/flg_{kind}_ring_list.bin",
+            AgesGameContent.AssetRoot + $"inventory/flg_{kind}_ring_list.bin",
             TilemapStride * rows);
 
         if (Mode == RingMenuMode.List)

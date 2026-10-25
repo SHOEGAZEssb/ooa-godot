@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace OracleOfAges.Importer;
+namespace Oracles.Importer;
 
 public static class AssemblySourceQuery
 {

@@ -1,0 +1,331 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Oracles;
+
+public sealed partial class ValidationRoot
+{
+    private void ValidateGashaSpots()
+    {
+        var database = new GashaSpotDatabase();
+        int[] expectedRanks =
+            [1,2,2,1,4,1,1,0,3,2,2,1,4,3,1,0];
+        FailIf(
+            database.Count != 16 || Enumerable.Range(0, 16).Any(index =>
+            database.GetSpot(index).SubId != index ||
+            database.GetSpot(index).Rank != expectedRanks[index]),
+            "The 16 imported Ages Gasha placements/ranks are incomplete or reordered.");
+        for (int rank = 0; rank < 5; rank++)
+        for (int maturityClass = 0; maturityClass < 5; maturityClass++)
+        for (int random = 0; random < 256; random++)
+        {
+            int reward = database.SelectRewardType(rank, maturityClass, (byte)random);
+            FailIf(reward is < 0 or >= 10, "A Gasha distribution left the reward table.");
+        }
+        FailIf(
+            database.MaturityClass(0) != 4 || database.MaturityClass(39) != 4 ||
+            database.MaturityClass(40) != 3 || database.MaturityClass(119) != 3 ||
+            database.MaturityClass(120) != 2 || database.MaturityClass(199) != 2 ||
+            database.MaturityClass(200) != 1 || database.MaturityClass(299) != 1 ||
+            database.MaturityClass(300) != 0 || database.MaturityClass(0xffff) != 0,
+            "Gasha maturity class boundaries changed.");
+
+        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var treasures = new TreasureDatabase();
+        var inventory = new InventoryState(treasures, save, () => -1);
+        long tick = 0;
+        var rooms = new RoomSession(0, 0x7b, () => tick, () => { }, save);
+        SpotRecord spot = database.GetSpot(3);
+        if (save.GashaMaturity != 5 ||
+            rooms.CurrentRoom.GetMetatile(spot.Position) != database.SoftSoilTile)
+        {
+            var soilPositions = new List<string>();
+            for (int y = 0; y < rooms.CurrentRoom.HeightInTiles; y++)
+            for (int x = 0; x < rooms.CurrentRoom.WidthInTiles; x++)
+            {
+                Vector2 point = new(x * 16 + 8, y * 16 + 8);
+                if (rooms.CurrentRoom.GetMetatile(point) == database.SoftSoilTile)
+                    soilPositions.Add($"${(y << 4 | x):x2}");
+            }
+            throw new InvalidOperationException(
+                $"Entering a Gasha room did not add five maturity or retain its soft soil " +
+                $"(maturity={save.GashaMaturity}, tile=${rooms.CurrentRoom.GetMetatile(spot.Position):x2}, " +
+                $"soil={string.Join(',', soilPositions)}). ");
+        }
+
+        inventory.GiveTreasure(treasures.GetObject("TREASURE_OBJECT_RING_BOX_00"));
+        inventory.GrantAppraisedRingForDebug((int)RingId.Discovery);
+        FailIf(
+            !inventory.SetRingBoxSlotFromList(0, (int)RingId.Discovery) ||
+            !inventory.EquipRingAt(0),
+            "Could not equip the Discovery Ring for Gasha validation.");
+        var sounds = new List<int>();
+        int roomRedraws = 0;
+        var plantingRoot = new Node { Name = "GashaPlantingValidation" };
+        var plantingWorld = new Node { Name = "World" };
+        var plantingInterface = new Node { Name = "Interface" };
+        var plantingView = new RoomView { Name = "RoomView" };
+        var plantingDialogue = new DialogueBox { Name = "Dialogue" };
+        plantingRoot.AddChild(plantingWorld);
+        plantingRoot.AddChild(plantingInterface);
+        plantingRoot.AddChild(plantingView);
+        plantingRoot.AddChild(plantingDialogue);
+        AddChild(plantingRoot);
+        save.SetRoomFlag(0, 0x7b, OracleSaveData.RoomFlag40);
+        using var plantingFixture = RoomEntityValidationFixture.ForRoot(
+            plantingWorld, new()
+            {
+                SaveData = save,
+                Inventory = inventory,
+                AnimationTick = () => tick
+            });
+        RoomEntityManager plantingManager = plantingFixture.Manager;
+        plantingManager.SoundRequested += sounds.Add;
+        plantingManager.RoomTileChanged += () => roomRedraws++;
+        var plantingInteractions = new InteractionController(
+            rooms, plantingManager, new SignDatabase(), new ChestDatabase(),
+            treasures, plantingDialogue, plantingWorld, plantingView,
+            static position => position, () => tick, inventory,
+            plantingInterface, sounds.Add);
+        plantingManager.LoadRoom(0, rooms.CurrentRoom);
+        _player.WarpTo(spot.Position + new Vector2(0, 15), recordSafe: false);
+        plantingManager.Update(1.0 / 60.0, _player);
+        FailIf(
+            sounds.Count(sound => sound == SoundId.SndCompass) != 1 ||
+            !plantingInteractions.TryInteract(_player) ||
+            DialogueBox.PlainText(plantingDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(database.Text(0x3509)),
+            "Discovery detection or the no-Gasha-Seeds interaction failed.");
+        plantingDialogue.Close();
+        plantingInteractions.Update(1.0 / 60.0, _player);
+
+        inventory.GiveTreasure(treasures.GetObject("TREASURE_OBJECT_GASHA_SEED_00"));
+        FailIf(
+            !plantingInteractions.TryInteract(_player) ||
+            !plantingDialogue.ChoiceActive ||
+            DialogueBox.PlainText(plantingDialogue.CurrentMessage) !=
+                DialogueBox.PlainText(database.Text(0x3500)),
+            "Gasha planting did not open its Yes/No prompt.");
+        plantingDialogue.SubmitChoiceForValidation(1);
+        plantingInteractions.Update(1.0 / 60.0, _player);
+        FailIf(
+            inventory.GashaSeeds != 1 || save.IsGashaSpotPlanted(spot.SubId),
+            "No planted a Gasha Seed or consumed its BCD count.");
+
+        FailIf(
+            !plantingInteractions.TryInteract(_player),
+            "A declined Gasha spot did not become interactive again.");
+        plantingDialogue.SubmitChoiceForValidation(0);
+        plantingInteractions.Update(1.0 / 60.0, _player);
+        FailIf(
+            inventory.GashaSeeds != 0 ||
+            !save.IsGashaSpotPlanted(spot.SubId) ||
+            save.GetGashaSpotKillCounter(spot.SubId) != 0 ||
+            rooms.CurrentRoom.GetMetatile(spot.Position) != database.PlantedSoilTile ||
+            sounds.Count(sound => sound == SoundId.SndGetSeed) != 1 ||
+            roomRedraws != 1,
+            "Discovery detection or the Gasha plant/consume/persist transition failed.");
+        plantingManager.Clear();
+        RemoveChild(plantingRoot);
+        plantingRoot.QueueFree();
+
+        save.SetGashaSpotKillCounter(spot.SubId, 19);
+        OracleRoomData sproutRoom = rooms.GetRoom(spot.Group, spot.Room);
+        FailIf(
+            sproutRoom.GetMetatile(spot.Position) != database.PlantedSoilTile ||
+            sproutRoom.IsSolid(spot.Position),
+            "A 19-kill Gasha seed did not remain a walkable sprout.");
+        ulong sproutChecksum = sproutRoom.GetAnimationChecksum(tick);
+        save.SetGashaSpotKillCounter(spot.SubId, 20);
+        OracleRoomData treeRoom = rooms.GetRoom(spot.Group, spot.Room);
+        FailIf(
+            treeRoom.GetMetatile(spot.TreeTopLeft) != database.TreeTopLeftTile ||
+            !treeRoom.IsSolid(spot.TreeTopLeft) ||
+            treeRoom.GetAnimationChecksum(tick) == sproutChecksum,
+            $"A 20-kill Gasha sprout did not become the imported solid 2x2 tree " +
+            $"(top-left=${treeRoom.GetMetatile(spot.TreeTopLeft):x2}, " +
+            $"spot=${treeRoom.GetMetatile(spot.Position):x2}, " +
+            $"solid={treeRoom.IsSolid(spot.TreeTopLeft)}, " +
+            $"tree-checksum={treeRoom.GetAnimationChecksum(tick)}, " +
+            $"sprout-checksum={sproutChecksum}). ");
+
+        save.SetGashaSpotKillCounter(spot.SubId, 40);
+        OracleRoomData nutRoom = rooms.GetRoom(spot.Group, spot.Room);
+        var transitionRoot = new Node
+        {
+            Name = "GashaTransitionValidation"
+        };
+        AddChild(transitionRoot);
+        using (var transitionFixture = RoomEntityValidationFixture.ForRoot(
+            transitionRoot, new()
+            {
+                SaveData = save,
+                Inventory = inventory,
+                AnimationTick = () => tick
+            }))
+        {
+            RoomEntityManager transitionManager = transitionFixture.Manager;
+            transitionManager.LoadRoom(
+                spot.Group, rooms.GetRoom(spot.Group, 0x7a));
+            transitionManager.BeginScreenTransition(
+                spot.Group,
+                nutRoom,
+                Vector2.Right * nutRoom.Width);
+            GashaSpotInteraction incomingNut =
+                transitionManager.Entities<GashaSpotInteraction>().Single();
+            Vector2 incomingNutPosition = incomingNut.Position;
+            for (int frame = 0; frame < 8; frame++)
+                transitionManager.Update(1.0 / 60.0, _player);
+            FailIf(
+                !incomingNut.Visible ||
+                incomingNut.State != InteractionState.NutReady ||
+                incomingNut.Position != incomingNutPosition,
+                "A mature incoming Gasha nut did not resolve visible state 0 " +
+                "while remaining frozen throughout room scrolling.");
+            transitionManager.FinishScreenTransition();
+            transitionManager.Clear();
+        }
+        RemoveChild(transitionRoot);
+        transitionRoot.QueueFree();
+
+        bool nutCaught = false;
+        var harvest = new GashaSpotInteraction();
+        harvest.Initialize(
+            database, spot, nutRoom, save, inventory,
+            (_, _) => throw new InvalidOperationException("A mature Gasha tree requested planting."),
+            (_, _) => nutCaught = true,
+            sounds.Add, () => roomRedraws++, () => tick);
+        harvest.UpdateFrame(_player);
+        // A declared no-catch flight isolates state4's movement publication;
+        // this does not certify the original PART $17 sword-to-parent handoff.
+        using var harvestFixture = RoomEntityValidationFixture.Attach(this, "GashaFlightValidation", new()
+        {
+            SaveData = save, Inventory = inventory, AnimationTick = () => tick
+        });
+        harvestFixture.Manager.AddEntity(new GashaSpotRoomEntity(harvest));
+        _player.WarpTo(harvest.Position + new Vector2(0, 11), recordSafe: false);
+        Rect2 slash = new(harvest.Position - new Vector2(5, 5), new Vector2(10, 10));
+        var harvestAdapter = new GashaSpotRoomEntity(harvest);
+        FailIf(
+            !harvest.ApplySwordHit(slash, _player.Position) ||
+            harvest.State != InteractionState.NutAirborne ||
+            !harvest.RestrictsPlayer || !harvestAdapter.DisablesMenus,
+            "The 40-kill Gasha nut was not slashable or did not disable Link/menus.");
+        _player.WarpTo(harvest.Position + new Vector2(0, 30), recordSafe: false);
+        harvestFixture.Manager.Update(1.0 / 60, _player);
+        AssertMovementPublication(harvestFixture.Manager.RuntimeState, 256, 0, "INTERAC $b6 nut flight");
+        FailIf(nutCaught || harvest.State != InteractionState.NutAirborne,
+            "Declared no-catch Gasha flight did not remain airborne.");
+        _player.WarpTo(harvest.Position + new Vector2(0, 11), recordSafe: false);
+        harvestFixture.Manager.Update(1.0 / 60, _player);
+        FailIf(
+            !nutCaught || harvest.State !=
+            InteractionState.AwaitingNutText,
+            "The launched Gasha nut did not collide with Link.");
+
+        int firstRandomCalls = 0;
+        Result first = GashaRewardResolver.Give(
+            database, spot, save, inventory,
+            () => { firstRandomCalls++; return 0; });
+        FailIf(
+            first.RewardType != 4 || first.Parameter != (int)RingId.Cursed ||
+            firstRandomCalls != 1 || !save.HasHarvestedFirstGashaNut ||
+            save.GashaMaturity != 5 || inventory.UnappraisedRingCount != 1,
+            "The first Gasha nut did not force a class-1 ring with one tier RNG call and no maturity debit.");
+        harvest.BeginReward(first.RewardType, first.Reward, _player);
+        FailIf(
+            !_player.IsHoldingItemTwoHands ||
+            harvest.State != InteractionState.RewardHeld ||
+            sounds.Count(sound => sound == SoundId.SndGetItem) != 1,
+            "Gasha reward presentation did not use Link's two-hand pose.");
+        harvest.BeginDisappearance();
+        FailIf(
+            _player.IsHoldingItemTwoHands ||
+            sounds.Count(sound => sound == SoundId.SndFairyCutscene) != 1,
+            "Gasha tree disappearance did not release Link and play its cue.");
+        var disappearanceChecksums = new HashSet<ulong>
+        {
+            nutRoom.GetAnimationChecksum(tick)
+        };
+        for (int frame = 0; frame < 79; frame++)
+        {
+            tick++;
+            harvest.UpdateFrame(_player);
+            int expectedPhase = frame < 6 ? 0 : 1 + (frame - 6) / 8;
+            FailIf(
+                harvest.DisappearancePhase != expectedPhase,
+                $"Gasha disappearance reached phase {harvest.DisappearancePhase} " +
+                $"instead of {expectedPhase} on update {frame + 1}.");
+            if (expectedPhase <= database.DisappearancePhases)
+                disappearanceChecksums.Add(nutRoom.GetAnimationChecksum(tick));
+        }
+        FailIf(
+            !harvest.Finished || save.IsGashaSpotPlanted(spot.SubId) ||
+            nutRoom.GetMetatile(spot.TreeTopLeft) != spot.ReplacementTile ||
+            nutRoom.GetMetatile(spot.TreeTopLeft + new Vector2(16, 16)) !=
+                spot.ReplacementTile || disappearanceChecksums.Count < 7,
+            "The nine Gasha shrink frames did not end on the spot-specific 2x2 replacement.");
+        harvest.Free();
+
+        OracleRoomData reusableRoom = rooms.Load(spot.Group, spot.Room);
+        FailIf(
+            reusableRoom.GetMetatile(spot.Position) != database.SoftSoilTile ||
+            save.IsGashaSpotPlanted(spot.SubId),
+            "A harvested Gasha spot did not restore reusable soft soil on re-entry.");
+
+        OracleSaveData rewardSave = OracleSaveData.CreateStandardGame();
+        var rewardInventory = new InventoryState(treasures, rewardSave, () => -1);
+        rewardSave.SetGashaHarvestFlag(0);
+        rewardSave.AddGashaMaturity(136);
+        rewardSave.SetGashaHarvestFlag(1);
+        int repeatedCalls = 0;
+        Result repeatedHeart = GashaRewardResolver.Give(
+            database, database.GetSpot(7), rewardSave, rewardInventory,
+            () => { repeatedCalls++; return 0; });
+        FailIf(
+            repeatedHeart.RewardType != 1 ||
+            repeatedHeart.Parameter != (int)RingId.Experts || repeatedCalls != 2 ||
+            rewardSave.GashaMaturity != 0,
+            "A repeated Gasha Heart Piece did not become a tier-0 ring with two RNG calls and clamped maturity.");
+
+        rewardInventory.GiveTreasure(TreasureId.Potion, 1);
+        rewardInventory.ApplyDamage(4);
+        int potionCalls = 0;
+        Result potion = GashaRewardResolver.Give(
+            database, database.GetSpot(7), rewardSave, rewardInventory,
+            () => { potionCalls++; return 64; });
+        FailIf(
+            potion.RewardType != 6 || potionCalls != 1 ||
+            rewardInventory.HealthQuarters != rewardInventory.MaxHealthQuarters,
+            "An already-owned Gasha potion did not refill health without changing RNG use.");
+
+        OracleSaveData maturitySave = OracleSaveData.CreateStandardGame();
+        var maturityInventory = new InventoryState(treasures, maturitySave, () => -1);
+        maturityInventory.GiveTreasure(TreasureId.Essence, 1);
+        maturityInventory.GiveTreasure(TreasureId.HeartPiece, 1);
+        maturityInventory.GiveTreasure(TreasureId.TradeItem, 1);
+        maturityInventory.GiveTreasure(TreasureId.HeartRefill, 0x18);
+        FailIf(
+            maturitySave.GashaMaturity != 150 + 36 + 100 + 0x18,
+            "Essence, Heart Piece, trade-item, and heart-refill maturity sources diverged from giveTreasure.");
+
+        SpotRecord mapSpot = database.GetSpot(0);
+        bool mapSpotWasPlanted = _saveData.IsGashaSpotPlanted(mapSpot.SubId);
+        _saveData.SetGashaSpotPlanted(mapSpot.SubId, false);
+        int hiddenPopup = _mapScreen.ResolvePopupTypeForValidation(
+            9, mapSpot.Group, mapSpot.Room);
+        _saveData.SetGashaSpotPlanted(mapSpot.SubId, true);
+        int plantedPopup = _mapScreen.ResolvePopupTypeForValidation(
+            9, mapSpot.Group, mapSpot.Room);
+        _saveData.SetGashaSpotPlanted(mapSpot.SubId, mapSpotWasPlanted);
+        FailIf(hiddenPopup != 0 || plantedPopup != 9, "Gasha map popup did not follow the planted bit.");
+
+        GD.Print("Validated all 16 Gasha spots, Discovery Ring cue, no-seed/Yes/No dialogue, " +
+            "BCD planting, 20/40-kill growth, slash/launch/catch and menu lock, first and repeated " +
+            "reward RNG, potion/Heart Piece exceptions, maturity sources/debit, two-hand " +
+            "presentation, nine timed shrink frames, ground-sheet rendering, reusable re-entry, " +
+            "and map popup state.");
+    }
+}

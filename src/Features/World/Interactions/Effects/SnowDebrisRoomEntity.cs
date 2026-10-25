@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // INTERAC_SNOWDEBRIS $09:$00 uses the common breakTileDebris handler.
 internal sealed partial class SnowDebrisRoomEntity : DungeonInteractionVisualEntity,

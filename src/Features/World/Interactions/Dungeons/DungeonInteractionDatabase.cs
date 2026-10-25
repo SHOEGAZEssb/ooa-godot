@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared tables used by globally dispatched dungeon interaction handlers.
@@ -12,7 +12,7 @@ namespace oracleofages;
 internal sealed class DungeonInteractionDatabase
 {
     internal IReadOnlyList<CutsceneCommand> SmallKeyCommands { get; } =
-        CutsceneCommandCatalog.Load("res://assets/oracle/cutscenes/enemy_small_key_commands.tsv");
+        CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/enemy_small_key_commands.tsv");
     private readonly Dictionary<string, int> _constants =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, MovingSideScrollPlatformRecord> _platforms =
@@ -21,10 +21,10 @@ internal sealed class DungeonInteractionDatabase
     internal DungeonInteractionDatabase()
     {
         LoadConstants(
-            "res://assets/oracle/objects/dungeon_interaction_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_interaction_constants.tsv",
             "shared dungeon interaction constants");
         LoadConstants(
-            "res://assets/oracle/objects/dungeon_object_behavior_constants.tsv",
+            AgesGameContent.AssetRoot + "objects/dungeon_object_behavior_constants.tsv",
             "shared dungeon object behavior constants");
         LoadPlatforms();
         ValidateContract();
@@ -90,7 +90,7 @@ internal sealed class DungeonInteractionDatabase
     private void LoadPlatforms()
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/objects/moving_side_scroll_platforms.tsv",
+            AgesGameContent.AssetRoot + "objects/moving_side_scroll_platforms.tsv",
             new GeneratedTableSchema(
                 "moving side-scroll platform scripts",
                 GeneratedTableKeySemantics.Unique,

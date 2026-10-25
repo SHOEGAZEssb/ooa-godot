@@ -1,0 +1,319 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace Oracles;
+
+public sealed partial class ValidationRoot
+{
+    private void ValidateGraveyardCrowsAndDropProducers()
+    {
+        var enemies = new EnemyDatabase();
+        var npcs = new NpcDatabase();
+        var visibility = new NpcVisibilityRuleDatabase();
+        var runtime = AgesGameContent.CreateRuntimeState();
+        var predicateSave = OracleSaveData.CreateStandardGame();
+        NpcRecord ghini = npcs.GetRoomNpcs(0, 0x5d).Single(npc =>
+            npc.Id == 0xcb && npc.SubId == 0x00);
+        List<RoomObjectRecord> crowPlacements =
+            EnemyPlacements(enemies, EnemyId.Crow, 0x00);
+        CrowRecord room05dCrow = ResolveCrow(
+            enemies,
+            RoomEnemyPlacements(enemies, 0, 0x5d, EnemyId.Crow, 0x00).Single());
+
+        FailIf(
+            crowPlacements.Count != 3 ||
+            crowPlacements.Sum(source => source.Count) != 3 ||
+            room05dCrow is not
+                { Y: 0x78, X: 0x78, SpeedRaw: ObjectSpeed.Speed140, Health: 1,
+                  CollisionRadiusY: 6, CollisionRadiusX: 6, DamageQuarters: 2 } ||
+            RoomEnemyPlacements(enemies, 0, 0x6d, EnemyId.Crow, 0x00).Count != 2 ||
+            RoomEnemyPlacements(enemies, 0, 0x7d, EnemyId.Crow, 0x00).Count != 0 ||
+            ghini is not { Y: 0x68, X: 0x88, TextId: 0x4d05, Palette: 2 } ||
+            visibility.ShouldShow(ghini, predicateSave, runtime),
+            "Rooms 0:5d/0:6d/0:7d lost their imported Crow/Ghini roster or initial predicate.");
+        predicateSave.SetLinkedGame(true);
+        FailIf(
+            visibility.ShouldShow(ghini, predicateSave, runtime),
+            "The room 0:5d Ghini appeared in a linked file before D1 was obtained.");
+        predicateSave.WriteWramByte(AgesWramAddress.wEssencesObtained, 0x01);
+        FailIf(
+            !visibility.ShouldShow(ghini, predicateSave, runtime),
+            "The room 0:5d Ghini did not appear for linked + D1.");
+        predicateSave.SetLinkedGame(false);
+        FailIf(
+            visibility.ShouldShow(ghini, predicateSave, runtime),
+            "The room 0:5d Ghini ignored the linked-file predicate.");
+
+        var root = new Node { Name = "GraveyardCrowAndDropValidation" };
+        AddChild(root);
+        var save = OracleSaveData.CreateStandardGame();
+        var treasures = new TreasureDatabase();
+        var inventory = new InventoryState(treasures, save);
+        inventory.GiveTreasure(TreasureId.Bombs, 0x04);
+        inventory.GiveTreasure(TreasureId.EmberSeeds, 0x05);
+        using var fixture = RoomEntityValidationFixture.ForRoot(
+            root, new()
+            {
+                Npcs = npcs,
+                Enemies = enemies,
+                SaveData = save,
+                RuntimeState = AgesGameContent.CreateRuntimeState(),
+                Inventory = inventory,
+                Treasures = treasures
+            });
+        RoomEntityManager manager = fixture.Manager;
+        int crowDeathEvents = 0;
+        void RecordCrowDeath() => crowDeathEvents++;
+        manager.EnemyDefeated += RecordCrowDeath;
+
+        OracleRoomData room05d = _world.LoadRoom(0, 0x5d);
+        manager.LoadRoom(0, room05d);
+        CrowCharacter crow = manager.Entities<CrowCharacter>().Single();
+        ItemDropProducer bombProducer = manager.Entities<ItemDropProducer>().Single();
+        FailIf(
+            crow.Position != new Vector2(0x78, 0x78) ||
+            crow.State != CrowState.Perched || crow.CollisionEnabled ||
+            bombProducer.Position != new Vector2(0x88, 0x38),
+            "Room 0:5d did not create the fixed perched Crow and hidden Bomb producer.");
+
+        _player.WarpTo(new Vector2(0x20, 0x20), recordSafe: false);
+        manager.Update(1.0 / 60.0, _player);
+        FailIf(
+            !bombProducer.Initialized || crow.State != CrowState.Perched,
+            "Crow/drop-producer state 0 did not capture the source initial state.");
+
+        _player.WarpTo(crow.Position + Vector2.Down * 0x30, recordSafe: false);
+        manager.Update(1.0 / 60.0, _player);
+        FailIf(
+            crow.State != CrowState.Rising || crow.Counter1 != 25,
+            "The perched Crow lost its inclusive $30/$18 approach rectangle.");
+        for (int frame = 0; frame < 25; frame++)
+            manager.Update(1.0 / 60.0, _player);
+        int aimDelta = (crow.Angle - 0x10) & 0x1f;
+        if (aimDelta > 0x10)
+            aimDelta -= 0x20;
+        FailIf(
+            crow.State != CrowState.Charging || crow.Z != -6 ||
+            !crow.CollisionEnabled || crow.Counter2 != 90 ||
+            Math.Abs(aimDelta) != 4,
+            "The Crow did not rise six pixels for 25 updates and begin its randomized charge.");
+        Vector2 chargeStart = crow.PrecisePosition;
+        manager.Update(1.0 / 60.0, _player);
+        FailIf(
+            crow.Counter2 != 89 ||
+            !Mathf.IsEqualApprox(
+                crow.PrecisePosition.DistanceTo(chargeStart), 1.25f, 0.01f),
+            "The Crow charge lost SPEED_140 high-byte movement or counter timing.");
+
+        byte bombTile = room05d.GetMetatile(bombProducer.Position);
+        room05d.SetPositionTileAndCollision(
+            bombProducer.Position, (byte)(bombTile ^ 1), null, 0);
+        manager.Update(1.0 / 60.0, _player);
+        ItemDropEffect bombDrop = manager.Entities<ItemDropEffect>().Single();
+        FailIf(
+            manager.Entities<ItemDropProducer>().Count != 0 ||
+            bombDrop.SubId != ItemDropDatabase.Bombs ||
+            bombDrop.State != DropState.Bouncing ||
+            bombDrop.ElapsedFrames != 1,
+            "Room 0:5d's tile change did not replace the producer with an immediately updated Bomb drop.");
+
+        _player.WarpTo(new Vector2(0x00, 0x100), recordSafe: false);
+        for (int frame = 0;
+            frame < 180 && manager.Entities<CrowCharacter>().Count != 0;
+            frame++)
+        {
+            manager.Update(1.0 / 60.0, _player);
+        }
+        FailIf(
+            !crow.DeletedOutOfBounds ||
+            manager.Entities<CrowCharacter>().Count != 0 ||
+            manager.Entities<EnemyDeathPuffEffect>().Count != 0 ||
+            crowDeathEvents != 0,
+            "A charging Crow did not use silent enemyDelete without a " +
+            "Slayer/Maple/Gasha event at the source screen bounds.");
+        manager.EnemyDefeated -= RecordCrowDeath;
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x5d));
+        FailIf(
+            manager.Entities<ItemDropProducer>().Count != 0 ||
+            manager.Entities<CrowCharacter>().Count != 1,
+            "Room 0:5d's producer recent-defeat mark suppressed the wrong object on re-entry.");
+
+        OracleRoomData room06d = _world.LoadRoom(0, 0x6d);
+        manager.LoadRoom(0, room06d);
+        ItemDropProducer[] emberProducers = manager.Entities<ItemDropProducer>()
+            .OrderBy(producer => producer.Position.Y)
+            .ThenBy(producer => producer.Position.X)
+            .ToArray();
+        CrowCharacter[] crows = manager.Entities<CrowCharacter>()
+            .OrderBy(enemy => enemy.Position.X)
+            .ToArray();
+        FailIf(
+            emberProducers.Length != 2 || crows.Length != 2 ||
+            emberProducers[0].Position != new Vector2(0x88, 0x18) ||
+            emberProducers[1].Position != new Vector2(0x78, 0x28) ||
+            crows[0].Position != new Vector2(0x18, 0x38) ||
+            crows[1].Position != new Vector2(0x88, 0x38),
+            "Room 0:6d lost its ordered two-producer/two-Crow fixed placements.");
+
+        manager.LoadRoom(0, _world.LoadRoom(0, 0x7d));
+        FailIf(
+            manager.Entities<CrowCharacter>().Count != 0 ||
+            manager.Entities<ItemDropProducer>().Count != 0 ||
+            manager.Entities<NpcCharacter>().Count != 0 ||
+            enemies.GetRoomObjects(0, 0x7d).Count != 0 ||
+            npcs.GetRoomNpcs(0, 0x7d).Count != 0,
+            "Room 0:7d should retain its intentionally empty object/NPC stream.");
+
+        manager.Clear();
+        RemoveChild(root);
+        root.Free();
+
+        var linkedNpcData = new LinkedGameNpcDatabase();
+        string cipherHash = Convert.ToHexString(SHA256.HashData(
+            linkedNpcData.XorCipher.ToArray())).ToLowerInvariant();
+        string symbolHash = Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(
+                string.Join("\0", linkedNpcData.SecretSymbols))))
+            .ToLowerInvariant();
+        FailIf(
+            cipherHash !=
+                "25a4c33b3ee77c7da156d739f4e1894ad2b238731cd5d531415938aef67b2813" ||
+            symbolHash !=
+                "f0f882cb0f40041890af6e204f595d34003291b6aba787226d64462820563628",
+            "The generated linked-secret XOR/symbol tables lost their " +
+            "complete bank3.s/bank0.s source order.");
+        LinkedGameNpcDatabaseRecord ghiniData =
+            linkedNpcData.Get(0, 0x5d, AgesInteractionId.LinkedGameGhini, 0x00);
+        var secretSave = OracleSaveData.CreateStandardGame();
+        secretSave.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, 0x34);
+        secretSave.WriteWramByte(0xc601, 0x12);
+        byte[] secret =
+            linkedNpcData.GenerateSecretValues(ghiniData, secretSave);
+        FailIf(
+            !secret.SequenceEqual(new byte[] { 0x0b, 0x29, 0x13, 0x18, 0x2f }) ||
+            secretSave.ReadWramByte(AgesWramAddress.wShortSecretIndex) != 0x21,
+            "The five-character Graveyard secret lost its source bit packing, checksum, or XOR cipher.");
+
+        bool linkedBefore = _saveData.IsLinkedGame;
+        byte essencesBefore = _saveData.ReadWramByte(AgesWramAddress.wEssencesObtained);
+        byte gameIdLowBefore = _saveData.ReadWramByte(AgesWramAddress.wUnappraisedRingsEnd);
+        byte gameIdHighBefore = _saveData.ReadWramByte(0xc601);
+        byte shortSecretBefore = _saveData.ReadWramByte(AgesWramAddress.wShortSecretIndex);
+        bool beganBefore = _saveData.HasGlobalFlag(ghiniData.BeganFlag);
+        _saveData.SetLinkedGame(true);
+        _saveData.WriteWramByte(AgesWramAddress.wEssencesObtained, (byte)(essencesBefore | 0x01));
+        _saveData.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, 0x34);
+        _saveData.WriteWramByte(0xc601, 0x12);
+        _saveData.SetGlobalFlag(ghiniData.BeganFlag, value: false);
+        _saveData.CommitInventoryChange();
+
+        LoadValidationRoom(0, 0x5d);
+        NpcCharacter liveGhini = _entities.Entities<NpcCharacter>().Single(npc =>
+            npc.Record.Id == 0xcb && npc.Record.SubId == 0x00);
+        FailIf(!liveGhini.Visible, "The linked+D1 Ghini predicate did not survive actual room loading.");
+        _player.WarpTo(liveGhini.Position + Vector2.Down * 12.0f, recordSafe: false);
+        _player.Face(Vector2I.Up);
+        var ghiniTrace = new ValidationCutsceneTrace();
+        _interactions.NpcScriptsForValidation.TraceSink = ghiniTrace;
+        void CompleteLinkedChoiceWait()
+        {
+            for (int update = 0; update <= 20; update++)
+                _interactions.Update(1.0 / 60.0, _player);
+        }
+        FailIf(
+            !_interactions.TryInteract(_player) || !_dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Do you?", StringComparison.Ordinal),
+            "The room 0:5d Ghini did not open TX_4d05's Yes/No offer.");
+        _dialogue.SubmitChoiceForValidation(1);
+        CompleteLinkedChoiceWait();
+        FailIf(
+            _dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Suit yourself", StringComparison.Ordinal),
+            "Choosing No did not follow linkedGameNpcScript to TX_4d06.");
+        _dialogue.Close();
+        _interactions.Update(1.0 / 60.0, _player);
+
+        FailIf(!_interactions.TryInteract(_player), "The Ghini offer loop could not be restarted.");
+        _dialogue.SubmitChoiceForValidation(0);
+        CompleteLinkedChoiceWait();
+        _interactions.Update(1.0 / 60.0, _player);
+        FailIf(
+            !_dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Holodrum", StringComparison.Ordinal),
+            "Choosing Yes did not open TX_4d07's extra confirmation box.");
+        _dialogue.SubmitChoiceForValidation(1);
+        CompleteLinkedChoiceWait();
+        FailIf(
+            !_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1 ||
+            !_dialogue.CurrentMessage.Contains("Holodrum", StringComparison.Ordinal),
+            "Choosing No did not repeat the Ghini's extra confirmation.");
+        _dialogue.SubmitChoiceForValidation(0);
+        CompleteLinkedChoiceWait();
+        FailIf(
+            !_dialogue.ChoiceActive ||
+            _dialogue.CurrentMessage.Contains("\\secret1", StringComparison.Ordinal) ||
+            !_saveData.HasGlobalFlag(ghiniData.BeganFlag) ||
+            _saveData.ReadWramByte(AgesWramAddress.wShortSecretIndex) != 0x21,
+            "The Ghini did not generate/substitute the Graveyard secret and set its began flag.");
+        _dialogue.SubmitChoiceForValidation(1);
+        CompleteLinkedChoiceWait();
+        FailIf(
+            !_dialogue.ChoiceActive || _dialogue.SelectedChoice != 1,
+            "Choosing No did not repeat TX_4d08's generated secret.");
+        _dialogue.SubmitChoiceForValidation(0);
+        CompleteLinkedChoiceWait();
+        FailIf(
+            _dialogue.ChoiceActive ||
+            !_dialogue.CurrentMessage.Contains("Good luck", StringComparison.Ordinal),
+            "Confirming the Graveyard secret did not show TX_4d09.");
+        _dialogue.Close();
+        _interactions.Update(1.0 / 60.0, _player);
+
+        CutsceneCommandTraceEntry[] ghiniStarts = ghiniTrace.Entries
+            .Where(entry =>
+                entry.Source.Script == "linkedGameNpcScript" &&
+                entry.Phase == CutsceneCommandTracePhase.Started)
+            .ToArray();
+        FailIf(
+            ghiniStarts.Count(entry =>
+                entry.Source.Opcode == "showloadedtext") != 8 ||
+            ghiniStarts.Count(entry =>
+                entry.Source.CommandIndex == 7) != 2 ||
+            ghiniStarts.Count(entry =>
+                entry.Source.CommandIndex == 17) != 2 ||
+            ghiniStarts.Count(entry =>
+                entry.Source.CommandIndex == 22) != 2 ||
+            ghiniStarts.Count(entry =>
+                entry.Source.CommandIndex == 18) != 1 ||
+            ghiniTrace.Entries.Count(entry =>
+                entry.Source.Script == "linkedGameNpcScript" &&
+                entry.Source.CommandIndex is 6 or 16 or 21 &&
+                entry.Phase == CutsceneCommandTracePhase.Updated) != 120 ||
+            ghiniTrace.Entries.Count(entry =>
+                entry.Source.Script == "linkedGameNpcScript" &&
+                entry.Source.CommandIndex is 6 or 16 or 21 &&
+                entry.Phase == CutsceneCommandTracePhase.Completed &&
+                entry.Counter == 0) != 6,
+            "linkedGameNpcScript's typed trace lost a refusal/repeat/accept " +
+            "branch, loaded-text boundary, secret generation, or exact " +
+            "20-update wait.");
+        _interactions.NpcScriptsForValidation.TraceSink = null;
+
+        _saveData.SetLinkedGame(linkedBefore);
+        _saveData.WriteWramByte(AgesWramAddress.wEssencesObtained, essencesBefore);
+        _saveData.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, gameIdLowBefore);
+        _saveData.WriteWramByte(0xc601, gameIdHighBefore);
+        _saveData.WriteWramByte(AgesWramAddress.wShortSecretIndex, shortSecretBefore);
+        _saveData.SetGlobalFlag(ghiniData.BeganFlag, beganBefore);
+        _saveData.CommitInventoryChange();
+
+        GD.Print("Validated rooms 0:5d/0:6d/0:7d: three perched Crows, hidden " +
+            "tile-change Bomb/Ember producers, recent-defeat semantics, empty 0:7d " +
+            "roster, linked+D1 Ghini visibility, and five-character secret encoding.");
+    }
+}

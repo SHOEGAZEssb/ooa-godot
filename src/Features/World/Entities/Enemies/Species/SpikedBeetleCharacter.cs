@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// ENEMY_SPIKED_BEETLE $14:$00. Its normal shell rejects sword damage; a

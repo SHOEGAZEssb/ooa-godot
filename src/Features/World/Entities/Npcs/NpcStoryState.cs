@@ -1,6 +1,6 @@
 using System;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Shared evaluation of save-backed state selectors used by imported NPC
@@ -36,49 +36,49 @@ internal static class NpcStoryState
         NpcStoryStateKind.CurrentRoomFlag => save.HasRoomFlag(
             npc.Group, npc.Room, (byte)comparisonValue) ? comparisonValue : 0,
         // zora.s:zora_getWorldState uses RET NC after BIT (which clears carry).
-        NpcStoryStateKind.ZoraWorld => !save.HasGlobalFlag(GlobalFlag.KingZoraCured) ? 0 :
-            save.HasGlobalFlag(GlobalFlag.WaterPollutionFixed) ? 2 : 1,
-        NpcStoryStateKind.WaterPollution => save.HasGlobalFlag(GlobalFlag.WaterPollutionFixed) ? 1 : 0,
+        NpcStoryStateKind.ZoraWorld => !save.HasGlobalFlag(AgesGlobalFlag.KingZoraCured) ? 0 :
+            save.HasGlobalFlag(AgesGlobalFlag.WaterPollutionFixed) ? 2 : 1,
+        NpcStoryStateKind.WaterPollution => save.HasGlobalFlag(AgesGlobalFlag.WaterPollutionFixed) ? 1 : 0,
         _ => throw new InvalidOperationException($"Unhandled NPC story state {kind}.")
     };
 
     public static int GetGameProgress1(OracleSaveData save)
     {
-        if (save.HasGlobalFlag(GlobalFlag.FinishedGame))
+        if (save.HasGlobalFlag(AgesGlobalFlag.FinishedGame))
             return 5;
-        if (save.HasGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame))
+        if (save.HasGlobalFlag(AgesGlobalFlag.SawTwinrovaBeforeEndgame))
             return 4;
 
-        byte essences = save.ReadWramByte(WramAddress.wEssencesObtained);
+        byte essences = save.ReadWramByte(AgesWramAddress.wEssencesObtained);
         if (essences == 0)
             return 0;
         int highestEssence = HighestSetBit(essences);
         if (highestEssence >= 6)
             return 3;
-        if (save.HasGlobalFlag(GlobalFlag.SavedNayru))
+        if (save.HasGlobalFlag(AgesGlobalFlag.SavedNayru))
             return 2;
         return highestEssence >= 2 ? 1 : 0;
     }
 
     public static int GetGameProgress2(OracleSaveData save)
     {
-        if (save.HasGlobalFlag(GlobalFlag.FinishedGame))
+        if (save.HasGlobalFlag(AgesGlobalFlag.FinishedGame))
             return 7;
         if (save.IsLinkedGame && save.HasRoomFlag(
             4, 0xfc, OracleSaveData.RoomFlag80))
         {
             return 6;
         }
-        if (save.HasGlobalFlag(GlobalFlag.SawTwinrovaBeforeEndgame))
+        if (save.HasGlobalFlag(AgesGlobalFlag.SawTwinrovaBeforeEndgame))
             return 5;
 
-        byte essences = save.ReadWramByte(WramAddress.wEssencesObtained);
+        byte essences = save.ReadWramByte(AgesWramAddress.wEssencesObtained);
         if (essences == 0)
             return 0;
         int highestEssence = HighestSetBit(essences);
         if (highestEssence >= 6)
             return 4;
-        if (save.HasGlobalFlag(GlobalFlag.SavedNayru))
+        if (save.HasGlobalFlag(AgesGlobalFlag.SavedNayru))
             return 3;
         if (highestEssence >= 3)
             return 2;

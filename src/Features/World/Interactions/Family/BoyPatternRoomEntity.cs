@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace oracleofages;
+namespace Oracles;
 
 // boy.s:boyRunSubid08/09, also called by boy2.s:$3f:$03.
 internal sealed class BoyPatternRoomEntity(RoomEventContext context,BlackTowerEndingDatabase data,int id,int subid,Vector2 position) :

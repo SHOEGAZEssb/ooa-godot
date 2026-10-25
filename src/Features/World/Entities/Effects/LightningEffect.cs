@@ -2,13 +2,13 @@ using Godot;
 using System;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>PART_LIGHTNING $27 with no related target. The caller owns its part-phase updates.</summary>
 internal sealed class LightningEffect
 {
     private static readonly GeneratedTableRow Data = GeneratedTable.Load(
-        "res://assets/oracle/effects/lightning_native.tsv",
+        AgesGameContent.AssetRoot + "effects/lightning_native.tsv",
         new GeneratedTableSchema("PART_LIGHTNING $27", GeneratedTableKeySemantics.Ordered,
             ["z-offsets", "frames", "shake", "debris-offsets"], headerRequired: true)).SingleRow();
     private static readonly int[] Heights = Bytes(Data.RequiredString(0));

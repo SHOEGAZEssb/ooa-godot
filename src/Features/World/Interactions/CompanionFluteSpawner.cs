@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Linq;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>INTERAC_COMPANION_SPAWNER $67:$80 source-ordered entrance search.</summary>
 internal sealed class CompanionFluteSpawner(RoomSession rooms, RoomEntityManager entities,

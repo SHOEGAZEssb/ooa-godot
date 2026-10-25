@@ -1,8 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Threading;
 
-namespace oracleofages;
+namespace Oracles;
 
 /// <summary>
 /// Typed owner of source lookup tables shared by implemented enemy state
@@ -11,10 +13,17 @@ namespace oracleofages;
 /// </summary>
 internal sealed class EnemyBehaviorTables
 {
-    private static readonly Lazy<EnemyBehaviorTables> LazyShared =
-        new(static () => new EnemyBehaviorTables());
+    private static readonly ConcurrentDictionary<string, Lazy<EnemyBehaviorTables>> Packs = new(StringComparer.Ordinal);
 
-    internal static EnemyBehaviorTables Shared => LazyShared.Value;
+    internal static EnemyBehaviorTables Shared => For(AgesGameContent.AssetRoot);
+
+    internal static EnemyBehaviorTables For(string assetRoot)
+    {
+        if (OracleAssetPack.RootFor(assetRoot + "enemies") != assetRoot)
+            throw new ArgumentException("Enemy tables require a game pack root.", nameof(assetRoot));
+        return Packs.GetOrAdd(assetRoot, static root => new Lazy<EnemyBehaviorTables>(
+            () => new EnemyBehaviorTables(root), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+    }
     internal IReadOnlyList<EnemyBehaviorValue> LynelState { get; }
     internal IReadOnlyList<EnemyBehaviorValue> LynelTurnMasks { get; }
     internal IReadOnlyList<EnemyBehaviorValue> LynelActiveCollisions { get; }
@@ -160,10 +169,10 @@ internal sealed class EnemyBehaviorTables
     internal FlyingTileBehaviorProfile FlyingTile { get; }
     internal IReadOnlyList<EnemyBehaviorValue> FlyingTileCollisionEffects { get; }
 
-    private EnemyBehaviorTables()
+    private EnemyBehaviorTables(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            "res://assets/oracle/metadata/enemy_behavior_tables.tsv",
+            assetRoot + "metadata/enemy_behavior_tables.tsv",
             new GeneratedTableSchema(
                 "enemy behavior lookup tables",
                 GeneratedTableKeySemantics.Grouped,
