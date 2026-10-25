@@ -34,6 +34,36 @@ public sealed partial class ValidationRoot
                     "Game-select source close-ups lost their original OAM counts, order or hardware origins.");
                 FailIf(seasons.GetNode<Label>("Hint").Text != "COMING SOON",
                     "Unimplemented Seasons must identify itself before confirmation.");
+                foreach (var preview in new[] { ages, seasons })
+                {
+                    var title = preview.GetNode<TextureRect>("Title");
+                    FailIf(title.Texture?.GetSize() != new Vector2(144, 90) || !title.UseParentMaterial ||
+                        title.MouseFilter != Control.MouseFilterEnum.Ignore || preview.HasNode("Series"),
+                        "Game names must use native graphics, inherit inactive grayscale and pass clicks to their preview.");
+                    using Image logo = title.Texture!.GetImage();
+                    byte[] pixels = logo.GetData();
+                    int opaque = 0;
+                    for (int offset = 3; offset < pixels.Length; offset += 4)
+                        if (pixels[offset] != 0) opaque++;
+                    // GFXH_TITLESCREEN bank-0 art in (12,20)-(156,110), with
+                    // PALH_03 shade $00 outside subtitle palettes $04/$06,
+                    // flame palette $01 and flame-edge colors in $05/$07 are transparent.
+                    // The (45,75) subtitle pixel is shade $03 in Ages, $01 in Seasons.
+                    Color subtitle = logo.GetPixel(45, 75);
+                    Color expected = preview.Game == OracleGame.Ages
+                        ? new Color(0x0b / 31f, 0, 0x11 / 31f)
+                        : new Color(1, 1, 0x1d / 31f);
+                    FailIf(opaque != 6565 ||
+                        logo.GetPixel(0, 0).A != 0 || subtitle.A != 1 ||
+                        Math.Abs(subtitle.R - expected.R) > 1 / 255f ||
+                        Math.Abs(subtitle.G - expected.G) > 1 / 255f ||
+                        Math.Abs(subtitle.B - expected.B) > 1 / 255f,
+                        "Game-select logos lost source title/subtitle pixels, palettes or transparent backdrops.");
+                    // gfx_titlescreen_1: letter and TM shadows are shade $00,
+                    // addressed through palette $04 (TM uses $06 in Seasons).
+                    FailIf(logo.GetPixel(62, 70).A != 1 || logo.GetPixel(103, 68).A != 1,
+                        "Ages/Seasons lettering and TM shadows must remain opaque over the panorama.");
+                }
                 // Inverted Seasons PNG shades address palette $00 in reverse;
                 // paletteData4470 color $03 is RGB5 ($11,$1c,$00).
                 byte[] backgroundPalette = OracleGraphicsData.ReadBytes(
@@ -119,6 +149,10 @@ public sealed partial class ValidationRoot
                         "The two game previews must fill equal top/bottom halves at every aspect ratio.");
                     foreach (var preview in new[] { ages, seasons })
                     {
+                        var title = preview.GetNode<TextureRect>("Title");
+                        FailIf(title.Position != new Vector2(16, 16) ||
+                            title.Size != new Vector2(144, 90),
+                            "Native game-title graphics must stay in each panel's top-left corner without stretching or clipping.");
                         var options = preview.GetNode<TextureButton>("Options");
                         var cursor = options.GetNode<TextureRect>("Acorn");
                         FailIf(options.Position != preview.Size - new Vector2(112, 32) || options.Size != new Vector2(96, 16) ||

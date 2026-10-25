@@ -43,3 +43,18 @@ for ($index = 1; $index -lt $oam.Count; $index += 4) {
     $rows.Add((($oam[$index..($index + 3)] | ForEach-Object { $_.ToString('x2') }) -join "`t"))
 }
 Write-GeneratedTable((Join-Path $previewDestination 'din_oam.tsv'), $rows)
+
+# GFXH_TITLESCREEN / PALH_03: the launcher uses the original name artwork,
+# without starting Seasons or its title-screen background animation.
+foreach ($name in @('gfx_titlescreen_1', 'map_titlescreen', 'flg_titlescreen')) {
+    $extension = if ($name.StartsWith('gfx_')) { 'png' } else { 'bin' }
+    Copy-GeneratedFile "gfx_compressible/seasons/$name.$extension" "$name.$extension" $previewDestination
+}
+foreach ($index in 2..4) {
+    Copy-GeneratedFile "gfx_compressible/common/gfx_titlescreen_$index.png" "gfx_titlescreen_$index.png" $previewDestination
+}
+if ($headers -notmatch '(?ms)PALH_03\s+m_PaletteHeaderBg\s+0, 8, paletteData4018\s+m_PaletteHeaderSpr\s+0, 8, paletteData4058\s+m_PaletteHeaderEnd') {
+    throw 'data/seasons/paletteHeaders.s: PALH_03 title-screen palette layout changed.'
+}
+Write-GeneratedBytes((Join-Path $previewDestination 'palette_title_bg.bin'),
+    (Read-PaletteBytes 'paletteData4018' 32 $palettes))

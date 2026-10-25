@@ -45,40 +45,21 @@ layout_mode = 1
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -80.0
+offset_top = -120.0
 mouse_filter = 2
 texture_filter = 2
 texture = SubResource("Texture_title")
 expand_mode = 1
 
-[node name="Series" type="Label" parent="Ages"]
+[node name="Title" type="TextureRect" parent="Ages"]
+use_parent_material = true
 layout_mode = 1
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = -62.0
-offset_right = 400.0
-offset_bottom = -48.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 160.0
+offset_bottom = 106.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.88, 0.88, 0.88, 1)
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
-theme_override_constants/shadow_offset_y = 1
-theme_override_font_sizes/font_size = 9
-text = "THE LEGEND OF ZELDA"
-
-[node name="Title" type="Label" parent="Ages"]
-layout_mode = 1
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 18.0
-offset_top = -48.0
-offset_right = 450.0
-offset_bottom = -24.0
-mouse_filter = 2
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
-theme_override_constants/shadow_offset_y = 2
-theme_override_font_sizes/font_size = 22
-text = "ORACLE OF AGES"
+expand_mode = 1
 
 [node name="Hint" type="Label" parent="Ages"]
 layout_mode = 1
@@ -133,40 +114,21 @@ layout_mode = 1
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -80.0
+offset_top = -120.0
 mouse_filter = 2
 texture_filter = 2
 texture = SubResource("Texture_title")
 expand_mode = 1
 
-[node name="Series" type="Label" parent="Seasons"]
+[node name="Title" type="TextureRect" parent="Seasons"]
+use_parent_material = true
 layout_mode = 1
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = -62.0
-offset_right = 400.0
-offset_bottom = -48.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 160.0
+offset_bottom = 106.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.88, 0.88, 0.88, 1)
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
-theme_override_constants/shadow_offset_y = 1
-theme_override_font_sizes/font_size = 9
-text = "THE LEGEND OF ZELDA"
-
-[node name="Title" type="Label" parent="Seasons"]
-layout_mode = 1
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 18.0
-offset_top = -48.0
-offset_right = 450.0
-offset_bottom = -24.0
-mouse_filter = 2
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
-theme_override_constants/shadow_offset_y = 2
-theme_override_font_sizes/font_size = 22
-text = "ORACLE OF SEASONS"
+expand_mode = 1
 
 [node name="Hint" type="Label" parent="Seasons"]
 layout_mode = 1

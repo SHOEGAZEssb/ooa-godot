@@ -28,6 +28,7 @@ internal partial class GameSelectPreview : Control
     internal void Prepare()
     {
         Panorama ??= new GameSelectPanorama(Game);
+        GetNode<TextureRect>("Title").Texture ??= GameSelectTitle.Build(Game);
         AnimationUpdates = 0;
         QueueRedraw();
     }

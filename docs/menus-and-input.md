@@ -46,6 +46,8 @@ advances; the other retains its camera position and is desaturated. Selection
 owns no save, room, gameplay RNG or original cutscene state. Ages confirmation
 restores the native viewport before handing off to boot loading; Seasons is
 selectable for preview with confirmation disabled until its game is available.
+Game names use each game's original title-screen graphics with transparent
+backdrops and inherit their preview's inactive palette state.
 Each half's Options button uses native wooden-panel lettering and an acorn
 cursor. Right focuses Options; Left or B returns to the game selection, while
 Up/Down retain that column when switching games. Hover or click also focuses
