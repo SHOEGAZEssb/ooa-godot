@@ -173,9 +173,11 @@ secrets: `ANDROID_KEYSTORE_BASE64` (the base64-encoded signing keystore),
 `ANDROID_KEY_ALIAS` (the private-key alias). Back up this keystore and its
 credentials outside the repository; reuse them for every release. Missing
 credentials fail the workflow before building, rather than generating a new key.
-Keep the Android package ID `org.ooagodot.oracleofages` stable and increase the
-version code for updates. Changing the project or assembly name does not require
-changing this installed app identity.
+Use the shared launcher's Android package ID `org.ooagodot.oracles` and keep it
+stable, increasing the version code for updates. This replaces the historical
+`org.ooagodot.oracleofages` identity: both apps can remain installed side by side,
+but their private saves are separate. Changing the project or assembly name does
+not require changing the installed app identity again.
 
 Releases through `v0.0.5` used disposable signing keys that were not retained.
 A new persistent key cannot update those APKs in place without the old private
