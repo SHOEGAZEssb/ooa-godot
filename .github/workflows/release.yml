@@ -41,6 +41,21 @@ jobs:
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
 
     steps:
+      - name: Restore persistent Android signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if (-not $env:ANDROID_KEYSTORE_BASE64 -or -not $env:ANDROID_KEYSTORE_PASSWORD -or -not $env:ANDROID_KEY_ALIAS) {
+              throw 'Configure ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, and ANDROID_KEY_ALIAS repository secrets. Android updates require the same signing key on every run.'
+          }
+          $key = Join-Path $env:RUNNER_TEMP 'android-release.keystore'
+          [System.IO.File]::WriteAllBytes($key, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
+          "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$key" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$env:ANDROID_KEY_ALIAS" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$env:ANDROID_KEYSTORE_PASSWORD" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Check out the released tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -279,23 +294,6 @@ jobs:
         run: |
           python $env:GODOT_EXPORT_LAUNCHER Linux builds/linux/oracle-of-ages.x86_64
           if ($LASTEXITCODE -ne 0) { throw 'Linux export failed.' }
-
-      - name: Create Android sideload signing key
-        run: |
-          # Signing is independent of Release compilation. Keep the existing
-          # disposable-key sideload policy without requiring repository secrets.
-          $key = Join-Path $env:RUNNER_TEMP 'android-sideload.p12'
-          $password = [Guid]::NewGuid().ToString('N')
-          Write-Output "::add-mask::$password"
-          $env:OOA_SIGNING_PASSWORD = $password
-          & "$env:JAVA_HOME/bin/keytool.exe" -genkeypair -noprompt -storetype PKCS12 `
-              -keystore $key -alias oracle-of-ages -keyalg RSA -keysize 2048 `
-              -validity 10000 -dname 'CN=Oracle of Ages Sideload' `
-              -storepass:env OOA_SIGNING_PASSWORD -keypass:env OOA_SIGNING_PASSWORD
-          if ($LASTEXITCODE -ne 0) { throw 'Android sideload key generation failed.' }
-          "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$key" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          'GODOT_ANDROID_KEYSTORE_RELEASE_USER=oracle-of-ages' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$password" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Export Android ARM64
         run: |

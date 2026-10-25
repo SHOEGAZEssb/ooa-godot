@@ -167,10 +167,23 @@ tag; the embedded game version comes from the tagged project configuration.
 The ROM and private signing keys are not uploaded.
 
 All three targets use `--export-release` and exclude C# debug symbols. Android
-uses a non-debuggable Release template signed with a disposable sideload key,
-without additional repository secrets. The changing signing key means an APK
-from another run may require uninstalling the previous APK first. Store
-distribution and updates across runs require a persistent signing key.
+uses a non-debuggable Release template and requires three repository Actions
+secrets: `ANDROID_KEYSTORE_BASE64` (the base64-encoded signing keystore),
+`ANDROID_KEYSTORE_PASSWORD` (the keystore and private-key password), and
+`ANDROID_KEY_ALIAS` (the private-key alias). Back up this keystore and its
+credentials outside the repository; reuse them for every release. Missing
+credentials fail the workflow before building, rather than generating a new key.
+Keep the Android package ID `org.ooagodot.oracleofages` stable and increase the
+version code for updates. Changing the project or assembly name does not require
+changing this installed app identity.
+
+Releases through `v0.0.5` used disposable signing keys that were not retained.
+A new persistent key cannot update those APKs in place without the old private
+key. Adding save export to a new APK cannot retrieve an older app's private
+saves when Android refuses to install that APK as an update. Local debug builds
+have a separate signing identity and may be updated using their original debug
+keystore. Signing a compatibility APK with that key does not make it a safe
+long-term release key.
 The workflow uses `GITHUB_TOKEN` to attach assets only after every export succeeds.
 Rerunning the workflow replaces assets with matching filenames.
 
