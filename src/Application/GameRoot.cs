@@ -20,6 +20,7 @@ public partial class GameRoot : Node2D
     private bool _loadingSavedGame;
     internal bool GameplayPrepared { get; private set; }
     private BootLoadingScreen? _bootLoading;
+    internal GameSelectScreen? _gameSelect;
     private readonly Queue<System.Func<IEnumerator<bool>?>> _bootTasks = new();
     private IEnumerator<bool>? _bootResourceSteps;
     private int _bootCompletedTasks;
@@ -141,7 +142,7 @@ public partial class GameRoot : Node2D
 
         if (_launchOptions.ShowMainMenu)
         {
-            BeginBootLoading(GetNode<BootLoadingScreen>("%BootLoading"));
+            BeginGameSelect(GetNode<GameSelectScreen>("%GameSelect"));
             return;
         }
 
@@ -154,7 +155,7 @@ public partial class GameRoot : Node2D
 
     public override void _Input(InputEvent @event)
     {
-        if (_bootLoading is not null || _loadingSavedGame) return;
+        if (_gameSelect is not null || _bootLoading is not null || _loadingSavedGame) return;
         if (@event is InputEventKey
             {
                 PhysicalKeycode: Key.F5, Pressed: true, Echo: false,
@@ -326,6 +327,24 @@ public partial class GameRoot : Node2D
             _sound.PlaySound,
             OpenFileSelectFromFrontend,
             startAtTitle);
+    }
+
+    internal void BeginGameSelect(GameSelectScreen screen)
+    {
+        _gameSelect = screen;
+        _applicationInput.Clear();
+        screen.AgesSelected += StartAgesFromGameSelect;
+        screen.Begin();
+    }
+
+    private void StartAgesFromGameSelect()
+    {
+        GameSelectScreen screen = _gameSelect!;
+        screen.AgesSelected -= StartAgesFromGameSelect;
+        screen.End();
+        _gameSelect = null;
+        _applicationInput.Clear();
+        BeginBootLoading(GetNode<BootLoadingScreen>("%BootLoading"));
     }
 
     internal void BeginBootLoading(BootLoadingScreen screen)
@@ -770,6 +789,12 @@ public partial class GameRoot : Node2D
     private void AdvanceApplicationState()
     {
         const double delta = ApplicationFixedUpdateScheduler.UpdateDelta;
+        if (_gameSelect is not null)
+        {
+            _gameSelect.AdvanceFrame();
+            return;
+        }
+        if (_bootLoading is not null) return;
         if (_loadingSavedGame) return;
         if (_frontendIntro is not null)
         {

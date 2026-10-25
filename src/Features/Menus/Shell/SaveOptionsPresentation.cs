@@ -8,6 +8,18 @@ namespace oracleofages;
 /// <summary>Port-only labels using native file-menu capital strokes and panels.</summary>
 internal static class SaveOptionsPresentation
 {
+    internal static Texture2D BuildOptionsButton()
+    {
+        using Texture2D background = SaveQuitScreen.BuildBackground(gameOver: false);
+        using Image original = background.GetImage();
+        using Image panel = Image.CreateEmpty(160, 16, false, Image.Format.Rgba8);
+        DrawChoice(panel, original, "OPTIONS", 0);
+        using Image button = panel.GetRegion(new Rect2I(32, 0, 96, 16));
+        // The save-screen row includes three backdrop pixels above the wood.
+        button.FillRect(new Rect2I(0, 0, 96, 3), Colors.Transparent);
+        return ImageTexture.CreateFromImage(button);
+    }
+
     internal static Texture2D BuildSave(Image original)
     {
         using Image output = ClearChoices(original);

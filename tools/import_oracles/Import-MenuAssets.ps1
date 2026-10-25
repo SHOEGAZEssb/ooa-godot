@@ -201,14 +201,15 @@ function Export-PaletteBlock(
 
 function Read-PaletteBytes(
     [string]$label,
-    [int]$colorCount
+    [int]$colorCount,
+    [string]$source = $paletteDataSource
 ) {
-    $labelIndex = $paletteDataSource.IndexOf("${label}:", [StringComparison]::Ordinal)
+    $labelIndex = $source.IndexOf("${label}:", [StringComparison]::Ordinal)
     if ($labelIndex -lt 0) { throw "Map palette data label not found: $label" }
     # Header counts can cross adjacent palette labels (PALH_aa reads six
     # palettes from paletteData4870). Labels do not terminate native bytes.
     $colors = [Collections.Generic.List[Text.RegularExpressions.Match]]::new()
-    foreach ($line in $paletteDataSource.Substring($labelIndex).Split("`n")) {
+    foreach ($line in $source.Substring($labelIndex).Split("`n")) {
         $code = ($line -split ';', 2)[0].Trim()
         if (-not $code -or $code -match '^\w+:$') { continue }
         $color = [regex]::Match($code, '^m_RGB16\s+\$(?<r>[0-9a-f]{2})\s+\$(?<g>[0-9a-f]{2})\s+\$(?<b>[0-9a-f]{2})$')

@@ -40,6 +40,17 @@ eligible on the following normal gameplay update.
 
 ## Screen-space boundaries
 
+The port's game selector precedes boot loading. It fills the window with two
+equal-height intro panoramas on an expanding canvas. Only the selected preview
+advances; the other retains its camera position and is desaturated. Selection
+owns no save, room, gameplay RNG or original cutscene state. Ages confirmation
+restores the native viewport before handing off to boot loading; Seasons is
+selectable for preview with confirmation disabled until its game is available.
+Each half's Options button uses native wooden-panel lettering and an acorn
+cursor. Right focuses Options; Left or B returns to the game selection, while
+Up/Down retain that column when switching games. Hover or click also focuses
+Options without launching a game. Option menus are not yet connected.
+
 The Gale Seed menu shares the map presentation and menu lifecycle. It selects
 only visited destinations from the imported ordered tree table, including the
 present scent tree's planting flag. Confirming a destination transfers at white

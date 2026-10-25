@@ -396,6 +396,8 @@ $stageContracts = @(
         -inputs @('globalFlagValues')
     New-ImportStageContract 'inventory-icons' 'Import-InventoryIcons.ps1' `
         -functionInputs @('Expand-TransitionGraphics')
+    New-ImportStageContract 'game-select' 'Import-GameSelect.ps1' `
+        -functionInputs @('Read-PaletteBytes', 'Get-ImportSpriteSourceGrayscaleInverted')
     New-ImportStageContract 'cpu-graphics' 'Import-CpuGraphics.ps1'
     New-ImportStageContract 'manifest' 'Write-GeneratedTableManifest.ps1'
 )

@@ -32,6 +32,21 @@ internal partial class FrontendValidationRoot : GameRoot
     internal byte[] FileSlotSnapshot(int slot) => (byte[])_slots[slot]!.Clone();
     internal bool FileSlotExists(int slot) => _slots[slot] is not null;
 
+    internal GameSelectScreen InitializeGameSelect()
+    {
+        _sound = new OracleSoundEngine(new OracleSoundData(), false) { ApplicationUpdateOwned = true };
+        AddChild(_sound);
+        _random = new OracleRandom();
+        var boot = ResourceLoader.Load<PackedScene>("res://scenes/boot_loading.tscn").Instantiate<BootLoadingScreen>();
+        AddChild(boot);
+        boot.Owner = this;
+        boot.UniqueNameInOwner = true;
+        var screen = ResourceLoader.Load<PackedScene>("res://scenes/game_select.tscn").Instantiate<GameSelectScreen>();
+        AddChild(screen);
+        BeginGameSelect(screen);
+        return screen;
+    }
+
     internal void CompleteScenePreload()
     {
         // File-start scenarios stop before destination preparation. Drain the

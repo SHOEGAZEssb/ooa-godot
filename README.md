@@ -54,7 +54,7 @@ On Linux, run `pwsh -NoProfile -File tools/import_oracles.ps1`. The same
 Generated files are written to `assets/oracle/`. Change the importer and
 regenerate them; never edit generated files directly.
 
-Launch the normal title and file-select flow:
+Launch the game selector, then choose Ages for its title and file-select flow:
 
 ```powershell
 Godot_v4.7.1-stable_mono_win64_console.exe --path .

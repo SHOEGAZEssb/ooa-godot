@@ -214,7 +214,7 @@ public partial class SaveQuitScreen : Node2D
         }
     }
 
-    private Texture2D BuildBackground(bool gameOver)
+    internal static Texture2D BuildBackground(bool gameOver)
     {
         (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_save_menu_middle.bin", "flags_save_menu_middle.bin",

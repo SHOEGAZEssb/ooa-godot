@@ -113,6 +113,7 @@ public sealed partial class ValidationRoot : GameRoot
             {
                 await CaptureSaveOptionsScreens();
                 await CaptureBootLoadingScreen();
+                await CaptureGameSelectScreens();
             }
             // Finalize unused managed image/texture readers while Godot is
             // alive, then let it drain their deferred native references. Do
@@ -773,6 +774,7 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateImpaFollowerScroll);
         RunIsolatedValidation(ValidateImpaGraphicsContinuation);
         RunIsolatedValidation(ValidateBootLoading);
+        RunIsolatedValidation(ValidateGameSelect);
         RunIsolatedValidation(ValidateSoundEngine);
         RunIsolatedValidation(ValidateSoundDriverControls);
         RunIsolatedValidation(ValidateSoundDriverHandoffs);
