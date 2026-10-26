@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
         foreach (bool isA in new[] { false, true })
         foreach (var fixture in cases)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc6aa, (byte)maximum); save.WriteWramByte(0xc6ab, (byte)maximum);
             var inventory = new InventoryState(_treasures, save);
             if (fixture.Item != 0) inventory.GiveTreasure(fixture.Item,
@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
             save.WriteWramByte(0xc688, (byte)equippedB); save.WriteWramByte(0xc689, (byte)equippedA);
             inventory = new InventoryState(_treasures, save);
             var rom = new MenuRom(save, _currentRoom); rom.LoadHudGraphics(); rom.UpdateHud(0);
-            var hud = new Hud(); AddChild(hud);
+            var hud = new Hud { AssetRoot = AgesGameContent.AssetRoot }; AddChild(hud);
             try
             {
                 hud.Initialize(_treasures, inventory);

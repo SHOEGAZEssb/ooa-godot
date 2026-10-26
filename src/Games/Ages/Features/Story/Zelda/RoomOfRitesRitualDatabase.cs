@@ -24,7 +24,7 @@ internal sealed class RoomOfRitesRitualDatabase
         {
             int subid = row.HexByte(0);
             if (subid > 8) throw row.Invalid(0, "$00..$08 Ages flame subid");
-            _flames.Add(subid, (new(row.HexByte(2), row.HexByte(1)), new($"twinrova-flame-{subid:x2}",
+            _flames.Add(subid, (new(row.HexByte(2), row.HexByte(1)), new(AgesGameContent.AssetRoot, $"twinrova-flame-{subid:x2}",
                 [row.RequiredString(3)], row.UnsignedDecimal(4), row.Decimal(5, 0, 7), row.Boolean01(6), [row.RequiredString(7)]), row.HexByte(8), row.HexByte(9)));
             _ = row.RequiredString(10);
         }

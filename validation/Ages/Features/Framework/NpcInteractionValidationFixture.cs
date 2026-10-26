@@ -10,12 +10,12 @@ internal sealed class NpcInteractionValidationFixture : IDisposable
     private readonly RoomEntityValidationFixture _entities;
     private bool _disposed;
 
-    internal OracleSaveData Save { get; } = OracleSaveData.CreateStandardGame();
+    internal OracleSaveData Save { get; } = OracleSaveData.CreateStandardGame(OracleGame.Ages);
     internal RoomSession Rooms { get; }
     internal long Tick { get; private set; }
-    internal TreasureDatabase Treasures { get; } = new();
+    internal TreasureDatabase Treasures { get; } = new(AgesGameContent.AssetRoot);
     internal InventoryState Inventory { get; }
-    internal DialogueBox Dialogue { get; } = new() { Name = "Dialogue" };
+    internal DialogueBox Dialogue { get; } = new() { AssetRoot = AgesGameContent.AssetRoot, Name = "Dialogue" };
     internal List<int> Sounds { get; } = [];
     internal RoomEntityManager Manager => _entities.Manager;
     internal InteractionController Interactions { get; }
@@ -40,7 +40,7 @@ internal sealed class NpcInteractionValidationFixture : IDisposable
         });
         Manager.SoundRequested += Sounds.Add;
         Interactions = new InteractionController(
-            Rooms, Manager, new SignDatabase(), new ChestDatabase(),
+            Rooms, Manager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
             Treasures, Dialogue, world, view,
             static position => position, () => Tick, Inventory, screen, Sounds.Add);
     }

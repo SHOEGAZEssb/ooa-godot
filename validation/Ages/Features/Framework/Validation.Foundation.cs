@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _sound.GetParent() != this || _sound.Owner != this ||
             _scene.GetParent() != this ||
-            _scene.SceneFilePath != GameSceneGraph.ScenePath ||
+            _scene.SceneFilePath != AgesGameSceneGraph.ScenePath ||
             GetChildCount() != 2 ||
             _scene.WorldRoot.GetParent() != _scene ||
             _scene.WorldRoot.Owner != _scene ||
@@ -60,7 +60,7 @@ public sealed partial class ValidationRoot
             _roomDebug.MouseFilter != Control.MouseFilterEnum.Ignore ||
             _roomDebug.GetThemeFontSize("font_size") != 8 ||
             _roomDebug.GetThemeConstant("outline_size") != 1,
-            $"{GameSceneGraph.ScenePath} no longer preserves the fixed camera, UI, or draw-order values.");
+            $"{AgesGameSceneGraph.ScenePath} no longer preserves the fixed camera, UI, or draw-order values.");
 
         Vector2 gameplayPosition =
             _transitions.WorldToGameplayScreen(_player.Position);
@@ -512,16 +512,16 @@ public sealed partial class ValidationRoot
 
     private static void ValidateRoomTileChanges()
     {
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long animationTick = 0;
         var rooms = new RoomSession(
             0, 0x3a,
             () => animationTick,
             () => animationTick = 0,
             save);
-        var changes = new RoomTileChangeDatabase();
-        var singleTileChanges = new SingleTileChangeDatabase();
-        var warps = new WarpDatabase();
+        var changes = new AgesRoomTileChangeDatabase(AgesGameContent.AssetRoot);
+        var singleTileChanges = new SingleTileChangeDatabase(AgesGameContent.AssetRoot);
+        var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         static Vector2 Point(int position) => new(
             (position & 0x0f) * OracleRoomData.MetatileSize + 8,
             (position >> 4) * OracleRoomData.MetatileSize + 8);
@@ -554,7 +554,7 @@ public sealed partial class ValidationRoot
 
         // applySingleTileChanges treats $f0/$f1 as unlinked/linked predicates
         // and $f2 as the executed GLOBALFLAG_FINISHEDGAME check.
-        var predicateSave = OracleSaveData.CreateStandardGame();
+        var predicateSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var predicateRooms = new RoomSession(
             0, 0x48, () => 0, () => { }, predicateSave);
         FailIf(
@@ -841,8 +841,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateSoundEngine()
     {
-        var data = new OracleSoundData();
-        OracleSaveData roomMusicSave = OracleSaveData.CreateStandardGame();
+        var data = new OracleSoundData(AgesGameContent.AssetRoot);
+        OracleSaveData roomMusicSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         roomMusicSave.SetGlobalFlag(AgesGlobalFlag.GaveRopeToRafton);
         roomMusicSave.SetRoomFlag(1, 0x97, OracleSaveData.RoomFlag40, value: false);
         int pendingRalphMusic = data.RoomMusic(1, 0x97, roomMusicSave);
@@ -1309,15 +1309,15 @@ public sealed partial class ValidationRoot
             "OAM cache keys collapsed composition, palette, grayscale, " +
             "or object-header source-offset variants.");
 
-        NpcRecord npcRecord = new NpcDatabase().GetRoomNpcs(0, 0x66).First();
+        NpcRecord npcRecord = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(0, 0x66).First();
         var firstNpc = new NpcCharacter();
         var secondNpc = new NpcCharacter();
         try
         {
-            firstNpc.Initialize(npcRecord);
+            firstNpc.Initialize(npcRecord, AgesGameContent.AssetRoot);
             int buildsAfterFirstNpc = cacheAudit.Count(
                 OracleGraphicsCacheOperation.OamFrameBuild);
-            secondNpc.Initialize(npcRecord);
+            secondNpc.Initialize(npcRecord, AgesGameContent.AssetRoot);
             FailIf(
                 cacheAudit.Count(OracleGraphicsCacheOperation.OamFrameBuild) !=
                     buildsAfterFirstNpc,

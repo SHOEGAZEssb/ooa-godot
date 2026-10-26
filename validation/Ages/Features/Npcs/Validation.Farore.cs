@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
             Press(); Step(5);
             FailIf(!_secretEntry.IsActive, "Farore's input-confirmed Yes did not open MENU_SECRET.");
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
-            _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(0x30, _saveData));
+            _secretEntry.Submit(new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecretValues(0x30, _saveData));
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
             Step(240);
             FailIf(!_dialogue.IsOpen || _inventory.SwordLevel != 2,
@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close(); Step();
         _dialogue.SubmitChoiceForValidation(0); Step();
         for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
-        _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(0x30 + quest, _saveData));
+        _secretEntry.Submit(new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecretValues(0x30 + quest, _saveData));
         for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
         for (int i = 0; i < 10 && !_entities.EntityAdapters<FaroreRewardRoomEntity>().Any(); i++) Step();
         FailIf(!_entities.EntityAdapters<FaroreRewardRoomEntity>().Any(), "Farore did not allocate reward $d9 through MENU_SECRET.");
@@ -98,7 +98,7 @@ public sealed partial class ValidationRoot
             Step(); // $d9 state2/substate0: take Link's position, counter1=30.
             if (exhaustSlots)
             {
-                var visuals = new FaroreVisualDatabase();
+                var visuals = new FaroreVisualDatabase(AgesGameContent.AssetRoot);
                 while (_entities.InteractionSlotAvailable)
                     _entities.TryCreateInteraction(new InteractionSparkleSpawn(new(0x38, 0x58), 0, visuals.UpgradeSparkle));
             }
@@ -158,7 +158,7 @@ public sealed partial class ValidationRoot
             void Step(int count = 1) => StepGameplayUpdates(count, Vector2.Zero, batched: batched);
             Step();
             var parent = _entities.EntityAdapters<FaroreMakeChestRoomEntity>().Single();
-            var visuals = new FaroreVisualDatabase();
+            var visuals = new FaroreVisualDatabase(AgesGameContent.AssetRoot);
             void FillSlots()
             {
                 while (_entities.InteractionSlotAvailable)
@@ -199,7 +199,7 @@ public sealed partial class ValidationRoot
             _dialogue.Close(); Step();
             _dialogue.SubmitChoiceForValidation(0); Step();
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
-            _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(0x31, _saveData));
+            _secretEntry.Submit(new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecretValues(0x31, _saveData));
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
             for (int i = 0; i < 10 && !_entities.EntityAdapters<FaroreMakeChestRoomEntity>().Any(); i++) Step();
             var parent = _entities.EntityAdapters<FaroreMakeChestRoomEntity>().Single();
@@ -272,7 +272,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateFaroreScript()
     {
-        var codec = new LinkedGameNpcDatabase();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         foreach (int index in new[] { 0x20, 0x30, 0x39 })
         {
             byte[] values = codec.GenerateSecretValues(index, _saveData);
@@ -338,7 +338,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateFaroreSecretResponses()
     {
-        var codec = new LinkedGameNpcDatabase();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         foreach (bool batched in new[] { false, true })
         foreach (int shortIndex in new[] { 0x20, 0x30 })
         foreach (int status in new[] { 0, 1, 2 })
@@ -375,7 +375,7 @@ public sealed partial class ValidationRoot
                 0 => 0x551c, 2 => 0x550c, _ => -1
             };
             if (expectedText >= 0)
-                FailIf(message != DialogueBox.PlainText(new FaroreScriptDatabase().Text(expectedText)),
+                FailIf(message != DialogueBox.PlainText(new FaroreScriptDatabase(AgesGameContent.AssetRoot).Text(expectedText)),
                     $"Farore secret ${shortIndex:x2} status {status} lost TX_{expectedText:x4}: '{message}'.");
             else
                 FailIf(!_entities.RuntimeState.ReadWramByte(AgesWramAddress.wDisabledObjects).Equals((byte)0x91),
@@ -392,7 +392,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateFaroreRewards()
     {
-        var codec = new LinkedGameNpcDatabase();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         foreach (bool batched in new[] { false, true })
         foreach (int quest in new[] { 0, 1, 2, 3, 6, 8 })
         {
@@ -504,7 +504,7 @@ public sealed partial class ValidationRoot
             for (int frame = 0; frame < 22; frame++) _secretEntry.Update(1.0 / 60.0);
             Step(2);
             FailIf(DialogueBox.PlainText(_dialogue.CurrentMessage) !=
-                DialogueBox.PlainText(new FaroreScriptDatabase().Text(0x550c)) ||
+                DialogueBox.PlainText(new FaroreScriptDatabase(AgesGameContent.AssetRoot).Text(0x550c)) ||
                 _entities.EntityAdapters<FaroreRewardRoomEntity>().Any(),
                 $"Farore repeat secret ${quest:x2} did not show TX_550c without spawning another reward.");
             _dialogue.Close();
@@ -519,7 +519,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateFaroreUnlinkedSecrets()
     {
-        var codec = new LinkedGameNpcDatabase();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         foreach (bool batched in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
@@ -570,7 +570,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateFaroreUpgradeVariants()
     {
-        var codec = new LinkedGameNpcDatabase();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         foreach (int quest in new[] { 4, 5, 7, 9 })
         {
             ReinitializeGameplayForValidation();

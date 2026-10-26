@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);LoadValidationRoom(3,0x8f);
             var owner=_roomEvents.Get<TokkeyEvent>();var actor=_entities.Entities<NpcCharacter>().Single(a=>a.Record.Id==0x9d);
@@ -80,7 +80,7 @@ public sealed partial class ValidationRoot
         }
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);
             // A released host key can remain just-pressed until Godot's next

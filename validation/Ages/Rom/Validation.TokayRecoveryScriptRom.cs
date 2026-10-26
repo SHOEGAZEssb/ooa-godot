@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         {
             var (subid,group,room,treasure)=row;
             int flagsAt=(group==5?0xca00:0xc800)+room;
-            var save=OracleSaveData.CreateStandardGame(); save.SetLinkName("Link");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages); save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone); save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);
             _inventory.GiveTreasure(treasure,1); _inventory.LoseTreasure(treasure);
@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
             }
             while (14-InteractionAdmissionPool.Count>initFree)
             {
-                var puff=new PuzzlePuffEffect(); puff.Initialize(new(24,24),SoundId.MusNone);
+                var puff=new PuzzlePuffEffect(); puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
                 _entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int occupied=0xd040+_entities.InteractionSlot(puff)*256;
                 native[occupied]=1;native[occupied+1]=0;native[occupied+4]=1;native[occupied+0x20]=0xff;

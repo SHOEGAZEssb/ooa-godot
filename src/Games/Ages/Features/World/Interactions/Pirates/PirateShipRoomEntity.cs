@@ -37,7 +37,7 @@ internal sealed class PirateShipRoomEntity : NpcCharacterRoomEntityAdapter,
     public bool DisablesWarpTiles => FreezesRoomEntities;
 
     internal PirateShipRoomEntity(RoomEntityManager owner, NpcRecord record)
-        : this(owner, NpcCharacter.CreateFromRecord(record)) { }
+        : this(owner, NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot)) { }
     private PirateShipRoomEntity(RoomEntityManager owner, NpcCharacter actor)
         : base(actor, actor.SetTransitionDrawOffset)
     {

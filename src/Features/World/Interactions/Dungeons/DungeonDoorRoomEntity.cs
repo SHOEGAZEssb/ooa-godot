@@ -111,7 +111,7 @@ internal sealed partial class DungeonDoorRoomEntity : DungeonMechanicRoomEntity,
         // loadTilesetAndRoomLayout restores the source layout on every room
         // parse. replaceShutterForLinkEntering changes only the shutter on
         // Link's incoming packed position to floor before object parsing.
-        // OracleWorldData caches mutable room instances, so reproduce either
+        // AgesWorldData caches mutable room instances, so reproduce either
         // source state explicitly before state 0 runs.
         _precisePosition = Position;
         // Entry/torch scripts observe the original substituted layout, even

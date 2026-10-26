@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         ReinitializeGameplayForValidation();
         var native = new MermaidDungeonDatabase();
-        var enemies = new EnemyDatabase();
+        var enemies = new EnemyDatabase(AgesGameContent.AssetRoot);
         int nativeCount=0;
         // data/ages/dungeonLayouts.s: the two Mermaid maps contain the
         // contiguous 25/30 source rooms$510-$528 and$529-$546.

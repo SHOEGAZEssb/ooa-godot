@@ -8,12 +8,12 @@ internal partial class RopeCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => !_initialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly RopeBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Rope;
+    private RopeBehaviorProfile? _behaviorSourceCache;
+    private RopeBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Rope;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
-    private readonly ScentSeedAttraction _scentAttraction = new();
+    private ScentSeedAttraction? _scentAttractionCache;
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
     private RopeState _state;
     private int _counter;
     private int _cooldown;
@@ -52,6 +52,7 @@ internal partial class RopeCharacter : EnemyCharacter, ITerrainShadowSource
         Action<int>? playSound = null,
         Func<int>? cameraY = null)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         InitializeEnemy(
             position,

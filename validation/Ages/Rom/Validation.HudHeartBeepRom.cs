@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
         foreach (bool batched in RomHostSchedules(hostCase2++))
         {
             int threshold = (maximum + 3) / 4;
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc6aa, (byte)(threshold + (damage ? 1 : 0)));
             save.WriteWramByte(0xc6ab, (byte)maximum);
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone); save.SetGlobalFlag(GlobalFlag.IntroDone);
@@ -93,7 +93,7 @@ public sealed partial class ValidationRoot
         foreach (int gate in new[] { 0, 1, 2, 3, 4 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc6aa, (byte)health); save.WriteWramByte(0xc6ab, (byte)maximum);
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
             if (gate != 3) save.SetGlobalFlag(GlobalFlag.IntroDone);

@@ -20,7 +20,7 @@ public partial class ValidationRoot
                 "Original room$4:$92 must order INTERAC$20:$03 before PART$0b:$00 with mask$02.");
             // Isolate the two original puzzle owners from enemy interception.
             _entities.Clear();
-            var orb = new MovingOrbRoomEntity(records[1],new DungeonInteractionVisualDatabase().Visual("grotto-orb"),
+            var orb = new MovingOrbRoomEntity(records[1],new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("grotto-orb"),
                 _runtimeState,_sound.PlaySound,SoundId.SndSwitch);
             var chest = new DungeonOrbChestRoomEntity(records[0],_runtimeState,_sound.PlaySound,_entities.IsScriptTextActive,
                 () => _saveData.HasRoomFlag(4,0x92,OracleSaveData.RoomFlagItem),() => _rooms.TrySetTile(0x62,0xf1));

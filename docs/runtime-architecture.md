@@ -21,9 +21,18 @@ Live messages still resolve names and create fresh segments when they open.
 
 `scenes/main.tscn` owns the application root and persistent sound engine.
 `GameRoot` presents the boot/attract/title/file flow and creates
-`scenes/gameplay.tscn` for active play. Its single RNG owner spans that frontend
+`scenes/ages/gameplay.tscn` for active play. Its single RNG owner spans that frontend
 and gameplay boundary; replaying or dwelling on the title must advance the same
 state later consumed by room objects.
+
+Choosing Seasons preloads a detached `scenes/seasons/opening.tscn`, then shows
+the Seasons title and file menu. File selection binds the retained scene to
+the selected standard pre-intro save. The application retains its fixed-update, input, RNG and audio owners;
+the Seasons session composes shared player, collision, dialogue, script runner,
+HUD and generated-data mechanisms with its native opening controllers. The
+pregame presentation is shared by both games. Native interaction and part pools
+advance in original slot order; source signals and disabled-object masks retain
+their lifetime across controller, player, part and interaction phases.
 
 Startup retains a detached gameplay hierarchy, prepared UI resources, a world
 data owner and save-independent room tables. The hierarchy is allocated before
@@ -31,19 +40,36 @@ the loading animation begins, then its presentation resources are built in
 small main-thread steps. No gameplay node enters the tree or binds a save until
 file selection. Cancellation frees the detached hierarchy.
 
+The shared loader lives in `scenes/launcher/boot_loading.tscn`. Its background
+worker reads the selected pack's bytes and tables; Godot graphics and scene
+preparation remain on the main thread. Seasons retains room textures, reachable
+actor animation compositions, Link's cutscene renderer, HUD, dialogue and the
+pregame presenter. This work binds no save, creates no original object slots
+and consumes no original updates or RNG. File entry reuses these prepared
+owners instead of reconstructing them behind the title-to-game fade.
+
 Parsed NPC, enemy and treasure definitions are shared read-only source data,
-initialized once on first use and retained across sessions. Their record,
+initialized once on first use and retained across sessions within their explicit
+asset pack. Shared readers and presenters require a pack binding; they must not
+choose Ages when a binding is omitted. Graphics-bearing enemy records retain
+that binding through actor and projectile construction. Their record,
 animation and palette arrays must not be modified by consumers. Session
 replacement still creates fresh saves, inventory, RNG, worlds, mutable room
 layouts, entity managers and event controllers; source tables never bind to
 those live owners.
+
+Game-specific boot recipes and gameplay composition belong to the corresponding
+`GameRoot` partial under `src/Games/`. The shared root owns scheduling, loading
+progress, input and file-store dispatch. Ages story selectors, world content and
+debug savestate serialization remain Ages-owned; a shared input decoder does
+not imply that another game's session supports the same savestate format.
 
 Boot resource steps share a soft 3 ms work budget per host frame. Small steps
 can finish together; asset count must not impose one rendered frame per asset.
 The budget is checked between operations, so an individual resource load can
 exceed it. A pending data worker yields immediately instead of busy-polling.
 
-The new-game intro prepares file-dependent gameplay owners incrementally across
+For Ages, the new-game intro prepares file-dependent gameplay owners incrementally across
 host frames, consuming those retained resources. The prepared scene, interface layer and camera remain hidden and
 disabled. Preparation reads the selected save but does not enter the room,
 create room objects, advance gameplay, or consume object RNG. The original
@@ -111,7 +137,7 @@ Gameplay
     `-- development overlays
 ```
 
-`GameSceneGraph` binds required unique nodes and rejects an incomplete scene.
+`AgesGameSceneGraph` binds required unique nodes and rejects an incomplete scene.
 Room entities, cutscene actors, drops, and effects are dynamic and are created
 by their runtime owners. Dispose gameplay-scoped event subscriptions before
 replacing a scene; freeing a Godot node does not detach managed handlers from a
@@ -124,7 +150,7 @@ src/
 |-- Application/       composition, fixed updates, input, pause ownership
 |-- Features/          shared gameplay/presentation, including Dialogue and Scripting
 |-- Games/Ages/        source-specific content, data bindings and composition
-|-- Games/Seasons/     implemented Seasons content (currently launcher preview)
+|-- Games/Seasons/     implemented Seasons content (launcher and standard opening)
 |-- Infrastructure/    generated-data and external boundaries
 `-- Shared/            small behavior-neutral primitives
 ```
@@ -144,8 +170,10 @@ when moving resources and update scene/retained-script paths together.
 loop. Its Ages frontend, arrival and controller composition live in the Ages
 partial; the launcher and common gameplay loop remain in Application. A new
 game must supply its own content/rules and preserve common ordering contracts.
-Current default data bindings are explicitly Ages; they do not establish
-Seasons behavior. Common enemies, dialogue and command execution stay shared.
+Shared frontend, save and asset-loading APIs require an explicit game or asset
+pack; callers must not rely on Ages as a default. Existing Ages-only content
+bindings do not establish Seasons behavior. Common enemies, dialogue and command
+execution stay shared.
 
 ## Authoritative owners
 
@@ -153,8 +181,8 @@ Seasons behavior. Common enemies, dialogue and command execution stay shared.
 | --- | --- |
 | `GameRoot` | Composition, original-update scheduling, input snapshot, shell/gameplay handoff |
 | `RoomSession` | Active room identity, room data, layout state, dungeon neighbors |
-| `OracleWorldData` | Cached imported world assets and live gameplay palettes |
-| `RoomTransitionController` | Scrolls, warps, destination placement, fades, camera, time portals |
+| `AgesWorldData` | Cached imported world assets and live gameplay palettes |
+| `AgesRoomTransitionController` | Scrolls, warps, destination placement, fades, camera, time portals |
 | `RoomEntityManager` | Ordered room-object creation, active/outgoing lifetimes, updates, contacts, effects |
 | `InteractionController` | Ordered player interactions, dialogue, and gameplay-owned submenus |
 | `RoomEventController` | Multi-system room/story events and their interaction registrations |

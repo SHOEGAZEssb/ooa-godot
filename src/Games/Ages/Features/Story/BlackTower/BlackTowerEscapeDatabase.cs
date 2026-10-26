@@ -34,7 +34,7 @@ internal sealed class BlackTowerEscapeDatabase
     }
     internal NpcCharacter Wallmaster(Vector2 position)
     {
-        var actor=NpcCharacter.CreateFromRecord(_wallmaster with {X=(int)position.X,Y=(int)position.Y});
+        var actor=NpcCharacter.CreateFromRecord(_wallmaster with {X=(int)position.X,Y=(int)position.Y}, AgesGameContent.AssetRoot);
         actor.SetAnimationRate(0);actor.SetBlocksLink(false);actor.SetScriptAnimation(Animation(0));
         return actor;
     }

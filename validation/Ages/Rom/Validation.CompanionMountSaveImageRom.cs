@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             foreach (bool backup in new[] { false, true })
             {
                 byte[] image = File.ReadAllBytes(backup ? path + ".bak" : path);
-                FailIf(!OracleSaveData.TryDeserialize(image, out OracleSaveData? loaded),
+                FailIf(!OracleSaveData.TryDeserialize(image, OracleGame.Ages, out OracleSaveData? loaded),
                     "Companion mount image must pass the native signature/checksum contract.");
                 foreach (int address in new[] { 0xc638, 0xc639 })
                     FailIf(loaded!.ReadWramByte(address) != native.SavedByte(0, address, backup),

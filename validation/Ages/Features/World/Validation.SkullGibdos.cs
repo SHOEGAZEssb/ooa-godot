@@ -10,15 +10,15 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonGibdos()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var definition = database.ImportedEnemy(EnemyId.Gibdo);
-        FailIf(string.Concat(EnemyBehaviorTables.Shared.GibdoActiveCollisions.Select(v => v.Value)) != "11111111111101110000011111111110",
+        FailIf(string.Concat(EnemyBehaviorTables.For(AgesGameContent.AssetRoot).GibdoActiveCollisions.Select(v => v.Value)) != "11111111111101110000011111111110",
             "Gibdo active collision mask lost source item ordering or eligibility.");
         FailIf(definition is not { Health: 8, DamageQuarters: 4, RadiusX: 6, RadiusY: 6, Palette: 2, TileBase: 0 } ||
             definition.Animations.Length != 1 || definition.Animations[0] != "16@8,0,0,0;8,8,2,0|16,1@8,0,2,32;8,8,0,32",
             "ENEMY_GIBDO lost extraEnemyData $17 or its 16-update animation/parameter stream.");
-        FailIf(!EnemyBehaviorTables.Shared.Gibdo.Select(v => v.Value).SequenceEqual(new[] { 20, 24, 127, 64, 30, 49, 2 }) ||
-            !EnemyBehaviorTables.Shared.GibdoCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
+        FailIf(!EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Gibdo.Select(v => v.Value).SequenceEqual(new[] { 20, 24, 127, 64, 30, 49, 2 }) ||
+            !EnemyBehaviorTables.For(AgesGameContent.AssetRoot).GibdoCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
                 2,6,6,6,11,11,11,11,11,11,11,8,0,46,11,37,0,0,0,0,0,47,11,34,11,11,32,39,11,40,41,0 }),
             "Gibdo source walk/conversion operands or collision row $16 changed.");
         foreach (var (room, expected) in new[] {
@@ -60,8 +60,8 @@ public sealed partial class ValidationRoot
         var flags = BindingFlags.Instance | BindingFlags.NonPublic;
         void Step(int n = 1) =>
             StepGameplayUpdates(n, Vector2.Zero, [], [], batched: true);
-        var shooter = SeedShooterRecord.Load();
-        var ember = new SeedSatchelDatabase().Ember;
+        var shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
+        var ember = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
         var snapshot = CaptureOracleRandomForValidation();
         (Vector2 Position, int State, int Health, int RoomCount, int Calls) Run(bool batch, bool lethal = false)
         {
@@ -121,7 +121,7 @@ public sealed partial class ValidationRoot
             for (int i = 0; i < 16; i++)
             {
                 var occupied = new StalfosBoneProjectile();
-                occupied.Initialize(StalfosBoneRecord.Load(), _currentRoom, new Vector2(120, 40), p => p);
+                occupied.Initialize(StalfosBoneRecord.Load(AgesGameContent.AssetRoot), _currentRoom, new Vector2(120, 40), p => p);
                 add.Invoke(_entities, [new StalfosBoneRoomEntity(occupied)]);
             }
             var active = (List<IRoomEntity>)typeof(RoomEntityManager).GetField("_activeEntities", flags)!.GetValue(_entities)!;

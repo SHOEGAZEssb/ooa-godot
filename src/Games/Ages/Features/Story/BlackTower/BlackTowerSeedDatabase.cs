@@ -37,7 +37,7 @@ internal sealed class BlackTowerSeedDatabase
     internal byte[] Table(string key) => _tables[key];
     internal NpcCharacter Actor(int id, int subid, Vector2 position)
     {
-        var actor = NpcCharacter.CreateFromRecord(_visuals[(id, subid)] with { X = (int)position.X, Y = (int)position.Y });
+        var actor = NpcCharacter.CreateFromRecord(_visuals[(id, subid)] with { X = (int)position.X, Y = (int)position.Y }, AgesGameContent.AssetRoot);
         actor.SetGraphicsSourceOffset(_sourceOffsets[(id, subid)]);
         actor.SetScriptAnimation(actor.Record.DownAnimation);
         actor.SetAnimationRate(0);

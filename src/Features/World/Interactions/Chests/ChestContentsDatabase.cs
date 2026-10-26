@@ -5,11 +5,15 @@ namespace Oracles;
 
 internal sealed class ChestContentsDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int Subid, bool Linked), string> _objects = new();
 
-    internal ChestContentsDatabase()
+    internal ChestContentsDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/chest_contents_overrides.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "objects/chest_contents_overrides.tsv",
             new GeneratedTableSchema("miscellaneous2.s chest overrides", GeneratedTableKeySemantics.Unique,
                 ["subid", "linked", "treasure-object", "source"], ["subid", "linked"], headerRequired: true));
         foreach (var row in table.Rows)

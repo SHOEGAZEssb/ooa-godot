@@ -9,7 +9,8 @@ internal sealed class TargetGhiniRoomEntity : CombatEnemyRoomEntityAdapter<Targe
     IPostObjectLinkContactRoomEntity, IPostObjectMeleeCollisionRoomEntity, IPostObjectItemCollisionRoomEntity,
     IBoomerangCollisionRoomEntity, ISomariaBlockCollisionRoomEntity, ISeedCollisionTarget, IBurningEnemyTarget, IGaleSeedTarget
 {
-    private readonly TargetGhiniBehaviorProfile _data = EnemyBehaviorTables.Shared.TargetGhini;
+    private TargetGhiniBehaviorProfile? _dataSourceCache;
+    private TargetGhiniBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).TargetGhini;
     private readonly Func<byte> _random;
     private readonly Func<bool> _freePart;
     protected override bool Stunned => Entity.StunCounter != 0;

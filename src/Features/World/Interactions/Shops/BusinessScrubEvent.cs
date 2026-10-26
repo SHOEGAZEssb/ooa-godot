@@ -8,10 +8,13 @@ namespace Oracles;
 /// </summary>
 internal sealed class BusinessScrubEvent : IRoomEvent
 {
+    private string AssetRoot => _context.Rooms.AssetRoot;
+
     private readonly RoomEventContext _context;
     private RoomEventResources? _resources;
     private RoomEventResources EventResources => _resources ??= new(_context, this);
-    private readonly BusinessScrubDatabase _database = new();
+    private BusinessScrubDatabase? _databaseSourceCache;
+    private BusinessScrubDatabase _database => _databaseSourceCache ??= new(AssetRoot);
     private NpcCharacter? _scrub;
     private BusinessScrubEventStage _stage;
     private BusinessScrubOffer _offer;

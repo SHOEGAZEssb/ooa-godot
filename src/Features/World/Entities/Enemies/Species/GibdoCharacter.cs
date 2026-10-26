@@ -8,8 +8,8 @@ internal partial class GibdoCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
     internal override bool InitializationPending => State == 0;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly IReadOnlyList<EnemyBehaviorValue> _behavior = EnemyBehaviorTables.Shared.Gibdo;
+    private IReadOnlyList<EnemyBehaviorValue>? _behaviorSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Gibdo;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private bool _hitPending;
@@ -31,6 +31,7 @@ internal partial class GibdoCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + new Vector2(0, ZFixed >> 8);
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _random = random;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));

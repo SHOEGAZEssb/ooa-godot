@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
         foreach (bool unlocked in new[] { false, true })
         {
             ReinitializeGameplayForValidation(); _saveData.SetLinkedGame(linked);
-            var data = new SecretListDatabase();
+            var data = new SecretListDatabase(AgesGameContent.AssetRoot);
             foreach (var entry in data.Entries(_saveData)) _saveData.SetGlobalFlag(entry.Flag, unlocked);
             _saveData.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, 0x42); _saveData.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd + 1, 0x31);
             var rom = new MenuRom(_saveData, _currentRoom); rom.EnableVramDmaTransfers(); rom.OpenImmediately(0x0a);

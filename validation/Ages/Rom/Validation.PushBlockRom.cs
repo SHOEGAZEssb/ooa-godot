@@ -10,8 +10,8 @@ public sealed partial class ValidationRoot
     {
         ReadOnlyMemory<byte> image = ValidationRom.LoadCleanUs();
         byte Native(int bank, int address) => image.Span[bank * 0x4000 + address - 0x4000];
-        var imported = new PushableTileDatabase();
-        var dispatch = new InteractableTileDatabase();
+        var imported = new PushableTileDatabase(AgesGameContent.AssetRoot);
+        var dispatch = new InteractableTileDatabase(AgesGameContent.AssetRoot);
         int dispatchRecords = 0;
         int records = 0;
         for (int mode = 0; mode < 6; mode++)

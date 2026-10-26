@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     private void ValidateSmogFullControllerAllocation()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var db = new EnemyDatabase();
+        var db = new EnemyDatabase(AgesGameContent.AssetRoot);
         void Fill(int count)
         {
             for (int i = 0; i < count; i++)

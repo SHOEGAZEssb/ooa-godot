@@ -21,7 +21,8 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
     private bool _initialized;
     private bool _pendingNativeCollision;
     private int _palettePhase;
-    private readonly ItemTilePassage _tilePassage = new();
+    private ItemTilePassage? _tilePassageSourceCache;
+    private ItemTilePassage _tilePassage => _tilePassageSourceCache ??= new(_room.AssetRoot);
 
     public bool Finished { get; private set; }
     internal bool Initialized => _initialized;
@@ -43,6 +44,7 @@ public partial class SwordBeamEffect : TransitionOffsetNode2D
         Func<Vector2, Vector2> worldToScreen,
         Action<int> playSound)
     {
+        AssetRoot = database.AssetRoot;
         _database = database;
         _record = database.Get(direction);
         _room = room;

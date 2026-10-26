@@ -11,6 +11,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class OverworldKeyholeDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly Dictionary<(int Group, int Room), OverworldKeyholeDatabaseRecord> _records = new();
     private readonly HashSet<(int ActiveCollisions, byte Tile)> _tiles = new();
@@ -19,10 +21,12 @@ internal sealed class OverworldKeyholeDatabase
     internal int TileCount => _tiles.Count;
     internal ConstantsRecord Constants { get; }
 
-    internal OverworldKeyholeDatabase()
+    internal OverworldKeyholeDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable locations = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/overworld_keyholes.tsv",
+            AssetRoot + "objects/overworld_keyholes.tsv",
             new GeneratedTableSchema(
                 "overworld keyholes",
                 GeneratedTableKeySemantics.Unique,
@@ -34,7 +38,7 @@ internal sealed class OverworldKeyholeDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in locations.Rows)
         {
-            OverworldKeyholeDatabaseRecord record = new OverworldKeyholeDatabaseRecord(
+            OverworldKeyholeDatabaseRecord record = new OverworldKeyholeDatabaseRecord(AssetRoot,
                 row.Decimal(0, 0, 7),
                 row.HexByte(1),
                 row.HexByte(2),
@@ -52,7 +56,7 @@ internal sealed class OverworldKeyholeDatabase
         }
 
         GeneratedTable tiles = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/overworld_keyhole_tiles.tsv",
+            AssetRoot + "metadata/overworld_keyhole_tiles.tsv",
             new GeneratedTableSchema(
                 "overworld keyhole tiles",
                 GeneratedTableKeySemantics.Unique,
@@ -75,7 +79,7 @@ internal sealed class OverworldKeyholeDatabase
         }
 
         GeneratedTableRow constants = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/overworld_keyhole_constants.tsv",
+            AssetRoot + "objects/overworld_keyhole_constants.tsv",
             new GeneratedTableSchema(
                 "overworld keyhole constants",
                 GeneratedTableKeySemantics.Ordered,
@@ -152,6 +156,6 @@ internal sealed class OverworldKeyholeDatabase
     }
 }
 
-internal readonly record struct OverworldKeyholeDatabaseRecord(int Group, int Room, int Treasure, int SubId, string Sprite, int TileBase, int Palette, string Animation, string Source);
+internal readonly record struct OverworldKeyholeDatabaseRecord(string AssetRoot, int Group, int Room, int Treasure, int SubId, string Sprite, int TileBase, int Palette, string Animation, string Source);
 
 internal readonly record struct ConstantsRecord(byte RoomFlag, byte InformativeMask, int PushCounter, int OpenSound, int NoKeyTextId, string NoKeyMessage, int InteractionId, int FirstKey, int InitialSpeedZ, int Gravity, int HoldFrames, string Source);

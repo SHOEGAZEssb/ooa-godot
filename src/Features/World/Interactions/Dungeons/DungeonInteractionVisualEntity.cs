@@ -22,10 +22,11 @@ internal abstract partial class DungeonInteractionVisualEntity : TransitionOffse
         IReadOnlyDictionary<int, Color[]>? paletteOverrides = null,
         bool positionedOam = false)
     {
+        AssetRoot = visual.AssetRoot;
         Position = position;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             palette ?? visual.Palette,

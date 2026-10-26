@@ -12,7 +12,7 @@ internal sealed partial class RoomOfRitesBoulderRoomEntity : TransitionOffsetNod
     private readonly RoomEntityManager _owner;
     private readonly FallingBoulderDatabase _data;
     private readonly EnemyAnimationPlayer _animation;
-    private readonly TerrainShadowDefinition _shadow=TerrainShadow.Load();
+    private TerrainShadowDefinition _shadow=>TerrainShadow.Load(AssetRoot);
     internal int Subid {get;}
     internal int State {get;private set;}
     internal int Counter {get;private set;}
@@ -28,9 +28,10 @@ internal sealed partial class RoomOfRitesBoulderRoomEntity : TransitionOffsetNod
     public void ClearHealthAndCollision() { } // partCode54 ignores PART status.
     internal RoomOfRitesBoulderRoomEntity(RoomEntityManager owner,FallingBoulderDatabase data,int subid=0)
     {
+        AssetRoot = owner.AssetRoot;
         _owner=owner;_data=data;Subid=subid;Visible=false;
         _animation=new(this,1);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{data.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{data.Sprite}.png"),
             [data.Animation],data.TileBase,data.Palette,sourceGrayscaleInverted:data.SourceGrayscaleInverted);
         _animation.SetAnimation(0);ZIndex=ObjectDrawPriority.FromVisible(0xc1);
     }

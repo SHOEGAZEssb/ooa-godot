@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
         void CheckStonePixels(NpcCharacter actor, string context)
             => CompareInteractionPalettePixelsRom(rom, actor, 6, context);
         var observer = _entities.Entities<NpcCharacter>().Single(npc => npc.Record.Id == 0x43);
-        var defaultActor = NpcCharacter.CreateFromRecord(observer.BaseRecord);
+        var defaultActor = NpcCharacter.CreateFromRecord(observer.BaseRecord, AgesGameContent.AssetRoot);
         try
         {
             // pastGuySubid3Script writes oamFlags=$06 while retaining the

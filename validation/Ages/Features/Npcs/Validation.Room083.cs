@@ -9,12 +9,12 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom083Interactions()
     {
-        var npcs = new NpcDatabase();
+        var npcs = new NpcDatabase(AgesGameContent.AssetRoot);
         NpcRecord fairyRecord = npcs.GetRoomNpcs(0, 0x83).Single(npc =>
             npc.Id == 0xd5 && npc.SubId == 0x00);
-        var visibility = new NpcVisibilityRuleDatabase();
+        var visibility = new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot);
         var runtime = AgesGameContent.CreateRuntimeState();
-        var predicateSave = OracleSaveData.CreateStandardGame();
+        var predicateSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         FailIf(
             fairyRecord is not
             {
@@ -37,10 +37,10 @@ public sealed partial class ValidationRoot
             !visibility.ShouldShow(fairyRecord, predicateSave, runtime),
             "The room 0:83 Great Fairy did not appear for linked + D2.");
 
-        var linkedNpcs = new LinkedGameNpcDatabase();
+        var linkedNpcs = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         LinkedGameNpcDatabaseRecord fairyData =
             linkedNpcs.Get(0, 0x83, AgesInteractionId.GreatFairy, 0x00);
-        var secretSave = OracleSaveData.CreateStandardGame();
+        var secretSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         secretSave.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, 0x34);
         secretSave.WriteWramByte(0xc601, 0x12);
         byte[] secret =
@@ -68,7 +68,7 @@ public sealed partial class ValidationRoot
     {
         var root = new Node { Name = "Room083GreatFairyValidation" };
         AddChild(root);
-        var save = OracleSaveData.CreateStandardGame();
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         save.SetLinkedGame(true);
         save.WriteWramByte(AgesWramAddress.wEssencesObtained, 0x02);
         var sounds = new List<int>();
@@ -293,7 +293,7 @@ public sealed partial class ValidationRoot
             _roomEvents.Get<WingDungeonCollapseEvent>();
         RemoteMakuWingDungeonEvent remoteMaku =
             _roomEvents.Get<RemoteMakuWingDungeonEvent>();
-        BraceletDatabaseRecord braceletData = new BraceletDatabase().Data;
+        BraceletDatabaseRecord braceletData = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
         Vector2 rock = new(0x38, 0x48);
 
         try

@@ -23,7 +23,7 @@ internal sealed partial class MakuGashaRewardRoomEntity(MakuGashaRewardRecord re
     {
         if (Finished) return;
         if (inventory.HasTreasure(TreasureId.Essence) &&
-            (save.ReadWramByte(AgesWramAddress.wEssencesObtained) & record.EssenceMask) != 0)
+            (save.ReadField("wEssencesObtained") & record.EssenceMask) != 0)
         {
             Position = new((record.Position & 15) * 16 + 8, (record.Position >> 4) * 16 + 8);
             if (!save.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlagItem))

@@ -16,7 +16,7 @@ public partial class ValidationRoot
             var data = new DungeonMechanicDatabase();
             var record = data.GetRoomRecords(4,0xa1).Single();
             FailIf(record is not { Id:3,SubId:0,Order:0,PackedPosition:0x35 },"Crown$4:$a1 must place PART$03:$00 first at$35.");
-            var orb = new DungeonOrbRoomEntity(record,data,new DungeonInteractionVisualDatabase().Visual("grotto-orb"),
+            var orb = new DungeonOrbRoomEntity(record,data,new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("grotto-orb"),
                 _currentRoom,_runtimeState,() => (long)_animationTicks,_sound.PlaySound);
             _entities.AddEntity(orb);
             _inventory.GiveTreasure(TreasureId.Sword,1); _inventory.EquipA(TreasureId.Sword); _inventory.EquipB(0);

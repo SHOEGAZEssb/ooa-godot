@@ -153,7 +153,7 @@ internal sealed partial class GanonAttackPart : EnemyCharacter,IRoomEntity,IFixe
         int effect=World.Data.Effect(Id==0x50?0x7b:6,item);if(effect==0)return true;
         if(effect!=0x16)throw new NotSupportedException($"PART${Id:x2}: item${item:x2}, effect${effect:x2}.");
         _pending=item;InvincibilityCounter=-28;MeleeReportsContact=true;
-        _attackerRecoil=EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback.NormalFrames;
+        _attackerRecoil=EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback.NormalFrames;
         World.Entities.TryCreateBoomerangClink(BoomerangCollisionResponse.Midpoint(Position,origin),0);
         World.Entities.OnSoundRequested(SoundId.SndBombLand);return true;
     }

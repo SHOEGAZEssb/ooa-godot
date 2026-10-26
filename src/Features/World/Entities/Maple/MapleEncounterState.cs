@@ -16,8 +16,8 @@ internal sealed class MapleEncounterState(OracleRuntimeState memory)
     internal int LinkScore { get; set; }
     internal bool ObjectsDisabled
     {
-        get => (memory.ReadWramByte(AgesWramAddress.wDisabledObjects) & 1) != 0;
-        set => memory.SetWramByte(AgesWramAddress.wDisabledObjects, value ? (byte)1 : (byte)0);
+        get => (memory.ReadField("wDisabledObjects") & 1) != 0;
+        set => memory.SetField("wDisabledObjects", value ? (byte)1 : (byte)0);
     }
     internal void Register(MapleDroppedItem item)
     {

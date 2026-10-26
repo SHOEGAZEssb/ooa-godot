@@ -11,7 +11,8 @@ internal sealed partial class DumbbellManCharacter : NpcCharacter
         NpcRecord record,
         DumbbellManEventRecord dumbbellMan)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         // Native initialization loads animation $00 before the script selects its pose.
         SetScriptAnimation(dumbbellMan.Animation(dumbbellMan.InitialAnimation));
         SetAnimationRate(0.0f);

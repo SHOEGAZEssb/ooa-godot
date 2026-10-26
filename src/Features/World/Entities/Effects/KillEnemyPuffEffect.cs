@@ -11,7 +11,7 @@ namespace Oracles;
 public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
 {
 
-    private static List<KillEnemyPuffEffectFrameRecord>? _definition;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<KillEnemyPuffEffectFrameRecord>> Definitions = new(System.StringComparer.Ordinal);
     private List<KillEnemyPuffEffectFrameRecord> _animation = null!;
     private int _animationFrame;
     private int _animationCounter;
@@ -26,13 +26,14 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
     internal int ElapsedFrames { get; private set; }
     internal int DurationFrames { get; private set; }
 
-    internal void Initialize(Vector2 position, Action initializeSound, int zHigh = 0)
+    internal void Initialize(string assetRoot, Vector2 position, Action initializeSound, int zHigh = 0)
     {
+        AssetRoot = assetRoot;
         Position = position;
         ZHigh = zHigh; // objectCreateInteraction copies the source's integer Z.
         _initializeSound = initializeSound;
         Visible = false;
-        _animation = _definition ??= LoadDefinition();
+        _animation = Definitions.GetOrAdd(AssetRoot, LoadDefinition);
         _animationFrame = 0;
         _animationCounter = _animation[0].Duration;
         DurationFrames = 2; // State0 plus the state1 terminal-parameter check.
@@ -84,10 +85,10 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
         }
     }
 
-    private static List<KillEnemyPuffEffectFrameRecord> LoadDefinition()
+    private static List<KillEnemyPuffEffectFrameRecord> LoadDefinition(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/kill_enemy_puff.tsv",
+            assetRoot + "effects/kill_enemy_puff.tsv",
             new GeneratedTableSchema(
                 "kill-enemy puff",
                 GeneratedTableKeySemantics.Ordered,
@@ -98,7 +99,7 @@ public partial class KillEnemyPuffEffect : TransitionOffsetNode2D
         int palette = row.UnsignedDecimal(1);
 
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+            assetRoot + "gfx/spr_common_sprites.png");
 
         var animation = new List<KillEnemyPuffEffectFrameRecord>();
         foreach (AnimationFrameDefinition frame in

@@ -15,7 +15,7 @@ public sealed class HarpController
 
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
-    private readonly RoomTransitionController _transitions;
+    private readonly AgesRoomTransitionController _transitions;
     private readonly InteractionController _interactions;
     private readonly OracleSoundEngine _sound;
     private readonly HarpItemDatabase _database;
@@ -41,7 +41,7 @@ public sealed class HarpController
     internal int TryStartFlute(Player player)
     {
         if (IsPlaying) return 0;
-        _fluteData ??= new FluteDatabase();
+        _fluteData ??= new FluteDatabase(AgesGameContent.AssetRoot);
         int icon = player.Inventory.FluteIcon;
         _sound.PlaySound(_fluteData.Sound(icon));
         _fluteIcon = icon;
@@ -53,7 +53,7 @@ public sealed class HarpController
     internal HarpController(
         RoomSession rooms,
         RoomEntityManager entities,
-        RoomTransitionController transitions,
+        AgesRoomTransitionController transitions,
         InteractionController interactions,
         OracleSoundEngine sound,
         HarpItemDatabase? database = null)

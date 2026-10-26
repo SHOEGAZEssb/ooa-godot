@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData,seed,_currentRoom,0,(int)safeFloor.X,(int)safeFloor.Y);
             rom.InitializeLinkGameplay(); rom.InitializeLinkWalkingAnimation();
-            var data = new DungeonInteractionDatabase();
+            var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
             var puzzle = new ColoredCubePuzzleState(_runtimeState,data.Constant("red-pushable-block"));
             puzzle.CubeColor = 0x55; puzzle.CubePosition = 0x33;
             rom[0xccad] = 0x55; rom[0xccae] = 0x33;

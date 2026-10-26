@@ -13,11 +13,11 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, 0xa1); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0); _player.WarpTo(new(120, 40)); _player.BeginCutsceneControl();
-            var database = EnemyDatabase.Shared; var vines = new VineSproutDatabase();
+            var database = EnemyDatabase.For(AgesGameContent.AssetRoot); var vines = new VineSproutDatabase();
             int callsBeforeConstruction = _random.Calls;
             IRoomEntity Baby()
             {
-                var resources = new RoomEntityResources(_rooms);
+                var resources = new AgesRoomEntityResources(_rooms);
                 var actor = new BabyCuccoCharacter();
                 actor.Initialize(database.ImportedEnemy(0x33), _currentRoom, new(80, 72), _random,
                     resources.Bracelet.Data, resources.Bomb.Data, _sound.PlaySound, (_, _, _, _) => { });
@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
                 var visual = database.ImportedEnemy(0x63); string animation = visual.Animations[0];
                 var actor = NpcCharacter.CreateFromRecord(new(4, 0xa1, AgesInteractionId.Accessory, 0, 0, 0, 0, 0,
                     visual.Sprites[0], visual.TileBase, visual.Palette, 0, false, animation, animation, animation, animation, "",
-                    NpcImplementationClassification.EventOwned));
+                    NpcImplementationClassification.EventOwned), AgesGameContent.AssetRoot);
                 actor.SetSourceGrayscaleInverted(visual.SourceGrayscaleInverted);
                 return new TargetCartCrystalRoomEntity(actor, 0, _runtimeState, new GoronCaveDatabase(), _sound.PlaySound, _random);
             }
@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
             {
                 0x1d => new ArmosSpawnerRoomEntity(_currentRoom, 2, 0x0c, _random, _entities.CanAllocateEnemies),
                 0x33 => Baby(),
-                0x38 => new FountainFairyRoomEntity(database.ImportedEnemy(0x38), new FountainFairyDatabase(), new(80, 72),
+                0x38 => new FountainFairyRoomEntity(database.ImportedEnemy(0x38), new FountainFairyDatabase(AgesGameContent.AssetRoot), new(80, 72),
                     _sound.PlaySound, (_, _, _) => { }, () => { }, () => _player.HealthQuarters, _entities.TryCreatePart, _random),
                 0x50 => new FireballShooterRoomEntity(_currentRoom, new(80, 72), 0x80, 0, _random,
                     _entities.CanAllocateEnemies, () => _entities.PartSlotAvailable, () => _entities.RoomEnemyCount),

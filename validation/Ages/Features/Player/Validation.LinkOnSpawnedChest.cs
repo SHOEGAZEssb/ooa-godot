@@ -8,7 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidateLinkOnSpawnedChest()
     {
-        var seeds = new SeedSatchelDatabase();
+        var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
         FailIf(!seeds.TryGet(ItemId.EmberSeed, out var seed), "Missing chest fixture seed.");
         Vector2 chest = new(120, 88); // objects/ages chest in room $4:$ba, packed $57.
         foreach (bool batched in new[] { false, true })

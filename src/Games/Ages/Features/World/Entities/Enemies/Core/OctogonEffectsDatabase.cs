@@ -30,7 +30,7 @@ internal sealed class OctogonEffectsDatabase
                 if (rows.Length != expected || rows.Where((row,index) => row.UnsignedDecimal(1) != index).Any())
                     throw new InvalidOperationException($"Octogon effect${group.Key:x2} lost its {expected} ordered animations.");
                 var first = rows[0];
-                _visuals.Add(group.Key,new([first.RequiredString(2)],first.UnsignedDecimal(3),first.UnsignedDecimal(4),first.Boolean01(5),
+                _visuals.Add(group.Key,new(AgesGameContent.AssetRoot, [first.RequiredString(2)],first.UnsignedDecimal(3),first.UnsignedDecimal(4),first.Boolean01(5),
                     rows.Select(row => row.RequiredString(6)).ToArray()));
                 if (parts)
                 {

@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
             var boss=_entities.EntityAdapters<PossessedNayruRoomEntity>().Single();
             _inventory.GiveTreasure(TreasureId.SwitchHook,1);_inventory.EquipA(TreasureId.SwitchHook);
             for(int address=0xc5b0;address<0xcb00;address++)rom[address]=_saveData.ReadWramByte(address);
-            FailIf(!new SeedSatchelDatabase().TryGet(ItemId.MysterySeed,out var mystery),"Ambi exposure requires the imported Mystery seed.");
+            FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.MysterySeed,out var mystery),"Ambi exposure requires the imported Mystery seed.");
             var spawns=new List<RoomEntitySpawn>();
             for(int remaining=3;remaining>0;remaining--)
             {

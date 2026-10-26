@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
             _entities.DisableLinkCollisionsAndMenu();
             _runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);
-            var data = EnemyDatabase.Shared;
+            var data = EnemyDatabase.For(AgesGameContent.AssetRoot);
             int subid = id == 0x0e ? 5 : 1;
             var row = data.GetRoomObjects(id == 0x0e ? 5 : id == 0x17 ? 5 : 0,
                 id == 0x0e ? 0x95 : id == 0x17 ? 0xa4 : 0x2b).First(r => r.Id == id && r.SubId == subid);

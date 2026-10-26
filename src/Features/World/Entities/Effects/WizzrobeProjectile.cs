@@ -6,7 +6,8 @@ namespace Oracles;
 // PART_WIZZROBE_PROJECTILE $1f: its held pose never advances during flight.
 internal sealed partial class WizzrobeProjectile : TransitionOffsetNode2D
 {
-    private readonly WizzrobeBehaviorProfile _data = EnemyBehaviorTables.Shared.Wizzrobe;
+    private WizzrobeBehaviorProfile? _dataSourceCache;
+    private WizzrobeBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Wizzrobe;
     private readonly OracleRoomData _room;
     private readonly OracleRuntimeState _memory;
     private readonly EnemyAnimationPlayer _animation;
@@ -23,9 +24,10 @@ internal sealed partial class WizzrobeProjectile : TransitionOffsetNode2D
     internal WizzrobeProjectile(EnemyProjectileVisualRecord visual, OracleRoomData room, OracleRuntimeState memory,
         Vector2 position, int angle, int zHigh)
     {
+        AssetRoot = visual.AssetRoot;
         _room = room; _memory = memory; Position = position; Angle = angle; ZHigh = zHigh;
         _animation = new(this, visual.Animations.Length);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations, visual.TileBase,
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations, visual.TileBase,
             visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         Visible = false;
     }

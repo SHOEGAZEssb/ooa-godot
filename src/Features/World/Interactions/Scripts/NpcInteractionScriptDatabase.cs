@@ -9,23 +9,35 @@ namespace Oracles;
 /// </summary>
 internal sealed class NpcInteractionScriptDatabase
 {
-    public IReadOnlyList<CutsceneCommand> OldManRupees { get; } =
-        CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/old_man_rupees_commands.tsv");
-    public IReadOnlyList<CutsceneCommand> LinkedGameNpc { get; } =
-        CutsceneCommandCatalog.Load(
-            AgesGameContent.AssetRoot + "cutscenes/linked_game_npc_commands.tsv");
-    public IReadOnlyList<CutsceneCommand> PastBipin { get; } =
-        CutsceneCommandCatalog.Load(
-            AgesGameContent.AssetRoot + "cutscenes/past_bipin_commands.tsv");
-    public IReadOnlyList<CutsceneCommand> HardhatShovel { get; } =
-        CutsceneCommandCatalog.Load(
-            AgesGameContent.AssetRoot + "cutscenes/hardhat_shovel_commands.tsv");
-    public IReadOnlyList<CutsceneCommand> Postman { get; } =
-        CutsceneCommandCatalog.Load(
-            AgesGameContent.AssetRoot + "cutscenes/postman_commands.tsv");
+    public string AssetRoot { get; }
+    private IReadOnlyList<CutsceneCommand>? OldManRupeesSourceCache;
+    internal IReadOnlyList<CutsceneCommand> OldManRupees => OldManRupeesSourceCache ??= CutsceneCommandCatalog.Load(AssetRoot + "cutscenes/old_man_rupees_commands.tsv");
+    private IReadOnlyList<CutsceneCommand>? LinkedGameNpcSourceCache;
+    internal IReadOnlyList<CutsceneCommand> LinkedGameNpc => LinkedGameNpcSourceCache ??= CutsceneCommandCatalog.Load(
+            AssetRoot + "cutscenes/linked_game_npc_commands.tsv");
+    private IReadOnlyList<CutsceneCommand>? PastBipinSourceCache;
+    internal IReadOnlyList<CutsceneCommand> PastBipin => PastBipinSourceCache ??= CutsceneCommandCatalog.Load(
+            AssetRoot + "cutscenes/past_bipin_commands.tsv");
+    private IReadOnlyList<CutsceneCommand>? HardhatShovelSourceCache;
+    internal IReadOnlyList<CutsceneCommand> HardhatShovel => HardhatShovelSourceCache ??= CutsceneCommandCatalog.Load(
+            AssetRoot + "cutscenes/hardhat_shovel_commands.tsv");
+    private IReadOnlyList<CutsceneCommand>? PostmanSourceCache;
+    internal IReadOnlyList<CutsceneCommand> Postman => PostmanSourceCache ??= CutsceneCommandCatalog.Load(
+            AssetRoot + "cutscenes/postman_commands.tsv");
 
-    public NpcInteractionScriptDatabase()
+    public NpcInteractionScriptDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+        OldManRupeesSourceCache = CutsceneCommandCatalog.Load(AssetRoot + "cutscenes/old_man_rupees_commands.tsv");
+        LinkedGameNpcSourceCache = CutsceneCommandCatalog.Load(
+            AssetRoot + "cutscenes/linked_game_npc_commands.tsv");
+        PastBipinSourceCache = CutsceneCommandCatalog.Load(
+            AssetRoot + "cutscenes/past_bipin_commands.tsv");
+        HardhatShovelSourceCache = CutsceneCommandCatalog.Load(
+            AssetRoot + "cutscenes/hardhat_shovel_commands.tsv");
+        PostmanSourceCache = CutsceneCommandCatalog.Load(
+            AssetRoot + "cutscenes/postman_commands.tsv");
+
         ValidateLinkedGameNpc();
         ValidatePastBipin();
         ValidateHardhatShovel();

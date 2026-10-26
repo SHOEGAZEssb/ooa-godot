@@ -26,6 +26,7 @@ public partial class OctorokRockProjectile
         Vector2 position,
         int angle)
     {
+        AssetRoot = record.AssetRoot;
         Position = position;
         _lifecycle = new HostileProjectileLifecycle(
             this,
@@ -44,7 +45,7 @@ public partial class OctorokRockProjectile
                 ResetZOnBounce: true),
             angle);
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.SpriteName}.png");
+            AssetRoot + $"gfx/{record.SpriteName}.png");
         _normalTexture = BuildFirstFrame(
             source, record.NormalAnimation, record.TileBase, record.Palette);
         _bounceTexture = BuildFirstFrame(

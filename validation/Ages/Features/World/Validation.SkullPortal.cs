@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         bool batch = false;
         void Step(int count = 1, Vector2 movement = default, bool jump = false) =>
             StepGameplayUpdates(count, movement, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: batch);
-        var data = new DungeonEntranceInteractionDatabase();
+        var data = new DungeonEntranceInteractionDatabase(AgesGameContent.AssetRoot);
         var pair = data.PortalPairFor(4);
         FailIf(pair.MinibossRoom != 0x80 || pair.EntranceRoom != 0x91 || data.PortalPosition != 0x57 ||
             data.PortalRadius != 3 || data.PortalSpinUpdates != 48,
@@ -105,7 +105,7 @@ public sealed partial class ValidationRoot
                 $"Walking into the portal with a sword parent must retain that parent on activation: controlled={_player.CutsceneControlled}, sword={_player.IsAttacking}, position={_player.Position}.");
             // An existing ITEM child remains eligible while state08 clears
             // parent items. Keep its trajectory on the room's open floor.
-            new SeedSatchelDatabase().TryGet(ItemId.EmberSeed, out var ember);
+            new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.EmberSeed, out var ember);
             var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
                 new Vector2(80, 88), Vector2I.Up, ember, 4, SeedLaunchKind.Shooter));
             Vector2 seedStart = seed.PrecisePosition;

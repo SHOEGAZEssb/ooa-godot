@@ -94,7 +94,7 @@ internal sealed class BlackTowerEndingDatabase
     }
     internal NpcCharacter Actor(int id,int subid,Vector2 position)
     {
-        var actor=NpcCharacter.CreateFromRecord(_actors[(id,subid)] with {X=(int)position.X,Y=(int)position.Y});
+        var actor=NpcCharacter.CreateFromRecord(_actors[(id,subid)] with {X=(int)position.X,Y=(int)position.Y}, AgesGameContent.AssetRoot);
         if(_extraSprites.TryGetValue((id,subid),out var extras))foreach(string extra in extras)actor.AppendScriptGraphics(extra);
         actor.SetAnimationRate(0);actor.SetBlocksLink(false);actor.SetDialogue(0,"",false);return actor;
     }

@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
             source.SetPositionTileAndCollision(center,0xa0,null,(long)_animationTicks);
             rom[0xcf8e] = 0xa0; rom[0xce8e] = 0;
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Right,out int target),"Door scroll requires its imported dungeon neighbor.");
-            var graphics = new ScreenTransitionGraphicsDatabase();
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(source.TilesetId).Unique |
                 (source.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             _transitions.BeginScroll(_player,Vector2I.Right,target);

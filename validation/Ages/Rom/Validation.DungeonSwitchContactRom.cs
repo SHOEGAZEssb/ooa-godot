@@ -37,7 +37,7 @@ public partial class ValidationRoot
             FailIf(railRecord.Id != 0x78 || railRecord.SubId != c.Mask || railRecord.Y != c.Rail ||
                 railRecord.X != c.Row || railRecord.Order != 0,
                 $"Original switch rail$4:${c.Room:x2} lost its placement, mask or replacement row.");
-            var rail = new SwitchTileTogglerRoomEntity(railRecord,new DungeonInteractionDatabase(),
+            var rail = new SwitchTileTogglerRoomEntity(railRecord,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),
                 _entities.RuntimeState,_roomView.QueueRedraw,_rooms.TrySetTile);
             _entities.AddEntity(rail);
             _inventory.GiveTreasure(treasure,item.Beam ? 2 : 1); _inventory.EquipA(treasure);
@@ -229,7 +229,7 @@ public partial class ValidationRoot
             _entities.Clear();
             part = new DungeonSwitchRoomEntity(record,_currentRoom,data,_entities.RuntimeState,
                 () => (long)_animationTicks,_roomView.QueueRedraw,_sound.PlaySound,_rooms.TrySetTile,_saveData);
-            rail = new SwitchTileTogglerRoomEntity(railRecord,new DungeonInteractionDatabase(),
+            rail = new SwitchTileTogglerRoomEntity(railRecord,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),
                 _entities.RuntimeState,_roomView.QueueRedraw,_rooms.TrySetTile);
             _entities.AddEntity(part); _entities.AddEntity(rail);
             _player.WarpTo(returnPoint); _player.Face((Vector2I)OracleObjectMath.StrictCardinalVector(c.Direction*8));

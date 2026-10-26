@@ -10,15 +10,20 @@ namespace Oracles;
 /// </summary>
 internal sealed class EnemySpawnTileDatabase
 {
+    public string AssetRoot { get; }
+
     private const int CollisionModeCount = 6;
     private const int TilesPerMode = 256;
-    private readonly byte[] _unspawnable = OracleAssetCache.ReadBytes(
-        AgesGameContent.AssetRoot + "metadata/enemyUnspawnableTiles.bin");
+    private readonly byte[] _unspawnable ;
 
     internal int RecordCount { get; }
 
-    internal EnemySpawnTileDatabase()
+    internal EnemySpawnTileDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+        _unspawnable = OracleAssetCache.ReadBytes(
+        AssetRoot + "metadata/enemyUnspawnableTiles.bin");
+
         int expected = CollisionModeCount * TilesPerMode;
         if (_unspawnable.Length != expected)
         {

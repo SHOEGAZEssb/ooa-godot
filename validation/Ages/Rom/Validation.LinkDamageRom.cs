@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         foreach (bool potion in new[] { false, true })
         {
             if (initialHealth == 80 && potion) continue;
-            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
             save.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)ring);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, (byte)initialHealth);
@@ -54,7 +54,7 @@ public sealed partial class ValidationRoot
         foreach (int boundary in new[] { 0, 1, 2, 3 })
         {
             var player = new Player();
-            var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
+            var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
             player.Initialize(new ValidationRingPlayerWorld(), inventory, new(80, 64), new OracleRandom());
             try
             {

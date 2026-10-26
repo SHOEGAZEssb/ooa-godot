@@ -7,8 +7,8 @@ namespace Oracles;
 internal sealed partial class PodobooTowerCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
-
-    private readonly IReadOnlyList<EnemyBehaviorValue> _profile = EnemyBehaviorTables.Shared.PodobooTower;
+    private IReadOnlyList<EnemyBehaviorValue>? _profileSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _profile => _profileSourceCache ??= EnemyBehaviorTables.For(AssetRoot).PodobooTower;
     private OracleRandom _random = null!;
     private int _baseY;
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -20,6 +20,7 @@ internal sealed partial class PodobooTowerCharacter : EnemyCharacter
 
     internal void Initialize(ImportedEnemyDefinition record, Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != EnemyId.PodobooTower || record.SubId != 0)
             throw new InvalidOperationException($"podobooTower.s: unsupported ${record.Id:x2}:${record.SubId:x2}.");
         Record = record;
@@ -112,7 +113,7 @@ internal sealed partial class PodobooTowerCharacter : EnemyCharacter
     {
         if (parameter < 3 || parameter > 15 || parameter % 3 != 0)
             throw new InvalidOperationException($"podobooTower.s:@data invalid animation parameter ${parameter:x2}.");
-        var radii = EnemyBehaviorTables.Shared.PodobooTowerRadii;
+        var radii = EnemyBehaviorTables.For(AssetRoot).PodobooTowerRadii;
         int index = parameter - 3;
         SetCollisionRadii(radii[index + 1].Value, radii[index].Value);
         Position = new Vector2(Position.X, (_baseY + unchecked((sbyte)radii[index + 2].Value)) & 0xff);

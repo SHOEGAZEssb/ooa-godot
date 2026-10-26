@@ -50,7 +50,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0,0x86); StepGameplayUpdates(1,Vector2.Zero);
         var roaming=_entities.EntityAdapters<MamamuRoamingDogRoomEntity>().Single();
         var pup=(NpcCharacter)roaming.Node;
-        var geometry=new BraceletGrabGeometry();
+        var geometry=new BraceletGrabGeometry(AgesGameContent.AssetRoot);
         bool caught=false;
         _player.WarpTo(new Vector2(64,56));
         FailIf(_rooms.CurrentRoom.IsSolid(_player.Position),

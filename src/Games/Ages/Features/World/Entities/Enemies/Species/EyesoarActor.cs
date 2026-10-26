@@ -52,6 +52,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
 
     internal void Initialize(ImportedEnemyDefinition record, EyesoarEnvironment world, Vector2 position)
     {
+        AssetRoot = record.AssetRoot;
         Record = record; _world = world; _movement = new(this, world.Room);
         CollisionMode = record.Id == AgesEnemyId.EyesoarChild ? EnemyCollisionMode.EyesoarChild : EnemyCollisionMode.Eyesoar;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
@@ -71,6 +72,7 @@ internal sealed partial class EyesoarActor : EnemyCharacter, ISwitchHookEnemy
 
     internal void InitializeState(ICollection<RoomEntitySpawn> spawns)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (!Initializing) return;
         _world.Random.Next(); // enemyStandardUpdate: var3d, including the deleted spawner.
         if (IsChild)

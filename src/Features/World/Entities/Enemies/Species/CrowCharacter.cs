@@ -13,9 +13,8 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => !_initialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => Z;
-
-    private readonly CrowBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Crow;
+    private CrowBehaviorProfile? _behaviorSourceCache;
+    private CrowBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Crow;
     private OracleRandom _random = null!;
     private Vector2 _precisePosition;
     private CrowState _state;
@@ -56,6 +55,7 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
         OracleRandom random,
         Func<int>? activeCrows = null)
     {
+        AssetRoot = record.AssetRoot;
         if (record.SubId is not (0 or 1))
             throw new InvalidOperationException(
                 $"CrowCharacter requires ENEMY_CROW $41:$00/$01, got ${record.SubId:x2}.");
@@ -67,7 +67,7 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
 
         InitializeEnemy(
             OracleObjectMath.ToPixelPosition(position),
-            EnemyCharacterConfiguration.FromSprite(
+            EnemyCharacterConfiguration.FromSprite(record.AssetRoot,
                 record.Health,
                 record.CollisionRadiusX,
                 record.CollisionRadiusY,
@@ -164,7 +164,7 @@ public partial class CrowCharacter : EnemyCharacter, ITerrainShadowSource
     // Hidden crows retain their slot and RNG state between repeated attacks.
     private void UpdateOffscreen(Vector2 linkPosition)
     {
-        var data = EnemyBehaviorTables.Shared;
+        var data = EnemyBehaviorTables.For(AssetRoot);
         var state = data.OffscreenCrowState;
         switch (_state)
         {

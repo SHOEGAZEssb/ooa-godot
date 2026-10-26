@@ -35,7 +35,7 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
+                visual.AssetRoot + $"gfx/{visual.Sprite}.png"),
             [visual.Animation],
             visual.TileBase,
             visual.Palette);
@@ -77,7 +77,7 @@ internal sealed partial class InteractionSparkleEffect : FixedEffectNode2D
 }
 
 internal readonly record struct InteractionSparkleVisual(
-    string Sprite,
+    string AssetRoot, string Sprite,
     int TileBase,
     int Palette,
     string Animation);

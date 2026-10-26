@@ -10,6 +10,8 @@ namespace Oracles;
 /// </summary>
 public sealed class BraceletController
 {
+    private string AssetRoot => _rooms.AssetRoot;
+
     internal event Action<BraceletTileLifted>? TileLifted;
     internal event Action<BraceletTileLifted>? TileLiftCompleted;
 
@@ -70,7 +72,7 @@ public sealed class BraceletController
         _playSound = playSound;
         _animationTick = animationTick;
         _hasFullWall = hasFullWall;
-        _record = new BraceletDatabase().Data;
+        _record = new BraceletDatabase(AssetRoot + "metadata/bracelet.tsv").Data;
     }
 
     /// <summary>
@@ -664,7 +666,7 @@ public sealed class BraceletController
     }
 
     private Vector2I GetLiftOffset(Player player, int frame) =>
-        BraceletWeightDatabase.Shared.LiftOffset(
+        BraceletWeightDatabase.For(AssetRoot).LiftOffset(
             player.BraceletObjectWeight, frame,
             CarriedObjectMotion.DirectionIndex(player.FacingVector));
 

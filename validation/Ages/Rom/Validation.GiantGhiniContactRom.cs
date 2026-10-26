@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             _runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);_runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);
             FailIf(_collision.Collides(_player.Position)||_collision.Collides(new(144,64)),
                 "Giant Ghini contact must approach its child across the room's actual clear floor.");
-            var data=new DungeonBossDatabase();var parent=new GiantGhiniBoss();
+            var data=new DungeonBossDatabase(AgesGameContent.AssetRoot);var parent=new GiantGhiniBoss();
             parent.Initialize(data.Enemy(0x70),_currentRoom,new(120,64),_random,_sound.PlaySound,
                 ()=>false,_entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen);
             F1Set(parent,"_initialized",true);F1Set(parent,"_state",GiantGhiniBossBossState.Moving);

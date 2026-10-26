@@ -6,9 +6,8 @@ namespace Oracles;
 internal partial class GhiniCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => _state == GhiniState.Uninitialized;
-
-    private readonly GhiniBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Ghini;
+    private GhiniBehaviorProfile? _behaviorSourceCache;
+    private GhiniBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Ghini;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private int _counter;
@@ -37,6 +36,7 @@ internal partial class GhiniCharacter : EnemyCharacter
         OracleRandom random,
         Action? killSpawnedGhinis = null)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         InitializeEnemy(
             position,
@@ -75,8 +75,8 @@ internal partial class GhiniCharacter : EnemyCharacter
             if (Record.SubId == 1)
             {
                 _state = GhiniState.Spawning;
-                _counter = EnemyBehaviorTables.Shared.SpawnGhiniState[0].Value;
-                _angle = EnemyBehaviorTables.Shared.SpawnGhiniState[1].Value;
+                _counter = EnemyBehaviorTables.For(AssetRoot).SpawnGhiniState[0].Value;
+                _angle = EnemyBehaviorTables.For(AssetRoot).SpawnGhiniState[1].Value;
             }
             return;
         }
@@ -110,7 +110,7 @@ internal partial class GhiniCharacter : EnemyCharacter
 
     private void UpdateSpawned(int frame, Vector2 target)
     {
-        var data = EnemyBehaviorTables.Shared;
+        var data = EnemyBehaviorTables.For(AssetRoot);
         var state = data.SpawnGhiniState;
         switch (_state)
         {
@@ -188,7 +188,7 @@ internal partial class GhiniCharacter : EnemyCharacter
 
     internal void BeginSeedStatus(bool ember, int damage)
     {
-        var data = EnemyBehaviorTables.Shared.TargetGhini;
+        var data = EnemyBehaviorTables.For(AssetRoot).TargetGhini;
         var status = ember ? data.EmberStatus : data.PegasusStatus;
         if (ember) { Health = Math.Max(0, Health-damage); DeferNativeHitStatus(); }
         InvincibilityCounter = unchecked((sbyte)status[1].Value); _stunCounter = status[3].Value;

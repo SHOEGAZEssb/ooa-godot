@@ -32,8 +32,8 @@ public sealed partial class ValidationRoot
                     seasons.Panorama.Sprites[0].Position != new Vector2(0x3f - 8, 0x51 - 16) ||
                     seasons.Panorama.Sprites[^1].Position != new Vector2(0x3c - 8, 0x90 - 16),
                     "Game-select source close-ups lost their original OAM counts, order or hardware origins.");
-                FailIf(seasons.GetNode<Label>("Hint").Text != "COMING SOON",
-                    "Unimplemented Seasons must identify itself before confirmation.");
+                FailIf(seasons.GetNode<Label>("Hint").Text != "NEW GAME · OPENING",
+                    "Seasons must identify the playable opening before confirmation.");
                 foreach (var preview in new[] { ages, seasons })
                 {
                     var title = preview.GetNode<TextureRect>("Title");
@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
                 // Inverted Seasons PNG shades address palette $00 in reverse;
                 // paletteData4470 color $03 is RGB5 ($11,$1c,$00).
                 byte[] backgroundPalette = OracleGraphicsData.ReadBytes(
-                    SeasonsPreviewContent.PreviewRoot + "din_bg_palette.bin", 96);
+                    SeasonsGameContent.PreviewRoot + "din_bg_palette.bin", 96);
                 FailIf(backgroundPalette[0] != 0x11 || backgroundPalette[1] != 0x1c || backgroundPalette[2] != 0,
                     "The Din background palette lost its source PNG inversion.");
                 root.Step(16, batched);
@@ -79,16 +79,16 @@ public sealed partial class ValidationRoot
                     !((ShaderMaterial)ages.Material).GetShaderParameter("inactive").AsBool() ||
                     ((ShaderMaterial)seasons.Material).GetShaderParameter("inactive").AsBool(),
                     "Selecting Seasons must freeze and desaturate Ages, and resume only Seasons.");
-                root.Step(4, batched, "attack", "inventory");
+                root.Step(4, batched);
                 FailIf(!screen.IsActive || root._gameSelect != screen || root._frontendIntro is not null ||
-                    root.GameplayPrepared || root._random.Calls != 0 || root.FileSlotExists(0),
-                    "Seasons confirmation started a game, preparation, RNG or persistent file writes.");
+                    root.GameplayPrepared || root._random.Calls != 0 || root.FileSlotExists(0, OracleGame.Ages),
+                    "Previewing Seasons started a game, preparation, RNG or persistent file writes.");
                 root.Step(1, batched, "move_up");
                 FailIf(ages.AnimationUpdates != 17 || seasons.AnimationUpdates != 85,
                     "Switching back must resume the paused frame, rather than restart either preview.");
                 root.Step(1, batched, "move_up", "move_down");
                 FailIf(screen.SelectedGame != OracleGame.Ages, "Opposing navigation selected another game.");
-                screen.RequestPointerSelection(OracleGame.Seasons, true);
+                screen.RequestPointerSelection(OracleGame.Seasons, false);
                 root.Step(1, batched);
                 FailIf(!screen.IsActive || screen.SelectedGame != OracleGame.Seasons,
                     "Pointer selection must highlight Seasons without confirming it.");
@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
                 screen.RequestPointerSelection(OracleGame.Ages, false);
                 root.Step(1, batched);
                 FailIf(!screen.IsActive || screen.SelectedGame != OracleGame.Ages,
-                    "A disabled Seasons click followed by hovering Ages must not confirm Ages.");
+                    "A Seasons click followed by hovering Ages must not confirm Ages.");
                 var agesOptions = ages.GetNode<TextureButton>("Options");
                 var seasonsOptions = seasons.GetNode<TextureButton>("Options");
                 var agesCursor = agesOptions.GetNode<TextureRect>("Acorn");
@@ -184,7 +184,7 @@ public sealed partial class ValidationRoot
         }
         FailIf(!save.SequenceEqual(_saveData.Serialize()) || _random.Calls != rng,
             "Game selection changed the active gameplay save or RNG.");
-        GD.Print("Validated split-screen selection, paused previews, grayscale, resizing, disabled Seasons, input batching and Ages boot handoff.");
+        GD.Print("Validated split-screen selection, paused previews, grayscale, resizing, input batching and Ages boot handoff.");
     }
 
     private async Task CaptureGameSelectScreens()

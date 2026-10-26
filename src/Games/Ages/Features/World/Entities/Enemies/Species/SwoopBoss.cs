@@ -79,6 +79,7 @@ internal sealed partial class SwoopBoss : EnemyCharacter
         Func<long> animationTick,
         string introMessage)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

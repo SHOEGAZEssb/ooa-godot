@@ -21,7 +21,7 @@ internal sealed class VeranFaceRoomEntity : RoomCutsceneCommandHost,IRoomEntity,
     public override bool HasActorBinding(CutsceneActorId actor)=>actor.Value=="Actor";
     internal VeranFaceRoomEntity(RoomEventContext context,VeranFaceDatabase data,NpcRecord record)
     {
-        Context=context;_data=data;_actor=NpcCharacter.CreateFromRecord(record);
+        Context=context;_data=data;_actor=NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot);
         _actor.SetAnimationRate(0);_actor.SetBlocksLink(false);_actor.SetDialogue(0,"",false);
         _actor.SetScriptPaletteOverrides(data.Palettes);_actor.SetScriptAnimation(record.DownAnimation);_runner=new(this);
     }

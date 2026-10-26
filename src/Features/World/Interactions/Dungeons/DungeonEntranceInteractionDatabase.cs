@@ -9,6 +9,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class DungeonEntranceInteractionDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly EntryRecord[] _entries = new EntryRecord[16];
     private readonly DungeonEntranceInteractionDatabaseVisualRecord[] _eyeVisuals = new DungeonEntranceInteractionDatabaseVisualRecord[8];
@@ -34,10 +36,12 @@ internal sealed class DungeonEntranceInteractionDatabase
     internal IReadOnlyList<DungeonEntranceInteractionDatabaseVisualRecord> EyeVisuals => _eyeVisuals;
     internal DungeonEntranceInteractionDatabaseVisualRecord PortalVisual => _portalVisual;
 
-    public DungeonEntranceInteractionDatabase()
+    public DungeonEntranceInteractionDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable entries = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_entry_data.tsv",
+            AssetRoot + "objects/dungeon_entry_data.tsv",
             new GeneratedTableSchema(
                 "dungeon entry data",
                 GeneratedTableKeySemantics.Unique,
@@ -55,7 +59,7 @@ internal sealed class DungeonEntranceInteractionDatabase
         }
 
         GeneratedTable placements = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_shared_placements.tsv",
+            AssetRoot + "objects/dungeon_shared_placements.tsv",
             new GeneratedTableSchema(
                 "shared dungeon interaction placements",
                 GeneratedTableKeySemantics.Grouped,
@@ -108,7 +112,7 @@ internal sealed class DungeonEntranceInteractionDatabase
         PlacementCount = placementCount;
 
         GeneratedTable visuals = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_shared_visuals.tsv",
+            AssetRoot + "objects/dungeon_shared_visuals.tsv",
             new GeneratedTableSchema(
                 "shared dungeon interaction visuals",
                 GeneratedTableKeySemantics.Unique,
@@ -144,7 +148,7 @@ internal sealed class DungeonEntranceInteractionDatabase
         }
 
         GeneratedTable pairs = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/miniboss_portal_pairs.tsv",
+            AssetRoot + "objects/miniboss_portal_pairs.tsv",
             new GeneratedTableSchema(
                 "miniboss portal pairs",
                 GeneratedTableKeySemantics.Unique,
@@ -159,7 +163,7 @@ internal sealed class DungeonEntranceInteractionDatabase
         }
 
         GeneratedTable constants = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_shared_constants.tsv",
+            AssetRoot + "objects/dungeon_shared_constants.tsv",
             new GeneratedTableSchema(
                 "shared dungeon interaction constants",
                 GeneratedTableKeySemantics.Unique,

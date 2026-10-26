@@ -5,12 +5,12 @@ namespace Oracles;
 internal partial class SandCrabCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
     internal override bool InitializationPending => _state == SandCrabState.Uninitialized;
-
-    private readonly SandCrabBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.SandCrab;
+    private SandCrabBehaviorProfile? _behaviorSourceCache;
+    private SandCrabBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).SandCrab;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
-    private readonly ScentSeedAttraction _scentAttraction = new();
+    private ScentSeedAttraction? _scentAttractionCache;
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
     private SandCrabState _state;
     private int _counter;
     private int _angle;
@@ -36,6 +36,7 @@ internal partial class SandCrabCharacter : EnemyCharacter, ISwitchHookEnemy, ITe
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);

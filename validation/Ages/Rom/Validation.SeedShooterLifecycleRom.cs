@@ -83,8 +83,8 @@ public sealed partial class ValidationRoot
                 MinecartRuntimeState.Reset(_runtimeState, []);
                 MinecartRuntimeState.BeginRide(_runtimeState, 0, 0x00, center, cartDirection);
                 cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, cartDirection, true),
-                    _currentRoom, new DungeonInteractionDatabase(), _runtimeState,
-                    new DungeonInteractionVisualDatabase().Visual("minecart"), _sound.PlaySound);
+                    _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
+                    new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
                 _entities.AddEntity(cart);
             }
             SeedShooterEyeStatueRoomEntity? eye = null;
@@ -92,7 +92,7 @@ public sealed partial class ValidationRoot
             {
                 var data = new SeedShooterEyeStatueDatabase();
                 var record = data.GetRoomRecords(4, 0xba).Single(row => row.PackedPosition == 0x37);
-                eye = new(record, data, new DungeonInteractionVisualDatabase().Visual("seed-shooter-eye-statue"), _entities.SetTrigger);
+                eye = new(record, data, new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("seed-shooter-eye-statue"), _entities.SetTrigger);
                 _entities.AddEntity(eye);
             }
             RotatableSeedThingRoomEntity? reflector = null;
@@ -100,7 +100,7 @@ public sealed partial class ValidationRoot
             {
                 var data = new DungeonMechanicDatabase();
                 var record = data.GetRoomRecords(4, 0xa6).Single(row => row.Id == 0x33 && row.SubId == 0x08);
-                reflector = new(record, data, new DungeonInteractionVisualDatabase().Visual("rotatable-seed-thing"),
+                reflector = new(record, data, new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("rotatable-seed-thing"),
                     _currentRoom, _runtimeState, () => _entities.FrameCounter, _entities.TryCreateSeedReflectorChild);
                 _entities.AddEntity(reflector);
             }
@@ -160,7 +160,7 @@ public sealed partial class ValidationRoot
             int button = primary ? 1 : 2, update = 0, hits = 0;
             if (capacity)
             {
-                var bombs = new BombDatabase().Data;
+                var bombs = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
                 for (int index = 0; index < 5; index++)
                 {
                     _entities.Spawn<BombEffect>(new BombSpawn(_player, bombs, 0, _ => { }));

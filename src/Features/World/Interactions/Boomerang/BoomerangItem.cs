@@ -10,7 +10,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
     private readonly BoomerangDatabase _data;
     private readonly OracleRoomData _room;
     private readonly EnemyAnimationPlayer _animation;
-    private readonly ItemTilePassage _tilePassage = new();
+    private readonly ItemTilePassage _tilePassage;
     private readonly Action<int> _sound;
     private readonly Action<Vector2, int> _clink;
     private readonly Func<int> _damage;
@@ -33,8 +33,10 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
     internal BoomerangItem(OracleRoomData room, Vector2 position, int angle, int zHigh, Func<int> damage,
         Action<int> sound, Action<Vector2, int> clink)
     {
+        AssetRoot = room.AssetRoot;
+        _tilePassage = new ItemTilePassage(AssetRoot);
         if (angle is < 0 or > 0x1f) throw new ArgumentOutOfRangeException(nameof(angle));
-        _data = BoomerangDatabase.Shared;
+        _data = BoomerangDatabase.For(AssetRoot);
         _room = room;
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
@@ -45,7 +47,7 @@ internal partial class BoomerangItem : TransitionOffsetNode2D
         _clink = clink;
         _animation = new(this, 1);
         // The $84e1 upload maps item tile base$4e to sprite offset zero.
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_boomerang.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + "gfx/spr_boomerang.png"),
             [_data.Animation], 0, _data.OamFlags & 7, sourceGrayscaleInverted: _data.SourceInverted);
         Visible = false;
     }

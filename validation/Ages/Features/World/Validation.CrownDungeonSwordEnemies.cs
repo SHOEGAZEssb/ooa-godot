@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCrownDungeonSwordEnemies()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         foreach (int id in new[] { 0x3d, 0x48 })
         foreach (int subid in new[] { 0, 1 })
         {
@@ -66,8 +66,8 @@ public sealed partial class ValidationRoot
     {
         void Step(int count = 1) =>
             StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
-        var seeds = new SeedSatchelDatabase();
-        var shooter = SeedShooterRecord.Load();
+        var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
+        var shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
         EmberSeedEffect Shoot(SwordEnemyCharacter target, int seedItem)
         {
             FailIf(!seeds.TryGet(seedItem, out var seed), $"Missing seed ${seedItem:x2}.");

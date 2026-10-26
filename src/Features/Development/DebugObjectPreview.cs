@@ -7,7 +7,9 @@ namespace Oracles;
 // Presentation only: never allocate an actor or run its initialization/AI.
 internal sealed class DebugObjectPreview(EnemyDatabase enemies)
 {
-    private readonly ItemDropDatabase _drops = new();
+    private string AssetRoot => enemies.AssetRoot;
+    private ItemDropDatabase? _dropsSourceCache;
+    private ItemDropDatabase _drops => _dropsSourceCache ??= new(AssetRoot);
     private readonly Dictionary<(bool Drop, int Id, int SubId), Texture2D?> _textures = new();
 
     internal Texture2D? GetTexture(DebugObjectEntry entry, bool isDrop)
@@ -36,18 +38,18 @@ internal sealed class DebugObjectPreview(EnemyDatabase enemies)
     {
         if (id == 3 && subId == 0)
         {
-            var actor = new TwinrovaDatabase().Actor(id);
+            var actor = new TwinrovaDatabase(AssetRoot).Actor(id);
             return new(actor.Sprites, actor.Animations, actor.TileBase, actor.Palette, actor.SourceGrayscaleInverted);
         }
         if(id==0x02&&subId==0)
         {
-            var veran=new VeranFinalDatabase();var actor=veran.Actor(id);
+            var veran=new VeranFinalDatabase(AssetRoot);var actor=veran.Actor(id);
             return new(actor.Sprites,actor.Animations,actor.TileBase,actor.Palette,
                 actor.SourceGrayscaleInverted,veran.Palettes);
         }
         if (id == 0x7f && subId == 0)
         {
-            var king = new KingMoblinDatabase();
+            var king = new KingMoblinDatabase(AssetRoot);
             var actor = king.Actor(id);
             return new(actor.Sprites, actor.Animations, actor.TileBase, actor.Palette,
                 actor.SourceGrayscaleInverted, king.Palettes);
@@ -83,9 +85,9 @@ internal sealed class DebugObjectPreview(EnemyDatabase enemies)
         return null;
     }
 
-    private static Texture2D? BuildRepresentativeFrame(PreviewVisual visual)
+    private Texture2D? BuildRepresentativeFrame(PreviewVisual visual)
     {
-        Image source = EnemyVisualSource.LoadComposite(visual.Sprites);
+        Image source = EnemyVisualSource.LoadComposite(visual.Sprites, AssetRoot);
         Texture2D? best = null;
         int bestArea = 0;
         // Hidden/emerging enemies can start with empty OAM. Use the fullest

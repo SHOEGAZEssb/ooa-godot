@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
                 if(owner.State==5&&!checkedSecret)
                 {
                     checkedSecret=true;Picture("Hero's Secret");
-                    var text=new LinkedGameNpcDatabase().GenerateGameTransferSecretText(_saveData);
+                    var text=new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateGameTransferSecretText(_saveData);
                     FailIf(!text.SequenceEqual(Enumerable.Range(0,24).Select(index=>rom.BankByte(7,0xd460+index))),"Hero's Secret text must match the native flag transform and secret encoder.");
                 }
                 foreach(var actor in _entities.EntityAdapters<CreditsShipRoomEntity>())

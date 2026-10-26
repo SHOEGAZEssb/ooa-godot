@@ -10,6 +10,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class SwordBeamDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly SwordBeamDatabaseRecord[] _records = new SwordBeamDatabaseRecord[4];
     private readonly Texture2D[,] _textures = new Texture2D[4, 2];
@@ -17,8 +19,10 @@ internal sealed class SwordBeamDatabase
     internal IReadOnlyList<SwordBeamDatabaseRecord> Records => _records;
 
     internal SwordBeamDatabase(
-        string path = AgesGameContent.AssetRoot + "metadata/sword_beam.tsv")
+        string path)
     {
+        AssetRoot = OracleAssetPack.RootFor(path);
+
         GeneratedTable table = GeneratedTable.Load(
             path,
             new GeneratedTableSchema(
@@ -63,7 +67,7 @@ internal sealed class SwordBeamDatabase
         {
             SwordBeamDatabaseRecord record = _records[direction];
             Image image = OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
+                AssetRoot + $"gfx/{record.Sprite}.png");
             _textures[direction, 0] = OracleOamCompositor.BuildOamTexture(
                 image, record.Oam, record.TileBase, record.Palette);
             _textures[direction, 1] = OracleOamCompositor.BuildOamTexture(

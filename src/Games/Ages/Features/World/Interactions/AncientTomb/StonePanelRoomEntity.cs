@@ -31,6 +31,7 @@ internal sealed partial class StonePanelRoomEntity : DungeonInteractionVisualEnt
         IReadOnlyDictionary<int, Color[]> palette, OracleRoomData room, OracleSaveData save,
         OracleRuntimeState runtime, Func<int> triggers, Action<int, bool> trigger, Action<int> sound, Func<int> music)
     {
+        AssetRoot = visual.AssetRoot;
         _record = record; _room = room; _save = save; _runtime = runtime;
         _triggers = triggers; _trigger = trigger; _sound = sound; _music = music;
         InitializeVisual(visual, record.Position, paletteOverrides: palette);
@@ -39,6 +40,7 @@ internal sealed partial class StonePanelRoomEntity : DungeonInteractionVisualEnt
     }
     private void Initialize()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         Visible = true;
         if (_save.HasRoomFlag(_record.Group, _record.Room, 0x40))
         {

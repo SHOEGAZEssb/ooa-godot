@@ -5,9 +5,15 @@ namespace Oracles;
 
 internal static class DeathRespawnPresets
 {
-    private static readonly Lazy<(byte Mask,byte[] Values)[]> Presets=new(()=>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<OracleGame, Lazy<(byte Mask, byte[] Values)[]>> Packs = new();
+    private static (byte Mask, byte[] Values)[] ReadPresets(OracleGame game)
     {
-        var rows=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/death_respawn_presets.tsv",new("Death respawn presets",GeneratedTableKeySemantics.Ordered,
+        return Packs.GetOrAdd(game, static selected => new Lazy<(byte Mask, byte[] Values)[]>(() => LoadPresets(selected))).Value;
+    }
+
+    private static (byte Mask, byte[] Values)[] LoadPresets(OracleGame game)
+    {
+        var rows=GeneratedTable.Load(OracleAssetPack.ForGame(game) + "metadata/death_respawn_presets.tsv",new("Death respawn presets",GeneratedTableKeySemantics.Ordered,
             ["index","mask","values","source"],headerRequired:true)).Rows;
         int index=0;
         var presets=rows.Select(row=>
@@ -17,12 +23,12 @@ internal static class DeathRespawnPresets
             if(values.Length!=7||(mask&1)!=0)throw row.Invalid(2,"seven values and a terminating partial-write mask");
             return(mask,values);
         }).ToArray();
-        if(presets.Length!=4)throw new InvalidOperationException("bank1.s:loadDeathRespawnBufferPreset requires the four Ages presets.");
+        if(presets.Length is 0 or > 0x100)throw new InvalidOperationException("bank1.s:loadDeathRespawnBufferPreset requires a nonempty byte-indexed preset table.");
         return presets;
-    });
+    }
     internal static void Load(OracleSaveData save,int index)
     {
-        var presets=Presets.Value;
+        var presets=ReadPresets(save.Game);
         if((uint)index>=presets.Length)throw new NotSupportedException($"loadDeathRespawnBufferPreset: unsupported preset ${index:x2}.");
         save.ApplyDeathRespawnPreset(presets[index].Mask,presets[index].Values);
     }

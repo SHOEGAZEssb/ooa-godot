@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         foreach (int textSpeed in otherTextSpeeds ? Enumerable.Range(0, 5) : new[] { 4 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 3);
             save.SetTextSpeed(textSpeed);
             InitializeTransientSession(save);

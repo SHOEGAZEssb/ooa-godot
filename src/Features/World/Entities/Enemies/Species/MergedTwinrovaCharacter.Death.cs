@@ -10,11 +10,11 @@ internal sealed partial class MergedTwinrovaCharacter
         switch(Substate)
         {
             case 0:
-                if(World.Entities.RuntimeState.ReadWramByte(AgesWramAddress.wDisabledObjects)==0)
+                if(World.Entities.RuntimeState.ReadField("wDisabledObjects")==0)
                 {
                     if(frame.Player.IsDying)return;
-                    World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,1);
-                    World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,1);
+                    World.Entities.RuntimeState.SetField("wDisabledObjects",1);
+                    World.Entities.RuntimeState.SetField("wDisableLinkCollisionsAndMenu",1);
                     frame.Player.ClearNativeItemParents();
                 }
                 Visible=!Visible;

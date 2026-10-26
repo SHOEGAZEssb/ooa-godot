@@ -33,6 +33,7 @@ internal sealed partial class BlueEnergyBeadRoomEntity : DungeonInteractionVisua
     internal BlueEnergyBeadRoomEntity(int index, Vector2 center, byte duration,
         DungeonInteractionVisual visual, OracleRandom random, OracleRuntimeState runtime,bool outgoing=false)
     {
+        AssetRoot = visual.AssetRoot;
         Index = index; Duration = duration; _random = random; _runtime = runtime;_outgoing=outgoing;
         _center = new(OracleObjectPosition.HighByte(center.X), OracleObjectPosition.HighByte(center.Y));
         InitializeVisual(visual, Vector2.Zero, index);
@@ -44,7 +45,7 @@ internal sealed partial class BlueEnergyBeadRoomEntity : DungeonInteractionVisua
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
         if (Finished) return;
-        var data = BlueEnergyBeadDatabase.Shared;
+        var data = BlueEnergyBeadDatabase.For(AssetRoot);
         if (!Initialized)
         {
             Initialized = true;
@@ -78,7 +79,7 @@ internal sealed partial class BlueEnergyBeadRoomEntity : DungeonInteractionVisua
         QueueRedraw();
     }
 
-    private void ResetDelay() => Delay = (_random.Next().Value & BlueEnergyBeadDatabase.Shared.DelayMask) + 1;
+    private void ResetDelay() => Delay = (_random.Next().Value & BlueEnergyBeadDatabase.For(AssetRoot).DelayMask) + 1;
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => SetTransitionDrawOffset(offset);
 }
 

@@ -8,14 +8,18 @@ namespace Oracles;
 // ITEM$0c owns an eight-sector arc rather than the ordinary sword selector.
 internal sealed class BiggoronSwordDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly BiggoronSwordGraphic[] _weapon = new BiggoronSwordGraphic[8];
     private readonly SwordArc[] _arcs = new SwordArc[8];
     private readonly Dictionary<int,List<BiggoronSwordParentFrame>> _parents = new();
     private readonly Dictionary<(int Mode,int Frame,int Direction),LinkGraphicRecord> _link = new();
 
-    internal BiggoronSwordDatabase()
+    internal BiggoronSwordDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/biggoron_sword_animations.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "metadata/biggoron_sword_animations.tsv",
             new GeneratedTableSchema("ITEM$0c animations",GeneratedTableKeySemantics.Unique,
                 ["animation","sprite","tile-base","oam-flags","source-offset","collision",
                  "radius-y","radius-x","damage","health","sound","frames","source"],
@@ -31,7 +35,7 @@ internal sealed class BiggoronSwordDatabase
             _=OracleGraphicsCache.GetAnimationDefinition(graphic.Animation);
             _weapon[i]=graphic;
         }
-        table=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/biggoron_sword_arcs.tsv",
+        table=GeneratedTable.Load(AssetRoot + "metadata/biggoron_sword_arcs.tsv",
             new GeneratedTableSchema("biggoronSwordArcData",GeneratedTableKeySemantics.Unique,
                 ["index","radius-y","radius-x","offset-y","offset-x","source"],["index"],headerRequired:true));
         if(table.Rows.Count!=8) throw new InvalidOperationException("biggoronSwordArcData requires eight ordered sectors.");
@@ -43,7 +47,7 @@ internal sealed class BiggoronSwordDatabase
                 row.Decimal(3,-128,127),row.Decimal(4,-128,127));
             _=row.RequiredString(5);
         }
-        table=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/biggoron_sword_parent_animations.tsv",
+        table=GeneratedTable.Load(AssetRoot + "metadata/biggoron_sword_parent_animations.tsv",
             new GeneratedTableSchema("ITEM$0c parent animations",GeneratedTableKeySemantics.Unique,
                 ["mode","frame","duration","graphic","parameter","source"],["mode","frame"],headerRequired:true));
         if(table.Rows.Count!=12) throw new InvalidOperationException("ITEM$0c requires twelve parent frames in modes $23/$27.");
@@ -59,7 +63,7 @@ internal sealed class BiggoronSwordDatabase
             if(!_parents.TryGetValue(mode,out var frames) || frames.Count!=6 ||
                 (frames[^1].Parameter&0x80)==0 || frames.GetRange(0,5).Exists(frame=>(frame.Parameter&0x80)!=0))
                 throw new InvalidOperationException($"ITEM$0c mode ${mode:x2} lacks its six-frame terminal stream.");
-        table=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/biggoron_sword_link_graphics.tsv",
+        table=GeneratedTable.Load(AssetRoot + "metadata/biggoron_sword_link_graphics.tsv",
             new GeneratedTableSchema("ITEM$0c Link graphics",GeneratedTableKeySemantics.Unique,
                 ["kind","variant","phase","direction","graphics-index","oam-index","byte-offset","oam","source"],
                 ["kind","variant","phase","direction"],headerRequired:true));

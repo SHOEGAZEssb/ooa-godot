@@ -16,8 +16,8 @@ internal sealed partial class FlyingTileSpawnerRoomEntity : Node2D,
     public bool UpdatesDuringDialogue => _state == FlyingTileSpawnerState.Uninitialized;
     public bool UpdatesDuringRoomEntityFreeze => _state == FlyingTileSpawnerState.Uninitialized;
     private readonly ImportedEnemyDefinition _definition;
-    private readonly FlyingTileBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.FlyingTile;
+    private FlyingTileBehaviorProfile _behavior =>
+        EnemyBehaviorTables.For(_definition.AssetRoot).FlyingTile;
     private readonly IReadOnlyList<EnemyBehaviorValue> _layout;
     private readonly bool _countsAsEnemy;
     private readonly OracleRandom _random;
@@ -39,6 +39,7 @@ internal sealed partial class FlyingTileSpawnerRoomEntity : Node2D,
         bool countsAsEnemy,
         OracleRandom random)
     {
+        _definition = definition;
         if (subId < 0 || subId >= _behavior.Layouts.Length)
         {
             throw new ArgumentOutOfRangeException(

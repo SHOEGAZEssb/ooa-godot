@@ -26,6 +26,7 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
         NpcRecord record, IReadOnlyList<string> animations,
         LeverRoomEntity lever, int connectionStep)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (animations.Count != DownwardYOffsets.Length)
         {
             throw new ArgumentException(
@@ -38,7 +39,7 @@ internal sealed partial class LeverConnectionRoomEntity : NpcCharacter,
         _connectionStep = connectionStep;
         Name = "LeverConnection";
         ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
-        Initialize(record);
+        Initialize(record, AgesGameContent.AssetRoot);
         SetBlocksLink(false);
         SetScriptAnimation(animations[0]);
     }

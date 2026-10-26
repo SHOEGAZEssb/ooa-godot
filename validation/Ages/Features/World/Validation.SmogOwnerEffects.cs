@@ -8,7 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogOwnerEffects()
     {
-        var treasures = new TreasureDatabase();
+        var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         foreach (int health in new[] { 0,1,8,11,12,13,16,20 })
         {
             var inventory = new InventoryState(treasures);

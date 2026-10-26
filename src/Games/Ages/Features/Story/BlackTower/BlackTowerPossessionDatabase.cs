@@ -27,7 +27,7 @@ internal sealed class BlackTowerPossessionDatabase
     }
     internal NpcCharacter Actor(int id,int subid,Vector2 position)
     {
-        var actor=NpcCharacter.CreateFromRecord(_actors[(id,subid)] with {X=(int)position.X,Y=(int)position.Y});
+        var actor=NpcCharacter.CreateFromRecord(_actors[(id,subid)] with {X=(int)position.X,Y=(int)position.Y}, AgesGameContent.AssetRoot);
         actor.SetAnimationRate(0);actor.SetBlocksLink(false);actor.SetScriptAnimation(actor.Record.DownAnimation);
         if(id==0x4d && subid==6) {actor.SetBasePalette(6);actor.SetScriptPaletteOverrides(new Dictionary<int,Color[]>{[6]=_evil});}
         return actor;

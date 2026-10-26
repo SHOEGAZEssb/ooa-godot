@@ -27,6 +27,7 @@ internal partial class TokayShopItem : TransitionOffsetNode2D
         int treasure,
         int collisionRadius)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (collisionRadius < 0)
             throw new ArgumentOutOfRangeException(nameof(collisionRadius));
         _frames.Clear();

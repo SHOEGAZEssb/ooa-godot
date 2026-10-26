@@ -9,10 +9,10 @@ public sealed partial class ValidationRoot
 {
     private IRoomEntity CreateOctorokInitializationActor(int sub)
     {
-        var database = EnemyDatabase.Shared;
+        var database = EnemyDatabase.For(AgesGameContent.AssetRoot);
         var source = new RoomObjectRecord(0, 0x33, 0, RoomObjectKind.FixedEnemy,
             9, sub, 2, 1, 72, 80, 0x47, 0);
-        return new RoomEnemyFactory(_entities, database, new RoomEntityResources(_rooms), _rooms)
+        return new RoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms)
             .CreateOrderedEnemy(database.EnemyHandlers.ResolveHandler(source), source,
                 _currentRoom, new(80.25f, 72.5f), 0, 0, EnemyPlacementContext.Unrestricted)
             ?? throw new InvalidOperationException($"Missing Octorok $09:${sub:x2} initializer.");
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             EmberSeedEffect? lure = null;
             if (gate == "scent")
             {
-                var record = new SeedSatchelDatabase().Scent;
+                var record = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Scent;
                 lure = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(new(128, 106), Vector2I.Up, record, 0));
                 for (int wait = 0; lure.ScentTarget is null && wait < 16; wait++)
                     StepGameplayUpdates(1, Vector2.Zero, batched: batched);

@@ -17,7 +17,8 @@ internal sealed partial class ComedianCharacter : NpcCharacter
         NpcRecord npcRecord,
         ComedianEventRecord comedian)
     {
-        Initialize(npcRecord);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(npcRecord, AgesGameContent.AssetRoot);
         _comedian = comedian;
         SetAnimationRate(0.0f);
     }

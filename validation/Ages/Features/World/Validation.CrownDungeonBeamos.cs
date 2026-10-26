@@ -9,7 +9,7 @@ public partial class ValidationRoot
 {
     private void ValidateCrownDungeonBeamosSourceData()
     {
-        var data = EnemyBehaviorTables.Shared.Beamos;
+        var data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Beamos;
         // Independent transcription of enemyCode16 and partCode29 operands.
         FailIf(data.RotationFrames != 5 || data.CooldownFrames != 40 ||
             data.SoundCounter != 11 || data.ChargeFrames != 20 || data.GlowFrames != 20 ||
@@ -30,7 +30,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonBeamosTiming()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var random = new OracleRandom();
         var sounds = new List<int>();
         var spawns = new List<RoomEntitySpawn>();
@@ -127,7 +127,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonBeamosBeam()
     {
-        var data = new BeamosBeamDatabase();
+        var data = new BeamosBeamDatabase(AgesGameContent.AssetRoot);
         FailIf(data.RadiusX != 3 || data.RadiusY != 3 || data.Damage != 2 ||
             data.TileBase != 8 || data.Palette != 4 || data.Animations.Length != 8,
             "PART_BEAM $29 source attributes changed.");
@@ -160,7 +160,7 @@ public partial class ValidationRoot
         beam.Free();
         for (int level = 1; level <= 3; level++)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             var inventory = new InventoryState(_treasures, save);
             inventory.GiveTreasure(_treasures.GetObject($"TREASURE_OBJECT_SHIELD_0{level - 1}"));
             inventory.EquipA(TreasureId.Shield);
@@ -181,7 +181,7 @@ public partial class ValidationRoot
         }
         foreach (bool ring in new[] { false, true })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             if (ring) { save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1); save.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)RingId.BlueLuck); }
             var inventory = new InventoryState(_treasures, save);
             if (ring) FailIf(!inventory.EquipRingAt(0), "Could not equip Blue Luck Ring for $29 collision.");

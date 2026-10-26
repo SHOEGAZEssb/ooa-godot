@@ -2,7 +2,8 @@
 
 This project reconstructs *The Legend of Zelda: Oracle of Ages* and prepares
 the shared engine for *Oracle of Seasons* in Godot 4.7.1/.NET. Ages is playable;
-Seasons currently provides its game-selector preview only.
+Seasons has title and file menus and supports the standard new-game opening through Din's capture and
+Impa returning control to Link. Further Seasons progression is not implemented.
 
 The project aims to reproduce the supported clean US game exactly. ROM behavior
 and `oracles-disasm` are the authority for data, timing, coordinates, object
@@ -52,7 +53,7 @@ On Linux, run `pwsh -NoProfile -File tools/import_oracles.ps1`. The same
 `-Rom` and `-Disassembly` options accept native Linux paths.
 
 Generated files are written to `assets/oracle/ages/` and
-`assets/oracle/seasons/preview/`, with a table manifest for each game pack.
+`assets/oracle/seasons/`, with a table manifest for each game pack.
 Change the importer and regenerate them; never edit generated files directly.
 
 Launch the game selector, then choose Ages for its title and file-select flow:
@@ -60,6 +61,11 @@ Launch the game selector, then choose Ages for its title and file-select flow:
 ```powershell
 Godot_v4.7.1-stable_mono_win64_console.exe --path .
 ```
+
+Choosing Seasons preloads its assets while Din dances, then opens its title
+and three-file menu. Name entry, message speed, copy and erase use separate
+Seasons save files. The supported files start the standard opening; linked
+games and saving/resuming later gameplay are not available yet.
 
 Launch directly into a hexadecimal group and room for development:
 

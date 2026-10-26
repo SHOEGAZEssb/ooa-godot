@@ -28,8 +28,8 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(128, 112), recordSafe: false);
         OracleRoomData room = _rooms.CurrentRoom;
         Vector2 point = new(72, 56);
-        var drops = new ItemDropDatabase();
-        var digging = new DiggingEnemyDatabase();
+        var drops = new ItemDropDatabase(AgesGameContent.AssetRoot);
+        var digging = new DiggingEnemyDatabase(AgesGameContent.AssetRoot);
         ItemDropDatabaseVisualRecord visual = drops.GetVisual(0x0f);
 
         // Use the real $3a ground row (drop table $89) through ShovelController.

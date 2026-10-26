@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             rom.Word(0xd00a,(int)selected.Start.Y*256+128); rom.Word(0xd00c,(int)selected.Start.X*256+64);
             rom.InitializeLinkGameplay(); rom.InitializeLinkWalkingAnimation();
             StepSomariaMotionRom(rom,9,batched,angle);
-            var data = new DungeonInteractionDatabase();
+            var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
             var record = new SkullDungeonDatabase().GetRoomRecords(4,0x71).Single(row => row.Id == 0x22);
             IRoomEntity actor;
             if (kind == 0) actor = new ToggleFloorRoomEntity(_currentRoom,data,() => _runtimeState.ReadWramByte(AgesWramAddress.wActiveTilePos),

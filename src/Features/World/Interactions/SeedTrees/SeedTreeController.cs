@@ -33,6 +33,7 @@ internal partial class SeedTreeController : TransitionOffsetNode2D
         OracleRoomData room,
         OracleRuntimeState runtime)
     {
+        AssetRoot = database.AssetRoot;
         _database = database;
         _record = record;
         _runtime = runtime;

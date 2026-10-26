@@ -40,8 +40,8 @@ public sealed partial class ValidationRoot
             _currentRoom.SetPositionTileAndCollision(center - (Vector2)directions[direction] * 16, 0x5f, 0, 0);
             MinecartRuntimeState.Reset(_runtimeState, [new MinecartStaticRecord(0, 0x00, 72, 88, "ROM approach fixture")]);
             var cart = new MinecartRoomEntity(new ActiveMinecart(0, 0x00, 72, 88, -1, false),
-                _currentRoom, new DungeonInteractionDatabase(), _runtimeState,
-                new DungeonInteractionVisualDatabase().Visual("minecart"), _sound.PlaySound);
+                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
             _entities.AddEntity(cart);
             Vector2 start = center - (Vector2)inputs[angle / 4] * 24 + new Vector2(0.25f, 0.5f);
             _player.WarpTo(start); _player.Face(directions[angle / 8]);

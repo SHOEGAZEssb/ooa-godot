@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullEnergyBeads()
     {
-        var data = BlueEnergyBeadDatabase.Shared;
+        var data = BlueEnergyBeadDatabase.For(AgesGameContent.AssetRoot);
         FailIf(data.Count != 8 || data.Speed != 0x78 || data.Radius != 0x38 || data.DelayMask != 7 || data.DeleteAddress != 0xcd2d,
             "PART_BLUE_ENERGY_BEAD lost its source eight-slot allocation, SPEED_300, radius38, delay mask07 or cd2d signal.");
         // SPEED_100 signed vectors times $38, taking only each high byte.

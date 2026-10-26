@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
         for(int repeat=0;repeat<2;repeat++)
         {
             StepGameplayUpdates(66,Vector2.Zero);
-            int selected=EyePuzzleDatabase.Shared.CorrectDirection(_runtimeState);
+            int selected=EyePuzzleDatabase.For(AgesGameContent.AssetRoot).CorrectDirection(_runtimeState);
             Vector2I exit=directions[selected];
             _player.WarpTo(selected switch{0=>new(0x78,24),1=>new(_currentRoom.Width-24,0x58),_=>new(24,0x58)});
             int walked=0;
@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
         var arrivedEyes=_entities.Entities<StatueEyeball>();
         FailIf(_currentRoom.Id!=0xf3||arrivedEyes.Count!=10||arrivedEyes.Any(eye=>(eye.Direction&1)!=0)||
             arrivedEyes.Select(eye=>eye.Direction/2).Distinct().Count()!=3||
-            arrivedEyes.Any(eye=>eye.Direction/2==EyePuzzleDatabase.Shared.CorrectDirection(_runtimeState)),
+            arrivedEyes.Any(eye=>eye.Direction/2==EyePuzzleDatabase.For(AgesGameContent.AssetRoot).CorrectDirection(_runtimeState)),
             "Scrolling from 5:f4 must produce ten stopped pupils showing precisely the three wrong directions.");
         for (int count = 0; count <= 6; count++)
         for (int correct = 0; correct < 4; correct++)
@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
             native[0xcc37] = (byte)count; native[0xcc38] = 0x55;
             native[0xcca5] = (byte)correct; native[0xcd02] = (byte)direction;
             native[0xcc30] = 0xf3; native[0xcc2d] = 5; native[0xcc2e] = 1;
-            var puzzle = EyePuzzleDatabase.Shared;
+            var puzzle = EyePuzzleDatabase.For(AgesGameContent.AssetRoot);
             bool loops = puzzle.TryResolve(memory, 5, 0xf3, directions[direction], out int target);
             FailIf(memory.ReadWramByte(0xcc37) != count, "Eye maze preview query mutated its progress byte.");
             puzzle.CommitTransition(memory, 5, 0xf3, directions[direction]);

@@ -13,7 +13,8 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
         ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity,
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
-    private readonly BallChainBehaviorProfile _data = EnemyBehaviorTables.Shared.BallChain;
+    private BallChainBehaviorProfile? _dataSourceCache;
+    private BallChainBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).BallChain;
     private int _swordCollision = ItemCollisionType.L1Sword;
     private int _attackerFrames;
     private Vector2? _shieldClink;
@@ -43,7 +44,7 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
         RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds);
     public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = BoomerangCollisionDatabase.Shared;
+        var data = BoomerangCollisionDatabase.For(AssetRoot);
         if (!item.CollisionEnabled || !data.PartEnabled(0x2a) || !Overlaps(ItemCollisionType.L1Boomerang, item.CollisionBounds) ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7)) return default;
         int effect = data.Effect(EnemyCollisionMode.SpikedBall);
@@ -89,7 +90,7 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
             case CollisionEffect.Effect16:
             case CollisionEffect.Effect17:
                 Entity.InvincibilityCounter = -28; // ENEMYDMG_34=$60,$e4,0,0.
-                var recoil = EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+                var recoil = EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback;
                 _attackerFrames = effect == CollisionEffect.Effect15 ? recoil.LowFrames : effect == CollisionEffect.Effect16 ? recoil.NormalFrames : recoil.HighFrames;
                 sound(SoundId.SndBombLand);
                 break;
@@ -122,7 +123,7 @@ internal sealed class SpikedBallRoomEntity(SpikedBallPart part, Action<int> soun
     public SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
         if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("PART_SPIKED_BALL $2a requires Mystery's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
+        if (!new SeedSatchelDatabase(AssetRoot).TryGet(seedItem, out var seed)) return SeedHitResult.None;
         return ApplySeedCollision(bounds, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public void HandleLinkContact(Player player)

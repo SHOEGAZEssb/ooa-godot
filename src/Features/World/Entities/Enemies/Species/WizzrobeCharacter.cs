@@ -6,7 +6,8 @@ namespace Oracles;
 // common/enemies/wizzrobe.s: three profiles share status and reservation ownership.
 internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
-    private readonly WizzrobeBehaviorProfile _data = EnemyBehaviorTables.Shared.Wizzrobe;
+    private WizzrobeBehaviorProfile? _dataSourceCache;
+    private WizzrobeBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Wizzrobe;
     private OracleRandom _random = null!;
     private OracleRuntimeState _memory = null!;
     private OracleRoomData _room = null!;
@@ -34,6 +35,7 @@ internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEne
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position,
         OracleRandom random, OracleRuntimeState memory, Func<Vector2> camera)
     {
+        AssetRoot = record.AssetRoot;
         Record = record; _room = room; _random = random; _memory = memory; _camera = camera;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));
         _movement = new(this, room);
@@ -53,7 +55,7 @@ internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEne
             State = 8;
             // Each newly initialized red clears this shared union in native slot order.
             for (int i = 0; i < _data.ReservationBytes; i++)
-                _memory.SetWramByte(AgesWramAddress.wWizzrobePositionReservations + i, 0);
+                _memory.SetField("wWizzrobePositionReservations", 0, i);
         }
         else if (Record.SubId == 2)
         {
@@ -216,10 +218,10 @@ internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEne
         if (_slot < 0) throw new InvalidOperationException("ENEMY$40:$01 needs its native slot to reserve a destination.");
         byte packed = (byte)_room.GetPackedPosition(position);
         for (int i = 0; i < _data.ReservationCount; i++)
-            if (_memory.ReadWramByte(AgesWramAddress.wWizzrobePositionReservations + 2 * i) == packed) return false;
+            if (_memory.ReadField("wWizzrobePositionReservations", 2 * i) == packed) return false;
         for (int i = 0; i < _data.ReservationCount; i++)
         {
-            int address = AgesWramAddress.wWizzrobePositionReservations + 2 * i;
+            int address = _memory.FieldAddress("wWizzrobePositionReservations", 2 * i);
             if (_memory.ReadWramByte(address) != 0) continue;
             _memory.SetWramByte(address, packed);
             _memory.SetWramByte(address + 1, (byte)(0xd0 + _slot));
@@ -230,7 +232,7 @@ internal sealed partial class WizzrobeCharacter : EnemyCharacter, ISwitchHookEne
     }
     internal void RemoveReservation()
     {
-        int address = (AgesWramAddress.wWizzrobePositionReservations & 0xff00) | Reservation;
+        int address = (_memory.FieldAddress("wWizzrobePositionReservations") & 0xff00) | Reservation;
         if (_slot < 0 || _memory.ReadWramByte(address) != 0xd0 + _slot) return;
         _memory.SetWramByte(address, 0); _memory.SetWramByte(address - 1, 0);
     }

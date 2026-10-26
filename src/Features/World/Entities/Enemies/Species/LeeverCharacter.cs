@@ -5,9 +5,8 @@ namespace Oracles;
 internal partial class LeeverCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => _state == LeeverState.Uninitialized;
-
-    private readonly LeeverBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Leever;
+    private LeeverBehaviorProfile? _behaviorSourceCache;
+    private LeeverBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Leever;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private LeeverState _state;
@@ -28,6 +27,7 @@ internal partial class LeeverCharacter : EnemyCharacter
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

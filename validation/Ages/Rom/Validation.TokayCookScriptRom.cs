@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach(int trade in new[]{0,1,2,3})
         foreach(int choice in trade==2 ? new[]{0,1} : new[]{0})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);_inventory.GiveTreasure(TreasureId.TradeItem,trade);
             if(trade==0)_inventory.LoseTreasure(TreasureId.TradeItem);
@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
             native[at+11]=(byte)actor.Position.Y;native[at+13]=(byte)actor.Position.X;
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(new(24,24),SoundId.MusNone);
+                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
                 _entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int occupied=0xd040+_entities.InteractionSlot(puff)*256;
                 // A state-one museum statue is inert while inPresent=$00.

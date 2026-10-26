@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             if (textSpeed != 4 && kind != 0) continue;
             // First free appraisal, paid new/duplicate, insufficient money,
             // and the hundredth appraisal. Native text thread drives the gate.
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetTextSpeed(textSpeed);
             if (kind != 0) save.SetGlobalFlag(8);
             save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);

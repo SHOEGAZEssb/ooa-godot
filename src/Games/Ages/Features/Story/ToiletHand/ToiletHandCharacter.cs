@@ -20,6 +20,7 @@ internal sealed partial class ToiletHandCharacter : NpcCharacter
         NpcRecord record,
         ToiletHandEventRecord metadata)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (record is not
             {
                 Group: 2,
@@ -35,7 +36,7 @@ internal sealed partial class ToiletHandCharacter : NpcCharacter
         }
 
         _metadata = metadata;
-        Initialize(record);
+        Initialize(record, AgesGameContent.AssetRoot);
         SetCollisionRadii(
             metadata.CollisionRadiusY,
             metadata.CollisionRadiusX);

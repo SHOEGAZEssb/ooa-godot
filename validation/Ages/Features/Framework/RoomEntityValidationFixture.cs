@@ -35,9 +35,9 @@ internal sealed class RoomEntityValidationFixture : IDisposable
         _ownsRoot = ownsRoot;
         Manager = new RoomEntityManager(
             root,
-            options.Npcs ?? new NpcDatabase(),
-            options.Enemies ?? new EnemyDatabase(),
-            options.ItemDrops ?? new ItemDropDatabase(),
+            options.Npcs ?? new NpcDatabase(AgesGameContent.AssetRoot),
+            options.Enemies ?? new EnemyDatabase(AgesGameContent.AssetRoot),
+            options.ItemDrops ?? new ItemDropDatabase(AgesGameContent.AssetRoot),
             options.TimePortals ?? new TimePortalDatabase(),
             options.Random ?? new OracleRandom(),
             options.SaveData,

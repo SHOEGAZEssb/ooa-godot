@@ -37,7 +37,7 @@ internal partial class DungeonKeyUseEffect : FixedEffectNode2D
         Visible = false;
         Position = position;
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
+            visual.AssetRoot + $"gfx/{visual.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
         bool validSmallKey = visual.Graphic == 0x42 && visual.TileBase == 0x0c;

@@ -15,7 +15,7 @@ internal sealed class NayruIntroEvent :
     private readonly RoomEventContext _context;
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
-    private readonly RoomTransitionController _transitions;
+    private readonly AgesRoomTransitionController _transitions;
     private readonly Player _player;
     private readonly RoomView _roomView;
     private readonly InventoryState _inventory;
@@ -559,14 +559,14 @@ internal sealed class NayruIntroEvent :
         EventResources.CaptureFullScreenFade();
         _nayruHud.Visible = false;
         _nayruFade.Color = Colors.White;
-        _counter = (int)InventoryMenuController.FastFadeFrames;
+        _counter = (int)AgesInventoryMenuController.FastFadeFrames;
         _nayruStage = NayruStage.SingingFadeIn;
     }
 
     private void UpdateNayruSingingFade(bool fadeIn)
     {
         _counter--;
-        float progress = 1.0f - _counter / InventoryMenuController.FastFadeFrames;
+        float progress = 1.0f - _counter / AgesInventoryMenuController.FastFadeFrames;
         _nayruFade.Color = new Color(1, 1, 1, fadeIn ? 1.0f - progress : progress);
         if (_counter != 0)
             return;
@@ -603,7 +603,7 @@ internal sealed class NayruIntroEvent :
         if (remaining > 0 && !skip)
             return;
         _context.Sound.PlaySound(SoundId.SndCloseMenu);
-        _counter = (int)InventoryMenuController.FastFadeFrames;
+        _counter = (int)AgesInventoryMenuController.FastFadeFrames;
         _nayruStage = NayruStage.SingingFadeOut;
     }
 

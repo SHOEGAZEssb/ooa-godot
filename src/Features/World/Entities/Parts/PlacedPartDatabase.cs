@@ -7,12 +7,16 @@ namespace Oracles;
 
 internal sealed class PlacedPartDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int, PlacedPartDefinition> _definitions = new();
     private readonly Dictionary<string, byte[]> _tables = new();
 
-    internal PlacedPartDatabase()
+    internal PlacedPartDatabase(string assetRoot)
     {
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/placed_parts.tsv",
+        AssetRoot = assetRoot;
+
+        foreach (var row in GeneratedTable.Load(AssetRoot + "objects/placed_parts.tsv",
             new("placed PART definitions", GeneratedTableKeySemantics.Unique,
                 ["id", "sprite", "tile-base", "palette", "source-grayscale-inverted", "radius-y", "radius-x",
                     "damage-quarters", "health", "mode", "initial-collision", "animations-base64", "source"],
@@ -22,11 +26,11 @@ internal sealed class PlacedPartDatabase
             if (id is not (PartId.FallingFire or PartId.SmallFairy)) throw row.Invalid(0, "PART $23/$28");
             string[] animations = Encoding.UTF8.GetString(Convert.FromBase64String(row.RequiredString(11))).Split('\n');
             if (animations.Length != 2) throw row.Invalid(11, "two PART animation entries");
-            _definitions.Add(id, new(new($"part-{id:x2}", [row.RequiredString(1)], row.Decimal(2), row.Decimal(3),
+            _definitions.Add(id, new(new(AssetRoot, $"part-{id:x2}", [row.RequiredString(1)], row.Decimal(2), row.Decimal(3),
                 row.Boolean01(4), animations), row.Decimal(5), row.Decimal(6), row.Decimal(7), row.Decimal(8), row.HexByte(9),
                 row.Boolean01(10)));
         }
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/placed_part_tables.tsv",
+        foreach (var row in GeneratedTable.Load(AssetRoot + "objects/placed_part_tables.tsv",
             new("placed PART tables", GeneratedTableKeySemantics.Unique,
                 ["profile", "values", "source"], ["profile"], headerRequired: true)).Rows)
             _tables.Add(row.RequiredString(0), row.SplitRequired(1, ',').Select(value => Convert.ToByte(value, 16)).ToArray());

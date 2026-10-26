@@ -24,6 +24,7 @@ internal sealed partial class VeranChildBeeCharacter : EnemyCharacter
     internal override bool InitializationPending=>State==0;
     internal VeranChildBeeCharacter(RoomEntityManager owner,VeranFinalDatabase data,int subid,Vector2 position,OracleRoomData room)
     {
+        AssetRoot = owner.AssetRoot;
         _owner=owner;_data=data;SubId=subid;
         InitializeEnemy(position.Floor(),EnemyCharacterConfiguration.FromImported(data.Actor(0x1f)),paletteOverrides:data.Palettes,positionedOam:true);
         ConfigureSwordKnockback(room,EnemyKnockbackMotion.ScreenBoundary,nativeSpeed:()=>Speed);Visible=false;

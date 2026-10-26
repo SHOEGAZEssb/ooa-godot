@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         foreach (bool toA in new[] { false, true })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc6aa, (byte)maximum); save.WriteWramByte(0xc6ab, (byte)maximum);
             save.WriteWramByte(AgesWramAddress.wInventoryStorage, (byte)item);
             int flagAddress = AgesWramAddress.wObtainedTreasureFlags + item / 8;

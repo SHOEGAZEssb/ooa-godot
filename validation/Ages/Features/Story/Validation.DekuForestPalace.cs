@@ -452,7 +452,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !OracleSaveData.TryDeserialize(
-                originalSaveImage, out OracleSaveData? originalSave),
+                originalSaveImage, OracleGame.Ages, out OracleSaveData? originalSave),
             "Could not restore the pre-palace save image after validation.");
         _saveData.RestoreFrom(originalSave!);
         var reloadInventory = typeof(InventoryState).GetMethod(
@@ -462,7 +462,7 @@ public sealed partial class ValidationRoot
         FailIf(
             reloadInventory is null,
             "Could not resolve InventoryState.LoadFromSaveData after palace validation.");
-        reloadInventory.Invoke(_inventory, null);
+        reloadInventory.Invoke(_inventory, new object[] { _saveData });
 
         GD.Print(
             "Validated the complete Mystery Seeds palace sequence: 1:46/1:36/" +

@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
             try
             {
                 Vector2I offset = new(0, edge.Z);
-                bomb.Initialize(new BombDatabase().Data, _currentRoom, new BreakableTileDatabase(),
+                bomb.Initialize(new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, _currentRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
                     fixture.Player, 0, b => b.ReleaseExploding(fixture.Player, offset),
                     sounds.Add, (_, _, _) => { }, () => { }, () => 0, _ => null, null, null);
                 bomb.SetHeldOffset(fixture.Player, offset);

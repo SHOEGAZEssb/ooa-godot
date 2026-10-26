@@ -7,7 +7,7 @@ public partial class ValidationRoot
 {
     private void CompareGraveyardKeyholeRom()
     {
-        FailIf(!new KeyholeControllerDatabase().TryGet(0,0x5c,out var placement) ||
+        FailIf(!new KeyholeControllerDatabase(AgesGameContent.AssetRoot).TryGet(0,0x5c,out var placement) ||
             placement is not { Order:1,Id:0xdc,SubId:1,Position.X:0,Position.Y:0 },
             "Original Graveyard$dc:$01 is source object1 with absent coordinate operands.");
         int fixture = 0;

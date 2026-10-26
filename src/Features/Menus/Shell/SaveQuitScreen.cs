@@ -11,6 +11,8 @@ namespace Oracles;
 /// </summary>
 public partial class SaveQuitScreen : Node2D
 {
+    [Export] public string AssetRoot { get; set; } = string.Empty;
+
     private const int SaveErrorZIndex = 1;
     // These ten finished backgrounds depend only on packaged graphics, maps,
     // and palettes. Publish the complete set after staged preparation; never
@@ -67,8 +69,8 @@ public partial class SaveQuitScreen : Node2D
     internal System.Collections.Generic.IEnumerable<bool> PrepareResources()
     {
         if (_resourcesPrepared) yield break;
-        _fileSprites = LoadPng(AgesGameContent.AssetRoot + "menu/spr_fileselect_decorations.png");
-        _spritePalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_sprites.bin");
+        _fileSprites = LoadPng(AssetRoot + "menu/spr_fileselect_decorations.png");
+        _spritePalette = LoadPalette(AssetRoot + "menu/palette_file_sprites.bin");
         if (_sharedBackgrounds is { } shared)
         {
             _standardBackground = shared.Standard;
@@ -77,19 +79,19 @@ public partial class SaveQuitScreen : Node2D
         }
         else
         {
-            _standardBackground = NativeMenuPresentation.BuildBackground(gameOver: false);
+            _standardBackground = new NativeMenuPresentation(AssetRoot).BuildBackground(gameOver: false);
             yield return false;
-            _gameOverBackground = NativeMenuPresentation.BuildBackground(gameOver: true);
+            _gameOverBackground = new NativeMenuPresentation(AssetRoot).BuildBackground(gameOver: true);
             yield return false;
             using (Image original = _standardBackground.GetImage())
             {
                 for (int i = 0; i < 8; i++)
                 {
-                    _optionsBackgrounds[i] = NativeMenuPresentation.BuildOptions(
+                    _optionsBackgrounds[i] = new NativeMenuPresentation(AssetRoot).BuildOptions(
                         original, (i & 1) != 0, (i & 2) != 0, (i & 4) != 0);
                     yield return false;
                 }
-                _standardBackground = NativeMenuPresentation.BuildSave(original);
+                _standardBackground = new NativeMenuPresentation(AssetRoot).BuildSave(original);
             }
             _sharedBackgrounds = (_standardBackground, _gameOverBackground,
                 (Texture2D[])_optionsBackgrounds.Clone());
@@ -193,11 +195,11 @@ public partial class SaveQuitScreen : Node2D
             return;
         DrawTexture(_background, Vector2.Zero);
         FileMenuPresentation.DrawDecorations(
-            this, _fileSprites, _spritePalette);
+            this, _fileSprites, _spritePalette, MenuPresentationDatabase.For(AssetRoot).FileOam("decorations"));
         if (!SaveErrorVisible && (DelayCounter & 0x04) == 0)
         {
             MenuOamPart acorn =
-                MenuPresentationDatabase.Shared.FileOam("save-quit-acorn")[0];
+                MenuPresentationDatabase.For(AssetRoot).FileOam("save-quit-acorn")[0];
             OracleTileRenderer.DrawOamTile(
                 this,
                 _fileSprites,

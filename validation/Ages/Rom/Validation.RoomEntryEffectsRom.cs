@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach (int active in new[] { 0, 0xff, 0x28 })
         foreach (int direction in room.Id == 0x39 ? new[] { 0, 1, 2, 3 } : new[] { 0 })
         {
-            _saveData.RestoreFrom(OracleSaveData.CreateStandardGame());
+            _saveData.RestoreFrom(OracleSaveData.CreateStandardGame(OracleGame.Ages));
             _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
             _saveData.SetGlobalFlag(AgesGlobalFlag.SavedNayru, flag);
             _saveData.SetGlobalFlag(AgesGlobalFlag.RalphEnteredPortal, flag);

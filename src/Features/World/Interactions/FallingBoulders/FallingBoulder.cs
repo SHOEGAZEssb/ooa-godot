@@ -12,7 +12,7 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
     private readonly EnemyAnimationPlayer _animation;
     private readonly OracleRoomData _room;
     private readonly Func<Vector2, Vector2> _worldToScreen;
-    private readonly TerrainShadowDefinition _shadow = TerrainShadow.Load();
+    private TerrainShadowDefinition _shadow => TerrainShadow.Load(AssetRoot);
     private int _frameCounter;
     private OracleObjectPosition _position;
     private Vector2 _origin;
@@ -38,6 +38,7 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
     internal FallingBoulder(int subId, Vector2 position, FallingBoulderDatabase data,
         OracleRandom random, Action<int> sound, OracleRoomData room, Func<Vector2, Vector2> worldToScreen)
     {
+        AssetRoot = data.AssetRoot;
         if ((uint)subId >= data.Delays.Length)
             throw new InvalidOperationException($"fallingBoulderSpawner.s: unsupported PART $45:${subId:x2}.");
         SubId = subId;
@@ -52,7 +53,7 @@ internal sealed partial class FallingBoulder : TransitionOffsetNode2D
         Visible = false;
         ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex; // fallingBoulderSpawner.s: visiblec1.
         _animation = new(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{data.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{data.Sprite}.png"),
             [data.Animation], data.TileBase, data.Palette,
             sourceGrayscaleInverted: data.SourceGrayscaleInverted);
         _animation.SetAnimation(0);

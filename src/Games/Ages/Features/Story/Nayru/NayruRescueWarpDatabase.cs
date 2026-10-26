@@ -45,7 +45,7 @@ internal sealed class NayruRescueWarpDatabase
     }
     internal NpcCharacter CreateActor(int id,int subid,Vector2 position)
     {
-        var actor=NpcCharacter.CreateFromRecord(_actors[(id,subid)] with {X=(int)position.X,Y=(int)position.Y});
+        var actor=NpcCharacter.CreateFromRecord(_actors[(id,subid)] with {X=(int)position.X,Y=(int)position.Y}, AgesGameContent.AssetRoot);
         foreach(string sprite in _sprites[(id,subid)][1..]) actor.AppendScriptGraphics(sprite);
         actor.SetAnimationRate(0);actor.SetBlocksLink(false);actor.SetDialogue(0,"",false);return actor;
     }

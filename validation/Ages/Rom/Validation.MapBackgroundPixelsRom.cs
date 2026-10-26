@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
         foreach (bool allVisited in new[] { false, true })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetGlobalFlag(GlobalFlag.IntroDone);
             save.WriteWramByte(0xc610, (byte)companion);
             save.SetRoomFlag(0, 0x13, 1, city); save.SetRoomFlag(1, 0x41, 1, stone);
@@ -58,7 +58,7 @@ public sealed partial class ValidationRoot
         // Compare the screen's actual composed background with independent CGB
         // decoding of executed native loaders. Sprites and hardware timing are
         // separate boundaries. Recheck whenever the production texture changes.
-        var texture = (Texture2D)typeof(MapScreen).GetField("_background",
+        var texture = (Texture2D)typeof(AgesMapScreen).GetField("_background",
             BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_mapScreen)!;
         if (ReferenceEquals(texture, previous)) return;
         previous = texture;

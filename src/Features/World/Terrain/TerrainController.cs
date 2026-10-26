@@ -5,6 +5,8 @@ namespace Oracles;
 
 public sealed class TerrainController
 {
+    private string AssetRoot => _rooms.AssetRoot;
+
     private const int MaximumLandingScanSteps = 32;
 
     private readonly RoomSession _rooms;
@@ -25,8 +27,8 @@ public sealed class TerrainController
     {
         _rooms = rooms;
         _breakables = breakables;
-        _ledges = new LedgeJumpDatabase();
-        _sideScroll = new SideScrollPlayerDatabase();
+        _ledges = new LedgeJumpDatabase(AssetRoot);
+        _sideScroll = new SideScrollPlayerDatabase(AssetRoot);
         _adjacentWallsBitset = adjacentWallsBitset;
         _createSplash = createSplash;
     }

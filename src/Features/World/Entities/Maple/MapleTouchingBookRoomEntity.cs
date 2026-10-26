@@ -36,9 +36,10 @@ internal sealed partial class MapleTouchingBookRoomEntity : TransitionOffsetNode
         ZFixed = (spawn.ZFixed >> 8) << 8;
         Visible = false;
         var visual = spawn.Visual;
+        AssetRoot = visual.AssetRoot;
         AnimationFrameDefinition frame = OracleGraphicsCache.GetAnimationDefinition(visual.Animation).Frames[0];
         _texture = OracleOamCompositor.BuildOamTexture(OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"), frame.EncodedOam, visual.TileBase, visual.Palette);
+            AssetRoot + $"gfx/{visual.Sprite}.png"), frame.EncodedOam, visual.TileBase, visual.Palette);
     }
 
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
@@ -47,7 +48,7 @@ internal sealed partial class MapleTouchingBookRoomEntity : TransitionOffsetNode
         if (State == 0)
         {
             // touchingBook.s state0 writes the menu lock even while waiting.
-            _memory.SetWramByte(AgesWramAddress.wMenuDisabled, 1);
+            _memory.SetField("wMenuDisabled", 1);
             if (frame.Player.KnockbackFrames != 0) return;
             // HL still addresses w1Link.knockbackCounter when objectTakePosition
             // copies high XYZ, never Maple's precise position or height.
@@ -124,7 +125,7 @@ internal sealed partial class MapleTouchingBookRoomEntity : TransitionOffsetNode
             case 8:
                 if (_counter != 0) { _counter--; return; }
                 if (_maple.BookTextActive) return;
-                _memory.SetWramByte(AgesWramAddress.wDisabledObjects, 1);
+                _memory.SetField("wDisabledObjects", 1);
                 _maple.SignalBookDeparture();
                 Finish();
                 return;

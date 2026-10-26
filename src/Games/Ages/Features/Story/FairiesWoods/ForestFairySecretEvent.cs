@@ -90,7 +90,7 @@ internal sealed class ForestFairySecretEvent : InteractiveInfiniteScriptHost<Npc
                     throw UnsupportedCommand("acquire MENU_SECRET for FAIRY_SECRET $01");
                 break;
             case "GenerateSecret":
-                _returnSecret = new LinkedGameNpcDatabase().GenerateSecret(0x11,
+                _returnSecret = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x11,
                     Context.Rooms.SaveData);
                 break;
             default:

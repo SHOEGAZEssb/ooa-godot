@@ -6,8 +6,8 @@ namespace Oracles;
 internal sealed partial class GopongaFlowerCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
-
-    private readonly IReadOnlyList<EnemyBehaviorValue> _profile = EnemyBehaviorTables.Shared.GopongaFlower;
+    private IReadOnlyList<EnemyBehaviorValue>? _profileSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _profile => _profileSourceCache ??= EnemyBehaviorTables.For(AssetRoot).GopongaFlower;
     private OracleRandom _random = null!;
     internal ImportedEnemyDefinition Record { get; private set; }
     internal int State { get; private set; }
@@ -15,6 +15,7 @@ internal sealed partial class GopongaFlowerCharacter : EnemyCharacter
 
     internal void Initialize(ImportedEnemyDefinition record, Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _random = random;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));

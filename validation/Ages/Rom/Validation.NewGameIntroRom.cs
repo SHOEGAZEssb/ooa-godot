@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
         AddChild(root);
         try
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetLinkName("Zelda");
             save.SetTextSpeed(speed);
             for (int index = 0; index < 4; index++) save.WriteWramByte(0xc622 + index, (byte)(playtime >> (index * 8)));
@@ -42,7 +42,7 @@ public sealed partial class ValidationRoot
             root.Step(32, batched);
             root.Step(1, batched, "attack");
             root.Step(1, batched, "attack");
-            byte[] stored = root.FileSlotSnapshot(0);
+            byte[] stored = root.FileSlotSnapshot(0, OracleGame.Ages);
             var seed = root._random.CaptureState();
             var sounds = root._sound.AttachPlayRequestAudit();
             var rom = new NewGameIntroRom(save, seed);
@@ -140,7 +140,7 @@ public sealed partial class ValidationRoot
                     FailIf(live.ReadWramByte(0xc622 + index) != rom[0xc622 + index], $"{context}: main clock byte {index} differs.");
                 for (int address = 0xc6d0; address < 0xc6e0; address++)
                     FailIf(live.ReadWramByte(address) != rom[address], $"{context}: global flag byte ${address:x4} differs.");
-                FailIf(!stored.SequenceEqual(root.FileSlotSnapshot(0)), $"{context}: the cutscene wrote live state to disk.");
+                FailIf(!stored.SequenceEqual(root.FileSlotSnapshot(0, OracleGame.Ages)), $"{context}: the cutscene wrote live state to disk.");
                 OracleRandomState rng = root._random.CaptureState();
                 FailIf(rng.Rng1 != rom[0xff94] || rng.Rng2 != rom[0xff95] || rng.Calls - seed.Calls != rom.RandomCalls,
                     $"{context}: shared RNG differs.");

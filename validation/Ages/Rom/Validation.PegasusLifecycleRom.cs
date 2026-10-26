@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             // Grounded BCD/capacity variants belong to the lifecycle scenario;
             // air handoffs retain each jump phase and each count independently.
             if (airborne && jumpUpdates != 1 && amount != 1) continue;
-            var save = OracleSaveData.CreateStandardGame(); save.SetLinkName("Link");
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages); save.SetLinkName("Link");
             save.WriteWramByte(0xc6bb, amount);
             InitializeTransientSession(save);
             LoadValidationRoom(0, 0x33); _entities.Clear();

@@ -46,6 +46,7 @@ internal sealed partial class SmallFairyRoomEntity : DungeonInteractionVisualEnt
 
     internal SmallFairyRoomEntity(RoomEntityManager owner, PlacedPartDatabase data, Vector2 position)
     {
+        AssetRoot = owner.AssetRoot;
         _owner = owner; _data = data; _precisePosition = position.Floor();
         InitializeVisual(data.Definition(PartId.SmallFairy).Visual, position.Floor(), positionedOam: true);
         Visible = false; ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;

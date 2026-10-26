@@ -8,8 +8,8 @@ internal sealed class FlyingTileRoomEntity
     : CombatEnemyRoomEntityAdapter<FlyingTileCharacter>, IFixedRoomEntity,
         IItemCollisionHittableRoomEntity, IExpertPunchHittableRoomEntity
 {
-    private readonly IReadOnlyList<EnemyBehaviorValue> _collisionEffects =
-        EnemyBehaviorTables.Shared.FlyingTileCollisionEffects;
+    private IReadOnlyList<EnemyBehaviorValue>? _collisionEffectsSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _collisionEffects => _collisionEffectsSourceCache ??= EnemyBehaviorTables.For(AssetRoot).FlyingTileCollisionEffects;
     internal FlyingTileRoomEntity(
         FlyingTileCharacter tile,
         EnemyCombatSourceDescriptor source)

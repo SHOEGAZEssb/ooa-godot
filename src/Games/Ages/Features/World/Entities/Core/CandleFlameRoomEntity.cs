@@ -19,7 +19,7 @@ internal sealed class CandleFlameRoomEntity(CandleFlame flame)
         // partActiveCollisions[$36] admits only Link. The parent's item
         // responses remain separate; PART$36 ignores JUST_HIT and health.
         if (player.OverlapsEnemyCollision(Entity.CollisionBounds, CollisionZ) &&
-            player.ApplyEnemyContactDamage(Entity.Position, (0x100 - EnemyBehaviorTables.Shared.Candle.FlameData[3].Value) / 2,
+            player.ApplyEnemyContactDamage(Entity.Position, (0x100 - EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Candle.FlameData[3].Value) / 2,
                 RingDamageSource.Generic, 34, 15)) Entity.PublishCollision();
     }
 }

@@ -7,7 +7,7 @@ public partial class ValidationRoot
 {
     private void CompareKeyholeScrollRom()
     {
-        var database = new KeyholeControllerDatabase(); int fixture = 0;
+        var database = new KeyholeControllerDatabase(AgesGameContent.AssetRoot); int fixture = 0;
         foreach (var row in new[] { (Group:0,Room:0x0a), (Group:1,Room:0x0e), (Group:1,Room:0xa5), (Group:0,Room:0x5c) })
         foreach (bool completed in new[] { false,true })
         foreach (bool batch in RomHostSchedules(fixture++))

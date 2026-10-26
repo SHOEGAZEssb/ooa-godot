@@ -19,18 +19,19 @@ internal sealed partial class KnockbackDustRoomEntity : TransitionOffsetNode2D,
     internal int AnimationParameter => _initialized ? _animation.CurrentParameter : 0;
     internal int ElapsedUpdates { get; private set; }
 
-    internal KnockbackDustRoomEntity(Vector2 position, int z)
+    internal KnockbackDustRoomEntity(string assetRoot, Vector2 position, int z)
     {
+        AssetRoot = assetRoot;
         Position = OracleObjectMath.ToPixelPosition(position);
         _z = unchecked((sbyte)z);
         Visible = false;
         ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/knockback_dust.tsv",
+        var table = GeneratedTable.Load(AssetRoot + "effects/knockback_dust.tsv",
             new GeneratedTableSchema("INTERAC$0f:$01", GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "animation"], headerRequired: true));
         GeneratedTableRow row = table.SingleRow();
         _animation = new EnemyAnimationPlayer(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + "gfx/spr_common_sprites.png"),
             [row.RequiredString(2)], row.UnsignedDecimal(0), row.UnsignedDecimal(1));
         _animation.SetAnimation(0);
     }

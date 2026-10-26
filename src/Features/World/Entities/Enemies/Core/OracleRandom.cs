@@ -11,7 +11,17 @@ internal sealed class OracleRandom
     private byte _rng1 = 0x37;
     private byte _rng2 = 0x0d;
     private readonly byte[] _placementBuffer = new byte[256];
-    private OracleRuntimeState _placementMemory = new();
+    private OracleRuntimeState? _placementMemory;
+    private byte _unboundPlacementIndex;
+    private byte PlacementIndex
+    {
+        get => _placementMemory?.ReadField("wEnemyPlacement.randomBufferIndex") ?? _unboundPlacementIndex;
+        set
+        {
+            if (_placementMemory is null) _unboundPlacementIndex = value;
+            else _placementMemory.SetField("wEnemyPlacement.randomBufferIndex", value);
+        }
+    }
     private bool _placementBufferReady;
 
     internal int Calls { get; private set; }
@@ -44,15 +54,15 @@ internal sealed class OracleRandom
                 "Enemy placement requested before the room object list was parsed.");
         }
 
-        byte index = unchecked((byte)(_placementMemory.ReadWramByte(EnemyPlacementMemory.RandomBufferIndex) + 1));
-        _placementMemory.SetWramByte(EnemyPlacementMemory.RandomBufferIndex, index);
+        byte index = unchecked((byte)(PlacementIndex + 1));
+        PlacementIndex = index;
         return _placementBuffer[index];
     }
 
     public void BeginRoomParse()
     {
         GeneratePermutation();
-        _placementMemory.SetWramByte(EnemyPlacementMemory.RandomBufferIndex, 0);
+        PlacementIndex = 0;
     }
 
     internal byte[] GeneratePermutation()
@@ -78,7 +88,7 @@ internal sealed class OracleRandom
         _rng1,
         _rng2,
         (byte[])_placementBuffer.Clone(),
-        _placementMemory.ReadWramByte(EnemyPlacementMemory.RandomBufferIndex),
+        PlacementIndex,
         _placementBufferReady,
         Calls,
         LastResult);
@@ -98,7 +108,7 @@ internal sealed class OracleRandom
         _rng1 = state.Rng1;
         _rng2 = state.Rng2;
         state.PlacementBuffer.CopyTo(_placementBuffer, 0);
-        _placementMemory.SetWramByte(EnemyPlacementMemory.RandomBufferIndex, state.PlacementIndex);
+        PlacementIndex = state.PlacementIndex;
         _placementBufferReady = state.PlacementBufferReady;
         Calls = state.Calls;
         LastResult = state.LastResult;

@@ -5,10 +5,12 @@ namespace Oracles;
 
 public sealed class TreasureDatabase
 {
-    // Source definitions have no inventory/save binding. Queries receive the
-    // live inventory explicitly, so sessions can share the parsed tables.
-    private static readonly Lazy<TreasureDatabase> SharedInstance = new(() => new());
-    internal static TreasureDatabase Shared => SharedInstance.Value;
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<TreasureDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static TreasureDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<TreasureDatabase>(() => new TreasureDatabase(root))).Value;
+
 
     private readonly Dictionary<string, TreasureObjectRecord> _objects = new();
     private readonly List<TreasureObjectRecord> _objectRows = new();
@@ -22,57 +24,91 @@ public sealed class TreasureDatabase
     private readonly Dictionary<int, InventoryTextRecord> _inventoryTexts = new();
     private readonly Dictionary<int, InventoryTextRecord> _ringTexts = new();
 
-    public int BehaviourCount => _behaviours.Count;
-    public IReadOnlyList<TreasureObjectRecord> Objects => _objectRows;
+    private readonly Lazy<bool> _sources;
+    internal void PrepareSources() => _ = _sources.Value;
 
-    public TreasureDatabase()
+    public int BehaviourCount { get { PrepareSources(); return _behaviours.Count; } }
+    public IReadOnlyList<TreasureObjectRecord> Objects { get { PrepareSources(); return _objectRows; } }
+
+    public TreasureDatabase(string assetRoot)
     {
-        LoadObjects();
-        LoadObjectVisuals();
-        LoadBehaviours();
-        LoadExtraItems();
-        LoadRupeeValues();
-        LoadGashaMaturity();
-        LoadDisplayRows();
-        LoadInventoryTexts();
+        AssetRoot = assetRoot;
+
+        _sources = new Lazy<bool>(() =>
+        {
+            LoadObjects();
+            LoadObjectVisuals();
+            LoadBehaviours();
+            LoadExtraItems();
+            LoadRupeeValues();
+            LoadGashaMaturity();
+            LoadDisplayRows();
+            LoadInventoryTexts();
+            return true;
+        });
     }
 
-    public TreasureObjectRecord GetObject(string name) => _objects.TryGetValue(name, out TreasureObjectRecord record)
+    public TreasureObjectRecord GetObject(string name)
+    {
+        PrepareSources();
+        return _objects.TryGetValue(name, out TreasureObjectRecord record)
         ? record
         : throw new KeyNotFoundException($"Treasure object {name} was not imported.");
+    }
 
     internal TreasureObjectRecord GetObject(int treasureId, int subid)
     {
+        PrepareSources();
         foreach (var record in _objectRows)
             if (record.TreasureId == treasureId && record.SubId == subid) return record;
         throw new KeyNotFoundException($"Treasure object ${treasureId:x2}:${subid:x2} was not imported (nextToChestTile override).");
     }
 
-    public TreasureObjectVisualRecord GetObjectVisual(int graphic) =>
-        _objectVisuals.TryGetValue(graphic, out TreasureObjectVisualRecord record)
+    public TreasureObjectVisualRecord GetObjectVisual(int graphic)
+    {
+        PrepareSources();
+        return _objectVisuals.TryGetValue(graphic, out TreasureObjectVisualRecord record)
             ? record
             : throw new KeyNotFoundException(
                 $"INTERAC_TREASURE $60 graphic ${graphic:x2} was not imported.");
+    }
 
-    public BehaviourRecord GetBehaviour(int treasureId) => _behaviours.TryGetValue(treasureId, out BehaviourRecord record)
+    public BehaviourRecord GetBehaviour(int treasureId)
+    {
+        PrepareSources();
+        return _behaviours.TryGetValue(treasureId, out BehaviourRecord record)
         ? record
         : throw new KeyNotFoundException($"Treasure ${treasureId:x2} has no collection behaviour.");
+    }
 
     internal int GetGashaMaturityGain(int treasureId, int parameter)
+    {
+        PrepareSources();
+        return GashaMaturityGain(treasureId, parameter);
+    }
+
+    private int GashaMaturityGain(int treasureId, int parameter)
     {
         if (!_gashaMaturity.TryGetValue(treasureId, out GashaMaturityRecord record))
             return 0;
         return record.ParameterAmount ? parameter : record.Amount;
     }
 
-    internal bool TryGetExtraItem(int treasureId, out ExtraTreasureRecord extra) =>
-        _extraItems.TryGetValue(treasureId, out extra);
+    internal bool TryGetExtraItem(int treasureId, out ExtraTreasureRecord extra)
+    {
+        PrepareSources();
+        return _extraItems.TryGetValue(treasureId, out extra);
+    }
 
-    internal int RupeeValue(int parameter) => _rupeeValues[Math.Clamp(parameter, 0, 0x14)];
+    internal int RupeeValue(int parameter)
+    {
+        PrepareSources();
+        return _rupeeValues[Math.Clamp(parameter, 0, 0x14)];
+    }
 
     private void LoadRupeeValues()
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/rupee_values.tsv",
+        var table = GeneratedTable.Load(AssetRoot + "metadata/rupee_values.tsv",
             new GeneratedTableSchema("bank0.getRupeeValue", GeneratedTableKeySemantics.Unique,
                 ["index", "amount"], ["index"], headerRequired: true));
         if (table.Rows.Count != _rupeeValues.Length)
@@ -88,7 +124,7 @@ public sealed class TreasureDatabase
     private void LoadExtraItems()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/treasure_extra_items.tsv",
+            AssetRoot + "metadata/treasure_extra_items.tsv",
             new GeneratedTableSchema(
                 "giveTreasure_body:@extraItemsToAddTable",
                 GeneratedTableKeySemantics.Unique,
@@ -98,8 +134,8 @@ public sealed class TreasureDatabase
         {
             int treasure = row.HexByte(0);
             int additional = row.HexByte(1);
-            _ = GetBehaviour(treasure);
-            _ = GetBehaviour(additional);
+            if (!_behaviours.ContainsKey(treasure) || !_behaviours.ContainsKey(additional))
+                throw row.Invalid(0, "treasures with imported collection behaviours");
             _extraItems.Add(treasure, new ExtraTreasureRecord(additional, row.HexByte(2)));
         }
         if (_extraItems.Count != 4)
@@ -131,6 +167,7 @@ public sealed class TreasureDatabase
 
     public DisplayRecord GetTreasureDisplay(int treasureId, int parameter, InventoryState inventory)
     {
+        PrepareSources();
         if (treasureId == TreasureId.None)
             return DisplayRecord.Empty;
 
@@ -146,17 +183,23 @@ public sealed class TreasureDatabase
         };
     }
 
-    public InventoryTextRecord GetInventoryText(int textLow) =>
-        _inventoryTexts.TryGetValue(textLow & 0xff, out InventoryTextRecord record)
+    public InventoryTextRecord GetInventoryText(int textLow)
+    {
+        PrepareSources();
+        return _inventoryTexts.TryGetValue(textLow & 0xff, out InventoryTextRecord record)
             ? record
             : throw new KeyNotFoundException(
                 $"Inventory text TX_09{textLow & 0xff:x2} was not imported.");
+    }
 
-    public InventoryTextRecord GetRingText(int ring) =>
-        _ringTexts.TryGetValue(ring & 0x3f, out InventoryTextRecord record)
+    public InventoryTextRecord GetRingText(int ring)
+    {
+        PrepareSources();
+        return _ringTexts.TryGetValue(ring & 0x3f, out InventoryTextRecord record)
             ? record
             : throw new KeyNotFoundException(
                 $"Inventory ring text ${ring & 0x3f:x2} was not imported.");
+    }
 
     private DisplayRecord GetDisplay(string table, int index)
     {
@@ -174,7 +217,7 @@ public sealed class TreasureDatabase
     private void LoadObjects()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/treasure_objects.tsv",
+            AssetRoot + "metadata/treasure_objects.tsv",
             new GeneratedTableSchema(
                 "treasure objects",
                 GeneratedTableKeySemantics.Aliased,
@@ -204,7 +247,7 @@ public sealed class TreasureDatabase
     private void LoadObjectVisuals()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/treasure_object_visuals.tsv",
+            AssetRoot + "metadata/treasure_object_visuals.tsv",
             new GeneratedTableSchema(
                 "treasure object visuals",
                 GeneratedTableKeySemantics.Unique,
@@ -214,7 +257,7 @@ public sealed class TreasureDatabase
         foreach (GeneratedTableRow row in table.Rows)
         {
             int graphic = row.HexByte(0);
-            TreasureObjectVisualRecord record = new TreasureObjectVisualRecord(
+            TreasureObjectVisualRecord record = new TreasureObjectVisualRecord(AssetRoot,
                 graphic,
                 row.RequiredString(1),
                 row.HexByte(2),
@@ -239,7 +282,7 @@ public sealed class TreasureDatabase
     private void LoadBehaviours()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/treasure_behaviours.tsv",
+            AssetRoot + "metadata/treasure_behaviours.tsv",
             new GeneratedTableSchema(
                 "treasure collection behaviours",
                 GeneratedTableKeySemantics.Unique,
@@ -266,7 +309,7 @@ public sealed class TreasureDatabase
     private void LoadGashaMaturity()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/treasure_gasha_maturity.tsv",
+            AssetRoot + "metadata/treasure_gasha_maturity.tsv",
             new GeneratedTableSchema(
                 "treasure Gasha maturity",
                 GeneratedTableKeySemantics.Unique,
@@ -289,10 +332,10 @@ public sealed class TreasureDatabase
                     treasure, parameterAmount, row.UnsignedDecimal(2)));
         }
         if (_gashaMaturity.Count != 4 ||
-            GetGashaMaturityGain(TreasureId.Essence, 0) != 150 ||
-            GetGashaMaturityGain(TreasureId.HeartPiece, 0) != 36 ||
-            GetGashaMaturityGain(TreasureId.TradeItem, 0) != 100 ||
-            GetGashaMaturityGain(TreasureId.HeartRefill, 0x18) != 0x18)
+            GashaMaturityGain(TreasureId.Essence, 0) != 150 ||
+            GashaMaturityGain(TreasureId.HeartPiece, 0) != 36 ||
+            GashaMaturityGain(TreasureId.TradeItem, 0) != 100 ||
+            GashaMaturityGain(TreasureId.HeartRefill, 0x18) != 0x18)
         {
             throw new InvalidOperationException(
                 "Treasure Gasha maturity table is incomplete.");
@@ -401,7 +444,7 @@ public sealed class TreasureDatabase
     private void LoadDisplayRows()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/treasure_display.tsv",
+            AssetRoot + "metadata/treasure_display.tsv",
             new GeneratedTableSchema(
                 "treasure display rows",
                 GeneratedTableKeySemantics.Grouped,
@@ -434,7 +477,7 @@ public sealed class TreasureDatabase
     private void LoadInventoryTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/inventory_text.tsv",
+            AssetRoot + "metadata/inventory_text.tsv",
             new GeneratedTableSchema(
                 "inventory text",
                 GeneratedTableKeySemantics.Unique,
@@ -485,7 +528,7 @@ public readonly record struct BehaviourRecord(int TreasureId, TreasureVariable V
 
 public readonly record struct InventoryTextRecord(string Kind, int Index, int NameTextId, int DescriptionTextId, string Message);
 
-public readonly record struct TreasureObjectVisualRecord(int Graphic, string Sprite, int TileBase, int Palette, int DefaultAnimation, string Animation, bool SourceGrayscaleInverted);
+public readonly record struct TreasureObjectVisualRecord(string AssetRoot, int Graphic, string Sprite, int TileBase, int Palette, int DefaultAnimation, string Animation, bool SourceGrayscaleInverted);
 
 public readonly record struct TreasureObjectRecord(string Name, int TreasureId, int SubId, int Parameter, int TextId, int Graphic, string Message)
 {

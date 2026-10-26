@@ -9,6 +9,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class NpcInteractionScriptController
 {
+    private string AssetRoot { get; }
+
     private readonly NpcInteractionCommandHost[] _hosts;
     private readonly NpcInteractionHandler[] _handlers;
     private readonly LinkedGameNpcScriptHost _linked;
@@ -18,20 +20,23 @@ internal sealed class NpcInteractionScriptController
     private readonly OldManRupeesScriptHost _oldMan;
     private double _frameAccumulator;
     private KnowItAllBirdScriptHost? _birdTalk;
-    private readonly List<SharedNpcScriptHost> _shared = new();
+    private readonly List<AgesNpcScriptHost> _shared = new();
     private readonly List<TokayNpcScriptHost> _tokays = new();
     private readonly List<DimitriRescueScriptHost> _dimitriRescue = new();
     private readonly List<BlackTowerBlockerScriptHost> _blockers = new();
     private readonly List<BlackTowerPatrolScriptHost> _patrollers = new();
-    private readonly SharedNpcDatabase _sharedData = new();
-    private readonly FamilyNpcScriptDatabase _familyData = new();
+    private SharedNpcDatabase? _sharedDataSourceCache;
+    private SharedNpcDatabase _sharedData => _sharedDataSourceCache ??= new(AssetRoot);
+    private FamilyNpcScriptDatabase? _familyDataSourceCache;
+    private FamilyNpcScriptDatabase _familyData => _familyDataSourceCache ??= new(AssetRoot);
     private readonly List<FamilyNpcScriptHost> _familyHosts = new();
-    private readonly FaroreScriptDatabase _faroreData = new();
+    private FaroreScriptDatabase? _faroreDataSourceCache;
+    private FaroreScriptDatabase _faroreData => _faroreDataSourceCache ??= new(AssetRoot);
     private FaroreScriptHost? _farore;
     private FaroreMemoryScriptHost? _book;
     internal Func<bool>? OpenSecretList { get; set; }
     internal Func<Action<int?>, bool>? OpenFaroreSecretMenu { get; set; }
-    internal RoomTransitionController? FaroreTransitions { get; set; }
+    internal AgesRoomTransitionController? FaroreTransitions { get; set; }
     internal void AdvanceFarorePaletteBeforeObjects() => _farore?.AdvancePaletteBeforeObjects();
 
     public NpcInteractionScriptController(
@@ -44,13 +49,14 @@ internal sealed class NpcInteractionScriptController
         Func<bool> rupeeDisplayUpdated,
         Action redrawRoom)
     {
-        var scripts = new NpcInteractionScriptDatabase();
+        AssetRoot = rooms.AssetRoot;
+        var scripts = new NpcInteractionScriptDatabase(AssetRoot);
         _linked = new LinkedGameNpcScriptHost(
             rooms,
             entities,
             dialogue,
             scripts.LinkedGameNpc,
-            new LinkedGameNpcDatabase());
+            new LinkedGameNpcDatabase(AssetRoot));
         _pastBipin = new PastBipinScriptHost(
             rooms,
             entities,
@@ -214,7 +220,7 @@ internal sealed class NpcInteractionScriptController
             }
             foreach (var slot in entities.EntityAdapters<SharedScriptNpcRoomEntity>())
             {
-                var host = new SharedNpcScriptHost(slot, _sharedData,
+                var host = new AgesNpcScriptHost(slot, _sharedData,
                     rooms, entities, dialogue, inventory, rupeeDisplayUpdated);
                 slot.Script = host;
                 _shared.Add(host);

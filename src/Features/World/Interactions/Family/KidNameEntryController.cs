@@ -9,6 +9,7 @@ namespace Oracles;
 /// imported keyboard, palettes, cursors, and five-character buffer.
 /// </summary>
 internal sealed class KidNameEntryController(
+    string assetRoot,
     Node interfaceLayer,
     Action<int>? playSound = null)
 {
@@ -24,6 +25,7 @@ internal sealed class KidNameEntryController(
         _result = null;
         _screen = new MainMenuScreen
         {
+            AssetRoot = assetRoot,
             Name = "KidNameEntry",
             ZIndex = ScreenDrawPriority.NameEntryZIndex
         };

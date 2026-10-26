@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateCompanionScrollRom()
     {
-        var graphics = new ScreenTransitionGraphicsDatabase();
+        var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
         foreach (bool batched in new[] { false, true })
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })
         for (int direction = 0; direction < 4; direction++)

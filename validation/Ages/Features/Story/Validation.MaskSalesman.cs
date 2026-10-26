@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(tradeItemAddress, (byte)tradeItem);
             _saveData.WriteWramByte(tradeObtainedAddress, flags);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, null);
+            reloadInventory.Invoke(_inventory, new object[] { _saveData });
         }
 
         CutsceneShowTextCommand Text(int textId) =>
@@ -292,7 +292,7 @@ public sealed partial class ValidationRoot
             Salesman(),
             "Mask Salesman");
 
-        var warps = new WarpDatabase();
+        var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         OracleRoomData exterior = _world.LoadRoom(exteriorGroup, exteriorRoom);
         OracleRoomData interior = _world.LoadRoom(group, room);
         int[] entryPositions = Enumerable.Range(0, 8)
@@ -348,12 +348,12 @@ public sealed partial class ValidationRoot
             !IsTransitioning ||
             _player.Position != new Vector2(0x70, interior.Height),
             "Room 0:53/$52 did not begin the source transition-4 entry into 2:e6.");
-        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
         FailIf(
             !IsTransitioning ||
-            _player.Position != new Vector2(0x70, interior.Height - RoomTransitionController.WarpEnterFrames),
+            _player.Position != new Vector2(0x70, interior.Height - AgesRoomTransitionController.WarpEnterFrames),
             "Room 2:e6 entry did not complete its 28-update upward walk.");
-        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeInFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpFadeInFrames - AgesRoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, "Room 2:e6 entry fade did not finish on update 33.");
 
         _player.WarpTo(new Vector2(0x70, interior.Height + 2));
@@ -362,12 +362,12 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || _activeGroup != group || _currentRoom.Id != room,
             "Room 2:e6's right-half bottom edge did not begin source transition 3.");
-        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != exteriorGroup ||
             _currentRoom.Id != exteriorRoom || !IsTransitioning,
             "Room 2:e6 did not load exterior 0:53 after its 16-update exit walk.");
-        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeInFrames / 60.0);
         FailIf(
             IsTransitioning ||
             _player.Position != new Vector2(0x20, 0x58) ||
@@ -392,7 +392,7 @@ public sealed partial class ValidationRoot
 
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        reloadInventory.Invoke(_inventory, null);
+        reloadInventory.Invoke(_inventory, new object[] { _saveData });
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
         {
             _saveData.SetRoomFlag(

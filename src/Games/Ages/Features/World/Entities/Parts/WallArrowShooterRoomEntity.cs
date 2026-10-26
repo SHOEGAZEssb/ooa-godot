@@ -10,7 +10,7 @@ internal sealed partial class WallArrowShooterRoomEntity : TransitionOffsetNode2
     IRoomEntity, IFixedRoomEntity, IUpdatesDuringDialogueRoomEntity,
     IUpdatesDuringRoomEntityFreeze, IScreenTransitionPreloadRoomEntity
 {
-    private readonly WallArrowShooterProfile _data = EnemyBehaviorTables.Shared.WallArrowShooter;
+    private readonly WallArrowShooterProfile _data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).WallArrowShooter;
     private readonly Func<EnemyArrowSpawn, bool> _shoot;
     internal int SubId { get; }
     internal int State { get; private set; }
@@ -18,6 +18,7 @@ internal sealed partial class WallArrowShooterRoomEntity : TransitionOffsetNode2
     internal int Angle { get; private set; }
     internal WallArrowShooterRoomEntity(RoomObjectRecord source, Func<EnemyArrowSpawn, bool> shoot)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (source.Kind != RoomObjectKind.ReservingPart || source.Id != PartId.WallArrowShooter ||
             source.SubId is < 0 or > 3 || source.PackedPosition < 0)
             throw new NotSupportedException($"{source.Source}: unsupported PART$25 subid${source.SubId:x2} placement.");

@@ -21,7 +21,7 @@ public sealed class RoomEventController
     public RoomEventController(
         RoomSession rooms,
         RoomEntityManager entities,
-        RoomTransitionController transitions,
+        AgesRoomTransitionController transitions,
         DialogueBox dialogue,
         Player player,
         RoomView roomView,

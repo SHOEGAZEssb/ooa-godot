@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");save.SetLinkedGame(true);
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");save.SetLinkedGame(true);
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);
             _saveData.SetRoomFlag(1,0xcb,0x40,false);_inventory.LoseTreasure(TreasureId.Shovel);

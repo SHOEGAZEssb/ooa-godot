@@ -79,7 +79,7 @@ public sealed partial class ValidationRoot
 
     private void ValidatePeahat()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         RoomObjectRecord source = RoomEnemyPlacements(
             database, 4, 0x2e, EnemyId.Peahat, 0x00).Single();
         ImportedEnemyDefinition record = database.ImportedEnemy(EnemyId.Peahat);
@@ -208,7 +208,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateTokayIslandEnemies()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         int[] crescentPresentRooms = [0xb9, 0xc9, 0xcb];
         int[] crescentPastRooms = [0xab, 0xca, 0xcc, 0xdb];
         List<RoomObjectRecord> sandCrabPlacements = crescentPresentRooms
@@ -585,7 +585,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyBehaviorTables()
     {
-        EnemyBehaviorTables tables = EnemyBehaviorTables.Shared;
+        EnemyBehaviorTables tables = EnemyBehaviorTables.For(AgesGameContent.AssetRoot);
 
         static int[] Values(IReadOnlyList<EnemyBehaviorValue> records) =>
             records.Select(static record => record.Value).ToArray();
@@ -1019,7 +1019,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyPlacementRules()
     {
-        var spawnTiles = new EnemySpawnTileDatabase();
+        var spawnTiles = new EnemySpawnTileDatabase(AgesGameContent.AssetRoot);
         var normal = new TerrainInfo(
             0x1a, 0x00, TerrainType.Normal,
             HazardType.None);
@@ -1092,7 +1092,7 @@ public sealed partial class ValidationRoot
 
         var validationRoot = new Node { Name = "EnemySpawnTerrainValidation" };
         AddChild(validationRoot);
-        var enemies = new EnemyDatabase();
+        var enemies = new EnemyDatabase(AgesGameContent.AssetRoot);
         for (int rngAdvance = 0; rngAdvance <= 24; rngAdvance++)
         {
             var random = new OracleRandom();
@@ -1122,7 +1122,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyObjectPlacementOrder()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<RoomObjectRecord> room5b0 =
             database.GetRoomObjects(5, 0xb0);
         IReadOnlyList<RoomObjectRecord> room5db =
@@ -1485,8 +1485,8 @@ public sealed partial class ValidationRoot
 
         var validationRoot = new Node { Name = "EnemyPlacementOrderValidation" };
         AddChild(validationRoot);
-        var npcs = new NpcDatabase();
-        var itemDrops = new ItemDropDatabase();
+        var npcs = new NpcDatabase(AgesGameContent.AssetRoot);
+        var itemDrops = new ItemDropDatabase(AgesGameContent.AssetRoot);
         var timePortals = new TimePortalDatabase();
 
         static int Pack(Vector2 position) =>
@@ -1555,7 +1555,7 @@ public sealed partial class ValidationRoot
             4, 0x65, OracleSaveData.RoomFlagItem);
         _saveData.SetRoomFlag(
             4, 0x65, OracleSaveData.RoomFlagItem, value: false);
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         List<RoomObjectRecord> placements =
             EnemyPlacements(database, EnemyId.PolsVoice, 0x00);
         List<RoomObjectRecord> roomPlacements =
@@ -1838,7 +1838,7 @@ public sealed partial class ValidationRoot
 
         LoadValidationRoom(4, 0x65);
         Vector2 mapChestPosition = new(0x88, 0x58);
-        var chests = new ChestDatabase();
+        var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
             _entities.Entities<EnemyClearChestRoomEntity>() is not
                 [{ Position: { X: 0x88, Y: 0x58 } }] ||
@@ -1951,7 +1951,7 @@ public sealed partial class ValidationRoot
     private void ValidateRoom462Moldorms()
     {
         const double update = 1.0 / 60.0;
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         List<RoomObjectRecord> placements =
             EnemyPlacements(database, EnemyId.Moldorm, 0x00);
         List<RoomObjectRecord> roomPlacements =
@@ -2221,7 +2221,7 @@ public sealed partial class ValidationRoot
     private void ValidateHardhatAndSpinyBeetles()
     {
         const double update = 1.0 / 60.0;
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         List<RoomObjectRecord> hardhatPlacements =
             EnemyPlacements(database, EnemyId.HardhatBeetle, 0x00);
         List<RoomObjectRecord> spinyPlacements =
@@ -2471,7 +2471,7 @@ public sealed partial class ValidationRoot
             new Vector2(48, 24);
         _player.WarpTo(new Vector2(-100, -100), recordSafe: false);
         _entities.Update(update, _player);
-        SeedRecord emberRecord = new SeedSatchelDatabase().Ember;
+        SeedRecord emberRecord = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
         EmberSeedEffect bushFlame = _entities.Spawn<EmberSeedEffect>(
             new EmberSeedSpawn(
                 spiny.Position - emberRecord.RightOffset,
@@ -2607,7 +2607,7 @@ public sealed partial class ValidationRoot
         }
 
         OracleRandomState randomSnapshot = _random.CaptureState();
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         List<RoomObjectRecord> placements =
             EnemyPlacements(database, EnemyId.SpikedBeetle, 0x00);
         ImportedEnemyDefinition definition =
@@ -2808,7 +2808,7 @@ public sealed partial class ValidationRoot
             "switch collision/animation, reverse its recovery angle, and jump.");
         var flippedMouthTarget = _entities.EntityAdapters<SpikedBeetleRoomEntity>().Single(actor => actor.Node == flipped);
         FailIf(flippedMouthTarget.DimitriCollisionMode != 0x51 ||
-            new DimitriDatabase().CanSwallow(flippedMouthTarget.DimitriCollisionMode),
+            new DimitriDatabase(AgesGameContent.AssetRoot).CanSwallow(flippedMouthTarget.DimitriCollisionMode),
             "Overturned Spiked Beetle did not switch to the non-edible mouth row $51.");
 
         _entities.Update(update, _player);
@@ -2970,7 +2970,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateKeese()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         List<RoomObjectRecord> keesePlacements =
             EnemyPlacements(database, EnemyId.Keese, 0x00, 0x01);
         FailIf(
@@ -3230,7 +3230,7 @@ public sealed partial class ValidationRoot
         int killSoundsBeforeBurn =
             _sound.PlayRequestsFor(SoundId.SndKillEnemy);
         SeedRecord emberRecord =
-            new SeedSatchelDatabase().Ember;
+            new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
         EmberSeedEffect attachedFlame = _entities.Spawn<EmberSeedEffect>(
             new EmberSeedSpawn(
                 burningKeese.Position - emberRecord.RightOffset,
@@ -3322,7 +3322,7 @@ public sealed partial class ValidationRoot
             "An edge-contact Ember burn left ENEMY_KEESE inactive instead of resolving its death.");
 
         var normalPuff = new EnemyDeathPuffEffect();
-        normalPuff.Initialize(Vector2.Zero);
+        normalPuff.Initialize(AgesGameContent.AssetRoot, Vector2.Zero);
         for (int frame = 1; frame <= 20; frame++)
         {
             normalPuff.UpdateFrame(frame);
@@ -3344,7 +3344,7 @@ public sealed partial class ValidationRoot
         normalPuff.Free();
 
         var highKnockbackPuff = new EnemyDeathPuffEffect();
-        highKnockbackPuff.Initialize(Vector2.Zero, highKnockback: true);
+        highKnockbackPuff.Initialize(AgesGameContent.AssetRoot, Vector2.Zero, highKnockback: true);
         for (int frame = 1; frame <= 28; frame++)
         {
             highKnockbackPuff.UpdateFrame(frame);
@@ -3370,7 +3370,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateOctoroks()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         List<RoomObjectRecord> octorokPlacements =
             EnemyPlacements(database, EnemyId.Octorok, 0x00, 0x01, 0x02);
         FailIf(
@@ -3541,7 +3541,7 @@ public sealed partial class ValidationRoot
             !_entities.Entities<OctorokCharacter>()[0].TransitionDrawOffset.IsEqualApprox(Vector2.Zero),
             "Octorok/rock transition ownership and offsets were not normalized after scrolling.");
 
-        var drops = new ItemDropDatabase();
+        var drops = new ItemDropDatabase(AgesGameContent.AssetRoot);
         int octorokProbabilityRolls = 0;
         for (int roll = 0; roll < 64; roll++)
         {
@@ -3564,7 +3564,7 @@ public sealed partial class ValidationRoot
     {
         const double update = 1.0 / 60.0;
         ScentSeedAttractionBehaviorProfile profile =
-            EnemyBehaviorTables.Shared.ScentSeedAttraction;
+            EnemyBehaviorTables.For(AgesGameContent.AssetRoot).ScentSeedAttraction;
         FailIf(
             profile.State != 4 || profile.AngleRefreshMask != 0x0f ||
             profile.CardinalRounding != 4 || profile.CardinalMask != 0x18 ||
@@ -3572,7 +3572,7 @@ public sealed partial class ValidationRoot
             "The imported ecom_checkScentSeedActive / " +
             "ecom_updateAngleToScentSeed constants diverged from source.");
 
-        SeedRecord scent = new SeedSatchelDatabase().Scent;
+        SeedRecord scent = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Scent;
         LoadValidationRoom(1, 0xbc);
         List<OctorokCharacter> blues =
             _entities.Entities<OctorokCharacter>();
@@ -3773,7 +3773,7 @@ public sealed partial class ValidationRoot
                     $"Invalid cardinal Arrow Moblin angle ${angle:x2}.")
             };
 
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         ImportedEnemyDefinition definition = database.ImportedEnemy(EnemyId.ArrowMoblin);
         IReadOnlyList<RoomObjectRecord> roomRecords =
             database.GetRoomObjects(0, 0x84);
@@ -3949,7 +3949,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateHostileProjectileLifecycle()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         OracleRoomData room = _world.LoadRoom(1, 0xbc);
         Vector2 originalPlayerPosition = _player.Position;
         _player.WarpTo(new Vector2(-0x100, -0x100), recordSafe: false);
@@ -4328,7 +4328,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyShieldBumps()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var expectedEffects = new Dictionary<int, (int L1, int L2, int L3)>
         {
             [0x0f] = (0x05, 0x05, 0x05),
@@ -4426,7 +4426,7 @@ public sealed partial class ValidationRoot
         RoomObjectRecord octorokSource = RoomEnemyPlacements(
             database, 0, 0x74, EnemyId.Octorok, 0x00)[0];
         OracleRoomData octorokRoom = _world.LoadRoom(0, 0x74);
-        var shieldSave = OracleSaveData.CreateStandardGame();
+        var shieldSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var shieldInventory = new InventoryState(_treasures, shieldSave);
         shieldInventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
@@ -4707,7 +4707,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyHazards()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         RoomObjectRecord octorokSource =
             RoomEnemyPlacements(database, 0, 0x74, EnemyId.Octorok, 0x00)[0];
         OctorokRecord record = ResolveOctorok(database, octorokSource);
@@ -4876,7 +4876,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyDamageBlink()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         OctorokRecord record = ResolveOctorok(
             database,
             RoomEnemyPlacements(database, 0, 0x74, EnemyId.Octorok, 0x00)[0]);
@@ -4927,7 +4927,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateStalfos()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         List<RoomObjectRecord> stalfosPlacements =
             EnemyPlacements(database, EnemyId.Stalfos, 0x00);
         List<StalfosRecord> room406 =
@@ -5094,7 +5094,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateZolsAndGels()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         List<RoomObjectRecord> zolPlacements =
             EnemyPlacements(database, EnemyId.Zol, 0x00, 0x01);
         List<RoomObjectRecord> gelPlacements =
@@ -5484,7 +5484,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateItemDrops()
     {
-        var database = new ItemDropDatabase();
+        var database = new ItemDropDatabase(AgesGameContent.AssetRoot);
         FailIf(
             ItemDropDatabase.SelectionDataSize != 720 ||
             database.EnemyTableRecord(EnemyId.Keese) != 0xae,
@@ -5922,7 +5922,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateInventoryDependentEnemyDrops(ItemDropDatabase database)
     {
-        var treasures = new TreasureDatabase();
+        var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var unowned = new InventoryState(treasures);
         var owned = new InventoryState(treasures);
         owned.GiveTreasure(TreasureId.Bombs, 0);
@@ -5962,7 +5962,7 @@ public sealed partial class ValidationRoot
                 $"unowned PART_ITEM_DROP ${expected:x2} and retain it once owned.");
         }
 
-        var saveOnly = OracleSaveData.CreateStandardGame();
+        var saveOnly = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var saveOnlyInventory = new InventoryState(treasures, saveOnly);
         saveOnlyInventory.GiveTreasure(TreasureId.Bombs, 0);
         FailIf(
@@ -6004,7 +6004,7 @@ public sealed partial class ValidationRoot
 
         var root = new Node { Name = "InventoryEnemyDropValidation" };
         AddChild(root);
-        var save = OracleSaveData.CreateStandardGame();
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(treasures, save);
         var random = new OracleRandom();
         using var fixture = RoomEntityValidationFixture.ForRoot(
@@ -6067,7 +6067,7 @@ public sealed partial class ValidationRoot
             int health = 0x0c,
             int maxHealth = 0x0c)
         {
-            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, (byte)health);
             save.WriteWramByte(AgesWramAddress.wLinkMaxHealth, (byte)maxHealth);
             if (ring.HasValue)
@@ -6653,7 +6653,7 @@ public sealed partial class ValidationRoot
             (stairPosition >> 4) * OracleRoomData.MetatileSize + 8);
 
         LoadValidationRoom(group, room);
-        var warps = new WarpDatabase();
+        var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         byte stairTile = _currentRoom.GetMetatile(stair);
         FailIf(
             !warps.TryGetTileWarp(
@@ -6760,7 +6760,7 @@ public sealed partial class ValidationRoot
     {
         OracleRandomValidationSnapshot randomSnapshot =
             CaptureOracleRandomForValidation();
-        var ledges = new LedgeJumpDatabase();
+        var ledges = new LedgeJumpDatabase(AgesGameContent.AssetRoot);
         LedgeJumpDirectionRecord up = ledges.Direction(Vector2I.Up);
         LedgeJumpDirectionRecord right = ledges.Direction(Vector2I.Right);
         LedgeJumpDirectionRecord down = ledges.Direction(Vector2I.Down);

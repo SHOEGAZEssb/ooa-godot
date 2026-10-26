@@ -11,9 +11,8 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
     internal override bool InitializationPending => _state == StalfosState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly StalfosBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Stalfos;
+    private StalfosBehaviorProfile? _behaviorSourceCache;
+    private StalfosBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Stalfos;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private StalfosState _state;
@@ -43,6 +42,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
         OracleRandom random,
         Action<int>? sound = null, int zHigh = 0)
     {
+        AssetRoot = record.AssetRoot;
         if (record.SubId is not (0 or 2))
             throw new ArgumentOutOfRangeException(
                 nameof(record), record.SubId,
@@ -58,7 +58,7 @@ public partial class StalfosCharacter : EnemyCharacter, ISwitchHookEnemy, ITerra
 
         InitializeEnemy(
             position,
-            EnemyCharacterConfiguration.FromSprite(
+            EnemyCharacterConfiguration.FromSprite(record.AssetRoot,
                 record.Health,
                 record.CollisionRadiusX,
                 record.CollisionRadiusY,

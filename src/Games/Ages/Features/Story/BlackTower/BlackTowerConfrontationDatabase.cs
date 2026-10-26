@@ -33,7 +33,7 @@ internal sealed class BlackTowerConfrontationDatabase
     internal string Animation(int id, int index) => _animations[(id, index)];
     internal NpcCharacter Actor(int id, Vector2 position)
     {
-        var actor = NpcCharacter.CreateFromRecord(_visuals[id] with { X = (int)position.X, Y = (int)position.Y });
+        var actor = NpcCharacter.CreateFromRecord(_visuals[id] with { X = (int)position.X, Y = (int)position.Y }, AgesGameContent.AssetRoot);
         if (_extra[id] != "-") actor.AppendScriptGraphics(_extra[id]);
         actor.SetScriptAnimation(actor.Record.DownAnimation); actor.SetAnimationRate(0);
         actor.SetBlocksLink(id != 0x5e);

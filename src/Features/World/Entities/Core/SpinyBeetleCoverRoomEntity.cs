@@ -15,7 +15,7 @@ internal sealed class SpinyBeetleCoverRoomEntity : CombatEnemyRoomEntityAdapter<
     public bool PersistsAcrossScroll => Entity.Held;
     public void EnterRoom(OracleRoomData room) => Entity.EnterRoom(room);
     public override bool FreezesDuringSeedBurn => false;
-    public override int DimitriCollisionType => EnemyBehaviorTables.Shared.SpinyCoverAttributes[0].Value;
+    public override int DimitriCollisionType => EnemyBehaviorTables.For(AssetRoot).SpinyCoverAttributes[0].Value;
     public override int DimitriCollisionMode => Entity.Rock ? EnemyCollisionMode.Rock : EnemyCollisionMode.Bush;
     internal SpinyBeetleCoverRoomEntity(SpinyBeetleCoverCharacter actor, Action<int> sound, Func<bool> freePart)
         : base(actor, actor.SetTransitionDrawOffset, EnemyCombatDescriptor.Special(
@@ -40,17 +40,17 @@ internal sealed class SpinyBeetleCoverRoomEntity : CombatEnemyRoomEntityAdapter<
     public override bool ApplySwordHit(Rect2 bounds,Vector2 origin,int damage,EnemyKnockbackStrength strength,ICollection<RoomEntitySpawn> spawns)
     {
         if (Entity.Rock) return NativeCollisionEligible(ItemCollisionType.L1Sword,bounds,
-            EnemyBehaviorTables.Shared.SpinyCoverActiveCollisions,Entity.NativeHitPending);
+            EnemyBehaviorTables.For(AssetRoot).SpinyCoverActiveCollisions,Entity.NativeHitPending);
         return base.ApplySwordHit(bounds,origin,damage,strength,spawns);
     }
     public bool ApplySomariaBlockCollision(SomariaBlock block,ICollection<RoomEntitySpawn> spawns) =>
-        ApplySomariaBlockCollision(block,EnemyBehaviorTables.Shared.SpinyCoverAttributes[5].Value,Entity.NativeHitPending,spawns);
+        ApplySomariaBlockCollision(block,EnemyBehaviorTables.For(AssetRoot).SpinyCoverAttributes[5].Value,Entity.NativeHitPending,spawns);
     public int BurnTargetId => DimitriCollisionType;
     public int BurnZFixed { get => Entity.ZFixed; set => Entity.ZFixed = value; }
     public override void ReleaseBurn() => Entity.ReleaseBurn();
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds,Vector2 origin,SeedRecord seed,int collision,ICollection<RoomEntitySpawn> spawns)
     {
-        var data = EnemyBehaviorTables.Shared;
+        var data = EnemyBehaviorTables.For(AssetRoot);
         if (!NativeCollisionEligible(collision,bounds,data.SpinyCoverActiveCollisions,Entity.NativeHitPending)) return default;
         int effect = (Entity.Rock ? data.SpinyRockEffects : data.SpinyBushEffects)[collision].Value;
         switch(effect)
@@ -70,7 +70,7 @@ internal sealed class SpinyBeetleCoverRoomEntity : CombatEnemyRoomEntityAdapter<
         int damage, ICollection<RoomEntitySpawn> spawns)
     {
         if (!Entity.CollisionEnabled || !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, bounds)) return false;
-        var data = EnemyBehaviorTables.Shared;
+        var data = EnemyBehaviorTables.For(AssetRoot);
         if (data.SpinyCoverActiveCollisions[(int)collision].Value == 0) return false;
         int effect = (Entity.Rock ? data.SpinyRockEffects : data.SpinyBushEffects)[(int)collision].Value;
         if (effect is CollisionEffect.None or CollisionEffect.Effect20 or CollisionEffect.Effect1c) return true;

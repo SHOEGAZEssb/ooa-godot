@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         foreach (int ring in new[] { 0xff, (int)RingId.BlueJoy })
         foreach (bool batched in RomHostSchedules(fixture++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wLinkMaxHealth, 0x40);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, 4);
             InitializeTransientSession(save);

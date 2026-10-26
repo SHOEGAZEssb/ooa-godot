@@ -3,6 +3,8 @@ namespace Oracles;
 // constants/common/globalFlags.s has different catalogs in its ROM_AGES branch.
 public static class AgesGlobalFlag
 {
+    // constants/common/globalFlags.s: GLOBALFLAG_RING_SECRET_GENERATED
+    public const int RingSecretGenerated = 0x28;
     // constants/common/globalFlags.s: GLOBALFLAG_0b
     public const int Flag0b = 0x0b;
     // constants/common/globalFlags.s: GLOBALFLAG_0c

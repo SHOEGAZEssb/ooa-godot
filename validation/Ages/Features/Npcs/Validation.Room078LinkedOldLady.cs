@@ -8,8 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom078LinkedOldLady()
     {
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(0, 0x78).Single();
-        var codec = new LinkedGameNpcDatabase();
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(0, 0x78).Single();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         LinkedGameNpcDatabaseRecord secret = codec.Get(0, 0x78, AgesInteractionId.OldLady, 0x04);
         FailIf(record is not { Id: 0x3d, SubId: 0x04, Y: 0x18, X: 0x28,
                 TextId: 0x4d00, DefaultAnimation: 2, CanFace: true,

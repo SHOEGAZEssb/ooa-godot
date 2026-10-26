@@ -7,11 +7,15 @@ namespace Oracles;
 // one suppression bit; the live byte belongs to RoomSession's runtime memory.
 internal sealed class TileInfoTextDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int,TileInfoTextRecord> _texts = new();
 
-    internal TileInfoTextDatabase()
+    internal TileInfoTextDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/tile_info_texts.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "metadata/tile_info_texts.tsv",
             new GeneratedTableSchema("showInfoTextForTile",GeneratedTableKeySemantics.Unique,
                 ["index","mask","text-id","message-utf8-base64","source"],["text-id"],headerRequired:true));
         foreach (var row in table.Rows)

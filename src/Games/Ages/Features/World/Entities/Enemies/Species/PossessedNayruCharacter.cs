@@ -31,6 +31,7 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
     internal override Texture2D CurrentDrawTexture => DrawsDamagePalette ? base.CurrentDrawTexture : Animation.CurrentTextureForPalette(_palette);
     internal void Initialize(RoomEntityManager owner,PalacePossessionDatabase data,int subid,Vector2 position,PossessedNayruCharacter? parent)
     {
+        AssetRoot = owner.AssetRoot;
         _owner=owner; _data=data; SubId=subid; _parent=parent;
         if (parent is not null) RemainingHits=parent.RemainingHits;
         InitializeEnemy(position,EnemyCharacterConfiguration.FromImported(data.Enemy(subid)),paletteOverrides:data.Palettes,
@@ -46,6 +47,7 @@ internal sealed partial class PossessedNayruCharacter : EnemyCharacter, ISwitchH
     internal void RequestSound(int sound) => _owner.OnSoundRequested(sound);
     internal void InitializeStateZero()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (State!=0 || IsDead) return;
         // enemyStandardUpdate consumes one RNG value before enemyCode61's
         // state-zero handler. updateEnemies admits this during scrolling;

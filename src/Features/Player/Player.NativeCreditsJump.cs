@@ -8,7 +8,7 @@ public partial class Player
     {
         _topDownAirSpeedZ=-0x200;_topDownAirborne=true;_topDownJumpSoundPending=true;
         _topDownMovementSpeedRaw=0x14;_topDownMovementAngle=0x18;
-        _topDownAirAnimationPhase=0;_topDownAirAnimationCounter=TopDownAirDatabase.Shared.Parameters.AnimationPhaseDurations[0];
+        _topDownAirAnimationPhase=0;_topDownAirAnimationCounter=TopDownAirDatabase.For(AssetRoot).Parameters.AnimationPhaseDurations[0];
         _airborneLinkAnimationMode=AirborneLinkAnimationMode.Jump;
     }
 }

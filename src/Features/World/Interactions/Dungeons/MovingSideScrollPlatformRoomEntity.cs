@@ -38,6 +38,7 @@ internal sealed partial class MovingSideScrollPlatformRoomEntity :
         MovingSideScrollPlatformRecord record,
         DungeonInteractionVisual visual)
     {
+        AssetRoot = visual.AssetRoot;
         _record = record;
         Name =
             $"MovingSideScrollPlatform_{placement.SubId:x2}_{placement.Order}";

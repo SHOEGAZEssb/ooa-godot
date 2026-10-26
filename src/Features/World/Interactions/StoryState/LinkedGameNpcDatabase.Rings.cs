@@ -13,11 +13,13 @@ public sealed partial class LinkedGameNpcDatabase
     private (int Address, int Bits)[] RingFields => _ringFields ??= LoadRingFields();
     private byte[] RingSpacing => _ringSpacing ??= LoadRingSpacing();
 
-    private static (int Address, int Bits)[] LoadRingFields()
+    private (int Address, int Bits)[] LoadRingFields()
     {
         var fields = new List<(int Address, int Bits)>();
+        int ringsAddress = OracleWramLayout.Shared.Value.Require(OracleAssetPack.GameFor(AssetRoot), "wRingsObtained");
+        int nameAddress = OracleWramLayout.Shared.Value.Require(OracleAssetPack.GameFor(AssetRoot), "wLinkName");
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/linked_secret_ring_fields.tsv",
+            AssetRoot + "objects/linked_secret_ring_fields.tsv",
             new("Ring secret fields", GeneratedTableKeySemantics.Ordered,
                 ["index", "address", "bits", "source"], headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
@@ -26,8 +28,8 @@ public sealed partial class LinkedGameNpcDatabase
                 throw row.Invalid(0, $"contiguous ring field index {fields.Count}");
             int address = row.HexWord(1);
             int bits = row.Decimal(2, 1, 8);
-            if (fields.Count < 8 ? address is < AgesWramAddress.wRingsObtained or >= AgesWramAddress.wRingsObtained + 8 || bits != 8
-                : address != AgesWramAddress.wLinkName + 5 || bits != 2)
+            if (fields.Count < 8 ? address < ringsAddress || address >= ringsAddress + 8 || bits != 8
+                : address != nameAddress + 5 || bits != 2)
                 throw row.Invalid(1, "eight $c616-$c61d ring bytes followed by two bits of wLinkName+5");
             fields.Add((address, bits));
         }
@@ -37,11 +39,11 @@ public sealed partial class LinkedGameNpcDatabase
         return fields.ToArray();
     }
 
-    private static byte[] LoadRingSpacing()
+    private byte[] LoadRingSpacing()
     {
         var spacing = new List<byte>();
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/linked_secret_ring_spacing.tsv",
+            AssetRoot + "objects/linked_secret_ring_spacing.tsv",
             new("Ring secret spacing", GeneratedTableKeySemantics.Ordered,
                 ["index", "value", "source"], headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
@@ -58,8 +60,8 @@ public sealed partial class LinkedGameNpcDatabase
     internal byte[] GenerateRingSecretValues(OracleSaveData save)
     {
         EnsureGameId(save);
-        int gameIdLow = save.ReadWramByte(GameIdAddress);
-        int gameIdHigh = save.ReadWramByte(GameIdAddress + 1);
+        int gameIdLow = save.ReadField("wGameID");
+        int gameIdHigh = save.ReadField("wGameID", 1);
         int cipher = (gameIdLow + gameIdHigh) & 7;
         var buffer = new byte[20];
         InsertBits(buffer, cipher, 3);
@@ -120,13 +122,14 @@ public sealed partial class LinkedGameNpcDatabase
         if (ReadBits(2) != 2) return false;
         int low = ReadBits(8), high = ReadBits(7);
         if ((low != 0 || high != 0) &&
-            (low != save.ReadWramByte(GameIdAddress) || high != save.ReadWramByte(GameIdAddress + 1)))
+            (low != save.ReadField("wGameID") || high != save.ReadField("wGameID", 1)))
             return false;
+        int ringsAddress = OracleWramLayout.Shared.Value.Require(save.Game, "wRingsObtained");
         foreach ((int address, int bits) in RingFields)
         {
             int value = ReadBits(bits);
-            if (address >= AgesWramAddress.wRingsObtained && address < AgesWramAddress.wRingsObtained + 8)
-                rings[address - AgesWramAddress.wRingsObtained] = (byte)value;
+            if (address >= ringsAddress && address < ringsAddress + 8)
+                rings[address - ringsAddress] = (byte)value;
         }
         return true;
     }

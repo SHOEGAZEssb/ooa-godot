@@ -17,7 +17,7 @@ public partial class ValidationRoot
         {
             // enemyData -> extraEnemyData: literal signed bytes, before the
             // divide-by-two conversion used by Link's quarter-heart owner.
-            FailIf(id != 0x32 && new EnemyDatabase().ImportedEnemy(id, subid).RawDamage != rawDamage,
+            FailIf(id != 0x32 && new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(id, subid).RawDamage != rawDamage,
                 $"Enemy ${id:x2}:${subid:x2} must retain raw damage ${rawDamage:x2}.");
             RestoreOracleRandomForValidation(random);
             LoadValidationRoom(4, room);

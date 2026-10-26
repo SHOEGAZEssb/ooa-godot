@@ -5,6 +5,8 @@ namespace Oracles;
 
 internal sealed class SecretEntryDatabase
 {
+    public string AssetRoot { get; }
+
     internal byte[] Glyphs { get; }
     internal int[] LowerOffsets { get; }
     private readonly byte[] _keyboard;
@@ -13,13 +15,15 @@ internal sealed class SecretEntryDatabase
         int tile = _keyboard[row * 64 + 3 + column + (column >= 8 ? 1 : 0)];
         return tile == 2 ? ' ' : (char)Glyphs[(tile - 0x80) / 2];
     }
-    internal SecretEntryDatabase()
+    internal SecretEntryDatabase(string assetRoot)
     {
-        _keyboard = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "menu/map_secret_entry_middle.bin");
-        Glyphs = GeneratedTable.Load(AgesGameContent.AssetRoot + "menu/secret_glyphs.tsv",
+        AssetRoot = assetRoot;
+
+        _keyboard = OracleAssetCache.ReadBytes(AssetRoot + "menu/map_secret_entry_middle.bin");
+        Glyphs = GeneratedTable.Load(AssetRoot + "menu/secret_glyphs.tsv",
             new GeneratedTableSchema("Secret-entry glyphs", GeneratedTableKeySemantics.Ordered,
                 ["index", "glyph"], ["index"], headerRequired: true)).Rows.Select(row => (byte)row.HexByte(1)).ToArray();
-        LowerOffsets = GeneratedTable.Load(AgesGameContent.AssetRoot + "menu/secret_lower_offsets.tsv",
+        LowerOffsets = GeneratedTable.Load(AssetRoot + "menu/secret_lower_offsets.tsv",
             new GeneratedTableSchema("Secret-entry lower options", GeneratedTableKeySemantics.Ordered,
                 ["index", "x"], ["index"], headerRequired: true)).Rows.Select(row => row.Decimal(1)).ToArray();
         if (Glyphs.Length != 64 || LowerOffsets.Length != 4 || _keyboard.Length != 320)

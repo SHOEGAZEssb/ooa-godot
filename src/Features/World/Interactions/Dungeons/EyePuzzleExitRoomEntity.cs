@@ -18,7 +18,7 @@ internal sealed class EyePuzzleExitRoomEntity(OracleRuntimeState memory, Vector2
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns) => ScreenTransitionPresentation.Hidden;
     public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns)
     {
-        if (Finished || (memory.ReadWramByte(AgesWramAddress.wScrollMode) & 1) == 0) return;
+        if (Finished || (memory.ReadField("wScrollMode") & 1) == 0) return;
         Finished = true;
         if (entryDirection == Vector2I.Up || entryDirection == Vector2I.Zero) sound(SoundId.SndSolvePuzzle);
     }

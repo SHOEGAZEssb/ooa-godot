@@ -34,6 +34,7 @@ public partial class Hud : Node2D
     public int DungeonIndex { get; set; } = -1;
     public byte TilesetFlags { get; set; }
 
+    [Export] public string AssetRoot { get; set; } = string.Empty;
     private bool _resourcesPrepared;
     public override void _Ready() => PrepareResources();
 
@@ -41,11 +42,12 @@ public partial class Hud : Node2D
     {
         if (_resourcesPrepared) return;
         _resourcesPrepared = true;
-        _hudTiles = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png");
-        _itemIcons1 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_1.png");
-        _itemIcons2 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_2.png");
-        _itemIcons3 = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_item_icons_3.png");
-        _itemPalettes = ItemIconAtlas.LoadStandardSpritePalettes();
+        HudPalette = LoadPaletteColors(AssetRoot + "metadata/commonBgPalette0.bin");
+        _hudTiles = LoadPng(AssetRoot + "gfx/gfx_hud.png");
+        _itemIcons1 = LoadPng(AssetRoot + "gfx/spr_item_icons_1.png");
+        _itemIcons2 = LoadPng(AssetRoot + "gfx/spr_item_icons_2.png");
+        _itemIcons3 = LoadPng(AssetRoot + "gfx/spr_item_icons_3.png");
+        _itemPalettes = ItemIconAtlas.LoadStandardSpritePalettes(AssetRoot);
         Refresh();
     }
 
@@ -102,7 +104,7 @@ public partial class Hud : Node2D
             return;
         if (EquippedB == TreasureId.BiggoronSword)
         {
-            StatusBarLayout.DrawBiggoronSword(this, output: output);
+            StatusBarLayout.DrawBiggoronSword(AssetRoot, this, output: output);
             return;
         }
         // wInventoryB is the left button slot in original RAM; wInventoryA is
@@ -170,7 +172,7 @@ public partial class Hud : Node2D
     private Texture2D BuildBackgroundTexture()
     {
         byte[] map = BuildStatusMap();
-        byte[] flags = StatusBarLayout.ReadMap(MaxHealthQuarters, EquippedB, true);
+        byte[] flags = StatusBarLayout.ReadMap(AssetRoot, MaxHealthQuarters, EquippedB, true);
         if (flags.Length != 64)
             throw new InvalidOperationException("Normal HUD maps must contain 64 bytes.");
 
@@ -192,7 +194,7 @@ public partial class Hud : Node2D
 
     private byte[] BuildStatusMap()
     {
-        byte[] map = StatusBarLayout.ReadMap(MaxHealthQuarters, EquippedB);
+        byte[] map = StatusBarLayout.ReadMap(AssetRoot, MaxHealthQuarters, EquippedB);
         if (map.Length != 64)
             throw new InvalidOperationException("Normal HUD map must contain 64 bytes.");
 
@@ -227,7 +229,7 @@ public partial class Hud : Node2D
         StatusBarLayout.WriteHearts(map, MaxHealthQuarters, HealthQuarters);
     }
 
-    private static void DrawHudTile(
+    private void DrawHudTile(
         Image output,
         Image source,
         byte tile,
@@ -409,7 +411,7 @@ public partial class Hud : Node2D
     }
 
     // paletteData48e0, background palette 0 used by the status bar.
-    private static readonly Color[] HudPalette =
+    private Color[] HudPalette =
     {
         GbcColor(0x0d, 0x01, 0x05),
         GbcColor(0x1d, 0x01, 0x03),

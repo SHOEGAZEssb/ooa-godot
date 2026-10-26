@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
         {
             var random = new OracleRandom();
             var expectedRandom = new OracleRandom();
-            var sound = new OracleSoundEngine(new OracleSoundData(), enableOutput: false);
+            var sound = new OracleSoundEngine(new OracleSoundData(AgesGameContent.AssetRoot), enableOutput: false);
             var requests = new List<int>();
             var spawns = new List<RoomEntitySpawn>();
             int shakeY = 0, shakeX = 0;
@@ -199,7 +199,7 @@ public sealed partial class ValidationRoot
             Tick();
             FailIf(rock.State != 5 || sounds.Count != 1 || sounds[0] != data.Constant("impact"),
                 "$11:$01 impact omitted animation $03 / SND_STRONG_POUND.");
-            var contactSave = OracleSaveData.CreateStandardGame();
+            var contactSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             var contactInventory = new InventoryState(_treasures, contactSave);
             var contactPlayer = new Player { Name = "VolcanoContactPlayer" };
             AddChild(contactPlayer);

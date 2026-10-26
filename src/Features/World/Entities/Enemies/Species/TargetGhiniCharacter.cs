@@ -7,7 +7,8 @@ namespace Oracles;
 // positions; this variant never checks terrain or bounces during ordinary flight.
 internal sealed partial class TargetGhiniCharacter : EnemyCharacter
 {
-    private readonly TargetGhiniBehaviorProfile _data = EnemyBehaviorTables.Shared.TargetGhini;
+    private TargetGhiniBehaviorProfile? _dataSourceCache;
+    private TargetGhiniBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).TargetGhini;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private OracleRuntimeState _memory = null!;
@@ -31,6 +32,7 @@ internal sealed partial class TargetGhiniCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, OracleRuntimeState memory, Action? killSpawnedGhinis = null)
     {
+        AssetRoot = record.AssetRoot;
         if (record.SubId != 2) throw new NotSupportedException($"ghini.s: target handler requires ENEMY$17:$02, got ${record.SubId:x2}.");
         Record = record; _room = room; _random = random; _memory = memory;
         _killSpawnedGhinis = killSpawnedGhinis;

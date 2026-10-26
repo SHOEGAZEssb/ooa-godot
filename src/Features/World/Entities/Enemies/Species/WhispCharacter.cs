@@ -49,6 +49,7 @@ internal partial class WhispCharacter : EnemyCharacter
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;
@@ -78,7 +79,7 @@ internal partial class WhispCharacter : EnemyCharacter
         // whisp_state8 calls ecom_bounceOffWalls, then objectApplySpeed; it
         // does not run the adjacent-wall movement helper a second time.
         Position += MovementDelta(
-            EnemyBehaviorTables.Shared.Whisp.SpeedRaw,
+            EnemyBehaviorTables.For(AssetRoot).Whisp.SpeedRaw,
             _angle);
         QueueRedraw();
         AdvanceAnimation();

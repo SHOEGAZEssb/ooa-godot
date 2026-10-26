@@ -9,12 +9,16 @@ namespace Oracles;
 /// </summary>
 internal sealed class TopDownSwimmingDatabase
 {
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<TopDownSwimmingDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static TopDownSwimmingDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<TopDownSwimmingDatabase>(() => new TopDownSwimmingDatabase(root))).Value;
+
     private readonly Dictionary<string, int> _constants = new();
     private readonly Dictionary<(int Frame, int Direction),
         TopDownSwimmingFrame> _frames = new();
     private readonly Dictionary<int, TopDownDivingFrame> _diveFrames = new();
-
-    internal static TopDownSwimmingDatabase Shared { get; } = new();
 
     internal TopDownSwimmingParameters Parameters => new(
         BaseSpeed: Constant("base-speed"),
@@ -44,10 +48,12 @@ internal sealed class TopDownSwimmingDatabase
             Constant("dive-animation-frame-1")
         ]);
 
-    private TopDownSwimmingDatabase()
+    private TopDownSwimmingDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable constantTable = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/top_down_swim_constants.tsv",
+            AssetRoot + "metadata/top_down_swim_constants.tsv",
             new GeneratedTableSchema(
                 "top-down Link swimming constants",
                 GeneratedTableKeySemantics.Unique,
@@ -58,7 +64,7 @@ internal sealed class TopDownSwimmingDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
         GeneratedTable frameTable = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/top_down_swim_frames.tsv",
+            AssetRoot + "metadata/top_down_swim_frames.tsv",
             new GeneratedTableSchema(
                 "top-down Link swimming frames",
                 GeneratedTableKeySemantics.Unique,
@@ -85,7 +91,7 @@ internal sealed class TopDownSwimmingDatabase
         }
 
         GeneratedTable diveFrameTable = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/top_down_dive_frames.tsv",
+            AssetRoot + "metadata/top_down_dive_frames.tsv",
             new GeneratedTableSchema(
                 "top-down Link diving frames",
                 GeneratedTableKeySemantics.Unique,

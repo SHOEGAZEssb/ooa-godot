@@ -10,14 +10,18 @@ namespace Oracles;
 /// </summary>
 internal sealed class GroundTreasureDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Lookup<
         (int Group, int Room),
         GroundTreasureDatabaseRecord> _byRoom = new();
 
-    public GroundTreasureDatabase()
+    public GroundTreasureDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/ground_treasures.tsv",
+            AssetRoot + "objects/ground_treasures.tsv",
             new GeneratedTableSchema(
                 "ground treasures",
                 GeneratedTableKeySemantics.Grouped,

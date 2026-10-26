@@ -148,7 +148,7 @@ internal sealed class SymmetryScriptHost : RoomCutsceneCommandHost, ICutsceneCom
                         _secretPending = false;
                     })) throw UnsupportedCommand("acquire MENU_SECRET for SYMMETRY_SECRET $09");
                 break;
-            case "GenerateSecret": _secret = new LinkedGameNpcDatabase().GenerateSecret(0x19, Context.Rooms.SaveData); break;
+            case "GenerateSecret": _secret = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x19, Context.Rooms.SaveData); break;
             default: throw UnsupportedCommand($"run symmetry helper '{handler}'");
         }
     }

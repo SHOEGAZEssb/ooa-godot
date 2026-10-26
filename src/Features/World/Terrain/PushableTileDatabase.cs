@@ -5,6 +5,8 @@ namespace Oracles;
 
 public sealed class PushableTileDatabase
 {
+    public string AssetRoot { get; }
+
     private const int CollisionModeCount = 6;
     private const int TileCount = 256;
     private const int RecordSize = 4;
@@ -12,9 +14,11 @@ public sealed class PushableTileDatabase
     private readonly byte[] _nativeProperties;
     private readonly (byte Tile,byte Parameter)[] _somaria=new (byte,byte)[6];
 
-    public PushableTileDatabase()
+    public PushableTileDatabase(string assetRoot)
     {
-        var table=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/somaria_push_tiles.tsv",
+        AssetRoot = assetRoot;
+
+        var table=GeneratedTable.Load(AssetRoot + "metadata/somaria_push_tiles.tsv",
             new GeneratedTableSchema("Somaria push dispatch",GeneratedTableKeySemantics.Unique,
                 ["active-collisions","tile","parameter","source"],["active-collisions"],headerRequired:true));
         if(table.Rows.Count!=6) throw new InvalidOperationException("Somaria push dispatch requires all six collision modes.");
@@ -26,8 +30,8 @@ public sealed class PushableTileDatabase
             if((_somaria[mode].Parameter&15)!=0) throw row.Invalid(2,"nextToPushableBlock dispatch");
             _=row.RequiredString(3);
         }
-        _records = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/pushableTiles.bin");
-        _nativeProperties = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/native_pushblock_properties.bin");
+        _records = OracleAssetCache.ReadBytes(AssetRoot + "metadata/pushableTiles.bin");
+        _nativeProperties = OracleAssetCache.ReadBytes(AssetRoot + "metadata/native_pushblock_properties.bin");
         if (_nativeProperties.Length != CollisionModeCount * TileCount * 3)
             throw new InvalidOperationException("Native INTERAC $14 properties require all six collision-mode tables.");
         int expected = CollisionModeCount * TileCount * RecordSize;

@@ -77,6 +77,7 @@ internal sealed partial class RaftRoomEntity : TransitionOffsetNode2D,
         OracleSaveData saveData,
         OracleRuntimeState runtime)
     {
+        AssetRoot = room.AssetRoot;
         _room = room;
         _behavior = behavior;
         _runtime = runtime;

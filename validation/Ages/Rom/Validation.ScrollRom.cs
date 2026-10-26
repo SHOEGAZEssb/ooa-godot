@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateScrollTimingRom()
     {
-        var graphics = new ScreenTransitionGraphicsDatabase();
+        var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
         foreach (var route in new[] { (0, 0x11, 0x12), (4, 0x07, 0x03),
             (0, 0x6a, 0x6b), (0, 0x11, 0x11), (0, 0x6b, 0x6b) })
         for (int direction = 0; direction < 4; direction++)

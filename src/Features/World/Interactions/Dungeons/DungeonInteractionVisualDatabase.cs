@@ -10,12 +10,16 @@ namespace Oracles;
 /// </summary>
 internal sealed class DungeonInteractionVisualDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<string, DungeonInteractionVisual> _visuals =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, Color[]> _cubePalettes = new();
 
-    internal DungeonInteractionVisualDatabase()
+    internal DungeonInteractionVisualDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         LoadVisuals();
         LoadCubePalettes();
         ValidateContract();
@@ -32,7 +36,7 @@ internal sealed class DungeonInteractionVisualDatabase
     private void LoadVisuals()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_interaction_visuals.tsv",
+            AssetRoot + "objects/dungeon_interaction_visuals.tsv",
             new GeneratedTableSchema(
                 "shared dungeon interaction visuals",
                 GeneratedTableKeySemantics.Unique,
@@ -44,7 +48,7 @@ internal sealed class DungeonInteractionVisualDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            DungeonInteractionVisual record = new(
+            DungeonInteractionVisual record = new(AssetRoot,
                 row.RequiredString(0),
                 row.SplitRequired(1, ','),
                 row.UnsignedDecimal(2),
@@ -63,7 +67,7 @@ internal sealed class DungeonInteractionVisualDatabase
     private void LoadCubePalettes()
     {
         Color[,] palettes = OracleGraphicsData.LoadPalette(
-            AgesGameContent.AssetRoot + "objects/colored_cube_palettes.bin", 2, 6);
+            AssetRoot + "objects/colored_cube_palettes.bin", 2, 6);
         for (int palette = 6; palette <= 7; palette++)
         {
             var colors = new Color[4];
@@ -135,6 +139,7 @@ internal sealed class DungeonInteractionVisualDatabase
 }
 
 internal readonly record struct DungeonInteractionVisual(
+    string AssetRoot,
     string Key,
     string[] Sprites,
     int TileBase,

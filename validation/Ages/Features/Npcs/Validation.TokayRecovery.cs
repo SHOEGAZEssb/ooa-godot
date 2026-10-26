@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
         foreach (bool batched in new[] { false, true })
         foreach (var row in holders)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
             save.SetGlobalFlag(GlobalFlag.IntroDone);
@@ -132,7 +132,7 @@ public sealed partial class ValidationRoot
         foreach (bool batched in new[] { false, true })
         foreach (bool bracelet in new[] { false, true })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
             save.SetGlobalFlag(GlobalFlag.IntroDone);

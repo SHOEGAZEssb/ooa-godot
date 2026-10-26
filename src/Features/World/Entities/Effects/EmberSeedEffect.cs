@@ -117,6 +117,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         int angle = ObjectAngle.Up,
         int linkZFixed = 0)
     {
+        AssetRoot = breakables.AssetRoot;
         _record = record;
         _room = room;
         _breakables = breakables;
@@ -135,8 +136,8 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         // objectApplySpeed treats as stationary independently of speed.
         if (launchKind == SeedLaunchKind.Satchel && record.SeedItem == ItemId.GaleSeed)
             _angle = -1;
-        _shooter = SeedShooterRecord.Load();
-        _itemCliffs = launchKind == SeedLaunchKind.Shooter ? new ItemCliffDatabase() : null;
+        _shooter = SeedShooterRecord.Load(AssetRoot);
+        _itemCliffs = launchKind == SeedLaunchKind.Shooter ? new ItemCliffDatabase(AssetRoot) : null;
         _shooterElevation = 0;
         _lastShooterTilePosition = 0;
         _lastShooterTile = 0;
@@ -181,9 +182,9 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
         _frameIndex = 0;
 
         Image flyingSource = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
+            AssetRoot + $"gfx/{record.Sprite}.png");
         Image flameSource = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.FlameSprite}.png");
+            AssetRoot + $"gfx/{record.FlameSprite}.png");
         _flyingTextures = OracleGraphicsCache.BuildAnimationTextures(
             flyingSource, _flyingFrames, record.TileBase, record.Palette);
         _effectTextures = OracleGraphicsCache.BuildAnimationTextures(
@@ -380,7 +381,7 @@ public partial class EmberSeedEffect : TransitionOffsetNode2D
             // Item.id and reloads attributes/animation. Its recursive dispatch
             // animates the selected seed once before entering that effect.
             AdvanceAnimation();
-            if (!new SeedSatchelDatabase().TryGet(0x20 + _mysteryEffect, out SeedRecord selected))
+            if (!new SeedSatchelDatabase(AssetRoot).TryGet(0x20 + _mysteryEffect, out SeedRecord selected))
                 throw new InvalidOperationException($"Missing Mystery-selected ITEM ${0x20 + _mysteryEffect:x2}.");
             LoadSeedGraphics(selected);
             result = SeedHitResult.Activate;

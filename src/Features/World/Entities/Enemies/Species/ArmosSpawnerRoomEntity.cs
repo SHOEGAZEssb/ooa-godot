@@ -16,8 +16,8 @@ internal sealed partial class ArmosSpawnerRoomEntity : Node2D,
     internal int State { get; private set; }
     public bool UpdatesDuringDialogue => State == 0;
     public bool UpdatesDuringRoomEntityFreeze => State == 0;
-    private readonly ArmosBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Armos;
+    private ArmosBehaviorProfile _behavior =>
+        EnemyBehaviorTables.For(_room.AssetRoot).Armos;
 
     public Node2D Node => this;
     public bool Finished { get; private set; }

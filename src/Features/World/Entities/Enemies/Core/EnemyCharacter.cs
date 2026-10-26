@@ -36,8 +36,8 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         spawns.Add(spawn);
         return true;
     }
-
-    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
+    private EnemyBehaviorTables? _behaviorSourceCache;
+    private EnemyBehaviorTables _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
     private EnemyAnimationPlayer _animation = null!;
     private int _animationCount;
     private int _collisionRadiusX;
@@ -107,6 +107,7 @@ public abstract partial class EnemyCharacter : TransitionOffsetNode2D
         IReadOnlyList<int>? paletteVariants = null,
         IReadOnlyList<int[]>? animationSourceOffsets = null)
     {
+        AssetRoot = configuration.AssetRoot;
         Position = position;
         Health = configuration.Health;
         IsDead = false;
@@ -806,6 +807,7 @@ internal readonly record struct EnemyHazardEffectRequest(
     HazardType Hazard);
 
 internal readonly record struct EnemyCharacterConfiguration(
+    string AssetRoot,
     int Health,
     int CollisionRadiusX,
     int CollisionRadiusY,
@@ -819,10 +821,11 @@ internal readonly record struct EnemyCharacterConfiguration(
     internal static EnemyCharacterConfiguration FromImported(
         ImportedEnemyDefinition record) =>
         new(
+            record.AssetRoot,
             record.Health,
             record.RadiusX,
             record.RadiusY,
-            EnemyVisualSource.LoadComposite(record.Sprites),
+            EnemyVisualSource.LoadComposite(record.Sprites, record.AssetRoot),
             record.Animations,
             record.TileBase,
             record.Palette,
@@ -830,6 +833,7 @@ internal readonly record struct EnemyCharacterConfiguration(
             record.SourceGrayscaleInverted);
 
     internal static EnemyCharacterConfiguration FromSprite(
+        string assetRoot,
         int health,
         int collisionRadiusX,
         int collisionRadiusY,
@@ -838,11 +842,12 @@ internal readonly record struct EnemyCharacterConfiguration(
         int tileBase,
         int palette) =>
         new(
+            assetRoot,
             health,
             collisionRadiusX,
             collisionRadiusY,
             OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{spriteName}.png"),
+                assetRoot + $"gfx/{spriteName}.png"),
             animations,
             tileBase,
             palette,

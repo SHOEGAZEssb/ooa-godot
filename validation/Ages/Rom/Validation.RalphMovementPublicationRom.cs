@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
             else
             {
                 LoadValidationRoom(2, 0x0f);
-                FailIf(!new WarpDatabase().TryGetEdgeWarp(2, 0x0f, Vector2I.Down, new(80, _currentRoom.Height + 2),
+                FailIf(!new WarpDatabase(AgesGameContent.AssetRoot).TryGetEdgeWarp(2, 0x0f, Vector2I.Down, new(80, _currentRoom.Height + 2),
                     new(_currentRoom.Width, _currentRoom.Height), out var warp), "Cheval house must retain its original exit into 1:79/$17.");
                 _player.WarpTo(new(80, _currentRoom.Height + 2)); _player.Face(Vector2I.Down); _transitions.ApplyWarp(_player, warp);
             }

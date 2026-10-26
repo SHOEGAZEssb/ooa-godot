@@ -25,7 +25,7 @@ internal sealed class VeranFairyDatabase
             new("Veran fairy actors",GeneratedTableKeySemantics.Unique,
                 ["id","subid","sprites","tile-base","palette","source-grayscale-inverted","radius-y","radius-x","damage-quarters","health","animations-base64"],
                 ["id","subid"],headerRequired:true)).Rows)
-            _actors.Add(row.HexByte(0),new(row.HexByte(0),row.HexByte(1),row.SplitRequired(2,','),row.Decimal(3),row.Decimal(4),row.Boolean01(5),
+            _actors.Add(row.HexByte(0),new(AgesGameContent.AssetRoot, row.HexByte(0),row.HexByte(1),row.SplitRequired(2,','),row.Decimal(3),row.Decimal(4),row.Boolean01(5),
                 row.Decimal(6),row.Decimal(7),row.Decimal(8),row.Decimal(9),row.EncodedAnimations(10)));
         foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/veran_fairy_texts.tsv",
             new("Veran fairy dialogue",GeneratedTableKeySemantics.Unique,["text-id","message-base64","source"],["text-id"],headerRequired:true)).Rows)

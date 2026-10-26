@@ -7,9 +7,9 @@ public sealed partial class ValidationRoot
 {
     private void ValidateMovingSideScrollPlatforms()
     {
-        var placements = new MovingSideScrollPlatformDatabase();
-        var interactions = new DungeonInteractionDatabase();
-        var visuals = new DungeonInteractionVisualDatabase();
+        var placements = new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot);
+        var interactions = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
+        var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
 
         foreach ((int subId, Vector2I size, Vector2 offset) in new[]
         {

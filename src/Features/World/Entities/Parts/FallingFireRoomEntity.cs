@@ -29,6 +29,7 @@ internal sealed partial class FallingFireRoomEntity : DungeonInteractionVisualEn
 
     internal FallingFireRoomEntity(RoomEntityManager owner, PlacedPartDatabase data, int subid, Vector2 position)
     {
+        AssetRoot = owner.AssetRoot;
         if (subid is < 0 or > 2) throw new NotSupportedException($"fallingFire.s: PART$23:${subid:x2} is unsupported.");
         _owner = owner; _data = data; SubId = subid;
         InitializeVisual(data.Definition(PartId.FallingFire).Visual, position.Floor(), positionedOam: true);

@@ -7,7 +7,8 @@ namespace Oracles;
 // after reuse; the visual effect does not retain a detached parent health.
 internal sealed partial class VireProjectile : TransitionOffsetNode2D
 {
-    private readonly VireProjectileProfile _data = EnemyBehaviorTables.Shared.VireProjectile;
+    private VireProjectileProfile? _dataSourceCache;
+    private VireProjectileProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).VireProjectile;
     private readonly OracleRoomData _room;
     private readonly OracleRuntimeState _memory;
     private readonly Func<int, int> _health;
@@ -42,13 +43,14 @@ internal sealed partial class VireProjectile : TransitionOffsetNode2D
         VireProjectileSpawn input, Func<int, int> health, Func<VireProjectileSpawn, bool> spawn,
         Func<int, bool> canAllocate, Func<Vector2, int> puff, Func<int, int> parameter, Func<Vector2, bool> normalPuff)
     {
+        AssetRoot = visual.AssetRoot;
         if (input.SubId is < 0 or > 3) throw new NotSupportedException($"vireProjectile.s: PART$3a subid${input.SubId:x2}.");
         _room = room; _memory = memory; _health = health; _spawn = spawn; _canAllocate = canAllocate;
         _puff = puff; _parameter = parameter; _normalPuff = normalPuff;
         SubId = input.SubId; ParentSlot = input.ParentSlot; Var03 = input.Var03;
         Position = input.Position.Floor(); Angle = input.Angle; ZHigh = unchecked((sbyte)(byte)input.ZHigh);
         Animation = new(this, 2);
-        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations, visual.TileBase,
+        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations, visual.TileBase,
             Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         Visible = false;
     }

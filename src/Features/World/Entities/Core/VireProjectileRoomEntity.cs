@@ -12,7 +12,8 @@ internal sealed class VireProjectileRoomEntity(VireProjectile projectile, Action
         IPostObjectLinkContactRoomEntity, IPostObjectItemCollisionRoomEntity, IBombCollisionRoomEntity,
         IBoomerangCollisionRoomEntity, ISeedCollisionTarget
 {
-    private readonly VireProjectileProfile _data = EnemyBehaviorTables.Shared.VireProjectile;
+    private VireProjectileProfile? _dataSourceCache;
+    private VireProjectileProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).VireProjectile;
     private int _swordCollision = ItemCollisionType.L1Sword;
     public bool Finished => Entity.Finished;
     public int CollisionZ => Entity.ZHigh;
@@ -57,7 +58,7 @@ internal sealed class VireProjectileRoomEntity(VireProjectile projectile, Action
     public SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
         if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("PART$3a requires Mystery Seed's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
+        if (!new SeedSatchelDatabase(AssetRoot).TryGet(seedItem, out var seed)) return SeedHitResult.None;
         return ApplySeedCollision(bounds, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed, int collision,

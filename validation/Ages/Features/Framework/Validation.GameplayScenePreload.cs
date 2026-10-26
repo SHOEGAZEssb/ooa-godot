@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();
             Invoke("ReleaseGameplayScene", true);
             _scene = null!;
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             byte[] before = save.Serialize();
             int rng = _random.Calls;
             Invoke("StartSelectedFile", 0, save);
@@ -130,7 +130,7 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         Invoke("ReleaseGameplayScene", true);
         _scene = null!;
-        var unfinished = OracleSaveData.CreateStandardGame();
+        var unfinished = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         Invoke("StartSelectedFile", 0, unfinished);
         var unfinishedIntro = Read<NewGameIntroController>("_newGameIntro")!;
         StepGameplayUpdates(360, Vector2.Zero, batched: true);
@@ -142,7 +142,7 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         Invoke("ReleaseGameplayScene", true);
         _scene = null!;
-        var cancelled = OracleSaveData.CreateStandardGame();
+        var cancelled = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         byte[] cancelledBytes = cancelled.Serialize();
         Invoke("StartSelectedFile", 0, cancelled);
         base._Process(1.0 / 60.0);
@@ -160,7 +160,7 @@ public sealed partial class ValidationRoot
         ValidateRoomEventsBeforeReset();
         Invoke("ReleaseGameplayScene", true);
         _scene = null!;
-        Invoke("StartSelectedFile", 0, OracleSaveData.CreateStandardGame());
+        Invoke("StartSelectedFile", 0, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         var partial = Read<System.Collections.Generic.IEnumerator<bool>>("_gameplayPreparation")!;
         int preparationSteps = 0;
         while (ReferenceEquals(_entities, retiredEntities) && preparationSteps++ < 256 && partial.MoveNext()) { }
@@ -187,7 +187,7 @@ public sealed partial class ValidationRoot
         }
         static OracleSaveData Save()
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
             save.SetGlobalFlag(GlobalFlag.IntroDone);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, 0);
@@ -280,11 +280,11 @@ public sealed partial class ValidationRoot
 
         byte[] save = _saveData.Serialize();
         int rngCalls = _random.Calls;
-        var factory = (RoomEntityFactory)Field(_entities, "_factory")!;
+        var factory = (AgesRoomEntityFactory)Field(_entities, "_factory")!;
         PlayerSpriteLibrary sprites = _player.Sprites;
         object? preparedSmog = Field(factory.Resources, "_smogProjectileData");
         FailIf(preparedSmog is not null && !ReferenceEquals(preparedSmog,
-                Field(RoomEntityResources.CreateSession(_rooms), "_smogProjectileData")),
+                Field(AgesRoomEntityResources.CreateSession(_rooms), "_smogProjectileData")),
             "Prewarmed immutable boss definitions were duplicated for a session.");
         FailIf(Field(sprites, "_swordTextureCache") is not null ||
             Field(sprites, "_seedShooterTexturesCache") is not null,
@@ -310,6 +310,7 @@ public sealed partial class ValidationRoot
         var otherPlayer = new Player();
         try
         {
+            foreach (bool _ in otherPlayer.PrepareInitialPresentation(AgesGameContent.AssetRoot)) { }
             FailIf(ReferenceEquals(sprites, otherPlayer.Sprites) ||
                 Field(otherPlayer.Sprites, "_swordTextureCache") is not null,
                 "A different player node must own a fresh, unprepared sprite library.");
@@ -334,24 +335,24 @@ public sealed partial class ValidationRoot
         int rngCalls = _random.Calls;
         int children = GetChildCount();
         OracleRoomData room = _currentRoom;
-        var resource = new GameplaySceneResource();
+        var resource = new AgesGameplaySceneResource();
         resource.BeginPreload();
         resource.BeginPreload();
         PackedScene prepared = resource.Load();
         resource.BeginPreload();
-        FailIf(prepared != resource.Load() || prepared.ResourcePath != GameSceneGraph.ScenePath,
+        FailIf(prepared != resource.Load() || prepared.ResourcePath != AgesGameSceneGraph.ScenePath,
             "Gameplay scene preload did not retain its resource across repeated requests.");
         FailIf(!save.SequenceEqual(_saveData.Serialize()) || _random.Calls != rngCalls ||
             _currentRoom != room || GetChildCount() != children,
             "Gameplay resource preparation changed save, RNG, room identity or live nodes before the intro handoff.");
-        GameSceneGraph instance = prepared.Instantiate<GameSceneGraph>();
+        AgesGameSceneGraph instance = prepared.Instantiate<AgesGameSceneGraph>();
         try
         {
             FailIf(instance.IsInsideTree() || instance.GetNodeOrNull<Player>("World/Link") is null,
                 "Prepared gameplay scene did not preserve its off-tree Link hierarchy.");
         }
         finally { instance.Free(); }
-        var direct = new GameplaySceneResource();
+        var direct = new AgesGameplaySceneResource();
         FailIf(direct.Load() != prepared,
             "Direct gameplay initialization did not reuse the same packed scene resource.");
         GD.Print("Validated gameplay scene background preload, repeated/direct loads, and side-effect-free preparation before intro completion.");

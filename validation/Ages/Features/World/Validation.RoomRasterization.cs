@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
         foreach (var id in new[] { (2, 0x5e), (4, 0x07) })
         {
-            var world = new OracleWorldData();
+            var world = new AgesWorldData();
             OracleRoomData prepared = world.LoadRoom(id.Item1, id.Item2);
             world.SetCurrentPaletteRoom(prepared);
             prepared.SetPositionTileAndCollision(new Vector2(8, 8), prepared.Layout[1], 0, 0);
@@ -178,7 +178,7 @@ public sealed partial class ValidationRoot
 
     private static void ValidateShopPriceRasterization()
     {
-        var world = new OracleWorldData();
+        var world = new AgesWorldData();
         OracleRoomData room = world.LoadRoom(2, 0x5e);
         world.SetCurrentPaletteRoom(room);
         Image source = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "inventory/gfx_inventory_hud_1.png");
@@ -254,12 +254,12 @@ public sealed partial class ValidationRoot
                     $"Lynna diagnostic crossing did not finish at 0:{destination:x2}.");
                 if (!entering) continue;
                 Vector2 door = new(0x58, 0x28);
-                FailIf(!WarpDatabase.Shared.TryGetTileWarp(0, _currentRoom, 0x25,
+                FailIf(!WarpDatabase.For(AgesGameContent.AssetRoot).TryGetTileWarp(0, _currentRoom, 0x25,
                     _currentRoom.GetMetatile(door), out Warp shop) ||
                     shop.DestinationGroup != 2 || shop.DestinationRoom != 0x5e,
                     "Lynna profile requires the imported $0:$68/$25 -> $2:$5e doorway.");
                 MeasureWarp(shop, crossing == 0 ? "first" : "repeat");
-                FailIf(!WarpDatabase.Shared.TryGetEdgeWarp(2, 0x5e, Vector2I.Down,
+                FailIf(!WarpDatabase.For(AgesGameContent.AssetRoot).TryGetEdgeWarp(2, 0x5e, Vector2I.Down,
                     new Vector2(0x28, 0x78), new Vector2(160, 128), out Warp exit) ||
                     exit.DestinationGroup != 0 || exit.DestinationRoom != 0x68,
                     "Lynna profile requires the imported $2:$5e -> $0:$68 exit.");
@@ -289,7 +289,7 @@ public sealed partial class ValidationRoot
 
     private static void MeasureRoomAndSpritePreparation()
     {
-        var world = new OracleWorldData();
+        var world = new AgesWorldData();
         OracleRoomData room = world.LoadRoom(2, 0xea);
         world.SetCurrentPaletteRoom(room);
         const System.Reflection.BindingFlags rasterFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
@@ -345,7 +345,7 @@ public sealed partial class ValidationRoot
 
     private static void ValidateRoomTextureInvalidation(Action<OracleRoomData> verify)
     {
-        var world = new OracleWorldData();
+        var world = new AgesWorldData();
         OracleRoomData room = world.LoadRoom(2, 0xea);
         world.SetCurrentPaletteRoom(room);
         Color[,] original = world.BackgroundPalettes.Capture();
@@ -412,7 +412,7 @@ public sealed partial class ValidationRoot
         }
         var palettes = new BackgroundPaletteState(new[] { Colors.Black, Colors.Black, Colors.Black, Colors.Black }, new Color[3, 4]);
         var room = new OracleRoomData(4, 0x07, 0, 0, 0, 0, layout, new byte[256],
-            source, hud, mappings, new Color[6, 4], palettes, new OracleAnimationData());
+            source, hud, mappings, new Color[6, 4], palettes, new OracleAnimationData(AgesGameContent.AssetRoot));
         palettes.Changed += room.RefreshPaletteTextures;
         Texture2D underwater = room.UnderwaterBackgroundTexture;
         int uploads = 0;
@@ -470,7 +470,7 @@ public sealed partial class ValidationRoot
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 using Image actual = viewport.GetTexture().GetImage();
-                (int left, int right) = RoomTransitionController.RoomLoadRevealBounds(columns);
+                (int left, int right) = AgesRoomTransitionController.RoomLoadRevealBounds(columns);
                 for (int y = 0; y < 176; y++)
                 for (int x = 0; x < 240; x++)
                 {

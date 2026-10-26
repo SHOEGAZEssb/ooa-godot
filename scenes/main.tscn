@@ -2,7 +2,7 @@
 
 [ext_resource path="res://src/Application/GameRoot.cs" type="Script" id="1_game"]
 [ext_resource path="res://src/Features/Audio/OracleSoundEngine.cs" type="Script" id="2_sound"]
-[ext_resource path="res://scenes/ages/boot_loading.tscn" type="PackedScene" id="3_loading"]
+[ext_resource path="res://scenes/launcher/boot_loading.tscn" type="PackedScene" id="3_loading"]
 [ext_resource path="res://scenes/launcher/game_select.tscn" type="PackedScene" id="4_select"]
 
 [node name="OracleOfAges" type="Node2D"]

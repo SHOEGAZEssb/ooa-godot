@@ -12,7 +12,7 @@ internal sealed class NayruRescueFlowerRoomEntity : IRoomEntity,IFixedRoomEntity
     public bool UpdatesDuringDialogue => true;
     public bool UpdatesDuringRoomEntityFreeze => true;
     internal NayruRescueFlowerRoomEntity(MakuTreeAdviceDatabase data,NayruRescueActorRoomEntity parent)
-    {_data=data;_parent=parent;_actor=NpcCharacter.CreateFromRecord(data.Flower);_actor.SetBlocksLink(false);_actor.SetAnimationRate(0);}
+    {_data=data;_parent=parent;_actor=NpcCharacter.CreateFromRecord(data.Flower, AgesGameContent.AssetRoot);_actor.SetBlocksLink(false);_actor.SetAnimationRate(0);}
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {_actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);_actor.SetScriptAnimation(_parent.FlowerFrowning?_data.FrowningFlower:_parent.SubId==4?_data.CreditsFlower:_data.Flower.UpAnimation);}
     public void SetTransitionDrawOffset(Vector2 offset) => _actor.SetTransitionDrawOffset(offset);

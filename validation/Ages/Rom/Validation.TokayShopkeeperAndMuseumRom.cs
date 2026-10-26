@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         foreach(bool batched in new[]{false,true})
         foreach(bool purchased in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);_inventory.SetScriptedEquippedItems(0,0);
             var data=new TokayShopDatabase();_saveData.SetGlobalFlag(data.BoughtFeatherFlag,purchased);
@@ -117,7 +117,7 @@ public sealed partial class ValidationRoot
             native[at+11]=(byte)actor.Position.Y;native[at+13]=(byte)actor.Position.X;
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(new(24,24),SoundId.MusNone);
+                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
                 _entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int occupied=0xd040+_entities.InteractionSlot(puff)*256;
                 native[occupied]=1;native[occupied+1]=0;native[occupied+4]=1;native[occupied+0x20]=0xff;

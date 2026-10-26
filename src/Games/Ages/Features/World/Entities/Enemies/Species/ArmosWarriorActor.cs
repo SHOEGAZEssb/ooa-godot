@@ -47,6 +47,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
 
     internal void Initialize(ImportedEnemyDefinition record, ArmosWarriorEnvironment world, Vector2 position, int z = 0)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _world = world;
         _movement = new(this, world.Room);
@@ -77,6 +78,7 @@ internal sealed partial class ArmosWarriorActor : EnemyCharacter
 
     internal void InitializeState()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (!Initializing) return;
         _world.Random.Next(); // enemyStandardUpdate: one var3d draw for each slot.
         if (SubId == 0)

@@ -31,6 +31,7 @@ internal sealed partial class TuniNutRoomEntity : TransitionOffsetNode2D, IRoomE
 
     public TuniNutRoomEntity(TuniNutDatabase data, SymmetryDatabase npcs, InventoryState? inventory, OracleSaveData? save, OracleRoomData room)
     {
+        AssetRoot = room.AssetRoot;
         _data = data;
         _npcs = npcs;
         _room = room;

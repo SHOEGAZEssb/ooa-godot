@@ -86,7 +86,7 @@ public sealed partial class ValidationRoot
                         root._random.Calls - seed.Calls != rom.RandomCalls,
                         $"{context}: name entry changed shared RNG state/order.");
                     for (int slot = 0; slot < 3; slot++)
-                        FailIf(root.FileSlotExists(slot) != (rom.SavedByte(slot, 0xc5b2) == 0x5a),
+                        FailIf(root.FileSlotExists(slot, OracleGame.Ages) != (rom.SavedByte(slot, 0xc5b2) == 0x5a),
                             $"{context}: slot ${slot:x2} existence/persistence differs from native SRAM.");
                 });
             }
@@ -100,7 +100,7 @@ public sealed partial class ValidationRoot
                 Step(pressed: 1, held: directions | 1); // Options initialization consumes A.
                 Step(pressed: 1, held: directions | 1); // New Game.
                 Step(pressed: 0x11, held: directions | 0x11); // Name initialization consumes both A/Right.
-                FailIf(screen.NameCursor != 0 || screen.NameEntryPosition != 0 || root.FileSlotExists(slot),
+                FailIf(screen.NameCursor != 0 || screen.NameEntryPosition != 0 || root.FileSlotExists(slot, OracleGame.Ages),
                     "Name initialization accepted input or persisted an unfinished file.");
             }
             void MoveTo(int target)
@@ -130,14 +130,14 @@ public sealed partial class ValidationRoot
             void Submit(int slot, string? expectedName, bool withA = false)
             {
                 Press(8);
-                FailIf(rom[0xcbb4] != 1 || root.FileSlotExists(slot),
+                FailIf(rom[0xcbb4] != 1 || root.FileSlotExists(slot, OracleGame.Ages),
                     "First Start submitted before selecting the source OK option.");
                 Press(withA ? 1 : 8);
-                FailIf(root.FileSlotExists(slot), "Name confirmation wrote SRAM before the commit dispatch.");
+                FailIf(root.FileSlotExists(slot, OracleGame.Ages), "Name confirmation wrote SRAM before the commit dispatch.");
                 Step(pressed: 0xff); // Commit owns the complete update.
                 Step(pressed: 0xff); // File-selection initialization consumes input.
                 FailIf(menu.CurrentPage != Page.FileSelect || menu.Cursor != 0 ||
-                    root.FileSlotExists(slot) != (expectedName is not null),
+                    root.FileSlotExists(slot, OracleGame.Ages) != (expectedName is not null),
                     "Name completion/cancellation failed to reset file selection or persistence.");
                 if (expectedName is null)
                 {
@@ -146,7 +146,7 @@ public sealed partial class ValidationRoot
                             $"Blank name retained native primary/backup byte ${address:x4}.");
                     return;
                 }
-                FailIf(!OracleSaveData.TryDeserialize(root.FileSlotSnapshot(slot), out var save) || save!.LinkName != expectedName,
+                FailIf(!OracleSaveData.TryDeserialize(root.FileSlotSnapshot(slot, OracleGame.Ages), OracleGame.Ages, out var save) || save!.LinkName != expectedName,
                     $"Name commit did not persist source-derived '{expectedName}'.");
                 for (int address = 0xc5b0; address < 0xcb00; address++)
                     FailIf(save!.ReadWramByte(address) != rom.SavedByte(slot, address) ||
@@ -236,13 +236,13 @@ public sealed partial class ValidationRoot
                     Step(64, held: 1);
                     FailIf(screen.RawEnteredName != name, "Held A repeated name insertion.");
                     Press(8); Step(64, held: 8);
-                    FailIf(root.FileSlotExists(0) || rom[0xcbb4] != 1, "Held Start submitted the name twice.");
+                    FailIf(root.FileSlotExists(0, OracleGame.Ages) || rom[0xcbb4] != 1, "Held Start submitted the name twice.");
                     Press(0x10); // Lower OK -> left arrow; new direction starts its clock.
                     Step(pressed: 0x20, held: 0x30); // Left back to OK; retain shared Right.
                     Step(37, held: 0x10);
                     Step(pressed: 8, held: 0x18); // Submit at repeat counter $27, before its first repeat.
                     Step(held: 0x10); Step(held: 0x10);
-                    FailIf(!root.FileSlotExists(0), "Autofire retention scenario did not commit its first file.");
+                    FailIf(!root.FileSlotExists(0, OracleGame.Ages), "Autofire retention scenario did not commit its first file.");
                     OpenName(1, 0x10);
                     Step(held: 0x10); // Retained $27 increments to $28 immediately on re-entry.
                     FailIf(screen.NameCursor != 1, "Name initialization discarded the native shared autofire history.");

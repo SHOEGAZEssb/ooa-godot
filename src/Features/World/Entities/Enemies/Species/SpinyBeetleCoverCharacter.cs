@@ -34,10 +34,11 @@ internal sealed partial class SpinyBeetleCoverCharacter : EnemyCharacter, ISwitc
         OracleRoomData room, BraceletDatabaseRecord bracelet, BombRecord throwing,
         System.Action<Rect2,int,int,int> applyThrownHit)
     {
+        AssetRoot = room.AssetRoot;
         Parent = parent; _random = random;
         _texture = parent.CoverTexture; _room = room; _bracelet = bracelet; _throwing = throwing;
         _applyThrownHit = applyThrownHit; _motion = new(parent.Position.Floor());
-        var data = EnemyBehaviorTables.Shared.SpinyCoverAttributes;
+        var data = EnemyBehaviorTables.For(AssetRoot).SpinyCoverAttributes;
         InitializeEnemy(parent.Position.Floor(), EnemyCharacterConfiguration.FromImported(parent.Record with
         { Id = data[0].Value, Health = data[1].Value, RadiusY = data[2].Value, RadiusX = data[3].Value }));
         Visible = false;
@@ -92,12 +93,12 @@ internal sealed partial class SpinyBeetleCoverCharacter : EnemyCharacter, ISwitc
     {
         if (!CollisionEnabled || Rock || InvincibilityCounter != 0) return false;
         Health = System.Math.Max(0, Health - damage);
-        InvincibilityCounter = EnemyBehaviorTables.Shared.EnemySwordDamageProfiles[3].First;
+        InvincibilityCounter = EnemyBehaviorTables.For(AssetRoot).EnemySwordDamageProfiles[3].First;
         DeferNativeHitStatus(); return true;
     }
     internal void BeginBurn(int damage)
     {
-        var status = EnemyBehaviorTables.Shared.TargetGhini.EmberStatus;
+        var status = EnemyBehaviorTables.For(AssetRoot).TargetGhini.EmberStatus;
         Health = System.Math.Max(0,Health-damage); _burnCollisionDisabled = Health == 0;
         InvincibilityCounter = unchecked((sbyte)status[1].Value); _stunCounter = status[3].Value;
         DeferNativeHitStatus();

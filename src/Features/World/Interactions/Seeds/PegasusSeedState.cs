@@ -7,18 +7,19 @@ public sealed class PegasusSeedState
 {
     private readonly InventoryState _inventory;
     private readonly RoomEntityManager _entities;
-    internal PegasusSeedRecord Data { get; } = PegasusSeedRecord.Load();
+    internal string AssetRoot => _inventory.AssetRoot;
+    internal PegasusSeedRecord Data { get; }
     internal PegasusSeedState(InventoryState inventory, RoomEntityManager entities)
-    { _inventory = inventory; _entities = entities; }
+    { _inventory = inventory; _entities = entities; Data = PegasusSeedRecord.Load(AssetRoot); }
 
     internal int RawCounter
     {
-        get => _entities.RuntimeState.ReadWramByte(AgesWramAddress.wPegasusSeedCounter) |
-            (_entities.RuntimeState.ReadWramByte(AgesWramAddress.wPegasusSeedCounter + 1) << 8);
+        get => _entities.RuntimeState.ReadField("wPegasusSeedCounter") |
+            (_entities.RuntimeState.ReadField("wPegasusSeedCounter", 1) << 8);
         private set
         {
-            _entities.RuntimeState.SetWramByte(AgesWramAddress.wPegasusSeedCounter, (byte)value);
-            _entities.RuntimeState.SetWramByte(AgesWramAddress.wPegasusSeedCounter + 1, (byte)(value >> 8));
+            _entities.RuntimeState.SetField("wPegasusSeedCounter", (byte)value);
+            _entities.RuntimeState.SetField("wPegasusSeedCounter", (byte)(value >> 8), 1);
         }
     }
     public bool Active => RawCounter != 0;
@@ -64,9 +65,9 @@ public sealed class PegasusSeedState
 internal sealed record PegasusSeedRecord(int Counter, int NormalSpeed, int GrassSpeed,
     int StairsSpeed, int DustTile, int DustFlags, int StepSound, string[] Animations)
 {
-    internal static PegasusSeedRecord Load()
+    internal static PegasusSeedRecord Load(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/pegasus_seed.tsv",
+        var table = GeneratedTable.Load(assetRoot + "metadata/pegasus_seed.tsv",
             new GeneratedTableSchema("Pegasus seed", GeneratedTableKeySemantics.Unique,
                 ["item", "counter", "normal-speed", "grass-speed", "stairs-speed", "dust-tile",
                  "dust-flags", "step-sound", "initial-animation", "cloud1", "cloud2", "cloud3", "source"],

@@ -11,20 +11,24 @@ namespace Oracles;
 /// </summary>
 internal sealed class DungeonInteractionDatabase
 {
-    internal IReadOnlyList<CutsceneCommand> SmallKeyCommands { get; } =
-        CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/enemy_small_key_commands.tsv");
+    public string AssetRoot { get; }
+    private IReadOnlyList<CutsceneCommand>? SmallKeyCommandsSourceCache;
+    internal IReadOnlyList<CutsceneCommand> SmallKeyCommands => SmallKeyCommandsSourceCache ??= CutsceneCommandCatalog.Load(AssetRoot + "cutscenes/enemy_small_key_commands.tsv");
     private readonly Dictionary<string, int> _constants =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, MovingSideScrollPlatformRecord> _platforms =
         new();
 
-    internal DungeonInteractionDatabase()
+    internal DungeonInteractionDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+        SmallKeyCommandsSourceCache = CutsceneCommandCatalog.Load(AssetRoot + "cutscenes/enemy_small_key_commands.tsv");
+
         LoadConstants(
-            AgesGameContent.AssetRoot + "objects/dungeon_interaction_constants.tsv",
+            AssetRoot + "objects/dungeon_interaction_constants.tsv",
             "shared dungeon interaction constants");
         LoadConstants(
-            AgesGameContent.AssetRoot + "objects/dungeon_object_behavior_constants.tsv",
+            AssetRoot + "objects/dungeon_object_behavior_constants.tsv",
             "shared dungeon object behavior constants");
         LoadPlatforms();
         ValidateContract();
@@ -90,7 +94,7 @@ internal sealed class DungeonInteractionDatabase
     private void LoadPlatforms()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/moving_side_scroll_platforms.tsv",
+            AssetRoot + "objects/moving_side_scroll_platforms.tsv",
             new GeneratedTableSchema(
                 "moving side-scroll platform scripts",
                 GeneratedTableKeySemantics.Unique,

@@ -255,14 +255,14 @@ public sealed partial class ValidationRoot
             (new(-24, 31), 2), (new(-25, 31), 3),
             (new(-31, -24), 3), (new(-31, -25), 0)
         ];
-        var records = new NpcDatabase().AllRecords.Where(r => r.Id == 0x9a && (r.SubId & 0x0f) <= 4).ToArray();
+        var records = new NpcDatabase(AgesGameContent.AssetRoot).AllRecords.Where(r => r.Id == 0x9a && (r.SubId & 0x0f) <= 4).ToArray();
         foreach (NpcRecord record in records)
         {
             var npc = new NpcCharacter();
             AddChild(npc);
             try
             {
-                npc.Initialize(record);
+                npc.Initialize(record, AgesGameContent.AssetRoot);
                 var entity = new CarpenterRoomEntity(npc, data, _runtimeState, _saveData, _currentRoom, 0);
                 npc.SetActive(true);
                 npc.SetStatePosition(new Vector2(80, 64));
@@ -289,7 +289,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(new Vector2(120, 88), recordSafe: false);
         var actorEntity = _entities.EntityAdapters<CarpenterRoomEntity>().Single(e => ReferenceEquals(e.Npc, actor));
         var scentHost = new CarpenterScriptHost(quest, actorEntity);
-        SeedRecord scent = new SeedSatchelDatabase().Scent;
+        SeedRecord scent = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Scent;
         EmberSeedEffect lure = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
             new Vector2(48, 98), Vector2I.Up, scent, _activeGroup));
         StepGameplayUpdates(10, Vector2.Zero);

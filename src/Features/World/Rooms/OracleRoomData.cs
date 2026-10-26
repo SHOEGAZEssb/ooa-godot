@@ -6,6 +6,9 @@ namespace Oracles;
 
 public sealed class OracleRoomData
 {
+    internal string AssetRoot { get; init; } = string.Empty;
+    internal Func<int, byte, TerrainType>? TerrainTypeResolver { get; init; }
+    internal Func<int, byte, HazardType>? HazardTypeResolver { get; init; }
     public const int ViewportWidth = 160;
     public const int ViewportHeight = 128;
     public const int StatusBarHeight = 16;
@@ -545,8 +548,8 @@ public sealed class OracleRoomData
         return new TerrainInfo(
             metatile,
             collision,
-            GetTerrainType(ActiveCollisions, metatile),
-            GetHazardType(ActiveCollisions, metatile));
+            TerrainTypeResolver?.Invoke(ActiveCollisions, metatile) ?? GetTerrainType(ActiveCollisions, metatile),
+            HazardTypeResolver?.Invoke(ActiveCollisions, metatile) ?? GetHazardType(ActiveCollisions, metatile));
     }
 
     public int GetPackedPosition(Vector2 localPoint)

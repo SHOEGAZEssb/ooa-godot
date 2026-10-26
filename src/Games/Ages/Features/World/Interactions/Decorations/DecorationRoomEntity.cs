@@ -18,6 +18,7 @@ internal sealed partial class DecorationRoomEntity : DungeonInteractionVisualEnt
     public bool UpdatesDuringRoomEntityFreeze => !_initialized;
     internal DecorationRoomEntity(DungeonObjectRecord record, DungeonInteractionVisual visual, Func<bool>? deleteOnInit = null)
     {
+        AssetRoot = visual.AssetRoot;
         _deleteOnInit = deleteOnInit;
         Name = $"Decoration_{record.SubId:x2}";
         InitializeVisual(visual, record.Position, positionedOam: true);
@@ -37,6 +38,7 @@ internal sealed partial class DecorationRoomEntity : DungeonInteractionVisualEnt
     }
     private void Initialize()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _initialized = true; Finished = _deleteOnInit?.Invoke() == true; Visible = !Finished;
     }
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => SetTransitionDrawOffset(offset);

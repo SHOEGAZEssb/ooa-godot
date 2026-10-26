@@ -4,13 +4,17 @@ namespace Oracles;
 
 public sealed class GlobalFlagDatabase
 {
+    public string AssetRoot { get; }
+
     private const string Prefix = "GLOBALFLAG_";
     private readonly string[] _names = new string[OracleSaveData.GlobalFlagCount];
 
-    public GlobalFlagDatabase()
+    public GlobalFlagDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/global_flags.tsv",
+            AssetRoot + "metadata/global_flags.tsv",
             new GeneratedTableSchema(
                 "global flags",
                 GeneratedTableKeySemantics.Unique,

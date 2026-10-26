@@ -11,7 +11,7 @@ namespace Oracles;
 internal sealed class PostD3RemoteMakuDatabase
 {
     private const string Root = AgesGameContent.AssetRoot + "cutscenes/";
-    private readonly NpcDatabase _npcs = new();
+    private readonly NpcDatabase _npcs = new(AgesGameContent.AssetRoot);
 
     internal PostD3RemoteMakuRecord Record { get; }
     internal Color[] PossessedNayruPalette { get; }

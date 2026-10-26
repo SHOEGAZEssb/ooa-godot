@@ -4,9 +4,9 @@ namespace Oracles;
 
 // LINK_STATE_SQUISHED's animation and visible-update countdown. Link owns
 // request consumption, item cancellation, collision state and respawn.
-internal sealed class LinkSquishAnimation(bool vertical)
+internal sealed class LinkSquishAnimation(bool vertical, string assetRoot)
 {
-    private readonly IReadOnlyList<LinkSquishFrame> _frames = LinkSquishDatabase.Shared.Frames(vertical);
+    private readonly IReadOnlyList<LinkSquishFrame> _frames = LinkSquishDatabase.For(assetRoot).Frames(vertical);
     internal int State { get; private set; }
     internal int Frame { get; private set; }
     internal int AnimationCounter { get; private set; }
@@ -27,7 +27,7 @@ internal sealed class LinkSquishAnimation(bool vertical)
             Animate();
             if (Current.Parameter != 0xff) return;
             State = 2;
-            FlickerCounter = LinkSquishDatabase.Shared.FlickerCount;
+            FlickerCounter = LinkSquishDatabase.For(assetRoot).FlickerCount;
         }
         // The terminal update reaches BOTH specialObjectAnimate calls.
         Animate();

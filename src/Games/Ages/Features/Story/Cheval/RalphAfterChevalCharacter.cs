@@ -11,7 +11,8 @@ internal sealed partial class RalphAfterChevalCharacter : NpcCharacter
         NpcRecord record,
         RalphAfterChevalEventRecord source)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         if (record.SpriteName != source.Sprite ||
             record.TileBase != source.TileBase ||
             record.Palette != source.Palette ||

@@ -47,6 +47,7 @@ internal sealed partial class OctogonCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record,Vector2 position,OracleRandom random,
         OracleRuntimeState memory,OctogonRoomEnvironment world,int parent = -1)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != AgesEnemyId.Octogon || record.SubId is < 0 or > 2)
             throw new NotSupportedException($"octogon.s: ENEMY${record.Id:x2}:${record.SubId:x2}.");
         Record = record; _random = random; _memory = memory; _world = world; RelatedSlot = parent;
@@ -60,6 +61,7 @@ internal sealed partial class OctogonCharacter : EnemyCharacter
     }
     internal void InitializeNative(bool scrolling,Vector2 link,Vector2 target)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (State != 0 || IsDead) return;
         // enemyStandardUpdate repeats these properties/RNG on state-zero
         // retries. Do not move the boss-room side effects after allocation.

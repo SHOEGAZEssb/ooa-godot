@@ -11,6 +11,8 @@ namespace Oracles;
 internal sealed partial class MooshStompAttackRoomEntity : Node2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IPlayerProjectileRoomEntity
 {
+    private string AssetRoot => _room.AssetRoot;
+
     private static readonly Vector2[] BreakOffsets =
     [
         Vector2.Zero,
@@ -35,7 +37,7 @@ internal sealed partial class MooshStompAttackRoomEntity : Node2D,
     public bool Finished { get; private set; }
     public bool CollisionEnabled => _initialized && !Finished;
     internal bool InitializationPending => !_initialized;
-    public int Damage => CompanionWeaponDatabase.Shared.Weapon(0x28).Damage;
+    public int Damage => CompanionWeaponDatabase.For(AssetRoot).Weapon(0x28).Damage;
     public Rect2 CollisionBounds => new(Position - new Vector2(24, 24), new Vector2(48, 48));
     public void OnEnemyCollision(ICollection<RoomEntitySpawn> spawns) { }
 

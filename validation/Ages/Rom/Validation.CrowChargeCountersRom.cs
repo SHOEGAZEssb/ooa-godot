@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         {
             InitializeCompletedIntroRoom(0, 0x5d, clearEntities: false);
             var record=_entities.Entities<CrowCharacter>().Single().Record;_entities.Clear();
-            var data=EnemyDatabase.Shared;var row=data.GetRoomObjects(0,0x5d).Single(r=>r.Id==0x41);
+            var data=EnemyDatabase.For(AgesGameContent.AssetRoot);var row=data.GetRoomObjects(0,0x5d).Single(r=>r.Id==0x41);
             var actor=new CrowCharacter();actor.Initialize(record,_currentRoom,new(80,64),_random);
             var adapter=new CrowRoomEntity(actor,data.EnemyHandlers.ResolveHandler(row).CombatSource(row,0),_sound.PlaySound);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(80,64));_player.BeginCutsceneControl(owner:actor);

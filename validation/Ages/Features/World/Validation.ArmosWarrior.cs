@@ -236,7 +236,7 @@ public sealed partial class ValidationRoot
             FailIf(RoomEntityManager.ObjectCollisionXYOverlaps(targetBounds, otherBounds) != overlaps,
                 "Native item/Armos overlap must discard fractional positions and preserve the asymmetric summed-radius edges.");
         }
-        var bosses = new DungeonBossDatabase();
+        var bosses = new DungeonBossDatabase(AgesGameContent.AssetRoot);
         var data = new ArmosWarriorDatabase();
         for (int subid = 0; subid < 4; subid++)
         {

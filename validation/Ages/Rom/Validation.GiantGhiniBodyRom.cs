@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
             int speed=scenario==7?0x50:charging?5:0x1e;
             int angle=charging?8:0;
             int targetY=link.Y-camera.Y<72?104:40;if(scenario==1)targetY=40;
-            var record=new DungeonBossDatabase().Enemy(0x70);var actor=new GiantGhiniBoss();
+            var record=new DungeonBossDatabase(AgesGameContent.AssetRoot).Enemy(0x70);var actor=new GiantGhiniBoss();
             actor.Initialize(record,_currentRoom,initial,_random,_sound.PlaySound,()=>false,
                 _entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen);
             F1Set(actor,"_initialized",true);F1Set(actor,"_state",charging?GiantGhiniBossBossState.Charging:GiantGhiniBossBossState.Moving);

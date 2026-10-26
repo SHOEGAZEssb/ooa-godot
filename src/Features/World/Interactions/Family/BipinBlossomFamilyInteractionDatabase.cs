@@ -9,13 +9,17 @@ namespace Oracles;
 /// </summary>
 internal sealed class BipinBlossomFamilyInteractionDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int, string> _texts = new();
     internal RunningBipinRecord RunningBipin { get; }
 
-    public BipinBlossomFamilyInteractionDatabase()
+    public BipinBlossomFamilyInteractionDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/bipin_blossom_family_texts.tsv",
+            AssetRoot + "objects/bipin_blossom_family_texts.tsv",
             new GeneratedTableSchema(
                 "Bipin and Blossom interaction text",
                 GeneratedTableKeySemantics.Unique,
@@ -33,7 +37,7 @@ internal sealed class BipinBlossomFamilyInteractionDatabase
                 $"Expected eight Bipin/Blossom interaction texts, got {_texts.Count}.");
 
         GeneratedTable runningBipin = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/running_bipin.tsv",
+            AssetRoot + "objects/running_bipin.tsv",
             new GeneratedTableSchema(
                 "Running Bipin",
                 GeneratedTableKeySemantics.Ordered,

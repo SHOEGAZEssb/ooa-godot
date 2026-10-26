@@ -59,7 +59,7 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
     private bool ApplyDamageCollision(int collision, Rect2 hitbox, Vector2 origin, int damage,
         ICollection<RoomEntitySpawn> spawns)
     {
-        int effect = EnemyBehaviorTables.Shared.SwordEnemyCollisionEffect(Entity.CollisionMode, collision);
+        int effect = EnemyBehaviorTables.For(AssetRoot).SwordEnemyCollisionEffect(Entity.CollisionMode, collision);
         if (effect == CollisionEffect.None) return false;
         var strength = CollisionKnockback(collision, effect);
         return base.ApplySwordHit(hitbox, origin, damage, strength, spawns);
@@ -67,8 +67,8 @@ internal sealed class SwordEnemyRoomEntity : CombatEnemyRoomEntityAdapter<SwordE
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
-        if (!NativeCollisionEligible(collisionType, bounds, EnemyBehaviorTables.Shared.SwordEnemyActiveCollisions, false)) return default;
-        return ApplyStatusSeedCollision(EnemyBehaviorTables.Shared.SwordEnemyCollisionEffect(Entity.CollisionMode, collisionType), collisionType,
+        if (!NativeCollisionEligible(collisionType, bounds, EnemyBehaviorTables.For(AssetRoot).SwordEnemyActiveCollisions, false)) return default;
+        return ApplyStatusSeedCollision(EnemyBehaviorTables.For(AssetRoot).SwordEnemyCollisionEffect(Entity.CollisionMode, collisionType), collisionType,
             bounds, origin, seed, spawns, _freePartSlot, _random);
     }
     protected override void BeginSeedStatus(bool ember, int damage)

@@ -53,12 +53,14 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         Record.SpawnMode == TreasureSpawnMode.FromScreenTop && _state == PickupState.Waiting;
 
     internal void Initialize(
+        string assetRoot,
         GroundTreasureDatabaseRecord record,
         Action<int> soundRequested,
         Func<Vector2, Vector2>? worldToScreen = null,
         OracleRoomData? room = null,
         Func<Vector2, bool>? tryCreatePuff = null)
     {
+        AssetRoot = assetRoot;
         Record = record;
         if (record.SpawnMode is not (TreasureSpawnMode.Instant or TreasureSpawnMode.Puff or TreasureSpawnMode.FromScreenTop or TreasureSpawnMode.Buried) ||
             record.GrabMode is not (TreasureGrabMode.NoChange or TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands or TreasureGrabMode.SpinSlash))
@@ -92,7 +94,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
         _worldToScreen = worldToScreen ?? (static position => position);
         _room = room;
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
+            AssetRoot + $"gfx/{record.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(record.Animation);
         if (definition.Frames.Length != 1)
@@ -208,7 +210,7 @@ public partial class GroundTreasurePickup : TransitionOffsetNode2D, ITerrainShad
 
     internal void SetSpritePaletteOverrides(IReadOnlyDictionary<int, Color[]> palettes)
     {
-        Image source = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{Record.Sprite}.png");
+        Image source = OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{Record.Sprite}.png");
         AnimationDefinition animation = OracleGraphicsCache.GetAnimationDefinition(Record.Animation);
         (_texture, _textureOffset) = OracleOamCompositor.BuildPositionedOamTextureWithPaletteOverrides(
             source, animation.Frames[0].EncodedOam, Record.TileBase, Record.Palette,

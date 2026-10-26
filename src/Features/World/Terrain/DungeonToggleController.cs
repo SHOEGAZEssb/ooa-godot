@@ -4,9 +4,12 @@ namespace Oracles;
 
 internal sealed class DungeonToggleController : IPlayerRestriction
 {
+    private string AssetRoot => _rooms.AssetRoot;
+
     private readonly RoomSession _rooms;
     private readonly OracleRuntimeState _runtime;
-    private readonly DungeonToggleTileDatabase _data = new();
+    private DungeonToggleTileDatabase? _dataSourceCache;
+    private DungeonToggleTileDatabase _data => _dataSourceCache ??= new(AssetRoot);
     private readonly RoomEntityManager _entities;
     private readonly Action<int> _sound;
     private readonly Func<long> _tick;
@@ -28,20 +31,20 @@ internal sealed class DungeonToggleController : IPlayerRestriction
         Reset();
     }
 
-    private byte Current => _runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress);
+    private byte Current => _runtime.ReadField("wToggleBlocksState");
     // cutscene00 samples this after the last loading object's update. An
     // entrance's state0 may have reset the byte after RoomChanged fired.
     internal void CompleteRoomInitialization() => Reset();
     private void Reset()
     {
         State = -1; Counter = 0;
-        _runtime.SetWramByte(AgesWramAddress.wLastToggleBlocksState, Current);
+        _runtime.SetField("wLastToggleBlocksState", Current);
     }
 
     internal void CheckAfterObjects()
     {
         if (Active || !_data.Supports(_rooms.CurrentDungeonIndex)) return;
-        if (((Current ^ _runtime.ReadWramByte(AgesWramAddress.wLastToggleBlocksState)) & 1) != 0)
+        if (((Current ^ _runtime.ReadField("wLastToggleBlocksState")) & 1) != 0)
             State = 0;
     }
 

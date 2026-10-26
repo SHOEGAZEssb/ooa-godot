@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCrownBoomerangCollisions()
     {
-        var data = BoomerangCollisionDatabase.Shared;
+        var data = BoomerangCollisionDatabase.For(AgesGameContent.AssetRoot);
         FailIf(data.StunCounter != 120 || data.StunInvincibility != -16 || data.DeflectionInvincibility != -20,
             "Boomerang status must retain ENEMYDMG_$24/$28's independent literal counters.");
         foreach (var (mode, effect) in new[] { (0x11, 0x22), (0x17, 0x35), (0x1c, 0x35),

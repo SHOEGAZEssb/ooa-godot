@@ -27,10 +27,10 @@ public sealed partial class ValidationRoot
         _sound = GetNode<OracleSoundEngine>("SoundEngine");
         _sound.ApplicationUpdateOwned = true;
         _random = new OracleRandom();
-        var screen = ResourceLoader.Load<PackedScene>("res://scenes/ages/boot_loading.tscn").Instantiate<BootLoadingScreen>();
+        var screen = ResourceLoader.Load<PackedScene>("res://scenes/launcher/boot_loading.tscn").Instantiate<BootLoadingScreen>();
         AddChild(screen);
         var setup = Stopwatch.StartNew();
-        BeginBootLoading(screen);
+        BeginBootLoading(screen, OracleGame.Ages);
         GD.Print($"STARTUP_SETUP ms={setup.Elapsed.TotalMilliseconds:F2}");
         var tasks = (Queue<Func<IEnumerator<bool>?>>)typeof(GameRoot).GetField("_bootTasks", ProfileFields)!.GetValue(this)!;
         var originalTasks = tasks.ToArray();
@@ -78,7 +78,7 @@ public sealed partial class ValidationRoot
                 foreach (var entry in _profileStages)
                     GD.Print($"STARTUP_STAGE stage={entry.Key} frames={entry.Value.Frames} work_ms={entry.Value.WorkMs:F2}");
                 typeof(GameRoot).GetMethod("OpenFileSelectFromFrontend", ProfileFields)!.Invoke(this, null);
-                OracleSaveData save = OracleSaveData.CreateStandardGame();
+                OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
                 bool savedGame = _profileSavedGame = Array.IndexOf(OS.GetCmdlineUserArgs(), "--profile-startup-saved") >= 0;
                 if (savedGame) save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
                 FieldInfo persist = typeof(GameRoot).GetField("_persistSaveData", ProfileFields)!;

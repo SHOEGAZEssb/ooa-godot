@@ -13,7 +13,7 @@ internal sealed class LinkWallProbe
     {
         // This source table was first imported for Switch Hook. The native
         // function is shared by Link placement and enemy capture handlers.
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/switch_hook_wall_probes.tsv",
+        var table = GeneratedTable.Load(OracleAssetPack.CommonRoot + "metadata/switch_hook_wall_probes.tsv",
             new GeneratedTableSchema("Link raw wall probes", GeneratedTableKeySemantics.Unique,
                 ["sidescroll", "index", "y", "x", "source"],
                 ["sidescroll", "index"], headerRequired: true));

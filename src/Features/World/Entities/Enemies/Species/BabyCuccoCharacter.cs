@@ -14,9 +14,8 @@ internal partial class BabyCuccoCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => _state == BabyCuccoState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly BabyCuccoBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.BabyCucco;
+    private BabyCuccoBehaviorProfile? _behaviorSourceCache;
+    private BabyCuccoBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).BabyCucco;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -52,6 +51,7 @@ internal partial class BabyCuccoCharacter : EnemyCharacter, ITerrainShadowSource
         Action<Rect2, int, int, int> applyThrownObjectHit,
         int initialZHigh = 0)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != EnemyId.BabyCucco || record.SubId != 0x00 ||
             record.Animations.Length != 2)
         {

@@ -339,7 +339,7 @@ internal sealed class PatchEvent : InteractiveCutsceneCommandHost, IRoomEntryEve
         var record = new NpcRecord(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, AgesInteractionId.Patch, subid,
             (int)position.Y, (int)position.X, 0, 0, visual.Sprite, visual.TileBase, visual.Palette, 0, false,
             visual.Animation, visual.Animation, visual.Animation, visual.Animation, string.Empty, NpcImplementationClassification.EventOwned);
-        var actor = NpcCharacter.CreateFromRecord(record);
+        var actor = NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot);
         actor.Name = $"PatchItem{subid:x2}";
         var owner = new PatchRoomEntity(actor); owner.Bind(this);
         Context.Entities.AddEntity(owner);

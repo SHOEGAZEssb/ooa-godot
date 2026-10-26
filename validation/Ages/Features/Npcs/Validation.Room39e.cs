@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
             (packed & 0x0f) * OracleRoomData.MetatileSize + 8,
             (packed >> 4) * OracleRoomData.MetatileSize + 8);
 
-        var npcDatabase = new NpcDatabase();
+        var npcDatabase = new NpcDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<NpcRecord> records =
             npcDatabase.GetRoomNpcs(group, roomId);
         int[] impaVariants =
@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
             },
             "The imported room 3:9e hidden-stair contract changed.");
 
-        var save = OracleSaveData.CreateStandardGame();
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         save.SetLinkedGame(false);
         save.SetGlobalFlag(
             AgesGlobalFlag.FinishedGame, value: false);
@@ -132,7 +132,7 @@ public sealed partial class ValidationRoot
         byte logicalStair = room.GetMetatile(stair);
         byte[] renderedAfter = BackgroundMetatile(room, 0x22);
         byte[] attributesAfter = BackgroundAttributes(room, 0x22);
-        bool hasBasementWarp = new WarpDatabase().TryGetTileWarp(
+        bool hasBasementWarp = new WarpDatabase(AgesGameContent.AssetRoot).TryGetTileWarp(
             group, room, 0x22, 0x45, out Warp basementWarp);
         FailIf(
             logicalStair != 0x45 ||

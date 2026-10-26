@@ -180,7 +180,7 @@ public sealed partial class ValidationRoot
                 .CreateDelegate<Func<IRoomEntity, IRoomEntity>>(_entities);
             while (_entities.InteractionSlotAvailable)
             {
-                var puff = new PuzzlePuffEffect(); puff.Initialize(new(24, 24), SoundId.MusNone);
+                var puff = new PuzzlePuffEffect(); puff.Initialize(AgesGameContent.AssetRoot, new(24, 24), SoundId.MusNone);
                 add(new InteractionSlotValidationEntity(puff, _ => { }));
             }
             StepGameplayUpdates(30, Vector2.Zero, batched: batched);

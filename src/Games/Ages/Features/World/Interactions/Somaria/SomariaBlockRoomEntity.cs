@@ -10,7 +10,7 @@ internal sealed class SomariaBlockRoomEntity : IRoomEntity, IFixedRoomEntity,
     private readonly OracleRoomData _room;
     private readonly int _group;
     private readonly Func<long> _tick;
-    private readonly BraceletGrabGeometry _grab = new();
+    private readonly BraceletGrabGeometry _grab = new(AgesGameContent.AssetRoot);
     private Action<INativeBraceletRoomEntity>? _publish;
     private Player? _holder;
     private Player _player;

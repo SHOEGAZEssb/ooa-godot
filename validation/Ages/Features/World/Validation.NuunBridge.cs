@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     private void ValidateNuunCompanionLayouts()
     {
         int[] nuunRooms = [0x16, 0x17, 0x26, 0x27, 0x35, 0x36, 0x37];
-        var world = new OracleWorldData();
+        var world = new AgesWorldData();
         byte[] packs = Godot.FileAccess.GetFileAsBytes(AgesGameContent.AssetRoot + "groups/roomPacksPresent.bin");
         FailIf(!Enumerable.Range(0, 256).Where(room => packs[room] == 0x7f).SequenceEqual(nuunRooms),
             "Nuun room pack $7f membership diverged from bank0.loadRoomMusic/checkTilesetOverride.");
@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
             FailIf(_transitions.ScrollActive || !ReferenceEquals(_rooms.CurrentRoom, expected) ||
                 !outgoing.Layout.SequenceEqual(before),
                 $"Nuun companion ${companion:x2} scrolling replaced the selected terrain or mutated the outgoing room.");
-            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var saved) || saved is null,
+            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var saved) || saved is null,
                 "Nuun save-image fixture could not reload.");
             var restored = new RoomSession(0, 0x35, () => 0, () => { }, saved!, countAsRoomEntry: false);
             FailIf(!restored.CurrentRoom.Layout.SequenceEqual(expected.Layout),
@@ -102,14 +102,14 @@ public sealed partial class ValidationRoot
 
     private void ValidateRoom054SeedCliffsAndBridge()
     {
-        var shooter = SeedShooterRecord.Load();
-        var ember = new SeedSatchelDatabase().Ember;
+        var shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
+        var ember = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
 
         // An uphill face without an earlier descent must bounce and retain
         // the original byte underflow; the cache must not erase that state.
-        var testRoom = new RoomSession(0, 0x54, () => 0, () => { }, OracleSaveData.CreateStandardGame()).CurrentRoom;
+        var testRoom = new RoomSession(0, 0x54, () => 0, () => { }, OracleSaveData.CreateStandardGame(OracleGame.Ages)).CurrentRoom;
         var uphill = new EmberSeedEffect();
-        uphill.Initialize(ember, testRoom, new BreakableTileDatabase(),
+        uphill.Initialize(ember, testRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             new Vector2(96, 104) - shooter.Offsets[2], Vector2I.Right,
             _ => { }, (_, _) => { }, () => { }, () => 0, _ => null, null, 0,
             launchKind: SeedLaunchKind.Shooter, angle: 2);
@@ -125,7 +125,7 @@ public sealed partial class ValidationRoot
             Vector2 start = new(40, 104);
             testRoom.SetPositionTileAndCollision(start, tile, 0x0f, 0);
             var diagonal = new EmberSeedEffect();
-            diagonal.Initialize(ember, testRoom, new BreakableTileDatabase(),
+            diagonal.Initialize(ember, testRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
                 start - shooter.Offsets[angle], Vector2I.Right,
                 _ => { }, (_, _) => { }, () => { }, () => 0, _ => null, null, 0,
                 launchKind: SeedLaunchKind.Shooter, angle: angle);

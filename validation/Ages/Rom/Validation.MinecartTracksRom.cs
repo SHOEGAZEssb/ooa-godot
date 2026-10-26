@@ -47,8 +47,8 @@ public sealed partial class ValidationRoot
             Vector2? soundPosition = null;
             MinecartRoomEntity cart = null!;
             cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, row.Direction, true),
-                _currentRoom, new DungeonInteractionDatabase(), _runtimeState,
-                new DungeonInteractionVisualDatabase().Visual("minecart"), sound =>
+                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), sound =>
                 {
                     if (sound == 0x80) soundPosition = cart.Position; // SND_MINECART.
                     _sound.PlaySound(sound);

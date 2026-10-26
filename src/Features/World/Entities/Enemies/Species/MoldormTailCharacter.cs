@@ -37,6 +37,7 @@ internal partial class MoldormTailCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, EnemyCharacter parent)
     {
+        AssetRoot = record.AssetRoot;
         SubId = record.SubId;
         Record = record;
         if (SubId is not (2 or 3)) throw new ArgumentOutOfRangeException(nameof(record));

@@ -27,6 +27,7 @@ internal sealed partial class PostmanCharacter : NpcCharacter
 
     internal void InitializePostman(NpcRecord record)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (record is not
             {
                 Group: 2,
@@ -41,7 +42,7 @@ internal sealed partial class PostmanCharacter : NpcCharacter
                 "$55:$00 var03=$00.");
         }
 
-        Initialize(record);
+        Initialize(record, AgesGameContent.AssetRoot);
         ResetNativeNpcFacingState();
         SetCollisionRadii(0, 0);
         SetScriptButtonSensitive(false);

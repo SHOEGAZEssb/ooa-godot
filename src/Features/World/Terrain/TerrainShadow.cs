@@ -11,15 +11,14 @@ internal static class TerrainShadow
         (tilesetFlags & 0x20) == 0 && (cameraByte & 0xff) < 0x97 &&
         ((frameCounter ^ objectPage) & 1) != 0;
 
-    private static TerrainShadowDefinition? _definition;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, TerrainShadowDefinition> Definitions = new(System.StringComparer.Ordinal);
 
-    internal static TerrainShadowDefinition Load()
+    internal static TerrainShadowDefinition Load(string assetRoot) => Definitions.GetOrAdd(assetRoot, LoadDefinition);
+
+    private static TerrainShadowDefinition LoadDefinition(string assetRoot)
     {
-        if (_definition is not null)
-            return _definition;
-
         GeneratedTableRow row = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/terrain_shadow.tsv",
+            assetRoot + "effects/terrain_shadow.tsv",
             new GeneratedTableSchema(
                 "default terrain-effect shadow",
                 GeneratedTableKeySemantics.Ordered,
@@ -30,15 +29,14 @@ internal static class TerrainShadow
         (Texture2D texture, Vector2 offset) =
             OracleOamCompositor.BuildPositionedOamTexture(
                 OracleGraphicsCache.LoadImage(
-                    AgesGameContent.AssetRoot + $"gfx/{row.RequiredString(0)}.png"),
+                    assetRoot + $"gfx/{row.RequiredString(0)}.png"),
                 row.RequiredString(3),
                 row.UnsignedDecimal(1),
                 row.UnsignedDecimal(2),
                 paletteOverride: null,
                 sourceGrayscaleInverted: true);
         _ = row.RequiredString(4);
-        _definition = new TerrainShadowDefinition(texture, offset);
-        return _definition;
+        return new TerrainShadowDefinition(texture, offset);
     }
 }
 

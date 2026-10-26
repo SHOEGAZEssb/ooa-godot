@@ -8,16 +8,20 @@ namespace Oracles;
 /// </summary>
 internal sealed class TileInteractionFallbackDatabase
 {
+    public string AssetRoot { get; }
+
     internal TileInteractionTextFallback ChestWrongSide { get; }
     internal TileInteractionTextFallback SignWrongSide { get; }
     internal TileInteractionTextFallback SignNoMatch { get; }
     internal TileInteractionChestFallback ChestNoMatch { get; }
 
-    internal TileInteractionFallbackDatabase(TreasureDatabase treasures)
+    internal TileInteractionFallbackDatabase(string assetRoot, TreasureDatabase treasures)
     {
+        AssetRoot = assetRoot;
+
         ArgumentNullException.ThrowIfNull(treasures);
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/tile_interaction_fallbacks.tsv",
+            AssetRoot + "objects/tile_interaction_fallbacks.tsv",
             new GeneratedTableSchema(
                 "common tile-interaction fallbacks",
                 GeneratedTableKeySemantics.Unique,

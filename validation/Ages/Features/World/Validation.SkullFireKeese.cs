@@ -10,16 +10,16 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonFireKeese()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var definition = database.ImportedEnemy(EnemyId.FireKeese);
-        FailIf(string.Concat(EnemyBehaviorTables.Shared.FireKeeseActiveCollisions.Select(v => v.Value)) != "10111111110101110000011111111110",
+        FailIf(string.Concat(EnemyBehaviorTables.For(AgesGameContent.AssetRoot).FireKeeseActiveCollisions.Select(v => v.Value)) != "10111111110101110000011111111110",
             "Fire Keese active collision mask lost source item ordering or eligibility.");
         FailIf(definition is not { Health: 2, DamageQuarters: 2, RadiusX: 6, RadiusY: 4, Palette: 5, TileBase: 0, Animations.Length: 4 },
             "Fire Keese lost enemyData $9d/$ab/$09/$50 or its four source animations.");
-        FailIf(!EnemyBehaviorTables.Shared.FireKeeseZOffsets.Select(v => v.Value).SequenceEqual(new[] {128,96,64,48,32,32}) ||
-            !EnemyBehaviorTables.Shared.FireKeeseCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
+        FailIf(!EnemyBehaviorTables.For(AgesGameContent.AssetRoot).FireKeeseZOffsets.Select(v => v.Value).SequenceEqual(new[] {128,96,64,48,32,32}) ||
+            !EnemyBehaviorTables.For(AgesGameContent.AssetRoot).FireKeeseCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
                 2,0,15,15,8,9,9,10,10,8,0,10,0,8,8,37,0,0,0,0,0,47,9,9,10,9,32,28,8,40,41,0 }) ||
-            !EnemyBehaviorTables.Shared.KeeseFireCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
+            !EnemyBehaviorTables.For(AgesGameContent.AssetRoot).KeeseFireCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
                 1,0,0,30,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }),
             "Fire Keese dive offsets or source collision rows $2b/$71 changed.");
         foreach (var (room, count) in new[] { (0x85,2), (0x8d,1), (0x8e,2) })
@@ -133,8 +133,8 @@ public sealed partial class ValidationRoot
         FailIf(_entities.Entities<KeeseFirePart>().Count != 0, "PART_FIRE failed to release its part slot at counter zero.");
 
         var hazard = new KeeseFirePart();
-        hazard.Initialize(contactPoint, 0, _ => { }); hazard.UpdateFrame();
-        var contactInventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
+        hazard.Initialize(AgesGameContent.AssetRoot, contactPoint, 0, _ => { }); hazard.UpdateFrame();
+        var contactInventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         var contactWorld = new ValidationRingPlayerWorld();
         var contactPlayer = new Player();
         AddChild(contactPlayer);
@@ -151,7 +151,7 @@ public sealed partial class ValidationRoot
         contactPlayer.UpdateShieldForValidation(attackHeld: true, itemHeld: false);
         var shieldSounds = new List<int>();
         var shieldFire = new KeeseFirePart();
-        shieldFire.Initialize(contactPlayer.ShieldCollisionBounds.GetCenter(), 0, shieldSounds.Add);
+        shieldFire.Initialize(AgesGameContent.AssetRoot, contactPlayer.ShieldCollisionBounds.GetCenter(), 0, shieldSounds.Add);
         shieldFire.UpdateFrame();
         health = contactInventory.HealthQuarters;
         shieldFire.HandleLinkContact(contactPlayer);
@@ -168,7 +168,7 @@ public sealed partial class ValidationRoot
         for (int i = 0; i < 16; i++)
         {
             var occupied = new StalfosBoneProjectile();
-            occupied.Initialize(StalfosBoneRecord.Load(), _currentRoom, new Vector2(40,40), p => p);
+            occupied.Initialize(StalfosBoneRecord.Load(AgesGameContent.AssetRoot), _currentRoom, new Vector2(40,40), p => p);
             add.Invoke(_entities, [new StalfosBoneRoomEntity(occupied)]);
         }
         poolBat.NotifyLinkCollision();

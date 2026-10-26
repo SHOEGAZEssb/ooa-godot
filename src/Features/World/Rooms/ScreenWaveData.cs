@@ -11,7 +11,7 @@ internal sealed class ScreenWaveData
 
     private ScreenWaveData()
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/screen_wave_sine.tsv",
+        var table = GeneratedTable.Load(OracleAssetPack.CommonRoot + "metadata/screen_wave_sine.tsv",
             new GeneratedTableSchema("screen wave coefficients", GeneratedTableKeySemantics.Ordered,
                 ["order", "coefficient", "source"]));
         if (table.Rows.Count != 32)

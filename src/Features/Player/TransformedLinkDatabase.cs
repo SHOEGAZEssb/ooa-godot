@@ -11,6 +11,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class TransformedLinkDatabase
 {
+    public string AssetRoot { get; }
+
     internal const int ExpectedFrameCount = 6 * 4 * 2;
     internal int BabyDuration { get; }
     internal int BabySpeedShift { get; }
@@ -24,8 +26,10 @@ internal sealed class TransformedLinkDatabase
         _textures = new();
 
     internal TransformedLinkDatabase(
-        string path = AgesGameContent.AssetRoot + "metadata/transformed_link.tsv")
+        string path)
     {
+        AssetRoot = OracleAssetPack.RootFor(path);
+
         GeneratedTable table = GeneratedTable.Load(
             path,
             new GeneratedTableSchema(
@@ -72,7 +76,7 @@ internal sealed class TransformedLinkDatabase
                     $"Missing transformed-Link frame {specialObject:x2}:{direction}:{frame}.");
             }
         }
-        var baby = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/baby_link.tsv",
+        var baby = GeneratedTable.Load(AssetRoot + "metadata/baby_link.tsv",
             new GeneratedTableSchema("Baby Link behavior", GeneratedTableKeySemantics.Ordered,
                 ["duration", "speed-shift", "step-parameter", "source"], headerRequired: true));
         if (baby.Rows.Count != 1) throw new InvalidOperationException("Baby Link requires one native behavior profile.");
@@ -102,7 +106,7 @@ internal sealed class TransformedLinkDatabase
         if (!_images.TryGetValue(record.Sprite, out Image? image))
         {
             image = OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
+                AssetRoot + $"gfx/{record.Sprite}.png");
             _images.Add(record.Sprite, image);
         }
         texture = OracleOamCompositor.BuildOamTexture(

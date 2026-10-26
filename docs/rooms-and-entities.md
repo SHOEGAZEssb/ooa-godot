@@ -476,7 +476,7 @@ parent animation offsets and child position fractions retain their own lifetimes
 
 ## Room lifetime and transitions
 
-`RoomTransitionController` owns scrolls, warps, destination placement, fades,
+`AgesRoomTransitionController` owns scrolls, warps, destination placement, fades,
 and camera writes. Preload is not room entry: counters, RNG, music, checkpoints,
 events, and persistence change only at the original boundary.
 

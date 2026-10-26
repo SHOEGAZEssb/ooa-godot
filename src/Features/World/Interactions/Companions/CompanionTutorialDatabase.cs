@@ -10,14 +10,18 @@ namespace Oracles;
 /// </summary>
 internal sealed class CompanionTutorialDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Lookup<int, CompanionTutorialRecord> _recordsByRoom = new();
 
     internal int Count { get; }
 
-    internal CompanionTutorialDatabase()
+    internal CompanionTutorialDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/companion_tutorials.tsv",
+            AssetRoot + "objects/companion_tutorials.tsv",
             new GeneratedTableSchema(
                 "companion tutorials",
                 GeneratedTableKeySemantics.Grouped,

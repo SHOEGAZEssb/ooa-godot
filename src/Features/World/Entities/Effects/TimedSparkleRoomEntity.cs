@@ -19,6 +19,7 @@ internal sealed partial class TimedSparkleRoomEntity : TransitionOffsetNode2D,
 
     internal TimedSparkleRoomEntity(TimedSparkleSpawn spawn)
     {
+        AssetRoot = spawn.Visual.AssetRoot;
         if (spawn.Lifetime is < 1 or > 255)
             throw new ArgumentOutOfRangeException(nameof(spawn), "INTERAC_SPARKLE $84:$04 counter1 must be a nonzero byte.");
         Name = "TimedSparkle";
@@ -27,7 +28,7 @@ internal sealed partial class TimedSparkleRoomEntity : TransitionOffsetNode2D,
         _animation = new EnemyAnimationPlayer(this, 1);
         int frameCount = OracleGraphicsCache.GetAnimationDefinition(spawn.Visual.Animation).Frames.Length;
         _animation.Load(OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{spawn.Visual.Sprite}.png"),
+                AssetRoot + $"gfx/{spawn.Visual.Sprite}.png"),
             [spawn.Visual.Animation], spawn.Visual.TileBase, spawn.Visual.Palette,
             positionedOam: true,
             animationSourceOffsets: [Enumerable.Repeat(spawn.Visual.SourceOffset, frameCount).ToArray()]);
@@ -67,5 +68,5 @@ internal sealed partial class TimedSparkleRoomEntity : TransitionOffsetNode2D,
     }
 }
 
-internal readonly record struct TimedSparkleVisual(string Sprite, int SourceOffset, int TileBase, int Palette, string Animation);
+internal readonly record struct TimedSparkleVisual(string AssetRoot, string Sprite, int SourceOffset, int TileBase, int Palette, string Animation);
 internal sealed record TimedSparkleSpawn(Vector2 Position, int Lifetime, TimedSparkleVisual Visual) : RoomEntitySpawn;

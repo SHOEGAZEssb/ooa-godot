@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
             var application = new ApplicationValidationFixture(this);
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc688, 0); save.WriteWramByte(0xc689, 0);
             for (int slot = 0; slot < 16; slot++) save.WriteWramByte(0xc68a + slot, 0);
             save.WriteWramByte(0xc68a, questPage || passivePage ? (byte)0 : (byte)fixture.Item1);

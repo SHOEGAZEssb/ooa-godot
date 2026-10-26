@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonStalfos()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         foreach (var (room, count) in new[] { (0x72, 2), (0x7e, 4) })
         {
             _saveData.SetRoomFlag(4, room, 0xff, false);
@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
             firing.Free();
         }
 
-        var boneRecord = StalfosBoneRecord.Load();
+        var boneRecord = StalfosBoneRecord.Load(AgesGameContent.AssetRoot);
         FailIf(boneRecord is not { TileBase: 10, Palette: 2, RadiusX: 2, RadiusY: 2, DamageQuarters: 2, SpeedRaw: ObjectSpeed.Speed180 } ||
             boneRecord.Animation != "4@8,0,0,0;8,8,0,96|4@8,0,0,64;8,8,0,32",
             "PART_STALFOS_BONE lost part1c properties or the aliased partAnimation5b98c/OAM stream.");

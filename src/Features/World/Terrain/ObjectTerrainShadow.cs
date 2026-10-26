@@ -7,9 +7,11 @@ internal partial class ObjectTerrainShadow : Node2D
 {
     private Func<bool> _drawn = null!;
     private Func<Vector2> _offset = null!;
+    private string _assetRoot = string.Empty;
 
-    internal void Initialize(Func<bool> drawn, Func<Vector2> offset)
+    internal void Initialize(string assetRoot, Func<bool> drawn, Func<Vector2> offset)
     {
+        _assetRoot = assetRoot;
         _drawn = drawn;
         _offset = offset;
         // queueDrawEverything appends terrain effects after every object.
@@ -24,7 +26,7 @@ internal partial class ObjectTerrainShadow : Node2D
     public override void _Draw()
     {
         if (!_drawn()) return;
-        TerrainShadowDefinition shadow = TerrainShadow.Load();
+        TerrainShadowDefinition shadow = TerrainShadow.Load(_assetRoot);
         DrawTexture(shadow.Texture, shadow.Offset + _offset());
     }
 }

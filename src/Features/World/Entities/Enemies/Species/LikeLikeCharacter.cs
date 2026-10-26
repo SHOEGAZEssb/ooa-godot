@@ -8,8 +8,8 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy, ITe
     internal override bool InitializationPending => State == 0;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly LikeLikeBehaviorProfile _data = EnemyBehaviorTables.Shared.LikeLike;
+    private LikeLikeBehaviorProfile? _dataSourceCache;
+    private LikeLikeBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).LikeLike;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -34,6 +34,7 @@ internal partial class LikeLikeCharacter : EnemyCharacter, ISwitchHookEnemy, ITe
 
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != EnemyId.LikeLike || record.SubId != 0)
             throw new NotSupportedException($"likelike.s: ordinary handler requires $24:$00, got ${record.Id:x2}:${record.SubId:x2}.");
         Record = record; _room = room; _random = random;

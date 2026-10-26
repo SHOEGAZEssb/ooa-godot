@@ -23,7 +23,7 @@ internal sealed class BlueStalfosProjectileDatabase
         if (rows.Length != 5 || rows.Where((row, index) => row.HexByte(0) != 0x3d || row.UnsignedDecimal(1) != index).Any())
             throw new InvalidOperationException("blueStalfosProjectile.s: PART$3d requires five ordered animations.");
         var first = rows[0];
-        Visual = new([first.RequiredString(2)], first.UnsignedDecimal(3), first.UnsignedDecimal(4), first.Boolean01(5), rows.Select(row => row.RequiredString(6)).ToArray());
+        Visual = new(AgesGameContent.AssetRoot, [first.RequiredString(2)], first.UnsignedDecimal(3), first.UnsignedDecimal(4), first.Boolean01(5), rows.Select(row => row.RequiredString(6)).ToArray());
         Properties = first.SplitRequired(7, ',').Select(value => int.Parse(value, CultureInfo.InvariantCulture)).ToArray();
         if (Properties.Count != 8) throw first.Invalid(7, "eight native PART$3d property bytes");
         foreach (var row in rows) _ = row.RequiredString(8);

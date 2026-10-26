@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         // func_60e9 checks wLinkInAir before checkStandingOnDeactivatedWarpTile
         // and the wEnteredWarpPosition=$ff write. The marker survives leaving
         // its tile in a jump, then clears on the first grounded check elsewhere.
-        var marker = typeof(RoomTransitionController).GetField("_deactivatedWarpPosition",
+        var marker = typeof(AgesRoomTransitionController).GetField("_deactivatedWarpPosition",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         foreach (bool batched in new[] { false, true })
         for (int repeat = 0; repeat < 2; repeat++)

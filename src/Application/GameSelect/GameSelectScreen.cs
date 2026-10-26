@@ -20,6 +20,7 @@ internal partial class GameSelectScreen : Control
     internal bool OptionsSelected { get; private set; }
     internal bool IsActive => _window is not null;
     internal event Action? AgesSelected;
+    internal event Action? SeasonsSelected;
     internal GameSelectPreview Preview(OracleGame game) => game == OracleGame.Ages ? _ages : _seasons;
 
     public override void _Ready()
@@ -51,17 +52,19 @@ internal partial class GameSelectScreen : Control
         _pointerConfirmation = null;
         if (_agesOptions.TextureNormal is null)
         {
-            Texture2D texture = NativeMenuPresentation.BuildOptionsButton();
-            _agesOptions.TextureNormal = texture;
-            _seasonsOptions.TextureNormal = texture;
-            MenuOamPart acorn = MenuPresentationDatabase.Shared.FileOam("acorn-cursor")[0];
-            Texture2D cursor = OracleTileRenderer.GetOamCellTexture(
-                OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "menu/spr_fileselect_decorations.png"),
-                acorn.Tile - 0x20, (byte)acorn.Attributes,
-                OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_sprites.bin"),
-                sourceGrayscaleInverted: false);
-            _agesCursor.Texture = cursor;
-            _seasonsCursor.Texture = cursor;
+            foreach (var (game, button, marker) in new[] {
+                (OracleGame.Ages, _agesOptions, _agesCursor),
+                (OracleGame.Seasons, _seasonsOptions, _seasonsCursor) })
+            {
+                string root = OracleAssetPack.ForGame(game);
+                button.TextureNormal = new NativeMenuPresentation(root).BuildOptionsButton();
+                MenuOamPart acorn = FileMenuPresentation.LoadOam(root)["acorn-cursor"][0];
+                marker.Texture = OracleTileRenderer.GetOamCellTexture(
+                    OracleGraphicsCache.LoadImage(root + "menu/spr_fileselect_decorations.png"),
+                    acorn.Tile - 0x20, (byte)acorn.Attributes,
+                    OracleGraphicsData.LoadPalette(root + "menu/palette_file_sprites.bin"),
+                    sourceGrayscaleInverted: false);
+            }
         }
         _ages.Prepare();
         _seasons.Prepare();
@@ -125,7 +128,11 @@ internal partial class GameSelectScreen : Control
         bool confirm = _pointerConfirmation == SelectedGame ||
             Input.IsActionJustPressed("attack") || Input.IsActionJustPressed("inventory");
         _pointerConfirmation = null;
-        if (confirm && !OptionsSelected && !leavingOptions && SelectedGame == OracleGame.Ages) AgesSelected?.Invoke();
+        if (confirm && !OptionsSelected && !leavingOptions)
+        {
+            if (SelectedGame == OracleGame.Ages) AgesSelected?.Invoke();
+            else SeasonsSelected?.Invoke();
+        }
     }
 
     public override void _ExitTree()

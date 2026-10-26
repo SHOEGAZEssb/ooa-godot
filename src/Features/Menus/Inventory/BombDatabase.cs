@@ -14,7 +14,7 @@ public sealed class BombDatabase
     internal BombRecord Data { get; }
 
     public BombDatabase(
-        string path = AgesGameContent.AssetRoot + "metadata/bomb.tsv")
+        string path)
     {
         GeneratedTable table = GeneratedTable.Load(
             path,

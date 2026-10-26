@@ -60,7 +60,7 @@ public partial class Player
             ClearShieldParent();
             CancelSwordAttack();
             CancelShovelAction();
-            _galeFrames ??= new NewGameIntroDatabase().SpriteFrames("link-gale");
+            _galeFrames ??= new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-gale");
             _galeFrame = 0;
             _galeFrameTicks = _galeFrames[0].Duration;
         }

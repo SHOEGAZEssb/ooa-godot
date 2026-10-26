@@ -27,11 +27,12 @@ internal sealed partial class PlasmarineProjectile : TransitionOffsetNode2D
     internal PlasmarineProjectile(PlasmarineProjectileSpawn spawn,OracleRoomData room,OracleRuntimeState memory,
         Func<int,PlasmarineCharacter?> resolve)
     {
+        AssetRoot = room.AssetRoot;
         if(spawn.ColorIndex is not (0 or 1 or 4))throw new NotSupportedException($"plasmarineProjectile.s: unsupported color${spawn.ColorIndex:x2}.");
         Position=spawn.Position.Floor();ParentSlot=spawn.ParentSlot;SubId=spawn.ColorIndex;
         _room=room;_memory=memory;_resolve=resolve;
         var visual=_parts.Visual;Animation=new(this,visual.Animations.Length);
-        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites),visual.Animations,visual.TileBase,SubId+1,
+        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),visual.Animations,visual.TileBase,SubId+1,
             sourceGrayscaleInverted:visual.SourceGrayscaleInverted,positionedOam:true);
         Visible=false;ZIndex=ObjectDrawPriority.InFrontOfLinkZIndex;
     }

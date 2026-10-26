@@ -18,6 +18,7 @@ internal sealed partial class GreenPoofRoomEntity : DungeonInteractionVisualEnti
     public bool UpdatesDuringRoomEntityFreeze => true;
     internal GreenPoofRoomEntity(DungeonInteractionVisual visual, Vector2 position, int z)
     {
+        AssetRoot = visual.AssetRoot;
         InitializeVisual(visual, position.Floor()); _z = z; Visible = false;
         ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;
     }

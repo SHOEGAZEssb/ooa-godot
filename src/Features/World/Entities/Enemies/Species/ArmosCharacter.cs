@@ -6,9 +6,8 @@ namespace Oracles;
 internal partial class ArmosCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => _state == ArmosState.Uninitialized;
-
-    private readonly ArmosBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Armos;
+    private ArmosBehaviorProfile? _behaviorSourceCache;
+    private ArmosBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Armos;
     private OracleRuntimeState _runtime = null!;
     private OracleRoomData _room = null!;
     private Action _roomTileChanged = null!;
@@ -38,6 +37,7 @@ internal partial class ArmosCharacter : EnemyCharacter
         OracleRandom random,
         Action roomTileChanged)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         EnemyCharacterConfiguration configuration =
             EnemyCharacterConfiguration.FromImported(record) with
@@ -75,8 +75,8 @@ internal partial class ArmosCharacter : EnemyCharacter
                 return;
 
             case ArmosState.Waiting:
-                if (_runtime.ReadWramByte(
-                        AgesGameContent.ArmosTriggerAddress) != 0)
+                if (_runtime.ReadField(
+                        "wcca2") != 0)
                 {
                     _state = ArmosState.Activating;
                 }

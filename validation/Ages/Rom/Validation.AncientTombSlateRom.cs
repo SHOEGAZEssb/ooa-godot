@@ -113,7 +113,7 @@ public sealed partial class ValidationRoot
         var ground = new GroundTreasurePickup();
         try
         {
-            ground.Initialize(request.Resolve(_treasures), static _ => { });
+            ground.Initialize(AgesGameContent.AssetRoot, request.Resolve(_treasures), static _ => { });
             CompareInteractionSpritePixelsRom(rom, SomariaPrivate<Texture2D>(ground, "_texture"),
                 SomariaPrivate<Vector2>(ground, "_textureOffset"), 0xd040, 1, "Ground Slate visual");
         }

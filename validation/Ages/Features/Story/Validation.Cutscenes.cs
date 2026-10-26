@@ -10,13 +10,13 @@ public sealed partial class ValidationRoot
 {
     private void ValidateNewGameIntro()
     {
-        var screen = new NewGameIntroScreen { Name = "NewGameIntroValidation" };
+        var screen = new NewGameIntroScreen { AssetRoot = AgesGameContent.AssetRoot, Name = "NewGameIntroValidation" };
         AddChild(screen);
         int completionRequests = 0;
         var intro = new NewGameIntroController(
             screen, () => completionRequests++, _sound);
         NewGameIntroRecord record = intro.Record;
-        var introDatabase = new NewGameIntroDatabase();
+        var introDatabase = new NewGameIntroDatabase(AgesGameContent.AssetRoot);
         IntroSpriteFrame[] linkSpin =
             introDatabase.SpriteFrames("link-spin");
         IntroSpriteFrame[] linkVanish =
@@ -246,7 +246,7 @@ public sealed partial class ValidationRoot
         _player.Face(previousFacing);
 
         screen.QueueFree();
-        var batchedScreen = new NewGameIntroScreen { Name = "BatchedNewGameIntroValidation" };
+        var batchedScreen = new NewGameIntroScreen { AssetRoot = AgesGameContent.AssetRoot, Name = "BatchedNewGameIntroValidation" };
         AddChild(batchedScreen);
         var batched = new NewGameIntroController(batchedScreen, () => { }, _sound);
         // Crossing the dialogue boundary must still perform one object update
@@ -304,7 +304,7 @@ public sealed partial class ValidationRoot
             effectDatabase.Particles[7] != new ParticleRecord(0x240, 9, 3) ||
             effectDatabase.OutdoorBeamPalette.SequenceEqual(effectDatabase.IndoorBeamPalette) ||
             expectedMasks.Where((mask, index) =>
-                RoomTransitionController.TimeWarpDissolveMaskForValidation(index) != mask).Any(),
+                AgesRoomTransitionController.TimeWarpDissolveMaskForValidation(index) != mask).Any(),
             "Imported $dd/$2b/$84 time-warp graphics, priorities, timing, particles, palettes, or " +
             "$dd/$ff..$00/$00 dissolve masks changed.");
         IReadOnlyList<PortalRecord> ordinaryRecords =
@@ -390,7 +390,7 @@ public sealed partial class ValidationRoot
             !_player.Visible ||
             !Mathf.IsEqualApprox(
                 _roomView.BackgroundFadeAlpha,
-                1.0f / RoomTransitionController.FastPaletteFadeFrames),
+                1.0f / AgesRoomTransitionController.FastPaletteFadeFrames),
             "CUTSCENE_TIMEWARP state 0 did not hide the HUD, start the BG-only fast black " +
             "fade, preserve a long rendered frame, and prepare the still-unmasked " +
             "six-buffer dissolve pass.");
@@ -492,22 +492,22 @@ public sealed partial class ValidationRoot
             sourceEffect.BeamVisible || sourceEffect.PrimaryVisible || _player.Visible,
             "The source trail did not hold for exactly 60 updates after both portal " +
             "components had collapsed and vanished.");
-        UpdateRoomWarpTransition(RoomTransitionController.FastPaletteFadeFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.FastPaletteFadeFrames / 60.0);
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
             _transitions.TimeWarpPhaseFrame != 1 ||
             !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f) ||
-            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f / RoomTransitionController.WarpFadeFrames) ||
+            !Mathf.IsEqualApprox(_warpFade.Color.A, 1.0f / AgesRoomTransitionController.WarpFadeFrames) ||
             _player.Visible,
             "The source tilemap was not kept black-covered while the palette handoff " +
             "started the first fadeoutToWhite step.");
-        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeFrames - 2.0f) / 60.0);
+        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpFadeFrames - 2.0f) / 60.0);
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpWhiteFadeOut" ||
-            _transitions.TimeWarpPhaseFrame != RoomTransitionController.WarpFadeFrames - 1 ||
+            _transitions.TimeWarpPhaseFrame != AgesRoomTransitionController.WarpFadeFrames - 1 ||
             !Mathf.IsEqualApprox(_roomView.BackgroundFadeAlpha, 1.0f) ||
             !Mathf.IsEqualApprox(
-                _warpFade.Color.A, (RoomTransitionController.WarpFadeFrames - 1.0f) / RoomTransitionController.WarpFadeFrames) ||
+                _warpFade.Color.A, (AgesRoomTransitionController.WarpFadeFrames - 1.0f) / AgesRoomTransitionController.WarpFadeFrames) ||
             _activeGroup != 0,
             "The source tilemap became visible before the white overlay reached opacity.");
         UpdateRoomWarpTransition(1.0 / 60.0);
@@ -520,7 +520,7 @@ public sealed partial class ValidationRoot
             $"Time portal 0:39/`$22 landed at {_activeGroup:x1}:{_currentRoom.Id:x2}/" +
             $"`${_currentRoom.GetPackedPosition(_player.Position):x2} instead of 1:39/`$22.");
 
-        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeFrames / 60.0);
         FailIf(
             _transitions.TimeWarpPhaseName != "TimeWarpArrivalWait",
             "The destination did not fade in from white for 32 updates.");
@@ -2390,7 +2390,7 @@ public sealed partial class ValidationRoot
             $"The delayed $83 fade replaced room 0:38 or restored its corrupt base palette " +
             $"before beginning its transition to white (gate={fadeStartGate}).");
 
-        for (int frame = 0; frame < RoomTransitionController.DelayedWarpFadeFrames - 1; frame++)
+        for (int frame = 0; frame < AgesRoomTransitionController.DelayedWarpFadeFrames - 1; frame++)
             UpdateRoomWarpTransition(1.0 / 60.0);
         Color nearWhiteGate = unswappedRoom.GetRenderedPixelForValidation(gatePixelPosition);
         FailIf(
@@ -2413,7 +2413,7 @@ public sealed partial class ValidationRoot
             $"tileset={_currentRoom.TilesetId:x2}, " +
             $"tile24={_currentRoom.GetMetatile(new Vector2(0x48, 0x28)):x2}).");
 
-        for (int frame = 0; frame < RoomTransitionController.WarpFadeInFrames; frame++)
+        for (int frame = 0; frame < AgesRoomTransitionController.WarpFadeInFrames; frame++)
             UpdateRoomWarpTransition(1.0 / 60.0);
         FailIf(
             IsTransitioning || _player.Position != new Vector2(0x58, 0x48),
@@ -2684,13 +2684,13 @@ public sealed partial class ValidationRoot
             !IsTransitioning || _transitions.ScrollActive ||
             _activeGroup != group || _currentRoom.Id != roomId,
             "Room 1:38's unlocked bottom edge did not start its $03 exit warp.");
-        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != group || _currentRoom.Id != 0x48,
             "Room 1:38's bottom exit did not load past room 1:48.");
         UpdateRoomWarpTransition(
-            RoomTransitionController.RoomLoadRevealCompletionFrame / 60.0);
-        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
+            AgesRoomTransitionController.RoomLoadRevealCompletionFrame / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
         _entities.Update(1.0 / 60.0, _player);
         TimePortal? returnPortal = _entities.Entities<TimePortal>().SingleOrDefault();
         FailIf(
@@ -2728,7 +2728,7 @@ public sealed partial class ValidationRoot
             _currentRoom.GetMetatile(GatePoint(record.GateLeft)) != record.ClearTile,
             "Room 1:38 saved re-entry retriggered or lost TX_05d5/the cleared gate.");
 
-        var enemyDatabase = new EnemyDatabase();
+        var enemyDatabase = new EnemyDatabase(AgesGameContent.AssetRoot);
         MaskedMoblinRecord masked = enemyDatabase.MaskedMoblin;
         EnemyArrowRecord arrowRecord = enemyDatabase.EnemyArrow;
         FailIf(
@@ -3206,7 +3206,7 @@ public sealed partial class ValidationRoot
             System.Reflection.BindingFlags.Instance |
             System.Reflection.BindingFlags.NonPublic);
         FailIf(reloadInventory is null, "Could not restore validation inventory state.");
-        reloadInventory.Invoke(_inventory, null);
+        reloadInventory.Invoke(_inventory, new object[] { _saveData });
         _saveData.SetMakuTreeState(originalState);
         _saveData.SetMakuMapTextPresent(originalMapText);
         _saveData.SetMakuTreeSeedSatchelXPosition(originalSatchelX);
@@ -3263,7 +3263,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(tradeItemAddress, (byte)tradeItem);
             _saveData.WriteWramByte(tradeObtainedAddress, flags);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, null);
+            reloadInventory.Invoke(_inventory, new object[] { _saveData });
         }
 
         CutsceneShowTextCommand Text(int textId) =>
@@ -3464,7 +3464,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x55);
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        reloadInventory.Invoke(_inventory, null);
+        reloadInventory.Invoke(_inventory, new object[] { _saveData });
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
         {
             _saveData.SetRoomFlag(

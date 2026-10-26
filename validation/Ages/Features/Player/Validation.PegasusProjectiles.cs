@@ -11,11 +11,11 @@ public sealed partial class ValidationRoot
     private void ValidatePegasusProjectiles()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        OracleSaveData.TryDeserialize(_saveData.Serialize(), out var initialSave);
+        OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var initialSave);
         var random = CaptureOracleRandomForValidation();
         var entityState = _entities.CaptureDebugState();
         (int Seeds, int Stun, int RandomCalls, Vector2 Position)? first = null;
-        var record = new SeedSatchelDatabase().Pegasus;
+        var record = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Pegasus;
         FailIf(record.SeedItem != 0x22 || record.TileBase != 0x16 || record.Palette != 1 || record.Collision != 0x9d ||
             record.Damage != 0xff || record.CollisionRadiusX != 4 || record.CollisionRadiusY != 4 ||
             record.CollisionEffectTileBase != 0x18 || record.CollisionEffectOamFlags != 9 || record.CollisionEffectCounter != 0 ||
@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
             _saveData.RestoreFrom(initialSave!);
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
-            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
+            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
             _seedSatchel.Pegasus.Clear();
             _seedSatchel.InterruptShooter();
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);

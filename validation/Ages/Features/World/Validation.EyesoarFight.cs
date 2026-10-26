@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
         _inventory.EquipA(TreasureId.SwitchHook);
         _saveData.SetRoomFlag(4, 0x6b, 0xff, false);
         LoadValidationRoom(4, 0x6c);
-        _inventory.GiveTreasure(new TreasureDatabase().GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
+        _inventory.GiveTreasure(new TreasureDatabase(AgesGameContent.AssetRoot).GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
         _player.WarpTo(new Vector2(24, 88));
         FailIf(_currentRoom.IsSolid(_player.Position), "Eyesoar approach must start on real 4:6c west corridor floor.");
         for (int i = 0; !IsTransitioning && i < 100; i++) Step(movement: Vector2.Left);

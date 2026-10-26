@@ -2,13 +2,17 @@ namespace Oracles;
 
 internal sealed class ScreenTransitionGraphicsDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<ScreenGraphicsUpload>> _uploads = new();
     private readonly (int Unique, int Entries)[] _tilesets = new (int, int)[103];
 
-    internal ScreenTransitionGraphicsDatabase()
+    internal ScreenTransitionGraphicsDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/screen_transition_graphics.tsv",
+            AssetRoot + "metadata/screen_transition_graphics.tsv",
             new GeneratedTableSchema("screen transition graphics",
                 GeneratedTableKeySemantics.Unique,
                 ["tileset", "unique-gfx", "entries", "source"], ["tileset"],
@@ -26,7 +30,7 @@ internal sealed class ScreenTransitionGraphicsDatabase
         if (table.Rows.Count != 103)
             throw new System.InvalidOperationException("Expected $67 clean-US tileset transition records.");
         GeneratedTable uploads = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/screen_transition_uploads.tsv",
+            AssetRoot + "metadata/screen_transition_uploads.tsv",
             new GeneratedTableSchema("screen transition VRAM uploads", GeneratedTableKeySemantics.Unique,
                 ["unique-gfx", "order", "vram-address", "tiles", "palette-header", "data", "source"],
                 ["unique-gfx", "order"], headerRequired: true));

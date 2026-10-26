@@ -17,7 +17,7 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
     private int _turnStep;
     private int _turns;
     private int _counter;
-    private static BubbleDefinition? _sharedDefinition;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, BubbleDefinition> Definitions = new(System.StringComparer.Ordinal);
 
     public Node2D Node => this;
     public bool Finished { get; private set; }
@@ -28,11 +28,12 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
 
     internal SideScrollBubbleRoomEntity(Vector2 position, OracleRoomData room, OracleRandom random, OracleRuntimeState runtime)
     {
+        AssetRoot = room.AssetRoot;
         Name = "SideScrollBubble";
         _room = room;
         _random = random;
         _runtime = runtime;
-        _definition = _sharedDefinition ??= LoadDefinition();
+        _definition = Definitions.GetOrAdd(AssetRoot, LoadDefinition);
         // objectCopyPosition copies yh/xh only; new fractional bytes are zero.
         _precisePosition = OracleObjectMath.ToPixelPosition(position);
         Position = OracleObjectMath.ToPixelPosition(position);
@@ -92,10 +93,10 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
             DrawTexture(_definition.Texture, _definition.Offset + SourceOamDrawOffset);
     }
 
-    private static BubbleDefinition LoadDefinition()
+    private static BubbleDefinition LoadDefinition(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/side_scroll_bubble.tsv",
+            assetRoot + "effects/side_scroll_bubble.tsv",
             new GeneratedTableSchema("side-view swimming bubble",
                 GeneratedTableKeySemantics.Ordered,
                 ["tile-base", "palette", "speed-raw", "turn-counter", "initial-turns",
@@ -108,7 +109,7 @@ internal sealed partial class SideScrollBubbleRoomEntity : TransitionOffsetNode2
             animation.Frames.Length != 1 || animation.Frames[0].Duration != 0x7f)
             throw new InvalidOperationException($"{row.RequiredString(7)}: unexpected bubble constants or animation.");
         (Texture2D texture, Vector2 offset) = OracleOamCompositor.BuildPositionedOamTexture(
-            OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png"),
+            OracleGraphicsCache.LoadImage(assetRoot + "gfx/spr_common_sprites.png"),
             animation.Frames[0].EncodedOam, row.UnsignedDecimal(0), row.UnsignedDecimal(1),
             paletteOverride: null, sourceGrayscaleInverted: true);
         return new BubbleDefinition(texture, offset, row.UnsignedDecimal(2),

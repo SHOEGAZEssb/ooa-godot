@@ -37,7 +37,7 @@ internal sealed class PostD7ActorRoomEntity : CutsceneCommandHost, IRoomEntity, 
     {
         _context = context; _data = data; _owner = owner; Id = id; SubId = subId; _precise = position;
         _counter = stoneCounter;
-        _actor = NpcCharacter.CreateFromRecord(data.Actor(id, subId, position, context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id));
+        _actor = NpcCharacter.CreateFromRecord(data.Actor(id, subId, position, context.Rooms.ActiveGroup, context.Rooms.CurrentRoom.Id), AgesGameContent.AssetRoot);
         _actor.SetGraphicsSourceOffset(data.SourceOffset(id, subId));
         // Native interactionInitGraphics selects one imported animation. Use
         // its complete OAM bounds even before a script changes animation;

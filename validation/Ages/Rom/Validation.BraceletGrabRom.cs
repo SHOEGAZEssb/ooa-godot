@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
         // objectHCheckCollisionWithLink and checkGrabbableObjects share the
         // facing projection, Link.zh-$03 and _checkCollisionWithHAndD.
         var rom = new ObjectCollisionRom();
-        var geometry = new BraceletGrabGeometry();
+        var geometry = new BraceletGrabGeometry(AgesGameContent.AssetRoot);
         Vector2I[] projection = [new(0, -6), new(5, 0), new(0, 5), new(-6, 0)];
         int cases = 0;
         for (int direction = 0; direction < 4; direction++)

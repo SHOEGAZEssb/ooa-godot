@@ -76,7 +76,7 @@ internal sealed class EnemySwordRoomEntity : IRoomEntity, IFixedRoomEntity, IRoo
     {
         if (!CollisionEnabled || _invincibility != 0 || !_bounds.Intersects(hitbox)) return false;
         int collision = _swordCollision;
-        int effect = EnemyBehaviorTables.Shared.EnemySwordCollisionEffects[collision].Value;
+        int effect = EnemyBehaviorTables.For(_parent.AssetRoot).EnemySwordCollisionEffects[collision].Value;
         if (effect == CollisionEffect.None) return false;
         if (effect == CollisionEffect.BumpWithClinkHighKnockback)
         {

@@ -34,6 +34,7 @@ internal sealed partial class VeranFairyCharacter : EnemyCharacter
     internal override Texture2D CurrentDrawTexture=>DrawsDamagePalette?base.CurrentDrawTexture:Animation.CurrentTextureForPalette(_palette);
     internal VeranFairyCharacter(VeranFairyEnvironment world,Vector2 position)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         World=world;
         InitializeEnemy(position.Floor(),EnemyCharacterConfiguration.FromImported(Data.Actor(6)),positionedOam:true,paletteVariants:[0,1]);
         Visible=false;

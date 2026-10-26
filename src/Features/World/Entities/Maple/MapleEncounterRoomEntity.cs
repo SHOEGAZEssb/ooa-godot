@@ -30,11 +30,11 @@ internal sealed class MapleEncounterRoomEntity(MapleEncounter maple, RoomEntityM
     {
         // commonCode.s: companionRetIfInactiveWithoutStateCheck applies even
         // to state0, independently of the interaction pass containing this adapter.
-        if ((owner.RuntimeState.ReadWramByte(AgesWramAddress.wDisabledObjects) & 0xa0) != 0 ||
+        if ((owner.RuntimeState.ReadField("wDisabledObjects") & 0xa0) != 0 ||
             owner.PaletteFadeActiveSource() || owner.NonInteractionObjectsDisabledSource())
             return;
         Entity.UpdateFrame(frame.Player, spawns, frame.Counter,
-            owner.RuntimeState.ReadWramByte(AgesWramAddress.wMenuDisabled) != 0);
+            owner.RuntimeState.ReadField("wMenuDisabled") != 0);
     }
 
 }

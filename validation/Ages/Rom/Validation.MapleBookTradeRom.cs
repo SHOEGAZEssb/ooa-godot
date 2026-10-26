@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
             F1Set(maple, "_angle", 0xff); F1Set(maple, "_speedRaw", 0x28);
             _runtimeState.SetWramByte(AgesWramAddress.wDisableScreenTransitions, 1);
             var book = (MapleTouchingBookRoomEntity?)_entities.TryCreateInteraction(new MapleTouchingBookSpawn(
-                maple, new(80, 56), 0, new MapleEventDatabase().BookVisual))
+                maple, new(80, 56), 0, new MapleEventDatabase(AgesGameContent.AssetRoot).BookVisual))
                 ?? throw new InvalidOperationException("Book trade fixture could not reserve INTERAC$a5.");
             F1Set(maple, "_book", book); F1Set(book, "<State>k__BackingField", 2);
             book.PrecisePosition = new(80.75f, 56.5f); book.Position = new(80, 56); book.Visible = true;
@@ -120,7 +120,7 @@ public sealed partial class ValidationRoot
                 native[slot] = 1; native[slot + 1] = 5; native[slot + 2] = 0x80;
             }
             var book = (MapleTouchingBookRoomEntity?)_entities.TryCreateInteraction(new MapleTouchingBookSpawn(
-                maple, new(96, 80), 0, new MapleEventDatabase().BookVisual))
+                maple, new(96, 80), 0, new MapleEventDatabase(AgesGameContent.AssetRoot).BookVisual))
                 ?? throw new InvalidOperationException("Book oar fixture could not allocate its parent interaction.");
             F1Set(maple, "_book", book); F1Set(book, "<State>k__BackingField", 7);
             int at = 0xd040 + _entities.InteractionSlot(book) * 256;

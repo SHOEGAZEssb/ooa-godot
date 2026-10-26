@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(link);_player.Face(Vector2I.Up);
             _runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);_runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);
             _entities.AddEntity(new ProjectileMotionContactSuppression());
-            var actor=new ShadowHagBug();actor.Initialize(new DungeonBossDatabase().Enemy(0x42),parent,_random,initial);
+            var actor=new ShadowHagBug();actor.Initialize(new DungeonBossDatabase(AgesGameContent.AssetRoot).Enemy(0x42),parent,_random,initial);
             int z=fractional?128:0,c1=form==1?1:form==2?5:0,c2=form==1?4:form==2?variant:0;
             F1Set(actor,"_zFixed",z);
             if(form!=0)

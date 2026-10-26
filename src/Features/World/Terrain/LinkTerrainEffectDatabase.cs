@@ -12,14 +12,22 @@ namespace Oracles;
 /// </summary>
 internal sealed class LinkTerrainEffectDatabase
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<LinkTerrainEffectDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static LinkTerrainEffectDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<LinkTerrainEffectDatabase>(() => new(root))).Value;
+
+    public string AssetRoot { get; }
+
     private readonly IReadOnlyDictionary<byte, LinkTerrainEffectDefinition>
         _definitions;
     private readonly LinkTerrainEffectDefinition _puddle;
 
-    internal LinkTerrainEffectDatabase()
+    internal LinkTerrainEffectDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/link_terrain_effects.tsv",
+            AssetRoot + "effects/link_terrain_effects.tsv",
             new GeneratedTableSchema(
                 "Link terrain effects",
                 GeneratedTableKeySemantics.Unique,
@@ -39,11 +47,15 @@ internal sealed class LinkTerrainEffectDatabase
 
         var records = new Lookup<string, LinkTerrainEffectFrame>(
             StringComparer.Ordinal);
-        var tiles = new Dictionary<string, byte>();
+        var tiles = new Dictionary<string, string>();
         foreach (GeneratedTableRow row in table.Rows)
         {
             string kind = row.RequiredString(0);
-            byte tile = (byte)row.HexByte(1);
+            string tileList = row.RequiredString(1);
+            string[] tileValues = tileList.Split(',');
+            if (!byte.TryParse(tileValues[0], System.Globalization.NumberStyles.HexNumber,
+                    System.Globalization.CultureInfo.InvariantCulture, out byte tile))
+                throw row.Invalid(1, "hexadecimal terrain tile IDs");
             int frame = row.UnsignedDecimal(2);
             int duration = row.UnsignedDecimal(3);
             int sound = row.HexByte(4);
@@ -67,16 +79,16 @@ internal sealed class LinkTerrainEffectDatabase
                 throw new InvalidOperationException(
                     $"Imported Link {kind} terrain-effect frame {frame} is invalid.");
             }
-            if (tiles.TryGetValue(kind, out byte priorTile) && priorTile != tile)
+            if (tiles.TryGetValue(kind, out string? priorTile) && priorTile != tileList)
             {
                 throw new InvalidOperationException(
                     $"Imported Link {kind} terrain-effect frames disagree on " +
-                    $"metatile ${priorTile:x2}/${tile:x2}.");
+                    $"metatile lists {priorTile}/{tileList}.");
             }
-            tiles[kind] = tile;
+            tiles[kind] = tileList;
 
             Image image = OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
+                AssetRoot + $"gfx/{sprite}.png");
             (Texture2D texture, Vector2 offset) =
                 OracleOamCompositor.BuildPositionedOamTexture(
                     image,
@@ -121,11 +133,18 @@ internal sealed class LinkTerrainEffectDatabase
         }
 
         _puddle = new LinkTerrainEffectDefinition(puddle);
-        _definitions = new Dictionary<byte, LinkTerrainEffectDefinition>
+        var definitions = new Dictionary<byte, LinkTerrainEffectDefinition>();
+        foreach (string kind in new[] { "grass", "puddle" })
         {
-            [tiles["grass"]] = new LinkTerrainEffectDefinition(grass),
-            [tiles["puddle"]] = _puddle
-        };
+            var definition = kind == "grass" ? new LinkTerrainEffectDefinition(grass) : _puddle;
+            foreach (string value in tiles[kind].Split(','))
+            {
+                if (!byte.TryParse(value, System.Globalization.NumberStyles.HexNumber,
+                        System.Globalization.CultureInfo.InvariantCulture, out byte tile) || !definitions.TryAdd(tile, definition))
+                    throw new InvalidOperationException($"Link terrain effects contain an invalid or duplicate tile '{value}' in {AssetRoot}.");
+            }
+        }
+        _definitions = definitions;
     }
 
     internal LinkTerrainEffectFrame? FrameFor(

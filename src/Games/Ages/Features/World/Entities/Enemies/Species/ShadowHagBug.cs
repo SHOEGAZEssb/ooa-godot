@@ -33,6 +33,7 @@ internal sealed partial class ShadowHagBug : EnemyCharacter
         OracleRandom random,
         Vector2 position)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _owner = owner;
         _random = random;

@@ -35,6 +35,7 @@ internal sealed partial class BlueStalfosCharacter : EnemyCharacter, ITerrainSha
     internal void Initialize(ImportedEnemyDefinition record, Vector2 position, BlueStalfosEnvironment world,
         int parentSlot = -1, int z = 0)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != AgesEnemyId.BlueStalfos || record.SubId is < 0 or > 3)
             throw new NotSupportedException($"blueStalfos.s: ENEMY${record.Id:x2}:${record.SubId:x2}.");
         Record = record; _world = world; ParentSlot = parentSlot; ZFixed = z;
@@ -50,6 +51,7 @@ internal sealed partial class BlueStalfosCharacter : EnemyCharacter, ITerrainSha
     private void Flicker() { NativeVisible ^= 0x80; Visible = (NativeVisible & 0x80) != 0; }
     internal void InitializeNative()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (State != 0) return;
         _world.Random.Next(); _collision = true;
         if (Record.SubId < 2) Show(0x82);
@@ -189,6 +191,7 @@ internal sealed partial class BlueStalfosCharacter : EnemyCharacter, ITerrainSha
     private BlueStalfosCharacter? Parent() => _world.ResolveEnemy(ParentSlot);
     private bool InitializeChild()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         var parent = Parent() ?? throw new NotSupportedException($"blueStalfos.s child initialization has a deleted/reused ENEMY slot${ParentSlot:x2}.");
         State = 9; CollisionMode = 0x66; ZFixed = (parent.ZFixed & 0xff00) | (ZFixed & 255); return true;
     }

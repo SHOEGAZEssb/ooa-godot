@@ -218,7 +218,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSideScrollSwimmingKinematics()
     {
-        var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
+        var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         inventory.GiveTreasure(TreasureId.Flippers, 0);
         SideScrollTerrainState water = new(0x1b, 0x1b,
             SideScrollTileType.Water, SideScrollTileType.Water);

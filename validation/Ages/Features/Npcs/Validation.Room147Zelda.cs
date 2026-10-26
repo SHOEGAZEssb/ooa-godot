@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         // zelda.s:@initSubid08 admits only linked, pre-Black-Tower complete,
         // flame-unlit files; @actAsGenericNpc installs TX_060b once.
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(1, 0x47).Single(n =>
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(1, 0x47).Single(n =>
             n.Id == AgesInteractionId.Zelda && n.SubId == 8);
         FailIf(record is not { Var03: 0, Y: 0x38, X: 0x58,
                 TextId: 0x060b, CanFace: true, DefaultAnimation: 2,

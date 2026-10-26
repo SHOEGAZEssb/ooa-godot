@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     {
         // mainData.s: group3Map4eObjectData; interactionData.s: $6b:$13/$14;
         // interactionAnimation5a3e4/5a3e9 and interactionOamData5020e/502a7.
-        NpcRecord[] records=new NpcDatabase().GetRoomNpcs(3,0x4e).ToArray();
+        NpcRecord[] records=new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(3,0x4e).ToArray();
         FailIf(records.Length!=2,"Room 3:4e must import both Goron bomb statues.");
         for(int i=0;i<2;i++)
         {

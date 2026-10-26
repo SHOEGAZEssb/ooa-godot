@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateFallingBoulderMotion()
     {
         LoadValidationRoom(1, 0x33);
-        var data = new FallingBoulderDatabase();
+        var data = new FallingBoulderDatabase(AgesGameContent.AssetRoot);
         FailIf(data.Sprite != "spr_boulder" || data.Palette != 5 || data.TileBase != 0 ||
             data.SourceGrayscaleInverted || data.Radius != 4 || data.Damage != 4 ||
             !data.Delays.SequenceEqual([45, 90, 135, 180]),
@@ -259,7 +259,7 @@ public sealed partial class ValidationRoot
     private void ValidateFallingBoulderContact()
     {
         LoadValidationRoom(1, 0x33);
-        var rock = new FallingBoulder(0, new(80, 0x48), new FallingBoulderDatabase(),
+        var rock = new FallingBoulder(0, new(80, 0x48), new FallingBoulderDatabase(AgesGameContent.AssetRoot),
             new OracleRandom(), _ => { }, _currentRoom, point => point + new Vector2(0, 16));
         try
         {
@@ -267,7 +267,7 @@ public sealed partial class ValidationRoot
             // Direct collision boundary fixtures are deliberately separate from room reachability.
             foreach (int offset in new[] { -11, -10, 9, 10 })
             {
-                var save = OracleSaveData.CreateStandardGame();
+                var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
                 var player = new Player();
                 AddChild(player);
                 try
@@ -288,7 +288,7 @@ public sealed partial class ValidationRoot
                 try
                 {
                     player.Initialize(new ValidationRingPlayerWorld(),
-                        new InventoryState(_treasures, OracleSaveData.CreateStandardGame()),
+                        new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages)),
                         rock.Position + new Vector2(offset, 0), new OracleRandom());
                     int health = player.HealthQuarters;
                     rock.HandleLinkContact(player);
@@ -306,7 +306,7 @@ public sealed partial class ValidationRoot
             try
             {
                 highPlayer.Initialize(new ValidationRingPlayerWorld(),
-                    new InventoryState(_treasures, OracleSaveData.CreateStandardGame()), rock.Position, new OracleRandom());
+                    new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages)), rock.Position, new OracleRandom());
                 int health = highPlayer.HealthQuarters;
                 rock.HandleLinkContact(highPlayer);
                 FailIf(rock.Z >= -7 || highPlayer.HealthQuarters != health || highPlayer.PendingContactDamageRaw != 0,

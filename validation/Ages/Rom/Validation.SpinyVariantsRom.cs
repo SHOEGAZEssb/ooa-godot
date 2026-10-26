@@ -13,13 +13,13 @@ public sealed partial class ValidationRoot
         {
             int group=subid==0?1:0, room=subid==0?0x70:0x1a;
             InitializeCompletedIntroRoom(group,room);
-            var data=EnemyDatabase.Shared;
+            var data=EnemyDatabase.For(AgesGameContent.AssetRoot);
             var row=data.GetRoomObjects(group,room).First(r=>r.Id==0x1b&&r.SubId==subid);
             var actor=new SpinyBeetleCharacter();
             actor.Initialize(data.ImportedEnemy(0x1b,subid),_currentRoom,new(row.X,row.Y),_random,
-                new BraceletDatabase().Data,new BombDatabase().Data,_entities.ApplyThrownObjectHit,
+                new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,_entities.ApplyThrownObjectHit,
                 parent=>_entities.TryAllocateEnemy(_=>new SpinyBeetleCoverRoomEntity(new(parent,_random,_currentRoom,
-                    new BraceletDatabase().Data,new BombDatabase().Data,_entities.ApplyThrownObjectHit),_sound.PlaySound,()=>_entities.PartSlotAvailable)) is not null);
+                    new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,_entities.ApplyThrownObjectHit),_sound.PlaySound,()=>_entities.PartSlotAvailable)) is not null);
             var adapter=new SpinyBeetleRoomEntity(actor,data.EnemyHandlers.ResolveHandler(row).CombatSource(row,0),_sound.PlaySound);
             _entities.RegisterEnemySlot(adapter,0);_entities.AddEntity(adapter);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(row.X+32,row.Y));_player.BeginCutsceneControl();
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
             if(subid==0&&batched)
             {
                 rom[0xd701]=ItemId.EmberSeed;rom.HitWithSword(ItemCollisionType.EmberSeed,2,enemySlot:1,itemOffsetX:10);
-                new SeedSatchelDatabase().TryGet(ItemId.EmberSeed,out var ember);
+                new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.EmberSeed,out var ember);
                 var spawns=new System.Collections.Generic.List<RoomEntitySpawn>();
                 FailIf(!child.ApplySeedCollision(edge,coverActor.Position+Vector2.Right*10,ember,ItemCollisionType.EmberSeed,spawns).Contact,
                     "$58:$00 must accept the native Ember burn and checked PART$12 allocation.");
@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             if (subid==3)
             {
                 rom[0xd701]=ItemId.EmberSeed;rom.HitWithSword(ItemCollisionType.EmberSeed,2,enemySlot:1,itemOffsetX:10);
-                new SeedSatchelDatabase().TryGet(ItemId.EmberSeed,out var ember);
+                new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.EmberSeed,out var ember);
                 var response=child.ApplySeedCollision(new Rect2(coverActor.Position.Floor()+new Vector2(4,-6),new Vector2(12,12)),
                     coverActor.Position+Vector2.Right*10,ember,ItemCollisionType.EmberSeed,new System.Collections.Generic.List<RoomEntitySpawn>());
                 FailIf(!response.Contact||!response.DisableCollision||response.Effect!=SeedHitResult.Activate,
@@ -106,13 +106,13 @@ public sealed partial class ValidationRoot
             _entities.EnableLinkCollisionsAndMenu();_player.EndCutsceneControl();
         }
         InitializeCompletedIntroRoom(1,0x70);
-        var database=EnemyDatabase.Shared;
+        var database=EnemyDatabase.For(AgesGameContent.AssetRoot);
         var sourceRow=database.GetRoomObjects(1,0x70).Single(row=>row.Id==0x1b);
         var pending=new SpinyBeetleCharacter();
         pending.Initialize(database.ImportedEnemy(0x1b,0),_currentRoom,new(sourceRow.X,sourceRow.Y),_random,
-            new BraceletDatabase().Data,new BombDatabase().Data,_entities.ApplyThrownObjectHit,
+            new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,_entities.ApplyThrownObjectHit,
             parent=>_entities.TryAllocateEnemy(_=>new SpinyBeetleCoverRoomEntity(new(parent,_random,_currentRoom,
-                new BraceletDatabase().Data,new BombDatabase().Data,_entities.ApplyThrownObjectHit),_sound.PlaySound,()=>_entities.PartSlotAvailable)) is not null);
+                new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,_entities.ApplyThrownObjectHit),_sound.PlaySound,()=>_entities.PartSlotAvailable)) is not null);
         var pendingAdapter=new SpinyBeetleRoomEntity(pending,database.EnemyHandlers.ResolveHandler(sourceRow).CombatSource(sourceRow,0),_sound.PlaySound);
         _entities.RegisterEnemySlot(pendingAdapter,0);_entities.AddEntity(pendingAdapter);
         EnemyAiSlotReservation? release=null;

@@ -8,7 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogMergedCloud()
     {
-        var record = new EnemyDatabase().ImportedEnemy(AgesEnemyId.Smog,0);
+        var record = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(AgesEnemyId.Smog,0);
         foreach (int subid in new[] { 3, 0x83 })
         foreach (int enemies in new[] { 0, 1, 2, 3, 4 })
         {

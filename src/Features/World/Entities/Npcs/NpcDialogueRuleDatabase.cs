@@ -11,16 +11,20 @@ namespace Oracles;
 /// </summary>
 public sealed class NpcDialogueRuleDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly Lookup<int, NpcDialogueRuleDatabaseRule> _byInteraction =
         new();
 
     internal int RuleCount { get; private set; }
 
-    public NpcDialogueRuleDatabase()
+    public NpcDialogueRuleDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/npc_dialogue.tsv",
+            AssetRoot + "objects/npc_dialogue.tsv",
             new GeneratedTableSchema(
                 "NPC dialogue rules",
                 GeneratedTableKeySemantics.Grouped,
@@ -54,8 +58,8 @@ public sealed class NpcDialogueRuleDatabase
             int textId = row.HexWord(6);
             string message = row.Base64Utf8(8);
             if (value < 0 ||
-                kind == NpcStoryStateKind.GameProgress1 && value > 5 ||
-                kind == NpcStoryStateKind.GameProgress2 && value > 7 ||
+                kind == NpcStoryStateKind.AgesGameProgress1 && value > 5 ||
+                kind == NpcStoryStateKind.AgesGameProgress2 && value > 7 ||
                 kind == NpcStoryStateKind.CurrentRoomFlag && value == 0 ||
                 textId == 0 || string.IsNullOrEmpty(message) ||
                 !uniqueRules.Add((id, subId, var03, kind, value, linked)))

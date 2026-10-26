@@ -6,12 +6,16 @@ namespace Oracles;
 /// <summary>Ordered Ages staticDungeonObjects lists, loaded on dungeon entry.</summary>
 internal sealed class StaticDungeonObjectDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly List<MinecartStaticRecord>[] _minecarts = new List<MinecartStaticRecord>[16];
 
-    internal StaticDungeonObjectDatabase()
+    internal StaticDungeonObjectDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         for (int dungeon = 0; dungeon < _minecarts.Length; dungeon++) _minecarts[dungeon] = new();
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/dungeon_static_minecarts.tsv",
+        var table = GeneratedTable.Load(AssetRoot + "objects/dungeon_static_minecarts.tsv",
             new GeneratedTableSchema("dungeon static minecarts", GeneratedTableKeySemantics.Unique,
                 ["dungeon", "slot", "room", "y", "x", "source"], ["dungeon", "slot"], headerRequired: true));
         foreach (var row in table.Rows)

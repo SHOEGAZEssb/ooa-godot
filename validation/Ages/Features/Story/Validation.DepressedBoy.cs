@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(tradeItemAddress, (byte)tradeItem);
             _saveData.WriteWramByte(tradeObtainedAddress, flags);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, null);
+            reloadInventory.Invoke(_inventory, new object[] { _saveData });
         }
 
         CutsceneShowTextCommand Text(int textId) =>
@@ -333,7 +333,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0x55);
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        reloadInventory.Invoke(_inventory, null);
+        reloadInventory.Invoke(_inventory, new object[] { _saveData });
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
         {
             _saveData.SetRoomFlag(

@@ -34,12 +34,12 @@ internal sealed class GanonRoomEntity : CombatEnemyRoomEntityAdapter<GanonCharac
             case 0:return true;
             case 0x1c:case 0x20:Entity.PublishHit(item);return true;
             case 0x15:case 0x16:
-                _attackerRecoil=effect==0x15?EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback.LowFrames:EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback.NormalFrames;
+                _attackerRecoil=effect==0x15?EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback.LowFrames:EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback.NormalFrames;
                 Entity.PublishHit(item,0,-28);Entity.World.Entities.TryCreateBoomerangClink(CollisionMidpoint(Entity.Position,origin),0);
                 Entity.World.Entities.OnSoundRequested(SoundId.SndBombLand);return true;
             case 0x1b:Entity.PublishHit(item,0,-20);Entity.World.Entities.TryCreateBoomerangClink(CollisionMidpoint(Entity.Position,origin),0);return true;
             case 0x2c:
-                _attackerRecoil=EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback.NormalFrames;
+                _attackerRecoil=EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback.NormalFrames;
                 Entity.World.Entities.OnSoundRequested(SoundId.SndBombLand);goto case 0x21;
             case 0x21:Entity.PublishHit(item,damage,32);Entity.World.Entities.OnSoundRequested(SoundId.SndBossDamage);return true;
             default:throw new NotSupportedException($"ganon.s: ENEMY $04 form ${Entity.State:x2}, mode ${0x0b:x2}, item ${item:x2}, effect ${effect:x2}.");

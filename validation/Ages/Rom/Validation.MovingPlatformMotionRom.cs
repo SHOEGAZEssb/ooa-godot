@@ -7,9 +7,9 @@ public partial class ValidationRoot
 {
     private void CompareMovingPlatformMotionRom()
     {
-        var programs = new MovingPlatformDatabase();
-        var data = new DungeonInteractionDatabase();
-        var visuals = new DungeonInteractionVisualDatabase();
+        var programs = new MovingPlatformDatabase(AgesGameContent.AssetRoot);
+        var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
+        var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
         int fixture = 0;
         // Six mainData.s placements, plus the distinct dungeon1 programs.
         foreach (var c in new[] {

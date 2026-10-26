@@ -1,0 +1,123 @@
+using Godot;
+using System;
+
+namespace Oracles;
+
+/// <summary>
+/// Typed binding for the stable gameplay hierarchy stored in gameplay.tscn.
+/// Original behavior remains in the owning runtime classes; the scene owns
+/// only node lifecycle, parentage, draw order, and fixed presentation values.
+/// </summary>
+public partial class AgesGameSceneGraph : Node2D
+{
+    internal string AssetRoot => Unique<Hud>("Hud").AssetRoot;
+    internal System.Collections.Generic.IEnumerable<bool> PreparePresentation()
+    {
+        Unique<Hud>("Hud").PrepareResources();
+        yield return false;
+        Unique<DialogueBox>("Dialogue").PrepareResources(AssetRoot);
+        yield return false;
+        Unique<AgesMapScreen>("AgesMapScreen").PrepareResources();
+        yield return false;
+        Unique<AgesInventoryScreen>("AgesInventoryScreen").PrepareResources();
+        yield return false;
+        Unique<RingMenuScreen>("RingMenuScreen").PrepareResources();
+        yield return false;
+        foreach (bool step in Unique<SaveQuitScreen>("SaveQuitScreen").PrepareResources())
+            yield return step;
+        foreach (bool step in Unique<Player>("Link").PrepareInitialPresentation(AssetRoot))
+            yield return step;
+        Unique<Player>("Link").PrepareTransformationPresentation();
+        yield return false;
+    }
+    public const string ScenePath = "res://scenes/ages/gameplay.tscn";
+
+    public Node2D WorldRoot { get; private set; } = null!;
+    public CanvasLayer InterfaceLayer { get; private set; } = null!;
+    public RoomView RoomView { get; private set; } = null!;
+    public Player Player { get; private set; } = null!;
+    public Camera2D RoomCamera { get; private set; } = null!;
+    public Hud Hud { get; private set; } = null!;
+    public EndingScreen EndingScreen {get;private set;}=null!;
+    public RoomLoadColumnRevealOverlay RoomLoadReveal { get; private set; } = null!;
+    public ColorRect WarpFade { get; private set; } = null!;
+    public DialogueBox Dialogue { get; private set; } = null!;
+    public Label RoomDebug { get; private set; } = null!;
+    public AgesMapScreen AgesMapScreen { get; private set; } = null!;
+    public AgesInventoryScreen AgesInventoryScreen { get; private set; } = null!;
+    public SaveQuitScreen SaveQuitScreen { get; private set; } = null!;
+    public RingMenuScreen RingMenuScreen { get; private set; } = null!;
+    public SecretListScreen SecretListScreen { get; private set; } = null!;
+    public DebugFlagScreen DebugFlagScreen { get; private set; } = null!;
+    public DebugObjectSpawnerScreen DebugObjectSpawnerScreen { get; private set; } = null!;
+    public ColorRect MenuFade { get; private set; } = null!;
+
+    public override void _Ready()
+    {
+        WorldRoot = Unique<Node2D>("World");
+        InterfaceLayer = Unique<CanvasLayer>("Interface");
+        RoomView = Unique<RoomView>("RoomView");
+        Player = Unique<Player>("Link");
+        RoomCamera = Unique<Camera2D>("RoomCamera");
+        Hud = Unique<Hud>("Hud");
+        EndingScreen=Unique<EndingScreen>("EndingScreen");
+        RoomLoadReveal = Unique<RoomLoadColumnRevealOverlay>("RoomLoadColumnReveal");
+        WarpFade = Unique<ColorRect>("RoomWarpFade");
+        Dialogue = Unique<DialogueBox>("Dialogue");
+        RoomDebug = Unique<Label>("RoomDebug");
+        AgesMapScreen = Unique<AgesMapScreen>("AgesMapScreen");
+        AgesInventoryScreen = Unique<AgesInventoryScreen>("AgesInventoryScreen");
+        SaveQuitScreen = Unique<SaveQuitScreen>("SaveQuitScreen");
+        RingMenuScreen = Unique<RingMenuScreen>("RingMenuScreen");
+        SecretListScreen = Unique<SecretListScreen>("SecretListScreen");
+        DebugFlagScreen = Unique<DebugFlagScreen>("DebugFlagScreen");
+        DebugObjectSpawnerScreen = Unique<DebugObjectSpawnerScreen>("DebugObjectSpawnerScreen");
+        MenuFade = Unique<ColorRect>("MenuFade");
+
+        if (WorldRoot.GetParent() != this || InterfaceLayer.GetParent() != this ||
+            RoomView.GetParent() != WorldRoot || Player.GetParent() != WorldRoot ||
+            RoomCamera.GetParent() != WorldRoot || Hud.GetParent() != InterfaceLayer || EndingScreen.GetParent()!=InterfaceLayer ||
+            RoomLoadReveal.GetParent() != InterfaceLayer ||
+            WarpFade.GetParent() != InterfaceLayer || Dialogue.GetParent() != InterfaceLayer ||
+            RoomDebug.GetParent() != InterfaceLayer || AgesMapScreen.GetParent() != InterfaceLayer ||
+            AgesInventoryScreen.GetParent() != InterfaceLayer ||
+            SaveQuitScreen.GetParent() != InterfaceLayer ||
+            RingMenuScreen.GetParent() != InterfaceLayer ||
+            SecretListScreen.GetParent() != InterfaceLayer ||
+            DebugFlagScreen.GetParent() != InterfaceLayer ||
+            DebugObjectSpawnerScreen.GetParent() != InterfaceLayer ||
+            MenuFade.GetParent() != InterfaceLayer)
+        {
+            throw new InvalidOperationException(
+                $"{ScenePath} does not match the required world/interface ownership hierarchy.");
+        }
+    }
+
+    internal void ApplyHudPlacement(bool bottom, AgesRoomTransitionController transitions)
+    {
+        // Original full-screen presentations can contain a HUD aperture at y=0.
+        // Keep their imported layouts intact; only rearrange the gameplay field.
+        bottom &= !AgesMapScreen.Visible && !AgesInventoryScreen.Visible &&
+            !SaveQuitScreen.Visible && !RingMenuScreen.Visible && !SecretListScreen.Visible;
+        // Native sprite projection retains its $10 origin even when the BG
+        // uses all 144 lines. Only the room BG loses the HUD-row displacement.
+        int fieldTop = bottom && !transitions.NativeRoomUsesFullScreen ? 0 : OracleRoomData.GameplayScreenTop;
+        transitions.SetGameplayScreenTop(fieldTop);
+        RoomView.SetNativeFullScreenPresentation(transitions.NativeRoomUsesFullScreen);
+        Hud.Position = new Vector2(0, bottom ? 128 : 0);
+        // Native events can temporarily own this rectangle as a full-screen
+        // fade. Its captured size/position belong to that owner until release.
+        if (WarpFade.Size.Y == OracleRoomData.ViewportHeight)
+            WarpFade.Position = new Vector2(0, fieldTop);
+        RoomLoadReveal.Position = new Vector2(0, fieldTop);
+        RoomDebug.Position = new Vector2(2, transitions.NativeRoomUsesFullScreen ? 0 : fieldTop);
+        DebugObjectSpawnerScreen.Position = new Vector2(0, fieldTop);
+        Dialogue.SetGameplayPresentationOffset(fieldTop - OracleRoomData.GameplayScreenTop);
+    }
+
+    private T Unique<T>(string name) where T : Node
+    {
+        return GetNodeOrNull<T>($"%{name}") ?? throw new InvalidOperationException(
+            $"{ScenePath} is missing required unique {typeof(T).Name} node %{name}.");
+    }
+}

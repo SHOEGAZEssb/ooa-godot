@@ -11,7 +11,7 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter, ITerrainShado
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
 
     private readonly ColorChangingGelBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.ColorChangingGel;
+        EnemyBehaviorTables.For(AgesGameContent.AssetRoot).ColorChangingGel;
 
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
@@ -49,6 +49,7 @@ internal partial class ColorChangingGelCharacter : EnemyCharacter, ITerrainShado
         IReadOnlyDictionary<int, Color[]> paletteOverrides,
         Action<int> sound)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

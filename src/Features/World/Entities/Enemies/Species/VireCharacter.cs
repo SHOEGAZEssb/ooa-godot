@@ -7,7 +7,8 @@ namespace Oracles;
 // ENEMY pages; projectiles and puffs resolve live pointers through room owners.
 internal sealed partial class VireCharacter : EnemyCharacter
 {
-    private readonly VireBehaviorProfile _data = EnemyBehaviorTables.Shared.Vire;
+    private VireBehaviorProfile? _dataSourceCache;
+    private VireBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Vire;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private OracleRuntimeState _memory = null!;
@@ -44,6 +45,7 @@ internal sealed partial class VireCharacter : EnemyCharacter
         OracleRandom random, OracleRuntimeState memory, VireRoomEnvironment world,
         int parentSlot = -1, int batIndex = 0, int zHigh = 0)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != EnemyId.Vire || record.SubId is < 0 or > 1)
             throw new NotSupportedException($"vire.s: ENEMY${record.Id:x2} subid${record.SubId:x2}.");
         Record = record; _room = room; _random = random; _memory = memory; _world = world;

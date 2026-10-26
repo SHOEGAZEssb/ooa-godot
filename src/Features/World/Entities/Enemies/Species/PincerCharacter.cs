@@ -7,7 +7,8 @@ namespace Oracles;
 /// <summary>ENEMY_PINCER $45: spawner, head, and three independently dispatched body slots.</summary>
 internal sealed partial class PincerCharacter : EnemyCharacter,ITerrainShadowSource
 {
-    private readonly IReadOnlyList<EnemyBehaviorValue> _data=EnemyBehaviorTables.Shared.PincerState;
+    private IReadOnlyList<EnemyBehaviorValue>? _dataSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).PincerState;
     private OracleRandom _random=null!;
     private Func<bool> _spawn=null!;
     private Action<Vector2,ICollection<RoomEntitySpawn>> _dig=null!;
@@ -36,6 +37,7 @@ internal sealed partial class PincerCharacter : EnemyCharacter,ITerrainShadowSou
     internal void Initialize(ImportedEnemyDefinition record,OracleRoomData room,Vector2 position,OracleRandom random,
         Func<bool> spawn,Action<Vector2,ICollection<RoomEntitySpawn>> dig,Func<PincerCharacter?>? parent=null)
     {
+        AssetRoot = record.AssetRoot;
         Record=record;_random=random;_spawn=spawn;_dig=dig;_parent=parent;
         InitializeEnemy(position,EnemyCharacterConfiguration.FromImported(record));Visible=false;
     }

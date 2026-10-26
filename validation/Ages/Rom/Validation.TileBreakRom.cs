@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
     private void ValidateTileMutationRom()
     {
         LoadValidationRoom(0, 0x33); _entities.Clear();
-        var database = new BreakableTileDatabase();
+        var database = new BreakableTileDatabase(AgesGameContent.AssetRoot);
         var rom = new TileBreakRom();
         Vector2 point = new(72, 72);
         int cases = 0;
@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
         for (int source = 0; source < 20; source++)
         {
             if (!database.TryGet(0, tile, out var record) || !record.AllowsSource(source)) continue;
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             _currentRoom.SetPositionTileAndCollision(point, (byte)tile, null, 0);
             _currentRoom.SetUnderlyingMetatile(point, 0x3a);
             rom.Reset(save); rom[0xcc30] = 0x33;
@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
         GD.Print($"Validated {cases} ROM tile mutations, collision replacements, underlying layout and entire save-image side effects.");
         foreach (byte count in new byte[] { 0xfe, 0xff })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc626, count);
             _currentRoom.SetPositionTileAndCollision(point, 0xf2, null, 0);
             rom.Reset(save); rom.SetTile(0, 0xf2, room: _currentRoom);
@@ -52,7 +52,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(4, 0xa8); _entities.Clear();
         for (int underlying = 0; underlying < 256; underlying++)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             _currentRoom.SetPositionTileAndCollision(point, 0x10, null, 0);
             _currentRoom.SetUnderlyingMetatile(point, (byte)underlying);
             rom.Reset(save); rom.SetTile(_currentRoom.ActiveCollisions, 0x10, underlying, _currentRoom);
@@ -66,7 +66,7 @@ public sealed partial class ValidationRoot
         // saved input with executed breaking, then exercise live room re-entry.
         foreach (byte tile in new byte[] { 0xc5, 0xcf })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             var rooms = new RoomSession(0, 0x33, () => 0, () => { }, save);
             bool found = false;
             for (int roomId = 0; roomId < 256 && !found; roomId++)
@@ -100,8 +100,8 @@ public sealed partial class ValidationRoot
     private void ValidateBreakableSourceMasksRom()
     {
         var rom = new TileBreakRom();
-        var database = new BreakableTileDatabase();
-        var save = OracleSaveData.CreateStandardGame();
+        var database = new BreakableTileDatabase(AgesGameContent.AssetRoot);
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         for (int collision = 0; collision < 6; collision++)
         for (int tile = 0; tile < 256; tile++)
         for (int source = 0; source < 20; source++)
@@ -119,11 +119,11 @@ public sealed partial class ValidationRoot
     private void ValidateDropSelectionRom()
     {
         var rom = new TileBreakRom();
-        var database = new ItemDropDatabase();
+        var database = new ItemDropDatabase(AgesGameContent.AssetRoot);
         int cases = 0;
         for (int ownership = 0; ownership < 3; ownership++)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             var inventory = new InventoryState(_treasures, save);
             foreach (int treasure in new[] { 3, 0x20, 0x21, 0x22, 0x23, 0x24 })
             {

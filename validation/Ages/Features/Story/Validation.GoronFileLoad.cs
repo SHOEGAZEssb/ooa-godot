@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach (bool linked in new[] { false, true })
         for (int phase = 0; phase < 3; phase++)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
             save.SetLinkedGame(linked);
@@ -97,7 +97,7 @@ public sealed partial class ValidationRoot
                 cave.Cancel();
                 FailIf(actors.Any(a => a.Actor.Active || a.Actor.Visible),
                     "Cancelling the Goron event retained file-loaded actors.");
-                FailIf(!save.Serialize().SequenceEqual(root.FileSlotSnapshot(0)),
+                FailIf(!save.Serialize().SequenceEqual(root.FileSlotSnapshot(0, OracleGame.Ages)),
                     "Loading or cancelling Gorons wrote back to the isolated file slot.");
             }
             finally { root.Free(); }

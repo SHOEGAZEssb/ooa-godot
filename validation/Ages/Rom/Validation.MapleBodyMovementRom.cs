@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
         foreach (int seed in new[] { 0x0d37, 0x1234, 0x80ff, 0xffff })
         {
             var (maple, native) = MapleBodyBoundary();
-            var path = new MapleEventDatabase().Path(MaplePathKind.Shadow, 1);
+            var path = new MapleEventDatabase(AgesGameContent.AssetRoot).Path(MaplePathKind.Shadow, 1);
             F1Set(maple, "<Stage>k__BackingField", MapleEncounterStage.Flying);
             F1Set(maple, "_path", path); F1Set(maple, "_pathStep", path.Steps.Count - 1); F1Set(maple, "_pathCounter", 1);
             F1Set(maple, "_precisePosition", new Vector2(80.25f, 72.5f)); maple.Position = new(80, 72);
@@ -188,7 +188,7 @@ public sealed partial class ValidationRoot
             F1Set(maple, "_angle", 0); F1Set(maple, "_targetAngle", 0); F1Set(maple, "_speedRaw", 0x50);
             F1Set(maple, "_turnCounter", 1); F1Set(maple, "_turnDelay", 1); F1Set(maple, "_raceMusicStarted", true);
             var encounter = SomariaPrivate<MapleEncounterState>(maple, "_encounter");
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, new(80, 72), 0));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(13), encounter, 0, new(80, 72), 0));
             F1Set(drop, "_state", MapleDroppedItemState.Grounded); drop.Visible = true;
             native[0xd104] = 6; native[0xd128] = (byte)vehicle; native[0xd13a] = native[0xd13b] = 1; native[0xd13c] = 22;
             native[0xd110] = 0x50; native[0xd126] = native[0xd127] = vehicle == 2 ? (byte)4 : (byte)2;

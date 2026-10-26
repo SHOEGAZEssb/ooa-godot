@@ -8,9 +8,9 @@ namespace Oracles;
 /// <summary>
 /// Address-independent view of the original banks $39-$3e sound payload.
 /// Pointers retain their Game Boy addresses; this class maps them into the
-/// compact generated bank image imported from the verified Ages ROM.
+/// compact generated bank image imported from the selected game's verified ROM.
 /// </summary>
-public sealed class OracleSoundData
+public sealed partial class OracleSoundData
 {
     public const int SoundCount = 0xdf;
     public const int MusicCount = 0x4c;
@@ -20,30 +20,32 @@ public sealed class OracleSoundData
     public const int WaveformCount = 0x2e;
     public const int FrequencyCount = 87;
 
-    private const int SoundPointerTableAddress = 0xe5748;
-    private readonly byte[] _sound = LoadExact(
-        AgesGameContent.AssetRoot + "audio/sound_data.bin", BankCount * BankSize);
-    private readonly byte[] _roomMusic = LoadExact(
-        AgesGameContent.AssetRoot + "audio/room_music.bin", 6 * 256);
-    private readonly ConditionalRoomMusicRule[] _conditionalRoomMusic =
-        LoadConditionalRoomMusic();
-    private readonly RoomFlagMusicRule[] _roomFlagMusic = LoadRoomFlagMusic();
-    private readonly byte[] _waveforms = LoadExact(
-        AgesGameContent.AssetRoot + "audio/waveforms.bin", WaveformCount * 16);
-    private readonly byte[] _noise = LoadExact(
-        AgesGameContent.AssetRoot + "audio/noise_frequencies.bin", 13 * 3);
-    private readonly byte[] _frequencies = LoadExact(
-        AgesGameContent.AssetRoot + "audio/frequencies.bin", FrequencyCount * 2);
-    private readonly byte[] _envelopeDelays = LoadExact(
-        AgesGameContent.AssetRoot + "audio/envelope_delays.bin", 16 * 8);
+    private readonly int _soundPointerTableAddress;
+    private readonly byte[] _sound, _roomMusic, _waveforms, _noise, _frequencies, _envelopeDelays;
+    private readonly ConditionalRoomMusicRule[] _conditionalRoomMusic;
+    private readonly RoomFlagMusicRule[] _roomFlagMusic;
+    internal OracleGame Game { get; }
 
-    public OracleSoundData()
+    internal OracleSoundData(string assetRoot)
     {
+        Game = OracleAssetPack.GameFor(assetRoot);
+        bool seasons = Game == OracleGame.Seasons;
+        _soundPointerTableAddress = seasons ? 0xe57cf : 0xe5748;
+        _sound = LoadExact(assetRoot + "audio/sound_data.bin", BankCount * BankSize);
+        _roomMusic = LoadExact(assetRoot + "audio/room_music.bin", 6 * 256);
+        _waveforms = LoadExact(assetRoot + "audio/waveforms.bin", WaveformCount * 16);
+        _noise = LoadExact(assetRoot + "audio/noise_frequencies.bin", 13 * 3);
+        _frequencies = LoadExact(assetRoot + "audio/frequencies.bin", FrequencyCount * 2);
+        _envelopeDelays = LoadExact(assetRoot + "audio/envelope_delays.bin", 16 * 8);
+        _conditionalRoomMusic = seasons ? [] : LoadAgesConditionalRoomMusic();
+        _roomFlagMusic = seasons ? [] : LoadAgesRoomFlagMusic();
         // Executable driver entries and WRAM layout are a clean-US contract.
         // Import-AudioData already retains this complete bank from the ROM
         // checked by the import entry point; never execute another revision.
         string digest = Convert.ToHexString(SHA256.HashData(_sound.AsSpan(0, BankSize)));
-        if (digest != "6BB47CDEF9823B11B924030F7731545457214A4B8292A20B5EC27D8A59EE4CF2")
+        if (digest != (seasons
+            ? "E08707B10629F70455ABE68568D6074D2FD1268B2E519F5FE1A78177640A35D5"
+            : "6BB47CDEF9823B11B924030F7731545457214A4B8292A20B5EC27D8A59EE4CF2"))
             throw new InvalidOperationException(
                 "code/audio.s: imported sound driver bank $39 differs from the supported clean US ROM.");
     }
@@ -53,7 +55,7 @@ public sealed class OracleSoundData
         if ((uint)soundId >= SoundCount)
             throw new ArgumentOutOfRangeException(nameof(soundId));
 
-        int pointerOffset = ToOffset(SoundPointerTableAddress) + soundId * 3;
+        int pointerOffset = ToOffset(_soundPointerTableAddress) + soundId * 3;
         int bank = BaseBank + _sound[pointerOffset];
         int descriptor = PointerOffset(BaseBank, ReadWord(pointerOffset + 1));
         var channels = new List<ChannelStart>(4);
@@ -85,6 +87,7 @@ public sealed class OracleSoundData
     public int RoomMusic(int group, int room, OracleSaveData save)
     {
         ArgumentNullException.ThrowIfNull(save);
+        if (save.Game != Game) throw new ArgumentException("Room music and save must belong to the same game.", nameof(save));
         int assignedMusic = RoomMusic(group, room);
         foreach (ConditionalRoomMusicRule rule in _conditionalRoomMusic)
         {
@@ -187,46 +190,6 @@ public sealed class OracleSoundData
         return data;
     }
 
-    private static ConditionalRoomMusicRule[] LoadConditionalRoomMusic()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "audio/conditional_room_music.tsv",
-            new GeneratedTableSchema(
-                "conditional room music",
-                GeneratedTableKeySemantics.Unique,
-                [
-                    "group", "room", "music", "required-global-flag",
-                    "clear-room-flag-mask", "source"
-                ],
-                ["group", "room"],
-                headerRequired: true));
-        var rules = new List<ConditionalRoomMusicRule>(table.Rows.Count);
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            rules.Add(new ConditionalRoomMusicRule(
-                row.Decimal(0, 0, 7),
-                row.HexByte(1),
-                row.HexByte(2),
-                row.HexByte(3),
-                (byte)row.HexByte(4),
-                row.RequiredString(5)));
-        }
-        if (rules.Count != 1 || rules[0] is not
-            {
-                Group: 1,
-                Room: 0x97,
-                Music: 0x35,
-                RequiredGlobalFlag: 0x15,
-                ClearRoomFlagMask: OracleSaveData.RoomFlag40,
-                Source: "code/ages/roomSpecificCode.s:roomSpecificCode7"
-            })
-        {
-            throw new InvalidOperationException(
-                "Imported roomSpecificCode7 music contract diverged from room 1:97.");
-        }
-        return rules.ToArray();
-    }
-
     private readonly record struct ConditionalRoomMusicRule(
         int Group,
         int Room,
@@ -234,20 +197,6 @@ public sealed class OracleSoundData
         int RequiredGlobalFlag,
         byte ClearRoomFlagMask,
         string Source);
-
-    private static RoomFlagMusicRule[] LoadRoomFlagMusic()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "audio/room_flag_music.tsv",
-            new GeneratedTableSchema("room-flag music overrides", GeneratedTableKeySemantics.Unique,
-                ["group", "assigned-music", "flag-group", "flag-room", "clear-flag-mask", "music", "source"],
-                ["group", "assigned-music"], headerRequired: true));
-        var rules = new List<RoomFlagMusicRule>();
-        foreach (GeneratedTableRow row in table.Rows)
-            rules.Add(new RoomFlagMusicRule(row.Decimal(0, 0, 7), row.HexByte(1),
-                row.Decimal(2, 0, 7), row.HexByte(3), (byte)row.HexByte(4), row.HexByte(5), row.RequiredString(6)));
-        return rules.ToArray();
-    }
 
     private readonly record struct RoomFlagMusicRule(
         int Group, int AssignedMusic, int FlagGroup, int FlagRoom, byte ClearFlagMask, int Music, string Source);

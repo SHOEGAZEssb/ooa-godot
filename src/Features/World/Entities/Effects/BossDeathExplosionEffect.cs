@@ -11,7 +11,7 @@ namespace Oracles;
 public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
 {
 
-    private static List<BossDeathExplosionEffectFrameRecord>? _definition;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<BossDeathExplosionEffectFrameRecord>> Definitions = new(System.StringComparer.Ordinal);
     private List<BossDeathExplosionEffectFrameRecord> _animation = null!;
     private Action<int> _playSound = null!;
     private int _frame;
@@ -28,14 +28,15 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
     internal Vector2 CurrentTextureSize => _animation[_frame].Texture.GetSize();
     internal Vector2 CurrentDrawOffset => _animation[_frame].Offset;
 
-    internal void Initialize(Vector2 position, int bossId, Action<int> playSound, int zHigh = 0,int? nativeSubid=null)
+    internal void Initialize(string assetRoot, Vector2 position, int bossId, Action<int> playSound, int zHigh = 0,int? nativeSubid=null)
     {
+        AssetRoot = assetRoot;
         Position = position;
         ZHigh = (sbyte)(byte)zHigh;
         BossId = bossId;
         NativeSubid=nativeSubid??(bossId==0?0:1);
         _playSound = playSound;
-        _animation = _definition ??= LoadDefinition();
+        _animation = Definitions.GetOrAdd(AssetRoot, LoadDefinition);
         _counter = _animation[0].Duration;
         foreach (BossDeathExplosionEffectFrameRecord frame in _animation)
             AnimationDuration += frame.Duration;
@@ -87,10 +88,10 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         }
     }
 
-    private static List<BossDeathExplosionEffectFrameRecord> LoadDefinition()
+    private static List<BossDeathExplosionEffectFrameRecord> LoadDefinition(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/boss_death_explosion.tsv",
+            assetRoot + "effects/boss_death_explosion.tsv",
             new GeneratedTableSchema(
                 "boss death explosion",
                 GeneratedTableKeySemantics.Ordered,
@@ -100,7 +101,7 @@ public partial class BossDeathExplosionEffect : TransitionOffsetNode2D
         int tileBase = row.UnsignedDecimal(0);
         int palette = row.UnsignedDecimal(1);
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+            assetRoot + "gfx/spr_common_sprites.png");
         var animation = new List<BossDeathExplosionEffectFrameRecord>();
         foreach (AnimationFrameDefinition frame in
             OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(2)).Frames)

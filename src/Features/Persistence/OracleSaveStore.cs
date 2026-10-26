@@ -8,22 +8,23 @@ namespace Oracles;
 public static class OracleSaveStore
 {
     public const int SlotCount = 3;
-    public const string DefaultPath = AgesGameContent.SavePath;
-
-    public static OracleSaveData LoadOrCreate(string path = DefaultPath)
+    internal static OracleSaveData LoadOrCreate(string path, OracleGame game)
     {
         string absolutePath = ProjectSettings.GlobalizePath(path);
-        if (TryLoad(absolutePath, out OracleSaveData? save))
+        if (TryLoad(absolutePath, out OracleSaveData? save, game))
             return save!;
-        if (TryLoad(absolutePath + ".bak", out save))
+        if (TryLoad(absolutePath + ".bak", out save, game))
             return save!;
         if (File.Exists(absolutePath) || File.Exists(absolutePath + ".bak"))
             throw new InvalidDataException($"Neither save copy is valid: {absolutePath}");
-        return OracleSaveData.CreateStandardGame();
+        return OracleSaveData.CreateStandardGame(game);
     }
 
-    public static SaveResult Save(OracleSaveData save, string path = DefaultPath)
+    public static SaveResult Save(OracleSaveData save, string path)
     {
+        if (save.Game == OracleGame.Seasons && Array.Exists(new[] { 0, 1, 2 }, slot =>
+            string.Equals(ProjectSettings.GlobalizePath(path), ProjectSettings.GlobalizePath(AgesGameContent.SaveSlotPath(slot)), StringComparison.OrdinalIgnoreCase)))
+            return SaveResult.Failed("Seasons requires its own save path.");
         string absolutePath = ProjectSettings.GlobalizePath(path);
         string temporaryPath = absolutePath + ".tmp";
         string backupPath = absolutePath + ".bak";
@@ -35,18 +36,18 @@ public static class OracleSaveStore
                 Directory.CreateDirectory(directory);
 
             byte[] serialized = save.Serialize();
-            if (!OracleSaveData.TryDeserialize(serialized, out _))
+            if (!OracleSaveData.TryDeserialize(serialized, save.Game, out _))
                 return SaveResult.Failed("The serialized save failed its signature or checksum validation.");
 
             WriteDurably(temporaryPath, serialized);
-            if (!TryLoad(temporaryPath, out _))
+            if (!TryLoad(temporaryPath, out _, save.Game))
                 return SaveResult.Failed("The temporary save could not be read back and validated.");
 
             // fileManagement.saveFile copies the same image to both slots,
             // including the first save. There is no previous-generation history.
             File.Move(temporaryPath, absolutePath, overwrite: true);
             WriteDurably(backupTemporaryPath, serialized);
-            if (!TryLoad(backupTemporaryPath, out _))
+            if (!TryLoad(backupTemporaryPath, out _, save.Game))
                 return SaveResult.Failed("The temporary backup save could not be read back and validated.");
             File.Move(backupTemporaryPath, backupPath, overwrite: true);
             return SaveResult.Succeeded;
@@ -62,40 +63,45 @@ public static class OracleSaveStore
         }
     }
 
-    public static OracleSaveData? LoadSlot(int slot)
+    internal static OracleSaveData? LoadSlot(int slot, OracleGame game)
     {
-        string absolutePath = ProjectSettings.GlobalizePath(PathForSlot(slot));
-        if (TryLoad(absolutePath, out OracleSaveData? save))
+        string absolutePath = ProjectSettings.GlobalizePath(PathForSlot(slot, game));
+        if (TryLoad(absolutePath, out OracleSaveData? save, game))
             return save;
-        if (TryLoad(absolutePath + ".bak", out save))
+        if (TryLoad(absolutePath + ".bak", out save, game))
             return save;
         return null;
     }
 
     public static SaveResult SaveSlot(int slot, OracleSaveData save) =>
-        Save(save, PathForSlot(slot));
+        Save(save, PathForSlot(slot, save.Game));
 
-    public static void EraseSlot(int slot)
+    internal static void EraseSlot(int slot, OracleGame game)
     {
-        string absolutePath = ProjectSettings.GlobalizePath(PathForSlot(slot));
+        string absolutePath = ProjectSettings.GlobalizePath(PathForSlot(slot, game));
         DeleteIfPresent(absolutePath);
         DeleteIfPresent(absolutePath + ".bak");
         DeleteIfPresent(absolutePath + ".tmp");
         DeleteIfPresent(absolutePath + ".bak.tmp");
     }
 
-    public static string PathForSlot(int slot)
+    internal static string PathForSlot(int slot, OracleGame game)
     {
         ValidateSlot(slot);
-        return AgesGameContent.SaveSlotPath(slot);
+        return game switch
+        {
+            OracleGame.Ages => AgesGameContent.SaveSlotPath(slot),
+            OracleGame.Seasons => SeasonsGameContent.SaveSlotPath(slot),
+            _ => throw new ArgumentOutOfRangeException(nameof(game))
+        };
     }
 
-    private static bool TryLoad(string path, out OracleSaveData? save)
+    private static bool TryLoad(string path, out OracleSaveData? save, OracleGame game)
     {
         save = null;
         try
         {
-            return File.Exists(path) && OracleSaveData.TryDeserialize(File.ReadAllBytes(path), out save);
+            return File.Exists(path) && OracleSaveData.TryDeserialize(File.ReadAllBytes(path), game, out save);
         }
         catch (IOException)
         {

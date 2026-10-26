@@ -12,12 +12,12 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         const int group = 4;
         const int roomId = 0x0a;
-        var database = new DungeonKeyDoorDatabase();
+        var database = new DungeonKeyDoorDatabase(AgesGameContent.AssetRoot);
         bool hasLeftDoor = database.TryGet(
             2, 0x73, out DungeonKeyDoorDatabaseRecord leftDoor);
         bool hasBossRight = database.TryGet(
             2, 0x75, out DungeonKeyDoorDatabaseRecord bossRight);
-        var keyBlockDatabase = new DungeonKeyBlockDatabase();
+        var keyBlockDatabase = new DungeonKeyBlockDatabase(AgesGameContent.AssetRoot);
         DungeonKeyBlockDatabaseRecord keyBlock = keyBlockDatabase.Record;
         FailIf(
             database.Count != 8 ||
@@ -59,13 +59,13 @@ public sealed partial class ValidationRoot
             const int overworldGroup = 1;
             const int overworldRoomId = 0xdc;
             const byte overworldFlag08 = 0x08;
-            OracleSaveData overworldSave = OracleSaveData.CreateStandardGame();
+            OracleSaveData overworldSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             overworldSave.SetRoomFlag(
                 overworldGroup, overworldRoomId, overworldFlag08);
             var overworldRooms = new RoomSession(
                 overworldGroup, overworldRoomId,
                 () => 0, () => { }, overworldSave);
-            var overworldTreasures = TreasureDatabase.Shared;
+            var overworldTreasures = TreasureDatabase.For(AgesGameContent.AssetRoot);
             var overworldInventory = new InventoryState(
                 overworldTreasures,
                 overworldSave,

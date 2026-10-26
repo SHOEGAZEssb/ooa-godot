@@ -11,7 +11,7 @@ namespace Oracles;
 internal partial class FallingDownHoleEffect : FixedEffectNode2D
 {
 
-    private static FallingDownHoleEffectDefinition? _definition;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, FallingDownHoleEffectDefinition> Definitions = new(System.StringComparer.Ordinal);
     private FallingDownHoleEffectDefinition _activeDefinition = null!;
     private Vector2 _precisePosition;
     private OracleRuntimeState? _movementMemory;
@@ -31,9 +31,10 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
 
     internal void BindMovementMemory(OracleRuntimeState memory) => _movementMemory = memory;
 
-    internal void Initialize(Vector2 position, Action<int>? playSound = null, bool silent = false)
+    internal void Initialize(string assetRoot, Vector2 position, Action<int>? playSound = null, bool silent = false)
     {
-        _activeDefinition = _definition ??= LoadDefinition();
+        AssetRoot = assetRoot;
+        _activeDefinition = Definitions.GetOrAdd(AssetRoot, LoadDefinition);
         // objectCreateFallingDownHoleInteraction copies only XYZ high bytes
         // into the newly cleared allocation, discarding the source fractions.
         _precisePosition = position.Floor();
@@ -107,10 +108,10 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
             _movementMemory, ref _precisePosition, _activeDefinition.SpeedRaw, angle);
     }
 
-    private static FallingDownHoleEffectDefinition LoadDefinition()
+    private static FallingDownHoleEffectDefinition LoadDefinition(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/fall_down_hole.tsv",
+            assetRoot + "effects/fall_down_hole.tsv",
             new GeneratedTableSchema(
                 "fall-down-hole effect",
                 GeneratedTableKeySemantics.Ordered,
@@ -127,7 +128,7 @@ internal partial class FallingDownHoleEffect : FixedEffectNode2D
         }
 
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+            assetRoot + "gfx/spr_common_sprites.png");
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(3));
         var frames = new List<FallingDownHoleEffectFrameRecord>();

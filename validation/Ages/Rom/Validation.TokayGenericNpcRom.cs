@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             (1,0xdd,0x18,0x0a63), (1,0xaa,0x1f,0x0a6c) })
         {
             var (group,room,subid,text)=row;
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             save.SetRoomFlag(1,0xaa,0x40);
             InitializeTransientSession(save);_inventory.SetScriptedEquippedItems(0,0);

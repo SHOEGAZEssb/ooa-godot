@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
             // Declare a collision-safe floor to isolate two simultaneous seed
             // contacts, not natural retail-room saturation or enemy placement.
             FillValidationRoom(0x0c, width: 15, height: 11);
-            var database = EnemyDatabase.Shared;
+            var database = EnemyDatabase.For(AgesGameContent.AssetRoot);
             var record = database.GetRoomObjects(1, 0x5b).Single(row => row.Id == 0x0d);
             var actors = new List<LynelCharacter>();
             for (int slot = 0; slot < 2; slot++)
@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
                 native[at] = 1; native[at + 1] = 0x53; native[at + 3] = (byte)(index % 8);
                 native[at + 6] = 0xff; native[at + 0x30] = 40; native[at + 0x31] = 120;
             }
-            FailIf(!new SeedSatchelDatabase().TryGet(ItemId.EmberSeed, out var seed), "Missing source Ember Seed record.");
+            FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.EmberSeed, out var seed), "Missing source Ember Seed record.");
             var seeds = new List<EmberSeedEffect>();
             for (int index = 0; index < 2; index++)
             {

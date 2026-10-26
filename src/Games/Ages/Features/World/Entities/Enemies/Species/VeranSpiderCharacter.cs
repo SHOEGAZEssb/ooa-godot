@@ -8,7 +8,8 @@ internal sealed partial class VeranSpiderCharacter : EnemyCharacter, ISwitchHook
     private readonly RoomEntityManager _owner;
     private readonly OracleRoomData _room;
     private readonly EnemyTerrainMovement _movement;
-    private readonly ScentSeedAttraction _scent = new();
+    private ScentSeedAttraction? _scentCache;
+    private ScentSeedAttraction _scent => _scentCache ??= new(AgesGameContent.AssetRoot);
     private bool _collision, _scentEnabled, _burnCollisionDisabled;
     private int _z, _speedZ, _stun;
     internal int State { get; private set; }
@@ -31,6 +32,7 @@ internal sealed partial class VeranSpiderCharacter : EnemyCharacter, ISwitchHook
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (_z >> 8);
     internal VeranSpiderCharacter(RoomEntityManager owner, PalacePossessionDatabase data, OracleRoomData room, Vector2 position)
     {
+        AssetRoot = owner.AssetRoot;
         _owner=owner; _room=room; _movement=new(this,room);
         InitializeEnemy(position,EnemyCharacterConfiguration.FromImported(data.Spider),paletteOverrides:data.SpiderPalettes,positionedOam:true);
         ConfigureSwordKnockback(room,EnemyKnockbackMotion.Terrain,nativeSpeed:()=>Speed);

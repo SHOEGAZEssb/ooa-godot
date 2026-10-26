@@ -4,14 +4,18 @@ namespace Oracles;
 
 internal sealed class BlackTowerFlameDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly byte[][] _routes = new byte[4][];
     private readonly int[] _delays = new int[4];
     internal DungeonInteractionVisual Visual { get; }
     internal int Radius { get; }
     internal int Damage { get; }
-    internal BlackTowerFlameDatabase()
+    internal BlackTowerFlameDatabase(string assetRoot)
     {
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/black_tower_flames.tsv",
+        AssetRoot = assetRoot;
+
+        foreach (var row in GeneratedTable.Load(AssetRoot + "objects/black_tower_flames.tsv",
             new("PART $59 routes", GeneratedTableKeySemantics.Unique, ["subid", "delay", "route", "source"], ["subid"], headerRequired: true)).Rows)
         {
             int subid = row.HexByte(0);
@@ -22,10 +26,10 @@ internal sealed class BlackTowerFlameDatabase
         }
         for (int i = 0; i < 4; i++)
             if (_routes[i] is null) throw new InvalidOperationException($"kingMoblinMinionMain.s: missing PART $59:${i:x2} route.");
-        var visual = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/black_tower_flame.tsv",
+        var visual = GeneratedTable.Load(AssetRoot + "effects/black_tower_flame.tsv",
             new("PART $59 visual", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "radius", "damage-quarters", "source-grayscale-inverted", "animation", "source"], ["sprite"], headerRequired: true)).SingleRow();
-        Visual = new("black-tower-flame", [visual.RequiredString(0)], visual.Decimal(1), visual.Decimal(2), visual.Boolean01(5), [visual.RequiredString(6)]);
+        Visual = new(AssetRoot, "black-tower-flame", [visual.RequiredString(0)], visual.Decimal(1), visual.Decimal(2), visual.Boolean01(5), [visual.RequiredString(6)]);
         Radius = visual.Decimal(3); Damage = visual.Decimal(4);
     }
     internal int Delay(int subid) => _delays[subid];

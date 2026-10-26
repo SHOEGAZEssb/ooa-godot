@@ -8,8 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateTokaySecret()
     {
-        var codec = new LinkedGameNpcDatabase();
-        var save = OracleSaveData.CreateStandardGame();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         save.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, 0x34);
         save.WriteWramByte(0xc601, 0x12);
         FailIf(!codec.ValidateSecret([0x0b, 0x29, 0x13, 0x18, 0x2f], 0x21, save),
@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
             "Tokay askforsecret did not acquire the shared menu lifecycle.");
         for (int frame = 0; frame < 22; frame++) _secretEntry.Update(1.0 / 60.0);
         FailIf(_secretEntry.Screen is not { EnteringSecret: true }, "Secret screen was not installed at white.");
-        var keyboard = new SecretEntryDatabase();
+        var keyboard = new SecretEntryDatabase(AgesGameContent.AssetRoot);
         FailIf(keyboard.KeyboardGlyph(2, 6) != ' ' || keyboard.KeyboardGlyph(4, 12) != '@',
             "Secret keyboard lost its source blank cell or final symbol.");
         _secretEntry.Submit([0xff, 0xff, 0xff, 0xff, 0xff]);

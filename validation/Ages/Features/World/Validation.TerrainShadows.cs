@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
     private void ValidateTerrainShadows()
     {
         // data/terrainEffects.s: shadowAnimation = $01,$13,$04,$20,$08.
-        TerrainShadowDefinition graphic = TerrainShadow.Load();
+        TerrainShadowDefinition graphic = TerrainShadow.Load(AgesGameContent.AssetRoot);
         FailIf(graphic.Texture.GetWidth() != 8 || graphic.Texture.GetHeight() != 16 ||
             graphic.Offset != new Vector2(-4, 3),
             "Terrain shadow must use the source single 8x16 cell at (-4,+3), tile $20.");
@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
                 "PART$01 state3 visible80 must suppress shadows even on an airborne carrier.");
 
             var bomb = _entities.Spawn<BombEffect>(new BombSpawn(
-                _player, new BombDatabase().Data, 4, _ => { }));
+                _player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 4, _ => { }));
             StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             bomb.SetHeldOffset(_player, new(0, -14));
             for (int update = 0; update < 4; update++)

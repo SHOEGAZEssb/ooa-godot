@@ -1,14 +1,22 @@
+using System;
 using System.Collections.Generic;
 
 namespace Oracles;
 
 internal sealed class CompanionWeaponDatabase
 {
-    internal static CompanionWeaponDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<CompanionWeaponDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static CompanionWeaponDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<CompanionWeaponDatabase>(() => new CompanionWeaponDatabase(root))).Value;
+
     private readonly Dictionary<int, CompanionWeapon> _weapons = new();
-    private CompanionWeaponDatabase()
+    private CompanionWeaponDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/companion_weapons.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "cutscenes/companion_weapons.tsv",
             new GeneratedTableSchema("companion weapon attributes", GeneratedTableKeySemantics.Unique,
                 ["item", "collision-type", "damage", "source"], ["item"], headerRequired: true));
         foreach (var row in table.Rows)

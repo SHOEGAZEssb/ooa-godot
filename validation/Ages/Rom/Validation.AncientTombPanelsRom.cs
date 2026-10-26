@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(5, roomId);
             _entities.Clear(); _inventory.EquipA(0); _inventory.EquipB(0);
-            var data = new AncientTombDatabase(); var visuals = new DungeonInteractionVisualDatabase();
+            var data = new AncientTombDatabase(); var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
             var records = data.GetRoomRecords(5, roomId);
             var panels = records.Where(r => r.Kind == DungeonObjectKind.StonePanel).Select(r =>
                 new StonePanelRoomEntity(r, visuals.Visual(r.SubId == 0 ? "stone-panel-left" : "stone-panel-right"),

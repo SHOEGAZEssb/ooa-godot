@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateEyesoarSourceData()
     {
-        var bosses = new DungeonBossDatabase();
+        var bosses = new DungeonBossDatabase(AgesGameContent.AssetRoot);
         for (int subid = 0; subid < 2; subid++)
         {
             var record = bosses.Enemy(AgesEnemyId.Eyesoar, subid);
@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
         FailIf(OracleObjectMovement.Shared.CircleArcOffset(255, ObjectAngle.Right) != new Vector2I(-1, 0),
             "Native circle offset must wrap its scaled high byte.");
 
-        var visual = new DungeonInteractionVisualDatabase().Visual("eyesoar-spawn");
+        var visual = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("eyesoar-spawn");
         FailIf(visual.TileBase != 8 || visual.Palette != 4 || visual.Animations.Length != 1 || visual.SourceGrayscaleInverted,
             "INTERAC_0b:$02 must clamp to the final subid row, tile$08/palette4/animation1.");
         var definition = OracleGraphicsCache.GetAnimationDefinition(visual.Animations[0]);
@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             "Eyesoar spawn signal must retain interactionAnimation5a143's four/two/terminal sequence.");
         var node = new Node2D();
         var animation = new EnemyAnimationPlayer(node, 1);
-        animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations,
+        animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations,
             visual.TileBase, visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted, positionedOam: true);
         for (int repeat = 0; repeat < 2; repeat++)
         {

@@ -9,7 +9,7 @@ internal sealed class TokkeyEvent : InteractiveCutsceneCommandHost, IRoomEntryEv
     ICutsceneCommandHost, IUpdatesDuringDialogueRoomEvent
 {
     private readonly CutsceneCommandRunner _runner;
-    private readonly EffectRecord _note = new SharedEffectDatabase().Effect("MusicNote");
+    private readonly EffectRecord _note = new SharedEffectDatabase(AgesGameContent.AssetRoot).Effect("MusicNote");
     private readonly HarpOfAgesEventRecord _song = new HarpOfAgesEventDatabase().Record;
     private readonly List<TokkeyNote> _notes = new();
     private NpcCharacter? _actor;

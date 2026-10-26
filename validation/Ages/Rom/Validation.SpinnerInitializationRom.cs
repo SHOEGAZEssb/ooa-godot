@@ -28,7 +28,7 @@ public partial class ValidationRoot
             }
             // These source rooms have empty main object streams. Isolate the
             // room-specific producer, preserving the manager's live pool.
-            var factory = SomariaPrivate<RoomEntityFactory>(_entities,"_factory");
+            var factory = SomariaPrivate<AgesRoomEntityFactory>(_entities,"_factory");
             foreach (var candidate in factory.CreateRoomEntities(4,_currentRoom,default))
                 if (candidate is DungeonSpinnerRoomEntity) _entities.AddEntity(candidate);
                 else candidate.Node.Free();

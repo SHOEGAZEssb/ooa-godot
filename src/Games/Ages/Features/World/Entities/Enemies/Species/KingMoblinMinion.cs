@@ -18,6 +18,7 @@ internal sealed partial class KingMoblinMinion : EnemyCharacter, ITerrainShadowS
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset+new Vector2(0,_z>>8);
     internal void Initialize(KingMoblinBoss boss,int subid)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         Boss=boss; SubId=subid; boss.Minions[subid]=this;
         InitializeEnemy(Vector2.Zero,EnemyCharacterConfiguration.FromImported(boss.Data.Actor(0x56,subid)),positionedOam:true);
         Visible=false;

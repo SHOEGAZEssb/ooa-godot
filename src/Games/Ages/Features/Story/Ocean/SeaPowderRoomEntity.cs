@@ -18,6 +18,7 @@ internal sealed partial class SeaPowderRoomEntity : TransitionOffsetNode2D,
     internal int Height => (sbyte)(_z >> 8);
     internal SeaPowderRoomEntity(SeaPowderSpawn spawn, OracleRandom random)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _data = spawn.Data; _random = random; _powder = spawn.Powder; Position = spawn.Position;
         _x = (int)Position.X << 8;
         var visual = _data.Visual("powder", Position);

@@ -9,7 +9,8 @@ public partial class MapleEncounter
     internal int CreditsLap {get;private set;}
     internal void InitializeCredits(RoomEventContext context,Vector2 position)
     {
-        _creditsContext=context;_encounter=new(context.Entities.RuntimeState);_database=new();_precisePosition=position;Position=position.Floor();
+        AssetRoot = context.Rooms.AssetRoot;
+        _creditsContext=context;_encounter=new(context.Entities.RuntimeState);_database=new(AssetRoot);_precisePosition=position;Position=position.Floor();
         InitializeVisuals();
         _animation.SetFrameCounter(0);_animation.SetPaletteOverride(context.Entities.NativeObjectPalettes);
         ZIndex=ObjectDrawPriority.FixedHighPriorityZIndex;Visible=false;

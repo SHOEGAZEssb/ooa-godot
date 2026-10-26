@@ -12,7 +12,7 @@ namespace Oracles;
 internal partial class PuzzlePuffEffect : FixedEffectNode2D
 {
 
-    private static List<PuzzlePuffEffectFrameRecord>? _definition;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<PuzzlePuffEffectFrameRecord>> Definitions = new(System.StringComparer.Ordinal);
     private List<PuzzlePuffEffectFrameRecord> _animation = null!;
     private Action<int> _playSound = null!;
     private int _sound;
@@ -31,7 +31,7 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
     internal int CurrentParameter => _animation[AnimationFrame].Parameter;
     internal int ZHigh { get; private set; }
 
-    internal void Initialize(
+    internal void Initialize(string assetRoot,
         Vector2 position,
         int sound,
         bool flickers = false,
@@ -39,9 +39,10 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         int zHigh = 0,
         bool alwaysUpdates = true)
     {
+        AssetRoot = assetRoot;
         Position = position;
         ZHigh = (sbyte)(byte)zHigh;
-        _animation = _definition ??= LoadDefinition();
+        _animation = Definitions.GetOrAdd(AssetRoot, LoadDefinition);
         _sound = sound;
         Flickers = flickers;
         AlwaysUpdates = alwaysUpdates;
@@ -112,10 +113,10 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
         }
     }
 
-    private static List<PuzzlePuffEffectFrameRecord> LoadDefinition()
+    private static List<PuzzlePuffEffectFrameRecord> LoadDefinition(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/puzzle_puff.tsv",
+            assetRoot + "effects/puzzle_puff.tsv",
             new GeneratedTableSchema(
                 "puzzle puff",
                 GeneratedTableKeySemantics.Ordered,
@@ -128,7 +129,7 @@ internal partial class PuzzlePuffEffect : FixedEffectNode2D
             throw new InvalidOperationException("Imported INTERAC_PUFF constants are invalid.");
 
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+            assetRoot + "gfx/spr_common_sprites.png");
         var animation = new List<PuzzlePuffEffectFrameRecord>();
         foreach (AnimationFrameDefinition frame in
             OracleGraphicsCache.GetAnimationDefinition(row.RequiredString(2)).Frames)

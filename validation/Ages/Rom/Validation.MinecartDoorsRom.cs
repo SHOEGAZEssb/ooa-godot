@@ -47,8 +47,8 @@ public sealed partial class ValidationRoot
             MinecartRuntimeState.Reset(_runtimeState, []);
             MinecartRuntimeState.BeginRide(_runtimeState, 0, _currentRoom.Id, rideStart, direction);
             var cart = new MinecartRoomEntity(new ActiveMinecart(-1, _currentRoom.Id, (int)rideStart.Y, (int)rideStart.X, direction, true),
-                _currentRoom, new DungeonInteractionDatabase(), _runtimeState,
-                new DungeonInteractionVisualDatabase().Visual("minecart"), _sound.PlaySound);
+                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
             _entities.AddEntity(cart);
             _player.WarpTo(rideStart + new Vector2(0.25f, 0.5f)); _player.Face(directions[direction]);
             _player.FinishMinecartMount(rideStart, direction, 0);

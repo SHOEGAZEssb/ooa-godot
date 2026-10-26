@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private ApplicationValidationFixture Application => _applicationFixture ??= new(this);
 
     // Test convenience aliases belong here, rather than on the production host.
-    private OracleWorldData _world => _rooms.World;
+    private AgesWorldData _world => _rooms.World;
     private OracleRoomData _currentRoom
     {
         get => _rooms.CurrentRoom;
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
 
     private void InitializeCompletedIntroRoom(int group, int room, bool clearEntities = true)
     {
-        var save = OracleSaveData.CreateStandardGame();
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         save.SetLinkName("Link");
         save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
         save.SetGlobalFlag(GlobalFlag.IntroDone);

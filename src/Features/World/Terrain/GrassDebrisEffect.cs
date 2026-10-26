@@ -12,7 +12,7 @@ namespace Oracles;
 /// </summary>
 internal partial class GrassDebrisEffect : TransitionOffsetNode2D
 {
-    private static IReadOnlyDictionary<int, GrassDebrisDefinition>? _definitions;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, IReadOnlyDictionary<int, GrassDebrisDefinition>> Definitions = new(System.StringComparer.Ordinal);
 
     private GrassDebrisDefinition _record = null!;
     private IReadOnlyList<GrassDebrisEffectFrameRecord> _animation = null!;
@@ -33,16 +33,17 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
     internal Texture2D CurrentTexture =>
         _animation[AnimationFrame].Texture;
 
-    internal void Initialize(
+    internal void Initialize(string assetRoot,
         Vector2 position,
         int interactionId = Oracles.InteractionId.GrassDebris,
         bool flickers = false,
         bool underwater = false,
         Action<int>? playSound = null)
     {
+        AssetRoot = assetRoot;
         Position = position;
         IReadOnlyDictionary<int, GrassDebrisDefinition> definitions =
-            _definitions ??= LoadDefinitions();
+            Definitions.GetOrAdd(AssetRoot, LoadDefinitions);
         if (!definitions.TryGetValue(
                 interactionId, out GrassDebrisDefinition? record))
         {
@@ -116,10 +117,10 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
     }
 
     private static IReadOnlyDictionary<int, GrassDebrisDefinition>
-        LoadDefinitions()
+        LoadDefinitions(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/grass_debris.tsv",
+            assetRoot + "effects/grass_debris.tsv",
             new GeneratedTableSchema(
                 "grass debris",
                 GeneratedTableKeySemantics.Unique,
@@ -158,7 +159,7 @@ internal partial class GrassDebrisEffect : TransitionOffsetNode2D
             }
 
             Image source = OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
+                assetRoot + $"gfx/{sprite}.png");
             AnimationDefinition animationDefinition =
                 OracleGraphicsCache.GetAnimationDefinition(
                     row.RequiredString(6));

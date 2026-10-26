@@ -4,8 +4,10 @@
 
 The importer converts the supported ROM and `oracles-disasm` sources into
 address-independent runtime assets in game packs under `assets/oracle/`. The
-current entry point generates Ages plus the Seasons launcher preview. Each pack
+current entry point generates Ages plus the Seasons launcher, frontend menus and opening. Each pack
 has its own table manifest; table/cache identity includes the full pack path.
+The `common` pack contains normalized engine contracts and source tables whose
+compiled bytes are checked against both supported ROMs before sharing them.
 Production runtime
 code consumes those assets and never opens assembly files.
 
@@ -23,8 +25,11 @@ imports; updating it requires reviewing generated differences and rerunning
 verification. `external/.gdignore` keeps source assets outside Godot's resource
 scan and exports.
 The import submodule is never built or modified. Without `-Rom`, the shared
-ROM resolver builds a separate checkout using `tools/rom-build/ages.json` and
-caches the verified image under `.cache/oracle-rom/`. The ROM-build revision
+ROM resolver builds separate checkouts using `tools/rom-build/ages.json` and
+`tools/rom-build/seasons.json` and caches verified images under `.cache/oracle-rom/`.
+Both games require matching assembler symbol files: script addresses and
+shared WRAM bindings come from assembled labels rather than address comments.
+The ROM-build revision
 is intentionally independent of the import revision, matching the proven CI
 recipe. A warm cache requires no build tools or network; concurrent callers
 share a build lock, and failed builds are retained for diagnostics without
@@ -48,6 +53,21 @@ The stable entry point validates the clean US ROM before doing any work:
 Expected MD5: `C4639CC61C049E5A085526BB6CAC03BB`. An explicit `-Rom` bypasses
 the builder and cache but must pass the same size and hash checks. A different
 ROM must fail; bank addresses and source data are not interchangeable.
+
+Seasons uses the pinned WLA rebuild hash in `tools/rom-build/seasons.json`.
+The upstream disassembly's README documents that WLA builds differ from the
+Seasons cartridge hash in unused space. `-SeasonsRom` overrides that image;
+the matching pinned symbol file is still resolved for import. An Ages `-Rom`
+override therefore does not remove the Seasons build/cache requirement.
+
+The generated `common/metadata/wram_fields.tsv` binds each source symbol to its
+address in each game. Shared typed save/runtime access uses the symbol and an
+explicit array offset; missing game-specific fields read as unowned and reject
+nonzero writes. Native scripts retain physical addresses. Runtime snapshots
+retain their game and reject cross-game restoration before changing memory.
+Graphics uploads
+past an individual source image's end use the pinned ROM's actual adjacent
+bytes; they must not be padded or silently truncated.
 
 On Linux, install PowerShell 7, the .NET 8 SDK and the ROM build dependencies
 listed in [Development](development.md#requirements), then invoke the same entry

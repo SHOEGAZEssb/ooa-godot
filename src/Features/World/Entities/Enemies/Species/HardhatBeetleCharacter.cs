@@ -11,9 +11,8 @@ namespace Oracles;
 internal partial class HardhatBeetleCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => !_initialized;
-
-    private readonly HardhatBeetleBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.HardhatBeetle;
+    private HardhatBeetleBehaviorProfile? _behaviorSourceCache;
+    private HardhatBeetleBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).HardhatBeetle;
     private EnemyTerrainMovement _movement = null!;
     private bool _initialized;
     private int _angle;
@@ -29,11 +28,12 @@ internal partial class HardhatBeetleCharacter : EnemyCharacter
         OracleRoomData room,
         Vector2 position)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         Dictionary<int, Color[]>? palettes = null;
         if (record.Id == AgesEnemyId.HarmlessHardhatBeetle)
         {
-            var source = OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "objects/harmless_beetle_palette.bin", 1, 6);
+            var source = OracleGraphicsData.LoadPalette(AssetRoot + "objects/harmless_beetle_palette.bin", 1, 6);
             var colors = new Color[4];
             for (int shade = 0; shade < 4; shade++) colors[shade] = source[6, shade];
             palettes = new() { [6] = colors };

@@ -13,6 +13,7 @@ internal sealed partial class DepressedBoyCharacter : NpcCharacter
 
     internal void InitializeDepressedBoy(NpcRecord record)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (record is not
             {
                 Group: 2,
@@ -27,7 +28,7 @@ internal sealed partial class DepressedBoyCharacter : NpcCharacter
                 "INTERAC_BOY $3c:$07 var03=$00.");
         }
 
-        Initialize(record with { CanFace = true });
+        Initialize(record with { CanFace = true }, AgesGameContent.AssetRoot);
         SetAnimationRate(0.0f);
         ResetNativeNpcFacingState();
     }

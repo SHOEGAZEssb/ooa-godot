@@ -8,7 +8,7 @@ namespace Oracles;
 internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
 {
     private readonly PumpkinProjectileBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.PumpkinProjectile;
+        EnemyBehaviorTables.For(AgesGameContent.AssetRoot).PumpkinProjectile;
     private readonly EnemyAnimationPlayer _animation;
     private readonly OracleRoomData _room;
     private readonly OracleRuntimeState _memory;
@@ -26,6 +26,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
         int angle, int subId, Func<RoomEntitySpawn, bool> createPart,
         int zHigh, OracleRuntimeState memory)
     {
+        AssetRoot = visual.AssetRoot;
         if (subId is < 0 or > 2)
             throw new NotSupportedException($"pumpkinHeadProjectile.s: unsupported subid${subId:x2}.");
         _room = room;
@@ -40,7 +41,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
         ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette);
@@ -74,7 +75,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
                 (OracleObjectPosition.HighByte(Position.Y) + _zHigh) & 255) + Position - Position.Floor();
             _zHigh = 0;
             int offsetIndex = _subId == 0 ? 0 : 3 - _subId;
-            _angle = (_angle + EnemyBehaviorTables.Shared.PumpkinHeadProjectileAngleOffsets[offsetIndex].Value) & 31;
+            _angle = (_angle + EnemyBehaviorTables.For(AgesGameContent.AssetRoot).PumpkinHeadProjectileAngleOffsets[offsetIndex].Value) & 31;
             _animation.SetAnimation(0); // partLoadGraphicsAndProperties precedes state0.
             // PART$42 state0 admits siblings in source subid order $02,$01,
             // stopping on the first failure while the primary retains its slot.
@@ -82,7 +83,7 @@ internal sealed partial class PumpkinHeadProjectile : TransitionOffsetNode2D
             {
                 if ((_angle & 7) != 0)
                     throw new NotSupportedException($"pumpkinHeadProjectile.s: root mouth table requires a cardinal producer angle, got${_angle:x2}.");
-                var origin = EnemyBehaviorTables.Shared.PumpkinHeadProjectileOriginOffsets[_angle >> 3];
+                var origin = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).PumpkinHeadProjectileOriginOffsets[_angle >> 3];
                 Position = new Vector2((OracleObjectPosition.HighByte(Position.X) + origin.Second) & 255,
                     (OracleObjectPosition.HighByte(Position.Y) + origin.First) & 255) + Position - Position.Floor();
                 for (int subId = 2; subId >= 1; subId--)

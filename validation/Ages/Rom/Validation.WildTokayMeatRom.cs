@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         foreach(int free in new[]{0,1})
         foreach(int angle in new[]{0xff,8,24})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);_inventory.GiveTreasure(TreasureId.Bracelet,1);_inventory.SetScriptedEquippedItems(0,TreasureId.Bracelet);
             LoadValidationRoom(2,0xde);_roomEvents.Get<WildTokayGameEvent>().Cancel();_entities.Clear();_player.WarpTo(new(80,80));_player.Face(Vector2I.Up);
             var meat=(WildTokayMeat)_entities.TryCreateInteraction(new WildTokayMeatSpawn())!;
@@ -41,7 +41,7 @@ public sealed partial class ValidationRoot
             Step(70);Step(8,0);FailIf(_collision.Collides(_player.Position),"Meat approach must stay on room floor.");
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int at=0xd040+_entities.InteractionSlot(puff)*256;native[at]=1;native[at+1]=0x48;native[at+2]=0x1b;native[at+4]=1;
             }
             Step(1,press:true);Step(12);

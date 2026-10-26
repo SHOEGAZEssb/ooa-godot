@@ -76,7 +76,7 @@ internal sealed class ArmosWarriorRoomEntity : CombatEnemyRoomEntityAdapter<Armo
             case CollisionEffect.Effect15:
             case CollisionEffect.Effect16:
             case CollisionEffect.Effect17:
-                var profile = EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+                var profile = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).ArmoredSwordAttackerKnockback;
                 _attackerRecoil = effect == CollisionEffect.Effect15 ? profile.LowFrames : effect == CollisionEffect.Effect16 ? profile.NormalFrames : profile.HighFrames;
                 Entity.ApplyNativeHit(0, -28);
                 spawns.Add(new EnemyClinkSpawn(CollisionMidpoint(Entity.Position, source))); return true;

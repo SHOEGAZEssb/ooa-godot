@@ -11,7 +11,7 @@ public partial class ValidationRoot
     {
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
         var data=new CrownDungeonDatabase();
-        var visual=new DungeonInteractionVisualDatabase().Visual("sacred-soil");
+        var visual=new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("sacred-soil");
         // mainData.s4:b8 and essence.s fifth OAM/text/warp rows, independent
         // of the runtime's chosen definition and collection-state machine.
         FailIf(data.GetRoomRecords(4,0xb8) is not [{Id:InteractionId.Essence,SubId:0,Order:0,Y:0x28,X:0x78,Kind:DungeonObjectKind.Essence}] ||

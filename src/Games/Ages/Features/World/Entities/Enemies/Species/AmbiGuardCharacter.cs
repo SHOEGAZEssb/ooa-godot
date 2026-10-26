@@ -35,6 +35,7 @@ internal sealed partial class AmbiGuardCharacter : EnemyCharacter, ITerrainShado
     internal void Initialize(ImportedEnemyDefinition record, AmbiGuardPatrol patrol,
         OracleRoomData room, Vector2 position, RoomEntityManager owner, int subid)
     {
+        AssetRoot = record.AssetRoot;
         _owner = owner; _patrol = patrol; SubId = subid;
         _movement = new(this, room);
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));
@@ -55,7 +56,7 @@ internal sealed partial class AmbiGuardCharacter : EnemyCharacter, ITerrainShado
     internal void RecordDeflection(int collision)
     {
         _hitCollision = collision | 0x80;
-        InvincibilityCounter = BoomerangCollisionDatabase.Shared.DeflectionInvincibility;
+        InvincibilityCounter = BoomerangCollisionDatabase.For(AgesGameContent.AssetRoot).DeflectionInvincibility;
         // ENEMYDMG $28 writes var2a and invincibility but preserves recoil.
         DeferNativeHitStatus();
     }
@@ -74,6 +75,7 @@ internal sealed partial class AmbiGuardCharacter : EnemyCharacter, ITerrainShado
     }
     internal void InitializeStateZero()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (State != 0 || IsDead) return;
         _owner.Random.Next(); // enemyStandardUpdate reloads var3d on every failed allocation.
         Speed = _patrol.Speed; _command = 0; RunScript();

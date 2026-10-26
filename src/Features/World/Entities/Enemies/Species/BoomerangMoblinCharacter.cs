@@ -10,13 +10,15 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
 
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
-    private readonly ScentSeedAttraction _scentAttraction = new();
+    private ScentSeedAttraction? _scentAttractionCache;
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
     private BoomerangMoblinCharacterMoblinState _state;
     private int _counter;
     private int _angle;
     private bool _initialized;
     private bool _boomerangReturned;
-    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
+    private EnemyBehaviorTables? _behaviorSourceCache;
+    private EnemyBehaviorTables _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal BoomerangMoblinCharacterMoblinState State => _state;
@@ -28,6 +30,7 @@ internal partial class BoomerangMoblinCharacter : EnemyCharacter
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         InitializeEnemy(
             position,

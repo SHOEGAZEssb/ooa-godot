@@ -24,6 +24,7 @@ internal sealed partial class MakuConfettiRoomEntity : DungeonInteractionVisualE
     public bool UpdatesDuringRoomEntityFreeze=>State==0;
     internal MakuConfettiRoomEntity(RoomEntityManager owner,MakuConfettiDatabase data,int var03=0,int soundCounter=0)
     {
+        AssetRoot = owner.AssetRoot;
         _owner=owner;_data=data;Var03=var03;SoundCounter=soundCounter;Visible=false;
         InitializeVisual(data.Visual,Vector2.Zero);ZIndex=ObjectDrawPriority.FixedHighPriorityZIndex;
     }

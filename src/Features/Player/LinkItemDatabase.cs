@@ -12,7 +12,12 @@ namespace Oracles;
 /// </summary>
 internal sealed class LinkItemDatabase
 {
-    private static readonly Lazy<LinkItemDatabase> SharedInstance = new(() => new LinkItemDatabase());
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<LinkItemDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static LinkItemDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<LinkItemDatabase>(() => new LinkItemDatabase(root))).Value;
+
 
     private readonly Dictionary<(string Kind, int Variant, int Phase, int Direction),
         LinkGraphicRecord> _graphics = new();
@@ -31,21 +36,16 @@ internal sealed class LinkItemDatabase
     private readonly string[] _clinkListIds = new string[6];
     private readonly byte[] _parentAnimationFlags = new byte[32];
 
-    internal static LinkItemDatabase Shared => SharedInstance.Value;
-
     internal LinkItemConstants Constants { get; }
     internal IReadOnlyList<SwordArc> SwordArcs => _swordArcs;
     internal IReadOnlyList<ClinkTileRecord> ClinkRows { get; private set; } = [];
 
-    private LinkItemDatabase(
-        string constantsPath = AgesGameContent.AssetRoot + "metadata/link_item_constants.tsv",
-        string offsetsPath = AgesGameContent.AssetRoot + "metadata/link_item_offsets.tsv",
-        string graphicsPath = AgesGameContent.AssetRoot + "metadata/link_item_graphics.tsv",
-        string swordPath = AgesGameContent.AssetRoot + "metadata/sword_presentation.tsv",
-        string clinkPath = AgesGameContent.AssetRoot + "metadata/sword_clink_tiles.tsv")
+    private LinkItemDatabase(string assetRoot)
     {
-        Constants = LoadConstants(constantsPath);
-        var parentFlags = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/parent_item_animation_flags.tsv",
+        AssetRoot = assetRoot;
+
+        Constants = LoadConstants(assetRoot + "metadata/link_item_constants.tsv");
+        var parentFlags = GeneratedTable.Load(assetRoot + "metadata/parent_item_animation_flags.tsv",
             new GeneratedTableSchema("Parent item animation flags", GeneratedTableKeySemantics.Unique,
                 ["item-id", "flags", "source"], ["item-id"], headerRequired: true));
         if (parentFlags.Rows.Count != 32)
@@ -56,10 +56,10 @@ internal sealed class LinkItemDatabase
             if (id >= 32) throw row.Invalid(0, "parent item ID $00-$1f");
             _parentAnimationFlags[id] = (byte)row.HexByte(1);
         }
-        LoadOffsets(offsetsPath);
-        LoadGraphics(graphicsPath);
-        LoadSwordPresentation(swordPath);
-        LoadClinkTiles(clinkPath);
+        LoadOffsets(assetRoot + "metadata/link_item_offsets.tsv");
+        LoadGraphics(assetRoot + "metadata/link_item_graphics.tsv");
+        LoadSwordPresentation(assetRoot + "metadata/sword_presentation.tsv");
+        LoadClinkTiles(assetRoot + "metadata/sword_clink_tiles.tsv");
         ValidateCanonicalShape();
     }
 

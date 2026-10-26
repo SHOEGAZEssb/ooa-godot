@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         foreach (bool batched in new[] { false, true })
         foreach (bool shield in new[] { false, true })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wLinkMaxHealth, 0x40);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, 0x40);
             InitializeTransientSession(save);

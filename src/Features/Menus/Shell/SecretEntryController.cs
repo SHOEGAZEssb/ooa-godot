@@ -8,7 +8,7 @@ internal sealed class SecretEntryController(
     Node interfaceLayer, OracleMenuLifecycle lifecycle,
     OracleSaveData save, InventoryState inventory, Action<int> playSound) : IOracleMenuLifecycleClient
 {
-    private readonly LinkedGameNpcDatabase _secrets = new();
+    private readonly LinkedGameNpcDatabase _secrets = new(OracleAssetPack.ForGame(save.Game));
     private MainMenuScreen? _screen;
     private Action<bool>? _completion;
     private Action<int?>? _anyShortSecretCompletion;
@@ -156,7 +156,7 @@ internal sealed class SecretEntryController(
 
     public void OpenAtWhite()
     {
-        _screen = new MainMenuScreen { Name = "SecretEntry", ZIndex = ScreenDrawPriority.NameEntryZIndex };
+        _screen = new MainMenuScreen { AssetRoot = OracleAssetPack.ForGame(save.Game), Name = "SecretEntry", ZIndex = ScreenDrawPriority.NameEntryZIndex };
         interfaceLayer.AddChild(_screen);
         _screen.ShowSecretEntry(_ringMode ? 15 : 5);
     }

@@ -25,8 +25,8 @@ public partial class ValidationRoot
             MinecartRuntimeState.Reset(_runtimeState,[]);
             MinecartRuntimeState.BeginRide(_runtimeState,0,c.Room,start,c.Direction);
             var cart = new MinecartRoomEntity(new ActiveMinecart(-1,c.Room,c.Y,c.X,c.Direction,true),
-                _currentRoom,new DungeonInteractionDatabase(),_runtimeState,
-                new DungeonInteractionVisualDatabase().Visual("minecart"),_sound.PlaySound);
+                _currentRoom,new DungeonInteractionDatabase(AgesGameContent.AssetRoot),_runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"),_sound.PlaySound);
             _entities.AddEntity(cart);
             _player.WarpTo(start+new Vector2(0.25f,0.5f)); _player.Face(c.Direction == 2 ? Vector2I.Down : Vector2I.Up);
             _player.FinishMinecartMount(start,c.Direction,0);
@@ -42,7 +42,7 @@ public partial class ValidationRoot
             rom.UpdateGameplay(0,0,0xff,_entities.FrameCounter);
             var frontend = SomariaPrivate<FrontendRom>(rom,"_rom");
             rom[0xcd04] = 2; rom[0xcd0c] = 234; rom[0xcd0d] = 169;
-            var graphics = new ScreenTransitionGraphicsDatabase();
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             var sounds = _sound.AttachPlayRequestAudit();

@@ -6,6 +6,11 @@ Graphics facts come from the ROM/disassembly through generated assets. Runtime
 code loads them through the shared graphics data and cache layers; it does not
 decode a private copy for each actor or reconstruct source tables in C#.
 
+The selected game binds the sound engine to its generated song-pointer and
+bank data while retaining the application audio owner and shared driver.
+Shared sprite, room-animation, dialogue and HUD presenters include the game
+asset root in their generated-data/cache identity.
+
 `OracleGraphicsCache` owns immutable source images, monochrome font textures,
 composites, OAM frames, and OAM cells. Monochrome fonts are shared by dialogue
 and menus; conversion must preserve the cached source image. Every
@@ -126,7 +131,7 @@ the index or overlap its high bits with palette fields in cache keys.
 
 ## Palettes and background state
 
-`OracleWorldData` owns the live gameplay background palette slots shared by
+`AgesWorldData` owns the live gameplay background palette slots shared by
 rooms, dialogue, and palette effects. Source palette writes update those slots
 at their original boundary and rerender affected presentation without replacing
 logical room data.
@@ -151,7 +156,7 @@ Overworld room-pack changes first apply the original fade-bit gate. Those
 transitions fade to white and reload the complete destination graphics instead
 of entering the shared scrolling-buffer path; Link retains the original
 byte-wrapped edge arrival coordinates.
-`RoomTransitionController` schedules clean-ROM unique graphics entries through
+`AgesRoomTransitionController` schedules clean-ROM unique graphics entries through
 its transition renderer; each entry replaces only its addressed VRAM range.
 Both room textures resolve those live bytes and the same background palette
 slots. Imported smooth palette routes blend RGB5 components with integer

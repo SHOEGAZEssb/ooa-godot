@@ -65,6 +65,7 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
         Action roomTileChanged,
         Func<long> animationTick)
     {
+        AssetRoot = database.AssetRoot;
         _database = database;
         Spot = spot;
         _room = room;
@@ -289,7 +290,7 @@ internal partial class GashaSpotInteraction : TransitionOffsetNode2D
     private void SetVisual(GashaSpotDatabaseVisualRecord visual)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
+            AssetRoot + $"gfx/{visual.Sprite}.png");
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
         if (animation.Frames.Length == 0)

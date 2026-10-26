@@ -23,13 +23,13 @@ public sealed partial class ValidationRoot
         FailIf(graphics[0xd19d] - graphics[0xd09d] != 0x20 || graphics[0xd19c] != 6,
             "ENEMY$05 must resolve header $cf one $20-tile slot after ENEMY$07/$ce, with OBJ palette$06.");
 
-        var database = new DungeonBossDatabase();
+        var database = new DungeonBossDatabase(AgesGameContent.AssetRoot);
         for (int subid = 0; subid < 6; subid++)
             FailIf(database.Enemy(0x05, subid).Sprites is not ["spr_ramrock_2"],
                 $"ENEMY$05:${subid:x2} must address spr_ramrock_2 from header $cf.");
         var record = database.Enemy(0x05, 0);
         var animation = new EnemyAnimationPlayer(_player, record.Animations.Length);
-        animation.Load(EnemyVisualSource.LoadComposite(record.Sprites), record.Animations,
+        animation.Load(EnemyVisualSource.LoadComposite(record.Sprites, record.AssetRoot), record.Animations,
             record.TileBase, record.Palette, paletteOverrides: RamrockProfile.Shared.Palette(0x83),
             sourceGrayscaleInverted: record.SourceGrayscaleInverted, positionedOam: true);
         var native = new ObjectAnimationRom(1, 0x05);

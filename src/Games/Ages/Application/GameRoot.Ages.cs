@@ -31,6 +31,7 @@ public partial class GameRoot
             {
                 _newGameIntroScreen = new NewGameIntroScreen
                 {
+                    AssetRoot = AgesGameContent.AssetRoot,
                     Name = "NewGameIntro",
                     ZIndex = ScreenDrawPriority.FrontendZIndex,
                     Visible = false
@@ -65,6 +66,7 @@ public partial class GameRoot
 
     internal void StartFrontend(bool startAtTitle)
     {
+        _selectedGame = OracleGame.Ages;
         _mainMenu = null;
         _frontendIntroScreen = new FrontendIntroScreen
         {
@@ -73,6 +75,7 @@ public partial class GameRoot
         };
         _mainMenuScreen = new MainMenuScreen
         {
+            AssetRoot = AgesGameContent.AssetRoot,
             Name = "MainMenu",
             ZIndex = ScreenDrawPriority.FrontendZIndex,
             Visible = false
@@ -101,7 +104,7 @@ public partial class GameRoot
         screen.End();
         _gameSelect = null;
         _applicationInput.Clear();
-        BeginBootLoading(GetNode<BootLoadingScreen>("%BootLoading"));
+        BeginBootLoading(GetNode<BootLoadingScreen>("%BootLoading"), OracleGame.Ages);
     }
 
     private void CompleteNewGameIntro(OracleSaveData save)
@@ -240,6 +243,8 @@ public partial class GameRoot
     {
         _preparedGameplayScene?.Free();
         _preparedGameplayScene = null;
+        _preparedSeasonsOpening?.Free();
+        _preparedSeasonsOpening = null;
         _bootCancellation?.Cancel();
         _bootCancellation?.Dispose();
         _bootResourceSteps?.Dispose();
@@ -253,11 +258,11 @@ public partial class GameRoot
     private IEnumerable<bool> CreateControllersSteps()
     {
         var timePortals = new TimePortalDatabase();
-        var enemies = EnemyDatabase.Shared;
+        var enemies = EnemyDatabase.For(AgesGameContent.AssetRoot);
         yield return false;
         _entities = new RoomEntityManager(
-            _scene.WorldRoot, NpcDatabase.Shared, enemies,
-            new ItemDropDatabase(), timePortals, _random, _saveData,
+            _scene.WorldRoot, NpcDatabase.For(AgesGameContent.AssetRoot), enemies,
+            new ItemDropDatabase(AgesGameContent.AssetRoot), timePortals, _random, _saveData,
             runtimeState: _runtimeState,
             inventory: _inventory,
             animationTick: () => (long)_animationTicks,
@@ -266,7 +271,7 @@ public partial class GameRoot
         _entities.DisplayedHealthSource = () => _statusBar.DisplayedHealth;
         yield return false;
         _pushBlocks = new PushBlockController(
-            _rooms, new PushableTileDatabase(), _roomView,
+            _rooms, new PushableTileDatabase(AgesGameContent.AssetRoot), _roomView,
             () => (long)_animationTicks, _sound.PlaySound,
             _entities.PushBlockPermittedByColoredCube,
             _entities.RequestSomariaPush,
@@ -288,7 +293,7 @@ public partial class GameRoot
         _scene.WorldRoot.AddChild(_keyDoors);
         _keyDoors.SetPhysicsProcess(false);
         _keyholes = new OverworldKeyholeController(
-            _rooms, _inventory, _entities, new OverworldKeyholeDatabase(),
+            _rooms, _inventory, _entities, new OverworldKeyholeDatabase(AgesGameContent.AssetRoot),
             _sound)
         {
             Name = "OverworldKeyholes"
@@ -296,11 +301,11 @@ public partial class GameRoot
         _scene.WorldRoot.AddChild(_keyholes);
         _collision = new RoomCollision(
             _rooms, _entities, _pushBlocks, point => _transitions.HasNeighborFor(point));
-        _deathRespawnPoints = new DeathRespawnPointController(
+        _deathRespawnPoints = new AgesDeathRespawnPointController(
             _rooms, _player, _runtimeState);
         _entities.DeathRespawnPointRequested += _deathRespawnPoints.RecordCurrentPoint;
-        _transitions = new RoomTransitionController(
-            _rooms, WarpDatabase.Shared, _roomView, _scene.RoomLoadReveal,
+        _transitions = new AgesRoomTransitionController(
+            _rooms, WarpDatabase.For(AgesGameContent.AssetRoot), _roomView, _scene.RoomLoadReveal,
             _player, _roomCamera,
             _warpFade, _hud, _dialogue, _entities,
             _deathRespawnPoints, _sound, timePortals);
@@ -336,7 +341,7 @@ public partial class GameRoot
         foreach (bool step in _roomEvents.PrepareResources())
             yield return step;
         _interactions = new InteractionController(
-            _rooms, _entities, new SignDatabase(), new ChestDatabase(), _treasures, _dialogue,
+            _rooms, _entities, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot), _treasures, _dialogue,
             _scene.WorldRoot, _roomView, _transitions.WorldToGameplayScreen,
             () => (long)_animationTicks,
             _inventory, _scene.InterfaceLayer, _sound.PlaySound,
@@ -376,10 +381,10 @@ public partial class GameRoot
             _sound.PlaySound, () => (long)_animationTicks);
         _combat = new CombatController(
             _rooms, _roomView, _entities,
-            new BreakableTileDatabase(), _saveData, _sound,
+            new BreakableTileDatabase(AgesGameContent.AssetRoot), _saveData, _sound,
             () => (long)_animationTicks);
         _bracelet = new BraceletController(
-            _scene.WorldRoot, _rooms, new BreakableTileDatabase(), _roomView,
+            _scene.WorldRoot, _rooms, new BreakableTileDatabase(AgesGameContent.AssetRoot), _roomView,
             _entities, _combat, _saveData, _sound.PlaySound,
             () => (long)_animationTicks, _collision.HasFullWall);
         _entities.Bracelet = _bracelet;
@@ -401,10 +406,10 @@ public partial class GameRoot
         _bracelet.TileLiftCompleted +=
             _roomEvents.NotifyBraceletTileLiftCompleted;
         _shovel = new ShovelController(
-            _rooms, new BreakableTileDatabase(), _roomView, _entities, _saveData,
+            _rooms, new BreakableTileDatabase(AgesGameContent.AssetRoot), _roomView, _entities, _saveData,
             _sound.PlaySound, () => (long)_animationTicks);
         _seedSatchel = new SeedSatchelController(
-            _inventory, _entities, new SeedSatchelDatabase(), _rooms,
+            _inventory, _entities, new SeedSatchelDatabase(AgesGameContent.AssetRoot), _rooms,
             _sound.PlaySound);
         _entities.SwitchHook = new SwitchHookController(_scene.WorldRoot, _rooms, _entities, _sound.PlaySound,
             () => (long)_animationTicks, _combat.SpawnBreakEffect, () => _pushBlocks.Active);
@@ -415,7 +420,7 @@ public partial class GameRoot
         yield return false;
         _entities.PlayingInstrumentSource = () => _harp.PlayingInstrument;
         _terrain = new TerrainController(
-            _rooms, new BreakableTileDatabase(),
+            _rooms, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             _collision.AdjacentWallsBitset, (position, hazard) => _entities.TryCreateSplash(position, hazard));
         _entities.ItemDropEnteredHazard += _terrain.SpawnSplash;
         _pushBlocks.EnteredHazard += (position, hazard) =>
@@ -438,7 +443,7 @@ public partial class GameRoot
             }
         };
         _debugCollision = new DebugCollisionController();
-        _playerWorld = new PlayerWorld(
+        _playerWorld = new AgesPlayerWorld(
             _transitions, _interactions, _collision, _pushBlocks, _keyDoors, _keyholes,
             _terrain, _combat, _entities,
             _bomb, _bracelet, _shovel, _seedSatchel, _harp, _roomEvents,
@@ -446,7 +451,7 @@ public partial class GameRoot
         _gameplayPause = new GameplayPauseController(_player, _roomDebug);
         _gameplayPause.SetRoomOverlayEnabled(_presentationSettings.RoomOverlayEnabled);
         _menuLifecycle = new OracleMenuLifecycle(_scene.MenuFade, _gameplayPause);
-        _mapMenu = new MapMenuController(
+        _mapMenu = new AgesMapMenuController(
             _mapScreen, _dialogue, _menuLifecycle,
             () => _transitions.GameplayMenusAvailable && !DialogueOpen && !InventoryMenuOpen &&
                 !_player.GaleActive && !_player.IsDying && _harp.PlayingInstrument == 0 && !_roomEvents.Active &&
@@ -460,7 +465,7 @@ public partial class GameRoot
                 _rooms.ActiveGroup, target.Room, target.Position, 0, WarpDestinationTransition.Fall)),
             () => _player.ReturnFromGale((int)_transitions.WorldToGameplayScreen(_player.Position).Y));
         _entities.GaleMenuRequested += _mapMenu.OpenGale;
-        _inventoryMenu = new InventoryMenuController(
+        _inventoryMenu = new AgesInventoryMenuController(
             _inventoryScreen, _saveQuitScreen, _menuLifecycle,
             () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone),
             () => _saveData.HasGlobalFlag(GlobalFlag.IntroDone) &&

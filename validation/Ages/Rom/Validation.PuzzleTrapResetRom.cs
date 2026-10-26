@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation(); LoadValidationRoom(4, 0x9b); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0);
-            var record = new PuzzleTrapResetDatabase().GetRoomRecords(4, 0x9b).Single();
+            var record = new PuzzleTrapResetDatabase(AgesGameContent.AssetRoot).GetRoomRecords(4, 0x9b).Single();
             var trap = new PuzzleTrapResetRoomEntity(record, _currentRoom, _runtimeState,
                 _entities.OnSoundRequested, _entities.OnRoomWarpRequested);
             _entities.AddEntity(trap);

@@ -38,13 +38,14 @@ internal sealed partial class BlueStalfosProjectile : TransitionOffsetNode2D
         Func<int, BlueStalfosCharacter?> resolve, Func<bool> canSplit,
         Action<BlueStalfosProjectile, int> spawnSmall, Action<int> sound)
     {
+        AssetRoot = room.AssetRoot;
         Position = spawn.Position.Floor(); ZFixed = (spawn.Z >> 8) << 8;
         Angle = spawn.Angle; ParentSlot = spawn.ParentSlot; SubId = spawn.SubId;
         _room = room; _memory = memory; _resolve = resolve; _canSplit = canSplit; _spawnSmall = spawnSmall; _sound = sound;
         Radius = _parts.Properties[2] & 15; DamageQuarters = (256 - _parts.Properties[3]) % 256 / 2;
         var visual = _parts.Visual;
         Animation = new(this, visual.Animations.Length);
-        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations, visual.TileBase, visual.Palette,
+        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations, visual.TileBase, visual.Palette,
             sourceGrayscaleInverted: visual.SourceGrayscaleInverted, positionedOam: true);
         Visible = false; ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
     }

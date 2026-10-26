@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         LoadValidationRoom(1, 0x5b);
-        var database = EnemyDatabase.Shared;
+        var database = EnemyDatabase.For(AgesGameContent.AssetRoot);
         FailIf(database.ImportedEnemy(0x0d, 0) is not { Health: 8, DamageQuarters: 4, RadiusX: 6, RadiusY: 6, Palette: 2, Animations.Length: 8 } ||
             database.ImportedEnemy(0x0d, 1) is not { Health: 12, DamageQuarters: 4, Palette: 1, Animations.Length: 8 },
             "enemy0dSubidData / extraEnemyData $17/$1b lost the red/blue Lynel attributes.");
@@ -158,7 +158,7 @@ public sealed partial class ValidationRoot
     private void ValidateLynelCombatRom()
     {
         LoadValidationRoom(1, 0x5b);
-        var database = EnemyDatabase.Shared;
+        var database = EnemyDatabase.For(AgesGameContent.AssetRoot);
         foreach (int collision in new[] { 1,2,3,4,5,6,7,8,9,10,11,13,0x16,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e })
         {
             var random = new OracleRandom();
@@ -186,11 +186,11 @@ public sealed partial class ValidationRoot
                 else if (collision >= 0x1a)
                 {
                     int item = collision switch { 0x1a=>ItemId.MysterySeed,0x1b=>ItemId.EmberSeed,0x1c=>ItemId.ScentSeed,0x1d=>ItemId.PegasusSeed,_=>ItemId.GaleSeed };
-                    FailIf(!new SeedSatchelDatabase().TryGet(item, out var seedRecord), $"Missing seed${item:x2}.");
+                    FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(item, out var seedRecord), $"Missing seed${item:x2}.");
                     damage = -(sbyte)seedRecord.Damage;
                     adapter.ApplySeedCollision(enemy.CollisionBounds,enemy.Position-Vector2.Right,seedRecord,collision,spawns);
                     if (spawns.OfType<BurningEnemySpawn>().Any())
-                    { flame = new BurningEnemyPart(); flame.Initialize(adapter); }
+                    { flame = new BurningEnemyPart(); flame.Initialize(AgesGameContent.AssetRoot, adapter); }
                 }
                 else adapter.ApplyItemCollision((RoomEntityItemCollision)collision,enemy.CollisionBounds,enemy.Position-Vector2.Right,damage,spawns);
                 rom.HitWithSword(collision,damage);

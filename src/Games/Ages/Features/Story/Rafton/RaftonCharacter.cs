@@ -11,7 +11,8 @@ internal sealed partial class RaftonCharacter : NpcCharacter
         NpcRecord record,
         RaftonEventRecord rafton)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         SetDirectionalAnimations(
             rafton.Animation0,
             rafton.Animation1,

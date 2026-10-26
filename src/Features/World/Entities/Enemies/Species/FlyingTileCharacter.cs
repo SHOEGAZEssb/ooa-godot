@@ -9,9 +9,8 @@ internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSourc
     internal override bool InitializationPending => _state == FlyingTileState.Initializing;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
-
-    private readonly FlyingTileBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.FlyingTile;
+    private FlyingTileBehaviorProfile? _behaviorSourceCache;
+    private FlyingTileBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).FlyingTile;
     private OracleRoomData _room = null!;
     private Action _roomTileChanged = null!;
     private Func<long> _animationTick = null!;
@@ -46,6 +45,7 @@ internal partial class FlyingTileCharacter : EnemyCharacter, ITerrainShadowSourc
         Func<long> animationTick,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _roomTileChanged = roomTileChanged;

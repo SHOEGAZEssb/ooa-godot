@@ -40,6 +40,7 @@ internal sealed partial class MovingPlatformRoomEntity : DungeonInteractionVisua
         Vector2 collisionRadii, DungeonInteractionDatabase data, MovingPlatformScript program,
         MovingPlatformRidingState riding, Func<int> playingInstrument)
     {
+        AssetRoot = visual.AssetRoot;
         Script = rawSubId >> 3;
         CollisionRadii = collisionRadii;
         _speed = data.Constant("platform-speed");

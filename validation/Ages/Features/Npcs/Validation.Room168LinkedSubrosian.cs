@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         // subrosian.s:subrosian_subid00 selects its script only in state zero.
         // getGameProgress_2 $06 must delete even if Twinrova's flag remains set.
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(1, 0x68).Single(n =>
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(1, 0x68).Single(n =>
             n.Id == AgesInteractionId.Subrosian && n.SubId == 0);
         FailIf(record is not { Var03: 0, Y: 0x48, X: 0x38,
                 TextId: 0x1c05, CanFace: true, DefaultAnimation: 2,
@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
             StepGameplayUpdates(2, Vector2.Zero, batched: batched);
             NpcCharacter npc = _entities.Entities<NpcCharacter>().Single(n =>
                 n.Record.Id == AgesInteractionId.Subrosian && n.Record.SubId == 0);
-            FailIf(NpcStoryState.GetGameProgress2(_saveData) != stage ||
+            FailIf(AgesNpcStoryState.GetGameProgress2(_saveData) != stage ||
                 npc.Active != present || npc.Visible != present ||
                 npc.Position != new Vector2(0x38, 0x48),
                 $"Room 1:68 $4e:$00 wrong linked/getGameProgress_2 ${stage:x2} admission or source pose.");

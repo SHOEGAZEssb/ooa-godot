@@ -316,7 +316,7 @@ internal sealed class TingleEvent : IRoomEvent
 
     private void ShowReturnSecret()
     {
-        string secret = new LinkedGameNpcDatabase().GenerateSecret(
+        string secret = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(
             _record.ReturnSecretIndex, _context.Rooms.SaveData);
         _context.Rooms.SaveData.SetGlobalFlag(_record.DoneSecretFlag);
         _context.ShowDialogue(_database.Text(0x1e0f).Replace(

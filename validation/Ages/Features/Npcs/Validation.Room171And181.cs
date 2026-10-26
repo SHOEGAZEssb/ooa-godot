@@ -14,9 +14,9 @@ public sealed partial class ValidationRoot
         var worldRoot = new Node { Name = "World" };
         var interfaceLayer = new CanvasLayer { Name = "Interface" };
         var roomView = new RoomView { Name = "RoomView" };
-        var dialogue = new DialogueBox { Name = "Dialogue" };
+        var dialogue = new DialogueBox { AssetRoot = AgesGameContent.AssetRoot, Name = "Dialogue" };
         var fade = new ColorRect { Name = "Fade" };
-        var hud = new Hud { Name = "Hud" };
+        var hud = new Hud { AssetRoot = AgesGameContent.AssetRoot, Name = "Hud" };
         var camera = new Camera2D { Name = "Camera" };
         root.AddChild(worldRoot);
         root.AddChild(interfaceLayer);
@@ -27,11 +27,11 @@ public sealed partial class ValidationRoot
         root.AddChild(camera);
         AddChild(root);
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long tick = 0;
         var rooms = new RoomSession(
             1, 0x81, () => tick, () => tick = 0, save);
-        var treasures = new TreasureDatabase();
+        var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var inventory = new InventoryState(
             treasures, save, () => rooms.CurrentDungeonIndex);
         using var fixture = RoomEntityValidationFixture.ForRoot(
@@ -64,8 +64,8 @@ public sealed partial class ValidationRoot
         var interactions = new InteractionController(
             rooms,
             manager,
-            new SignDatabase(),
-            new ChestDatabase(),
+            new SignDatabase(AgesGameContent.AssetRoot),
+            new ChestDatabase(AgesGameContent.AssetRoot),
             treasures,
             dialogue,
             worldRoot,
@@ -87,7 +87,7 @@ public sealed partial class ValidationRoot
                 (char[]?)null,
                 StringSplitOptions.RemoveEmptyEntries));
 
-        var enemyData = new EnemyDatabase();
+        var enemyData = new EnemyDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<RoomObjectRecord> room171 =
             enemyData.GetRoomObjects(1, 0x71);
         FailIf(
@@ -159,7 +159,7 @@ public sealed partial class ValidationRoot
         int randomCallsBeforeRoom181 = manager.RandomCalls;
 
         OracleRoomData room181 = rooms.CurrentRoom;
-        var database = new BusinessScrubDatabase();
+        var database = new BusinessScrubDatabase(AgesGameContent.AssetRoot);
         BusinessScrubOffer[] offers =
         {
             database.OfferForShieldLevel(0),

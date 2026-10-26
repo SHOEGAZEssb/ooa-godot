@@ -34,7 +34,7 @@ internal partial class OverworldKeyUseEffect : FixedEffectNode2D
     {
         Position = position;
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
+            visual.AssetRoot + $"gfx/{visual.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
         if (visual.SubId != visual.Treasure - constants.FirstKey ||

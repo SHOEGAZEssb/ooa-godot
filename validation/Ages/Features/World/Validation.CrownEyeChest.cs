@@ -23,7 +23,7 @@ public partial class ValidationRoot
             FailIf(_entities.InteractionSlot(script) != 2,"Crown eye chest must occupy the first source interaction slot.");
             Step(); _sound.ClearPlayRequestAudit();
             setTrigger(7,true);
-            var seeds = new SeedSatchelDatabase();
+            var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
             FailIf(!seeds.TryGet(ItemId.EmberSeed,out var seed),"Missing Ember Seed fixture.");
             foreach (var eye in _entities.Entities<SeedShooterEyeStatueRoomEntity>())
             {

@@ -10,14 +10,18 @@ namespace Oracles;
 /// </summary>
 internal sealed class DungeonSpinnerDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Lookup<int, DungeonSpinnerPlacement> _recordsByRoom = new();
 
     internal int RecordCount { get; }
 
-    internal DungeonSpinnerDatabase()
+    internal DungeonSpinnerDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_spinners.tsv",
+            AssetRoot + "objects/dungeon_spinners.tsv",
             new GeneratedTableSchema(
                 "room-specific dungeon spinners",
                 GeneratedTableKeySemantics.Grouped,

@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             [0,0xff,0xff,0xff, 0xff,1,1,1, 0xff,2,2,2, 0xff,0xff,3,4, 0xff,0xff,5,5,
              0xff,0xff,6,6, 0xff,0xff,7,8, 9,10,10,0, 0xff,11,11,0, 0xff,12,13,0, 0xff,14,15,0]
         ];
-        var records=new NpcDatabase().AllRecords.Where(n=>n.Id==0x66&&n.SubId is >=0x0c and <=0x0e).ToArray();
+        var records=new NpcDatabase(AgesGameContent.AssetRoot).AllRecords.Where(n=>n.Id==0x66&&n.SubId is >=0x0c and <=0x0e).ToArray();
         FailIf(records.Length!=24,"Expected 24 placed Goron $0c/$0d/$0e records.");
         for(int state=0;state<4;state++)
         {

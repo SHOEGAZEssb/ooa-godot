@@ -9,7 +9,7 @@ internal sealed partial class RoomOfRitesBattleEvent
     private bool _ganonHudHidden;
     internal GanonRoomEntity? CreateGanon()
     {
-        var data=_ganonData??=new();
+        var data=_ganonData??=new(AgesGameContent.AssetRoot);
         var world=new GanonEnvironment(data,context.Entities,InitializeGanon,GanonFade,ClearGanonPalette,show=>
         {
             _ganonHudHidden=!show;

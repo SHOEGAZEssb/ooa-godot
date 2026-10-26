@@ -77,7 +77,7 @@ public sealed partial class ValidationRoot
         ReinitializeGameplayForValidation();
         if (System.Environment.GetEnvironmentVariable("OOA_BENCHMARK_PALETTE_RESTORE") == "1")
             BenchmarkTransitionPaletteRestore();
-        var routes = new ScreenTransitionPaletteDatabase();
+        var routes = new ScreenTransitionPaletteDatabase(AgesGameContent.AssetRoot);
         foreach (bool entering in new[] { true, false })
         {
             int sourceId = entering ? 0x6a : 0x6b;
@@ -278,7 +278,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateScreenTransitionGraphicsPayloads()
     {
-        var data = new ScreenTransitionGraphicsDatabase();
+        var data = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
         ValidateBufferedTransitionUploads(data);
         for (int unique = 1; unique < 0x14; unique++)
         {

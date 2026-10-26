@@ -47,6 +47,7 @@ internal partial class SparkCharacter : EnemyCharacter
         OracleRoomData room,
         Vector2 position)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _precisePosition = position;
@@ -84,7 +85,7 @@ internal partial class SparkCharacter : EnemyCharacter
 
         Position = ApplyMovementSpeed(
             ref _precisePosition,
-            EnemyBehaviorTables.Shared.Spark.SpeedRaw,
+            EnemyBehaviorTables.For(AssetRoot).Spark.SpeedRaw,
             _angle);
         AdvanceAnimation();
     }

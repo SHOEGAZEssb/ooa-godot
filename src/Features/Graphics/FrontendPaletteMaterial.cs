@@ -9,7 +9,7 @@ internal static class FrontendPaletteMaterial
     internal static ShaderMaterial Create()
     {
         byte[] components = OracleGraphicsData.ReadBytes(
-            AgesGameContent.AssetRoot + "metadata/gba_palette_components.bin", 32);
+            OracleAssetPack.CommonRoot + "metadata/gba_palette_components.bin", 32);
         var material = new ShaderMaterial { Shader = new Shader { Code = """
             shader_type canvas_item;
             uniform float fade_offset = 0.0;

@@ -8,28 +8,28 @@ using static Oracles.OracleGraphicsData;
 namespace Oracles;
 
 /// <summary>Port-only labels using native file-menu capital strokes and panels.</summary>
-internal static class NativeMenuPresentation
+internal sealed class NativeMenuPresentation(string assetRoot)
 {
     private const int MapStride = 32;
 
-    internal static Texture2D BuildBackground(bool gameOver)
+    internal Texture2D BuildBackground(bool gameOver)
     {
         (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_save_menu_middle.bin", "flags_save_menu_middle.bin",
             "map_save_menu_bottom.bin", "flags_save_menu_bottom.bin",
-            bottomLength: 128);
+            assetRoot: assetRoot, bottomLength: 128);
 
         Color[,] palette = LoadPalette(gameOver
-            ? AgesGameContent.AssetRoot + "menu/palette_file_erase_bg.bin"
-            : AgesGameContent.AssetRoot + "menu/palette_file_bg.bin");
+            ? assetRoot + "menu/palette_file_erase_bg.bin"
+            : assetRoot + "menu/palette_file_bg.bin");
         var sources = new List<
             (Image Image, int FirstTile, int Bank, bool Interleaved)>
         {
-            (LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png"), 0x00, 0, false),
-            (LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png"), 0x00, 1, false),
-            (LoadPng(AgesGameContent.AssetRoot + "menu/gfx_savescreen.png"),
+            (LoadPng(assetRoot + "gfx/gfx_hud.png"), 0x00, 0, false),
+            (LoadPng(assetRoot + "gfx/gfx_hud.png"), 0x00, 1, false),
+            (LoadPng(assetRoot + "menu/gfx_savescreen.png"),
                 0x80, 1, true),
-            (LoadPng(AgesGameContent.AssetRoot + "menu/gfx_fileselect.png"), 0x20, 1, false)
+            (LoadPng(assetRoot + "menu/gfx_fileselect.png"), 0x20, 1, false)
         };
         if (gameOver)
         {
@@ -39,7 +39,7 @@ internal static class NativeMenuPresentation
             // the option graphics $a0-$ff remain from gfx_savescreen.
             sources.Insert(
                 3,
-                (LoadPng(AgesGameContent.AssetRoot + "menu/gfx_gameover.png"),
+                (LoadPng(assetRoot + "menu/gfx_gameover.png"),
                     0x80, 1, true));
         }
         using Image output = Image.CreateEmpty(160, 144, false, Image.Format.Rgba8);
@@ -64,9 +64,9 @@ internal static class NativeMenuPresentation
         return ImageTexture.CreateFromImage(output);
     }
 
-    internal static Texture2D BuildOptionsButton()
+    internal Texture2D BuildOptionsButton()
     {
-        using Texture2D background = NativeMenuPresentation.BuildBackground(gameOver: false);
+        using Texture2D background = BuildBackground(gameOver: false);
         using Image original = background.GetImage();
         using Image panel = Image.CreateEmpty(160, 16, false, Image.Format.Rgba8);
         DrawChoice(panel, original, "OPTIONS", 0);
@@ -76,7 +76,7 @@ internal static class NativeMenuPresentation
         return ImageTexture.CreateFromImage(button);
     }
 
-    internal static Texture2D BuildSave(Image original)
+    internal Texture2D BuildSave(Image original)
     {
         using Image output = ClearChoices(original);
         for (int row = 0; row < 3; row++)
@@ -86,7 +86,7 @@ internal static class NativeMenuPresentation
         return ImageTexture.CreateFromImage(output);
     }
 
-    internal static Texture2D BuildOptions(Image original, bool noclip, bool overlay, bool hudBottom)
+    internal Texture2D BuildOptions(Image original, bool noclip, bool overlay, bool hudBottom)
     {
         using Image output = ClearChoices(original);
         // Retain the title's native top/bottom edges, replacing only its text.
@@ -100,14 +100,14 @@ internal static class NativeMenuPresentation
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Image ClearChoices(Image original)
+    private Image ClearChoices(Image original)
     {
         Image output = (Image)original.Duplicate();
         output.FillRect(new Rect2I(32, 56, 96, 64), original.GetPixel(80, 48));
         return output;
     }
 
-    private static void DrawChoice(Image output, Image original, string text, int top, int? left = null)
+    private void DrawChoice(Image output, Image original, string text, int top, int? left = null)
     {
         // Copy both ends of the actual CONTINUE plank. Only its letter area
         // needs blank wood; do not repeat a left end-cap across the whole row.
@@ -118,10 +118,10 @@ internal static class NativeMenuPresentation
         DrawWord(output, text, top, left: left);
     }
 
-    private static void DrawWord(Image output, string text, int top, bool title = false, int? left = null)
+    private void DrawWord(Image output, string text, int top, bool title = false, int? left = null)
     {
         int pen = left ?? (160 - text.Sum(c => Cell(c).Width + 2)) / 2;
-        Color[,] palette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_bg.bin");
+        Color[,] palette = LoadPalette(assetRoot + "menu/palette_file_bg.bin");
         foreach (char letter in text)
         {
             var cell = Cell(letter);
@@ -137,7 +137,7 @@ internal static class NativeMenuPresentation
             }
             else if (letter != ' ')
             {
-                Image sheet = LoadPng(AgesGameContent.AssetRoot + $"menu/{cell.Sheet}.png");
+                Image sheet = LoadPng(assetRoot + $"menu/{cell.Sheet}.png");
                 for (int y = 0; y < 11; y++)
                 for (int x = 0; x < cell.Width; x++)
                 {
@@ -165,7 +165,7 @@ internal static class NativeMenuPresentation
         }
     }
 
-    private static (string Sheet, int X, int Y, int Width, bool Header) Cell(char c) => c switch
+    private (string Sheet, int X, int Y, int Width, bool Header) Cell(char c) => c switch
     {
         ' ' or ':' => ("", 0, 0, 2, false),
         'C' => ("gfx_savescreen", 18, 20, 6, false),

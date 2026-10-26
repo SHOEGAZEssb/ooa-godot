@@ -20,10 +20,11 @@ internal sealed partial class DungeonSpinnerArrowRoomEntity : TransitionOffsetNo
 
     internal DungeonSpinnerArrowRoomEntity(DungeonSpinnerRoomEntity parent,DungeonInteractionVisual visual)
     {
+        AssetRoot = visual.AssetRoot;
         _parent = parent; Position = parent.Position; Visible = false;
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this,visual.Animations.Length);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites),visual.Animations,visual.TileBase,visual.Palette,
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),visual.Animations,visual.TileBase,visual.Palette,
             sourceGrayscaleInverted:visual.SourceGrayscaleInverted,positionedOam:true,paletteVariants:[4,5]);
         _animation.SetAnimation(2);
     }

@@ -8,8 +8,9 @@ namespace Oracles;
 // a native allocation. Slot admission, placement buffers and RNG order belong
 // to the manager and room parser, never to a second placement pass.
 internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase enemies,
-    RoomEntityResources resources, RoomSession? rooms)
+    AgesRoomEntityResources resources, RoomSession? rooms)
 {
+    private string AssetRoot => enemies.AssetRoot;
     private readonly OracleRandom _random = owner.Random;
     private readonly OracleRuntimeState _runtimeState = owner.RuntimeState;
     private readonly OracleSaveData? _saveData = owner.SaveData;
@@ -38,7 +39,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
             string animation=visual.Animations[0];
             var actor = NpcCharacter.CreateFromRecord(new(rooms!.ActiveGroup,room.Id,AgesInteractionId.Accessory,source.SubId,0,0,0,0,
                 visual.Sprites[0],visual.TileBase,visual.Palette,0,false,animation,animation,animation,animation,"",
-                NpcImplementationClassification.EventOwned));
+                NpcImplementationClassification.EventOwned), AssetRoot);
             actor.SetSourceGrayscaleInverted(visual.SourceGrayscaleInverted);
             return new TargetCartCrystalRoomEntity(actor,source.SubId,_runtimeState,new GoronCaveDatabase(),owner.OnSoundRequested,_random);
         }
@@ -121,7 +122,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
             cucco.Initialize(
                 cuccoRecord,
                 enemies.ImportedEnemy(
-                    EnemyBehaviorTables.Shared.Cucco.GiantReplacementId),
+                    EnemyBehaviorTables.For(AssetRoot).Cucco.GiantReplacementId),
                 room,
                 position,
                 _random,
@@ -898,7 +899,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
         var actor=new PincerCharacter {Name=$"Pincer_45_{source.SubId:x2}"};
         actor.Initialize(enemies.ImportedEnemy(0x45,source.SubId),room,position,_random,()=>
         {
-            if(!owner.CanAllocateEnemies(EnemyBehaviorTables.Shared.PincerState[0].Value))return false;
+            if(!owner.CanAllocateEnemies(EnemyBehaviorTables.For(AssetRoot).PincerState[0].Value))return false;
             var head=(PincerRoomEntity)owner.TryAllocateEnemy(_=>CreatePincer(room,actor.Position.Floor(),source with {SubId=1}))!;
             int headSlot=((PincerCharacter)head.Node).NativeSlot;
             for(int subid=2;subid<=4;subid++)
@@ -910,7 +911,7 @@ internal sealed class RoomEnemyFactory(RoomEntityManager owner, EnemyDatabase en
             return true;
         },(point,spawns)=>
         {
-            var breakables=new BreakableTileDatabase();
+            var breakables=new BreakableTileDatabase(AssetRoot);
             if(breakables.TryBreak(room,BreakableTileDatabase.SourceShovel,point,_saveData,room.Group,_animationTick,null,out var tile)==BreakableTileBreakStatus.Broken)
             {
                 tile.ApplyCommonEffects(owner.OnSoundRequested,owner.SpawnBreakableDrop);

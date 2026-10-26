@@ -7,6 +7,8 @@ namespace Oracles;
 
 internal sealed class GanonDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int,ImportedEnemyDefinition> _actors=[];
     private readonly Dictionary<string,byte[]> _tables=[];
     private readonly Dictionary<int,string> _texts=[];
@@ -19,18 +21,20 @@ internal sealed class GanonDatabase
     }
     internal EnemyCharacterConfiguration Visual {get;}
     internal IReadOnlyList<int[]> SourceOffsets {get;}
-    internal GanonDatabase()
+    internal GanonDatabase(string assetRoot)
     {
-        const string root=AgesGameContent.AssetRoot + "objects/";
+        AssetRoot = assetRoot;
+
+        string root=AssetRoot + "objects/";
         foreach(var row in GeneratedTable.Load(root+"ganon_actors.tsv",new("Ganon actors",GeneratedTableKeySemantics.Unique,
             ["id","subid","sprites","tile-base","palette","source-grayscale-inverted","radius-y","radius-x","damage-quarters","health","animations-base64"],
             ["id","subid"],headerRequired:true)).Rows)
-            _actors.Add(row.HexByte(0),new(row.HexByte(0),row.HexByte(1),row.SplitRequired(2,','),row.Decimal(3),row.Decimal(4),row.Boolean01(5),
+            _actors.Add(row.HexByte(0),new(AssetRoot, row.HexByte(0),row.HexByte(1),row.SplitRequired(2,','),row.Decimal(3),row.Decimal(4),row.Boolean01(5),
                 row.Decimal(6),row.Decimal(7),row.Decimal(8),row.Decimal(9),row.EncodedAnimations(10)));
         foreach(var row in GeneratedTable.Load(root+"ganon_tables.tsv",new("Ganon native tables",GeneratedTableKeySemantics.Unique,
             ["profile","values","source"],["profile"],headerRequired:true)).Rows)
             _tables.Add(row.RequiredString(0),Array.ConvertAll(row.SplitRequired(1,','),s=>Convert.ToByte(s,16)));
-        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/ganon_texts.tsv",new("Ganon text",GeneratedTableKeySemantics.Unique,
+        foreach(var row in GeneratedTable.Load(AssetRoot + "cutscenes/ganon_texts.tsv",new("Ganon text",GeneratedTableKeySemantics.Unique,
             ["text-id","message-base64","source"],["text-id"],headerRequired:true)).Rows)
             _texts.Add(row.HexWord(0),row.Base64Utf8(1));
         var sprite=OracleGraphicsData.LoadPaletteColors(root+"ganon_sprite_palette_6.bin",transparentZero:true);
@@ -50,7 +54,7 @@ internal sealed class GanonDatabase
                 offset=next;banks.Add(key,offset);
                 foreach(string name in row.SplitRequired(1,','))
                 {
-                    sources.Add(name);var image=OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{name}.png");
+                    sources.Add(name);var image=OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{name}.png");
                     if(image.GetHeight()!=16||image.GetWidth()>128)throw row.Invalid(1,"native 32-tile OBJ graphics sheet");
                     // AppendGraphics aligns each sheet to a $200-byte VRAM
                     // block even when a PNG omits its unused trailing cells.
@@ -61,7 +65,7 @@ internal sealed class GanonDatabase
             offsets.Add(Enumerable.Repeat(offset,frames).ToArray());
         }
         if(offsets.Count!=15)throw new InvalidOperationException("ganon.s: expected fifteen native animations.");
-        Visual=EnemyCharacterConfiguration.FromImported(Actor(4)) with {Source=EnemyVisualSource.LoadComposite(sources.ToArray())};
+        Visual=EnemyCharacterConfiguration.FromImported(Actor(4)) with {Source=EnemyVisualSource.LoadComposite(sources.ToArray(), AssetRoot)};
         SourceOffsets=offsets;
     }
     internal ImportedEnemyDefinition Actor(int id)=>_actors[id];

@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         // Use the actual LINK_ANIM_MODE_SWIM up frames: graphic $d4/$d8,
         // OAM $10, six interactionAnimate updates per frame.
         const string animation = "6,0@12,0,0,0;12,8,2,0|6,1@12,0,0,0;12,8,2,0";
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(0, 0x66).First() with
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(0, 0x66).First() with
         {
             SpriteName = "spr_link", TileBase = 0, Palette = 1,
             UpAnimation = animation, RightAnimation = animation,
@@ -27,8 +27,8 @@ public sealed partial class ValidationRoot
         var reference = new NpcCharacter();
         try
         {
-            actor.Initialize(record);
-            reference.Initialize(record);
+            actor.Initialize(record, AgesGameContent.AssetRoot);
+            reference.Initialize(record, AgesGameContent.AssetRoot);
             foreach (Action<NpcCharacter> change in new Action<NpcCharacter>[]
             {
                 npc => npc.SetBasePalette(2),

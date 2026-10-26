@@ -15,11 +15,10 @@ internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => _state == CuccoState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => Z;
-
-    private readonly CuccoBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Cucco;
-    private readonly GiantCuccoBehaviorProfile _giantBehavior =
-        EnemyBehaviorTables.Shared.GiantCucco;
+    private CuccoBehaviorProfile? _behaviorSourceCache;
+    private CuccoBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Cucco;
+    private GiantCuccoBehaviorProfile? _giantBehaviorSourceCache;
+    private GiantCuccoBehaviorProfile _giantBehavior => _giantBehaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).GiantCucco;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -86,6 +85,7 @@ internal partial class CuccoCharacter : EnemyCharacter, ITerrainShadowSource
         Action<int> screenShakeRequested,
         Action<Rect2, int, int, int> applyThrownObjectHit)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != EnemyId.Cucco || record.SubId != 0x00 ||
             record.Animations.Length != 2)
         {

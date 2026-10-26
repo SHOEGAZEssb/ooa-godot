@@ -8,7 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidateSymmetryEnemies()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         // enemyData.s: the village and its west/south approaches in both eras.
         int[] rooms = [0x00, 0x01, 0x02, 0x03, 0x04, 0x10, 0x11, 0x12, 0x13, 0x14,
             0x20, 0x21, 0x22, 0x23, 0x24];
@@ -62,7 +62,7 @@ public partial class ValidationRoot
 
     private void ValidateArrowDarknuts()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         OracleRoomData room = _world.LoadRoom(0, 0x11);
         FailIf(database.ImportedEnemy(EnemyId.ArrowDarknut, 0) is not { Health: 6, DamageQuarters: 2, Palette: 2 } ||
             database.ImportedEnemy(EnemyId.ArrowDarknut, 1) is not { Health: 9, DamageQuarters: 4, Palette: 1 },
@@ -131,7 +131,7 @@ public partial class ValidationRoot
             "Arrow Darknut accepted fire despite collision row $20.");
         adapter.SetLinkSwordState(SwordActionState.None, 1);
         FailIf(!adapter.ApplySwordHit(fighter.CollisionBounds, fighter.Position - Vector2.Right * 16, 1,
-            EnemyKnockbackStrength.High, spawns) || fighter.KnockbackCounter != EnemyBehaviorTables.Shared.EnemySwordDamageProfiles[0].Second,
+            EnemyKnockbackStrength.High, spawns) || fighter.KnockbackCounter != EnemyBehaviorTables.For(AgesGameContent.AssetRoot).EnemySwordDamageProfiles[0].Second,
             "Arrow Darknut level-one sword hit did not use effect $08 low recoil.");
         fighter.Free();
         GD.Print("Validated red/blue Arrow Darknut RNG branches, scent immunity, alternating fire, and low sword recoil/fire immunity.");
@@ -139,7 +139,7 @@ public partial class ValidationRoot
 
     private void ValidatePodobooTowers()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var source = database.GetRoomObjects(0, 0x02).First(row => row.Id == 0x2d);
         var random = new OracleRandom();
         var predictor = new OracleRandom();
@@ -224,9 +224,9 @@ public partial class ValidationRoot
             "Podoboo ordinary death lost its counted no-drop puff or recent-defeat mark.");
         ordinary.Free();
         var puff = new EnemyDeathPuffEffect();
-        puff.Initialize(position, enemyId: EnemyId.PodobooTower);
+        puff.Initialize(AgesGameContent.AssetRoot, position, enemyId: EnemyId.PodobooTower);
         var dropRandom = new OracleRandom();
-        var puffAdapter = new DeathPuffRoomEntity(puff, new ItemDropDatabase(), dropRandom,
+        var puffAdapter = new DeathPuffRoomEntity(puff, new ItemDropDatabase(AgesGameContent.AssetRoot), dropRandom,
             _inventory, _saveData, decrementsRoomCount: true, dropsItem: false);
         spawns.Clear();
         for (int i = 0; i < puff.DurationFrames; i++) puff.UpdateFrame(i);

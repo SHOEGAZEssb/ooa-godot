@@ -6,10 +6,14 @@ namespace Oracles;
 // does not own or mirror their lifetime, input state, or animation state.
 internal sealed class ParentItemUsageDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly ParentItemUsage[] _items=new ParentItemUsage[32];
-    internal ParentItemUsageDatabase()
+    internal ParentItemUsageDatabase(string assetRoot)
     {
-        var table=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/parent_item_usage.tsv",
+        AssetRoot = assetRoot;
+
+        var table=GeneratedTable.Load(AssetRoot + "metadata/parent_item_usage.tsv",
             new GeneratedTableSchema("itemUsageParameterTable",GeneratedTableKeySemantics.Unique,
                 ["item-id","usage","input","source"],["item-id"],headerRequired:true));
         if(table.Rows.Count!=32) throw new InvalidOperationException("itemUsageParameterTable requires $20 ordered rows.");

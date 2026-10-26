@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom070ForestFairySecret()
     {
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(0, 0x70).Single();
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(0, 0x70).Single();
         var commands = CutsceneCommandCatalog.Load(
             AgesGameContent.AssetRoot + "cutscenes/forest_fairy_secret_commands.tsv");
         FailIf(record is not { Id: 0x49, SubId: 0x0b, Var03: 0,
@@ -80,7 +80,7 @@ public sealed partial class ValidationRoot
             _secretEntry.Submit([0xff, 0xff, 0xff, 0xff, 0xff]);
             FailIf(!_secretEntry.IsActive || _saveData.HasGlobalFlag(0x65),
                 "Room 0:70 invalid secret advanced the reward.");
-            var codec = new LinkedGameNpcDatabase();
+            var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
             _secretEntry.Submit(codec.GenerateSecretValues(0x01, _saveData));
             for (int frame = 0; frame < 22; frame++) _secretEntry.Update(1.0 / 60.0);
             Step(30);

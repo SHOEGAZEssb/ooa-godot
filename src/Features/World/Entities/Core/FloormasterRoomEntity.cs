@@ -9,7 +9,8 @@ internal sealed class FloormasterRoomEntity : CombatEnemyRoomEntityAdapter<Floor
     IPostObjectMeleeCollisionRoomEntity, IPostObjectItemCollisionRoomEntity, IBoomerangCollisionRoomEntity,
     ISeedCollisionTarget, IBurningEnemyTarget, ISomariaBlockCollisionRoomEntity
 {
-    private readonly FloormasterBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Floormaster;
+    private FloormasterBehaviorProfile? _behaviorSourceCache;
+    private FloormasterBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Floormaster;
     private readonly Func<byte> _random;
     private readonly Func<bool> _freePart;
     internal int Slot { get; private set; } = -1;

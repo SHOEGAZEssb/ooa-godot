@@ -14,7 +14,7 @@ namespace Oracles;
 internal static class CutsceneCommandSchema
 {
     private const string Path =
-        AgesGameContent.AssetRoot + "cutscenes/script_command_vocabulary.tsv";
+        OracleAssetPack.CommonRoot + "cutscenes/script_command_vocabulary.tsv";
 
     private static readonly Registry Data = Load();
 

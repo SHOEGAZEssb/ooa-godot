@@ -42,6 +42,7 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
         CompanionAttackTileBreaker tileBreaker,
         OracleRuntimeState runtime)
     {
+        AssetRoot = room.AssetRoot;
         _behavior = behavior;
         _room = room;
         _tileBreaker = tileBreaker;
@@ -57,7 +58,7 @@ internal sealed partial class RickyTornadoRoomEntity : TransitionOffsetNode2D,
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{behavior.TornadoSprite}.png"),
+                AssetRoot + $"gfx/{behavior.TornadoSprite}.png"),
             [behavior.TornadoAnimation],
             behavior.TornadoTileBase,
             behavior.TornadoPalette);

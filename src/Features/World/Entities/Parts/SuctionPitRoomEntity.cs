@@ -10,11 +10,13 @@ internal sealed partial class SuctionPitRoomEntity : TransitionOffsetNode2D,
     IScreenTransitionPreloadRoomEntity
 {
     private readonly RoomEntityManager _owner;
-    private readonly SuctionPitDatabase _data = SuctionPitDatabase.Shared;
+    private SuctionPitDatabase? _dataSourceCache;
+    private SuctionPitDatabase _data => _dataSourceCache ??= SuctionPitDatabase.For(AssetRoot);
     internal int State { get; private set; }
     internal int Counter { get; private set; }
     internal SuctionPitRoomEntity(RoomEntityManager owner)
     {
+        AssetRoot = owner.AssetRoot;
         _owner = owner;
         Name = "SeaEffects";
         Visible = false;
@@ -35,7 +37,7 @@ internal sealed partial class SuctionPitRoomEntity : TransitionOffsetNode2D,
         if (State == 0) { State = 1; Counter = 0x20; return; }
         Player player = frame.Player;
         if (!player.NativeNormalStateForInteraction) return;
-        _owner.RuntimeState.SetWramByte(AgesWramAddress.wDisableScreenTransitions, 0);
+        _owner.RuntimeState.SetField("wDisableScreenTransitions", 0);
         if (!player.NativeInteractionCollisionsEnabled && !player.TopDownDiving) return;
         OracleRoomData room = _owner.ActiveRoom;
         Vector2 contactPosition = player.EnemyContactPosition;
@@ -71,7 +73,7 @@ internal sealed partial class SuctionPitRoomEntity : TransitionOffsetNode2D,
                 player.RequestSuctionPitFall(center);
                 return;
             }
-            _owner.RuntimeState.SetWramByte(AgesWramAddress.wDisableScreenTransitions, 0xff);
+            _owner.RuntimeState.SetField("wDisableScreenTransitions", 0xff);
             int angle = OracleObjectMovement.Shared.RelativeAngle(new(linkX, linkY), center);
             if (Counter != 0) Counter--;
             int speed = _data.Speeds[(Counter & 0x1c) >> 2];

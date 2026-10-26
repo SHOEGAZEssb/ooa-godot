@@ -6,8 +6,8 @@ internal static class NativeScriptInputControl
     // func_0c_4177. Keep the normal Link object; the shared mask gates it.
     internal static void SetEnabled(OracleRuntimeState memory, Player player, bool enabled)
     {
-        memory.SetWramByte(AgesWramAddress.wDisabledObjects, enabled ? (byte)0 : (byte)0x81);
-        memory.SetWramByte(AgesWramAddress.wMenuDisabled, enabled ? (byte)0 : (byte)0x80);
+        memory.SetField("wDisabledObjects", enabled ? (byte)0 : (byte)0x81);
+        memory.SetField("wMenuDisabled", enabled ? (byte)0 : (byte)0x80);
         if (enabled) return;
         player.ClearNativeItemParents();
         player.DropHeldItemsForScript();

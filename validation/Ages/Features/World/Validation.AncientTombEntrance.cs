@@ -106,7 +106,7 @@ public sealed partial class ValidationRoot
             Step(30, Vector2.Left);
             FailIf(_sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 1 || _entities.PlayerUpdatesFrozen,
                 "Repeated grave contact restarted the completed 1:8c puzzle.");
-            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) ||
+            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var restored) ||
                 !restored!.HasRoomFlag(1, 0x8c, 0x80), "1:8c flag $80 did not survive explicit save serialization.");
             LoadValidationRoom(1, 0x8c);
             _sound.ClearPlayRequestAudit();

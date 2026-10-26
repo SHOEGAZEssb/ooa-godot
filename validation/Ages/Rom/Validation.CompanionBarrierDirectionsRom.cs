@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
 {
     private void CompareCompanionBarrierDirectionsRom()
     {
-        var database = new CompanionBarrierDatabase();
+        var database = new CompanionBarrierDatabase(AgesGameContent.AssetRoot);
         // Independent mainData.s placements, including the two objects in $6a.
         (int Room,int Order,int Sub,int Y,int X)[] placements = [
             (0x5c,0,5,0x40,0x98),

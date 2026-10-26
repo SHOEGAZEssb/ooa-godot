@@ -10,7 +10,7 @@ internal sealed class BariRoomEntity : CombatEnemyRoomEntityAdapter<BariCharacte
     IBoomerangCollisionRoomEntity, ISomariaBlockCollisionRoomEntity, ISeedCollisionTarget,
     IExpertPunchHittableRoomEntity
 {
-    private readonly BariBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Bari;
+    private readonly BariBehaviorProfile _behavior = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Bari;
     private readonly Func<byte> _random;
     private Player? _player;
     protected override bool Stunned => Entity.StunCounter != 0;

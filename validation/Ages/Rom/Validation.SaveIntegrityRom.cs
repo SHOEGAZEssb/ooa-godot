@@ -18,18 +18,18 @@ public sealed partial class ValidationRoot
         foreach (int modifier in new[] { 0, 1 })
         foreach (var position in new[] { Vector2I.Zero, new Vector2I(0, 0x68), new Vector2I(0x50, 0) })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetDeathRespawnPoint(group, room, modifier, 1, position.Y, position.X);
             if (completed) save.MarkGameCompleted();
             save.WriteWramByte(0xc8f0, 0);
             save.WriteWramByte(0xc8f2, 0);
             byte[] before = save.Serialize();
-            FailIf(!OracleSaveData.TryDeserialize(before, out OracleSaveData? loaded) ||
+            FailIf(!OracleSaveData.TryDeserialize(before, OracleGame.Ages, out OracleSaveData? loaded) ||
                 !loaded!.Serialize().SequenceEqual(before),
                 "Loading a checksum-valid save must preserve every byte, including zero vine positions.");
             for (int address = 0xc5b0; address < 0xcb00; address++) rom[address] = loaded!.ReadWramByte(address);
             rom.InitializeSavedGame();
-            DeathRespawnInitialization.Apply(loaded!);
+            AgesDeathRespawnInitialization.Apply(loaded!);
             foreach (int address in Enumerable.Range(0xc62b, 13).Concat(Enumerable.Range(0xc8f0, 6)))
                 FailIf(loaded!.ReadWramByte(address) != rom[address],
                     $"Saved-state preservation at {group:x1}:{room:x2}, X=${position.X:x2}/Y=${position.Y:x2}: byte ${address:x4} differs from native initializeGame.");
@@ -40,8 +40,8 @@ public sealed partial class ValidationRoot
 
     private static void ValidateSaveIntegrityRom()
     {
-        byte[] first = OracleSaveData.CreateStandardGame().Serialize();
-        var otherSave = OracleSaveData.CreateStandardGame();
+        byte[] first = OracleSaveData.CreateStandardGame(OracleGame.Ages).Serialize();
+        var otherSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         otherSave.SetLinkName("OTHER");
         byte[] second = otherSave.Serialize();
         var rom = new FrontendRom();
@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
             {
                 byte[] broken = (byte[])first.Clone();
                 broken[offset] ^= (byte)(1 << (offset & 7));
-                FailIf(OracleSaveData.TryDeserialize(broken, out _),
+                FailIf(OracleSaveData.TryDeserialize(broken, OracleGame.Ages, out _),
                     $"Save integrity slot ${slot:x2}: mutation ${0xc5b0 + offset:x4} was accepted.");
                 Copies(slot, broken, second);
                 rom.LoadFile(slot);
@@ -96,7 +96,7 @@ public sealed partial class ValidationRoot
                 byte[] brokenSignature = (byte[])first.Clone();
                 brokenSignature[2 + character] ^= 0x80;
                 Sign(brokenSignature);
-                FailIf(OracleSaveData.TryDeserialize(brokenSignature, out _),
+                FailIf(OracleSaveData.TryDeserialize(brokenSignature, OracleGame.Ages, out _),
                     $"Save signature slot ${slot:x2} character ${character} was accepted despite a valid checksum.");
                 Copies(slot, brokenSignature, second);
                 rom.LoadFile(slot);
@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
             collision[0x54c]++;
             collision[0x54e]--;
             collision[0x54f]--; // Borrow: $0000 - 1 is $ffff, not $00ff.
-            FailIf(!OracleSaveData.TryDeserialize(collision, out _), "The native additive checksum collision was rejected.");
+            FailIf(!OracleSaveData.TryDeserialize(collision, OracleGame.Ages, out _), "The native additive checksum collision was rejected.");
             Copies(slot, collision, second);
             rom.LoadFile(slot);
             CheckNativeLive(collision, "Valid checksum collision");
@@ -140,16 +140,16 @@ public sealed partial class ValidationRoot
                 File.WriteAllBytes(path + ".bak", backup);
                 if (primaryValid || backupValid)
                 {
-                    OracleSaveData recovered = OracleSaveStore.LoadOrCreate(path);
+                    OracleSaveData recovered = OracleSaveStore.LoadOrCreate(path, OracleGame.Ages);
                     FailIf(!recovered.Serialize().SequenceEqual(nativeResult),
                         $"Disk recovery slot ${slot:x2} mask ${mask:x2} selected a different native image.");
                 }
                 else
                 {
                     bool rejected = false;
-                    try { OracleSaveStore.LoadOrCreate(path); }
+                    try { OracleSaveStore.LoadOrCreate(path, OracleGame.Ages); }
                     catch (InvalidDataException) { rejected = true; }
-                    FailIf(OracleSaveData.TryDeserialize(nativeResult, out _) || !rejected,
+                    FailIf(OracleSaveData.TryDeserialize(nativeResult, OracleGame.Ages, out _) || !rejected,
                         "Both invalid copies must be rejected without inventing a new-save fallback.");
                 }
                 // Filesystem reads select the native valid image without an

@@ -22,6 +22,7 @@ internal sealed partial class SomariaWeapon : TransitionOffsetNode2D
     internal SomariaWeapon(SomariaSwingDatabase swing,SomariaPlacementDatabase placement,
         SomariaGraphicsDatabase graphics,Vector2 position,int z)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _swing=swing; _placement=placement;
         Position=position.Floor(); ZHigh=(sbyte)(byte)z;
         var graphic=graphics.Weapon(0);
@@ -58,7 +59,7 @@ internal sealed partial class SomariaWeapon : TransitionOffsetNode2D
         if(parentId!=0x04) { Finished=true; Visible=false; return; }
         var selection=_swing.Select(parentParameter,direction);
         _visual.SetAnimation(selection.Animation);
-        SwordArc arc=LinkItemDatabase.Shared.SwordArc(selection.Arc);
+        SwordArc arc=LinkItemDatabase.For(AgesGameContent.AssetRoot).SwordArc(selection.Arc);
         Radius=new(arc.RadiusX,arc.RadiusY);
         Position=new((byte)((int)Mathf.Floor(link.X)+arc.OffsetX),
             (byte)((int)Mathf.Floor(link.Y)+raisedFloorOffset+arc.OffsetY));

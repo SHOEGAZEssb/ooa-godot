@@ -18,7 +18,7 @@ internal sealed class ItemDropRoomEntity(
     public void AttachToItem(Func<ItemDropCarrier?> carrier) => Entity.AttachToItem(carrier);
     public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = BoomerangCollisionDatabase.Shared;
+        var data = BoomerangCollisionDatabase.For(AssetRoot);
         if (!data.PartEnabled(0x01) || !item.CollisionEnabled || !Entity.CanAttachToItem ||
             !RoomEntityManager.ObjectCollisionZOverlaps(Entity.ZFixed >> 8, item.ZHigh, 7) ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, item.CollisionBounds)) return default;

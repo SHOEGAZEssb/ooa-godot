@@ -191,12 +191,12 @@ internal sealed class BombUpgradeFairyEvent : InteractiveCutsceneCommandHost, IR
                     Spawn("bomb", Context.Player.Position + Database.Bombs[i].Offset, delay: Database.Bombs[i].Delay, variant: i);
                 break;
             case "bombUpgradeFairy_lightningStrikesLink":
-                EffectRecord visual = new SharedEffectDatabase().Effect("Lightning");
+                EffectRecord visual = new SharedEffectDatabase(AgesGameContent.AssetRoot).Effect("Lightning");
                 Vector2 position = Context.Player.Position;
                 NpcCharacter actor = Context.Entities.Spawn<NpcCharacter>(new CutsceneNpcSpawn(
                     visual.ToNpcRecord(Database.Group, Database.Room, (int)position.Y, (int)position.X), "BombFairy_Lightning"));
                 _lightning = new LightningEffect(actor, () => Context.Entities.NextRandomValue(), Context.Sound.PlaySound,
-                    Context.Entities.BeginScreenShake, p => Spawn("debris", p, alwaysUpdate: true));
+                    Context.Entities.BeginScreenShake, p => Spawn("debris", p, alwaysUpdate: true), AgesGameContent.AssetRoot);
                 break;
             case "bombUpgradeFairy_decreaseLinkHealth":
                 if (Context.Inventory.ApplyFairyHealthPenalty()) Collapse();

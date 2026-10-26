@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
             var rom=new SomariaRom(_saveData,seed,_currentRoom,0,0x78,0x58){HostilePartsEnabled=true,PostObjectCollisionsEnabled=false};
             rom.InitializeLinkGameplay();rom.InitializeLinkWalkingAnimation();rom[0xcd17]=0xd0;
             Vector2 camera=-_transitions.WorldToGameplayScreen(Vector2.Zero);rom[0xffaa]=(byte)camera.Y;rom[0xffac]=(byte)camera.X;
-            var parent=new RoomOfRitesBoulderRoomEntity(_entities,new());_entities.AddEntity(parent);
+            var parent=new RoomOfRitesBoulderRoomEntity(_entities,new(AgesGameContent.AssetRoot));_entities.AddEntity(parent);
             rom[0xd0c0]=1;rom[0xd0c1]=0x54;
             var sounds=_sound.AttachPlayRequestAudit();int update=0;bool sawChild=false;
             StepGameplayUpdates(6,Vector2.Zero,batched:batch,afterUpdate:Compare);

@@ -9,7 +9,8 @@ internal sealed partial class LynelBeamRoomEntity : TransitionOffsetNode2D, IRoo
     IFixedRoomEntity, IRoomEntityLifetime, IPostObjectLinkContactRoomEntity,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, INativePartHealthRoomEntity, IObjectCollisionHeightRoomEntity
 {
-    private readonly EnemyBehaviorTables _data = EnemyBehaviorTables.Shared;
+    private EnemyBehaviorTables? _dataSourceCache;
+    private EnemyBehaviorTables _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
     private readonly EnemyAnimationPlayer _animation;
     private readonly RoomEntityManager _owner;
     private bool _hit, _collisionEnabled = true;
@@ -25,10 +26,11 @@ internal sealed partial class LynelBeamRoomEntity : TransitionOffsetNode2D, IRoo
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => SetTransitionDrawOffset(offset);
     internal LynelBeamRoomEntity(EnemyProjectileVisualRecord visual, LynelBeamSpawn spawn, RoomEntityManager owner)
     {
+        AssetRoot = visual.AssetRoot;
         _owner = owner; Position = spawn.Position.Floor(); Angle = spawn.Angle; CollisionZ = spawn.ZHigh;
         Palette = visual.Palette;
         _animation = new(this, visual.Animations.Length);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations, visual.TileBase,
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations, visual.TileBase,
             visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted,
             paletteVariants: [visual.Palette ^ _data.LynelBeamState[2].Value]);
         Visible = false;

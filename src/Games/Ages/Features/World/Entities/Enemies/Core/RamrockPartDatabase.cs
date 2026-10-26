@@ -24,7 +24,7 @@ internal sealed class RamrockPartDatabase
             int count = group.Key switch { 0x34 => 1, 0x35 => 2, 0x4f => 5, _ => throw first.Invalid(0, "PART$34/$35/$4f") };
             if (rows.Length != count || rows.Where((row, i) => row.UnsignedDecimal(1) != i).Any())
                 throw new InvalidOperationException($"Ramrock PART${group.Key:x2} requires {count} ordered animations.");
-            _visuals.Add(group.Key, new(first.SplitRequired(2, ','), first.UnsignedDecimal(3), first.UnsignedDecimal(4),
+            _visuals.Add(group.Key, new(AgesGameContent.AssetRoot, first.SplitRequired(2, ','), first.UnsignedDecimal(3), first.UnsignedDecimal(4),
                 first.Boolean01(5), rows.Select(row => row.RequiredString(6)).ToArray()));
             _properties.Add(group.Key, first.SplitRequired(7, ',').Select(v => int.Parse(v, CultureInfo.InvariantCulture)).ToArray());
             foreach (var row in rows) _ = row.RequiredString(8);

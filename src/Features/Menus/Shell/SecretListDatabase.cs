@@ -5,13 +5,19 @@ namespace Oracles;
 
 internal sealed class SecretListDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly List<SecretListEntry>[] _entries = [new(), new()];
     private readonly Dictionary<int, string> _names = new();
-    private readonly LinkedGameNpcDatabase _secrets = new();
-    private readonly byte[] _glyphs = new SecretEntryDatabase().Glyphs;
-    internal SecretListDatabase()
+    private LinkedGameNpcDatabase? _secretsSourceCache;
+    private LinkedGameNpcDatabase _secrets => _secretsSourceCache ??= new(AssetRoot);
+    private byte[]? _glyphsSourceCache;
+    private byte[] _glyphs => _glyphsSourceCache ??= new SecretEntryDatabase(AssetRoot).Glyphs;
+    internal SecretListDatabase(string assetRoot)
     {
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "menu/secret_list_entries.tsv", new(
+        AssetRoot = assetRoot;
+
+        foreach (var row in GeneratedTable.Load(AssetRoot + "menu/secret_list_entries.tsv", new(
             "Farore's secret list", GeneratedTableKeySemantics.Ordered,
             ["linked", "index", "name-mode", "flag", "secret-index", "source"], ["linked", "index"], headerRequired: true)).Rows)
         {
@@ -19,7 +25,7 @@ internal sealed class SecretListDatabase
             if (row.Decimal(1) != entries.Count) throw row.Invalid(1, "native contiguous secret list order");
             entries.Add(new(row.HexByte(2), row.HexByte(3), row.HexByte(4)));
         }
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "menu/secret_list_names.tsv", new(
+        foreach (var row in GeneratedTable.Load(AssetRoot + "menu/secret_list_names.tsv", new(
             "Secret list names", GeneratedTableKeySemantics.Unique,
             ["index", "text-base64", "source"], ["index"], headerRequired: true)).Rows)
             _names.Add(row.HexByte(0), row.Base64Utf8(1));
@@ -39,7 +45,7 @@ internal sealed class SecretListDatabase
         if (mode == 3)
         { for (int i = 0; i < 5; i++) text[i] = _glyphs[values[i]]; return text; }
         int offset = 0, value = 0;
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/linked_secret_ring_spacing.tsv", new(
+        foreach (var row in GeneratedTable.Load(AssetRoot + "objects/linked_secret_ring_spacing.tsv", new(
             "Ring secret spacing", GeneratedTableKeySemantics.Ordered, ["index", "value", "source"], headerRequired: true)).Rows)
         {
             int spacing = row.HexByte(1), count = spacing & 15;

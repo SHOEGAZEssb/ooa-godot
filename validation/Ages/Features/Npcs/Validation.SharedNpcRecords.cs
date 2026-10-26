@@ -96,11 +96,11 @@ public sealed partial class ValidationRoot
             }
         }
         GD.Print("Validated all eight forest-fairy records across four phases, both game modes, real geometry, repeat conversations and initialization lifetime.");
-        var visibility = new NpcVisibilityRuleDatabase();
-        var database = new NpcDatabase();
+        var visibility = new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot);
+        var database = new NpcDatabase(AgesGameContent.AssetRoot);
         foreach(int flags in Enumerable.Range(0,16))
         {
-            var save=OracleSaveData.CreateStandardGame();var runtime=AgesGameContent.CreateRuntimeState();
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);var runtime=AgesGameContent.CreateRuntimeState();
             bool won=(flags&1)!=0, forest=(flags&2)!=0, jabu=(flags&4)!=0, finished=(flags&8)!=0;
             save.SetGlobalFlag(AgesGlobalFlag.WonFairyHidingGame,won);save.SetGlobalFlag(AgesGlobalFlag.ForestUnscrambled,forest);
             save.SetGlobalFlag(AgesGlobalFlag.FinishedGame,finished);save.SetRoomFlag(0,0x90,0x40,jabu);
@@ -194,7 +194,7 @@ public sealed partial class ValidationRoot
             {
                 StepGameplayUpdates(1, Vector2.Zero, ["attack"], ["attack"], batched);
                 int text = state == 0 && repeat == 1 ? 0x3711 : ids[state];
-                var imported = new SharedNpcDatabase().Script(npc.Record).OfType<CutsceneShowTextCommand>().Single(c => c.TextId == text);
+                var imported = new SharedNpcDatabase(AgesGameContent.AssetRoot).Script(npc.Record).OfType<CutsceneShowTextCommand>().Single(c => c.TextId == text);
                 FailIf(!_dialogue.IsOpen || PlainWords(_dialogue.CurrentMessage) != PlainWords(imported.Message.Replace("\\Link", _saveData.LinkName, StringComparison.Ordinal)) ||
                     state < 3 && repeat == 0 && !PlainWords(_dialogue.CurrentMessage).Contains(words[state], StringComparison.Ordinal),
                     $"Adlar state {state} repeat {repeat} lost TX_{text:x4}.");

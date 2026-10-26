@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
             native.InitializeLinkGameplay();native[0xcc8a]=1;native[0xcd00]=0;
             for(int i=0;i<14-free;i++)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(new(24,24),SoundId.MusNone);
+                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);
                 _entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int filler=0xd040+_entities.InteractionSlot(puff)*256;
                 native[filler]=1;native[filler+1]=0;native[filler+4]=1;native[filler+0x20]=0xff;

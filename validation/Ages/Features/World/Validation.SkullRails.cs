@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullDungeonRails()
     {
         var data = new SkullDungeonDatabase();
-        var railData = new DungeonInteractionDatabase();
+        var railData = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
         // Independent switchTileToggler.s / mainData.s / replaceSwitchTiles
         // goldens; the native comparisons use the actual unchanged geometry.
         FailIf(railData.SwitchTiles(0x0b) != (0x5c, 0x5d) || railData.SwitchTiles(0x0c) != (0x59, 0x5e) ||

@@ -50,7 +50,7 @@ public sealed partial class ValidationRoot
             {
                 var data = new DungeonMechanicDatabase();
                 var record = data.GetRoomRecords(4, 0xa6).Single(row => row.Id == 0x33 && row.SubId == 0x08);
-                reflector = new(record, data, new DungeonInteractionVisualDatabase().Visual("rotatable-seed-thing"),
+                reflector = new(record, data, new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("rotatable-seed-thing"),
                     _currentRoom, _runtimeState, () => _entities.FrameCounter, _entities.TryCreateSeedReflectorChild);
                 _entities.AddEntity(reflector);
                 // Independent seeds.s Satchel XY offsets. Start within the
@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             int button = primary ? 1 : 2, update = 0, contacts = 0;
             if (capacity)
             {
-                var bombs = new BombDatabase().Data;
+                var bombs = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
                 for (int index = 0; index < 4; index++)
                 {
                     _entities.Spawn<BombEffect>(new BombSpawn(_player, bombs, 0, _ => { }));

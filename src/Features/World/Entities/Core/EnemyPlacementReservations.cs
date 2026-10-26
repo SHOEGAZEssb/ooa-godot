@@ -6,8 +6,7 @@ internal sealed class EnemyPlacementReservations
 {
     private readonly OracleRuntimeState _runtime;
 
-    internal EnemyPlacementReservations(OracleRuntimeState? runtime = null) =>
-        _runtime = runtime ?? AgesGameContent.CreateRuntimeState();
+    internal EnemyPlacementReservations(OracleRuntimeState runtime) => _runtime = runtime;
 
     internal int Count => _runtime.ReadWramByte(EnemyPlacementMemory.Count);
 
@@ -17,7 +16,7 @@ internal sealed class EnemyPlacementReservations
         for (int address = EnemyPlacementMemory.RandomBufferIndex;
             address < EnemyPlacementMemory.RandomBufferIndex + EnemyPlacementMemory.ResetByteCount; address++)
             runtime.SetWramByte(address, 0);
-        runtime.SetWramByte(AgesWramAddress.wTmpcfc0, 0);
+        runtime.SetField("wTmpcfc0", 0);
     }
 
     internal bool Contains(int packedPosition)

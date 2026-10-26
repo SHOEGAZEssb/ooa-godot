@@ -5,11 +5,15 @@ namespace Oracles;
 
 internal sealed class MovingPlatformDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int Dungeon, int Script), MovingPlatformScript> _scripts = new();
 
-    internal MovingPlatformDatabase()
+    internal MovingPlatformDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/moving_platform_scripts.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "objects/moving_platform_scripts.tsv",
             new GeneratedTableSchema("moving platform mini-scripts", GeneratedTableKeySemantics.Unique,
                 ["dungeon", "script", "commands", "source"], ["dungeon", "script"], headerRequired: true));
         foreach (var row in table.Rows)

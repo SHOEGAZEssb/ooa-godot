@@ -14,7 +14,7 @@ internal sealed class MapleDroppedItemRoomEntity(MapleDroppedItem item, RoomEnti
     public void AttachToItem(Func<ItemDropCarrier?> carrier) => Entity.AttachToItem(carrier);
     public BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = BoomerangCollisionDatabase.Shared;
+        var data = BoomerangCollisionDatabase.For(AssetRoot);
         int id = Entity.ItemIndex < 5 ? 0x15 : 0x14;
         if (!data.PartEnabled(id) || !item.CollisionEnabled || !Entity.CanAttachToItem ||
             !RoomEntityManager.ObjectCollisionZOverlaps(Entity.ZFixed >> 8, item.ZHigh, 7) ||

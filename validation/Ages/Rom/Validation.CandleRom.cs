@@ -117,7 +117,7 @@ public sealed partial class ValidationRoot
                 }
             rom[0xd701] = ItemId.EmberSeed;
             rom.HitWithSword(ItemCollisionType.EmberSeed, 1);
-            new SeedSatchelDatabase().TryGet(ItemId.EmberSeed, out var ember);
+            new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.EmberSeed, out var ember);
             FailIf(!adapter.ApplySeedCollision(target.CollisionBounds, target.Position.Floor() - Vector2.Right,
                 ember, ItemCollisionType.EmberSeed, new List<RoomEntitySpawn>()).Contact, "Candle must admit the source Ember collision.");
             FailIf(rom[0xd0aa] != 0x9b || !target.NativeHitPending || target.Health != 8,

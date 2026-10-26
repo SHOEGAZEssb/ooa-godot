@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(new(120,112));_player.Face(Vector2I.Up);_transitions.ResetCamera();
             FailIf(_collision.Collides(_player.Position),"Child-bee attack must approach from the actual arena floor.");
             int targetY=shovel||somaria?96:80;
-            var data=new VeranFinalDatabase();var actor=new VeranChildBeeCharacter(_entities,data,0,new(120,targetY),_currentRoom);
+            var data=new VeranFinalDatabase(AgesGameContent.AssetRoot);var actor=new VeranChildBeeCharacter(_entities,data,0,new(120,targetY),_currentRoom);
             var bee=new VeranChildBeeRoomEntity(actor,_entities,data);_entities.AddEntity(bee);
             var initial=_random.CaptureState();var rom=new SomariaRom(_saveData,initial,_currentRoom,0,120,112)
                 {HostileEnemiesEnabled=true,HostilePartsEnabled=true};
@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
             ReinitializeGameplayForValidation();LoadValidationRoom(4,0xd4);_entities.Clear();
             _inventory.EquipA(0);_inventory.EquipB(0);_player.WarpTo(new(120,136));_transitions.ResetCamera();
             FailIf(_collision.Collides(_player.Position),"Child bee fixture requires the real arena floor.");
-            var data=new VeranFinalDatabase();var actor=new VeranChildBeeCharacter(_entities,data,0,new(120,64),_currentRoom);
+            var data=new VeranFinalDatabase(AgesGameContent.AssetRoot);var actor=new VeranChildBeeCharacter(_entities,data,0,new(120,64),_currentRoom);
             var bee=new VeranChildBeeRoomEntity(actor,_entities,data);_entities.AddEntity(bee);
             var initial=_random.CaptureState();var rom=new SomariaRom(_saveData,initial,_currentRoom,0,120,136)
                 {HostileEnemiesEnabled=true,HostilePartsEnabled=true};
@@ -113,7 +113,7 @@ public sealed partial class ValidationRoot
             else
             {
                 int item=collision switch {0x1a=>ItemId.MysterySeed,0x1b=>ItemId.EmberSeed,0x1c=>ItemId.ScentSeed,0x1d=>ItemId.PegasusSeed,_=>ItemId.GaleSeed};
-                FailIf(!new SeedSatchelDatabase().TryGet(item,out var seed),"Missing child-bee seed fixture.");
+                FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(item,out var seed),"Missing child-bee seed fixture.");
                 rom.HitEnemyWithItem(0,collision,-(sbyte)seed.Damage,item);
                 FailIf(!bee.ApplySeedCollision(actor.CollisionBounds,actor.Position-Vector2.Right,seed,collision,spawns).Contact,"Child bee rejected an eligible native seed.");
             }

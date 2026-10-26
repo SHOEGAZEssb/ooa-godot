@@ -26,7 +26,7 @@ internal sealed class WildTokayParticipantRoomEntity : NpcCharacterRoomEntityAda
     {_owner=owner;_position=new(record.X,record.Y);}
     private static TokayCharacter Create(NpcRecord record)
     {
-        var actor=new TokayCharacter{Name="WildTokay_48_0c",Visible=false};actor.Initialize(record);
+        var actor=new TokayCharacter{Name="WildTokay_48_0c",Visible=false};actor.Initialize(record, AgesGameContent.AssetRoot);
         actor.SetBlocksLink(false);actor.SetAnimationRate(0);return actor;
     }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)

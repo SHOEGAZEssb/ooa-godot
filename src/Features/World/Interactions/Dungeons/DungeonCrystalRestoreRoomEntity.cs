@@ -20,10 +20,10 @@ internal sealed partial class DungeonCrystalRestoreRoomEntity(DungeonObjectRecor
     private void Dispatch()
     {
         if (Finished) return;
-        int value = runtime.ReadWramByte(AgesGameContent.SwitchStateAddress);
+        int value = runtime.ReadField("wSwitchState");
         foreach (var flag in database.CrystalFlags)
             if (save.HasRoomFlag(record.Group, flag.Room, flag.Flag)) value |= 1 << flag.Bit;
-        runtime.SetWramByte(AgesGameContent.SwitchStateAddress, (byte)value);
+        runtime.SetField("wSwitchState", (byte)value);
         Finished = true;
     }
 }

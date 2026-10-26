@@ -6,16 +6,23 @@ namespace Oracles;
 
 internal sealed class LinkSquishDatabase
 {
-    internal static LinkSquishDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<LinkSquishDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static LinkSquishDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<LinkSquishDatabase>(() => new LinkSquishDatabase(root))).Value;
+
     private readonly Lookup<int,LinkSquishFrame> _frames = new();
     internal int FlickerCount { get; }
-    private LinkSquishDatabase()
+    private LinkSquishDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/link_squish_frames.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "metadata/link_squish_frames.tsv",
             new GeneratedTableSchema("Link squish animation",GeneratedTableKeySemantics.Unique,
                 ["mode","frame","duration","graphic","parameter","next","offset","oam","source"],
                 ["mode","frame"],headerRequired:true));
-        Image image = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_link.png");
+        Image image = OracleGraphicsCache.LoadImage(AssetRoot + "gfx/spr_link.png");
         foreach (var row in table.Rows)
         {
             int mode = row.HexByte(0);
@@ -28,7 +35,7 @@ internal sealed class LinkSquishDatabase
         }
         if (_frames.ValuesOrEmpty(6).Count != 3 || _frames.ValuesOrEmpty(7).Count != 3)
             throw new InvalidOperationException("Link squish requires both three-frame loops.");
-        var control = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/link_squish_control.tsv",
+        var control = GeneratedTable.Load(AssetRoot + "metadata/link_squish_control.tsv",
             new GeneratedTableSchema("Link squish control",GeneratedTableKeySemantics.Unique,
                 ["flicker-count","source"],["flicker-count"],headerRequired:true));
         if (control.Rows.Count != 1) throw new InvalidOperationException("Link squish requires one control record.");

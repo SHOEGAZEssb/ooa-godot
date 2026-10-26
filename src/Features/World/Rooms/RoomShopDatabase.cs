@@ -6,10 +6,15 @@ namespace Oracles;
 // Source graphics initialization sets wInShop independently of NPC presence.
 internal sealed class RoomShopDatabase
 {
-    private readonly byte[] _flags = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/roomShopFlags.bin");
+    public string AssetRoot { get; }
 
-    internal RoomShopDatabase()
+    private readonly byte[] _flags ;
+
+    internal RoomShopDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+        _flags = OracleAssetCache.ReadBytes(AssetRoot + "metadata/roomShopFlags.bin");
+
         if (_flags.Length != 8 * 256)
             throw new InvalidOperationException("roomGfxChanges.s: roomShopFlags.bin requires eight 256-room groups.");
         int shops = 0;

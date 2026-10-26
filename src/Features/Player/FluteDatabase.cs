@@ -5,7 +5,9 @@ namespace Oracles;
 
 internal sealed class FluteDatabase
 {
-    internal IntroSpriteFrame[] Frames { get; } = new NewGameIntroDatabase().SpriteFrames("link-flute-item");
+    public string AssetRoot { get; }
+
+    internal IntroSpriteFrame[] Frames { get; }
     private readonly int[] _parameters = new int[7];
     private readonly int[] _sounds = new int[4];
     private readonly HashSet<int> _rooms = new();
@@ -15,9 +17,12 @@ internal sealed class FluteDatabase
     internal int Sound(int icon) => (uint)icon < 4 ? _sounds[icon] :
         throw new InvalidOperationException($"harpFluteParent.s has no flute icon ${icon:x2}.");
 
-    internal FluteDatabase()
+    internal FluteDatabase(string assetRoot)
     {
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/flute.tsv",
+        AssetRoot = assetRoot;
+        Frames = new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-flute-item");
+
+        foreach (var row in GeneratedTable.Load(AssetRoot + "objects/flute.tsv",
             new GeneratedTableSchema("Flute source data", GeneratedTableKeySemantics.Ordered,
                 ["kind", "index", "value", "source"], headerRequired: true)).Rows)
         {

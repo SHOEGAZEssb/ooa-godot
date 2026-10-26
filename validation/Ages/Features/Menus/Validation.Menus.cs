@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateMenuPresentationData()
     {
-        MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;
+        MenuPresentationDatabase layouts = MenuPresentationDatabase.For(AgesGameContent.AssetRoot);
 
         string[] expectedMapLabels = Enumerable.Range(0, 26)
             .Select(index => $"@mapIcon{index:X2}")
@@ -167,7 +167,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSecretEntryBackground()
     {
-        var screen = new MainMenuScreen { Name = "SecretEntryBackgroundValidation" };
+        var screen = new MainMenuScreen { AssetRoot = AgesGameContent.AssetRoot, Name = "SecretEntryBackgroundValidation" };
         AddChild(screen);
         try
         {
@@ -207,7 +207,7 @@ public sealed partial class ValidationRoot
     private void ValidateMainMenu()
     {
         var stored = new OracleSaveData?[OracleSaveStore.SlotCount];
-        var screen = new MainMenuScreen { Name = "MainMenuValidation" };
+        var screen = new MainMenuScreen { AssetRoot = AgesGameContent.AssetRoot, Name = "MainMenuValidation" };
         AddChild(screen);
         int startedSlot = -1;
         OracleSaveData? startedSave = null;
@@ -244,8 +244,8 @@ public sealed partial class ValidationRoot
             MainMenuScreen.SpriteColorIndexForValidation(Colors.White, inverted: true) != 3 ||
             !screen.TitleLogoSpritePixelForValidation(128, 80).IsEqualApprox(
                 new Color(0x09 / 31.0f, 0x0f / 31.0f, 0x05 / 31.0f)) ||
-            MainMenuScreen.TextSpeedCursorPositionForValidation(0) != new Vector2(41, 128) ||
-            MainMenuScreen.TextSpeedCursorPositionForValidation(4) != new Vector2(105, 128),
+            MainMenuScreen.TextSpeedCursorPositionForValidation(0, AgesGameContent.AssetRoot) != new Vector2(41, 128) ||
+            MainMenuScreen.TextSpeedCursorPositionForValidation(4, AgesGameContent.AssetRoot) != new Vector2(105, 128),
             "File-select tile interleave, normal/PALH_06 erase panel fill, " +
             "filename/name-entry fields, " +
             "name cursor priority mask, sprite inversion, title OAM priority, " +
@@ -346,7 +346,7 @@ public sealed partial class ValidationRoot
             startedSlot != 0 || startedSave != stored[0] || stored[0]!.TextSpeed != 1,
             "Message-speed confirmation did not save and start the chosen file.");
 
-        var copyScreen = new MainMenuScreen { Name = "MainMenuCopyValidation" };
+        var copyScreen = new MainMenuScreen { AssetRoot = AgesGameContent.AssetRoot, Name = "MainMenuCopyValidation" };
         AddChild(copyScreen);
         var copyMenu = new MainMenuController(
             copyScreen, (_, _) => { }, slot => stored[slot],
@@ -389,7 +389,7 @@ public sealed partial class ValidationRoot
         FailIf(stored[1] is not null, "Erase confirmation did not clear the selected file slot.");
 
         bool startedAfterFailure = false;
-        var failureScreen = new MainMenuScreen { Name = "MainMenuSaveFailureValidation" };
+        var failureScreen = new MainMenuScreen { AssetRoot = AgesGameContent.AssetRoot, Name = "MainMenuSaveFailureValidation" };
         AddChild(failureScreen);
         var failureMenu = new MainMenuController(
             failureScreen,
@@ -516,6 +516,7 @@ public sealed partial class ValidationRoot
         };
         var titleScreen = new MainMenuScreen
         {
+            AssetRoot = AgesGameContent.AssetRoot,
             Name = "FrontendTitleValidation",
             Visible = false
         };
@@ -599,7 +600,7 @@ public sealed partial class ValidationRoot
             introData.Sequence("horse-face-sparkle");
         FrontendSequenceValue templeBackgroundAnimation =
             introData.Sequence("temple-background-animation")[0];
-        var backgroundAnimations = new OracleAnimationData();
+        var backgroundAnimations = new OracleAnimationData(AgesGameContent.AssetRoot);
         int[] directLoadTick8 =
             backgroundAnimations.GetActiveHeadersAfterDirectLoad(0x10, 8);
         int[] directLoadTick9 =
@@ -1095,13 +1096,13 @@ public sealed partial class ValidationRoot
         FailIf(_saveData.IsLinkedGame == linkedBefore, "The debug editor did not toggle wIsLinkedGame.");
         _debugFlagScreen.ActivateSelection();
 
-        var itemSave = OracleSaveData.CreateStandardGame();
-        var itemTreasures = new TreasureDatabase();
+        var itemSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
+        var itemTreasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var itemInventory = new InventoryState(itemTreasures, itemSave, () => 0);
         var itemScreen = new DebugFlagScreen { Name = "DebugItemGrantValidation" };
         AddChild(itemScreen);
         itemScreen.Initialize(
-            itemSave, new GlobalFlagDatabase(), itemTreasures, itemInventory);
+            itemSave, new GlobalFlagDatabase(AgesGameContent.AssetRoot), itemTreasures, itemInventory);
         itemScreen.Open(0, 0);
         itemScreen.SelectTreasureForValidation("TREASURE_OBJECT_SWORD_01");
         FailIf(
@@ -1317,9 +1318,9 @@ public sealed partial class ValidationRoot
             "and an unmodified number for load.");
 
         FailIf(
-            DebugSavestateStore.PathForSlot(0) !=
+            AgesDebugSavestateStore.PathForSlot(0) !=
                 "user://oracle_of_ages_debug_state_0.state" ||
-            DebugSavestateStore.PathForSlot(9) !=
+            AgesDebugSavestateStore.PathForSlot(9) !=
                 "user://oracle_of_ages_debug_state_9.state",
             "Debug-savestate slots do not have stable independent paths.");
 
@@ -1336,20 +1337,20 @@ public sealed partial class ValidationRoot
         _random.Next();
         bool savedFlag =
             _saveData.HasGlobalFlag(AgesGlobalFlag.SavedNayru);
-        DebugSavestateData captured = CaptureDebugSavestate();
+        AgesDebugSavestateData captured = CaptureDebugSavestate();
         byte[] expectedSaveImage = captured.CreateSaveData().Serialize();
         OracleRandomState expectedRandom = _random.CaptureState();
         RoomEntityManagerState expectedEntities = _entities.CaptureDebugState();
 
         byte[] serialized = captured.Serialize();
         FailIf(
-            !DebugSavestateData.TryDeserialize(
+            !AgesDebugSavestateData.TryDeserialize(
             serialized,
-            out DebugSavestateData? decoded),
+            out AgesDebugSavestateData? decoded),
             "A freshly serialized debug state did not validate.");
         serialized[^1] ^= 0xff;
         FailIf(
-            DebugSavestateData.TryDeserialize(serialized, out _),
+            AgesDebugSavestateData.TryDeserialize(serialized, out _),
             "A corrupt debug-state hash was accepted.");
 
         string temporaryPath = Path.Combine(
@@ -1358,12 +1359,12 @@ public sealed partial class ValidationRoot
         try
         {
             SaveResult saveResult =
-                DebugSavestateStore.Save(decoded!, temporaryPath);
+                AgesDebugSavestateStore.Save(decoded!, temporaryPath);
             DebugSavestateLoadResult loaded =
-                DebugSavestateStore.Load(temporaryPath);
+                AgesDebugSavestateStore.Load(temporaryPath);
             FailIf(
                 !saveResult.Success || !loaded.Success ||
-                DebugSavestateStore.Load(temporaryPath + ".missing").Found,
+                AgesDebugSavestateStore.Load(temporaryPath + ".missing").Found,
                 "Debug-state atomic storage or missing-slot detection failed.");
 
             _saveData.SetGlobalFlag(
@@ -1445,34 +1446,34 @@ public sealed partial class ValidationRoot
         }
         _mapScreen.Initialize(_rooms, _inventory, () => mapFrame);
         FailIf(
-            !Mathf.IsEqualApprox(MapMenuController.FastFadeFrames, 11.0f),
+            !Mathf.IsEqualApprox(AgesMapMenuController.FastFadeFrames, 11.0f),
             "The map menu must use the 11-update fast palette fade.");
         FailIf(
-            MapScreen.GetSpriteShadeForValidation(Colors.Black, true) != 0 ||
-            MapScreen.GetSpriteShadeForValidation(Color.Color8(85, 85, 85), true) != 1 ||
-            MapScreen.GetSpriteShadeForValidation(Color.Color8(170, 170, 170), true) != 2 ||
-            MapScreen.GetSpriteShadeForValidation(Colors.White, true) != 3 ||
-            MapScreen.GetSpriteShadeForValidation(Colors.White, false) != 0 ||
-            MapScreen.GetSpriteShadeForValidation(Colors.Black, false) != 3,
+            AgesMapScreen.GetSpriteShadeForValidation(Colors.Black, true) != 0 ||
+            AgesMapScreen.GetSpriteShadeForValidation(Color.Color8(85, 85, 85), true) != 1 ||
+            AgesMapScreen.GetSpriteShadeForValidation(Color.Color8(170, 170, 170), true) != 2 ||
+            AgesMapScreen.GetSpriteShadeForValidation(Colors.White, true) != 3 ||
+            AgesMapScreen.GetSpriteShadeForValidation(Colors.White, false) != 0 ||
+            AgesMapScreen.GetSpriteShadeForValidation(Colors.Black, false) != 3,
             "Map OAM grayscale no longer handles inverted spr_ and normal gfx sheets separately.");
         FailIf(
-            MapScreen.UsesInvertedSpriteGrayscale(MapMode.Present, 0x0e) ||
-            MapScreen.UsesInvertedSpriteGrayscale(MapMode.Present, 0x22) ||
-            MapScreen.UsesInvertedSpriteGrayscale(MapMode.Dungeon, 0x88) ||
-            !MapScreen.UsesInvertedSpriteGrayscale(MapMode.Dungeon, 0x00),
+            AgesMapScreen.UsesInvertedSpriteGrayscale(MapMode.Present, 0x0e) ||
+            AgesMapScreen.UsesInvertedSpriteGrayscale(MapMode.Present, 0x22) ||
+            AgesMapScreen.UsesInvertedSpriteGrayscale(MapMode.Dungeon, 0x88) ||
+            !AgesMapScreen.UsesInvertedSpriteGrayscale(MapMode.Dungeon, 0x00),
             "Map OAM sheets no longer honor spr_minimap_icons invert:false separately " +
             "from the default-inverted dungeon item sheet.");
         FailIf(
-            (MapScreen.LocationArrowAttributes & 0x40) == 0,
+            (AgesMapScreen.LocationArrowAttributes & 0x40) == 0,
             "The map location arrow lost OAM Y-flip attribute $47.");
 
-        OracleSaveData presentationSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData presentationSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var presentationInventory = new InventoryState(_treasures, presentationSave);
         var presentation = new MapPresentationState(
             presentationSave, presentationInventory);
         var presentationRooms = new RoomSession(
             0, 0x38, static () => 0, static () => { }, presentationSave);
-        var presentationData = new MapDataDatabase();
+        var presentationData = new AgesMapDataDatabase(AgesGameContent.AssetRoot);
 
         FailIf(
             presentationSave.TimePortalGroup != 0xff ||
@@ -1549,7 +1550,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests,
             "MENU_MAP played SND_OPENMENU $54 before its opening fade.");
-        for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
+        for (int frame = 0; frame < AgesMapMenuController.FastFadeFrames - 1; frame++)
         {
             TickMap();
             FailIf(
@@ -1563,7 +1564,7 @@ public sealed partial class ValidationRoot
             _sound.LastPlayRequestForValidation() != SoundId.SndOpenMenu ||
             _sound.PlayRequestsFor(SoundId.SndOpenMenu) != openMenuRequests + 1,
             "MENU_MAP did not request SND_OPENMENU $54 at the full-white screen swap.");
-        for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
+        for (int frame = 0; frame < AgesMapMenuController.FastFadeFrames; frame++)
             TickMap();
         FailIf(
             _mapScreen.Mode != MapMode.Present || _mapScreen.CursorRoom != 0x11,
@@ -1744,7 +1745,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !_mapMenu.BeginTravelToSelectionForValidation(),
             "Debug map rejected the valid interior target 4:0f.");
-        for (int frame = 0; frame < MapMenuController.FastFadeFrames - 1; frame++)
+        for (int frame = 0; frame < AgesMapMenuController.FastFadeFrames - 1; frame++)
         {
             TickMap();
             FailIf(
@@ -1755,7 +1756,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _rooms.ActiveGroup != 4 || _rooms.CurrentRoom.Id != 0x0f,
             "Debug map fast travel did not load interior room 4:0f at full white.");
-        for (int frame = 0; frame < MapMenuController.FastFadeFrames; frame++)
+        for (int frame = 0; frame < AgesMapMenuController.FastFadeFrames; frame++)
             TickMap();
         FailIf(
             _mapMenu.IsActive || !_player.IsPhysicsProcessing() || !_player.IsProcessing(),
@@ -1788,7 +1789,7 @@ public sealed partial class ValidationRoot
         // arrangement; move Impa's B-slot gift there through the normal path.
         _inventory.EquipA(TreasureId.Sword);
 
-        var chests = new ChestDatabase();
+        var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
             !chests.TryGet(4, 0x87, 0x65, out ChestRecord switchHookChest) ||
             switchHookChest.TreasureObject != "TREASURE_OBJECT_SWITCH_HOOK_00" ||
@@ -1824,7 +1825,7 @@ public sealed partial class ValidationRoot
             ids.Min(id => (int)id) != 0 || ids.Max(id => (int)id) != 0x3f,
             "The imported ring index contract no longer covers exactly $00-$3f.");
 
-        var transformedLink = new TransformedLinkDatabase();
+        var transformedLink = new TransformedLinkDatabase(AgesGameContent.AssetRoot + "metadata/transformed_link.tsv");
         foreach (int specialObject in new[] { 3, 4, 5, 6, 7 })
         for (int direction = 0; direction < 4; direction++)
         for (int frame = 0; frame < 2; frame++)
@@ -1849,7 +1850,7 @@ public sealed partial class ValidationRoot
                 $"Transformed-Link frame {specialObject:x2}:{direction}:{frame} regressed.");
         }
 
-        var swordBeamData = new SwordBeamDatabase();
+        var swordBeamData = new SwordBeamDatabase(AgesGameContent.AssetRoot + "metadata/sword_beam.tsv");
         FailIf(swordBeamData.Records.Count != 4, "ITEM_SWORD_BEAM did not import four directions.");
         // itemData.s $27: gfx $00, tile $38, flags $0c; GFXH_COMMON_SPRITES
         // supplies fixed VRAM bank 1, not the dynamically loaded item sheet.
@@ -1928,11 +1929,11 @@ public sealed partial class ValidationRoot
         ulong[] ringBoxLayoutHashes = new ulong[3];
         for (int level = 1; level <= 3; level++)
         {
-            OracleSaveData layoutSave = OracleSaveData.CreateStandardGame();
+            OracleSaveData layoutSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             layoutSave.WriteWramByte(AgesWramAddress.wRingBoxLevel, (byte)level);
             var layoutInventory = new InventoryState(_treasures, layoutSave);
             var layoutScreen = new RingMenuScreen
-            {
+            { AssetRoot = AgesGameContent.AssetRoot,
                 Name = $"RingBoxL{level}LayoutValidation"
             };
             AddChild(layoutScreen);
@@ -1970,7 +1971,7 @@ public sealed partial class ValidationRoot
             _ringMenuScreen.RingNamePositionForValidation != new Vector2(24, 88),
             "The lower ring-list cursor or centered showItemText2 name line regressed.");
 
-        var ringDescriptionDialogue = new DialogueBox();
+        var ringDescriptionDialogue = new DialogueBox { AssetRoot = AgesGameContent.AssetRoot };
         ringDescriptionDialogue.ShowPassiveMessage("Ring description", 0, 4);
         FailIf(
             ringDescriptionDialogue.Position != new Vector2(0, 104) ||
@@ -2023,7 +2024,7 @@ public sealed partial class ValidationRoot
             _hud.Visible != hudVisibleBeforeAppraisal,
             "Ring appraisal mutated the global top-HUD placement or visibility.");
 
-        OracleSaveData appraisalSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData appraisalSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var appraisal = new InventoryState(_treasures, appraisalSave);
         appraisal.AddRupees(100);
         appraisal.GiveUnappraisedRing((int)RingId.PowerL1);
@@ -2053,7 +2054,7 @@ public sealed partial class ValidationRoot
             appraisalSave.ReadWramByte(AgesWramAddress.wNumRingsAppraised) != 2,
             "Duplicate refund or wNumRingsAppraised persistence regressed.");
 
-        OracleSaveData boxSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData boxSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         boxSave.WriteWramByte(AgesWramAddress.wRingBoxLevel, 2);
         var box = new InventoryState(_treasures, boxSave);
         box.GrantAppraisedRingForDebug((int)RingId.Red);
@@ -2071,14 +2072,14 @@ public sealed partial class ValidationRoot
         box.SetRingBoxSlotFromList(2, (int)RingId.Blue);
         box.EquipRingAt(2);
         FailIf(
-            !OracleSaveData.TryDeserialize(boxSave.Serialize(), out OracleSaveData? restored) ||
+            !OracleSaveData.TryDeserialize(boxSave.Serialize(), OracleGame.Ages, out OracleSaveData? restored) ||
             new InventoryState(_treasures, restored!).ActiveRing != (int)RingId.Blue ||
             !new InventoryState(_treasures, restored).HasAppraisedRing((int)RingId.Red),
             "Ring list, box, and equipped selection did not survive save serialization.");
 
         InventoryState Wearing(RingId ring)
         {
-            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
             save.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)ring);
             var inventory = new InventoryState(_treasures, save);
@@ -2092,7 +2093,7 @@ public sealed partial class ValidationRoot
             int health = 12,
             int maxHealth = 12)
         {
-            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
             save.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)ring);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, (byte)health);
@@ -2221,7 +2222,7 @@ public sealed partial class ValidationRoot
         {
             FailIf(
                 Player.GetSwordHitboxForValidation(
-                    new Vector2(100, 100), 24 + direction) !=
+                    new Vector2(100, 100), 24 + direction, AgesGameContent.AssetRoot) !=
                 expectedPunchHitboxes[direction],
                 $"Punch collision arc ${24 + direction:x2} regressed.");
         }
@@ -2308,19 +2309,19 @@ public sealed partial class ValidationRoot
             validationPlayer.Free();
         }
 
-        OracleSaveData slayerSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData slayerSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         slayerSave.WriteWramByte(AgesWramAddress.wTotalEnemiesKilled, 0xe7);
         slayerSave.WriteWramByte(0xc621, 0x03);
         var slayer = new InventoryState(_treasures, slayerSave);
         slayer.RecordEnemyKill();
         slayer.RecordEnemyKill();
-        OracleSaveData gashaSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData gashaSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         gashaSave.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
         gashaSave.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)RingId.Gasha);
         var gasha = new InventoryState(_treasures, gashaSave);
         gasha.EquipRingAt(0);
         gasha.RecordEnemyKill();
-        OracleSaveData wealthSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData wealthSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         wealthSave.WriteWramByte(AgesWramAddress.wTotalRupeesCollected, 0x99);
         wealthSave.WriteWramByte(0xc628, 0x99);
         var wealth = new InventoryState(_treasures, wealthSave);

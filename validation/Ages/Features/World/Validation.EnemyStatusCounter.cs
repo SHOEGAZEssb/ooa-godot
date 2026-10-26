@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     {
         var counter = typeof(EnemyCharacter).GetProperty("KnockbackCounter",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         // Native-byte fixtures: enemyStandardUpdate tests counter&7f after
         // JUST_HIT, before health/stun. Ordinary damage tables write low bits.
         foreach (int value in new[] { 0x00, 0x80 })

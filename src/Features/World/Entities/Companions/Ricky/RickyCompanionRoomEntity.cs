@@ -29,7 +29,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _forestWaiting = true;
         _phase = RickyCompanionPhase.Waiting;
         // rickyState0: returned Ricky uses $17, while an unmet Ricky uses $00.
-        SetAnimation(((_saveData?.ReadWramByte(AgesWramAddress.wCompanionStates) ?? 0) & 0x60) != 0 ? 0x17 : 0);
+        SetAnimation(((_saveData?.ReadField("wCompanionStates") ?? 0) & 0x60) != 0 ? 0x17 : 0);
     }
 
     public void NoticeForestLink(int animation)
@@ -237,6 +237,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         Action<int, string, Vector2> dialogueRequested,
         Func<bool> dialogueOpen)
     {
+        AssetRoot = ledgeJumps.AssetRoot;
         _record = database.Record;
         _visual = database.Visual;
         _behavior = database.Behavior;
@@ -268,7 +269,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
         _animation = new EnemyAnimationPlayer(this, _visual.Animations.Length);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{_visual.Sprite}.png"),
+                AssetRoot + $"gfx/{_visual.Sprite}.png"),
             _visual.Animations,
             _visual.TileBase,
             _visual.Palette,
@@ -277,7 +278,7 @@ internal sealed partial class RickyCompanionRoomEntity : TransitionOffsetNode2D,
             animationSourceOffsets: _visual.AnimationSourceOffsets);
         (_linkTextures, _chargeLinkTextures, _damageLinkTextures,
             _linkTextureOffsets) =
-            CompanionLinkFrames.Load(
+            CompanionLinkFrames.Load(AssetRoot,
                 _visual.LinkSprite, _visual.LinkPalette,
                 _visual.LinkFrames, _visual.LinkSourceOffsets);
 

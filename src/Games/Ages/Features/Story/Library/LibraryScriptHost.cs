@@ -234,7 +234,7 @@ internal sealed class LibraryScriptHost : RoomCutsceneCommandHost
                     { if (generation != _generation) return; _secretResult = valid ? 0 : 1; _secretPending = false; }))
                     throw UnsupportedCommand("acquire MENU_SECRET for LIBRARY_SECRET $04");
                 break;
-            case "GenerateSecret": _secret = new LinkedGameNpcDatabase().GenerateSecret(0x14, Context.Rooms.SaveData); break;
+            case "GenerateSecret": _secret = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x14, Context.Rooms.SaveData); break;
             case "oldManGiveShieldUpgradeToLink":
                 if (!Context.Entities.InteractionSlotAvailable) break;
                 int level = Context.Inventory.HasTreasure(TreasureId.Shield) ? Context.Inventory.ShieldLevel : 0;
@@ -243,7 +243,7 @@ internal sealed class LibraryScriptHost : RoomCutsceneCommandHost
                     $"TREASURE_OBJECT_SHIELD_{level:x2}", "scriptHelper.s:oldManGiveShieldUpgradeToLink",
                     objectParameter: level + 1, nativeDispatch: true);
                 break;
-            case "createSparkle": Context.Entities.TryCreateOwlSparkle(new(Npc.Position, new OwlStatueDatabase().Record(0).Sparkle)); break;
+            case "createSparkle": Context.Entities.TryCreateOwlSparkle(new(Npc.Position, new OwlStatueDatabase(AgesGameContent.AssetRoot).Record(0).Sparkle)); break;
             case "func_50e4": Context.Entities.CreateEnergySwirl(Context.Player.Position, 0x6e); break;
             case "fadeoutToWhite": BeginFade(true, 1); break;
             case "fadeinFromWhiteWithDelay, $04": BeginFade(false, 4); break;

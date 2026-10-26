@@ -10,15 +10,15 @@ public sealed partial class ValidationRoot
     private void ValidateRoom2cfCucco()
     {
         const double frame = 1.0 / 60.0;
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         RoomObjectRecord source = database.GetRoomObjects(2, 0xcf).Single();
         EnemyHandlerDescriptor handler =
             database.EnemyHandlers.ResolveHandler(source);
         ImportedEnemyDefinition definition = database.ImportedEnemy(EnemyId.Cucco);
         ImportedEnemyDefinition giantDefinition = database.ImportedEnemy(EnemyId.GiantCucco);
-        CuccoBehaviorProfile behavior = EnemyBehaviorTables.Shared.Cucco;
+        CuccoBehaviorProfile behavior = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Cucco;
         GiantCuccoBehaviorProfile giantBehavior =
-            EnemyBehaviorTables.Shared.GiantCucco;
+            EnemyBehaviorTables.For(AgesGameContent.AssetRoot).GiantCucco;
         FailIf(
             source is not
                 {

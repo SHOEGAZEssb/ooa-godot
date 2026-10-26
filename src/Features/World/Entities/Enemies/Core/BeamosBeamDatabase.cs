@@ -4,6 +4,8 @@ namespace Oracles;
 
 internal sealed class BeamosBeamDatabase
 {
+    public string AssetRoot { get; }
+
     internal string Sprite { get; }
     internal int TileBase { get; }
     internal int Palette { get; }
@@ -12,9 +14,11 @@ internal sealed class BeamosBeamDatabase
     internal int Damage { get; }
     internal string[] Animations { get; } = new string[8];
 
-    internal BeamosBeamDatabase()
+    internal BeamosBeamDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/beamos_beam.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "effects/beamos_beam.tsv",
             new GeneratedTableSchema("PART_BEAM $29", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "radius-y", "radius-x",
                  "damage-quarters", "animation", "source"], ["animation-index"], headerRequired: true));

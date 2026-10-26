@@ -39,8 +39,8 @@ public partial class ValidationRoot
                 // These are collision-handler checks, followed by the real
                 // application update loop. The boomerang parent/item path is
                 // deliberately not claimed by this regression.
-                var mask = spark ? EnemyBehaviorTables.Shared.SparkActiveCollisions : EnemyBehaviorTables.Shared.WhispActiveCollisions;
-                var effects = spark ? EnemyBehaviorTables.Shared.SparkCollisionEffects : EnemyBehaviorTables.Shared.WhispCollisionEffects;
+                var mask = spark ? EnemyBehaviorTables.For(AgesGameContent.AssetRoot).SparkActiveCollisions : EnemyBehaviorTables.For(AgesGameContent.AssetRoot).WhispActiveCollisions;
+                var effects = spark ? EnemyBehaviorTables.For(AgesGameContent.AssetRoot).SparkCollisionEffects : EnemyBehaviorTables.For(AgesGameContent.AssetRoot).WhispCollisionEffects;
                 FailIf(mask[0x17].Value != 1 || effects[0x17].Value != 0x35,
                     "Clean-US Spark/Whisp boomerang column$17 must select effect$35.");
                 bool Hit() => target.ApplyItemCollision(RoomEntityItemCollision.Boomerang,
@@ -146,7 +146,7 @@ public partial class ValidationRoot
                     else if (mode == "lost-puff-owl")
                     {
                         var replacement = _entities.Spawn<InteractionSparkleEffect>(
-                            new OwlStatueSparkleSpawn(stopped, new OwlStatueDatabase().Record(0).Sparkle));
+                            new OwlStatueSparkleSpawn(stopped, new OwlStatueDatabase(AgesGameContent.AssetRoot).Record(0).Sparkle));
                         FailIf(_entities.InteractionSlot(replacement) != puffSlot || replacement.AnimationParameter != 0,
                             "An uninitialized owl sparkle must reuse the page with animParameter00.");
                         // interactionAnimation5a6f1: durations9/9/9/8, followed

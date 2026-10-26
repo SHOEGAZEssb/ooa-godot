@@ -11,7 +11,8 @@ internal sealed partial class MaskSalesmanCharacter : NpcCharacter
         NpcRecord record,
         MaskSalesmanEventRecord maskSalesman)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         // interactionInitGraphics loads INTERAC_MASK_SALESMAN's default
         // animation $00. Its signed Y=-$10 OAM cells require positioned
         // composition instead of the ordinary fixed 32-by-32 NPC canvas.

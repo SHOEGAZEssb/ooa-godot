@@ -6,8 +6,8 @@ namespace Oracles;
 internal sealed partial class RiverZoraCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
-
-    private readonly RiverZoraBehaviorProfile _behavior = EnemyBehaviorTables.Shared.RiverZora;
+    private RiverZoraBehaviorProfile? _behaviorSourceCache;
+    private RiverZoraBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).RiverZora;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -18,6 +18,7 @@ internal sealed partial class RiverZoraCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

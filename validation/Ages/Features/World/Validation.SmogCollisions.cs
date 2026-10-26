@@ -8,7 +8,7 @@ public partial class ValidationRoot
     private void ValidateSmogCollisions()
     {
         var data = new SmogCollisionDatabase();
-        var record = new EnemyDatabase().ImportedEnemy(AgesEnemyId.Smog,0);
+        var record = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(AgesEnemyId.Smog,0);
         for (int collision = 0; collision < 32; collision++)
         {
             bool enabled = collision == 0 || collision is >= 4 and <= 9;
@@ -75,7 +75,7 @@ public partial class ValidationRoot
         foreach (int kind in new[] { 2,3,4 })
         foreach (bool ring in new[] { false,true })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             if (ring) { save.WriteWramByte(AgesWramAddress.wRingBoxLevel,1); save.WriteWramByte(AgesWramAddress.wRingBoxContents,(byte)RingId.GreenHoly); }
             var inventory = new InventoryState(_treasures,save);
             if (ring) FailIf(!inventory.EquipRingAt(0), "Smog fixture must equip Green Holy Ring.");

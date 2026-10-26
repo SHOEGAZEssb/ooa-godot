@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         using var fixture = RoomEntityValidationFixture.Attach(this, "PlacementScratch", new()
         { Random = random, RuntimeState = memory });
         var factory = typeof(RoomEntityManager).GetField("_factory", flags)!.GetValue(fixture.Manager)!;
-        var choose = typeof(RoomEntityFactory).GetMethod("TryChooseRandomEnemyPosition", flags)!;
+        var choose = typeof(AgesRoomEntityFactory).GetMethod("TryChooseRandomEnemyPosition", flags)!;
         var room = _world.LoadRoom(4, 0xa1);
         byte[] identity = Enumerable.Range(0, 256).Select(value => (byte)value).ToArray();
         random.BeginRoomParse();
@@ -120,7 +120,7 @@ public sealed partial class ValidationRoot
         FailIf(memory.ReadWramByte(0xcec9) != 6 || memory.ReadWramByte(0xceca) != 4 ||
             fixture.Manager.Entities<ZolCharacter>().Count != 0,
             "Re-entry must refresh the bitset and restart the killable index from zero.");
-        var next = typeof(RoomEntityFactory).GetMethod("NextKillableEnemyIndex", flags)!;
+        var next = typeof(AgesRoomEntityFactory).GetMethod("NextKillableEnemyIndex", flags)!;
         memory.SetWramByte(0xceca, 6);
         FailIf((int)next.Invoke(factory, [1])! != 0 || memory.ReadWramByte(0xceca) != 6 ||
             (int)next.Invoke(factory, [0])! != 7 || memory.ReadWramByte(0xceca) != 7 ||

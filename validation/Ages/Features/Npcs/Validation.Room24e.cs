@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom24eOldMan()
     {
-        var commands = new NpcInteractionScriptDatabase().OldManRupees;
+        var commands = new NpcInteractionScriptDatabase(AgesGameContent.AssetRoot).OldManRupees;
         FailIf(commands.Count != 18 ||
             commands[7] is not CutsceneWaitCommand { Frames: 8 } ||
             commands[8] is not CutsceneCheckRupeeDisplayCommand ||

@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 40, 64) { HostilePartsEnabled = true };
             native.InitializeLinkGameplay(); native.InitializeLinkWalkingAnimation();
             var encounter = new MapleEncounterState(_runtimeState);
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, new(88, 64), 0));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(13), encounter, 0, new(88, 64), 0));
             F1Set(drop, "_state", MapleDroppedItemState.Grounded); drop.Visible = true;
             const int at = 0xd0c0;
             native[at] = 1; native[at + 1] = 0x14; native[at + 2] = 13; native[at + 4] = 2;
@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 40, 64) { HostilePartsEnabled = true };
             native.InitializeLinkGameplay();
             var encounter = new MapleEncounterState(_runtimeState);
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, new(88, 64), 0));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(13), encounter, 0, new(88, 64), 0));
             F1Set(drop, "_state", MapleDroppedItemState.Grounded); drop.Visible = true;
             const int at = 0xd0c0;
             native[at] = 1; native[at + 1] = 0x14; native[at + 2] = 13; native[at + 4] = 2;
@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, 40, 64) { HostilePartsEnabled = true };
             native.InitializeLinkGameplay();
             var encounter = new MapleEncounterState(_runtimeState);
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, new(88, 64), 0));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(13), encounter, 0, new(88, 64), 0));
             F1Set(drop, "_state", MapleDroppedItemState.Grounded); F1Set(drop, "_precisePosition", new Vector2(88.25f, 64.5f));
             drop.Position = new(88, 64); drop.Visible = true;
             const int at = 0xd0c0;

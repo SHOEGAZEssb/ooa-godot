@@ -47,6 +47,7 @@ internal sealed partial class ShootingGalleryBall : TransitionOffsetNode2D
         OracleRuntimeState? runtime = null,
         Func<Vector2,Vector2>? toScreen = null)
     {
+        AssetRoot = room.AssetRoot;
         _database = database;
         _record = database.Record;
         _session = session;

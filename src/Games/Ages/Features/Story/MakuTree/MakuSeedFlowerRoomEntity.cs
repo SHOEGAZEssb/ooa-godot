@@ -16,7 +16,7 @@ internal sealed class MakuSeedFlowerRoomEntity : IRoomEntity, IFixedRoomEntity, 
     internal MakuSeedFlowerRoomEntity(MakuTreeAdviceDatabase data, MakuSeedEvent parent)
     {
         _data = data; _parent = parent;
-        _actor = NpcCharacter.CreateFromRecord(data.Flower);
+        _actor = NpcCharacter.CreateFromRecord(data.Flower, AgesGameContent.AssetRoot);
         _actor.SetBlocksLink(false); _actor.SetAnimationRate(0);
         _actor.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex);
         _actor.SetScriptAnimation(data.Flower.UpAnimation);

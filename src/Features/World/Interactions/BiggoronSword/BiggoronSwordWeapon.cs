@@ -20,11 +20,12 @@ internal sealed partial class BiggoronSwordWeapon : TransitionOffsetNode2D
 
     internal BiggoronSwordWeapon(BiggoronSwordDatabase data,Vector2 position,int z)
     {
+        AssetRoot = data.AssetRoot;
         _data=data; Position=position.Floor(); ZHigh=(sbyte)(byte)z;
         var graphic=data.Weapon(0); Radius=graphic.Radius; Collision=graphic.Collision;
         Damage=-(sbyte)(byte)graphic.Damage;
         _visual=new(this,8);
-        _visual.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{graphic.Sprite}.png"),
+        _visual.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{graphic.Sprite}.png"),
             Enumerable.Range(0,8).Select(i=>data.Weapon(i).Animation).ToArray(),0,graphic.OamFlags&7,
             positionedOam:true,animationSourceOffsets:Enumerable.Range(0,8).Select(_=>new[]{graphic.SourceOffset}).ToArray());
         _visual.SetAnimation(0); Visible=false;

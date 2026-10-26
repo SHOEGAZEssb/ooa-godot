@@ -14,6 +14,8 @@ namespace Oracles;
 /// </summary>
 public partial class RingMenuScreen : Node2D
 {
+    [Export] public string AssetRoot { get; set; } = string.Empty;
+
     internal const int PageScrollUpdates = 19;
     private const int PageScrollPixelsPerUpdate = 8;
     private const int TilemapStride = 32;
@@ -94,15 +96,15 @@ public partial class RingMenuScreen : Node2D
     {
         if (_resourcesPrepared) return;
         _resourcesPrepared = true;
-        _hudTiles = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png");
+        _hudTiles = LoadPng(AssetRoot + "gfx/gfx_hud.png");
         _inventoryHud1 = LoadPng(
-            AgesGameContent.AssetRoot + "inventory/gfx_inventory_hud_1.png");
+            AssetRoot + "inventory/gfx_inventory_hud_1.png");
         _questItems5 = LoadPng(
-            AgesGameContent.AssetRoot + "inventory/spr_quest_items_5.png");
-        _ringTiles = LoadPng(AgesGameContent.AssetRoot + "inventory/gfx_rings.png");
+            AssetRoot + "inventory/spr_quest_items_5.png");
+        _ringTiles = LoadPng(AssetRoot + "inventory/gfx_rings.png");
         _inventoryHud2 = LoadPng(
-            AgesGameContent.AssetRoot + "inventory/gfx_inventory_hud_2.png");
-        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
+            AssetRoot + "inventory/gfx_inventory_hud_2.png");
+        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture(AssetRoot + "gfx/gfx_font.png");
         using (Image font = _fontTexture.GetImage())
         {
             _fontPixels = font.GetData();
@@ -110,9 +112,9 @@ public partial class RingMenuScreen : Node2D
         }
         _emptyTextTiles = Image.CreateEmpty(128, 16, false, Image.Format.Rgba8);
         _emptyTextTiles.Fill(Colors.Black);
-        _ringMap = ReadBytes(AgesGameContent.AssetRoot + "inventory/map_rings.bin", 68 * 8);
-        _bgPalette = LoadPalette(AgesGameContent.AssetRoot + "inventory/palette_bg.bin", 8);
-        _spritePalette = ItemIconAtlas.LoadStandardSpritePalettes();
+        _ringMap = ReadBytes(AssetRoot + "inventory/map_rings.bin", 68 * 8);
+        _bgPalette = LoadPalette(AssetRoot + "inventory/palette_bg.bin", 8);
+        _spritePalette = ItemIconAtlas.LoadStandardSpritePalettes(AssetRoot);
 
         // GFXH_UNAPPRAISED_RING_LIST and GFXH_APPRAISED_RING_LIST load these
         // records into VRAM bank 0. LCDC bit 4 changes at the textbox boundary:
@@ -155,7 +157,7 @@ public partial class RingMenuScreen : Node2D
     {
         if (_inventory is not null)
             _inventory.Changed -= OnInventoryChanged;
-        _layouts = MenuPresentationDatabase.Shared;
+        _layouts = MenuPresentationDatabase.For(AssetRoot);
         _inventory = inventory;
         _inventory.Changed += OnInventoryChanged;
     }
@@ -557,10 +559,10 @@ public partial class RingMenuScreen : Node2D
         string kind = Mode == RingMenuMode.Appraisal ? "unappraised" : "appraised";
         int rows = Mode == RingMenuMode.Appraisal ? AppraisalRows : ListRows;
         byte[] map = ReadBytes(
-            AgesGameContent.AssetRoot + $"inventory/map_{kind}_ring_list.bin",
+            AssetRoot + $"inventory/map_{kind}_ring_list.bin",
             TilemapStride * rows);
         byte[] flags = ReadBytes(
-            AgesGameContent.AssetRoot + $"inventory/flg_{kind}_ring_list.bin",
+            AssetRoot + $"inventory/flg_{kind}_ring_list.bin",
             TilemapStride * rows);
 
         if (Mode == RingMenuMode.List)
@@ -737,10 +739,10 @@ public partial class RingMenuScreen : Node2D
 
     // ringMenu_drawSprites adds its BC row/column offset to the imported
     // @cursorSprite bytes before the hardware OAM X/Y bias is applied.
-    private static Vector2 ListCursorPosition(int index)
+    private Vector2 ListCursorPosition(int index)
     {
         MenuOamPart cursor =
-            MenuPresentationDatabase.Shared.RingOam("list-cursor")[0];
+            MenuPresentationDatabase.For(AssetRoot).RingOam("list-cursor")[0];
         return FileMenuPresentation.OamScreenPosition(
             cursor,
             yOffset: index < 8 ? 0x3e : 0x56,

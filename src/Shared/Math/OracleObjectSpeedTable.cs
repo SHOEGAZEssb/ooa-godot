@@ -21,7 +21,7 @@ internal sealed class OracleObjectSpeedTable
     private OracleObjectSpeedTable()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/object_speed_vectors.tsv",
+            OracleAssetPack.CommonRoot + "metadata/object_speed_vectors.tsv",
             new GeneratedTableSchema(
                 "bank3.objectSpeedTable vectors",
                 GeneratedTableKeySemantics.Unique,

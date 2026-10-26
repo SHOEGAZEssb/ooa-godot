@@ -100,8 +100,10 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
     private readonly Func<bool> _dialogueOpen;
     private readonly Action<int> _screenShakeRequested;
     private readonly EnemyAnimationPlayer _animation;
-    private readonly CompanionTerrainDatabase _terrain = new();
-    private readonly LedgeJumpDatabase _ledges = new();
+    private CompanionTerrainDatabase? _terrainSourceCache;
+    private CompanionTerrainDatabase _terrain => _terrainSourceCache ??= new(AssetRoot);
+    private LedgeJumpDatabase? _ledgesSourceCache;
+    private LedgeJumpDatabase _ledges => _ledgesSourceCache ??= new(AssetRoot);
     private readonly Func<OracleRoomData, CompanionAttackTileBreaker> _createTileBreaker;
     private CompanionAttackTileBreaker _tileBreaker;
     private int _cliffCounter;
@@ -218,6 +220,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         Action<int> screenShakeRequested,
         Func<OracleRoomData, CompanionAttackTileBreaker> createTileBreaker)
     {
+        AssetRoot = room.AssetRoot;
         _record = database.Record;
         _visual = database.Visual;
         _goodbye = spawn.Goodbye;
@@ -259,7 +262,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
+                AssetRoot + $"gfx/{visual.Sprite}.png"),
             visual.Animations,
             visual.TileBase,
             visual.Palette,
@@ -267,7 +270,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
             paletteVariants: [2]);
         (_linkTextures, _chargeLinkTextures, _damageLinkTextures,
             _linkTextureOffsets) =
-            CompanionLinkFrames.Load(
+            CompanionLinkFrames.Load(AssetRoot,
                 visual.LinkSprite, visual.LinkPalette,
                 visual.LinkFrames, visual.LinkSourceOffsets);
         SetAnimation(_goodbye?.InitialAnimation ??
@@ -609,7 +612,7 @@ internal sealed partial class MooshCompanionRoomEntity : TransitionOffsetNode2D,
 
         _phase = MooshCompanionPhase.StompRecovery;
         if (_saveData is not null)
-            _saveData.WriteWramByte(AgesWramAddress.wCompanionTutorialTextShown, (byte)(_saveData.ReadWramByte(AgesWramAddress.wCompanionTutorialTextShown) | 0x20));
+            _saveData.WriteField("wCompanionTutorialTextShown", (byte)(_saveData.ReadField("wCompanionTutorialTextShown") | 0x20));
         _screenShakeRequested(0x0f);
         _playSound(SoundId.SndCtrlStopSfx);
         _playSound(_record.StompSound);

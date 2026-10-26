@@ -26,6 +26,7 @@ internal sealed partial class ShadowHagShadowEffect : TransitionOffsetNode2D
         DungeonInteractionVisual visual,
         OracleRuntimeState runtime)
     {
+        AssetRoot = visual.AssetRoot;
         if (angleIndex is < 0 or > 3 ||
             visual.Key != "shadow-hag-shadow" ||
             visual.Animations.Length != 5)
@@ -42,7 +43,7 @@ internal sealed partial class ShadowHagShadowEffect : TransitionOffsetNode2D
         Visible = false;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette,

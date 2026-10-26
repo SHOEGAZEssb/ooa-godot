@@ -6,7 +6,7 @@ namespace Oracles;
 // ENEMY_CANDLE $55; the enemy remains the collision owner during INTERAC$56.
 internal sealed partial class CandleCharacter : EnemyCharacter
 {
-    private readonly CandleBehaviorProfile _data = EnemyBehaviorTables.Shared.Candle;
+    private readonly CandleBehaviorProfile _data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Candle;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private OracleRuntimeState _memory = null!;
@@ -32,6 +32,7 @@ internal sealed partial class CandleCharacter : EnemyCharacter
         OracleRandom random, OracleRuntimeState memory, Func<bool> createFlame, Func<Vector2, int> createExplosion,
         Func<int, int> parameter, Action<int, int> consume)
     {
+        AssetRoot = record.AssetRoot;
         Record = record; _room = room; _random = random; _memory = memory;
         _createFlame = createFlame; _createExplosion = createExplosion;
         _explosionParameter = parameter; _consumeExplosionParameter = consume;

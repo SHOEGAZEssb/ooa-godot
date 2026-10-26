@@ -179,7 +179,7 @@ public sealed partial class ValidationRoot
             var sounds = _sound.AttachPlayRequestAudit();
             void InitializeStep() => StepSomariaMotionRom(rom,1,batch);
             for (int wait = 0; rom[0xd244] != 2 && wait < 20; wait++) InitializeStep();
-            var data = new DarkRoomDatabase();
+            var data = new DarkRoomDatabase(AgesGameContent.AssetRoot);
             var record = data.GetRoomRecords(5,0xed).Single(row => row.Kind == DarkRoomDatabaseObjectKind.Handler);
             var fade = new DarkRoomState(_currentRoom,data);
             _entities.AddEntity(new DarkRoomHandlerRoomEntity(record,_currentRoom,data,fade));

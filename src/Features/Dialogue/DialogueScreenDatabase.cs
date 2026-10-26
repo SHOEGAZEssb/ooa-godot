@@ -5,12 +5,16 @@ namespace Oracles;
 
 internal sealed class DialogueScreenDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int, byte> _scrollY = new();
 
-    internal DialogueScreenDatabase()
+    internal DialogueScreenDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         foreach (GeneratedTableRow row in GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/dialogue_screen_registers.tsv",
+            AssetRoot + "menu/dialogue_screen_registers.tsv",
             new GeneratedTableSchema("Native dialogue screen registers",
                 GeneratedTableKeySemantics.Ordered,
                 ["state", "scroll-y", "source"], headerRequired: true)).Rows)

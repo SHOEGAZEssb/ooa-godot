@@ -10,7 +10,7 @@ public partial class ValidationRoot
 {
     private void ValidateCrownDungeonFireballShooterSourceData()
     {
-        var data = EnemyBehaviorTables.Shared.FireballShooter;
+        var data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).FireballShooter;
         // Independent transcription of fireballShooter.s, not derived from
         // the generated rows consumed by the runtime reader.
         int[] timingOffsets = [0x4e, 0x7e, 0xae, 0xde];
@@ -186,7 +186,7 @@ public partial class ValidationRoot
         foreach (int partId in new[] { 0x19,0x31 })
         for (int shield = 1; shield <= 3; shield++)
         {
-            var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
+            var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
             inventory.GiveTreasure(_treasures.GetObject($"TREASURE_OBJECT_SHIELD_0{shield-1}"));
             inventory.EquipA(TreasureId.Shield);
             var player = new Player(); AddChild(player);
@@ -208,7 +208,7 @@ public partial class ValidationRoot
         foreach (int partId in new[] { 0x19,0x31 })
         foreach (RingId ring in new[] { RingId.BlueHoly,RingId.RedHoly })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wRingBoxLevel,1); save.WriteWramByte(AgesWramAddress.wRingBoxContents,(byte)ring);
             var inventory = new InventoryState(_treasures,save);
             FailIf(!inventory.EquipRingAt(0), "Could not equip fireball ring fixture.");

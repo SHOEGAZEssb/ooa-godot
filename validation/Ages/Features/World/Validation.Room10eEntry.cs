@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
                     _player.Position != new Vector2(0x50, 0x64) ||
                     _currentRoom.GetMetatile(_player.Position) != 0xef,
                     "Room 1:0e's $ef arrival floor incorrectly triggered dungeon 6.");
-                var warps = new WarpDatabase();
+                var warps = new WarpDatabase(AgesGameContent.AssetRoot);
                 FailIf(warps.TryGetTileWarp(1, _currentRoom, 0x65, 0xef, out _) ||
                     !warps.TryGetTileWarp(1, _currentRoom, 0x16, 0xaf, out Warp dungeon) ||
                     dungeon.DestinationGroup != 5 || dungeon.DestinationRoom != 0x26,

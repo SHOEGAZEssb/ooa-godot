@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
                 { HostilePartsEnabled = true, PostObjectCollisionsEnabled = false };
             native.InitializeLinkGameplay();
             var encounter = new MapleEncounterState(_runtimeState);
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(0), encounter, 0, new(80, 72), 0));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(0), encounter, 0, new(80, 72), 0));
             // Declare a health0 PARTSTATUS_DEAD reward boundary. Collection
             // is remote and must retry checked INTERAC$60 creation, not overlap.
             F1Set(drop, "_state", MapleDroppedItemState.Grounded); F1Set(drop, "_swordCollectionPending", true);

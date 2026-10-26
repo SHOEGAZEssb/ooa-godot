@@ -33,9 +33,9 @@ public sealed partial class ValidationRoot
         // Exercise the same pure command builders as _Draw. Painter order is
         // the reverse of native OAM; rendering calls remain in the screen node.
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var sprites = (IList)typeof(MapScreen).GetField("_sprites", flags)!.GetValue(_mapScreen)!;
+        var sprites = (IList)typeof(AgesMapScreen).GetField("_sprites", flags)!.GetValue(_mapScreen)!;
         sprites.Clear();
-        typeof(MapScreen).GetMethod(_mapScreen.Mode == MapMode.Dungeon ?
+        typeof(AgesMapScreen).GetMethod(_mapScreen.Mode == MapMode.Dungeon ?
             "DrawDungeonMarkers" : "DrawOverworldMarkers", flags)!.Invoke(_mapScreen, null);
         // runMapMenu clears all slots; only ring/inventory reserve HUD OAM.
         int nativeCount = rom[0xff9f] / 4;

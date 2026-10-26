@@ -29,16 +29,16 @@ internal sealed class WhispRoomEntity
     public bool ApplyExpertPunch(Rect2 bounds, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) =>
         ApplyMelee(ItemCollisionType.ExpertPunch, bounds);
     private bool ApplyMelee(int collision, Rect2 bounds) => ApplyIneffectiveWeaponCollision(collision, bounds,
-        EnemyBehaviorTables.Shared.WhispActiveCollisions, EnemyBehaviorTables.Shared.WhispCollisionEffects,
+        EnemyBehaviorTables.For(AssetRoot).WhispActiveCollisions, EnemyBehaviorTables.For(AssetRoot).WhispCollisionEffects,
         out _meleeReportsContact);
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 bounds, Vector2 origin,
         int damage, ICollection<RoomEntitySpawn> spawns)
     {
         if (collision == RoomEntityItemCollision.Boomerang)
-            return ApplyBoomerangTransformCollision(bounds, EnemyBehaviorTables.Shared.WhispActiveCollisions,
-                EnemyBehaviorTables.Shared.WhispCollisionEffects, Entity.ApplyBoomerangHit);
+            return ApplyBoomerangTransformCollision(bounds, EnemyBehaviorTables.For(AssetRoot).WhispActiveCollisions,
+                EnemyBehaviorTables.For(AssetRoot).WhispCollisionEffects, Entity.ApplyBoomerangHit);
         return ApplyIneffectiveWeaponCollision((int)collision, bounds,
-            EnemyBehaviorTables.Shared.WhispActiveCollisions, EnemyBehaviorTables.Shared.WhispCollisionEffects, out _);
+            EnemyBehaviorTables.For(AssetRoot).WhispActiveCollisions, EnemyBehaviorTables.For(AssetRoot).WhispCollisionEffects, out _);
     }
     private readonly Func<byte> _random;
     internal WhispRoomEntity(
@@ -67,9 +67,9 @@ internal sealed class WhispRoomEntity
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
         if (GaleCaught || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
-            EnemyBehaviorTables.Shared.WhispActiveCollisions[collisionType].Value == 0 ||
+            EnemyBehaviorTables.For(AssetRoot).WhispActiveCollisions[collisionType].Value == 0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, hitbox)) return default;
-        int effect = EnemyBehaviorTables.Shared.WhispCollisionEffects[collisionType].Value;
+        int effect = EnemyBehaviorTables.For(AssetRoot).WhispCollisionEffects[collisionType].Value;
         switch (effect)
         {
             case CollisionEffect.None: return new(true, SeedHitResult.None, false);

@@ -86,12 +86,12 @@ public sealed partial class ValidationRoot
                     "Source completion must clear the reserved block/lock, preserve the hole or place the grave, and retain Link outside stair bounds.");
                 if (spec.Grave)
                     FailIf(
-                        !RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x58,0x28)) ||
-                        RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x53,0x28)) ||
-                        !RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x54,0x20)) ||
-                        !RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x5d,0x29)) ||
-                        RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x5e,0x29)) ||
-                        RoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x58,0x2a)),
+                        !AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x58,0x28)) ||
+                        AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x53,0x28)) ||
+                        !AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x54,0x20)) ||
+                        !AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x5d,0x29)) ||
+                        AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x5e,0x29)) ||
+                        AgesRoomTransitionController.LinkWithinTileWarpBounds(_currentRoom,0x25,new(0x58,0x2a)),
                         "Revealed room0:7c/$25 staircase must retain bounds $54-$5d/$20-$29.");
                 if (!spec.Grave && !spec.Full)
                 {

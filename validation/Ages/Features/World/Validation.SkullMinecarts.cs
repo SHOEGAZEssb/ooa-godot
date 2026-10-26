@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1, Vector2 move = default) =>
             StepGameplayUpdates(count, move, [], [], batched: true);
         static Vector2 Point(int p) => new((p & 15) * 16 + 8, (p >> 4) * 16 + 8);
-        var data = new StaticDungeonObjectDatabase();
+        var data = new StaticDungeonObjectDatabase(AgesGameContent.AssetRoot);
         var runtime = _entities.RuntimeState;
         var records = data.Minecarts(4);
         // Independently transcribed from dungeon4StaticObjects, including slot order.

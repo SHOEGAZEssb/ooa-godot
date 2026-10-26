@@ -40,8 +40,8 @@ public sealed class BombController
         _rooms = rooms;
         _playSound = playSound;
         _isUnderwater = isUnderwater;
-        _record = (database ?? new BombDatabase()).Data;
-        _linkItems = LinkItemDatabase.Shared;
+        _record = (database ?? new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv")).Data;
+        _linkItems = LinkItemDatabase.For(AgesGameContent.AssetRoot);
     }
 
     public bool TryUse(Player player)

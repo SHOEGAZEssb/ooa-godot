@@ -51,6 +51,15 @@ $obsoleteSharedTypeNames = @(
 $sourceFiles = @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.cs')
 foreach ($file in $sourceFiles) {
     $text = [IO.File]::ReadAllText($file.FullName)
+    $relative = $file.FullName.Substring($sourceRoot.Length + 1).Replace('\', '/')
+    if ($text -match '\bOracleGame\s+\w+\s*=\s*(?:OracleGame\.\w+|default(?:\(OracleGame\))?)\s*[,)]') {
+        $violations.Add("$relative declares a default game parameter; callers must select a game explicitly.")
+    }
+    if (-not $relative.StartsWith('Games/', [StringComparison]::Ordinal) -and
+        $relative -ne 'Infrastructure/GeneratedData/OracleAssetPack.cs' -and
+        $text -match '(?:AgesGameContent\s*\.\s*AssetRoot|AgesWramAddress\s*\.|res://assets/oracle/ages/)') {
+        $violations.Add("$relative binds shared code to Ages content or addresses.")
+    }
     foreach ($match in [regex]::Matches(
         $text,
         '\b(?:class|record\s+struct|record|enum)\s+(?<name>(?:SpiritsGrave|WingDungeon)\w*)')) {
@@ -95,7 +104,7 @@ foreach ($file in $sourceFiles) {
 
 if ($violations.Count -ne 0) {
     throw (
-        "Dungeon/source ownership audit failed:`n- " +
+        "Source ownership audit failed:`n- " +
         ($violations -join "`n- "))
 }
 

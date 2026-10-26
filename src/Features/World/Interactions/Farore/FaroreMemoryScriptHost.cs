@@ -9,7 +9,7 @@ internal sealed class FaroreMemoryScriptHost : NpcInteractionCommandHost
     private bool _ownsMask;
     internal FaroreMemoryScriptHost(NpcCharacter actor, RoomSession rooms, RoomEntityManager entities,
         DialogueBox dialogue, Func<bool> openList)
-        : base("Book", rooms, entities, dialogue, new FaroreMemoryDatabase().Script)
+        : base("Book", rooms, entities, dialogue, new FaroreMemoryDatabase(rooms.AssetRoot).Script)
     { _actor = actor; _openList = openList; BindObject(actor); }
     internal void Advance(Player player) => AdvanceObject(player);
     protected override bool MatchesAndPrepare(NpcCharacter npc) => ReferenceEquals(npc, _actor);
@@ -18,7 +18,7 @@ internal sealed class FaroreMemoryScriptHost : NpcInteractionCommandHost
     public override void SetDisabledObjects(int value)
     {
         if (value != 0x91) throw UnsupportedCommand($"book disabled mask ${value:x2}");
-        Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0x91); _ownsMask = true;
+        Entities.RuntimeState.SetField("wDisabledObjects", 0x91); _ownsMask = true;
     }
     public override void SetInputEnabled(bool enabled)
     {

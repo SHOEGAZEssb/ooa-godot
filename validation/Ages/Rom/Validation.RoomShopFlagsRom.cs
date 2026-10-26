@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         ReadOnlyMemory<byte> image = ValidationRom.LoadCleanUs();
         byte Native(int address) => image.Span[2 * 0x4000 + address - 0x4000];
-        var imported = new RoomShopDatabase();
+        var imported = new RoomShopDatabase(AgesGameContent.AssetRoot);
         int records = 0, shops = 0;
         for (int group = 0; group < 8; group++)
         {

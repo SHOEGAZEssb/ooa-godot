@@ -12,7 +12,7 @@ public partial class ValidationRoot
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
         var death=typeof(Player).GetField("_deathPending",flags)!;
         var root=new Node(); AddChild(root);
-        var save=OracleSaveData.CreateStandardGame();
+        var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var fixture=RoomEntityValidationFixture.ForRoot(root,new(){SaveData=save});
         var manager=fixture.Manager;
         var room=_world.LoadRoom(4,0xbb);

@@ -13,7 +13,8 @@ internal sealed class VireRoomEntity(VireCharacter actor,VireRoomEnvironment wor
         ISomariaBlockCollisionRoomEntity, IExpertPunchHittableRoomEntity, IPlayerRestriction, IPlayerForcedMovement,
         IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze
 {
-    private readonly VireBehaviorProfile _data = EnemyBehaviorTables.Shared.Vire;
+    private VireBehaviorProfile? _dataSourceCache;
+    private VireBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Vire;
     private bool _outcomeTaken;
     private int _swordCollision = ItemCollisionType.L1Sword;
     public bool Finished => Entity.IsDead;
@@ -111,7 +112,7 @@ internal sealed class VireRoomEntity(VireCharacter actor,VireRoomEnvironment wor
     public SeedHitResult ApplySeedHit(Rect2 bounds,Vector2 origin,int seedItem,ICollection<RoomEntitySpawn> spawns)
     {
         if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("Vire requires Mystery's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem,out var seed)) return SeedHitResult.None;
+        if (!new SeedSatchelDatabase(AssetRoot).TryGet(seedItem,out var seed)) return SeedHitResult.None;
         return ApplySeedCollision(bounds,origin,seed,seed.Collision & ObjectCollisionFlags.TypeMask,spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds,Vector2 origin,SeedRecord seed,int collision,ICollection<RoomEntitySpawn> spawns)

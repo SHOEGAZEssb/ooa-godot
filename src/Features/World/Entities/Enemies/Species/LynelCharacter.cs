@@ -6,8 +6,10 @@ namespace Oracles;
 // object_code/common/enemies/lynel.s, ENEMY_LYNEL $0d:$00/$01.
 internal sealed partial class LynelCharacter : EnemyCharacter, ITerrainShadowSource
 {
-    private readonly EnemyBehaviorTables _data = EnemyBehaviorTables.Shared;
-    private readonly ScentSeedAttraction _scent = new();
+    private EnemyBehaviorTables? _dataSourceCache;
+    private EnemyBehaviorTables _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
+    private ScentSeedAttraction? _scentCache;
+    private ScentSeedAttraction _scent => _scentCache ??= new(AssetRoot);
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private int _stun, _z, _speedZ;
@@ -27,6 +29,7 @@ internal sealed partial class LynelCharacter : EnemyCharacter, ITerrainShadowSou
 
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != EnemyId.Lynel || record.SubId is not (0 or 1))
             throw new NotSupportedException($"lynel.s: unsupported ENEMY${record.Id:x2}:${record.SubId:x2}.");
         Record = record; _random = random; _movement = new(this, room);

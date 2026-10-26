@@ -7,7 +7,7 @@ public partial class ValidationRoot
 {
     private void ComparePushBlockBraceletHintRom()
     {
-        var image = ValidationRom.LoadCleanUs(); var data = new TileInfoTextDatabase();
+        var image = ValidationRom.LoadCleanUs(); var data = new TileInfoTextDatabase(AgesGameContent.AssetRoot);
         // Original bank06:$4315 showInfoTextForTile@data, independent of import.
         for (int index = 0; index < 10; index++)
         {

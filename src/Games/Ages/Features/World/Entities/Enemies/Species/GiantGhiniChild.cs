@@ -22,7 +22,7 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
     private bool _restrictionActive;
     private bool _slowsLink;
     private int _zHigh;
-    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.For(AgesGameContent.AssetRoot);
 
     internal ImportedEnemyDefinition Record { get; private set; }
     internal ChildState State => _state;
@@ -45,6 +45,7 @@ internal sealed partial class GiantGhiniChild : EnemyCharacter
         int index,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         _owner = owner;
         Record = record;
         InitializeEnemy(

@@ -10,7 +10,9 @@ namespace Oracles;
 /// </summary>
 public sealed partial class LinkedGameNpcDatabase
 {
-    private const int GameIdAddress = AgesWramAddress.wUnappraisedRingsEnd;
+    public string AssetRoot { get; }
+
+    private int GameIdAddress => OracleWramLayout.Shared.Value.Require(OracleAssetPack.GameFor(AssetRoot), "wGameID");
     private const int SecretType = 3;
 
     private readonly Dictionary<
@@ -22,10 +24,12 @@ public sealed partial class LinkedGameNpcDatabase
     internal IReadOnlyList<byte> XorCipher => _xorCipher;
     internal IReadOnlyList<string> SecretSymbols => _secretSymbols;
 
-    public LinkedGameNpcDatabase()
+    public LinkedGameNpcDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable cipher = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/linked_secret_cipher.tsv",
+            AssetRoot + "objects/linked_secret_cipher.tsv",
             new GeneratedTableSchema(
                 "linked-secret XOR cipher",
                 GeneratedTableKeySemantics.Unique,
@@ -43,7 +47,7 @@ public sealed partial class LinkedGameNpcDatabase
         _xorCipher = cipherValues.ToArray();
 
         GeneratedTable symbols = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/linked_secret_symbols.tsv",
+            AssetRoot + "objects/linked_secret_symbols.tsv",
             new GeneratedTableSchema(
                 "linked-secret symbols",
                 GeneratedTableKeySemantics.Unique,
@@ -64,7 +68,7 @@ public sealed partial class LinkedGameNpcDatabase
         _secretSymbols = symbolValues.ToArray();
 
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/linked_game_npcs.tsv",
+            AssetRoot + "objects/linked_game_npcs.tsv",
             new GeneratedTableSchema(
                 "linked-game NPC",
                 GeneratedTableKeySemantics.Ordered,
@@ -207,10 +211,10 @@ public sealed partial class LinkedGameNpcDatabase
     {
         if ((uint)shortSecretIndex >= 64) throw new ArgumentOutOfRangeException(nameof(shortSecretIndex));
         EnsureGameId(save);
-        int gameIdLow = save.ReadWramByte(GameIdAddress);
-        int gameIdHigh = save.ReadWramByte(GameIdAddress + 1) & 0x7f;
-        save.WriteWramByte(
-            AgesWramAddress.wShortSecretIndex, (byte)shortSecretIndex);
+        int gameIdLow = save.ReadField("wGameID");
+        int gameIdHigh = save.ReadField("wGameID", 1) & 0x7f;
+        save.WriteField(
+            "wShortSecretIndex", (byte)shortSecretIndex);
 
         int sum = (gameIdLow + gameIdHigh) & 0xff;
         int swappedHighNibble = (shortSecretIndex >> 4) & 0x0f;
@@ -263,8 +267,8 @@ public sealed partial class LinkedGameNpcDatabase
         int decodedIndex = ReadBits(6);
         // bank3.s:verifyUnpackedSecretGameID explicitly accepts GameID $0000.
         if (!((low == 0 && high == 0) ||
-            (low == save.ReadWramByte(GameIdAddress) &&
-             high == save.ReadWramByte(GameIdAddress + 1)))) return false;
+            (low == save.ReadField("wGameID") &&
+             high == save.ReadField("wGameID", 1)))) return false;
         shortSecretIndex = decodedIndex;
         return true;
     }
@@ -288,15 +292,15 @@ public sealed partial class LinkedGameNpcDatabase
 
     private static void EnsureGameId(OracleSaveData save)
     {
-        if (save.ReadWramByte(GameIdAddress) != 0 ||
-            save.ReadWramByte(GameIdAddress + 1) != 0)
+        if (save.ReadField("wGameID") != 0 ||
+            save.ReadField("wGameID", 1) != 0)
         {
             return;
         }
 
-        byte low = save.ReadWramByte(AgesWramAddress.wPlaytimeCounter);
+        byte low = save.ReadField("wPlaytimeCounter");
         byte high =
-            (byte)(save.ReadWramByte(AgesWramAddress.wPlaytimeCounter + 1) & 0x7f);
+            (byte)(save.ReadField("wPlaytimeCounter", 1) & 0x7f);
         if (low == 0 && high == 0)
         {
             // The hardware source repeatedly reads R_DIV until nonzero. A
@@ -307,8 +311,8 @@ public sealed partial class LinkedGameNpcDatabase
             if (low == 0)
                 low = 1;
         }
-        save.WriteWramByte(GameIdAddress, low);
-        save.WriteWramByte(GameIdAddress + 1, high);
+        save.WriteField("wGameID", low);
+        save.WriteField("wGameID", high, 1);
     }
 }
 

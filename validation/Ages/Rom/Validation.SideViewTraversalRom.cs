@@ -8,7 +8,7 @@ namespace Oracles;
 public sealed partial class ValidationRoot
 {
     private DungeonInteractionDatabase? _sideViewInteractionData;
-    private DungeonInteractionDatabase SideViewInteractionData => _sideViewInteractionData ??= new();
+    private DungeonInteractionDatabase SideViewInteractionData => _sideViewInteractionData ??= new(AgesGameContent.AssetRoot);
     private SideViewRom PrepareSideViewRom(int group, int room, Vector2 start, bool flippers = false,
         bool feather = false, bool platforms = false)
     {
@@ -26,8 +26,8 @@ public sealed partial class ValidationRoot
         var rom = new SideViewRom(_saveData, _random.CaptureState(), _currentRoom, start, _entities.FrameCounter);
         if (platforms)
         {
-            var visual = new DungeonInteractionVisualDatabase().Visual("moving-side-platform");
-            foreach (var placement in new MovingSideScrollPlatformDatabase().GetRoomRecords(group - 2, room))
+            var visual = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("moving-side-platform");
+            foreach (var placement in new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot).GetRoomRecords(group - 2, room))
             {
                 var platform = new MovingSideScrollPlatformRoomEntity(placement,
                     SideViewInteractionData.SidePlatform(placement.SubId), visual);
@@ -297,7 +297,7 @@ public sealed partial class ValidationRoot
                 (7, 0xe7) => "1:00:78:58",
                 _ => throw new InvalidOperationException("Missing independent sideview platform placement expectations.")
             };
-            var rows = new MovingSideScrollPlatformDatabase().GetRoomRecords(test.Group - 2, test.Room);
+            var rows = new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot).GetRoomRecords(test.Group - 2, test.Room);
             string actualRows = string.Join(',', rows.Select(row => $"{row.Order}:{row.SubId:x2}:{row.Y:x2}:{row.X:x2}"));
             FailIf(actualRows != expectedRows,
                 $"Sideview ${test.Group:x1}:${test.Room:x2} source $a1 placements expected=[{expectedRows}], imported=[{actualRows}].");

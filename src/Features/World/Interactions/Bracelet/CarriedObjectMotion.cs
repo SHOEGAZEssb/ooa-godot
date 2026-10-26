@@ -88,7 +88,7 @@ internal struct CarriedObjectMotion
             (byte)(OracleObjectPosition.HighByte(GroundPosition.X) + offset.X),
             (byte)(OracleObjectPosition.HighByte(GroundPosition.Y) + offset.Y));
         bool blocked = edge.Y < 0xb0 && room.IsSolid(edge) &&
-            !(_tilePassage ??= new ItemTilePassage()).CanPass(room, edge, Angle);
+            !(_tilePassage ??= new ItemTilePassage(room.AssetRoot)).CanPass(room, edge, Angle);
         if (blocked)
         {
             if (breakOnCollision) return true;
@@ -137,7 +137,7 @@ internal struct CarriedObjectMotion
     {
         int frame = player.CarriedObjectAnimationFrame == 0 ? 2 : 3;
         return player.BraceletEntityOffset ??
-            BraceletWeightDatabase.Shared.LiftOffset(
+            BraceletWeightDatabase.For(player.AssetRoot).LiftOffset(
                 player.BraceletObjectWeight, frame, DirectionIndex(player.FacingVector));
     }
 

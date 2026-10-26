@@ -13,9 +13,8 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSo
     internal override bool InitializationPending => _state == CuccoAttackerState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => _behavior.Z;
-
-    private readonly CuccoAttackerBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.CuccoAttacker;
+    private CuccoAttackerBehaviorProfile? _behaviorSourceCache;
+    private CuccoAttackerBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).CuccoAttacker;
     private OracleRandom _random = null!;
     private Func<Vector2, Vector2> _worldToScreen = null!;
     private CuccoAttackerState _state;
@@ -39,6 +38,7 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSo
         int hitCount,
         Func<Vector2, Vector2> worldToScreen)
     {
+        AssetRoot = cuccoRecord.AssetRoot;
         if (cuccoRecord.Id != EnemyId.Cucco || cuccoRecord.Animations.Length != 2)
         {
             throw new InvalidOperationException(
@@ -66,11 +66,11 @@ internal partial class CuccoAttackerCharacter : EnemyCharacter, ITerrainShadowSo
         ];
         InitializeEnemy(
             Vector2.Zero,
-            new EnemyCharacterConfiguration(
+            new EnemyCharacterConfiguration(AssetRoot,
                 0x40,
                 cuccoRecord.RadiusX,
                 cuccoRecord.RadiusY,
-                EnemyVisualSource.LoadComposite(cuccoRecord.Sprites),
+                EnemyVisualSource.LoadComposite(cuccoRecord.Sprites, cuccoRecord.AssetRoot),
                 animations,
                 cuccoRecord.TileBase,
                 cuccoRecord.Palette,

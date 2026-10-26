@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateBombs()
     {
-        BombRecord record = new BombDatabase().Data;
+        BombRecord record = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
         AnimationDefinition fuse =
             OracleGraphicsCache.GetAnimationDefinition(record.FuseAnimation);
         AnimationDefinition explosion =
@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             "ITEM_BOMB edge probes, bounce mapping, 116-update fuse, or " +
             "explosion-radius animation diverged from the imported source.");
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(TreasureId.Bombs, 0x10);
         var rooms = new RoomSession(
@@ -104,7 +104,7 @@ public sealed partial class ValidationRoot
             rooms,
             sounds.Add,
             static () => false,
-            new BombDatabase());
+            new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv"));
 
         int inventoryChanges = 0;
         int saveChanges = 0;
@@ -214,7 +214,7 @@ public sealed partial class ValidationRoot
 
         InventoryState Wearing(RingId ring)
         {
-            OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
+            OracleSaveData ringSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             ringSave.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
             ringSave.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)ring);
             var wearing = new InventoryState(_treasures, ringSave);
@@ -242,7 +242,7 @@ public sealed partial class ValidationRoot
         effect.Initialize(
             record,
             effectRoom,
-            new BreakableTileDatabase(),
+            new BreakableTileDatabase(AgesGameContent.AssetRoot),
             player,
             0,
             bomb => bomb.ReleaseExploding(player, Vector2I.Zero),
@@ -311,7 +311,7 @@ public sealed partial class ValidationRoot
         player.Face(Vector2I.Right);
         var fenceBomb = new BombEffect();
         fenceBomb.Initialize(
-            record, fenceRoom, new BreakableTileDatabase(),
+            record, fenceRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             player, 4, _ => { }, _ => { }, (_, _, _) => { },
             () => { }, () => 0, _ => null, saveData: null,
             linkedRoomNeighbor: null);
@@ -338,7 +338,7 @@ public sealed partial class ValidationRoot
             new OracleRandom());
         var peaceBomb = new BombEffect();
         peaceBomb.Initialize(
-            record, effectRoom, new BreakableTileDatabase(),
+            record, effectRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             peacePlayer, 0, _ => { }, _ => { }, (_, _, _) => { },
             () => { }, () => 0, _ => null, saveData: null,
             linkedRoomNeighbor: null);
@@ -362,7 +362,7 @@ public sealed partial class ValidationRoot
             new OracleRandom());
         var blastBomb = new BombEffect();
         blastBomb.Initialize(
-            record, effectRoom, new BreakableTileDatabase(),
+            record, effectRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             blastPlayer, 0,
             bomb => bomb.ReleaseExploding(blastPlayer, Vector2I.Zero),
             _ => { }, (_, _, _) => { }, () => { }, () => 0,
@@ -390,7 +390,7 @@ public sealed partial class ValidationRoot
             new OracleRandom());
         var bombproofBomb = new BombEffect();
         bombproofBomb.Initialize(
-            record, effectRoom, new BreakableTileDatabase(),
+            record, effectRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             bombproofPlayer, 0,
             bomb => bomb.ReleaseExploding(
                 bombproofPlayer, Vector2I.Zero),
@@ -434,7 +434,7 @@ public sealed partial class ValidationRoot
         var sideBombSounds = new List<int>();
         var sideBomb = new BombEffect();
         sideBomb.Initialize(
-            record, sideRoom, new BreakableTileDatabase(),
+            record, sideRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             player, 6, _ => { }, sideBombSounds.Add, (_, _, _) => { },
             () => { }, () => 0, _ => null, saveData: null,
             linkedRoomNeighbor: null);
@@ -467,7 +467,7 @@ public sealed partial class ValidationRoot
         player.SetScriptedPosition(new Vector2(80, 1));
         var wrappingBomb = new BombEffect();
         wrappingBomb.Initialize(
-            record, sideRoom, new BreakableTileDatabase(),
+            record, sideRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             player, 6, _ => { }, _ => { }, (_, _, _) => { },
             () => { }, () => 0, _ => null, saveData: null,
             linkedRoomNeighbor: null);
@@ -490,7 +490,7 @@ public sealed partial class ValidationRoot
         player.SetScriptedPosition(new Vector2(80, 80));
         var heldSideBomb = new BombEffect();
         heldSideBomb.Initialize(
-            record, sideRoom, new BreakableTileDatabase(),
+            record, sideRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             player, 6,
             bomb => bomb.ReleaseExploding(
                 player, new Vector2I(0, -8)),
@@ -543,7 +543,7 @@ public sealed partial class ValidationRoot
             $"tile=${waterTerrain.Tile:x2}, " +
             $"type={waterTerrain.Type}, hazard={waterTerrain.Hazard}.");
 
-        TopDownSwimmingDatabase database = TopDownSwimmingDatabase.Shared;
+        TopDownSwimmingDatabase database = TopDownSwimmingDatabase.For(AgesGameContent.AssetRoot);
         TopDownSwimmingParameters parameters = database.Parameters;
         TopDownSwimmingFrame rightFrame0 = database.Frame(0, 1);
         TopDownSwimmingFrame downFrame1 = database.Frame(1, 2);
@@ -590,7 +590,7 @@ public sealed partial class ValidationRoot
             waterPosition,
             waterPosition,
             WaterPackedPosition);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 1);
         save.WriteWramByte(AgesWramAddress.wRingBoxContents, (byte)RingId.Zora);
         var inventory = new InventoryState(_treasures, save);
@@ -635,7 +635,7 @@ public sealed partial class ValidationRoot
         AddChild(noFlippers);
         noFlippers.Initialize(
             noFlippersWorld,
-            new InventoryState(_treasures, OracleSaveData.CreateStandardGame()),
+            new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages)),
             new Vector2(80, 80),
             new OracleRandom());
 
@@ -993,7 +993,7 @@ public sealed partial class ValidationRoot
         const int WaterGroup = 7;
         const int WaterRoom = 0x07;
         Vector2 roomWaterPosition = new(0x08, 0x78);
-        SideScrollPlayerDatabase database = SideScrollPlayerDatabase.Shared;
+        SideScrollPlayerDatabase database = SideScrollPlayerDatabase.For(AgesGameContent.AssetRoot);
         OracleRoomData room = _world.LoadRoom(WaterGroup, WaterRoom);
         byte waterTile = room.GetMetatile(roomWaterPosition);
         FailIf(
@@ -1030,7 +1030,7 @@ public sealed partial class ValidationRoot
             "LINK_ANIM_MODE_SWIM_2D `$17 or LINK_ANIM_MODE_MERMAID `$11 " +
             "lost its exact 9/9 directional graphics.");
 
-        LinkItemDatabase linkItems = LinkItemDatabase.Shared;
+        LinkItemDatabase linkItems = LinkItemDatabase.For(AgesGameContent.AssetRoot);
         LinkGraphicRecord underwaterPhase0 = linkItems.Graphic(
             "underwater-attack", 0, 0, (int)Facing.Right);
         LinkGraphicRecord underwaterPhase1 = linkItems.Graphic(
@@ -1056,7 +1056,7 @@ public sealed partial class ValidationRoot
             ActiveType: SideScrollTileType.Water,
             BelowType: SideScrollTileType.Water);
         var flippersInventory = new InventoryState(
-            _treasures, OracleSaveData.CreateStandardGame());
+            _treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         flippersInventory.GiveTreasure(
             TreasureId.Flippers, 0);
         flippersInventory.GiveTreasure(
@@ -1090,12 +1090,12 @@ public sealed partial class ValidationRoot
         noFlippersPlayer.Initialize(
             noFlippersWorld,
             new InventoryState(
-                _treasures, OracleSaveData.CreateStandardGame()),
+                _treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages)),
             new Vector2(96, 80),
             new OracleRandom());
 
         var mermaidInventory = new InventoryState(
-            _treasures, OracleSaveData.CreateStandardGame());
+            _treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         mermaidInventory.GiveTreasure(
             TreasureId.Flippers, 0);
         mermaidInventory.GiveTreasure(
@@ -1390,7 +1390,7 @@ public sealed partial class ValidationRoot
             "Canonical rooms 0:06 `$73 and 0:38 `$43 no longer expose " +
             "Ages grass `$f8 and shallow water `$f9.");
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         var world = new ValidationRingPlayerWorld
         {
@@ -1610,7 +1610,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateLinkItemGeneratedData()
     {
-        LinkItemDatabase database = LinkItemDatabase.Shared;
+        LinkItemDatabase database = LinkItemDatabase.For(AgesGameContent.AssetRoot);
         LinkItemConstants constants = database.Constants;
         FailIf(
             constants.SwordSwingFrames != 17 ||
@@ -1877,7 +1877,7 @@ public sealed partial class ValidationRoot
         // Independent imported-asset goldens and lowered body-contact.
         // Raised lifecycle, scrolling, release/reuse and
         // projectile bounce are owned by the executed Shield ROM scenarios.
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
         inventory.EquipA(TreasureId.Shield);
@@ -1905,7 +1905,7 @@ public sealed partial class ValidationRoot
         player.Face(Vector2I.Up);
         LoadBushValidationRoom();
         var unblockedRock = new OctorokRockProjectile();
-        unblockedRock.Initialize(new EnemyDatabase().OctorokProjectile, _currentRoom, player.Position, ObjectAngle.Up);
+        unblockedRock.Initialize(new EnemyDatabase(AgesGameContent.AssetRoot).OctorokProjectile, _currentRoom, player.Position, ObjectAngle.Up);
         unblockedRock.UpdateFrame(player);
         int healthBefore = player.HealthQuarters;
         ((ILinkContactEntity)unblockedRock).HandleLinkContact(player);
@@ -1964,7 +1964,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSeedSatchel()
     {
-        var database = new SeedSatchelDatabase();
+        var database = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
         SeedRecord record = database.Ember;
         SeedRecord mystery = database.Mystery;
         FailIf(
@@ -2009,7 +2009,7 @@ public sealed partial class ValidationRoot
                 $"Satchel direction {index} lost its signed Y/X child offset.");
         }
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         int grantInventoryChanges = 0;
         int grantSaveChanges = 0;
@@ -2066,7 +2066,7 @@ public sealed partial class ValidationRoot
         int tileChanges = 0;
         var ember = new EmberSeedEffect();
         ember.Initialize(
-            record, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            record, _currentRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot), linkPosition,
             Vector2I.Up, sounds.Add, (_, hazard) => hazards.Add(hazard),
             () => tileChanges++, () => (long)_animationTicks,
             _ => null, _saveData, _activeGroup);
@@ -2114,17 +2114,17 @@ public sealed partial class ValidationRoot
             "The Ember flame did not apply BREAKABLETILESOURCE_EMBER_SEED on counter $3a expiry.");
         ember.Free();
 
-        var standardSubstitutions = new StandardTileSubstitutionDatabase();
+        var standardSubstitutions = new StandardTileSubstitutionDatabase(AgesGameContent.AssetRoot);
         FailIf(
             standardSubstitutions.RecordCount != 50,
             "The imported standard tile-substitution table did not retain all 50 Ages rows.");
 
-        OracleSaveData watchedTreeSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData watchedTreeSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var watchedTreeRooms = new RoomSession(
             0, 0x48, () => 0, () => { }, watchedTreeSave);
         OracleRoomData watchedTreeRoom = watchedTreeRooms.CurrentRoom;
         Vector2 watchedTreePoint = new(0x88, 0x68);
-        var watcherDatabase = new RoomTileChangeWatcherDatabase();
+        var watcherDatabase = new RoomTileChangeWatcherDatabase(AgesGameContent.AssetRoot);
         RoomTileChangeWatcherDatabaseRecord[] watcherRecords = watcherDatabase
             .GetRoomRecords(0, 0x48).ToArray();
         FailIf(
@@ -2143,7 +2143,7 @@ public sealed partial class ValidationRoot
         FailIf(
             !watcherManager.Entities<Node2D>().Any(
             node => node.Name == "TileChangeWatcher_1"),
-            "RoomEntityFactory did not instantiate room 0:48's imported $dc:$08 watcher.");
+            "AgesRoomEntityFactory did not instantiate room 0:48's imported $dc:$08 watcher.");
         var watchedTreeSpawns = new List<RoomEntitySpawn>();
         watcherManager.Update(1.0 / 60.0, _player);
         FailIf(
@@ -2152,7 +2152,7 @@ public sealed partial class ValidationRoot
 
         var watchedTreeSeed = new EmberSeedEffect();
         watchedTreeSeed.Initialize(
-            record, watchedTreeRoom, new BreakableTileDatabase(),
+            record, watchedTreeRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             watchedTreePoint + new Vector2(0, 10), Vector2I.Up,
             _ => { }, (_, _) => { }, () => { }, () => 0,
             _ => null, watchedTreeSave, 0);
@@ -2179,12 +2179,12 @@ public sealed partial class ValidationRoot
             "Room 0:48's single-tile change did not preserve burnt tree $68/$3a on re-entry.");
         FailIf(
             !OracleSaveData.TryDeserialize(
-                watchedTreeSave.Serialize(), out OracleSaveData? reloadedTreeSave) ||
+                watchedTreeSave.Serialize(), OracleGame.Ages, out OracleSaveData? reloadedTreeSave) ||
             new RoomSession(0, 0x48, () => 0, () => { }, reloadedTreeSave!)
                 .CurrentRoom.GetMetatile(watchedTreePoint) != 0x3a,
             "Room 0:48's burnt tree did not remain removed after save serialization and reload.");
 
-        OracleSaveData persistentSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData persistentSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var persistentRooms = new RoomSession(
             0, 0x8a, () => 0, () => { }, persistentSave);
         int burnGroup = -1;
@@ -2220,7 +2220,7 @@ public sealed partial class ValidationRoot
         var burnSpawns = new List<RoomEntitySpawn>();
         var burningTreeSeed = new EmberSeedEffect();
         burningTreeSeed.Initialize(
-            record, burnRoom, new BreakableTileDatabase(),
+            record, burnRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             burnPoint + new Vector2(0, 10), Vector2I.Up,
             burnSounds.Add, (_, _) => { }, () => { }, () => 0,
             _ => null, persistentSave, burnGroup);
@@ -2245,7 +2245,7 @@ public sealed partial class ValidationRoot
 
         FailIf(
             !OracleSaveData.TryDeserialize(
-            persistentSave.Serialize(), out OracleSaveData? restoredPersistentSave),
+            persistentSave.Serialize(), OracleGame.Ages, out OracleSaveData? restoredPersistentSave),
             "The burnable-tree room flag did not survive save-image serialization.");
         var reloadedRooms = new RoomSession(
             burnGroup, burnRoomId, () => 0, () => { }, restoredPersistentSave!);
@@ -2315,7 +2315,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateScentSeed()
     {
-        SeedRecord scent = new SeedSatchelDatabase().Scent;
+        SeedRecord scent = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Scent;
         AnimationDefinition flying =
             OracleGraphicsCache.GetAnimationDefinition(scent.Animation);
         AnimationDefinition smell =
@@ -2350,7 +2350,7 @@ public sealed partial class ValidationRoot
         var spawns = new List<RoomEntitySpawn>();
         var effect = new EmberSeedEffect();
         effect.Initialize(
-            scent, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            scent, _currentRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot), linkPosition,
             Vector2I.Up, sounds.Add, (_, hazard) => hazards.Add(hazard),
             () => { }, () => (long)_animationTicks, _ => null,
             _saveData, _activeGroup);
@@ -2410,7 +2410,7 @@ public sealed partial class ValidationRoot
         sounds.Clear();
         var collided = new EmberSeedEffect();
         collided.Initialize(
-            scent, _currentRoom, new BreakableTileDatabase(), linkPosition,
+            scent, _currentRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot), linkPosition,
             Vector2I.Up, sounds.Add, (_, _) => { }, () => { },
             () => (long)_animationTicks, _ => null,
             _saveData, _activeGroup);
@@ -2466,7 +2466,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSeedShooter()
     {
-        SeedShooterRecord record = SeedShooterRecord.Load();
+        SeedShooterRecord record = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
         Vector2I[] offsets =
         [
             new(-4, -14), new(11, -4), new(12, 5), new(11, 9),
@@ -2516,7 +2516,7 @@ public sealed partial class ValidationRoot
         for (int angle = ObjectAngle.Up; angle < 8; angle++)
         {
             FailIf(
-                LinkItemDatabase.Shared.Graphic(
+                LinkItemDatabase.For(AgesGameContent.AssetRoot).Graphic(
                     "shooter", variant, 0, angle).GraphicsIndex !=
                     shooterBases[variant] + angle,
                 "ITEM_SHOOTER parent priority did not override Link with " +
@@ -2595,11 +2595,11 @@ public sealed partial class ValidationRoot
             5 * OracleRoomData.MetatileSize + 8);
         Vector2 flyingStart = new(29, fencePoint.Y);
         var fenceSeed = new EmberSeedEffect();
-        SeedRecord emberRecord = new SeedSatchelDatabase().Ember;
+        SeedRecord emberRecord = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
         fenceSeed.Initialize(
             emberRecord,
             fenceRoom,
-            new BreakableTileDatabase(),
+            new BreakableTileDatabase(AgesGameContent.AssetRoot),
             flyingStart - record.Offsets[2],
             Vector2I.Right,
             _ => { },
@@ -2631,7 +2631,7 @@ public sealed partial class ValidationRoot
         fenceSeed.Free();
 
         var bushRooms = new RoomSession(
-            0, 0x69, () => 0, () => { }, OracleSaveData.CreateStandardGame());
+            0, 0x69, () => 0, () => { }, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         OracleRoomData bushRoom = bushRooms.CurrentRoom;
         Vector2 bushPoint = new(24, 56);
         bushRoom.ReplaceMetatile(bushPoint, 0x3a, 0xc5, 0);
@@ -2641,7 +2641,7 @@ public sealed partial class ValidationRoot
         bushSeed.Initialize(
             emberRecord,
             bushRoom,
-            new BreakableTileDatabase(),
+            new BreakableTileDatabase(AgesGameContent.AssetRoot),
             bushSeedStart - record.Offsets[0],
             Vector2I.Up,
             _ => { },
@@ -2679,7 +2679,7 @@ public sealed partial class ValidationRoot
         _inventory.SelectShooterSeeds(0);
         var sounds = new List<int>();
         var controller = new SeedSatchelController(
-            _inventory, _entities, new SeedSatchelDatabase(), _rooms,
+            _inventory, _entities, new SeedSatchelDatabase(AgesGameContent.AssetRoot), _rooms,
             sounds.Add);
         _player.Face(Vector2I.Right);
         int amountBefore = _inventory.EmberSeeds;
@@ -2693,7 +2693,7 @@ public sealed partial class ValidationRoot
             "without consuming ammo.");
 
         var diagonalController = new SeedSatchelController(
-            _inventory, _entities, new SeedSatchelDatabase(), _rooms);
+            _inventory, _entities, new SeedSatchelDatabase(AgesGameContent.AssetRoot), _rooms);
         _player.Face(Vector2I.Left);
         FailIf(
             !diagonalController.TryBeginShooter(
@@ -2765,7 +2765,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSeedInventorySubmenu()
     {
-        MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;
+        MenuPresentationDatabase layouts = MenuPresentationDatabase.For(AgesGameContent.AssetRoot);
         InventoryItemSubmenuLayout twoOptions =
             layouts.InventoryItemSubmenu(2);
         InventoryItemSubmenuLayout fiveOptions =
@@ -2789,7 +2789,7 @@ public sealed partial class ValidationRoot
             "seedAndHarpSpriteTable seed OAM/VRAM-bank selection diverged " +
             "from bank2.s.");
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(TreasureId.SeedSatchel, 0);
         inventory.GiveTreasure(
@@ -2804,15 +2804,15 @@ public sealed partial class ValidationRoot
             "Seed Satchel/Mystery grants did not produce the source ordered " +
             "owned-seed list [Ember, Mystery].");
 
-        var screen = new InventoryScreen
-        {
+        var screen = new AgesInventoryScreen
+        { AssetRoot = AgesGameContent.AssetRoot,
             Name = "SeedInventorySubmenuValidation",
             Visible = false
         };
         AddChild(screen);
         screen.Initialize(_treasures, inventory);
         screen.Open();
-        var menu = new InventoryMenuController(
+        var menu = new AgesInventoryMenuController(
             screen,
             _saveQuitScreen,
             _menuLifecycle,
@@ -2881,7 +2881,7 @@ public sealed partial class ValidationRoot
             selectedQuantity.TensTile != 0x12 ||
             selectedQuantity.OnesTile != 0x10 ||
             !OracleSaveData.TryDeserialize(
-                save.Serialize(), out OracleSaveData? restored) ||
+                save.Serialize(), OracleGame.Ages, out OracleSaveData? restored) ||
             new InventoryState(_treasures, restored!).SatchelSelectedSeeds != 4,
             "Selected Mystery Seed quantity/display or " +
             "wSatchelSelectedSeeds persistence regressed.");
@@ -3018,7 +3018,7 @@ public sealed partial class ValidationRoot
                 $"(position={bushDebris.Position}, hash={firstGrassDebrisHash:x16}).");
         }
         var underwaterDebris = new GrassDebrisEffect();
-        underwaterDebris.Initialize(bushPoint, underwater: true);
+        underwaterDebris.Initialize(AgesGameContent.AssetRoot, bushPoint, underwater: true);
         using (Image underwaterGrassDebrisFrame =
             underwaterDebris.CurrentTexture.GetImage())
         {
@@ -3154,8 +3154,8 @@ public sealed partial class ValidationRoot
             "Held sword state did not expose Link's reset two-update " +
             "LINK_ANIM_MODE_WALK clock.");
         FailIf(
-            Player.GetSwordSpritePositionForValidation(13) != new Vector2(12, 0) ||
-            Player.GetSwordSpritePositionForValidation(15) != new Vector2(-12, 0),
+            Player.GetSwordSpritePositionForValidation(13, AgesGameContent.AssetRoot) != new Vector2(12, 0) ||
+            Player.GetSwordSpritePositionForValidation(15, AgesGameContent.AssetRoot) != new Vector2(-12, 0),
             "Held horizontal sword sprites did not apply the child item's -2 Z draw offset.");
 
         _player.AdvanceSwordForValidation(40, buttonHeld: true);
@@ -3336,7 +3336,7 @@ public sealed partial class ValidationRoot
                     arc.OffsetX - arc.RadiusX,
                     arc.OffsetY - arc.RadiusY),
                 new Vector2(arc.RadiusX * 2, arc.RadiusY * 2));
-            Rect2 actual = Player.GetSwordHitboxForValidation(auditPosition, index);
+            Rect2 actual = Player.GetSwordHitboxForValidation(auditPosition, index, AgesGameContent.AssetRoot);
             FailIf(
                 actual != expected,
                 $"swordArcData row `${index:x2} mismatch: expected {expected}, got {actual}.");
@@ -3384,7 +3384,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateAirborneSwordRendering()
     {
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(TreasureId.Feather, 1);
         var swordFirstWorld = new ValidationRingPlayerWorld();

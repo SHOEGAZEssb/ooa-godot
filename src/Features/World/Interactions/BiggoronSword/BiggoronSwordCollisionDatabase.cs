@@ -4,12 +4,19 @@ namespace Oracles;
 
 internal sealed class BiggoronSwordCollisionDatabase
 {
-    internal static BiggoronSwordCollisionDatabase Shared { get; }=new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<BiggoronSwordCollisionDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static BiggoronSwordCollisionDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<BiggoronSwordCollisionDatabase>(() => new BiggoronSwordCollisionDatabase(root))).Value;
+
     private readonly int[] _effects=new int[0x7d];
     private readonly bool[] _enemies=new bool[128],_parts=new bool[0x5a];
-    private BiggoronSwordCollisionDatabase()
+    private BiggoronSwordCollisionDatabase(string assetRoot)
     {
-        var table=GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/biggoron_sword_collision_effects.tsv",
+        AssetRoot = assetRoot;
+
+        var table=GeneratedTable.Load(AssetRoot + "metadata/biggoron_sword_collision_effects.tsv",
             new GeneratedTableSchema("ITEMCOLLISION_BIGGORON_SWORD $07",GeneratedTableKeySemantics.Unique,
                 ["mode","effect","source"],["mode"],headerRequired:true));
         if(table.Rows.Count!=_effects.Length) throw new InvalidOperationException("ITEM$0c requires $7d collision modes.");
@@ -21,9 +28,9 @@ internal sealed class BiggoronSwordCollisionDatabase
         }
         LoadMasks("enemy",_enemies); LoadMasks("part",_parts);
     }
-    private static void LoadMasks(string kind,bool[] masks)
+    private void LoadMasks(string kind,bool[] masks)
     {
-        var table=GeneratedTable.Load(AgesGameContent.AssetRoot + $"metadata/biggoron_sword_{kind}_collisions.tsv",
+        var table=GeneratedTable.Load(AssetRoot + $"metadata/biggoron_sword_{kind}_collisions.tsv",
             new GeneratedTableSchema($"ITEM$0c {kind} masks",GeneratedTableKeySemantics.Unique,
                 ["id","enabled","source"],["id"],headerRequired:true));
         if(table.Rows.Count!=masks.Length) throw new InvalidOperationException($"Incomplete ITEM$0c {kind} masks.");

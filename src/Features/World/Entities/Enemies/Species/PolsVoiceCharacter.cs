@@ -12,9 +12,8 @@ internal partial class PolsVoiceCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => _state == PolsVoiceState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
-
-    private readonly PolsVoiceBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.PolsVoice;
+    private PolsVoiceBehaviorProfile? _behaviorSourceCache;
+    private PolsVoiceBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).PolsVoice;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private PolsVoiceState _state;
@@ -45,6 +44,7 @@ internal partial class PolsVoiceCharacter : EnemyCharacter, ITerrainShadowSource
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);

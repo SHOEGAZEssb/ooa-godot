@@ -9,15 +9,19 @@ namespace Oracles;
 /// </summary>
 public sealed class SingleTileChangeDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly Lookup<(int Group, int Room), Record> _byRoom = new();
 
     internal int RecordCount { get; }
 
-    public SingleTileChangeDatabase()
+    public SingleTileChangeDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/single_tile_changes.tsv",
+            AssetRoot + "metadata/single_tile_changes.tsv",
             new GeneratedTableSchema(
                 "single-tile changes",
                 GeneratedTableKeySemantics.Grouped,
@@ -88,7 +92,7 @@ public sealed class SingleTileChangeDatabase
         0xf1 => save.IsLinkedGame,
         // The source comment describes this as an unlinked completion row;
         // executed code tests GLOBALFLAG_FINISHEDGAME directly.
-        0xf2 => save.HasGlobalFlag(AgesGlobalFlag.FinishedGame),
+        0xf2 => save.HasFinishedGame,
         _ => (save.GetRoomFlags(group, room) & mask) != 0
     };
 }

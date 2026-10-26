@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
             for (int i=0; i<22; i++) _secretEntry.Update(1.0 / 60.0);
             _secretEntry.Submit([0xff, 0xff, 0xff, 0xff, 0xff]);
             FailIf(!_secretEntry.IsActive || _saveData.HasGlobalFlag(0x6a), "Invalid Mamamu secret advanced the quest.");
-            _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(6, _saveData));
+            _secretEntry.Submit(new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecretValues(6, _saveData));
             for (int i=0; i<22; i++) _secretEntry.Update(1.0 / 60.0);
             Step(31); Text(0x0b3c, "My dear");
             FailIf(!_saveData.HasGlobalFlag(0x6a), "Valid Mamamu secret did not set GLOBALFLAG_BEGAN_MAMAMU_SECRET $6a.");

@@ -27,6 +27,7 @@ internal sealed partial class BlackTowerFlameRoomEntity : DungeonInteractionVisu
     public bool UpdatesDuringRoomEntityFreeze => State == 0;
     internal BlackTowerFlameRoomEntity(RoomEntityManager owner, BlackTowerFlameDatabase data, int subid, Vector2 position)
     {
+        AssetRoot = owner.AssetRoot;
         if ((uint)subid >= 4) throw new NotSupportedException($"blackTowerMovingFlames.s: unsupported PART $59:${subid:x2}.");
         _owner = owner; _data = data; SubId = subid;
         InitializeVisual(data.Visual, position, positionedOam: true);

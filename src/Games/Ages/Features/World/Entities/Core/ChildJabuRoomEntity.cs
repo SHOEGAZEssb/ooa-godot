@@ -8,7 +8,7 @@ internal sealed class ChildJabuRoomEntity : NpcCharacterRoomEntityAdapter,
     IFixedRoomEntity, IRoomBlocker, ITalkTarget, IUpdatesDuringDialogueRoomEntity,
     IUpdatesDuringRoomEntityFreeze, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
-    internal ChildJabuRoomEntity(NpcRecord record) : this(NpcCharacter.CreateFromRecord(record)) { }
+    internal ChildJabuRoomEntity(NpcRecord record) : this(NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot)) { }
     private ChildJabuRoomEntity(NpcCharacter actor) : base(actor, actor.SetTransitionDrawOffset)
     {
         Entity.SetCollisionRadii(0x0e, 0x06);

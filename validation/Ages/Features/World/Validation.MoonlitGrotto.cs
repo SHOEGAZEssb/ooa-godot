@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
 
         var data = new MoonlitGrottoDatabase();
         DungeonInteractionVisual visual =
-            new DungeonInteractionVisualDatabase().Visual("echoing-howl");
+            new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("echoing-howl");
         IReadOnlyList<DungeonObjectRecord> records =
             data.GetRoomRecords(4, 0x49);
         FailIf(
@@ -206,8 +206,8 @@ public sealed partial class ValidationRoot
         }
 
         var data = new MoonlitGrottoDatabase();
-        var visuals = new DungeonInteractionVisualDatabase();
-        var bosses = new DungeonBossDatabase();
+        var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
+        var bosses = new DungeonBossDatabase(AgesGameContent.AssetRoot);
         var mechanics = new DungeonMechanicDatabase();
         IReadOnlyList<DungeonObjectRecord> records =
             data.GetRoomRecords(4, 0x4a);
@@ -275,14 +275,14 @@ public sealed partial class ValidationRoot
             "entities were frozen during scrolling.");
         _entities.FinishScreenTransition();
 
-        SeedShooterRecord shooter = SeedShooterRecord.Load();
-        SeedRecord ember = new SeedSatchelDatabase().Ember;
+        SeedShooterRecord shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
+        SeedRecord ember = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
         Vector2 wallApproach = new(40, 88);
         var wallSeed = new EmberSeedEffect();
         wallSeed.Initialize(
             ember,
             transitionDestination,
-            new BreakableTileDatabase(),
+            new BreakableTileDatabase(AgesGameContent.AssetRoot),
             wallApproach - shooter.Offsets[6],
             Vector2I.Left,
             _ => { },
@@ -625,8 +625,8 @@ public sealed partial class ValidationRoot
         }
 
         var data = new MoonlitGrottoDatabase();
-        var visuals = new DungeonInteractionVisualDatabase();
-        var bosses = new DungeonBossDatabase();
+        var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
+        var bosses = new DungeonBossDatabase(AgesGameContent.AssetRoot);
         DungeonInteractionVisual dirtVisual = visuals.Visual("subterror-dirt");
         AnimationDefinition dirtAnimation =
             OracleGraphicsCache.GetAnimationDefinition(
@@ -649,7 +649,7 @@ public sealed partial class ValidationRoot
             "PALH_be paletteData4950 override for OBJ palette 6.");
         Texture2D expectedDirtTexture =
             OracleOamCompositor.BuildOamTextureWithPaletteOverrides(
-                EnemyVisualSource.LoadComposite(dirtVisual.Sprites),
+                EnemyVisualSource.LoadComposite(dirtVisual.Sprites, dirtVisual.AssetRoot),
                 dirtAnimation.Frames[0].EncodedOam,
                 dirtVisual.TileBase,
                 dirtVisual.Palette,
@@ -893,7 +893,7 @@ public sealed partial class ValidationRoot
         IReadOnlyList<DungeonMechanicDatabaseRecord> records =
             data.GetRoomRecords(4, 0x4b);
         RoomTileChangeWatcherDatabaseRecord watcherRecord =
-            new RoomTileChangeWatcherDatabase().GetRoomRecords(4, 0x4b).Single();
+            new RoomTileChangeWatcherDatabase(AgesGameContent.AssetRoot).GetRoomRecords(4, 0x4b).Single();
         FailIf(
             records.Select(record =>
                 (record.Order, record.Id, record.SubId,
@@ -1185,8 +1185,8 @@ public sealed partial class ValidationRoot
             "Room 4:4e's scanner did not create four initialized Scent Seed " +
             "bushes in layout order or the bridges misread their source tiles.");
 
-        SeedShooterRecord shooter = SeedShooterRecord.Load();
-        SeedRecord ember = new SeedSatchelDatabase().Ember;
+        SeedShooterRecord shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
+        SeedRecord ember = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
         EmberSeedEffect SpawnShooterSeed(Vector2 position, int angle = 1) =>
             _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(
                 position - shooter.Offsets[angle],
@@ -1958,7 +1958,7 @@ public sealed partial class ValidationRoot
                 _entities.Update(Update, _player);
         }
 
-        var enemyData = new EnemyDatabase();
+        var enemyData = new EnemyDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<RoomObjectRecord> objects =
             enemyData.GetRoomObjects(4, 0x58);
         FailIf(
@@ -1982,7 +1982,7 @@ public sealed partial class ValidationRoot
                    CountSourceComplete: true }],
             "Room 4:58 lost INTERAC_DUNGEON_STUFF $12:$02 and its " +
             "enemy-clear Seed Shooter chest at $59.");
-        var chests = new ChestDatabase();
+        var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
             !chests.TryGet(4, 0x58, 0x59, out ChestRecord shooterChest) ||
             shooterChest is not
@@ -2271,7 +2271,7 @@ public sealed partial class ValidationRoot
                 _entities.Update(Update, _player);
         }
 
-        var enemyData = new EnemyDatabase();
+        var enemyData = new EnemyDatabase(AgesGameContent.AssetRoot);
         EnemyCombatSourceDescriptor TileSource(bool counted) =>
             enemyData.EnemyHandlers.ResolveHandler(
                 EnemyId.FlyingTile, 0, "validation Flying Tile child")
@@ -2541,7 +2541,7 @@ public sealed partial class ValidationRoot
             "objectCheckTileCollision_allowHoles reached the left wall.");
         wallTile.Free();
 
-        var shieldSave = OracleSaveData.CreateStandardGame();
+        var shieldSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var shieldInventory = new InventoryState(_treasures, shieldSave);
         shieldInventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
@@ -2934,7 +2934,7 @@ public sealed partial class ValidationRoot
 
         // Exercise both scripts independently of the live dialogue box so
         // every exact counter boundary and flag side effect is observable.
-        var eventSave = OracleSaveData.CreateStandardGame();
+        var eventSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var eventRuntime = AgesGameContent.CreateRuntimeState();
         eventRuntime.SetWramByte(AgesGameContent.SwitchStateAddress, 0xb0);
         eventRuntime.SetWramByte(AgesGameContent.SpinnerStateAddress, 0xa5);

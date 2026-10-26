@@ -9,8 +9,8 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonLikeLikeSeeds()
     {
         var random = CaptureOracleRandomForValidation();
-        var seeds = new SeedSatchelDatabase();
-        var shooter = SeedShooterRecord.Load();
+        var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
+        var shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
         foreach (bool batch in new[] { false, true })
         foreach (var (item, health) in new[] { (0x20, 5), (0x20, 1), (0x22, 5), (0x23, 5) })
         {
@@ -134,7 +134,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonLikeLikeSourceData()
     {
-        var data = EnemyBehaviorTables.Shared.LikeLike;
+        var data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).LikeLike;
         // Independent transcription of likelike.s and linkState0d. Mashing
         // avoids shield loss, not the 90-update hold; the zero update skips
         // reading buttons. Release sets native signed invincibility $94.
@@ -155,7 +155,7 @@ public partial class ValidationRoot
         FailIf(data.CollisionEffects.Any(v => !v.Source.StartsWith(
             "data/ages/objectCollisionTable.s:objectCollisionTable+$0440")),
             "ENEMY_LIKE_LIKE $24 collision rows lost source identity.");
-        var definition = new EnemyDatabase().ImportedEnemy(EnemyId.LikeLike);
+        var definition = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.LikeLike);
         FailIf(definition.Health != 5 || definition.DamageQuarters != 2 ||
             definition.TileBase != 12 || definition.Palette != 3 ||
             definition.RadiusX != 6 || definition.RadiusY != 6 || definition.Animations.Length != 2,
@@ -165,7 +165,7 @@ public partial class ValidationRoot
         FailIf(definition.Animations[0] != "24@8,0,0,0;8,8,0,32|24,1@8,0,2,0;8,8,2,32" ||
             definition.Animations[1] != "10@8,0,4,0;8,8,4,32|8@8,0,6,0;8,8,6,32|9@8,0,8,0;8,8,8,32",
             "ENEMY_LIKE_LIKE $24 animation durations, parameters, loops or ordered OAM changed.");
-        FailIf(new EnemyDatabase().LikeLikeShieldText != "Your \\col(1)shield\\col(0)\nwas eaten!",
+        FailIf(new EnemyDatabase(AgesGameContent.AssetRoot).LikeLikeShieldText != "Your \\col(1)shield\\col(0)\nwas eaten!",
             "TX_510b must preserve shield color commands and the source line break.");
         GD.Print("Validated Like Like $24 source operands, collision masks, graphics and shield-loss text.");
     }
@@ -173,7 +173,7 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonLikeLikeStateMachine()
     {
         LoadValidationRoom(4, 0x91);
-        var record = new EnemyDatabase().ImportedEnemy(EnemyId.LikeLike);
+        var record = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.LikeLike);
         var room = Room060MovementFixture();
         var random = new OracleRandom();
         var enemy = new LikeLikeCharacter();

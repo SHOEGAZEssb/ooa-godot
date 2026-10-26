@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         void Step(int count = 1, Vector2 movement = default) =>
             StepGameplayUpdates(count, movement, [], [], batched: batched);
         var data = new SkullDungeonDatabase();
-        var visual = new DungeonInteractionVisualDatabase().Visual("burning-flame");
+        var visual = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("burning-flame");
         FailIf(data.GetRoomRecords(4, 0x69) is not [{ Id: InteractionId.Essence, SubId: 0, Order: 0, Y: 0x28, X: 0x78,
                 Kind: DungeonObjectKind.Essence, Predicate: DungeonObjectCondition.Always }] ||
             data.Essence.Index != 3 || visual.TileBase != 8 || visual.Palette != 2 ||

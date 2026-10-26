@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
         {
             LoadValidationRoom(1,0x28);
             var room=_rooms.CurrentRoom;
-            var warps=new WarpDatabase();
+            var warps=new WarpDatabase(AgesGameContent.AssetRoot);
             Vector2 entrance=Vector2.Zero;
             for(int y=0;y<room.Height;y+=16)
             for(int x=0;x<room.Width;x+=16)

@@ -1,6 +1,7 @@
 param(
     [string]$Disassembly = (Join-Path $PSScriptRoot '..\external\oracles-disasm'),
     [string]$Rom,
+    [string]$SeasonsRom,
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\assets\oracle'),
     [switch]$SkipBuild,
     [switch]$Force,
@@ -13,6 +14,23 @@ $importRoot = $PSScriptRoot
 $importModuleRoot = Join-Path $importRoot 'import_oracles'
 . (Join-Path $importRoot 'Resolve-OracleRom.ps1')
 $Rom = Resolve-OracleRom -Rom $Rom
+$seasonsReference = Resolve-OracleRom -Game seasons -RequireSymbols
+$SeasonsRom = if ($SeasonsRom) { Resolve-OracleRom -Game seasons -Rom $SeasonsRom } else { $seasonsReference }
+$seasonsRomBytes = [IO.File]::ReadAllBytes($SeasonsRom)
+$agesSymbols = @{}
+foreach ($line in [IO.File]::ReadAllLines([IO.Path]::ChangeExtension((Resolve-OracleRom -Game ages -RequireSymbols), '.sym'))) {
+    if ($line -match '^(?<bank>[0-9a-f]{2}):(?<address>[0-9a-f]{4}) (?<name>\S+)$') {
+        $bank = [Convert]::ToInt32($Matches['bank'], 16); $address = [Convert]::ToInt32($Matches['address'], 16)
+        $agesSymbols[$Matches['name']] = if ($address -ge 0x8000 -or $bank -eq 0) { $address } else { $bank * 0x4000 + ($address -band 0x3fff) }
+    }
+}
+$seasonsSymbols = @{}
+foreach ($line in [IO.File]::ReadAllLines([IO.Path]::ChangeExtension($seasonsReference, '.sym'))) {
+    if ($line -notmatch '^(?<bank>[0-9a-f]{2}):(?<address>[0-9a-f]{4}) (?<name>\S+)$') { continue }
+    $bank = [Convert]::ToInt32($Matches['bank'], 16); $address = [Convert]::ToInt32($Matches['address'], 16)
+    $seasonsSymbols[$Matches['name']] = if ($address -ge 0x8000 -or $bank -eq 0) { $address } else { $bank * 0x4000 + ($address -band 0x3fff) }
+}
+if ($seasonsSymbols['wLinkHealth'] -ne 0xc6a2 -or $seasonsSymbols['wGlobalFlags'] -ne 0xc6ca) { throw 'Seasons build symbols do not match the supported WRAM layout.' }
 
 class ImportStageContract {
     [string]$Name
@@ -79,13 +97,16 @@ $stageContracts = @(
         -outputs @(
             'npcInteractionIds', 'allTexts', 'allTextPositions', 'allTextIdsByName',
             'allTextFallthroughIds', 'objectGfxHeaderSource') `
-        -functionInputs @('Normalize-DialogueText')
+        -functionInputs @('Normalize-DialogueText') `
+        -functionOutputs @('Read-IntroOamParts')
     New-ImportStageContract 'map-and-items' 'Ages/Import-MapAndItemData.ps1' `
         -inputs @('allTextIdsByName', 'allTextPositions', 'allTexts', 'allTextFallthroughIds') `
         -outputs @(
             'enemyUnspawnableTileCount', 'soundIds', 'treasureIds',
-            'treasureObjectRecords', 'treasureObjectSource') `
+            'treasureObjectRecords', 'treasureObjectSource', 'topDownAirRows') `
         -functionOutputs @('Read-HexBytes')
+    New-ImportStageContract 'interaction-presentation' 'Shared/Read-InteractionPresentation.ps1' `
+        -functionOutputs @('Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
     New-ImportStageContract 'npcs' 'Ages/Import-NpcData.ps1' `
         -inputs @(
             'allTextFallthroughIds', 'allTextPositions', 'allTexts',
@@ -101,7 +122,7 @@ $stageContracts = @(
             'npcOamBlocks', 'npcOamPointerTables', 'npcRows',
             'partAnimationDefinitions', 'partAnimationTables', 'partOamBlocks', 'partOamPointerTables',
             'treasureObjectSource') `
-        -functionInputs @('Export-PaletteBlock', 'Get-ImportSpriteSourceGrayscaleInverted') `
+        -functionInputs @('Export-PaletteBlock', 'Get-ImportSpriteSourceGrayscaleInverted', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames') `
         -functionOutputs @('Resolve-NpcAnimation', 'Resolve-PartAnimation', 'Resolve-OceanText', 'Resolve-InteractionGraphics')
     New-ImportStageContract 'collapsing-floor' 'Ages/Import-CollapsingFloor.ps1' `
         -inputs @('mainObjectLines', 'soundIds')
@@ -400,7 +421,15 @@ $stageContracts = @(
         -functionInputs @('Expand-TransitionGraphics')
     New-ImportStageContract 'game-select' 'Seasons/Import-PreviewAssets.ps1' `
         -functionInputs @('Read-PaletteBytes', 'Get-ImportSpriteSourceGrayscaleInverted')
+    New-ImportStageContract 'background-animations' 'Shared/Import-BackgroundAnimations.ps1' -inputs @('seasonsRomBytes', 'seasonsSymbols')
+    New-ImportStageContract 'seasons-opening' 'Seasons/Import-Opening.ps1' `
+        -inputs @('seasonsRomBytes', 'seasonsSymbols', 'topDownAirRows') `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes', 'Normalize-DialogueText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
+    New-ImportStageContract 'seasons-frontend' 'Seasons/Import-Frontend.ps1' `
+        -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes')
     New-ImportStageContract 'cpu-graphics' 'Shared/Import-CpuGraphics.ps1'
+    New-ImportStageContract 'common-engine' 'Shared/Import-CommonEngineData.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes')
+    New-ImportStageContract 'wram-fields' 'Shared/Import-WramFields.ps1' -inputs @('agesSymbols', 'seasonsSymbols')
     New-ImportStageContract 'manifest' 'Shared/Write-GeneratedTableManifest.ps1'
 )
 
@@ -424,6 +453,9 @@ $assemblySourceStats = ''
 $assemblySourceHost = $null
 $importCacheReused = $false
 $importValues = @{
+    agesSymbols = $agesSymbols
+    seasonsRomBytes = $seasonsRomBytes
+    seasonsSymbols = $seasonsSymbols
     importRoot = $importRoot
     Disassembly = $Disassembly
     Rom = $Rom
@@ -436,7 +468,7 @@ $stageModules = [Collections.Generic.List[Management.Automation.PSModuleInfo]]::
 $initializeContract = New-ImportStageContract 'initialize' 'Shared/Initialize-Import.ps1' `
     -inputs @('importRoot', 'Disassembly', 'Rom', 'OutputDirectory', 'SkipBuild', 'assemblySymbols') `
     -outputs @('assetRoot', 'destination', 'previewDestination', 'romBytes', 'hash', 'assemblySourceHost') `
-    -functionOutputs (@($commonStageFunctionInputs) + @('Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted'))
+    -functionOutputs (@($commonStageFunctionInputs) + @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Find-ImportSpriteSource', 'Get-ImportSpriteSourceGrayscaleInverted'))
 try {
     foreach ($contract in @($initializeContract) + @($stageContracts)) {
         $arguments = @{

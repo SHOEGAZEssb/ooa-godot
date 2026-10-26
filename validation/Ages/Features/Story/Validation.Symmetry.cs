@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
         _saveData.ReadWramBytes(AgesWramAddress.wGroup0RoomFlags, roomFlagsAfter);
         FailIf(!roomFlagsBefore.SequenceEqual(roomFlagsAfter),
             "Inventory acquisition or seed selection corrupted room flags at $c700-$caff.");
-        var warps = new WarpDatabase();
+        var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         void CheckEntrance(bool restored)
         {
             FailIf(_currentRoom.TilesetId != (restored ? 0x07 : 0x06),
@@ -102,9 +102,9 @@ public sealed partial class ValidationRoot
         FailIf(!_player.TopDownAirborne || !_player.AcceptsGroundInteractionContact,
             "Ground interaction did not accept Link's descending low Feather arc.");
         var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(new Vector2(32, 96), Vector2I.Up,
-            new SeedSatchelDatabase().Scent, 5));
+            new SeedSatchelDatabase(AgesGameContent.AssetRoot).Scent, 5));
         var beam = _entities.Spawn<SwordBeamEffect>(new SwordBeamSpawn(new Vector2(32, 96), ObjectDirection.Up));
-        var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase().Data, 5, _ => { }));
+        var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 5, _ => { }));
         StepRoomEventFrames(1);
         FailIf(nut.State != 3 || nut.Counter != 60 || _player.TopDownAirborne ||
             _entities.Entities<EmberSeedEffect>().Contains(seed) || _entities.Entities<SwordBeamEffect>().Contains(beam) ||
@@ -131,7 +131,7 @@ public sealed partial class ValidationRoot
         {
             for (int i = 0; i < 180 && !_dialogue.IsOpen; i++) StepRoomEventFrames(1);
             string message = commands.OfType<CutsceneShowTextCommand>().First(c => c.TextId == text).Message;
-            if (text == 0x2d2b) message = message.Replace("\\secret1", new LinkedGameNpcDatabase().GenerateSecret(0x19, _saveData), StringComparison.Ordinal);
+            if (text == 0x2d2b) message = message.Replace("\\secret1", new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x19, _saveData), StringComparison.Ordinal);
             FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != DialogueBox.PlainText(message),
                 $"Symmetry secret expected TX_{text:x4}, got '{_dialogue.CurrentMessage}'.");
         }

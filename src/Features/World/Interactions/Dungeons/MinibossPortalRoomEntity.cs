@@ -167,7 +167,7 @@ internal sealed class MinibossPortalRoomEntity :
         _controlledPlayer = player;
         _state = PortalState.Spinning;
         _counter = _data.PortalSpinUpdates;
-        _caveRuntime?.SetWramByte(AgesWramAddress.wDisabledObjects, 1);
+        _caveRuntime?.SetField("wDisabledObjects", 1);
         _soundRequested(_data.PortalSound);
     }
 
@@ -180,8 +180,8 @@ internal sealed class MinibossPortalRoomEntity :
         {
             _controlledPlayer.SetScriptedLinkAnimationMode(null);
             _controlledPlayer.EndCutsceneControl(this);
-            if (_caveRuntime?.ReadWramByte(AgesWramAddress.wDisabledObjects) == 1)
-                _caveRuntime.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
+            if (_caveRuntime?.ReadField("wDisabledObjects") == 1)
+                _caveRuntime.SetField("wDisabledObjects", 0);
         }
         _controlledPlayer = null;
     }

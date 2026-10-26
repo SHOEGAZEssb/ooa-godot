@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullBossPegasus()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        OracleSaveData.TryDeserialize(_saveData.Serialize(), out var initialSave);
+        OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var initialSave);
         var random = CaptureOracleRandomForValidation();
         var entityState = _entities.CaptureDebugState();
         var results = new Dictionary<bool, (int Seeds, int Health, int RandomCalls, Vector2 Position)>();
@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
             _saveData.RestoreFrom(initialSave!);
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
-            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
+            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
             _seedSatchel.Pegasus.Clear();
             _seedSatchel.InterruptShooter();
             while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
             _saveData.SetRoomFlag(4, armos ? 0x80 : 0x6b, 0xff, false);
             LoadValidationRoom(4, armos ? 0x86 : 0x6c);
             _entities.RestoreDebugStateAfterRoomParse(entityState);
-            _inventory.GiveTreasure(new TreasureDatabase().GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
+            _inventory.GiveTreasure(new TreasureDatabase(AgesGameContent.AssetRoot).GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
             _player.WarpTo(armos ? new Vector2(120, 40) : new Vector2(24, 88));
             FailIf(_collision.Collides(_player.Position), "Boss Pegasus approach must start on the adjacent room's clear corridor.");
             for (int i = 0; !IsTransitioning && i < 100; i++) Step(movement: armos ? Vector2.Up : Vector2.Left);
@@ -125,14 +125,14 @@ public sealed partial class ValidationRoot
                     actor.InvincibilityCounter = invincibility;
                     int before = actor.Health;
                     var hitbox = new Rect2(actor.CollisionBounds.GetCenter() - Vector2.One * 4, Vector2.One * 8);
-                    var response = receiver.ApplySeedCollision(hitbox, actor.Position, new SeedSatchelDatabase().Pegasus, 0x1d, spawns);
+                    var response = receiver.ApplySeedCollision(hitbox, actor.Position, new SeedSatchelDatabase(AgesGameContent.AssetRoot).Pegasus, 0x1d, spawns);
                     bool accepts = collisionMode != 0x60 && invincibility == 0;
                     FailIf(response.Contact != (invincibility == 0) || response.Effect != (accepts ? SeedHitResult.Activate : SeedHitResult.None) ||
                         response.DisableCollision != accepts || actor.Health != before ||
                         actor.InvincibilityCounter != invincibility || (bool)justHit.GetValue(actor)! != accepts || spawns.Count != 0,
                         $"Pegasus collision mode${collisionMode:x2}, inv={invincibility} must preserve health/invincibility and write JUST_HIT only on effect20.");
                     if (accepts)
-                        FailIf(receiver.ApplySeedCollision(hitbox, actor.Position, new SeedSatchelDatabase().Pegasus, 0x1d, spawns).Contact,
+                        FailIf(receiver.ApplySeedCollision(hitbox, actor.Position, new SeedSatchelDatabase(AgesGameContent.AssetRoot).Pegasus, 0x1d, spawns).Contact,
                             "A second item collision must reject the boss's pending JUST_HIT signal.");
                 }
             }

@@ -46,6 +46,7 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
         OracleRoomData room, OracleSaveData save, Action<int> playSound, Action restoreMusic,
         Action tileChanged, Func<long> tick)
     {
+        AssetRoot = room.AssetRoot;
         _placement = record;
         _data = data;
         _room = room;
@@ -58,7 +59,7 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
         Initialize(new NpcRecord(record.Group, record.Room, AgesInteractionId.WaterPushblock, record.SubId,
             record.Y, record.X, 0, 0, record.Sprite, record.TileBase, record.Palette, 0, false,
             record.Animation, record.Animation, record.Animation, record.Animation, string.Empty,
-            NpcImplementationClassification.SpecializedNative));
+            NpcImplementationClassification.SpecializedNative), AgesGameContent.AssetRoot);
         SetAnimationRate(0); // The native handler never calls interactionAnimate.
         SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex); // objectSetVisible82
         SetScriptVisible(false);
@@ -67,6 +68,7 @@ internal sealed partial class WaterPushblockRoomEntity : NpcCharacter,
 
     private void InitializeState()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (State != 0 || Finished) return;
         bool swapped = _save.HasRoomFlag(_placement.Group, _placement.Room, 0x01);
         if (swapped != (_placement.SubId == 1))

@@ -9,7 +9,7 @@ internal sealed class CandleRoomEntity : CombatEnemyRoomEntityAdapter<CandleChar
     IPostObjectMeleeCollisionRoomEntity, IPostObjectItemCollisionRoomEntity, IBoomerangCollisionRoomEntity,
     ISeedCollisionTarget, ISomariaBlockCollisionRoomEntity
 {
-    private readonly CandleBehaviorProfile _data = EnemyBehaviorTables.Shared.Candle;
+    private readonly CandleBehaviorProfile _data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Candle;
     internal int Slot { get; private set; }
     internal Func<int, IRoomEntity?> ResolveSlot { get; private set; } = null!;
     public void BindEnemySlot(int slot, Func<int, IRoomEntity?> resolve) { Slot = slot; ResolveSlot = resolve; }

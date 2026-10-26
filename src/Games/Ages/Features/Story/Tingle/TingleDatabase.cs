@@ -25,7 +25,7 @@ internal sealed class TingleDatabase
             glow.HexWord(4) != 0x1c00 || glow.UnsignedDecimal(5) != 0 ||
             glow.UnsignedDecimal(6) != 0)
             throw glow.Invalid(0, "INTERAC_SPARKLE $84:$04 with lifetime 120 and source tile/palette $00");
-        UpgradeGlowVisual = new TimedSparkleVisual(glow.RequiredString(3),
+        UpgradeGlowVisual = new TimedSparkleVisual(AgesGameContent.AssetRoot, glow.RequiredString(3),
             glow.HexWord(4), glow.UnsignedDecimal(5), glow.UnsignedDecimal(6), glow.RequiredString(7));
         _ = OracleGraphicsCache.GetAnimationDefinition(UpgradeGlowVisual.Animation);
         glow.RequiredString(8);
@@ -160,13 +160,13 @@ internal sealed class TingleDatabase
             : throw new InvalidOperationException(
                 $"Missing Tingle TX_{textId:x4}.");
 
-    internal InteractionExplosionVisual ExplosionVisual => new(
+    internal InteractionExplosionVisual ExplosionVisual => new(AgesGameContent.AssetRoot,
         Record.ExplosionSprite,
         Record.ExplosionTileBase,
         Record.ExplosionPalette,
         Animation("explosion", 0));
 
-    internal InteractionSparkleVisual KoolooSparkleVisual => new(
+    internal InteractionSparkleVisual KoolooSparkleVisual => new(AgesGameContent.AssetRoot,
         Record.KoolooSparkleSprite,
         Record.KoolooSparkleTileBase,
         Record.KoolooSparklePalette,

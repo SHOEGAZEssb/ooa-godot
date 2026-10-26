@@ -10,8 +10,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class HostileProjectileLifecycle
 {
-    private readonly ProjectileBounceBehaviorProfile _bounce =
-        EnemyBehaviorTables.Shared.ProjectileBounce;
+    private ProjectileBounceBehaviorProfile _bounce =>
+        EnemyBehaviorTables.For(_room.AssetRoot).ProjectileBounce;
     private readonly Node2D _entity;
     private readonly OracleRoomData _room;
     private readonly HostileProjectileProfile _profile;

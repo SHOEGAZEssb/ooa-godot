@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace Oracles;
 
@@ -28,7 +29,7 @@ public sealed partial class ValidationRoot
         int saveWrites = _saveWriteRequests;
         int musicRequests =
             _sound.PlayRequestsFor(SoundId.MusGameOver);
-        GameSceneGraph dyingScene = _scene;
+        AgesGameSceneGraph dyingScene = _scene;
         RoomEntityManager dyingEntities = _entities;
 
         BeginGameOver();
@@ -44,12 +45,12 @@ public sealed partial class ValidationRoot
             "the BCD death count, play MUS_GAMEOVER, and open the forced menu.");
 
         byte[] stoppedPlaytime = Enumerable.Range(0xc622, 4).Select(_saveData.ReadWramByte).ToArray();
-        StepGameplayUpdates((int)InventoryMenuController.FastFadeFrames, Vector2.Zero, batched: true);
+        StepGameplayUpdates((int)AgesInventoryMenuController.FastFadeFrames, Vector2.Zero, batched: true);
         FailIf(!stoppedPlaytime.SequenceEqual(Enumerable.Range(0xc622, 4).Select(_saveData.ReadWramByte)),
             "Game Over must leave playtime frozen while THREAD_1 is stopped.");
         _inventoryMenu.SelectSaveOption();
         for (int update = 0;
-            update < InventoryMenuController.SaveSelectionDelayFrames;
+            update < AgesInventoryMenuController.SaveSelectionDelayFrames;
             update++)
         {
             _inventoryMenu.Update(1.0 / 60.0);
@@ -100,7 +101,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateDisposedRoomEntitySaveSubscription()
     {
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var worldRoot = new Node2D
         {
             Name = "DisposedRoomEntitySubscriptionValidation"
@@ -137,7 +138,7 @@ public sealed partial class ValidationRoot
     {
         // The suite runs synchronously in one Godot host frame. Each simulated
         // update must own its input, including neutral updates after an error.
-        static void TickSaveMenu(InventoryMenuController menu, string? action = null)
+        static void TickSaveMenu(AgesInventoryMenuController menu, string? action = null)
         {
             string[] actions = action is null ? [] : [action];
             Input.BeginOriginalUpdate(new ApplicationInputSnapshot(actions, actions, Vector2.Zero));
@@ -145,7 +146,7 @@ public sealed partial class ValidationRoot
             finally { Input.EndOriginalUpdate(); }
         }
 
-        GameSceneGraph gameplayScene = _scene;
+        AgesGameSceneGraph gameplayScene = _scene;
         // Reproduce a released B edge left by an earlier synchronous scenario.
         Input.ActionPress("item");
         Input.ActionRelease("item");
@@ -153,7 +154,7 @@ public sealed partial class ValidationRoot
             Godot.Input.IsActionPressed("item") || !Godot.Input.IsActionJustPressed("item"),
             "The save-error regression did not arrange a released native B edge.");
         bool quitAfterFailure = false;
-        var failedMenu = new InventoryMenuController(
+        var failedMenu = new AgesInventoryMenuController(
             _inventoryScreen,
             _saveQuitScreen,
             _menuLifecycle,
@@ -170,7 +171,7 @@ public sealed partial class ValidationRoot
         {
             TickSaveMenu(failedMenu, "attack");
             failedAttempts++;
-            for (int frame = 0; frame <= InventoryMenuController.SaveSelectionDelayFrames; frame++)
+            for (int frame = 0; frame <= AgesInventoryMenuController.SaveSelectionDelayFrames; frame++)
             {
                 FailIf(
                     !_saveQuitScreen.SaveErrorVisible ||
@@ -183,7 +184,7 @@ public sealed partial class ValidationRoot
                     $"open={failedMenu.SaveMenuOpen}, saves={failedMenu.SaveRequests}, " +
                     $"quits={failedMenu.QuitRequests}, cursor={_saveQuitScreen.Cursor}, " +
                     $"delay={_saveQuitScreen.DelayCounter}, quit={quitAfterFailure}.");
-                if (frame < InventoryMenuController.SaveSelectionDelayFrames)
+                if (frame < AgesInventoryMenuController.SaveSelectionDelayFrames)
                     TickSaveMenu(failedMenu);
             }
             TickSaveMenu(failedMenu, dismissAction);
@@ -203,7 +204,7 @@ public sealed partial class ValidationRoot
         int saveRequests = _inventoryMenu.SaveRequests;
         int saveWrites = _saveWriteRequests;
         TickSaveMenu(_inventoryMenu, "attack");
-        for (int frame = 0; frame < InventoryMenuController.SaveSelectionDelayFrames - 1; frame++)
+        for (int frame = 0; frame < AgesInventoryMenuController.SaveSelectionDelayFrames - 1; frame++)
             TickSaveMenu(_inventoryMenu);
         FailIf(
             !_inventoryMenu.SaveMenuOpen || _inventoryMenu.QuitRequests != 0 ||
@@ -245,7 +246,7 @@ public sealed partial class ValidationRoot
 
         // Exit an actual application root. Calling this live root's callback
         // directly leaves its tree/resources active after pretending to exit.
-        var stoppedSave = OracleSaveData.CreateStandardGame();
+        var stoppedSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         stoppedSave.SetLinkName("Link");
         stoppedSave.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);
         using var stopped = new FrontendValidationRoot();
@@ -253,7 +254,7 @@ public sealed partial class ValidationRoot
         try
         {
             stopped.Initialize(stoppedSave);
-            byte[] stored = stopped.FileSlotSnapshot(0);
+            byte[] stored = stopped.FileSlotSnapshot(0, OracleGame.Ages);
             stopped.Step(241, false);
             stopped.Step(1, false, "inventory");
             stopped.Step(9, false);
@@ -271,7 +272,7 @@ public sealed partial class ValidationRoot
             FailIf(stopped._saveData.Serialize().SequenceEqual(stored),
                 "The exit-persistence fixture must retain unsaved live changes.");
             stopped.Free();
-            FailIf(stopped._saveWriteRequests != 0 || !stopped.FileSlotSnapshot(0).SequenceEqual(stored),
+            FailIf(stopped._saveWriteRequests != 0 || !stopped.FileSlotSnapshot(0, OracleGame.Ages).SequenceEqual(stored),
                 "Application exit wrote unsaved live changes back to its isolated file slot.");
         }
         finally
@@ -285,7 +286,7 @@ public sealed partial class ValidationRoot
         FailIf(
             _saveWriteRequests != saveWrites ||
             _inventoryMenu.SaveRequests != menuSaveRequests ||
-            _saveQuitScreen.DelayCounter != InventoryMenuController.SaveSelectionDelayFrames,
+            _saveQuitScreen.DelayCounter != AgesInventoryMenuController.SaveSelectionDelayFrames,
             "Ordinary save-image changes, application exit, or Continue unexpectedly wrote the active file.");
         _inventoryMenu.CloseImmediatelyForValidation();
 
@@ -295,7 +296,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSaveDataFoundation()
     {
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var standardInventory = new InventoryState(_treasures, save);
         FailIf(save.TextSpeed != 0x02,
             "initialFileVariables must initialize wTextSpeed to $02 (display speed 3).");
@@ -348,7 +349,7 @@ public sealed partial class ValidationRoot
         save.SetDeathRespawnPoint(5, 0xa6, 2, 3, 0x78, 0x88);
         byte[] encoded = save.Serialize();
         bool decodedSuccessfully =
-            OracleSaveData.TryDeserialize(encoded, out OracleSaveData? decoded);
+            OracleSaveData.TryDeserialize(encoded, OracleGame.Ages, out OracleSaveData? decoded);
         FailIf(
             encoded.Length != OracleSaveData.FileSize ||
             !encoded.AsSpan(2, 8).SequenceEqual("Z21216-0"u8) ||
@@ -368,9 +369,9 @@ public sealed partial class ValidationRoot
             "Inventory, BCD rupees, story flags, or room flags were lost across save reload.");
 
         encoded[^1] ^= 0x80;
-        FailIf(OracleSaveData.TryDeserialize(encoded, out _), "A corrupted Ages save checksum was accepted.");
+        FailIf(OracleSaveData.TryDeserialize(encoded, OracleGame.Ages, out _), "A corrupted Ages save checksum was accepted.");
 
-        OracleSaveData deathSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData deathSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         deathSave.WriteWramByte(AgesWramAddress.wDeathCounter, 0x98);
         deathSave.WriteWramByte(0xc61f, 0x09);
         deathSave.IncrementDeathCount();
@@ -385,7 +386,7 @@ public sealed partial class ValidationRoot
             deathSave.ReadWramByte(AgesWramAddress.wLinkHealth) != Math.Max(0x0c, (deathSave.MaxHealthQuarters >> 1) & 0xfc) ||
             !OracleSaveData.TryDeserialize(
                 depletedImage,
-                out OracleSaveData? persistedDepleted) ||
+                OracleGame.Ages, out OracleSaveData? persistedDepleted) ||
             persistedDepleted!.ReadWramByte(AgesWramAddress.wLinkHealth) != 0,
             "The live BCD death counter, $999 saturation, or zero-health " +
             "save/load reset boundary regressed.");
@@ -397,27 +398,45 @@ public sealed partial class ValidationRoot
 
     private static void ValidateSaveStore()
     {
+        foreach (OracleGame game in new[] { OracleGame.Ages, OracleGame.Seasons })
+            ValidateSaveStore(game);
+    }
+
+    private static void ValidateSaveStore(OracleGame game)
+    {
         string directory = Path.Combine(
             Path.GetTempPath(), $"ooa-save-validation-{Guid.NewGuid():N}");
         string primary = Path.Combine(directory, "save.sav");
         string backup = primary + ".bak";
         try
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(game);
+            byte[] expectedSignature = Encoding.ASCII.GetBytes(game == OracleGame.Ages ? "Z21216-0" : "Z11216-0");
+            FailIf(save.Game != game || !save.Serialize().AsSpan(2, 8).SequenceEqual(expectedSignature),
+                "New-file creation must use the explicitly requested game and native signature.");
             save.SetLinkName("ONE");
             SaveResult result = OracleSaveStore.Save(save, primary);
             FailIf(
                 !result.Success || !File.Exists(primary) || !File.Exists(backup) ||
                 !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)) ||
-                OracleSaveStore.LoadOrCreate(primary).LinkName != "ONE",
+                OracleSaveStore.LoadOrCreate(primary, game).LinkName != "ONE",
                 $"The first save did not write identical native primary/backup images: {result.ErrorMessage}");
+
+            OracleGame otherGame = game == OracleGame.Ages ? OracleGame.Seasons : OracleGame.Ages;
+            bool wrongGameRejected = false;
+            try { OracleSaveStore.LoadOrCreate(primary, otherGame); }
+            catch (InvalidDataException) { wrongGameRejected = true; }
+            FailIf(!wrongGameRejected ||
+                !File.ReadAllBytes(primary).SequenceEqual(save.Serialize()) ||
+                !File.ReadAllBytes(backup).SequenceEqual(save.Serialize()),
+                "Loading with the other game must reject both copies without changing either file.");
 
             save.SetLinkName("TWO");
             result = OracleSaveStore.Save(save, primary);
             FailIf(
                 !result.Success ||
-                OracleSaveStore.LoadOrCreate(primary).LinkName != "TWO" ||
-                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? first) ||
+                OracleSaveStore.LoadOrCreate(primary, game).LinkName != "TWO" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), game, out OracleSaveData? first) ||
                 first!.LinkName != "TWO" ||
                 !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)),
                 $"The second save retained a previous-generation backup: {result.ErrorMessage}");
@@ -426,33 +445,33 @@ public sealed partial class ValidationRoot
             result = OracleSaveStore.Save(save, primary);
             FailIf(
                 !result.Success ||
-                OracleSaveStore.LoadOrCreate(primary).LinkName != "THREE" ||
-                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? second) ||
+                OracleSaveStore.LoadOrCreate(primary, game).LinkName != "THREE" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), game, out OracleSaveData? second) ||
                 second!.LinkName != "THREE" ||
                 !File.ReadAllBytes(primary).SequenceEqual(File.ReadAllBytes(backup)),
                 $"A later save did not update both native copies: {result.ErrorMessage}");
 
             File.WriteAllBytes(primary, new byte[] { 0xde, 0xad, 0xbe, 0xef });
-            OracleSaveData recovered = OracleSaveStore.LoadOrCreate(primary);
+            OracleSaveData recovered = OracleSaveStore.LoadOrCreate(primary, game);
             FailIf(recovered.LinkName != "THREE", "A corrupt primary rolled back progress instead of loading the current backup.");
             recovered.SetLinkName("FOUR");
             result = OracleSaveStore.Save(recovered, primary);
             FailIf(
-                !result.Success || OracleSaveStore.LoadOrCreate(primary).LinkName != "FOUR" ||
-                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), out OracleSaveData? preserved) ||
+                !result.Success || OracleSaveStore.LoadOrCreate(primary, game).LinkName != "FOUR" ||
+                !OracleSaveData.TryDeserialize(File.ReadAllBytes(backup), game, out OracleSaveData? preserved) ||
                 preserved!.LinkName != "FOUR",
                 "Saving after native backup recovery did not update both copies.");
 
             File.WriteAllBytes(primary, new byte[] { 0xde });
             File.WriteAllBytes(backup, new byte[] { 0xad });
             bool rejected = false;
-            try { OracleSaveStore.LoadOrCreate(primary); }
+            try { OracleSaveStore.LoadOrCreate(primary, game); }
             catch (InvalidDataException) { rejected = true; }
             FailIf(!rejected || !File.ReadAllBytes(primary).SequenceEqual(new byte[] { 0xde }) ||
                 !File.ReadAllBytes(backup).SequenceEqual(new byte[] { 0xad }),
                 "Two invalid save copies must be rejected without manufacturing a new game or rewriting them.");
             string absent = Path.Combine(directory, "absent.sav");
-            FailIf(!OracleSaveStore.LoadOrCreate(absent).Serialize().SequenceEqual(OracleSaveData.CreateStandardGame().Serialize()) ||
+            FailIf(!OracleSaveStore.LoadOrCreate(absent, game).Serialize().SequenceEqual(OracleSaveData.CreateStandardGame(game).Serialize()) ||
                 File.Exists(absent) || File.Exists(absent + ".bak"),
                 "An absent development-launch save must initialize in memory without an implicit commit.");
 
@@ -493,7 +512,7 @@ public sealed partial class ValidationRoot
         static TreasureObjectRecord Reward(int treasure, int parameter) => new(
             $"VALIDATION_TREASURE_{treasure:x2}", treasure, 0, parameter, 0xff, 0, string.Empty);
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         int inventoryCommits = 0;
         int saveCommits = 0;
@@ -543,7 +562,7 @@ public sealed partial class ValidationRoot
             !saveSeedSatchelSnapshotComplete,
             "The Seed Satchel did not expose and persist its complete compound grant in one callback.");
 
-        OracleSaveData maturitySave = OracleSaveData.CreateStandardGame();
+        OracleSaveData maturitySave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var maturityInventory = new InventoryState(_treasures, maturitySave);
         int maturityInventoryCommits = 0;
         int maturitySaveCommits = 0;
@@ -620,7 +639,7 @@ public sealed partial class ValidationRoot
         FailIf(save.ReadWramByte(AgesWramAddress.wGroup0RoomFlags) != 0x80, "Inventory persistence clobbered room flag $0:$00.");
 
         FailIf(
-            !OracleSaveData.TryDeserialize(save.Serialize(), out OracleSaveData? restoredSave),
+            !OracleSaveData.TryDeserialize(save.Serialize(), OracleGame.Ages, out OracleSaveData? restoredSave),
             "Typed treasure WRAM state did not deserialize.");
         var restored = new InventoryState(_treasures, restoredSave);
         FailIf(
@@ -631,7 +650,7 @@ public sealed partial class ValidationRoot
             restored.ShooterSelectedSeeds != 3 || restored.SlingshotSelectedSeeds != 0,
             "Typed treasure variables were lost across the `$550-byte save round trip.");
 
-        OracleSaveData ringSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData ringSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var ringInventory = new InventoryState(_treasures, ringSave);
         ringInventory.GiveTreasure(Reward(TreasureId.Ring, 0x1e));
         FailIf(
@@ -662,7 +681,7 @@ public sealed partial class ValidationRoot
     private void ValidateDungeonCollectibles()
     {
         int currentDungeon = -1;
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(
             _treasures, save, () => currentDungeon);
         TreasureObjectRecord smallKey =
@@ -735,7 +754,7 @@ public sealed partial class ValidationRoot
 
         byte[] encoded = save.Serialize();
         FailIf(
-            !OracleSaveData.TryDeserialize(encoded, out OracleSaveData? decoded),
+            !OracleSaveData.TryDeserialize(encoded, OracleGame.Ages, out OracleSaveData? decoded),
             "Dungeon collectible save data did not deserialize.");
         var restored = new InventoryState(_treasures, decoded);
         for (int dungeon = 0; dungeon < 16; dungeon++)
@@ -783,7 +802,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Down);
         _deathRespawnPoints.RecordRoomInitialization();
         FailIf(
-            !OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? restored) ||
+            !OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out OracleSaveData? restored) ||
             restored!.RespawnGroup != 0 || restored.RespawnRoom != 0x38 ||
             restored.RespawnFacing != 3 || restored.RespawnY != 0x58 ||
             restored.RespawnX != 0x38,

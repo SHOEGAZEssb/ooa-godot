@@ -20,7 +20,7 @@ internal sealed class ValidationRingPlayerWorld : IPlayerWorld
     public bool RidingObject { get; set; }
     public bool SideScrolling { get; set; }
     public SideScrollPlayerParameters SideScrollParameters { get; set; } =
-        new SideScrollPlayerDatabase().Parameters;
+        new SideScrollPlayerDatabase(AgesGameContent.AssetRoot).Parameters;
     public SideScrollTerrainState SideScrollTerrain { get; set; }
     public int AdjacentWallsBitset { get; set; }
     public bool BlockMovement { get; set; }

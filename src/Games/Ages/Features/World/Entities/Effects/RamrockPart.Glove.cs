@@ -5,7 +5,7 @@ namespace Oracles;
 
 internal sealed partial class RamrockPart
 {
-    private readonly BraceletGrabGeometry _grabGeometry = new();
+    private readonly BraceletGrabGeometry _grabGeometry = new(AgesGameContent.AssetRoot);
     private Action<INativeBraceletRoomEntity>? _publishGrab;
     private Player? _puller;
     private bool _pullRequested, _grabbable;
@@ -50,6 +50,7 @@ internal sealed partial class RamrockPart
     }
     private void InitializeGlove()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         State = 1; ZFixed = (-127 << 8) | (ZFixed & 255);
         bool child = IsGloveChild; int original = Subid;
         if ((Subid & 15) != 2)

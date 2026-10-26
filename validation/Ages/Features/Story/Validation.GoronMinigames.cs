@@ -345,8 +345,8 @@ public sealed partial class ValidationRoot
         FailIf(_player.CutsceneControlled||cave.BlocksGameplay||_inventory.Rupees!=80||
             _player.Position!=new Vector2(0x38,0x88),
             "Target-cart immediate retry retained the scoring attendant's input lock at $5:d8 platform ($38,$88).");
-        var scent=new SeedSatchelDatabase().Scent;
-        var shooter=SeedShooterRecord.Load();
+        var scent=new SeedSatchelDatabase(AgesGameContent.AssetRoot).Scent;
+        var shooter=SeedShooterRecord.Load(AgesGameContent.AssetRoot);
         var fired=new System.Collections.Generic.HashSet<int>();
         void ShootCrystals()
         {

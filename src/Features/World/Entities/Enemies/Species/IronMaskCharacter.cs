@@ -6,7 +6,8 @@ namespace Oracles;
 /// <summary>ENEMY_IRON_MASK $1c, including the detached mask and unmasked child.</summary>
 internal sealed partial class IronMaskCharacter : EnemyCharacter, ISwitchHookEnemy, ITerrainShadowSource
 {
-    private readonly EnemyBehaviorTables _data = EnemyBehaviorTables.Shared;
+    private EnemyBehaviorTables? _dataSourceCache;
+    private EnemyBehaviorTables _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private Func<IronMaskCharacter,bool> _createChild = null!;
@@ -48,6 +49,7 @@ internal sealed partial class IronMaskCharacter : EnemyCharacter, ISwitchHookEne
     internal void Initialize(ImportedEnemyDefinition record,OracleRoomData room,Vector2 position,
         OracleRandom random,Action<int> sound,Func<IronMaskCharacter,bool> createChild,int knockbackAngle=0)
     {
+        AssetRoot = record.AssetRoot;
         Record=record; _random=random; _sound=sound; _createChild=createChild;
         InitializeEnemy(position,EnemyCharacterConfiguration.FromImported(record));
         KnockbackAngle=knockbackAngle;

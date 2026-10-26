@@ -319,15 +319,15 @@ public sealed partial class ValidationRoot
             $"lightning-positions={string.Join(';', lightningPositions)}, " +
             $"shakes={lightningShakes}, position={raftwreck.PrecisePosition}).");
 
-        for (int update = 0; update < RoomTransitionController.WarpFadeFrames - 1; update++)
+        for (int update = 0; update < AgesRoomTransitionController.WarpFadeFrames - 1; update++)
         {
             UpdateRoomWarpTransition(1.0 / 60.0);
             FailIf(_rooms.CurrentRoom.Id != 0xa8,
                 "Cutscene $03 loaded room 1:aa before 32 white-fade updates.");
             float expectedAlpha = Math.Min(
                 update + 1,
-                RoomTransitionController.WarpFadeMaximumOffset) /
-                RoomTransitionController.WarpFadeMaximumOffset;
+                AgesRoomTransitionController.WarpFadeMaximumOffset) /
+                AgesRoomTransitionController.WarpFadeMaximumOffset;
             FailIf(!Mathf.IsEqualApprox(_scene.WarpFade.Color.A, expectedAlpha),
                 "Cutscene $03 did not follow fadeoutToWhite's $01-$1f " +
                 $"visible palette offsets on update {update + 1}.");
@@ -493,7 +493,7 @@ public sealed partial class ValidationRoot
                 tradeItemAddress,
                 magicOar ? (byte)record.RequiredTradeItem : (byte)0);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, null);
+            reloadInventory.Invoke(_inventory, new object[] { _saveData });
 
             _saveData.SetGlobalFlag(record.GaveRopeFlag, gaveRope);
             _saveData.SetGlobalFlag(record.ChangedRoomsFlag, changedRooms);
@@ -932,7 +932,7 @@ public sealed partial class ValidationRoot
 
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        reloadInventory.Invoke(_inventory, null);
+        reloadInventory.Invoke(_inventory, new object[] { _saveData });
         _saveData.SetGlobalFlag(record.GaveRopeFlag, originalGaveRope);
         _saveData.SetGlobalFlag(record.ChangedRoomsFlag, originalChangedRooms);
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })

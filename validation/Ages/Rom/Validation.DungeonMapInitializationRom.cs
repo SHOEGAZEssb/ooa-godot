@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         // layouts: loadTilesetData takes the dungeon nibble from tilesetData.
         int[] indices = alternate ? [0x0b, 0x0c, 0x0d] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 0x0a];
         int[] floors = alternate ? [2, 2, 1] : [1, 1, 2, 2, 2, 2, 1, 3, 4, 1];
-        var database = new DungeonMapDatabase();
+        var database = new DungeonMapDatabase(AgesGameContent.AssetRoot);
         int cases = 0;
         int hostCase1 = 0;
         foreach (bool linked in alternate ? new[] { false, true } : new[] { false })
@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
                     _rooms.World.HasRoom(info.Group, candidate.Room) &&
                     _rooms.World.GetDungeonIndex(info.Group, candidate.Room) == index &&
                     (_rooms.World.LoadRoom(info.Group, candidate.Room).TilesetFlags & 0x38) == 0x08);
-                var save = OracleSaveData.CreateStandardGame();
+                var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
                 save.SetLinkedGame(linked);
                 save.WriteWramByte(0xc686 + index / 8, (byte)((equipment & 1) != 0 ? 1 << (index & 7) : 0));
                 save.WriteWramByte(0xc684 + index / 8, (byte)((equipment & 2) != 0 ? 1 << (index & 7) : 0));

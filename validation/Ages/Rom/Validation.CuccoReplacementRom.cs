@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         foreach (bool elevated in new[] { false, true })
         {
             F8Setup();
-            var data = EnemyDatabase.Shared; var resources = new RoomEntityResources(_rooms);
+            var data = EnemyDatabase.For(AgesGameContent.AssetRoot); var resources = new AgesRoomEntityResources(_rooms);
             var source = data.GetRoomObjects(2, 0xcf).Single();
             var cucco = new CuccoCharacter();
             cucco.Initialize(data.ImportedEnemy(0x36), data.ImportedEnemy(0x3b), _currentRoom,
@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
                 "Replacement cancellation must release every native ENEMY reservation.");
         }
         F8Setup();
-        var enemies = EnemyDatabase.Shared; var roomResources = new RoomEntityResources(_rooms);
+        var enemies = EnemyDatabase.For(AgesGameContent.AssetRoot); var roomResources = new AgesRoomEntityResources(_rooms);
         var adult = new CuccoCharacter();
         adult.Initialize(enemies.ImportedEnemy(0x36), enemies.ImportedEnemy(0x3b), _currentRoom,
             new(80, 72), _random, roomResources.Bracelet.Data, roomResources.Bomb.Data,

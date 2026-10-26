@@ -6,12 +6,19 @@ namespace Oracles;
 // objectCheckIsOverHazard, shared by physical ITEM handlers.
 internal sealed class ItemHazardDatabase
 {
-    internal static ItemHazardDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<ItemHazardDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static ItemHazardDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<ItemHazardDatabase>(() => new ItemHazardDatabase(root))).Value;
+
     private readonly Dictionary<int, int> _hazards = new();
 
-    private ItemHazardDatabase()
+    private ItemHazardDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/item_hazards.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "metadata/item_hazards.tsv",
             new GeneratedTableSchema("hazardCollisionTable", GeneratedTableKeySemantics.Unique,
                 ["mode", "tile", "kind", "source"], ["mode", "tile"], headerRequired: true));
         if (table.Rows.Count != 84) throw new InvalidOperationException("hazardCollisionTable requires $54 source pairs.");

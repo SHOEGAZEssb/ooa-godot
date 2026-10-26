@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 
     private void RunPauseMenuScrollGatesRom(bool lowHealthWarning)
     {
-        var graphics = new ScreenTransitionGraphicsDatabase();
+        var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
         int hostCase1 = 0;
         foreach (bool introDone in new[] { false, true })
         foreach (int keys in new[] { 4, 8, 12 })

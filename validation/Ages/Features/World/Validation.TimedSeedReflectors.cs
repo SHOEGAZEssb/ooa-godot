@@ -37,8 +37,8 @@ public partial class ValidationRoot
             FailIf(children[0].ApplySeedHitAtHeight(bounds,Vector2.Zero,0,ItemId.Dust,empty)!=SeedHitResult.None ||
                 children[0].ApplySeedHitAtHeight(bounds,Vector2.Zero,-14,ItemId.Dust,empty)!=SeedHitResult.Bounce,
                 "PART$33:03 at Z$f2 must reflect a height-matched seed but not a ground-level shooter seed.");
-            var shooter = SeedShooterRecord.Load();
-            var ember = new SeedSatchelDatabase().Ember;
+            var shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
+            var ember = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
             Vector2 edge = parents[0].Position+Vector2.Left*10;
             var seed = _entities.Spawn<EmberSeedEffect>(new EmberSeedSpawn(edge-shooter.Offsets[3],Vector2I.Up,ember,4,SeedLaunchKind.Shooter,3));
             Step(2);
@@ -76,7 +76,7 @@ public partial class ValidationRoot
 
             bool allocate=false; int attempts=0;
             var isolated = new RotatableSeedThingRoomEntity(records[0],data,
-                new DungeonInteractionVisualDatabase().Visual("rotatable-seed-thing"),_currentRoom,_runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("rotatable-seed-thing"),_currentRoom,_runtimeState,
                 ()=>0,(_,_,_)=>{ attempts++; return allocate; });
             var frame = new RoomEntityFrame(_player,0,false);
             for(int i=0;i<4;i++) isolated.UpdateFrame(frame,empty);

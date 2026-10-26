@@ -17,7 +17,7 @@ public partial class ValidationRoot
             _inventory.EquipA(0); _inventory.EquipB(0);
             var data = new DungeonMechanicDatabase();
             var record = data.GetRoomRecords(4,0xa1).Single(row => row.Id == 3);
-            var orb = new DungeonOrbRoomEntity(record,data,new DungeonInteractionVisualDatabase().Visual("grotto-orb"),
+            var orb = new DungeonOrbRoomEntity(record,data,new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("grotto-orb"),
                 _currentRoom,_runtimeState,() => (long)_animationTicks,_sound.PlaySound);
             _entities.AddEntity(orb);
             _player.WarpTo(new(120,40)); _player.Face(Vector2I.Up);

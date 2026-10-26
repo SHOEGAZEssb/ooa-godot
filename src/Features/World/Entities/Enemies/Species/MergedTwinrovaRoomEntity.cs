@@ -34,7 +34,7 @@ internal sealed class MergedTwinrovaRoomEntity : CombatEnemyRoomEntityAdapter<Me
             case 0:return true;
             case 0x1c:case 0x20:Entity.PublishHit(item);return true;
             case 0x2c:
-                _attackerRecoil=EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback.NormalFrames;
+                _attackerRecoil=EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback.NormalFrames;
                 Entity.World.Entities.OnSoundRequested(SoundId.SndBombLand);goto case 0x21;
             case 0x21:Entity.PublishHit(item,damage,32);Entity.World.Entities.OnSoundRequested(SoundId.SndBossDamage);return true;
             default:throw new NotSupportedException($"mergedTwinrova.s: ENEMY $01 form ${Entity.Subid:x2}, mode ${8:x2}, item ${item:x2}, effect ${effect:x2}.");

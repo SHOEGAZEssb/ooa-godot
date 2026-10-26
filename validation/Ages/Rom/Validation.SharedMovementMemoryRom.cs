@@ -23,15 +23,15 @@ public sealed partial class ValidationRoot
             // Declared safe geometry isolates executed movement and its shared
             // scratch from unrelated room actors, terrain and Link input.
             FillValidationRoom(0xa0);
-            var database = EnemyDatabase.Shared;
-            var visuals = new DungeonInteractionVisualDatabase();
+            var database = EnemyDatabase.For(AgesGameContent.AssetRoot);
+            var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
             IRoomEntity actor;
             int id = kind switch { 0 => 0x3e, 1 => 0x31, 2 => 0x0b, 3 => 0x79, _ => 0xa4 };
             Vector2 initial = kind == 2 ? new(128.25f, 72.5f) : new(80.75f, 72.5f);
             if (kind < 2)
             {
                 var source = new RoomObjectRecord(0, 0x33, 0, RoomObjectKind.FixedEnemy, id, 0, 2, 1, 72, 80, 0x45, 0);
-                actor = new RoomEnemyFactory(_entities, database, new RoomEntityResources(_rooms), _rooms)
+                actor = new RoomEnemyFactory(_entities, database, new AgesRoomEntityResources(_rooms), _rooms)
                     .CreateOrderedEnemy(database.EnemyHandlers.ResolveHandler(source), source, _currentRoom,
                         initial, 0, 0, EnemyPlacementContext.Unrestricted)
                     ?? throw new InvalidOperationException($"Missing movement-memory ENEMY ${id:x2}.");
@@ -48,9 +48,9 @@ public sealed partial class ValidationRoot
             {
                 // Declare dungeon4/script2, retaining the original source mini-script.
                 initial = new(112.25f, 64.5f);
-                var data = new DungeonInteractionDatabase();
+                var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
                 actor = new MovingPlatformRoomEntity(visuals.Visual("platform-01"), initial, 0x11,
-                    data.MovingPlatformCollisionRadii(0x11), data, new MovingPlatformDatabase().Script(4, 2),
+                    data.MovingPlatformCollisionRadii(0x11), data, new MovingPlatformDatabase(AgesGameContent.AssetRoot).Script(4, 2),
                     _entities.PlatformRiding, _entities.ReadPlayingInstrument);
             }
             else

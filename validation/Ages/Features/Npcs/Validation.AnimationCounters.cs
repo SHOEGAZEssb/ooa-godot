@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
         using var sheet = Image.CreateEmpty(32, 32, false, Image.Format.Rgba8);
         var enemy = new EnemyAnimationPlayer(owner, 2);
         enemy.Load(sheet, [cycle, held], 0, 0);
-        npc.Initialize(new NpcDatabase().GetRoomNpcs(0, 0x66).First());
+        npc.Initialize(new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(0, 0x66).First(), AgesGameContent.AssetRoot);
         try
         {
             enemy.SetAnimation(0); npc.SetScriptAnimation(cycle);

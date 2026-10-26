@@ -6,10 +6,14 @@ namespace Oracles;
 
 internal sealed class CollapsingFloorDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly List<CollapsingFloorRecord> _records = new();
-    internal CollapsingFloorDatabase()
+    internal CollapsingFloorDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/collapsing_floor.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "objects/collapsing_floor.tsv",
             new GeneratedTableSchema("$dc:$0b collapsing floor", GeneratedTableKeySemantics.Grouped,
                 ["group", "room", "order", "y", "x", "radius", "wait", "interval", "tile", "clink", "rumble", "tiles", "dest-group", "dest-room", "dest-transition", "dest-position"],
                 ["group", "room"], headerRequired: true));

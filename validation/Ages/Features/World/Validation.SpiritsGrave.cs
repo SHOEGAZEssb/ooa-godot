@@ -62,9 +62,9 @@ public sealed partial class ValidationRoot
         }
 
         var data = new SpiritsGraveDatabase();
-        var visuals = new DungeonInteractionVisualDatabase();
-        var bosses = new DungeonBossDatabase();
-        var enemyData = new EnemyDatabase();
+        var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
+        var bosses = new DungeonBossDatabase(AgesGameContent.AssetRoot);
+        var enemyData = new EnemyDatabase(AgesGameContent.AssetRoot);
         RoomObjectRecord fallingRope = enemyData.GetRoomObjects(4, 0x73)
             .Single(record => record.Id == 0x10);
         RoomObjectRecord linkedGhini = enemyData.GetRoomObjects(5, 0x99)
@@ -170,7 +170,7 @@ public sealed partial class ValidationRoot
             !data.EssenceMessage.Contains("Eternal Spirit", StringComparison.Ordinal),
             "Spirit's Grave native object/enemy/visual contract is incomplete.");
 
-        var chests = new ChestDatabase();
+        var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         (int Room, int Position, string Treasure)[] expectedChests =
         {
             (0x15, 0x5a, "TREASURE_OBJECT_GASHA_SEED_01"),
@@ -195,7 +195,7 @@ public sealed partial class ValidationRoot
         // The linked flags must be committed before SND_SOLVEPUZZLE and before
         // the Ember child deletes itself, otherwise the exception repeats from
         // flame counter zero forever and re-entry restores the solid wall.
-        var breakables = new BreakableTileDatabase();
+        var breakables = new BreakableTileDatabase(AgesGameContent.AssetRoot);
         FailIf(
             !breakables.TryGet(
                 2, 0x69,
@@ -219,7 +219,7 @@ public sealed partial class ValidationRoot
         EmberSeedEffect wallSeed = _entities.Spawn<EmberSeedEffect>(
             new EmberSeedSpawn(
                 burnableWallCenter + new Vector2(0, 10),
-                Vector2I.Up, new SeedSatchelDatabase().Ember, 4));
+                Vector2I.Up, new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember, 4));
         StepEntities(67);
         FailIf(
             !wallSeed.Finished ||
@@ -599,7 +599,7 @@ public sealed partial class ValidationRoot
             directSpawns.OfType<PuzzlePuffSpawn>().Count() != 1,
             "Room 4:1b did not light two torches and reveal its persistent staircase.");
 
-        var warps = new WarpDatabase();
+        var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         _saveData.SetRoomFlag(4, 0x10, OracleSaveData.RoomFlagItem, false);
         _player.WarpTo(new Vector2(0xb8, 0x28), recordSafe: false);
         FailIf(
@@ -653,7 +653,7 @@ public sealed partial class ValidationRoot
             "Side-scrolling room 6:10 did not create the source-positioned " +
             "collectible TREASURE_OBJECT_BRACELET_00 reward.");
 
-        var sideScroll = new SideScrollPlayerDatabase();
+        var sideScroll = new SideScrollPlayerDatabase(AgesGameContent.AssetRoot);
         SideScrollPlayerParameters sideParameters = sideScroll.Parameters;
         SideScrollTerrainState entranceTerrain =
             _terrain.GetSideScrollTerrain(new Vector2(0x28, 0x08));

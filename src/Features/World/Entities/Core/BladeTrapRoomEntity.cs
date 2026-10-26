@@ -68,7 +68,7 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
     public bool TryGetSwordAttackerKnockback(EnemyKnockbackStrength strength,
         out SwordAttackerKnockback response)
     {
-        var profile = EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+        var profile = EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback;
         int frames = strength switch
         {
             EnemyKnockbackStrength.Low => profile.LowFrames,
@@ -92,7 +92,7 @@ internal sealed class BladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<BladeTr
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox,
         Vector2 sourcePosition, int damage, ICollection<RoomEntitySpawn> spawns)
     {
-        int effect = EnemyBehaviorTables.Shared.BladeTrapCollisionEffects[(int)collision].Value;
+        int effect = EnemyBehaviorTables.For(AssetRoot).BladeTrapCollisionEffects[(int)collision].Value;
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
             !CombatDescriptor.Combat.Intersects(hitbox)) return false;
         return effect switch

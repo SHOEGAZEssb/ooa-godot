@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             // Text speed is owned by the shared printer. Exercise all speeds
             // on one message; every source/placement branch prints at speed 4.
             if (speed != 4 && destination != destinations[0]) continue;
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetGlobalFlag(GlobalFlag.IntroDone); save.SetTextSpeed(speed);
             if (conditional)
             {

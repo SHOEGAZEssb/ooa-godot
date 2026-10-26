@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(120,88));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);
-            var data=new DungeonBossDatabase();var parent=new GiantGhiniBoss();
+            var data=new DungeonBossDatabase(AgesGameContent.AssetRoot);var parent=new GiantGhiniBoss();
             parent.Initialize(data.Enemy(0x70),_currentRoom,new(120.25f,88.5f),_random,_sound.PlaySound,
                 ()=>false,_entities.DisableLinkCollisionsAndMenu,()=>{},_entities.ToScreen);
             F1Set(parent,"_initialized",true);F1Set(parent,"_state",intro?GiantGhiniBossBossState.IntroWait:GiantGhiniBossBossState.Moving);

@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
             LoadValidationRoom(0, 0x60);
             _entities.Clear();
             _player.WarpTo(new(72, 40));
-            var database = new EnemyDatabase();
+            var database = new EnemyDatabase(AgesGameContent.AssetRoot);
             for (int i = 0; i < 15; i++)
             {
                 _entities.TryAllocateEnemy(slot =>

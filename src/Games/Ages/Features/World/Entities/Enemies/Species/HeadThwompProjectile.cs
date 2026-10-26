@@ -40,6 +40,7 @@ internal sealed partial class HeadThwompProjectile
         Action<int> playSound,
         OracleRuntimeState? memory = null)
     {
+        AssetRoot = visual.AssetRoot;
         _kind = spawn.Kind;
         _room = room;
         _random = random;
@@ -55,7 +56,7 @@ internal sealed partial class HeadThwompProjectile
         ZIndex = ObjectDrawPriority.BehindLinkZIndex; // both source PART handlers use visible82.
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette,
@@ -71,7 +72,7 @@ internal sealed partial class HeadThwompProjectile
             _impactAnimation = new EnemyAnimationPlayer(
                 this, impact.Animations.Length);
             _impactAnimation.Load(
-                EnemyVisualSource.LoadComposite(impact.Sprites),
+                EnemyVisualSource.LoadComposite(impact.Sprites, impact.AssetRoot),
                 impact.Animations,
                 impact.TileBase,
                 impact.Palette,
@@ -289,7 +290,7 @@ internal sealed partial class HeadThwompProjectile
     private bool IsCircularOutOfBounds()
     {
         return !NativePartBoundary.IsInside(_room,Position,_angle,
-            EnemyBehaviorTables.Shared.WallArrowShooter.BoundaryOffsets);
+            EnemyBehaviorTables.For(AgesGameContent.AssetRoot).WallArrowShooter.BoundaryOffsets);
     }
 
     private void Finish()

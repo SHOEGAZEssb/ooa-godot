@@ -10,6 +10,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class DarkRoomDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly Lookup<int, DarkRoomDatabaseRecord> _recordsByRoom = new();
     private readonly Dictionary<string, int> _constants = new();
@@ -37,10 +39,12 @@ internal sealed class DarkRoomDatabase
     internal int AboveScreenMargin => Constant("above-screen-margin");
     internal int AboveScreenFallback => Constant("above-screen-fallback");
 
-    public DarkRoomDatabase()
+    public DarkRoomDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable interactions = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dark_room_interactions.tsv",
+            AssetRoot + "objects/dark_room_interactions.tsv",
             new GeneratedTableSchema(
                 "dark-room interactions",
                 GeneratedTableKeySemantics.Grouped,
@@ -105,7 +109,7 @@ internal sealed class DarkRoomDatabase
         RecordCount = count;
 
         GeneratedTable constants = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dark_room_constants.tsv",
+            AssetRoot + "objects/dark_room_constants.tsv",
             new GeneratedTableSchema(
                 "dark-room constants",
                 GeneratedTableKeySemantics.Unique,

@@ -80,7 +80,7 @@ public sealed partial class ValidationRoot
                 "Direct attack must cause native retaliation and leave Nayru's three-hit progression unchanged.");
             StepGameplayUpdates(32,Vector2.Zero,batched:batch,afterUpdate:Compare);
             for(int wait=0;wait<240&&!boss.Actor.CollisionEnabled;wait++) StepGameplayUpdates(1,Vector2.Zero,afterUpdate:Compare);
-            FailIf(!new SeedSatchelDatabase().TryGet(ItemId.MysterySeed,out var seed),"Missing Mystery seed record.");
+            FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.MysterySeed,out var seed),"Missing Mystery seed record.");
             rom.HitEnemyWithItem(boss.Slot,0x1a,0,ItemId.MysterySeed);
             var response=boss.ApplySeedCollision(boss.Actor.CollisionBounds,boss.Actor.Position-Vector2.Right,seed,0x1a,spawns);
             FailIf(!response.Contact,"Possessed Nayru must accept the live Mystery collision through its source effect$20.");

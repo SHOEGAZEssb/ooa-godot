@@ -52,7 +52,7 @@ internal sealed class BlueStalfosRoomEntity : CombatEnemyRoomEntityAdapter<BlueS
                 Entity.PublishDamage(damage, 32); _world.Sound(SoundId.SndBossDamage); return true;
             case CollisionEffect.Effect15:
             case CollisionEffect.Effect16:
-                var recoil = EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+                var recoil = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).ArmoredSwordAttackerKnockback;
                 _attackerRecoil = effect == CollisionEffect.Effect15 ? recoil.LowFrames : recoil.NormalFrames;
                 Entity.PublishDamage(0, -28); spawns.Add(new EnemyClinkSpawn(CollisionMidpoint(Entity.Position, origin))); return true;
             case CollisionEffect.Effect1b:

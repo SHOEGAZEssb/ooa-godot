@@ -7,7 +7,7 @@ public partial class ValidationRoot
 {
     private void ValidateCheepCheeps()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         int placements = 0;
         foreach (int roomId in new[] { 0x02, 0x03, 0x09, 0x0a, 0x47, 0x48, 0x49 })
         {

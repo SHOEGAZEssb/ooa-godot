@@ -37,7 +37,7 @@ internal sealed class MonkeyDatabase
     {
         int id = accessory ? 0x63 : 0x39;
         var actor = NpcCharacter.CreateFromRecord(_visuals[id] with { Group = record.Group, Room = record.Room,
-            Var03 = accessory ? 1 : record.Var03, X = record.X, Y = record.Y });
+            Var03 = accessory ? 1 : record.Var03, X = record.X, Y = record.Y }, AgesGameContent.AssetRoot);
         actor.SetAnimationRate(0); actor.SetDialogue(0, "", false); actor.TimeWarpSolidMarked = false;
         actor.SetCollisionRadii(0, 0); actor.Visible = false; return actor;
     }

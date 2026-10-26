@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         for (int treasure = 0; treasure < _treasures.BehaviourCount; treasure++)
         foreach (int parameter in new[] { 0, 1 })
         {
-            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             byte[] flags = new byte[0x400];
             for (int i = 0; i < flags.Length; i++) flags[i] = (byte)(i * 37 + 0x5a);
             save.WriteWramBytes(AgesWramAddress.wGroup0RoomFlags, flags);
@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
                 $"Treasure ${treasure:x2}:${parameter:x2} corrupted global flags $c6d0-$c6df.");
         }
 
-        OracleSaveData upgradeSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData upgradeSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var runtime = AgesGameContent.CreateRuntimeState();
         var upgrades = new InventoryState(_treasures, upgradeSave, runtimeState: runtime);
         runtime.SetWramByte(AgesWramAddress.wUpgradesObtained, 0x80);
@@ -48,7 +48,7 @@ public sealed partial class ValidationRoot
         var sameSession = new InventoryState(_treasures, upgradeSave, runtimeState: runtime);
         FailIf(!sameSession.HasUpgrade(0) || !sameSession.HasUpgrade(7),
             "An inventory view lost the runtime owner's upgrade flags.");
-        FailIf(!OracleSaveData.TryDeserialize(upgradeSave.Serialize(), out var restoredSave),
+        FailIf(!OracleSaveData.TryDeserialize(upgradeSave.Serialize(), OracleGame.Ages, out var restoredSave),
             "Upgrade flag regression could not round-trip the retail save.");
         var newSession = new InventoryState(_treasures, restoredSave);
         FailIf(newSession.HasUpgrade(0) || newSession.HasUpgrade(7),
@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
         FailIf(upgrades.HasUpgrade(0) || upgradeSave.HasTreasure(TreasureId.Id60),
             "The explicit debug upgrade toggle no longer clears both flag representations.");
 
-        OracleSaveData flowerSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData flowerSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var flowerInventory = new InventoryState(_treasures, flowerSave);
         int commits = 0;
         bool completeAtCommit = true;
@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
         FailIf(!flowerInventory.HasTreasure(TreasureId.BombFlower) || !flowerInventory.HasTreasure(TreasureId.BombFlowerLowerHalf) ||
             commits != 1 || !completeAtCommit,
             "giveTreasure_body:@extraItemsToAddTable did not grant Bomb Flower $49 and lower half $58 atomically.");
-        FailIf(!OracleSaveData.TryDeserialize(flowerSave.Serialize(), out restoredSave) ||
+        FailIf(!OracleSaveData.TryDeserialize(flowerSave.Serialize(), OracleGame.Ages, out restoredSave) ||
             !restoredSave!.HasTreasure(TreasureId.BombFlower) || !restoredSave.HasTreasure(TreasureId.BombFlowerLowerHalf),
             "Bomb Flower $49/$58 ownership flags did not survive the retail save round trip.");
     }

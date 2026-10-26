@@ -10,7 +10,8 @@ internal sealed class BubbleRoomEntity : CombatEnemyRoomEntityAdapter<BubbleChar
     IExpertPunchHittableRoomEntity, ISeedCollisionTarget, IBoomerangCollisionRoomEntity,
     ISomariaBlockCollisionRoomEntity
 {
-    private readonly BubbleBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Bubble;
+    private BubbleBehaviorProfile? _behaviorSourceCache;
+    private BubbleBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Bubble;
     public bool MeleeReportsContact => false;
     internal BubbleRoomEntity(BubbleCharacter enemy, EnemyCombatSourceDescriptor source, Action<int> sound)
         : base(enemy, enemy.SetTransitionDrawOffset,

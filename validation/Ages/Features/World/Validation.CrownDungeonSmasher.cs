@@ -137,7 +137,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherSwitchHook()
     {
-        var room = Room060MovementFixture(); var db = new EnemyDatabase();
+        var room = Room060MovementFixture(); var db = new EnemyDatabase(AgesGameContent.AssetRoot);
         foreach (bool isBall in new[] {false,true})
         foreach (int z in new[] {-8,-7,6,7})
         {
@@ -172,7 +172,7 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonSmasherReservedCollision()
     {
         LoadValidationRoom(4,0xb4); _entities.Clear();
-        var db = new EnemyDatabase(); var random = new OracleRandom();
+        var db = new EnemyDatabase(AgesGameContent.AssetRoot); var random = new OracleRandom();
         var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
         var world = new SmasherRoomEnvironment(_ => parent, () => { }, () => { },
             () => true, () => true, () => { }, () => { }, _ => { }, 1, true);
@@ -225,7 +225,7 @@ public partial class ValidationRoot
             _player.WarpTo(new(120,88));
             _inventory.GiveTreasure(TreasureId.Bracelet,1);
             _inventory.EquipA(TreasureId.Bracelet);
-            var db = new EnemyDatabase(); var random = new OracleRandom();
+            var db = new EnemyDatabase(AgesGameContent.AssetRoot); var random = new OracleRandom();
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
             parent.InitializePending(db.ImportedEnemy(AgesEnemyId.Smasher,1), _currentRoom, new(120,88), random, 1);
             var world = new SmasherRoomEnvironment(_ => parent, () => { }, () => { },
@@ -303,7 +303,7 @@ public partial class ValidationRoot
         foreach (int enemyInvincibility in new[] { 0, -3, 3 })
         for (int shield = 0; shield <= 3; shield++)
         {
-            var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
+            var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
             if (shield != 0)
             {
                 inventory.GiveTreasure(_treasures.GetObject($"TREASURE_OBJECT_SHIELD_0{shield-1}"));
@@ -315,7 +315,7 @@ public partial class ValidationRoot
             if (shield != 0) player.UpdateShieldForValidation(true,false);
             Vector2 position = shield == 0 ? new(80,72) : new(85,player.ShieldCollisionBounds.GetCenter().Y);
             var parent = new SmasherCharacter(); var ball = new SmasherCharacter();
-            var db = new EnemyDatabase(); var room = Room060MovementFixture(); var random = new OracleRandom();
+            var db = new EnemyDatabase(AgesGameContent.AssetRoot); var room = Room060MovementFixture(); var random = new OracleRandom();
             ball.InitializeLinked(db.ImportedEnemy(AgesEnemyId.Smasher,0),room,new(32,32),random,parent);
             parent.InitializeLinked(db.ImportedEnemy(AgesEnemyId.Smasher,1),room,position,random,ball);
             int sounds = 0, health = player.HealthQuarters;
@@ -347,7 +347,7 @@ public partial class ValidationRoot
             LoadValidationRoom(4,0xb4); _entities.Clear();
             _player.WarpTo(new(120,88));
             int health = _player.HealthQuarters;
-            var db = new EnemyDatabase(); var random = new OracleRandom();
+            var db = new EnemyDatabase(AgesGameContent.AssetRoot); var random = new OracleRandom();
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
             // Isolate the ground ball; its linked parent does not run AI and
             // therefore cannot pick it up during this contact check.
@@ -386,7 +386,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherWeaponResponses()
     {
-        var room = Room060MovementFixture(); var db = new EnemyDatabase(); var random = new OracleRandom();
+        var room = Room060MovementFixture(); var db = new EnemyDatabase(AgesGameContent.AssetRoot); var random = new OracleRandom();
         var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
         ball.InitializeLinked(db.ImportedEnemy(AgesEnemyId.Smasher,0), room, new(80,64), random, parent);
         parent.InitializeLinked(db.ImportedEnemy(AgesEnemyId.Smasher,1), room, new(112,64), random, ball);
@@ -428,7 +428,7 @@ public partial class ValidationRoot
             Step(actor);
             foreach (int item in new[] { 0x20, 0x21, 0x22, 0x23 })
             {
-                FailIf(!new SeedSatchelDatabase().TryGet(item, out var seed), "Seed fixture missing native item.");
+                FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(item, out var seed), "Seed fixture missing native item.");
                 var response = adapter.ApplySeedCollision(actor.CollisionBounds, Vector2.Zero, seed, seed.Collision & 0x7f, spawns);
                 FailIf(!response.Contact || response.DisableCollision == actor.IsBall ||
                     response.Effect != (actor.IsBall ? SeedHitResult.None : SeedHitResult.Activate) ||
@@ -456,7 +456,7 @@ public partial class ValidationRoot
         {
             LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(72,40));
             var active = (System.Collections.Generic.List<IRoomEntity>)typeof(RoomEntityManager).GetField("_activeEntities", flags)!.GetValue(_entities)!;
-            var room = Room060MovementFixture(); var random = new OracleRandom(); var db = new EnemyDatabase();
+            var room = Room060MovementFixture(); var random = new OracleRandom(); var db = new EnemyDatabase(AgesGameContent.AssetRoot);
             SmasherRoomEnvironment world = null!;
             int initialized = 0, began = 0, disabled = 0, restored = 0, deathSounds = 0;
             SmasherRoomEntity Create(int slot, bool placed)
@@ -534,7 +534,7 @@ public partial class ValidationRoot
         foreach (int freedSlot in new[] { 0, 15 })
         {
             LoadValidationRoom(0,0x60); _entities.Clear(); _player.WarpTo(new(72,40));
-            var room = Room060MovementFixture(); var random = new OracleRandom(); var db = new EnemyDatabase();
+            var room = Room060MovementFixture(); var random = new OracleRandom(); var db = new EnemyDatabase(AgesGameContent.AssetRoot);
             var slots = new SmasherSlotValidationEntity[16];
             var visits = new System.Collections.Generic.List<int>();
             int roomInitializations = 0;
@@ -591,7 +591,7 @@ public partial class ValidationRoot
     {
         foreach (int allocatedSlot in new[] { 2, 9 })
         {
-            var room = Room060MovementFixture(); var random = new OracleRandom(); var db = new EnemyDatabase();
+            var room = Room060MovementFixture(); var random = new OracleRandom(); var db = new EnemyDatabase(AgesGameContent.AssetRoot);
             var placed = new SmasherCharacter(); var child = new SmasherCharacter();
             placed.InitializePending(db.ImportedEnemy(AgesEnemyId.Smasher,0), room, new(120.5f,88.25f), random, 5);
             FailIf(placed.Visible || placed.CollisionEnabled || random.Calls != 0, "$74 pending slot must not load properties before dispatch.");
@@ -634,7 +634,7 @@ public partial class ValidationRoot
     private void ValidateCrownDungeonSmasherDeath()
     {
         var room = Room060MovementFixture(); var random = new OracleRandom();
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
         ball.InitializeLinked(database.ImportedEnemy(AgesEnemyId.Smasher,0), room, new(80,64), random, parent);
         parent.InitializeLinked(database.ImportedEnemy(AgesEnemyId.Smasher,1), room, new(112,64), random, ball);
@@ -713,7 +713,7 @@ public partial class ValidationRoot
     {
         foreach (bool toss in new[] { false, true })
         {
-            var room = Room060MovementFixture(); var database = new EnemyDatabase(); var random = new OracleRandom();
+            var room = Room060MovementFixture(); var database = new EnemyDatabase(AgesGameContent.AssetRoot); var random = new OracleRandom();
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
             ball.InitializeLinked(database.ImportedEnemy(AgesEnemyId.Smasher,0), room, new(80.5f,64.25f), random, parent);
             var memory = AgesGameContent.CreateRuntimeState();
@@ -725,7 +725,7 @@ public partial class ValidationRoot
                 () => !ball.IsDead && ball.State == 2 && ball.GrabSubstate < 3,
                 () => ball.Position, () => ball.ZFixed, ball.CopyCarriedPosition,
                 ball.ReleaseGrab, ball.FinishGrabBounce, ball.ApplyMovementSpeed,
-                new BraceletWeightDatabase(), new BombDatabase().Data);
+                new BraceletWeightDatabase(AgesGameContent.AssetRoot), new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data);
             motion.Hold(new(80.75f,64.5f), -4, 2, 1);
             FailIf(ball.Position != new Vector2(80.5f,64.25f) || ball.ZFixed != -18*256 || motion.Active,
                 "$74 held copy must include LinkZ and retain enemy fractions without creating the throw item.");
@@ -775,7 +775,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherGrabProtocol()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         foreach (var (x, z, hit) in new[] { (8,-8,true),(8,8,true),(8,-9,false),(8,9,false),(-12,0,false),(12,0,true) })
         {
             var ball = new SmasherCharacter(); var parent = new SmasherCharacter();
@@ -833,7 +833,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherMotion()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var ball = new SmasherCharacter();
         var parent = new SmasherCharacter();
         var random = new OracleRandom();
@@ -896,7 +896,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSmasherSourceData()
     {
-        var drop = EnemyBehaviorTables.Shared.Smasher;
+        var drop = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Smasher;
         FailIf(!drop.DropWallProbes.Select(value => value.Value).SequenceEqual(new[] {0x7c,0xa0,0x47,0x7d,0xa1,0x4f,0xaf,0xc9,0,8}),
             "$74 directionless throw must preserve bank$0f's raw table-overread bytes.");
         Vector2[] dropPoints = [new(3,212),new(128,27),new(207,188),new(152,107)];
@@ -911,7 +911,7 @@ public partial class ValidationRoot
             int expected = (blocked & 3) != 0 ? ((blocked & 12) != 0 ? 15 : 8) : (blocked & 12) != 0 ? 0 : 255;
             FailIf(angle != expected, "$74 dropped-ball reflection must retain the clean-US raw bounce table reads.");
         }
-        var grab = new BraceletGrabGeometry();
+        var grab = new BraceletGrabGeometry(AgesGameContent.AssetRoot);
         Vector2[] projectedLink = [new(80,58),new(85,64),new(80,69),new(74,64)];
         Rect2 Bounds(Vector2 center) => new(center-new Vector2(6,6),new Vector2(12,12));
         for (int direction = 0; direction < 4; direction++)
@@ -933,9 +933,9 @@ public partial class ValidationRoot
         FailIf(!grab.Overlaps(Bounds(new(255,64)),0,1,Bounds(new(252,64)),0,false) ||
             grab.Overlaps(Bounds(new(255,64)),0,1,Bounds(new(16,64)),0,false),
             "Native grab projection and XY arithmetic must wrap at the byte seam.");
-        var data = EnemyBehaviorTables.Shared.Smasher;
+        var data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Smasher;
         FailIf(data.DeathFrames != 120, "commonBossCode.s enemyBoss_dead must retain its 120-update counter.");
-        var weights = new BraceletWeightDatabase();
+        var weights = new BraceletWeightDatabase(AgesGameContent.AssetRoot);
         BraceletWeight[] expectedWeights = [new(0x1c,-0xf0,ObjectSpeed.Speed180,0x64),new(0x20,-0x100,ObjectSpeed.Speed80,0x28),
             new(0x28,-0xe0,ObjectSpeed.Speed1a0,0x64),new(0x20,-0x100,ObjectSpeed.Speed80,0x28),new(0x20,-0x20,ObjectSpeed.Speed140,0x3c),new(0x20,-0x100,ObjectSpeed.Speed80,0x28)];
         for (int weight = 0; weight < 6; weight++)
@@ -963,7 +963,7 @@ public partial class ValidationRoot
             "127@8,252,4,32;8,4,2,32;8,12,0,32;248,252,12,32",
             "127@8,252,10,32;8,4,8,32;8,12,6,32;248,249,12,32",
             "127@8,0,14,0;8,8,14,32"];
-        var enemies = new EnemyDatabase();
+        var enemies = new EnemyDatabase(AgesGameContent.AssetRoot);
         foreach (int subid in new[] { 0, 1 })
         {
             var record = enemies.ImportedEnemy(AgesEnemyId.Smasher, subid);

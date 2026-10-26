@@ -11,7 +11,8 @@ internal sealed partial class ChevalCharacter : NpcCharacter
         NpcRecord record,
         ChevalEventRecord cheval)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         if (record.SpriteName != cheval.Sprite ||
             record.TileBase != cheval.TileBase ||
             record.Palette != cheval.Palette ||

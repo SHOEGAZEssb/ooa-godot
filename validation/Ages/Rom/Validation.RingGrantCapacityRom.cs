@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach (bool holes in new[] { false, true })
         for (int ring = 0; ring < 64; ring++)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             for (int index = 0; index < count; index++)
             {
                 int value = distribution switch { 0 => index, 1 => index & 3, _ => 7 };

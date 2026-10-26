@@ -32,7 +32,7 @@ internal sealed class JabuExteriorDatabase
                 ["subid","sprite","tile-base","palette","animation"],["subid"],headerRequired:true));
         if(visuals.Rows.Count!=2) throw new InvalidOperationException("PART $16: expected two bubble animations.");
         var first=visuals.Rows[0];
-        Bubble=new("16",[first.RequiredString(1)],first.UnsignedDecimal(2),first.UnsignedDecimal(3),true,
+        Bubble=new(AgesGameContent.AssetRoot, "16",[first.RequiredString(1)],first.UnsignedDecimal(2),first.UnsignedDecimal(3),true,
             visuals.Rows.Select(r=>r.RequiredString(4)).ToArray());
     }
 }

@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private (TokayNpcRoomEntity First,TokayNpcRoomEntity Second) BeginTokayDimitriTrade(bool batched,bool stopAtSeeds=false)
     {
-        var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
+        var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");
         save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
         InitializeTransientSession(save);_saveData.WriteWramByte(AgesWramAddress.wDimitriState,1);
         _inventory.GiveTreasure(TreasureId.Essence,2);_inventory.GiveTreasure(TreasureId.EmberSeeds,0x20);
@@ -120,7 +120,7 @@ public sealed partial class ValidationRoot
         // text.yaml: TX_2100 begins with explicit \\pos(2), unlike the
         // preceding Tokay messages which choose their position from Link Y.
         FailIf(!_dialogue.IsOpen||_dialogue.Position.Y!=96||dimitri.Position!=new Vector2(48,72)||dimitri.AnimationIndex!=0x24||
-            _dialogue.CurrentMessage!=DialogueBox.PlainText(new DimitriDatabase().Text(0x2100)),
+            _dialogue.CurrentMessage!=DialogueBox.PlainText(new DimitriDatabase(AgesGameContent.AssetRoot).Text(0x2100)),
             $"The separate $71:$07 slot must observe var3e bit1 and present Dimitri's TX_2100: open{_dialogue.IsOpen}, pos{_dialogue.Position}, fish{dimitri.Position}/anim{dimitri.AnimationIndex:x2}, signal{CompanionRuntimeState.ReadScriptSignals(_runtimeState):x2}, text={_dialogue.CurrentMessage}.");
         _dialogue.Close();StepGameplayUpdates(1,Vector2.Zero);
         FailIf((_saveData.ReadWramByte(AgesWramAddress.wDimitriState)&1)==0,"Companion script must remember its completed introduction.");
@@ -171,7 +171,7 @@ public sealed partial class ValidationRoot
         LoadValidationRoom(0, 0xaa);
         StepGameplayUpdates(4, Vector2.Zero);
         var dimitri = _entities.Entities<DimitriCompanionRoomEntity>().Single();
-        var database = new DimitriDatabase();
+        var database = new DimitriDatabase(AgesGameContent.AssetRoot);
         FailIf(database.Animations.Length != 40 || !database.CanSwallow(0x10) ||
             database.CanSwallow(0x13), "Dimitri source animations or mouth collision modes are incorrect.");
         _player.WarpTo(dimitri.Position + new Vector2(0, 16));

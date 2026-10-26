@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
         })
         foreach (bool batched in RomHostSchedules(hostCase++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc6aa, (byte)(outcome == 0 ? 0x20 : 1)); save.WriteWramByte(0xc6ab, 0x30);
             InitializeTransientSession(save); LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.RingBox, 1);
@@ -88,7 +88,7 @@ public sealed partial class ValidationRoot
                         rom[0xc6cb] = 0xff;
                     }
                     Vector2 start = _player.Position + Vector2.Right * 6;
-                    if (partId == 0x1a) start -= EnemyBehaviorTables.Shared.EnemyArrowSpawnOffsets[3].Vector;
+                    if (partId == 0x1a) start -= EnemyBehaviorTables.For(AgesGameContent.AssetRoot).EnemyArrowSpawnOffsets[3].Vector;
                     ordinaryShot = partId switch
                     {
                         0x18 => _entities.Spawn<OctorokRockProjectile>(new OctorokRockSpawn(start, 24)),
@@ -140,7 +140,7 @@ public sealed partial class ValidationRoot
         foreach (int ring in new[] { 0xff, (int)RingId.GreenHoly, (int)RingId.Protection, (int)RingId.Steadfast, (int)RingId.Blue })
         foreach (bool batched in RomHostSchedules(hostCase++))
         {
-            InitializeTransientSession(OracleSaveData.CreateStandardGame());
+            InitializeTransientSession(OracleSaveData.CreateStandardGame(OracleGame.Ages));
             _saveData.SetGlobalFlag(GlobalFlag.IntroDone);
             LoadValidationRoom(0, 0x33); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0);

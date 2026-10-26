@@ -27,6 +27,7 @@ internal sealed partial class EnemyAttachedKeyRoomEntity : DungeonInteractionVis
     internal EnemyAttachedKeyRoomEntity(DungeonObjectRecord record, DungeonInteractionVisual visual,
         Func<bool> itemCollected, Func<NativeEnemyAttachment?> enemySlotZero, Func<Vector2, bool> createKey)
     {
+        AssetRoot = visual.AssetRoot;
         _record = record; _itemCollected = itemCollected; _enemySlotZero = enemySlotZero; _createKey = createKey;
         InitializeVisual(visual, record.Position); Visible = false;
         ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex;

@@ -10,8 +10,8 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
     internal int NativeSpeed { get; private set; }
-    private readonly ZolBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Zol;
+    private ZolBehaviorProfile? _behaviorSourceCache;
+    private ZolBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Zol;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -47,6 +47,7 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
         OracleRandom random,
         Action<int>? sound = null)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;
@@ -65,7 +66,7 @@ public partial class ZolCharacter : EnemyCharacter, ITerrainShadowSource
         };
         InitializeEnemy(
             position,
-            EnemyCharacterConfiguration.FromSprite(
+            EnemyCharacterConfiguration.FromSprite(record.AssetRoot,
                 record.Health,
                 record.CollisionRadiusX,
                 record.CollisionRadiusY,

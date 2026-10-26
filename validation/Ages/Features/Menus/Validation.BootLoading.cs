@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
                 "Preparing native script resources retained a node or changed live save/RNG state.");
         var preparedScripts = (Dictionary<string, CSharpScript>)typeof(GameplayScriptResources)
             .GetField("_scripts", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scriptResources)!;
-        const string shopScript = "res://src/Features/World/Interactions/LynnaShop/LynnaShopItem.cs";
+        const string shopScript = "res://src/Games/Ages/Features/World/Interactions/LynnaShop/LynnaShopItem.cs";
         FailIf(!preparedScripts.TryGetValue(shopScript, out CSharpScript? preparedShop) ||
             !preparedShop.CanInstantiate(), "Boot preparation omitted the native $47 shop item script.");
         FailIf(scriptResources.Prepare().Any() || !ReferenceEquals(preparedScripts[shopScript], preparedShop),
@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             OracleAssetCache.ImageResourcePath(sourcePng + ".remap") != sourcePng ||
             OracleAssetCache.ImageResourcePath(sourcePng) != sourcePng,
             "Exported Android image sidecars must preload the same logical graphics resource.");
-        var screen = ResourceLoader.Load<PackedScene>("res://scenes/ages/boot_loading.tscn")
+        var screen = ResourceLoader.Load<PackedScene>("res://scenes/launcher/boot_loading.tscn")
             .Instantiate<BootLoadingScreen>();
         AddChild(screen);
         byte[] save = _saveData.Serialize();
@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
         long updates = Application.UpdateCount;
         Vector2I originalSize = GetWindow().ContentScaleSize;
         Window.ContentScaleAspectEnum originalAspect = GetWindow().ContentScaleAspect;
-        BeginBootLoading(screen);
+        BeginBootLoading(screen, OracleGame.Ages);
         FailIf(GetWindow().ContentScaleSize != new Vector2I(480, 270) ||
             GetWindow().ContentScaleAspect != Window.ContentScaleAspectEnum.Expand,
             "Boot panorama must use an aspect-preserving widescreen canvas.");
@@ -120,7 +120,7 @@ public sealed partial class ValidationRoot
         const BindingFlags fields = BindingFlags.NonPublic | BindingFlags.Instance;
         var preparedIntro = (NewGameIntroScreen)typeof(GameRoot)
             .GetField("_newGameIntroScreen", fields)!.GetValue(this)!;
-        var preparedGameplay = (GameSceneGraph)typeof(GameRoot)
+        var preparedGameplay = (AgesGameSceneGraph)typeof(GameRoot)
             .GetField("_preparedGameplayScene", fields)!.GetValue(this)!;
         FailIf(preparedGameplay is null || preparedGameplay.IsInsideTree(),
             "Startup gameplay presentation must remain detached until a file is selected.");
@@ -130,24 +130,24 @@ public sealed partial class ValidationRoot
         screen.Free();
         FailIf(GetWindow().ContentScaleSize != originalSize || GetWindow().ContentScaleAspect != originalAspect,
             "Boot loading did not restore the original frontend viewport.");
-        screen = ResourceLoader.Load<PackedScene>("res://scenes/ages/boot_loading.tscn").Instantiate<BootLoadingScreen>();
+        screen = ResourceLoader.Load<PackedScene>("res://scenes/launcher/boot_loading.tscn").Instantiate<BootLoadingScreen>();
         AddChild(screen);
-        screen.Begin();
+        screen.Begin(OracleGame.Ages);
         screen.Free();
         FailIf(GetWindow().ContentScaleSize != originalSize || GetWindow().ContentScaleAspect != originalAspect,
             "Removing the loading screen did not restore the original viewport.");
         typeof(GameRoot).GetMethod("OpenFileSelectFromFrontend", fields)!.Invoke(this, null);
-        var firstCatalog = RoomEntityResources.CreateSession(_rooms);
-        var secondCatalog = RoomEntityResources.CreateSession(_rooms);
+        var firstCatalog = AgesRoomEntityResources.CreateSession(_rooms);
+        var secondCatalog = AgesRoomEntityResources.CreateSession(_rooms);
         FailIf(ReferenceEquals(firstCatalog, secondCatalog) ||
             !ReferenceEquals(firstCatalog.DungeonMaps, _rooms.DungeonMaps) ||
             !ReferenceEquals(firstCatalog.SmogProjectile, secondCatalog.SmogProjectile),
             "Boot definitions did not populate separate session catalogs with current-world maps and shared immutable records.");
         foreach (string graphicsField in new[] { "_swordBeamData", "_dimitriData", "_gashaSpotsData" })
-            FailIf(typeof(RoomEntityResources).GetField(graphicsField, fields)!.GetValue(firstCatalog) is not null,
+            FailIf(typeof(AgesRoomEntityResources).GetField(graphicsField, fields)!.GetValue(firstCatalog) is not null,
                 $"Boot worker retained graphics-bearing definition {graphicsField} in its shared data.");
-        var selectedSave = OracleSaveData.CreateStandardGame();
-        OracleSaveData expectedSelected = OracleSaveData.CreateStandardGame();
+        var selectedSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
+        OracleSaveData expectedSelected = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         expectedSelected.WriteWramByte(0xc622, 1); // mainThread's initial dispatch
         typeof(GameRoot).GetMethod("StartSelectedFile", fields)!.Invoke(this, [0, selectedSave]);
         var activeIntro = (NewGameIntroController)typeof(GameRoot)
@@ -177,10 +177,10 @@ public sealed partial class ValidationRoot
         GetWindow().Size = new Vector2I(1280, 720);
         var layer = new CanvasLayer { Layer = 100 };
         AddChild(layer);
-        var screen = ResourceLoader.Load<PackedScene>("res://scenes/ages/boot_loading.tscn")
+        var screen = ResourceLoader.Load<PackedScene>("res://scenes/launcher/boot_loading.tscn")
             .Instantiate<BootLoadingScreen>();
         layer.AddChild(screen);
-        screen.Begin();
+        screen.Begin(OracleGame.Ages);
         screen.SetProgress(0.57f);
         screen.AdvancePresentation(0.75);
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);

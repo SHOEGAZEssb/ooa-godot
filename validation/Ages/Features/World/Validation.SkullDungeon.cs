@@ -8,14 +8,14 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonBladeTraps()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var definition = database.ImportedEnemy(EnemyId.BladeTrap, 1);
         FailIf(definition is not { Health: 127, DamageQuarters: 2, RadiusX: 4, RadiusY: 4,
             TileBase: 0, Palette: 1, Animations.Length: 3 },
             "$0e:$01 lost enemy0eSubidData's extra-data $02, blue palette or trap OAM.");
-        FailIf(!EnemyBehaviorTables.Shared.BladeTrap.Select(v => v.Value)
+        FailIf(!EnemyBehaviorTables.For(AgesGameContent.AssetRoot).BladeTrap.Select(v => v.Value)
                 .SequenceEqual(new[] { 8, 13, 60, 30, 120, 88, 7, 16 }) ||
-            !EnemyBehaviorTables.Shared.BladeTrapCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
+            !EnemyBehaviorTables.For(AgesGameContent.AssetRoot).BladeTrapCollisionEffects.Select(v => v.Value).SequenceEqual(new[] {
                 0x3c, 0x06, 0x06, 0x06, 0x15, 0x16, 0x16, 0x16, 0x17, 0x15, 0, 0, 0x16, 0x1b, 0x15, 0,
                 0, 0, 0, 0, 0, 0x2d, 0x1c, 0x1b, 0, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0 }),
             "Blue blade trap source operands or complete collision row $13 changed.");
@@ -178,7 +178,7 @@ public sealed partial class ValidationRoot
             "Room 4:73 Ropes did not finish their wait/fall through the batched gameplay scheduler: " +
             string.Join(", ", ropes.Select(r => $"{r.State}/{r.Counter}/z={r.ZFixed}/visible={r.Visible}/collision={r.CollisionEnabled}")));
 
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         foreach (int camera in new[] { 0, 32 })
         {
             var random = new OracleRandom();
@@ -232,7 +232,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSkullDungeonShroudedStalfos()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         void Step(int count = 1) =>
             StepGameplayUpdates(count, Vector2.Zero, [], [], batched: true);
 

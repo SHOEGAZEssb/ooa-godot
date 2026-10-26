@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         foreach(int level in Enumerable.Range(0,5))
         foreach(int capacity in level==0?new[]{14,0,1}:new[]{14})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);var data=new WildTokayGameDatabase();
             _saveData.WriteWramByte(data.WildLevelAddress,(byte)level);_inventory.GiveTreasure(TreasureId.Bracelet,1);_inventory.SetScriptedEquippedItems(TreasureId.Bombs,TreasureId.Sword);
             LoadValidationRoom(2,present?0xe5:0xde);var game=_roomEvents.Get<WildTokayGameEvent>();
@@ -55,7 +55,7 @@ public sealed partial class ValidationRoot
                     FailIf(native.Word(0xcba2)!=0x0e16||_dialogue.CurrentMessage!=DialogueBox.PlainText(new TokayInteractionDatabase().Text(0x0a16)),source+": source start message differs.");
                     while(14-InteractionAdmissionPool.Count>capacity)
                     {
-                        var puff=new PuzzlePuffEffect();puff.Initialize(new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                        var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                         // A held $8c substate1 has no timed or era-dependent
                         // deletion. Museum statues delete when inPresent=$01.
                         int at=0xd040+_entities.InteractionSlot(puff)*256;native[at]=1;native[at+1]=0x8c;native[at+4]=2;native[at+5]=1;

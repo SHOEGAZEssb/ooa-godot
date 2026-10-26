@@ -9,15 +9,19 @@ namespace Oracles;
 /// </summary>
 public sealed class StandardTileSubstitutionDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int Flag, int Collisions), Dictionary<byte, byte>>
         _substitutions = new();
 
     internal int RecordCount { get; }
 
-    public StandardTileSubstitutionDatabase()
+    public StandardTileSubstitutionDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/standard_tile_substitutions.tsv",
+            AssetRoot + "metadata/standard_tile_substitutions.tsv",
             new GeneratedTableSchema(
                 "standard tile substitutions",
                 GeneratedTableKeySemantics.Grouped,

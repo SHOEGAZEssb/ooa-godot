@@ -262,7 +262,7 @@ public sealed partial class ValidationRoot
             for (int i = 0; !_secretEntry.IsActive && i < 40; i++) StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             FailIf(!_secretEntry.IsActive, "Library cancellation fixture did not acquire MENU_SECRET $04.");
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60);
-            _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(4, _saveData));
+            _secretEntry.Submit(new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecretValues(4, _saveData));
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60);
             for (int i = 0; !_transitions.NativePaletteFadeActive && i < 200; i++)
             {
@@ -352,7 +352,7 @@ public sealed partial class ValidationRoot
             for(int i=0;i<22;i++)_secretEntry.Update(1.0/60);
             _secretEntry.Submit([0xff,0xff,0xff,0xff,0xff]);
             FailIf(!_secretEntry.IsActive||_saveData.HasGlobalFlag(0x68),"Invalid library secret advanced its quest.");
-            _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(4,_saveData));
+            _secretEntry.Submit(new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecretValues(4,_saveData));
             for(int i=0;i<22;i++)_secretEntry.Update(1.0/60);
             FailIf(_secretEntry.IsActive||_gameplayPause.IsLeased,"Valid library secret failed to release its menu lease.");
             for(int i=0;!_saveData.HasGlobalFlag(0x72)&&i<850;i++){if(_dialogue.IsOpen)_dialogue.Close();Step();}

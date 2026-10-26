@@ -8,8 +8,8 @@ internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => State == 0;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => Record.SubId == 0 ? ZFixed >> 8 : null;
-
-    private readonly FireKeeseBehaviorProfile _behavior = EnemyBehaviorTables.Shared.FireKeese;
+    private FireKeeseBehaviorProfile? _behaviorSourceCache;
+    private FireKeeseBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).FireKeese;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private bool _linkHitPending;
@@ -36,6 +36,7 @@ internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
 
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         if (record.SubId != 0 || room.Layout.Length != _behavior.LayoutSize)
             throw new InvalidOperationException($"ENEMY_FIRE_KEESE ${record.Id:x2}:${record.SubId:x2} requires the source subid00 and 176-byte room layout.");
         Record = record;
@@ -140,7 +141,7 @@ internal partial class FireKeeseCharacter : EnemyCharacter, ITerrainShadowSource
                 break;
             case 12:
                 if (--Counter == 0) { State = 13; break; }
-                ZFixed = unchecked((short)(ZFixed + EnemyBehaviorTables.Shared.FireKeeseZOffsets[Counter >> 4].Value));
+                ZFixed = unchecked((short)(ZFixed + EnemyBehaviorTables.For(AssetRoot).FireKeeseZOffsets[Counter >> 4].Value));
                 int toward = OracleObjectMovement.Shared.RelativeAngle(Position, target);
                 if ((Counter & 3) == 0 && Angle != toward)
                     Angle = (Angle + (((Angle - toward) & ObjectAngle.Mask) < 16 ? -1 : 1)) & ObjectAngle.Mask;

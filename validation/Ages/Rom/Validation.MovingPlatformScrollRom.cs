@@ -56,7 +56,7 @@ public partial class ValidationRoot
             }
             int pointer = rom.Word(address+0x18);
             int phase = SomariaPrivate<int>(outgoing,"_state");
-            var graphics = new ScreenTransitionGraphicsDatabase();
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Down,out int target) || target != 0x1a,

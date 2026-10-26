@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             _random.RestoreState(_random.CaptureState() with { Rng1 = (byte)seed, Rng2 = (byte)(seed >> 8) });
             var initial = _random.CaptureState();
             var encounter = new MapleEncounterState(_runtimeState) { ObjectsDisabled = true };
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, start, -0x800));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(13), encounter, 0, start, -0x800));
             var native = new SomariaRom(_saveData, initial, _currentRoom, 0, 24, 112);
             const int at = 0xd0c0;
             native[at] = 1; native[at + 1] = 0x14; native[at + 2] = native[at + 3] = 13;
@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
         {
             MapleMovementRoom();
             var encounter = new MapleEncounterState(_runtimeState) { ObjectsDisabled = true };
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, start, height));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(13), encounter, 0, start, height));
             StepGameplayUpdates(1, Vector2.Zero); // Source state0 is separately checked by scatter.
             // Declared state4 acquisition: both grounded and airborne parts
             // can be selected by Maple. Retain deliberately nonzero fractions.
@@ -133,7 +133,7 @@ public sealed partial class ValidationRoot
             F1Retain(_entities.EntityAdapters<MapleEncounterRoomEntity>().Single());
             FillValidationRoom(0x2c, width: 10, height: 8);
             var encounter = SomariaPrivate<MapleEncounterState>(maple, "_encounter"); encounter.ObjectsDisabled = true;
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, new(79, 72), 0));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(13), encounter, 0, new(79, 72), 0));
             F1Set(drop, "_state", MapleDroppedItemState.Grounded); drop.Visible = true;
             drop.BeginMapleCollection(vehicle, () => new(80, 72));
             // Declare the acquired-item boundary, then run both actual

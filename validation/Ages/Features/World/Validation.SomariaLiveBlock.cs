@@ -25,7 +25,7 @@ public partial class ValidationRoot
             Step(1);
             FailIf(block.State!=3 || _currentRoom.GetMetatile(point)!=0xda || _currentRoom.GetTerrainInfo(point).Collision!=15,
                 "Live ITEM$18 must publish tile$da/collision$f on phase update9.");
-            var bombData=new BombDatabase().Data;
+            var bombData=new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
             for(int i=0;i<4;i++) _entities.Spawn<BombEffect>(new BombSpawn(_player,bombData,0,_=>{}));
             _entities.MarkPreviousSomariaBlock();
             FailIf((block.Flags&0x20)==0 || _entities.TryCreateSomariaBlock(_player,0,new(104,70),0),

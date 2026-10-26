@@ -1,6 +1,6 @@
 namespace Oracles;
 
-// Source symbols retain their clean-US/Ages values. Keep IDs distinct from table indices,
+// Source symbols with the same clean-US value in both games. Keep IDs distinct from table indices,
 // masks and counters; byte-oriented asset/state APIs intentionally continue to use integers.
 public static class GlobalFlag
 {
@@ -10,8 +10,6 @@ public static class GlobalFlag
     public const int Flag10000RupeesCollected = 0x01;
     // constants/common/globalFlags.s: GLOBALFLAG_INTRO_DONE
     public const int IntroDone = 0x0a;
-    // constants/common/globalFlags.s (Ages): GLOBALFLAG_RING_SECRET_GENERATED
-    public const int RingSecretGenerated = 0x28;
     // constants/common/globalFlags.s: GLOBALFLAG_BEGAN_BIGGORON_SECRET
     public const int BeganBiggoronSecret = 0x58;
     // constants/common/globalFlags.s: GLOBALFLAG_BEGAN_RUUL_SECRET

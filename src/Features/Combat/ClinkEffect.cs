@@ -11,7 +11,7 @@ public partial class ClinkEffect : Node2D
 {
     private const int FrameDuration = 4;
     private const int FrameCount = 2;
-    private static Texture2D? _sharedTexture;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Texture2D> Textures = new(System.StringComparer.Ordinal);
     private Texture2D _texture = null!;
     private int _frames;
     private Func<int>? _nativeFrame;
@@ -34,12 +34,12 @@ public partial class ClinkEffect : Node2D
         Visible = false;
     }
 
-    internal void Initialize(Vector2 position, bool flickers, int zHigh = 0)
+    internal void Initialize(string assetRoot, Vector2 position, bool flickers, int zHigh = 0)
     {
         Position = position;
         Flickers = flickers;
         ZHigh = unchecked((sbyte)(byte)zHigh);
-        _texture = _sharedTexture ??= BuildTexture();
+        _texture = Textures.GetOrAdd(assetRoot, BuildTexture);
         QueueRedraw();
     }
 
@@ -73,10 +73,10 @@ public partial class ClinkEffect : Node2D
             new Rect2(AnimationFrame * 16, 0, 16, 16));
     }
 
-    private static Texture2D BuildTexture()
+    private static Texture2D BuildTexture(string assetRoot)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+            assetRoot + "gfx/spr_common_sprites.png");
         Image output = Image.CreateEmpty(FrameCount * 16, 16, false, Image.Format.Rgba8);
 
         // INTERAC_CLINK uses tile base $10 and palette $01. OAM $50205 uses

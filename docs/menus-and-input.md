@@ -43,9 +43,13 @@ eligible on the following normal gameplay update.
 The port's game selector precedes boot loading. It fills the window with two
 equal-height intro panoramas on an expanding canvas. Only the selected preview
 advances; the other retains its camera position and is desaturated. Selection
-owns no save, room, gameplay RNG or original cutscene state. Ages confirmation
-restores the native viewport before handing off to boot loading; Seasons is
-selectable for preview with confirmation disabled until its game is available.
+owns no save, room, gameplay RNG or original cutscene state. Confirmation
+restores the native viewport before handing off to the selected game's boot
+loading. Nayru sings for Ages; Din dances for Seasons. These loading actors
+advance on the presentation clock without entering original object pools.
+Both games use the shared file-menu controller with their own graphics,
+palettes, OAM and save stores. Seasons currently enters its title directly;
+the attract cinematic and linked-game starts remain unavailable.
 Game names use each game's original title-screen graphics with transparent
 backdrops and inherit their preview's inactive palette state.
 Each half's Options button uses native wooden-panel lettering and an acorn

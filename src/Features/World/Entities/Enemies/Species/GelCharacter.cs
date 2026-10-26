@@ -8,9 +8,8 @@ public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => false;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly GelBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Gel;
+    private GelBehaviorProfile? _behaviorSourceCache;
+    private GelBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Gel;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private EnemyVerticalMotion _verticalMotion = null!;
@@ -44,6 +43,7 @@ public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = definition.AssetRoot;
         Definition = definition;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
@@ -60,7 +60,7 @@ public partial class GelCharacter : EnemyCharacter, ITerrainShadowSource
         };
         InitializeEnemy(
             position,
-            EnemyCharacterConfiguration.FromSprite(
+            EnemyCharacterConfiguration.FromSprite(definition.AssetRoot,
                 definition.Health,
                 definition.CollisionRadiusX,
                 definition.CollisionRadiusY,

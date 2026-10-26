@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
     private void ValidateSpiritsGraveEntranceInteractions()
     {
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
-        var data = new DungeonEntranceInteractionDatabase();
+        var data = new DungeonEntranceInteractionDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<PlacementRecord> placements =
             data.GetRoomRecords(4, 0x24);
         FailIf(
@@ -45,7 +45,7 @@ public sealed partial class ValidationRoot
 
         var root = new Node { Name = "SpiritsGraveEntranceValidation" };
         AddChild(root);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var runtime = AgesGameContent.CreateRuntimeState();
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             root, new() { SaveData = save, RuntimeState = runtime });
@@ -511,9 +511,9 @@ public sealed partial class ValidationRoot
         FailIf(SomariaPrivate<DoorState>(graphicDoor,"_state") != DoorState.ReadyToOpen,
             "The declared solved shutter must reach its first mapping-interleave update.");
 
-        // OracleWorldData caches mutable room instances; use an isolated world
+        // AgesWorldData caches mutable room instances; use an isolated world
         // so preparing the open mapping cannot alter the active door state.
-        OracleRoomData reference = new OracleWorldData().LoadRoom(4, 0x0c);
+        OracleRoomData reference = new AgesWorldData().LoadRoom(4, 0x0c);
         Vector2 topLeftSample = door + new Vector2(-4, -4);
         Vector2 bottomLeftSample = door + new Vector2(-4, 4);
         Color expectedClosedBottom = reference.GetRenderedPixelForValidation(
@@ -623,7 +623,7 @@ public sealed partial class ValidationRoot
         // Room 4:0b proves the same controller handles multiple orientations
         // and ordinary live combat enemies rather than depending on room 4:0c.
         IReadOnlyList<RoomObjectRecord> room40bObjects =
-            new EnemyDatabase().GetRoomObjects(4, 0x0b);
+            new EnemyDatabase(AgesGameContent.AssetRoot).GetRoomObjects(4, 0x0b);
         FailIf(
             room40bObjects is not
             [{
@@ -926,7 +926,7 @@ public sealed partial class ValidationRoot
             _sound.PlayRequestsFor(SoundId.SndSolvePuzzle) != 0,
             "Room 4:06 must retain its push-block sentinel count and restore the source all-direction block in the interaction pass after both terminal PART updates.");
 
-        var pushableTiles = new PushableTileDatabase();
+        var pushableTiles = new PushableTileDatabase(AgesGameContent.AssetRoot);
         FailIf(
             !pushableTiles.TryGet(
                 scrollingRoom406.ActiveCollisions,
@@ -1384,7 +1384,7 @@ public sealed partial class ValidationRoot
             _random.CaptureState();
         LoadValidationRoom(4, 0xce);
         const int missingChestPosition = 0x67;
-        var chests = new ChestDatabase();
+        var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
             chests.TryGet(
             4, 0xce, missingChestPosition, out _),
@@ -1429,8 +1429,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateBraceletChestAndPushGate()
     {
-        BraceletDatabaseRecord braceletData = new BraceletDatabase().Data;
-        var chests = new ChestDatabase();
+        BraceletDatabaseRecord braceletData = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
+        var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         FailIf(
             !chests.TryGet(5, 0xa6, 0x37, out ChestRecord braceletChest) ||
             braceletChest.TreasureObject != "TREASURE_OBJECT_BRACELET_02" ||
@@ -1438,7 +1438,7 @@ public sealed partial class ValidationRoot
             braceletChest.Parameter != 2,
             "The original 5:a6/$37 chest did not resolve to TREASURE_OBJECT_BRACELET_02.");
 
-        var pushables = new PushableTileDatabase();
+        var pushables = new PushableTileDatabase(AgesGameContent.AssetRoot);
         FailIf(
             !pushables.TryGet(2, 0x10, out PushableTileRecord braceletBlock) ||
             !braceletBlock.RequiresBracelet ||
@@ -1447,7 +1447,7 @@ public sealed partial class ValidationRoot
             braceletBlock.DestinationTile != 0x10,
             "Collision mode 2 tile $10 did not retain interactable parameter $c0 and pushblock data.");
 
-        var breakables = new BreakableTileDatabase();
+        var breakables = new BreakableTileDatabase(AgesGameContent.AssetRoot);
         FailIf(
             !breakables.TryGet(2, 0x10, out BreakableTileRecord liftablePot) ||
             !liftablePot.AllowsSource(BreakableTileDatabase.SourceBracelet) ||

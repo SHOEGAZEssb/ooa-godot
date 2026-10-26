@@ -11,15 +11,19 @@ namespace Oracles;
 /// </summary>
 internal sealed class DungeonKeyDoorDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<byte, DungeonKeyDoorDatabaseRecord> _records = new();
     private readonly ActiveCollisionModeSet _activeCollisionModes;
 
     internal int Count => _records.Count;
 
-    internal DungeonKeyDoorDatabase()
+    internal DungeonKeyDoorDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_key_doors.tsv",
+            AssetRoot + "objects/dungeon_key_doors.tsv",
             new GeneratedTableSchema(
                 "dungeon key doors",
                 GeneratedTableKeySemantics.Unique,

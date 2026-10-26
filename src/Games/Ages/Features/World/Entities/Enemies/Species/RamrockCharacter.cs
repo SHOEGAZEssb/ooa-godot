@@ -38,12 +38,14 @@ internal sealed partial class RamrockCharacter : EnemyCharacter, ITerrainShadowS
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
     internal void Initialize(ImportedEnemyDefinition record, Vector2 position, RamrockEnvironment world, int parentSlot = -1)
     {
+        AssetRoot = record.AssetRoot;
         Record = record; Subid = record.SubId; ParentSlot = parentSlot; _world = world;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
         _movement = new(this, world.Room); Visible = false;
     }
     internal void InitializeNative()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (State != 0) return;
         _world.Random.Next(); State = 8; _collision = true;
         if (Record.Id == AgesEnemyId.Ramrock)

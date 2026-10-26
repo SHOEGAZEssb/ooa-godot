@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateTargetGhiniStairs()
     {
-        var source = new EnemyDatabase().GetRoomObjects(5, 0x9b).Single();
+        var source = new EnemyDatabase(AgesGameContent.AssetRoot).GetRoomObjects(5, 0x9b).Single();
         // mainData.s: $13:$01 at $48/$68, then $20:$05 at $18/$88;
         // enemyData.s aliases rooms $99/$9b/$9d to $64/$17/$02 (three).
         FailIf(source is not { Kind: RoomObjectKind.RandomEnemy, Id: 0x17, SubId: 2, Count: 3, Flags: 0x64 },

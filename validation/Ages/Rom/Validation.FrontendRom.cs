@@ -180,7 +180,7 @@ public sealed partial class ValidationRoot
                 void Press(int keys) => Step(pressed: keys);
                 void CompareSave(int slot)
                 {
-                    OracleSaveData.TryDeserialize(root.FileSlotSnapshot(slot), out var save);
+                    OracleSaveData.TryDeserialize(root.FileSlotSnapshot(slot, OracleGame.Ages), OracleGame.Ages, out var save);
                     for (int address = 0xc5b0; address < 0xcb00; address++)
                         FailIf(save!.ReadWramByte(address) != rom.SavedByte(slot, address) ||
                             rom.SavedByte(slot, address) != rom.SavedByte(slot, address, backup: true),
@@ -225,9 +225,9 @@ public sealed partial class ValidationRoot
                 Press(1); Press(0x80); Press(0x80); Press(1);
                 Press(3); Press(1); Press(0x10); Press(1);
                 Step(25, pressed: 0xff); // Input is ignored during erase.
-                FailIf(!root.FileSlotExists(1), "Erase deleted SRAM before its zero-heart completion update.");
+                FailIf(!root.FileSlotExists(1, OracleGame.Ages), "Erase deleted SRAM before its zero-heart completion update.");
                 Step();
-                FailIf(root.FileSlotExists(1), "Erase completion retained the destination file.");
+                FailIf(root.FileSlotExists(1, OracleGame.Ages), "Erase completion retained the destination file.");
                 for (int address = 0xc5b0; address < 0xcb00; address++)
                     FailIf(rom.SavedByte(1, address) != 0 || rom.SavedByte(1, address, backup: true) != 0,
                         $"Erase retained native primary/backup byte ${address:x4}.");

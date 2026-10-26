@@ -6,6 +6,8 @@ namespace Oracles;
 
 internal sealed class FallingBoulderDatabase
 {
+    public string AssetRoot { get; }
+
     internal string Sprite { get; }
     internal int TileBase { get; }
     internal int Palette { get; }
@@ -15,9 +17,11 @@ internal sealed class FallingBoulderDatabase
     internal string Animation { get; }
     internal bool SourceGrayscaleInverted { get; }
 
-    internal FallingBoulderDatabase()
+    internal FallingBoulderDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/falling_boulder.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "effects/falling_boulder.tsv",
             new GeneratedTableSchema("PART_FALLING_BOULDER_SPAWNER $45", GeneratedTableKeySemantics.Unique,
                 ["sprite", "tile-base", "palette", "radius", "damage-quarters", "delays", "animation-base64", "source-grayscale-inverted", "source"],
                 ["sprite"], headerRequired: true));

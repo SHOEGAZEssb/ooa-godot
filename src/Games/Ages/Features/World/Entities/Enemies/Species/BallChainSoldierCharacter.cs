@@ -9,7 +9,7 @@ internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEn
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
-    private readonly BallChainBehaviorProfile _data = EnemyBehaviorTables.Shared.BallChain;
+    private readonly BallChainBehaviorProfile _data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).BallChain;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private bool _hitPending;
@@ -32,6 +32,7 @@ internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEn
 
     internal void Initialize(ImportedEnemyDefinition definition, OracleRoomData room, Vector2 position, OracleRandom random)
     {
+        AssetRoot = definition.AssetRoot;
         if (definition.Id != EnemyId.BallAndChainSoldier || definition.SubId != 0)
             throw new NotSupportedException("ballAndChainSoldier.s: handler requires ENEMY $4b:$00.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(definition), positionedOam: true);
@@ -152,7 +153,7 @@ internal partial class BallChainSoldierCharacter : EnemyCharacter, ISwitchHookEn
         if (!TakeSwordHit(origin, damage)) return false;
         // Unlike this enemy's sword effect$0b, Somaria effect$2f writes the
         // ENEMYDMG_04 counters. Its handler still runs AI without recoil motion.
-        var profile = EnemyBehaviorTables.Shared.EnemySwordDamageProfiles[1];
+        var profile = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).EnemySwordDamageProfiles[1];
         InvincibilityCounter = profile.First;
         KnockbackCounter = profile.Second;
         KnockbackAngle = OracleObjectMovement.Shared.RelativeAngle(Position.Floor(), origin.Floor()) ^ ObjectAngle.HalfTurn;

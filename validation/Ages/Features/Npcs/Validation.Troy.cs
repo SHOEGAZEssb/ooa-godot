@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateTroyHouseRooms()
     {
-        var database = new TroyHouseDatabase();
+        var database = new AgesTroyHouseDatabase(AgesGameContent.AssetRoot);
         TroyHouseRecord record = database.Record;
         string firstChoiceMessage = database.ComposeMessage(
             firstTalk: true, choice: 0);
@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
             !firstChoiceMessage.Contains(
                 "hear me speak.\nJust between us,", StringComparison.Ordinal),
             "Troy's TX_2c11 fallthrough did not resolve its trailing newline command.");
-        var warps = new WarpDatabase();
+        var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         OracleRoomData exterior = _world.LoadRoom(0, 0x45);
         OracleRoomData interior = _world.LoadRoom(3, 0xfb);
         Vector2 exteriorDoor = PackedPosition(0x32);
@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
 
         var root = new Node { Name = "TroyHouseRoomValidation" };
         AddChild(root);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             root, new() { SaveData = save });
         RoomEntityManager manager = managerFixture.Manager;
@@ -146,12 +146,12 @@ public sealed partial class ValidationRoot
             !IsTransitioning ||
             _player.Position != new Vector2(0x50, interior.Height),
             "Room 0:45's $df waterfall did not begin the source transition-4 entry into 3:fb.");
-        UpdateRoomWarpTransition(RoomTransitionController.WarpEnterFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpEnterFrames / 60.0);
         FailIf(
             !IsTransitioning ||
-            _player.Position != new Vector2(0x50, interior.Height - RoomTransitionController.WarpEnterFrames),
+            _player.Position != new Vector2(0x50, interior.Height - AgesRoomTransitionController.WarpEnterFrames),
             "Room 3:fb entry did not complete its 28-update upward walk.");
-        UpdateRoomWarpTransition((RoomTransitionController.WarpFadeInFrames - RoomTransitionController.WarpEnterFrames) / 60.0);
+        UpdateRoomWarpTransition((AgesRoomTransitionController.WarpFadeInFrames - AgesRoomTransitionController.WarpEnterFrames) / 60.0);
         FailIf(IsTransitioning, "Room 3:fb entry fade did not finish on update 33.");
 
         NpcCharacter liveTroy = _entities.Entities<NpcCharacter>().Single(npc =>
@@ -195,11 +195,11 @@ public sealed partial class ValidationRoot
         FailIf(
             !IsTransitioning || _activeGroup != 3 || _currentRoom.Id != 0xfb,
             "Room 3:fb's left-half bottom edge did not begin source transition 3.");
-        UpdateRoomWarpTransition(RoomTransitionController.WarpLeaveFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpLeaveFrames / 60.0);
         FailIf(
             _activeGroup != 0 || _currentRoom.Id != 0x45 || !IsTransitioning,
             "Room 3:fb did not load exterior 0:45 after its 16-update exit walk.");
-        UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
+        UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeInFrames / 60.0);
         FailIf(
             IsTransitioning ||
             _player.Position != new Vector2(0x28, 0x58) ||

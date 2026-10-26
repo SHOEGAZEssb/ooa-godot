@@ -5,12 +5,16 @@ namespace Oracles;
 
 public sealed class SignDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int, string> _messages = new();
 
-    public SignDatabase()
+    public SignDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/signs.tsv",
+            AssetRoot + "objects/signs.tsv",
             new GeneratedTableSchema(
                 "signs",
                 GeneratedTableKeySemantics.Unique,

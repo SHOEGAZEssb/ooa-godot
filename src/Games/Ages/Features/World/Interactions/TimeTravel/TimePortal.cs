@@ -43,6 +43,7 @@ public partial class TimePortal : TransitionOffsetNode2D
         Func<int> playingInstrument,
         Action<int> playSound)
     {
+        AssetRoot = room.AssetRoot;
         Record = record;
         _room = room;
         _startsActive = startsActive;
@@ -70,6 +71,7 @@ public partial class TimePortal : TransitionOffsetNode2D
         OracleSaveData? save = null,
         Func<bool>? menuDisabled = null)
     {
+        AssetRoot = room.AssetRoot;
         _room = room;
         Temporary = true;
         _save = save;

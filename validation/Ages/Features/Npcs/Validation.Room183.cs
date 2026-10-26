@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
                 ItemDropDatabase.EmberSeeds,
             0x20);
 
-        var enemyData = new EnemyDatabase();
+        var enemyData = new EnemyDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<RoomObjectRecord> objects =
             enemyData.GetRoomObjects(1, 0x83);
         FailIf(

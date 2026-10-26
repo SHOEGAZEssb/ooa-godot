@@ -19,7 +19,7 @@ internal sealed class EyePuzzleStatueRoomEntity(StatueEyeball eye, RoomEntityMan
         if (!_spinning)
         {
             _spinning = true;
-            _counter = EyePuzzleDatabase.Shared.SpinUpdates;
+            _counter = EyePuzzleDatabase.For(AssetRoot).SpinUpdates;
             return;
         }
         if (--_counter == 0)
@@ -27,7 +27,7 @@ internal sealed class EyePuzzleStatueRoomEntity(StatueEyeball eye, RoomEntityMan
             _stopped = true;
             int direction;
             do { direction = owner.IncrementNativeFrameCounter() & 3; }
-            while (direction == EyePuzzleDatabase.Shared.CorrectDirection(owner.RuntimeState));
+            while (direction == EyePuzzleDatabase.For(AssetRoot).CorrectDirection(owner.RuntimeState));
             Entity.SetLookingDirection(direction * 2);
         }
         else if ((owner.FrameCounter & 3) == 0)

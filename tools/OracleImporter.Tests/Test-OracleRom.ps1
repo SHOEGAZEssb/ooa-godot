@@ -9,20 +9,22 @@ $fixture = Join-Path $temporary 'reference ROM [US].gbc'
 $fixtureBytes = [byte[]]@(0x00, 0x42, 0xff, 0x10)
 [IO.File]::WriteAllBytes($fixture, $fixtureBytes)
 $fixturePins = [pscustomobject]@{
-    revision = 'fixture-revision'; wlaVersion = '10.6'; recipeVersion = 1
+    revision = 'fixture-revision'; wlaVersion = '10.6'; recipeVersion = 1; game = 'ages'
     romLength = $fixtureBytes.Length
     romMd5 = (Get-FileHash -LiteralPath $fixture -Algorithm MD5).Hash
 }
 $buildCount = 0
 $buildMode = 'good'
+$buildSymbols = $true
 function Get-OracleRomBuildPins { return $fixturePins }
 function Invoke-OracleRomBuild([string]$Stage, $Pins) {
     $script:buildCount++
     if ($buildMode -eq 'fail') { throw 'fixture assembler failure' }
-    $output = Join-Path $Stage 'disassembly/ages.gbc'
+    $output = Join-Path $Stage "disassembly/$($Pins.game).gbc"
     [void][IO.Directory]::CreateDirectory((Split-Path $output -Parent))
     $bytes = if ($buildMode -eq 'bad') { [byte[]]@(0, 0, 0, 0) } else { $fixtureBytes }
     [IO.File]::WriteAllBytes($output, $bytes)
+    if ($buildSymbols) { [IO.File]::WriteAllText([IO.Path]::ChangeExtension($output, '.sym'), '00:c6ca wGlobalFlags') }
 }
 function Assert-Rom([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
@@ -47,6 +49,8 @@ try {
         Assert-Rom ((& $realPinsLoader).revision -eq 'legacy-tag') 'Historical tag pins were not found.'
         [IO.File]::WriteAllText((Join-Path $pinDirectory 'ages.json'), '{"revision":"ages-pack"}')
         Assert-Rom ((& $realPinsLoader).revision -eq 'ages-pack') 'Ages pins did not take precedence over the historical name.'
+        [IO.File]::WriteAllText((Join-Path $pinDirectory 'seasons.json'), '{"revision":"seasons-pack"}')
+        Assert-Rom ((& $realPinsLoader 'seasons').revision -eq 'seasons-pack') 'Seasons did not select its own pins.'
     }
     finally { $oracleRomToolsRoot = $previousToolsRoot }
     $previousBash = $env:OOA_ROM_BUILD_BASH
@@ -122,6 +126,20 @@ exit 7
     $fixturePins.recipeVersion++
     $newPath = Resolve-OracleRom -CacheDirectory $cache
     Assert-Rom ($newPath -cne $built -and (Test-OracleRomImage $newPath $fixturePins)) 'Changed recipe reused the previous cache.'
+    $fixturePins.game = 'seasons'
+    $seasonPath = Resolve-OracleRom -Game seasons -RequireSymbols -CacheDirectory $cache
+    Assert-Rom ($seasonPath -cne $newPath -and [IO.Path]::GetFileName($seasonPath) -eq 'seasons.gbc' -and
+        [IO.File]::Exists([IO.Path]::ChangeExtension($seasonPath, '.sym'))) 'Seasons ROM/symbol publication crossed game boundaries.'
+    [IO.File]::Delete([IO.Path]::ChangeExtension($seasonPath, '.sym'))
+    $beforeSymbols = $buildCount
+    $null = Resolve-OracleRom -Game seasons -RequireSymbols -CacheDirectory $cache
+    Assert-Rom ($buildCount -eq $beforeSymbols + 1) 'A warm cache missing required symbols was reused.'
+    $fixturePins.recipeVersion++
+    $buildSymbols = $false
+    Assert-RomFailure { Resolve-OracleRom -Game seasons -RequireSymbols -CacheDirectory $cache } 'did not produce seasons.sym'
+    Assert-RomFailure { Resolve-OracleRom -Rom $fixture -RequireSymbols -CacheDirectory $cache } 'requires matching ages.sym'
+    $buildSymbols = $true
+    $null = Resolve-OracleRom -Game seasons -RequireSymbols -CacheDirectory $cache
     Write-Host 'ROM resolver tests passed (override, missing/invalid inputs, cold/warm/corrupt cache, invalid/failed build, lock timeout/recovery, recipe invalidation).'
 }
 finally {

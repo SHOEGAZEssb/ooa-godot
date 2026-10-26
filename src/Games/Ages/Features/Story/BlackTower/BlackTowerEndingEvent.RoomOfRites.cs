@@ -21,7 +21,7 @@ internal sealed partial class BlackTowerEndingEvent
     private void RitesBoulders()
     {
         if(context.Entities.PartSlotAvailable)
-            context.Entities.AddEntity(new RoomOfRitesBoulderRoomEntity(context.Entities,_ritesBoulders??=new()));
+            context.Entities.AddEntity(new RoomOfRitesBoulderRoomEntity(context.Entities,_ritesBoulders??=new(AgesGameContent.AssetRoot)));
     }
     private void AdvanceRoomOfRitesCollapse()
     {

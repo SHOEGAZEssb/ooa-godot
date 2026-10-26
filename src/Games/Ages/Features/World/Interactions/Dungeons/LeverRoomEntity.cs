@@ -38,6 +38,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         LeverBehavior constants,
         Action<int> playSound, Func<LeverRoomEntity,LeverChildAllocation>? createConnection = null)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _state = state;
         _constants = constants;
         _playSound = playSound;
@@ -48,7 +49,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
         _precisePosition = new Vector2(record.X, record.Y);
         Name = "Lever";
         ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
-        Initialize(record);
+        Initialize(record, AgesGameContent.AssetRoot);
         SetCollisionRadii(constants.LeverRadiusY, constants.LeverRadiusX);
         if (_initialized) SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex);
     }
@@ -165,6 +166,7 @@ internal sealed partial class LeverRoomEntity : NpcCharacter,
 
     private void InitializeConnection()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (!_connectionCreated)
         {
             var result = _createConnection!(this);

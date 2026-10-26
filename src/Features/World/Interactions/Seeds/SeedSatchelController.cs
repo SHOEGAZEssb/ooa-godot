@@ -39,7 +39,7 @@ public sealed class SeedSatchelController
         _database = database;
         _rooms = rooms;
         _playSound = playSound ?? (_ => { });
-        _shooter = SeedShooterRecord.Load();
+        _shooter = SeedShooterRecord.Load(rooms.AssetRoot);
         Pegasus = new PegasusSeedState(inventory, entities);
     }
 
@@ -265,10 +265,10 @@ internal readonly record struct SeedShooterRecord(
     string[] WeaponOam,
     string Source)
 {
-    internal static SeedShooterRecord Load()
+    internal static SeedShooterRecord Load(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/seed_shooter.tsv",
+            assetRoot + "metadata/seed_shooter.tsv",
             new GeneratedTableSchema(
                 "seed shooter",
                 GeneratedTableKeySemantics.Unique,

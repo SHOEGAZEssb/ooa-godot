@@ -44,6 +44,7 @@ internal sealed partial class RamrockPart : TransitionOffsetNode2D,
     internal RamrockPart(RamrockPartSpawn record, RamrockEnvironment world,
         Func<int, RamrockPart?> resolvePart, Func<RamrockPartSpawn, RamrockPart?> spawn)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         Id = record.Id; Subid = record.SubId; Position = record.Position.Floor(); ZFixed = (record.ZFixed >> 8) << 8;
         ParentSlot = record.ParentSlot; ParentIsPart = record.ParentIsPart; Var03 = record.Var03;
         BossSlot = record.BossSlot < 0 && !ParentIsPart ? ParentSlot : record.BossSlot;
@@ -51,7 +52,7 @@ internal sealed partial class RamrockPart : TransitionOffsetNode2D,
         var properties = _data.Properties(Id); _radii = new(properties[2] & 15, properties[2] >> 4);
         _collision = (properties[1] & 0x80) != 0; _palette = properties[6];
         var visual = _data.Visual(Id); Animation = new(this, visual.Animations.Length);
-        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations, visual.TileBase, visual.Palette,
+        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations, visual.TileBase, visual.Palette,
             sourceGrayscaleInverted: visual.SourceGrayscaleInverted, positionedOam: true);
         Visible = false;
     }

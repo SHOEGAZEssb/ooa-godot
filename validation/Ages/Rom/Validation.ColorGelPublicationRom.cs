@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             FillValidationRoom(0xad);
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(24,24));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
-            var data=EnemyDatabase.Shared;var actor=new ColorChangingGelCharacter();
+            var data=EnemyDatabase.For(AgesGameContent.AssetRoot);var actor=new ColorChangingGelCharacter();
             actor.Initialize(data.ImportedEnemy(0x47,0),_currentRoom,new(120,88),_random,data.ColorChangingGelPalettes,_sound.PlaySound);
             var adapter=new ColorChangingGelRoomEntity(actor,
                 new EnemyCombatSourceDescriptor(0x47,0,0x6e,0,1,EnemyHandlerKind.ColorChangingGel,"colorChangingGel.s:enemyCode47"),_sound.PlaySound);

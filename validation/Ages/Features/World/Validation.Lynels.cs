@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateLynelPlacementsAndContacts()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         // objects/ages/enemyData.s: the six Tomb approach streams contain
         // six Lynels and eight Arrow Darknuts, including both subids.
         foreach (var spec in new[] { (Room:0x5b,Subid:0,Darknuts:1), (Room:0x5d,Subid:1,Darknuts:1),
@@ -40,7 +40,7 @@ public sealed partial class ValidationRoot
 
         foreach (int shield in new[] { 1,2,3 })
         {
-            var inventory = new InventoryState(_treasures,OracleSaveData.CreateStandardGame());
+            var inventory = new InventoryState(_treasures,OracleSaveData.CreateStandardGame(OracleGame.Ages));
             inventory.GiveTreasure(_treasures.GetObject($"TREASURE_OBJECT_SHIELD_0{shield-1}"));
             inventory.EquipA(TreasureId.Shield);
             var player = new Player(); AddChild(player);
@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
             beam.Free(); player.Free();
         }
         var bodyPlayer = new Player(); AddChild(bodyPlayer);
-        bodyPlayer.Initialize(new ValidationRingPlayerWorld(),new InventoryState(_treasures,OracleSaveData.CreateStandardGame()),new(72,72),new OracleRandom());
+        bodyPlayer.Initialize(new ValidationRingPlayerWorld(),new InventoryState(_treasures,OracleSaveData.CreateStandardGame(OracleGame.Ages)),new(72,72),new OracleRandom());
         var bodyBeam = new LynelBeamRoomEntity(database.LynelBeam,new(new(80,70),0x18),_entities);
         var bodyFrame = new RoomEntityFrame(bodyPlayer,0,false);
         var effects = new List<RoomEntitySpawn>(); int health = bodyPlayer.HealthQuarters;
@@ -73,7 +73,7 @@ public sealed partial class ValidationRoot
         FailIf(!bodyBeam.Finished,"PART$1b survived its post-contact status dispatch.");
         bodyBeam.Free(); bodyPlayer.Free();
         var contactPlayer = new Player(); AddChild(contactPlayer);
-        contactPlayer.Initialize(new ValidationRingPlayerWorld(),new InventoryState(_treasures,OracleSaveData.CreateStandardGame()),new(104,104),new OracleRandom());
+        contactPlayer.Initialize(new ValidationRingPlayerWorld(),new InventoryState(_treasures,OracleSaveData.CreateStandardGame(OracleGame.Ages)),new(104,104),new OracleRandom());
         var contactEnemy = new LynelCharacter();
         contactEnemy.Initialize(database.ImportedEnemy(0x0d),_world.LoadRoom(1,0x5b),contactPlayer.Position,new OracleRandom());
         contactEnemy.UpdateFrame(contactPlayer.Position,null,0,()=>false);

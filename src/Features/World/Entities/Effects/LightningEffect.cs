@@ -7,24 +7,29 @@ namespace Oracles;
 /// <summary>PART_LIGHTNING $27 with no related target. The caller owns its part-phase updates.</summary>
 internal sealed class LightningEffect
 {
-    private static readonly GeneratedTableRow Data = GeneratedTable.Load(
-        AgesGameContent.AssetRoot + "effects/lightning_native.tsv",
+    private static GeneratedTableRow ReadData(string assetRoot) => GeneratedTable.Load(
+        assetRoot + "effects/lightning_native.tsv",
         new GeneratedTableSchema("PART_LIGHTNING $27", GeneratedTableKeySemantics.Ordered,
             ["z-offsets", "frames", "shake", "debris-offsets"], headerRequired: true)).SingleRow();
-    private static readonly int[] Heights = Bytes(Data.RequiredString(0));
-    private static readonly int[][] Frames = Pairs(Data.RequiredString(1));
-    private static readonly int[][] Debris = Pairs(Data.RequiredString(3));
+    private readonly GeneratedTableRow Data;
+    private readonly int[] Heights;
+    private readonly int[][] Frames;
+    private readonly int[][] Debris;
+    private readonly Action? _struck;
     private readonly NpcCharacter _actor;
     private readonly Func<int> _random;
     private readonly Action<int> _sound;
     private readonly Action<int> _shake;
     private readonly Action<Vector2> _debris;
-    private int _state, _randomOffset, _frame, _counter = Frames[0][0];
-    private int _parameter = Frames[0][1];
+    private int _state, _randomOffset, _frame, _counter;
+    private int _parameter;
     internal bool Finished { get; private set; }
     internal LightningEffect(NpcCharacter actor, Func<int> random, Action<int> sound,
-        Action<int> shake, Action<Vector2> debris)
+        Action<int> shake, Action<Vector2> debris, string assetRoot, Action? struck = null)
     {
+        Data = ReadData(assetRoot); Heights = Bytes(Data.RequiredString(0));
+        Frames = Pairs(Data.RequiredString(1)); Debris = Pairs(Data.RequiredString(3));
+        _counter = Frames[0][0]; _parameter = Frames[0][1]; _struck = struck;
         _actor = actor; _random = random; _sound = sound; _shake = shake; _debris = debris;
         actor.SetAnimationRate(0); actor.SetScriptVisible(false);
         actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex); // objectSetVisible81
@@ -55,7 +60,7 @@ internal sealed class LightningEffect
         }
         _actor.SetScriptDrawOffset(new Vector2(0, unchecked((sbyte)Heights[(_parameter & 0x70) >> 4])));
         if ((_parameter & 1) != 0) { _parameter--; _shake(Data.HexByte(2)); }
-        // var03 is zero for the bomb-fairy helper, so it does not write $cfd2.
+        _struck?.Invoke();
     }
     internal void Cancel() { Finished = true; if (GodotObject.IsInstanceValid(_actor)) _actor.SetActive(false); }
     private static int[] Bytes(string text) => text.Split(',').Select(v => Convert.ToInt32(v, 16)).ToArray();

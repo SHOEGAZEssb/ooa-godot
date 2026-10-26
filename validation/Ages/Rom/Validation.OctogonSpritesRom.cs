@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
             _ => throw new InvalidOperationException($"ENEMY$7d: unexpected native palette${palette:x2}.")
         };
         var expected = OracleOamCompositor.BuildPositionedOamTextureUncachedForValidation(
-            EnemyVisualSource.LoadComposite(actor.Record.Sprites),nativeOam,tileBase,palette,colors,true);
+            EnemyVisualSource.LoadComposite(actor.Record.Sprites, actor.Record.AssetRoot),nativeOam,tileBase,palette,colors,true);
         using Texture2D expectedTexture = expected.Texture;
         using Image expectedImage = expectedTexture.GetImage();
         using Image actualImage = texture.GetImage();

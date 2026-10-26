@@ -56,7 +56,7 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
         int damage, ICollection<RoomEntitySpawn> spawns) => Hit((int)collision, hitbox, sourcePosition, damage, spawns);
     private bool Hit(int collision, Rect2 bounds, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = EnemyBehaviorTables.Shared.LikeLike;
+        var data = EnemyBehaviorTables.For(AssetRoot).LikeLike;
         if (data.ActiveCollisions[collision].Value == 0) return false;
         int effect = data.CollisionEffects[collision].Value;
         if (effect == CollisionEffect.None) return false;
@@ -67,8 +67,8 @@ internal sealed class LikeLikeRoomEntity : CombatEnemyRoomEntityAdapter<LikeLike
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed,
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
-        if (!NativeCollisionEligible(collisionType, bounds, EnemyBehaviorTables.Shared.LikeLike.ActiveCollisions, Entity.PendingHit)) return default;
-        return ApplyStatusSeedCollision(EnemyBehaviorTables.Shared.LikeLike.CollisionEffects[collisionType].Value, collisionType,
+        if (!NativeCollisionEligible(collisionType, bounds, EnemyBehaviorTables.For(AssetRoot).LikeLike.ActiveCollisions, Entity.PendingHit)) return default;
+        return ApplyStatusSeedCollision(EnemyBehaviorTables.For(AssetRoot).LikeLike.CollisionEffects[collisionType].Value, collisionType,
             bounds, origin, seed, spawns, _freePart, _random);
     }
     protected override void BeginSeedStatus(bool ember, int damage)

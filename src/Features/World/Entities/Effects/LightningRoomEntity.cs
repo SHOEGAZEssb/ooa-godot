@@ -14,11 +14,11 @@ internal sealed class LightningRoomEntity : IRoomEntity,IFixedRoomEntity,IRoomEn
     internal LightningRoomEntity(RoomEventContext context,Vector2 position,bool signalCutscene = true)
     {
         _owner=context.Entities;_signalCutscene=signalCutscene;
-        var actor=NpcCharacter.CreateFromRecord(new SharedEffectDatabase().Effect("Lightning").ToNpcRecord(0,0x38,(int)position.Y,(int)position.X));Node=actor;
+        var actor=NpcCharacter.CreateFromRecord(new SharedEffectDatabase(context.Entities.AssetRoot).Effect("Lightning").ToNpcRecord(0,0x38,(int)position.Y,(int)position.X), context.Entities.AssetRoot);Node=actor;
         _effect=new(actor,()=>_owner.Random.Next().Value,context.Sound.PlaySound,_owner.BeginScreenShake,p=>
         {
             if(_owner.InteractionSlotAvailable)_owner.Spawn<KillEnemyPuffEffect>(new KillEnemyPuffSpawn(p));
-        });
+        }, context.Entities.AssetRoot);
     }
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {_effect.UpdateFrame();if(++_updates>=3&&!Finished&&_signalCutscene)_owner.RuntimeState.SetWramByte(0xcfd2,0xff);}

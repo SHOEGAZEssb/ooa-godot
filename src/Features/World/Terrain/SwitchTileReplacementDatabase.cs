@@ -6,12 +6,16 @@ namespace Oracles;
 // commonTileSubstitutions.s:replaceSwitchTiles precedes object parsing.
 internal sealed class SwitchTileReplacementDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Lookup<(int Group,int Room),Replacement> _byRoom = new();
     internal int RecordCount { get; }
 
-    internal SwitchTileReplacementDatabase()
+    internal SwitchTileReplacementDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/switch_tile_replacements.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "metadata/switch_tile_replacements.tsv",
             new GeneratedTableSchema("switch tile replacements",GeneratedTableKeySemantics.Grouped,
                 ["group","room","mask","position","tile","source"],["group","room"],headerRequired:true));
         foreach (var row in table.Rows)

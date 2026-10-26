@@ -28,9 +28,9 @@ public sealed partial class ValidationRoot
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData, seed, _currentRoom, 0, (int)safe.X, (int)safe.Y);
             rom.InitializeLinkGameplay(); rom.InitializeLinkWalkingAnimation();
-            var data = new DungeonInteractionDatabase();
+            var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
             var puzzle = new ColoredCubePuzzleState(_runtimeState, data.Constant("red-pushable-block"));
-            var visuals = new DungeonInteractionVisualDatabase();
+            var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
             MinecartGateRoomEntity gate = null!; int address = 0;
             int mask = 1 << (gateRecord.SubId & 7);
             int packed = ((gateRecord.Y & 0xf0) | (gateRecord.X >> 4)) - ((gateRecord.SubId >> 4) == 0 ? 1 : 0);

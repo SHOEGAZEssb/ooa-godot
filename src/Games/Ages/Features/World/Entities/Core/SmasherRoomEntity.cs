@@ -43,9 +43,9 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     private Action<INativeBraceletRoomEntity>? _publishGrabbable;
     private Player? _holder;
     private NativeBraceletThrow? _throw;
-    private static readonly Lazy<BraceletGrabGeometry> GrabGeometry = new(() => new());
-    private static readonly Lazy<BraceletWeightDatabase> Weights = new(() => new());
-    private static readonly Lazy<BraceletDatabaseRecord> Bracelet = new(() => new BraceletDatabase().Data);
+    private static readonly Lazy<BraceletGrabGeometry> GrabGeometry = new(() => new(AgesGameContent.AssetRoot));
+    private static readonly Lazy<BraceletWeightDatabase> Weights = new(() => new(AgesGameContent.AssetRoot));
+    private static readonly Lazy<BraceletDatabaseRecord> Bracelet = new(() => new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data);
     public bool TryGetReservedBraceletCollision(out ReservedBraceletCollision collision)
     {
         collision = default;
@@ -114,7 +114,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     private bool _marked;
     private bool _outcomeTaken;
     private int _swordCollision = ItemCollisionType.L1Sword;
-    private readonly SmasherBehaviorProfile _data = EnemyBehaviorTables.Shared.Smasher;
+    private readonly SmasherBehaviorProfile _data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Smasher;
     public int CollisionZ => Entity.ZFixed >> 8;
     public bool MeleeReportsContact { get; private set; }
     internal SmasherCharacter Character => Entity;
@@ -194,7 +194,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
     public SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
         if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_SMASHER $74 requires Mystery's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
+        if (!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(seedItem, out var seed)) return SeedHitResult.None;
         return ApplySeedCollision(bounds, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed, int collision,
@@ -247,7 +247,7 @@ internal sealed class SmasherRoomEntity(SmasherCharacter actor, SmasherRoomEnvir
                     () => !Entity.IsDead && Entity.State == 2 && Entity.GrabSubstate < 3,
                     () => Entity.Position, () => Entity.ZFixed, Entity.CopyCarriedPosition,
                     Entity.ReleaseGrab, Entity.FinishGrabBounce, Entity.ApplyMovementSpeed,
-                    Weights.Value, new BombDatabase().Data);
+                    Weights.Value, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data);
             },
             forceDrop: Drop,
             handleDeath: () => Entity.UpdateDeathFrame(Puff, Explosion, world.DisableLinkCollisionsAndMenu,

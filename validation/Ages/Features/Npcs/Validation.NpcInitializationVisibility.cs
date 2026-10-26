@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         // rejects bit 7 clear. interactionInitGraphics/interactionSetAnimation
         // do not set it. Expectations apply to every imported record, including
         // family variants, rather than deriving a whitelist from visibility data.
-        var records = new NpcDatabase().AllRecords;
+        var records = new NpcDatabase(AgesGameContent.AssetRoot).AllRecords;
         var actor = new NpcCharacter();
         var player = new Player { Position = new Vector2(0x50, 0x70) };
         AddChild(actor);
@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
         {
             foreach (NpcRecord record in records)
             {
-                actor.Initialize(record);
+                actor.Initialize(record, AgesGameContent.AssetRoot);
                 actor.SetScriptAnimation(record.UpAnimation);
                 actor.AdvanceAnimationUpdates(1);
                 actor.SetActive(false);
@@ -56,7 +56,7 @@ public sealed partial class ValidationRoot
                 Id = 0xff, SubId = 0xfe,
                 Implementation = NpcImplementationClassification.EventOwned
             };
-            actor.Initialize(future);
+            actor.Initialize(future, AgesGameContent.AssetRoot);
             var deferred = new EventOwnedNpcRoomEntity(actor);
             FailIf(deferred.PrepareForScreenTransition(new List<RoomEntitySpawn>()) !=
                 ScreenTransitionPresentation.Hidden || actor.Visible,
@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
             FailIf(!actor.Visible || deferred.PrepareForScreenTransition(new List<RoomEntitySpawn>()) !=
                 ScreenTransitionPresentation.Visible,
                 "The native initializer did not publish its resolved event actor.");
-            actor.Initialize(future);
+            actor.Initialize(future, AgesGameContent.AssetRoot);
             FailIf(actor.Visible, "Reusing a renderer retained its previous slot's native visibility.");
             actor.SetActive(false);
             actor.SetScriptVisible(true);

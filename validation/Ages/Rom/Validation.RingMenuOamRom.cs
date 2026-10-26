@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         foreach (int level in new[] { 1, 2, 3 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetGlobalFlag(8); // Appraisal may exit with B.
             save.WriteWramByte(AgesWramAddress.wRingBoxLevel, (byte)level);
             InitializeTransientSession(save);

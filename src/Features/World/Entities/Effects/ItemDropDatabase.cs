@@ -6,6 +6,8 @@ namespace Oracles;
 
 public sealed class ItemDropDatabase
 {
+    public string AssetRoot { get; }
+
     public const int EnemyRecordCount = 144;
     public const int ProbabilityCount = 8;
     public const int ProbabilityBytesPerRecord = 8;
@@ -29,9 +31,11 @@ public sealed class ItemDropDatabase
     private readonly byte[] _selectionData;
     private readonly Dictionary<int, ItemDropDatabaseVisualRecord> _visuals = new();
 
-    public ItemDropDatabase()
+    public ItemDropDatabase(string assetRoot)
     {
-        _selectionData = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/itemDrops.bin");
+        AssetRoot = assetRoot;
+
+        _selectionData = OracleAssetCache.ReadBytes(AssetRoot + "metadata/itemDrops.bin");
         if (_selectionData.Length != SelectionDataSize)
         {
             throw new InvalidOperationException(
@@ -39,7 +43,7 @@ public sealed class ItemDropDatabase
         }
 
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/item_drops.tsv",
+            AssetRoot + "effects/item_drops.tsv",
             new GeneratedTableSchema(
                 "item-drop visuals",
                 GeneratedTableKeySemantics.Unique,

@@ -113,7 +113,7 @@ public sealed partial class ValidationRoot
                 "ENEMY$17:$02 Pegasus effect$28 must publish status without allocating PART$12.");
             FailIf(first.StunCounter != 0xf0 || first.InvincibilityCounter != -16,
                 "collisionEffects.s ENEMYDMG_38 writes stun$f0 and signed invincibility$f0.");
-            new SeedSatchelDatabase().TryGet(ItemId.PegasusSeed, out var pegasus);
+            new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.PegasusSeed, out var pegasus);
             FailIf(adapter.ApplySeedCollision(first.CollisionBounds, origin, pegasus, 0x1d, spawns).Contact,
                 "ENEMY$17:$02 invincibility must reject a repeated seed collision.");
             text = true; Step(3); text = false; Step(485);
@@ -123,7 +123,7 @@ public sealed partial class ValidationRoot
             first.Health = 1; rom[firstAddress + 0x29] = 1;
             rom[0xd701] = ItemId.EmberSeed;
             rom.HitWithSword(ItemCollisionType.EmberSeed, 1);
-            new SeedSatchelDatabase().TryGet(ItemId.EmberSeed, out var ember);
+            new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.EmberSeed, out var ember);
             FailIf(!adapter.ApplySeedCollision(first.CollisionBounds, first.Position.Floor() - Vector2.Right,
                 ember, ItemCollisionType.EmberSeed, new List<RoomEntitySpawn>()).Contact,
                 "ENEMY$17:$02 must accept its native Ember effect$27.");

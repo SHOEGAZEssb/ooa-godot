@@ -1,10 +1,10 @@
 # Shared by import, import verification, validation and CI. Dot-source to use.
 $oracleRomToolsRoot = $PSScriptRoot
 
-function Get-OracleRomBuildPins {
-    $pinsPath = Join-Path $oracleRomToolsRoot 'rom-build/ages.json'
+function Get-OracleRomBuildPins([string]$Game = 'ages') {
+    $pinsPath = Join-Path $oracleRomToolsRoot "rom-build/$Game.json"
     # Release rebuilds may install this resolver into a tag preceding the rename.
-    if (-not [IO.File]::Exists($pinsPath)) {
+    if ($Game -eq 'ages' -and -not [IO.File]::Exists($pinsPath)) {
         $pinsPath = Join-Path $oracleRomToolsRoot 'rom-build/pins.json'
     }
     return Get-Content -LiteralPath $pinsPath -Raw |
@@ -46,7 +46,7 @@ function Invoke-OracleRomBuild([string]$Stage, $Pins) {
         # Keep it in the log and decide success from the process exit code.
         $ErrorActionPreference = 'Continue'
         & $bash --login $buildScript $Stage $Pins.repository $Pins.revision `
-            $Pins.wlaVersion $Pins.windowsArchiveSha256 $Pins.wlaLinkVersion 2>&1 |
+            $Pins.wlaVersion $Pins.windowsArchiveSha256 $Pins.wlaLinkVersion $Pins.game 2>&1 |
             ForEach-Object { $writer.WriteLine($_.ToString()) }
         $buildExitCode = $LASTEXITCODE
     }
@@ -55,21 +55,26 @@ function Invoke-OracleRomBuild([string]$Stage, $Pins) {
         $writer.Dispose()
     }
     if ($null -eq $buildExitCode -or $buildExitCode -ne 0) {
-        throw "Oracle of Ages ROM build exited with code $buildExitCode. Diagnostics: $log"
+        throw "Oracle ROM build exited with code $buildExitCode. Diagnostics: $log"
     }
 }
 
 function Resolve-OracleRom {
     param(
         [string]$Rom,
+        [ValidateSet('ages', 'seasons')][string]$Game = 'ages',
+        [switch]$RequireSymbols,
         [string]$CacheDirectory = (Join-Path $oracleRomToolsRoot '../.cache/oracle-rom'),
         [ValidateRange(0, 86400)][int]$LockTimeoutSeconds = 600
     )
-    $pins = Get-OracleRomBuildPins
+    $pins = Get-OracleRomBuildPins $Game
     if ($Rom) {
         $path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Rom)
         if (-not (Test-OracleRomImage $path $pins)) {
             throw "Unsupported or missing ROM '$path'; expected $($pins.romLength) bytes, MD5 $($pins.romMd5)."
+        }
+        if ($RequireSymbols -and -not [IO.File]::Exists([IO.Path]::ChangeExtension($path, '.sym'))) {
+            throw "ROM override requires matching $Game.sym beside '$path'."
         }
         return $path
     }
@@ -86,7 +91,7 @@ function Resolve-OracleRom {
     $ignore = [IO.File]::Open((Join-Path $cacheRoot '.gdignore'),
         [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
     $ignore.Dispose()
-    $path = Join-Path $cache 'ages.gbc'
+    $path = Join-Path $cache "$Game.gbc"
     # Serialize builders, including verification workers and independent imports.
     # Check the ROM only under the lock so another process cannot replace it mid-read.
     $lock = $null
@@ -104,7 +109,8 @@ function Resolve-OracleRom {
                 Start-Sleep -Milliseconds 200
             }
         }
-        if (Test-OracleRomImage $path $pins) {
+        if ((Test-OracleRomImage $path $pins) -and
+            (-not $RequireSymbols -or [IO.File]::Exists([IO.Path]::ChangeExtension($path, '.sym')))) {
             Write-Host "Using verified cached US ROM: $path"
             return $path
         }
@@ -112,11 +118,18 @@ function Resolve-OracleRom {
         [void][IO.Directory]::CreateDirectory($stage)
         Write-Host "Building clean US ROM from disassembly $($pins.revision)."
         Invoke-OracleRomBuild $stage $pins
-        $built = Join-Path $stage 'disassembly/ages.gbc'
+        $built = Join-Path $stage "disassembly/$Game.gbc"
         if (-not (Test-OracleRomImage $built $pins)) {
             throw "Built ROM does not match clean US MD5 $($pins.romMd5). Build retained at $stage"
         }
+        $builtSymbols = Join-Path $stage "disassembly/$Game.sym"
+        if ($RequireSymbols -and -not [IO.File]::Exists($builtSymbols)) {
+            throw "ROM build did not produce $Game.sym; build retained at $stage"
+        }
         Move-Item -LiteralPath $built -Destination $path -Force
+        if (Test-Path -LiteralPath $builtSymbols) {
+            Move-Item -LiteralPath $builtSymbols -Destination ([IO.Path]::ChangeExtension($path, '.sym')) -Force
+        }
         # The stage is a fresh child of this exact cache, never a user source tree.
         $resolvedStage = [IO.Path]::GetFullPath($stage)
         $resolvedCache = [IO.Path]::GetFullPath($cache).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar

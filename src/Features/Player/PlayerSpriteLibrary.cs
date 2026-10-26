@@ -5,11 +5,12 @@ namespace Oracles;
 
 // Immutable imported graphics and per-player atlases. Pose selection and all
 // gameplay state remain with Player; building a texture has no world inputs.
-internal sealed class PlayerSpriteLibrary
+internal sealed class PlayerSpriteLibrary(string assetRoot)
 {
-    private LinkItemDatabase _linkItems => LinkItemDatabase.Shared;
-    private SideScrollPlayerDatabase _sideScrollPlayerData => SideScrollPlayerDatabase.Shared;
-    private TopDownSwimmingDatabase _topDownSwimmingData => TopDownSwimmingDatabase.Shared;
+    internal string AssetRoot { get; } = assetRoot;
+    private LinkItemDatabase _linkItems => LinkItemDatabase.For(AssetRoot);
+    private SideScrollPlayerDatabase _sideScrollPlayerData => SideScrollPlayerDatabase.For(AssetRoot);
+    private TopDownSwimmingDatabase _topDownSwimmingData => TopDownSwimmingDatabase.For(AssetRoot);
     internal Texture2D WalkTexture { get; private set; } = null!;
 
     internal void PrepareWalkTexture() => WalkTexture = BuildLinkTexture(damagePalette: false);
@@ -123,10 +124,10 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D? _deathTextureCache;
     internal Texture2D DeathTexture => _deathTextureCache ??= BuildDeathTexture();
 
-    internal static Texture2D BuildLinkTexture(bool damagePalette)
+    internal Texture2D BuildLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_WALK uses base gfx indices $54 and $80, then adds
@@ -146,10 +147,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildSideScrollSquishTexture(bool vertical)
+    private Texture2D BuildSideScrollSquishTexture(bool vertical)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         // LINK_ANIM_MODE_SQUISHX/Y use graphics $32/$33. Their source
         // pointers are spr_link+$0ce0/$03c0 with special-object OAM $2d/$04.
         return OracleOamCompositor.BuildOamTexture(
@@ -161,10 +162,10 @@ internal sealed class PlayerSpriteLibrary
             basePalette: 0);
     }
 
-    private static Texture2D BuildGetItemOneHandTexture(bool damagePalette)
+    private Texture2D BuildGetItemOneHandTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_GETITEM1HAND ($0e) is the static graphics frame $05:
@@ -174,10 +175,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildGetItemTwoHandTexture(bool damagePalette)
+    private Texture2D BuildGetItemTwoHandTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_GETITEM2HAND ($0f) is static graphics frame $06:
@@ -186,12 +187,12 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildFunnyJokeDanceTexture(
+    private Texture2D BuildFunnyJokeDanceTexture(
         bool right,
         bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_DANCELEFT/RIGHT ($08/$09) are static graphics
@@ -203,10 +204,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildGetItemOneHandRightTexture(bool damagePalette)
+    private Texture2D BuildGetItemOneHandRightTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(16, 16, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_GETITEM1HAND_RIGHT ($1c) is static graphics frame
@@ -218,10 +219,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildCarriedObjectLinkTexture(bool damagePalette)
+    private Texture2D BuildCarriedObjectLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // A finished grab leaves LINK_ANIM_MODE_WALK active. func_4553 adds
@@ -242,7 +243,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildMinecartLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // getLinkWalkingAnimation selects variant $01 while the main object is
@@ -273,7 +274,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildMinecartAttackTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_26 resolves the Sword's four 3/3/8/terminal body
@@ -302,7 +303,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D[,] BuildBraceletActionTextures(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         var result = new Texture2D[3, 4];
         for (int pose = 0; pose < result.GetLength(0); pose++)
         for (int direction = ObjectDirection.Up; direction < result.GetLength(1); direction++)
@@ -321,7 +322,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildShieldLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(128, 64, false, Image.Format.Rgba8);
 
         // func_4553 selects variants $05/$06 while the shield is merely
@@ -342,10 +343,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildPushLinkTexture(bool damagePalette)
+    private Texture2D BuildPushLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // The pushing walking variant adds $10 to LINK_ANIM_MODE_WALK's
@@ -366,7 +367,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildAttackLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(48, 64, false, Image.Format.Rgba8);
         for (int facing = 0; facing < 4; facing++)
         for (int phase = 0; phase < 3; phase++)
@@ -384,11 +385,11 @@ internal sealed class PlayerSpriteLibrary
         Texture2D[,] Poses, Texture2D[,] DamagePoses, Vector2[,] Offsets)
         BuildSeedShooterPoseTextures()
     {
-        SeedShooterRecord record = SeedShooterRecord.Load();
+        SeedShooterRecord record = SeedShooterRecord.Load(AssetRoot);
         Image linkSource = OracleGraphicsCache.LoadTwoBitSpriteSheet(
-            AgesGameContent.AssetRoot + "gfx/spr_link.2bpp", 0x22e0);
+            AssetRoot + "gfx/spr_link.2bpp", 0x22e0);
         Image weaponSource = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.WeaponSprite}.png");
+            AssetRoot + $"gfx/{record.WeaponSprite}.png");
         const int variantCount = 3;
         int angleCount = record.WeaponOam.Length;
         var linkTextures = new Texture2D[variantCount, angleCount];
@@ -491,7 +492,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildUnderwaterAttackLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(48, 64, false, Image.Format.Rgba8);
         for (int facing = 0; facing < 4; facing++)
         for (int phase = 0; phase < 3; phase++)
@@ -508,7 +509,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildShovelLinkTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_DIG_2 ($1a) selects $f8-$ff. The first and second
@@ -528,7 +529,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildSwordTexture(bool chargedPalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_swords.png");
+            AssetRoot + "gfx/spr_swords.png");
         Image output = Image.CreateEmpty(8 * 32, 32, false, Image.Format.Rgba8);
 
         for (int animation = 0; animation < 8; animation++)
@@ -550,10 +551,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildDrownTexture(bool damagePalette)
+    private Texture2D BuildDrownTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_DROWN ($0a) uses directional graphics $d4-$d7 for
@@ -574,7 +575,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildTopDownSwimTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         for (int frame = 0; frame < 2; frame++)
@@ -610,7 +611,7 @@ internal sealed class PlayerSpriteLibrary
     private Texture2D BuildTopDownDiveTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 16, false, Image.Format.Rgba8);
 
         for (int frame = 0; frame < 2; frame++)
@@ -633,7 +634,7 @@ internal sealed class PlayerSpriteLibrary
         bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(32, 64, false, Image.Format.Rgba8);
 
         for (int frame = 0; frame < 2; frame++)
@@ -654,10 +655,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildFallInHoleTexture(bool damagePalette)
+    private Texture2D BuildFallInHoleTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(48, 16, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_FALLINHOLE (mode $0d) uses frames $08, $09,
@@ -674,10 +675,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildLedgeJumpTexture(bool damagePalette)
+    private Texture2D BuildLedgeJumpTexture(bool damagePalette)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_JUMP ($18) is animationData19f78:
@@ -724,10 +725,10 @@ internal sealed class PlayerSpriteLibrary
         return ImageTexture.CreateFromImage(output);
     }
 
-    private static Texture2D BuildDeathTexture()
+    private Texture2D BuildDeathTexture()
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_link.png");
+            AssetRoot + "gfx/spr_link.png");
         Image output = Image.CreateEmpty(80, 16, false, Image.Format.Rgba8);
 
         // LINK_ANIM_MODE_SPIN ($01) uses graphics $02,$01,$00,$03 and

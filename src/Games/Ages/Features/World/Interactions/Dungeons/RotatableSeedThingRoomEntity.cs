@@ -54,6 +54,7 @@ internal sealed partial class RotatableSeedThingRoomEntity :
         Func<long> animationTick,
         Func<RotatableSeedThingRoomEntity,Vector2,int,bool> createChild)
     {
+        AssetRoot = visual.AssetRoot;
         if (record.Id != AgesInteractionId.SmogBoss || record.SubId is not (0x0a or 0x08 or 0x88) ||
             (record.SubId & 3) == 2 && record.Parameter == 0)
         {
@@ -76,7 +77,7 @@ internal sealed partial class RotatableSeedThingRoomEntity :
 
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette,
@@ -100,6 +101,7 @@ internal sealed partial class RotatableSeedThingRoomEntity :
 
     private void Initialize()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _loadedProperties = true;
         Counter = _period;
         Orientation = (_record.SubId >> 2) & 3;

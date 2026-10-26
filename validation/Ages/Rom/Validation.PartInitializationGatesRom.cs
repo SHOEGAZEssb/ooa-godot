@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
             var fire = _entities.Spawn<ZoraFireProjectile>(new ZoraFireSpawn(new(64, 72), 0x19));
             var beam = _entities.Spawn<BeamosBeamPart>(new BeamosBeamSpawn(new(80, 72), 8, 0));
             var bone = _entities.Spawn<StalfosBoneProjectile>(new StalfosBoneSpawn(new(88, 72)));
-            var boulder = new FallingBoulder(0, new(96, 72), new FallingBoulderDatabase(), _random, _sound.PlaySound, _currentRoom, _entities.ToScreen);
+            var boulder = new FallingBoulder(0, new(96, 72), new FallingBoulderDatabase(AgesGameContent.AssetRoot), _random, _sound.PlaySound, _currentRoom, _entities.ToScreen);
             _entities.AddEntity(new FallingBoulderRoomEntity(boulder));
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0, 120, 40);
             int[] ids = [0x19, 0x29, 0x1c, 0x45]; int[] xs = [64, 80, 88, 96];

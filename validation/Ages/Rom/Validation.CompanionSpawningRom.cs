@@ -126,7 +126,7 @@ public sealed partial class ValidationRoot
     private void ValidateCompanionPresetsRom()
     {
         ReinitializeGameplayForValidation();
-        var ricky = new RickyGlovesEventDatabase(); var dimitri = new DimitriDatabase();
+        var ricky = new RickyGlovesEventDatabase(); var dimitri = new DimitriDatabase(AgesGameContent.AssetRoot);
         var moosh = new MooshGoodbyeEventDatabase();
         foreach (int subid in new[] { 1, 2, 3 })
         for (int state = 0; state < 256; state++)
@@ -189,7 +189,7 @@ public sealed partial class ValidationRoot
     private void ValidateCompanionFluteGatesRom()
     {
         ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom(); _entities.Clear();
-        var data = new FluteDatabase();
+        var data = new FluteDatabase(AgesGameContent.AssetRoot);
         var idField = typeof(OracleRoomData).GetField("<Id>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var flagsField = typeof(OracleRoomData).GetField("<TilesetFlags>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
         int originalId = _currentRoom.Id; byte originalFlags = _currentRoom.TilesetFlags;
@@ -272,7 +272,7 @@ public sealed partial class ValidationRoot
     private void ValidateCompanionFluteSpawnRom()
     {
         ReinitializeGameplayForValidation(); PrepareCompanionFidelityRoom(); _entities.Clear();
-        var data = new FluteDatabase();
+        var data = new FluteDatabase(AgesGameContent.AssetRoot);
         int spawned = 0;
         // All twenty ordered candidates, both cells in each pair, and ties.
         var candidates = new (int Packed, int Stride)[] { (2,16), (0x62,16), (0x18,1), (0x10,1),

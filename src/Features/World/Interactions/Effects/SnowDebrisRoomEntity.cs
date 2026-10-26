@@ -13,7 +13,8 @@ internal sealed partial class SnowDebrisRoomEntity : DungeonInteractionVisualEnt
     public bool UpdatesDuringRoomEntityFreeze=>true;
     public Node2D Node=>this;
     internal SnowDebrisRoomEntity(DungeonInteractionVisual visual,Vector2 position)
-    {InitializeVisual(visual,position.Floor(),positionedOam:true);Visible=false;ZIndex=ObjectDrawPriority.FromVisible(0x83);}
+    {
+        AssetRoot = visual.AssetRoot;InitializeVisual(visual,position.Floor(),positionedOam:true);Visible=false;ZIndex=ObjectDrawPriority.FromVisible(0x83);}
     public void UpdateFrame(RoomEntityFrame frame,ICollection<RoomEntitySpawn> spawns)
     {
         if(Finished)return;

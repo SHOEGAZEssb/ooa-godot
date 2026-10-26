@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
     private void ValidatePirateShipCourse()
     {
         var course = new PirateShipCourse();
-        var save = OracleSaveData.CreateStandardGame();
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var runtime = AgesGameContent.CreateRuntimeState();
         void Set(int room, int y, int x, int direction)
         {

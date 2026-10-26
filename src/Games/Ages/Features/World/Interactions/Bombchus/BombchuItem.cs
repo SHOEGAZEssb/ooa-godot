@@ -9,7 +9,7 @@ namespace Oracles;
 internal partial class BombchuItem : BombEffect
 {
     private readonly BombchuDatabase _data = new();
-    private readonly BombRecord _common = new BombDatabase().Data;
+    private readonly BombRecord _common = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
     private OracleRoomData _room = null!;
     private Player _player = null!;
     private RoomEntityManager _entities = null!;
@@ -82,7 +82,7 @@ internal partial class BombchuItem : BombEffect
             if (!grounded) grounded = OracleObjectMath.UpdateSpeedZ(ref _zFixed, ref _speedZ, _data.Constant("topdown-gravity"));
             if (grounded)
             {
-                int hazard = ItemHazardDatabase.Shared.Hazard(_room.ActiveCollisions,
+                int hazard = ItemHazardDatabase.For(AgesGameContent.AssetRoot).Hazard(_room.ActiveCollisions,
                     _room.GetMetatile(new(Position.X, (byte)((int)Position.Y + 5))));
                 if (hazard != 0) { Hazard(hazard); Discard(); return; }
             }

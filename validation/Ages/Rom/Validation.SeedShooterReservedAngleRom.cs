@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
             _inventory.GiveTreasure(TreasureId.Shooter, 1); _inventory.GiveTreasure(TreasureId.EmberSeeds, 0x20);
             _inventory.SelectShooterSeeds(0); _inventory.SetScriptedEquippedItems(equippedB: 0, equippedA: TreasureId.Shooter);
             for (int index = 0; index < used; index++)
-                _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase().Data, 4, _ => { }));
+                _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 4, _ => { }));
             var native = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 1, (int)_player.Position.X, (int)_player.Position.Y);
             native.InitializeLinkGameplay(); native.InitializeLinkWalkingAnimation();
             // Transfer already-executed original Link/ITEM C bytes, rather

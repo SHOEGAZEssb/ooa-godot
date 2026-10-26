@@ -60,6 +60,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         OracleRandom random,
         OracleRuntimeState? memory = null)
     {
+        AssetRoot = room.AssetRoot;
         _database = database;
         _record = record;
         _room = room;
@@ -75,7 +76,7 @@ internal sealed partial class VineSproutRoomEntity : TransitionOffsetNode2D,
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
-            EnemyVisualSource.LoadComposite([record.Sprite]),
+            EnemyVisualSource.LoadComposite([record.Sprite], AgesGameContent.AssetRoot),
             [record.Animation],
             record.TileBase,
             record.Palette,

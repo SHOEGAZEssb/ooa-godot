@@ -13,7 +13,7 @@ public sealed class NayruIntroEventDatabase
 {
     private readonly Dictionary<int, TextRecord> _texts = new();
     private readonly Dictionary<string, ActorRecord> _actors = new();
-    private readonly SharedEffectDatabase _effects = new();
+    private readonly SharedEffectDatabase _effects = new(AgesGameContent.AssetRoot);
     private readonly Dictionary<string, FleeRecord> _flee = new();
     private readonly Dictionary<int, VignetteRecord> _vignettes = new();
     private readonly List<VignetteMonkeyRecord> _vignetteMonkeys = new();

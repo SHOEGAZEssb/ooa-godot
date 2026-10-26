@@ -26,7 +26,7 @@ internal sealed partial class FairiesWoodsSparkleLayer : Node2D
     {
         var animation = new EnemyAnimationPlayer(this, 1);
         animation.Load(
-            EnemyVisualSource.LoadComposite([_record.SparkleSprite]),
+            EnemyVisualSource.LoadComposite([_record.SparkleSprite], AgesGameContent.AssetRoot),
             [_record.SparkleAnimation],
             _record.SparkleTileBase,
             _record.SparklePalette);

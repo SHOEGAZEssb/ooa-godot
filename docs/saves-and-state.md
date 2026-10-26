@@ -3,8 +3,18 @@
 The live byte owner and disk I/O remain shared mechanisms. Ages-specific address
 and save-layout catalogs and runtime initialization live under `src/Games/Ages/`.
 Keep existing Ages save filenames, verification bytes and the Godot user-data
-identity when renaming application assemblies. Seasons must supply its own
-verified layout and filenames before it can create a playable session.
+identity when renaming application assemblies. Seasons uses its own new-file
+initialization, global-flag offsets and verification signature. Deserialization
+checks the expected game; a Seasons store rejects all three Ages slot filenames.
+Its file menu commits names and message speed, copies and erases using
+`oracle_of_seasons.sav`, `oracle_of_seasons_2.sav` and `oracle_of_seasons_3.sav`.
+The opening uses the selected live image without saving ongoing gameplay;
+post-intro saving and resuming are not implemented.
+
+Shared inventory and runtime accessors bind common named fields through the
+generated WRAM layout. Raw WRAM operations used by native scripts retain
+physical game addresses. Do not apply the typed translation twice or use an
+Ages address as a raw Seasons field.
 
 ## Authoritative state
 

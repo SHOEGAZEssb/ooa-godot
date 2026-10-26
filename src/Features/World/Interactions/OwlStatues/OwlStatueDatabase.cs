@@ -10,12 +10,16 @@ namespace Oracles;
 /// </summary>
 internal sealed class OwlStatueDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int, OwlStatueRecord> _records = new();
 
-    internal OwlStatueDatabase()
+    internal OwlStatueDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/owl_statues.tsv",
+            AssetRoot + "objects/owl_statues.tsv",
             new GeneratedTableSchema(
                 "owl statues",
                 GeneratedTableKeySemantics.Unique,
@@ -56,7 +60,7 @@ internal sealed class OwlStatueDatabase
                 row.UnsignedDecimal(17),
                 row.UnsignedDecimal(18),
                 row.Offsets(19),
-                new InteractionSparkleVisual(
+                new InteractionSparkleVisual(AssetRoot,
                     row.RequiredString(20),
                     row.HexByte(21),
                     row.HexByte(22),

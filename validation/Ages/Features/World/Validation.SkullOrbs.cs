@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullStationaryOrb()
     {
         CompareSkullStationaryOrbRom();
-        var data = PartOrbDatabase.Shared;
+        var data = PartOrbDatabase.For(AgesGameContent.AssetRoot);
         FailIf(data.BackgroundTile != 0x0a || data.TileCollision != 0x0f || data.SubidMask != 7 || data.RadiusX != 4 || data.RadiusY != 4,
             "partCode03 state0 must write cfXX=$0a, ceXX=$0f, preserve Zh=0, and derive its mask from subid&7.");
         var random = CaptureOracleRandomForValidation();
@@ -22,8 +22,8 @@ public sealed partial class ValidationRoot
             _inventory.RefillHealth();
             void Step(int count = 1, Vector2 move = default, bool attack = false) =>
                 StepGameplayUpdates(count, move, attack ? ["attack"] : [], attack ? ["attack"] : [], batched: batch);
-            var seeds = new SeedSatchelDatabase();
-            var shooter = SeedShooterRecord.Load();
+            var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
+            var shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
             foreach (int item in new[] { 0x20, 0x21, 0x22, 0x23, 0x24 })
             {
                 // Shared orb receiver in the enemy-free bridge room; Skull's
@@ -72,9 +72,9 @@ public sealed partial class ValidationRoot
                 { Id:InteractionId.Id0b, SubId:0, Order:1, X:128, Y:72, Var03:2 }] ||
             database.GetRoomRecords(4,0x74)[1] is not { Id:InteractionId.DungeonScript, SubId:2, Order:2, X:72, Y:88 },
             "Orb placements must retain source order, pixel coordinates, script dispatch, and raw var03 mask.");
-        FailIf(string.Concat(Enumerable.Range(0,32).Select(i => PartOrbDatabase.Shared.HitLockout(i) >= 0 ? '1':'0')) !=
-            "00001111111101100000001111111110" || PartOrbDatabase.Shared.Speed != 0x14 ||
-            PartOrbDatabase.Shared.Right != 0x98 || PartOrbDatabase.Shared.Left != 0x68,
+        FailIf(string.Concat(Enumerable.Range(0,32).Select(i => PartOrbDatabase.For(AgesGameContent.AssetRoot).HitLockout(i) >= 0 ? '1':'0')) !=
+            "00001111111101100000001111111110" || PartOrbDatabase.For(AgesGameContent.AssetRoot).Speed != 0x14 ||
+            PartOrbDatabase.For(AgesGameContent.AssetRoot).Right != 0x98 || PartOrbDatabase.For(AgesGameContent.AssetRoot).Left != 0x68,
             "Moving orb lost its source active mask or SPEED_80/right98/left68 script.");
         foreach (int mask in new[] { 2, 1 })
         {

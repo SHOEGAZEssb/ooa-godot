@@ -19,7 +19,7 @@ internal sealed partial class SomariaBlock : TransitionOffsetNode2D
     private int _direction, _speed;
     private SomariaThrowMotion? _throw;
     private int _throwAngle;
-    private readonly BraceletWeightDatabase _weights = new();
+    private readonly BraceletWeightDatabase _weights = new(AgesGameContent.AssetRoot);
     internal int State { get; private set; }
     internal int Substate { get; private set; }
     internal int Counter { get; private set; }
@@ -84,6 +84,7 @@ internal sealed partial class SomariaBlock : TransitionOffsetNode2D
         SomariaPlacementDatabase geometry, SomariaGraphicsDatabase graphics,
         SomariaLifecycleDatabase data, SomariaBlockEnvironment world)
     {
+        AssetRoot = room.AssetRoot;
         _room = room; _geometry = geometry; _data = data; _world = world;
         _placement = new(room, geometry); _visual = new(this, graphics);
         Position = position.Floor(); ZHigh = (sbyte)(byte)z;

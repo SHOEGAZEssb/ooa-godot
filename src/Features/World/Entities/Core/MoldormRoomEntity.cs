@@ -14,8 +14,8 @@ internal sealed class MoldormRoomEntity
     public void BindEnemySlot(int slot, Func<int, IRoomEntity?> resolve) => Entity.BindEnemySlot(slot, resolve);
     public bool UpdatesDuringDialogue => Entity.State == 0;
     public bool UpdatesDuringRoomEntityFreeze => Entity.State == 0;
-    private readonly IReadOnlyList<EnemyBehaviorValue> _collisionEffects =
-        EnemyBehaviorTables.Shared.MoldormCollisionEffects;
+    private IReadOnlyList<EnemyBehaviorValue>? _collisionEffectsSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _collisionEffects => _collisionEffectsSourceCache ??= EnemyBehaviorTables.For(AssetRoot).MoldormCollisionEffects;
 
     internal MoldormRoomEntity(
         MoldormCharacter moldorm,

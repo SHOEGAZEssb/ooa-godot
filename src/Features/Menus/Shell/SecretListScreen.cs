@@ -8,6 +8,7 @@ namespace Oracles;
 // The middle $18..$5f scanlines alone use the scrolling register set.
 public sealed partial class SecretListScreen : Node2D
 {
+    private string AssetRoot = string.Empty;
     private readonly byte[][] _vram = [new byte[0x1000], new byte[0x1000]];
     private Texture2D? _map;
     private Image? _cursor;
@@ -18,20 +19,21 @@ public sealed partial class SecretListScreen : Node2D
     internal Texture2D Map => _map!;
     internal void Initialize(SecretListDatabase data, OracleSaveData save)
     {
+        AssetRoot = data.AssetRoot;
         foreach (var bank in _vram) Array.Fill(bank, (byte)0xff);
-        var graphics = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "menu/gfx_secret_list_menu.png");
+        var graphics = OracleGraphicsCache.LoadImage(AssetRoot + "menu/gfx_secret_list_menu.png");
         int count = graphics.GetWidth() / 8 * (graphics.GetHeight() / 8);
         CopyGraphics(graphics, 0x700, count);
-        _cursor = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "map/sprites.png");
+        _cursor = OracleGraphicsCache.LoadImage(AssetRoot + "map/sprites.png");
         CopyGraphics(_cursor, 0, 0x20);
         int index = 0;
         foreach (var entry in data.Entries(save))
         {
-            byte[] glyphs = OracleTileRenderer.CopyTextCharacterGraphics(Encoding.ASCII.GetBytes(data.Name(entry, save)), 0);
+            byte[] glyphs = OracleTileRenderer.CopyTextCharacterGraphics(Encoding.ASCII.GetBytes(data.Name(entry, save)), 0, AssetRoot);
             int address = 0xa00 + index++ * 0x200;
             glyphs.CopyTo(_vram[address < 0x1000 ? 0 : 1], address < 0x1000 ? address : address - 0x1000);
         }
-        _cursorPalette = OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "menu/secret_list_obj.bin");
+        _cursorPalette = OracleGraphicsData.LoadPalette(AssetRoot + "menu/secret_list_obj.bin");
         SetSecret(new byte[24], unlocked: false);
     }
     private void CopyGraphics(Image graphics, int destination, int count)
@@ -54,7 +56,7 @@ public sealed partial class SecretListScreen : Node2D
     internal void SetSecret(byte[] text, bool unlocked)
     {
         Array.Clear(_vram[0], 0x300, 0x300);
-        if (unlocked) OracleTileRenderer.CopyTextCharacterGraphics(text, 0xff).CopyTo(_vram[0], 0x300);
+        if (unlocked) OracleTileRenderer.CopyTextCharacterGraphics(text, 0xff, AssetRoot).CopyTo(_vram[0], 0x300);
         using Image bank0 = OracleGraphicsCache.DecodeTwoBitSpriteSheet(_vram[0], spriteEncoding: false);
         using Image bank1 = OracleGraphicsCache.DecodeTwoBitSpriteSheet(_vram[1], spriteEncoding: false);
         var tiles = new OracleVramTileMap();
@@ -65,9 +67,9 @@ public sealed partial class SecretListScreen : Node2D
             tiles.MapTile(bank0, sourceTile, tile, 0); tiles.MapTile(bank1, sourceTile, tile, 1);
         }
         _map = OracleTileRenderer.BuildTileMapTexture(
-            OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "menu/map_secret_list_menu.bin"),
-            OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "menu/flg_secret_list_menu.bin"), tiles,
-            OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "menu/secret_list_bg.bin", 4, 2), 32, 32);
+            OracleAssetCache.ReadBytes(AssetRoot + "menu/map_secret_list_menu.bin"),
+            OracleAssetCache.ReadBytes(AssetRoot + "menu/flg_secret_list_menu.bin"), tiles,
+            OracleGraphicsData.LoadPalette(AssetRoot + "menu/secret_list_bg.bin", 4, 2), 32, 32);
         QueueRedraw();
     }
     public override void _Draw()

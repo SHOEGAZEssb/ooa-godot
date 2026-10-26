@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
         // slot1: a mismatch in slot0 immediately deletes the attachment.
         ReinitializeGameplayForValidation(); LoadValidationRoom(5, 0x98); _entities.Clear();
         var record = new AncientTombDatabase().GetRoomRecords(5, 0x98).Single();
-        var missed = new EnemyAttachedKeyRoomEntity(record, new DungeonInteractionVisualDatabase().Visual("enemy-attached-key"),
+        var missed = new EnemyAttachedKeyRoomEntity(record, new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("enemy-attached-key"),
             () => false, () => new(EnemyId.Rope, new(136,72), 0), _ => throw new InvalidOperationException("A missed enemy must not create a key."));
         _entities.AddEntity(missed); _player.WarpTo(new(136,136)); _player.Face(Vector2I.Up);
         var missRom = new SomariaRom(_saveData, _random.CaptureState(), _currentRoom, 0,136,136);

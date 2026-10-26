@@ -18,13 +18,14 @@ internal sealed partial class TokaySeedlingDecorationRoomEntity :
     internal TokaySeedlingDecorationRoomEntity(
         TokaySeedlingPlotRecord record)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         Record = record;
         Name = "TokayScentSeedling";
         Position = new Vector2(record.X, record.Y);
         ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
-            EnemyVisualSource.LoadComposite([record.Sprite]),
+            EnemyVisualSource.LoadComposite([record.Sprite], AgesGameContent.AssetRoot),
             [record.Animation],
             record.TileBase,
             record.Palette);

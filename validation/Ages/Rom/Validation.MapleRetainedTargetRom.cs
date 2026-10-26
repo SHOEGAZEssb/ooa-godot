@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         {
             var (maple, native) = MapleBodyBoundary();
             var encounter = SomariaPrivate<MapleEncounterState>(maple, "_encounter");
-            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase().Item(13), encounter, 0, new(80, 72), 0));
+            var drop = _entities.Spawn<MapleDroppedItem>(new MapleDroppedItemSpawn(new MapleEventDatabase(AgesGameContent.AssetRoot).Item(13), encounter, 0, new(80, 72), 0));
             F1Set(drop, "_state", MapleDroppedItemState.Grounded); drop.Visible = true;
             // Declare an effect$24 publication and stationary carrier. Actual
             // thrown-carrier collision/motion is covered by the attachment ROM

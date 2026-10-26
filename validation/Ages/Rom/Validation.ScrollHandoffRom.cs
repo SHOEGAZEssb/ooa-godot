@@ -28,13 +28,13 @@ public sealed partial class ValidationRoot
                 FailIf(_player.SwordState != SwordActionState.Held, "Scroll retention fixture must hold its sword through actual input.");
             }
             OracleRandomState seed = _random.CaptureState();
-            int loadedUnique = new ScreenTransitionGraphicsDatabase().ForTileset(_currentRoom.TilesetId).Unique;
+            int loadedUnique = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot).ForTileset(_currentRoom.TilesetId).Unique;
             StepGameplayUpdates(1, Vector2.Left, retainedSword ? ["attack"] : [], [], batched);
             FailIf(!_transitions.ScrollActive || _currentRoom.Id != 0x33 || _saveData.MinimapRoom != 0x34,
                 "The actual left exit must preload room 0:$33 while retaining the source minimap.");
             var swordState = _player.SwordState;
             int swordFrame = _player.SwordStateFrame;
-            int unique = new ScreenTransitionGraphicsDatabase().ForTileset(_currentRoom.TilesetId).Unique;
+            int unique = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot).ForTileset(_currentRoom.TilesetId).Unique;
             var scroll = new ScrollRom(false, 3, (int)(_player.PrecisePosition.X * 256), (int)(_player.PrecisePosition.Y * 256), unique, loadedUnique);
             if (retainedSword) { scroll[0xd200] = 0xe1; scroll[0xd201] = 5; }
             var enemies = new EnemyAiRom();

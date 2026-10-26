@@ -20,8 +20,8 @@ internal sealed partial class SarcophagusRoomEntity : TransitionOffsetNode2D,
     private readonly EnemyAnimationPlayer _idle;
     private readonly EnemyAnimationPlayer _break;
     private readonly NativeBraceletThrow _throw;
-    private readonly BraceletGrabGeometry _grab = new();
-    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase().Data;
+    private readonly BraceletGrabGeometry _grab = new(AgesGameContent.AssetRoot);
+    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
     private Action<INativeBraceletRoomEntity>? _publish;
     private Player? _holder;
     internal int State { get; private set; }
@@ -41,6 +41,7 @@ internal sealed partial class SarcophagusRoomEntity : TransitionOffsetNode2D,
         DungeonInteractionVisual breaking, OracleRoomData room, OracleSaveData save,
         OracleRuntimeState runtime, Action<Vector2, byte> setTile, Action<int> sound)
     {
+        AssetRoot = idle.AssetRoot;
         _record = record; _room = room; _save = save; _setTile = setTile; _sound = sound;
         Position = record.Position; Visible = false; Name = $"Sarcophagus_{record.SubId:x2}";
         _idle = Load(idle); _break = Load(breaking);
@@ -50,18 +51,19 @@ internal sealed partial class SarcophagusRoomEntity : TransitionOffsetNode2D,
             (position, speed, angle) => {
                 var velocity = NativeObjectMovement.Velocity(runtime, speed, angle);
                 return position.Add(velocity.YFixed, velocity.XFixed);
-            }, BraceletWeightDatabase.Shared, new BombDatabase().Data);
+            }, BraceletWeightDatabase.For(AgesGameContent.AssetRoot), new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data);
         TreeExiting += Drop;
     }
     private EnemyAnimationPlayer Load(DungeonInteractionVisual visual)
     {
         var animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
-        animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations,
+        animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations,
             visual.TileBase, visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         animation.SetAnimation(0); return animation;
     }
     private void Initialize()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if ((_record.SubId & 0x80) != 0) { Break(); return; }
         if (_record.SubId != 0 && _save.HasRoomFlag(_record.Group, _record.Room, 0x40))
         { Finished = true; return; }

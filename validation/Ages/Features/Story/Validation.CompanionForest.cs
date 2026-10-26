@@ -166,7 +166,7 @@ public sealed partial class ValidationRoot
             (hadFlute ? 0x0069 : 0x0038) + companion - 0x0b, 0x1139 + shift];
         FailIf(!messages.SequenceEqual(expectedText.Select(id => DialogueBox.PlainText(text.Text(id)))),
             $"Companion ${companion:x2} forest rescue/reward diverged from its eleven source texts (observed {messages.Count}).");
-        FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) || restored is null ||
+        FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var restored) || restored is null ||
             !restored.HasGlobalFlag(AgesGlobalFlag.GotFlute) || !restored.HasGlobalFlag(AgesGlobalFlag.SavedCompanionFromForest) || !restored.HasGlobalFlag(AgesGlobalFlag.ForestUnscrambled) ||
             restored.ReadWramByte(AgesWramAddress.wAnimalCompanion) != companion || restored.ReadWramByte(AgesWramAddress.wFluteIcon) != companion - 0x0a ||
             (restored.ReadWramByte(stateAddress) & 0x80) == 0,
@@ -201,10 +201,10 @@ public sealed partial class ValidationRoot
                 $"Flute icon ${icon:x2} did not select its imported inventory/HUD graphics, palette and TX_09{0x2e + icon:x2} text.");
         }
 
-        IntroSpriteFrame[] frames = new NewGameIntroDatabase().SpriteFrames("link-flute-item");
+        IntroSpriteFrame[] frames = new NewGameIntroDatabase(AgesGameContent.AssetRoot).SpriteFrames("link-flute-item");
         int[] durations = [35, 60, 35, 35, 60, 30, 127];
         int[] firstTiles = [0x118, 0x11c, 0x118, 0x11a, 0x11e, 0x11a, 0x11a];
-        var renderer = new CutsceneSpriteRenderer();
+        var renderer = new CutsceneSpriteRenderer(AgesGameContent.AssetRoot);
         Image source = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_link.png");
         Color[] colors = [Colors.Transparent, Colors.Black,
             new Color(2 / 31f, 21 / 31f, 8 / 31f), new Color(1, 26 / 31f, 17 / 31f)];
@@ -260,7 +260,7 @@ public sealed partial class ValidationRoot
             _saveData.ReadWramByte(AgesWramAddress.wFluteIcon) != companion - 0x0a ||
             _saveData.HasGlobalFlag(AgesGlobalFlag.GotFlute) != questBefore,
             $"F1 did not upgrade the owned Strange Flute to callable companion ${companion:x2} without quest progress.");
-        FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) ||
+        FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var restored) ||
             restored!.ReadWramByte(AgesWramAddress.wFluteIcon) != companion - 0x0a ||
             restored.ReadWramByte(AgesWramAddress.wAnimalCompanion) != companion,
             $"Callable flute ${companion:x2} did not survive save serialization.");
@@ -290,7 +290,7 @@ public sealed partial class ValidationRoot
         Input.BeginOriginalUpdate(new ApplicationInputSnapshot(pressed: [button], justPressed: [button], movement: Vector2.Zero));
         try { _player.AdvanceApplicationUpdate(); }
         finally { Input.EndOriginalUpdate(); }
-        int duration = new FluteDatabase().Duration(companion - 0x0a);
+        int duration = new FluteDatabase(AgesGameContent.AssetRoot).Duration(companion - 0x0a);
         for (int update = 2; update <= duration; update++) _player.AdvanceHarpForValidation(1);
         var summoned = _entities.EntityAdapters<IRoomEntity>().OfType<IForestCompanion>().Single();
         var node = ((IRoomEntity)summoned).Node;

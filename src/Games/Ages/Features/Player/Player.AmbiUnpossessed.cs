@@ -49,7 +49,7 @@ public partial class Player
             default:throw new NotSupportedException($"link.s: LINK_STATE $09 substate ${_ambiState:x2}.");
         }
         _walking=true;
-        if(_ambiState==5)AdvanceTopDownAirAnimation(TopDownAirDatabase.Shared.Parameters);
+        if(_ambiState==5)AdvanceTopDownAirAnimation(TopDownAirDatabase.For(AgesGameContent.AssetRoot).Parameters);
         else AdvanceLinkWalkAnimation();
         // specialObjectUpdatePositionWithoutTileEdgeAdjust supplies a zero
         // wall mask but still publishes getPositionOffsetForVelocity's

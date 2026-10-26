@@ -276,7 +276,7 @@ public sealed partial class ValidationRoot
             "The room 1:81 typed command trace lost source lines or command order.");
 
         UpdateRoomWarpTransition(
-            RoomTransitionController.WarpFadeFrames / 60.0);
+            AgesRoomTransitionController.WarpFadeFrames / 60.0);
         LoadValidationRoom(group, room);
         FailIf(
             _entities.Entities<NpcCharacter>().Any(npc =>

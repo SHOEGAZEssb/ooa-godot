@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
                 $"got {_dialogue.Position.Y}.");
             _dialogue.Close();
         }
-        var screens = new DialogueScreenDatabase();
+        var screens = new DialogueScreenDatabase(AgesGameContent.AssetRoot);
         _dialogue.ShowMessage("A", screens.ClearedLink(0x02));
         FailIf(_dialogue.Position.Y != 96,
             "Cleared w1Link / palace gfx state $02 lost its HUD offset.");

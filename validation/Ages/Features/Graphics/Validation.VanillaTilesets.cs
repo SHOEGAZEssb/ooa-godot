@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
                 AgesGameContent.AssetRoot + $"layouts/{path}.bin"))).ToLowerInvariant() != expected,
                 $"Vanilla shared layout {path} differs from source.");
 
-        var world = new OracleWorldData();
+        var world = new AgesWorldData();
         foreach ((int group, int roomId, bool recolor) in new (int, int, bool)[]
         {
             (1, 0x39, true), (1, 0x38, false), (0, 0x39, false),
@@ -81,7 +81,7 @@ public sealed partial class ValidationRoot
                 AgesGameContent.AssetRoot + $"rooms/large/room{room}.bin"))).ToLowerInvariant() != expected,
                 $"Vanilla room ${room} alias differs from source.");
 
-        var maps = new DungeonMapDatabase();
+        var maps = new DungeonMapDatabase(AgesGameContent.AssetRoot);
         foreach (int dungeon in new[] { 0x00, 0x09 })
         {
             FailIf(!maps.TryGetNeighbor(dungeon, 0x03, Vector2I.Down, out int neighbor) || neighbor != 0x04,

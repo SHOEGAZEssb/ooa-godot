@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     private void ValidateDebugObjectPreviews()
     {
         LoadValidationRoom(4, 0x04);
-        var enemies = new EnemyDatabase();
+        var enemies = new EnemyDatabase(AgesGameContent.AssetRoot);
         var catalog = new DebugObjectCatalog(enemies);
         var previews = new DebugObjectPreview(enemies);
         int calls = _random.Calls;
@@ -139,7 +139,7 @@ public sealed partial class ValidationRoot
             "Room reload retained debug entities or leaked enemy-slot reservations.");
 
         // Exercise every advertised standalone enemy variant through its real factory.
-        var catalog = new DebugObjectCatalog(new EnemyDatabase());
+        var catalog = new DebugObjectCatalog(new EnemyDatabase(AgesGameContent.AssetRoot));
         foreach (DebugObjectEntry entry in catalog.Enemies.Where(entry => entry.Supported))
         {
             LoadValidationRoom(4, 0x04);

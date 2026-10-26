@@ -8,8 +8,8 @@ internal sealed class PolsVoiceRoomEntity
         IInstrumentReactiveRoomEntity, IScreenTransitionPreloadRoomEntity,
         IItemCollisionHittableRoomEntity, IExpertPunchHittableRoomEntity
 {
-    private readonly IReadOnlyList<EnemyBehaviorValue> _collisionEffects =
-        EnemyBehaviorTables.Shared.PolsVoiceCollisionEffects;
+    private IReadOnlyList<EnemyBehaviorValue>? _collisionEffectsSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _collisionEffects => _collisionEffectsSourceCache ??= EnemyBehaviorTables.For(AssetRoot).PolsVoiceCollisionEffects;
     private bool _instrumentDeathPuffQueued;
 
     internal PolsVoiceRoomEntity(

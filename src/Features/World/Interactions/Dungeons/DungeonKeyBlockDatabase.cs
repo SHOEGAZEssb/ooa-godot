@@ -8,14 +8,18 @@ namespace Oracles;
 /// </summary>
 internal sealed class DungeonKeyBlockDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly ActiveCollisionModeSet _activeCollisionModes;
 
     internal DungeonKeyBlockDatabaseRecord Record { get; }
 
-    internal DungeonKeyBlockDatabase()
+    internal DungeonKeyBlockDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_key_blocks.tsv",
+            AssetRoot + "objects/dungeon_key_blocks.tsv",
             new GeneratedTableSchema(
                 "dungeon key blocks",
                 GeneratedTableKeySemantics.Unique,

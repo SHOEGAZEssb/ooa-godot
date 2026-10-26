@@ -21,16 +21,16 @@ internal sealed class SparkRoomEntity
     public bool ApplyExpertPunch(Rect2 bounds, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns) =>
         ApplyMelee(ItemCollisionType.ExpertPunch, bounds);
     private bool ApplyMelee(int collision, Rect2 bounds) => ApplyIneffectiveWeaponCollision(collision, bounds,
-        EnemyBehaviorTables.Shared.SparkActiveCollisions, EnemyBehaviorTables.Shared.SparkCollisionEffects,
+        EnemyBehaviorTables.For(AssetRoot).SparkActiveCollisions, EnemyBehaviorTables.For(AssetRoot).SparkCollisionEffects,
         out _meleeReportsContact);
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 bounds, Vector2 origin,
         int damage, ICollection<RoomEntitySpawn> spawns)
     {
         if (collision == RoomEntityItemCollision.Boomerang)
-            return ApplyBoomerangTransformCollision(bounds, EnemyBehaviorTables.Shared.SparkActiveCollisions,
-                EnemyBehaviorTables.Shared.SparkCollisionEffects, Entity.ApplyBoomerangHit);
+            return ApplyBoomerangTransformCollision(bounds, EnemyBehaviorTables.For(AssetRoot).SparkActiveCollisions,
+                EnemyBehaviorTables.For(AssetRoot).SparkCollisionEffects, Entity.ApplyBoomerangHit);
         return ApplyIneffectiveWeaponCollision((int)collision, bounds,
-            EnemyBehaviorTables.Shared.SparkActiveCollisions, EnemyBehaviorTables.Shared.SparkCollisionEffects, out _);
+            EnemyBehaviorTables.For(AssetRoot).SparkActiveCollisions, EnemyBehaviorTables.For(AssetRoot).SparkCollisionEffects, out _);
     }
     internal SparkRoomEntity(
         SparkCharacter spark,
@@ -61,9 +61,9 @@ internal sealed class SparkRoomEntity
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
-            EnemyBehaviorTables.Shared.SparkActiveCollisions[collisionType].Value == 0 ||
+            EnemyBehaviorTables.For(AssetRoot).SparkActiveCollisions[collisionType].Value == 0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, hitbox)) return default;
-        int effect = EnemyBehaviorTables.Shared.SparkCollisionEffects[collisionType].Value;
+        int effect = EnemyBehaviorTables.For(AssetRoot).SparkCollisionEffects[collisionType].Value;
         if (effect == CollisionEffect.None) return new(true, SeedHitResult.None, false);
         if (effect != CollisionEffect.Effect20)
             throw new NotSupportedException($"spark.s $13 seed collision ${collisionType:x2}: effect ${effect:x2} is not represented.");

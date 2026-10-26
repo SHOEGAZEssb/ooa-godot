@@ -31,7 +31,7 @@ internal sealed class LibraryEvent(RoomEventContext context) : InteractiveCutsce
     {
         var p = Database.Path(subid);
         var slot = new LibraryActorRoomEntity(NpcCharacter.CreateFromRecord(
-            Database.Actor(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, AgesInteractionId.BookOfSealsPodium, subid, p.Y, p.X)),
+            Database.Actor(Context.Rooms.ActiveGroup, Context.Rooms.CurrentRoom.Id, AgesInteractionId.BookOfSealsPodium, subid, p.Y, p.X), AgesGameContent.AssetRoot),
             Database, Context.Rooms.SaveData, Context.Entities.RuntimeState);
         Bind(slot);
         return slot;

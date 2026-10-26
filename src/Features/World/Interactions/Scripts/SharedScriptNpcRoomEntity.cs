@@ -8,7 +8,7 @@ internal sealed class SharedScriptNpcRoomEntity : NpcCharacterRoomEntityAdapter,
     IFixedRoomEntity, IRoomBlocker, ITalkTarget, IOrdinaryNpcEntity
 {
     private bool _initialized, _storyInitialized;
-    internal SharedNpcScriptHost? Script { get; set; }
+    internal AgesNpcScriptHost? Script { get; set; }
     public NpcCharacter Npc => Entity;
     public bool RefreshStoryState => !_storyInitialized;
     public void CompleteStoryInitialization()

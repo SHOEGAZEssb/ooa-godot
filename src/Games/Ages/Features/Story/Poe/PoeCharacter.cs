@@ -32,6 +32,7 @@ internal sealed partial class PoeCharacter : NpcCharacter
 
     internal void InitializePoe(NpcRecord record, PoeEventRecord poe)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         Initialize(record with
         {
             CanFace = true,
@@ -39,7 +40,7 @@ internal sealed partial class PoeCharacter : NpcCharacter
             RightAnimation = poe.Animation(1),
             DownAnimation = poe.Animation(2),
             LeftAnimation = poe.Animation(3)
-        });
+        }, AgesGameContent.AssetRoot);
         SetAnimationRate(0.0f);
     }
 

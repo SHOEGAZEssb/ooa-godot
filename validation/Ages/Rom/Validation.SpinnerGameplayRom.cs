@@ -10,7 +10,7 @@ public partial class ValidationRoot
     {
         var nativeImage = ValidationRom.LoadCleanUs();
         var nativeFrames = new Dictionary<int,string>();
-        var visual = new DungeonInteractionVisualDatabase().Visual("spinner");
+        var visual = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("spinner");
         foreach (int branch in new[] {0,1,2,3,4,5,6,7})
         foreach (bool batch in RomHostSchedules(branch is 5 or 6 ? 0 : branch))
         {
@@ -22,7 +22,7 @@ public partial class ValidationRoot
             _runtimeState.SetWramByte(AgesGameContent.SpinnerStateAddress,pendingText ? (byte)0xa0 : initialState);
             LoadValidationRoom(4,room); _entities.Clear();
             _inventory.EquipA(0); _inventory.EquipB(0); _player.ApplicationUpdateOwned = true;
-            var placement = new DungeonSpinnerDatabase().GetRoomRecords(4,room).Single();
+            var placement = new DungeonSpinnerDatabase(AgesGameContent.AssetRoot).GetRoomRecords(4,room).Single();
             var spinner = new DungeonSpinnerRoomEntity(placement,_runtimeState,
                 visual,_sound.PlaySound,_entities.BeginScreenShake);
             float startX = branch == 7 ? 120.75f : 120.25f;

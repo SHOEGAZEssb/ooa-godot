@@ -13,11 +13,14 @@ namespace Oracles;
 /// </summary>
 public partial class DungeonKeyDoorController : Node
 {
+    private string AssetRoot => _rooms.AssetRoot;
+
     private readonly RoomSession _rooms;
     private readonly InventoryState _inventory;
     private readonly RoomEntityManager _entities;
     private readonly TreasureDatabase _treasures;
-    private readonly DungeonKeyBlockDatabase _keyBlocks = new();
+    private DungeonKeyBlockDatabase? _keyBlocksSourceCache;
+    private DungeonKeyBlockDatabase _keyBlocks => _keyBlocksSourceCache ??= new(AssetRoot);
     private readonly Func<long> _animationTick;
     private readonly Action<int> _playSound;
     private int _pushCounter { get => _rooms.TilePushCounter; set => _rooms.TilePushCounter = unchecked((byte)value); }

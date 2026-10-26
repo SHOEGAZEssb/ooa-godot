@@ -60,6 +60,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
 
     internal void InitializeRoomSentinel(ImportedEnemyDefinition record, int subid, Vector2 position)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != AgesEnemyId.Smog || subid is not (5 or 6))
             throw new NotSupportedException($"Smog room initialization requires subid$05/$06, got ${subid:x2}.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
@@ -89,6 +90,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
 
     internal void InitializeIntro(ImportedEnemyDefinition record, int subid, Vector2 position)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != AgesEnemyId.Smog || subid is not (0 or 1))
             throw new NotSupportedException($"smog_state_uninitialized subid${subid:x2}: only intro forms are represented by InitializeIntro.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
@@ -100,6 +102,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
     internal void InitializeSmallCloud(ImportedEnemyDefinition record, int subid, int phase,
         Vector2 position, int direction, Func<int, byte> collision)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != AgesEnemyId.Smog || subid is not (2 or 0x82) || phase is < 0 or > 3)
             throw new NotSupportedException($"smog_state_uninitialized subid${subid:x2}, phase${phase:x2}: small-cloud initialization requires $02/$82 and phase0-3.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);
@@ -113,6 +116,7 @@ internal sealed partial class SmogCharacter : EnemyCharacter
     internal void InitializeMergedCloud(ImportedEnemyDefinition record, int subid, int phase,
         Vector2 position, int direction, Func<int, byte> collision)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != AgesEnemyId.Smog || subid is not (3 or 0x83) || phase is < 0 or > 3)
             throw new NotSupportedException($"smog_state_uninitialized merged subid${subid:x2}, phase${phase:x2} is not represented.");
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record), positionedOam: true);

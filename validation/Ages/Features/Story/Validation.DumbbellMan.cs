@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(AgesWramAddress.wTradeItem, (byte)value);
             _saveData.CommitInventoryChange();
             typeof(InventoryState).GetMethod("LoadFromSaveData",
-                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_inventory, null);
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_inventory, new object[] { _saveData });
         }
 
         DumbbellManCharacter Man() => _entities.Entities<DumbbellManCharacter>().Single();
@@ -175,7 +175,7 @@ public sealed partial class ValidationRoot
             Man().CurrentScriptAnimationSource != record.Animation1,
             "Completed trade failed to restore input while retaining lifting animation $01.");
 
-        FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) ||
+        FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var restored) ||
             restored is null || !restored.HasRoomFlag(2, 0xe8, 0x20) ||
             restored.ReadWramByte(AgesWramAddress.wTradeItem) != 0x06,
             "Room 2:e8 trade state did not survive save serialization.");

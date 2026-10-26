@@ -12,16 +12,20 @@ namespace Oracles;
 /// </summary>
 public sealed class NpcVisibilityRuleDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly Lookup<int, NpcVisibilityRuleDatabaseRule> _byInteraction =
         new();
 
     internal int RuleCount { get; private set; }
 
-    public NpcVisibilityRuleDatabase()
+    public NpcVisibilityRuleDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/npc_visibility.tsv",
+            AssetRoot + "objects/npc_visibility.tsv",
             new GeneratedTableSchema(
                 "NPC visibility rules",
                 GeneratedTableKeySemantics.Grouped,
@@ -116,12 +120,12 @@ public sealed class NpcVisibilityRuleDatabase
                 rule.Group, rule.Room, (byte)rule.Value),
             FlagKind.Treasure => save.HasTreasure(rule.Value),
             FlagKind.Linked => save.IsLinkedGame,
-            FlagKind.Essence => (save.ReadWramByte(AgesWramAddress.wEssencesObtained) & rule.Value) != 0,
+            FlagKind.Essence => (save.ReadField("wEssencesObtained") & rule.Value) != 0,
             FlagKind.Wram => (save.ReadWramByte(rule.Room) & rule.Value) != 0,
             FlagKind.RuntimeEquals =>
                 runtimeState.ReadWramByte(rule.Room) == rule.Value,
-            FlagKind.GameProgress1 => NpcStoryState.GetGameProgress1(save) == rule.Value,
-            FlagKind.GameProgress2 => NpcStoryState.GetGameProgress2(save) == rule.Value,
+            FlagKind.GameProgress1 => AgesNpcStoryState.GetGameProgress1(save) == rule.Value,
+            FlagKind.GameProgress2 => AgesNpcStoryState.GetGameProgress2(save) == rule.Value,
             _ => throw new InvalidOperationException(
                 $"Unhandled NPC visibility rule from {rule.Source}.")
         };
@@ -129,7 +133,7 @@ public sealed class NpcVisibilityRuleDatabase
     }
 
     internal static int GetGameProgress2(OracleSaveData save) =>
-        NpcStoryState.GetGameProgress2(save);
+        AgesNpcStoryState.GetGameProgress2(save);
 }
 
 internal enum FlagKind

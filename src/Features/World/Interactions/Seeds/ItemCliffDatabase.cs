@@ -6,12 +6,16 @@ namespace Oracles;
 /// <summary>itemPassableCliffTilesTable, indexed by collision set and direction.</summary>
 internal sealed class ItemCliffDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int CollisionSet, int Direction, int Tile), byte> _deltas = new();
 
-    internal ItemCliffDatabase()
+    internal ItemCliffDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/item_passable_cliffs.tsv",
+            AssetRoot + "metadata/item_passable_cliffs.tsv",
             new GeneratedTableSchema("item-passable cliffs", GeneratedTableKeySemantics.Unique,
                 ["collision-set", "direction", "order", "tile", "elevation-delta", "source"],
                 ["collision-set", "direction", "tile"], headerRequired: true));

@@ -33,7 +33,7 @@ public partial class ValidationRoot
                 FailIf(pixel != shade,$"Room-entry state${state:x2} native header pixel differs at tile${0x4c+tile:x2},({x},{y}).");
             }
         }
-        var data = new DungeonToggleTileDatabase();
+        var data = new DungeonToggleTileDatabase(AgesGameContent.AssetRoot);
         byte[] originals = [0x0e,0x0f,0x28,0x29];
         foreach (int group in new[] { 0,4,6 })
         foreach (int dungeon in new[] { 4,5,8,11 })

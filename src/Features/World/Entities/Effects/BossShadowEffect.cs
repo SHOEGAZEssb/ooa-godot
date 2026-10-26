@@ -11,7 +11,7 @@ namespace Oracles;
 public partial class BossShadowEffect : TransitionOffsetNode2D
 {
 
-    private static BossShadowEffectDefinition? _definition;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, BossShadowEffectDefinition> Definitions = new(System.StringComparer.Ordinal);
     private Func<Vector2> _parentPosition = null!;
     private Func<int> _parentZ = null!;
     private Func<bool> _parentExists = null!;
@@ -30,17 +30,18 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
         _size=size;
     }
 
-    internal void Initialize(
+    internal void Initialize(string assetRoot,
         Func<Vector2> parentPosition,
         Func<int> parentZ,
         Func<bool> parentExists,
         int size,
         int yOffset)
     {
+        AssetRoot = assetRoot;
         if (size is < 0 or > 2)
             throw new ArgumentOutOfRangeException(nameof(size));
 
-        BossShadowEffectDefinition definition = _definition ??= LoadDefinition();
+        BossShadowEffectDefinition definition = Definitions.GetOrAdd(AssetRoot, LoadDefinition);
         _parentPosition = parentPosition;
         _parentZ = parentZ;
         _parentExists = parentExists;
@@ -106,10 +107,10 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
         }
     }
 
-    private static BossShadowEffectDefinition LoadDefinition()
+    private static BossShadowEffectDefinition LoadDefinition(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/boss_shadow.tsv",
+            assetRoot + "effects/boss_shadow.tsv",
             new GeneratedTableSchema(
                 "boss shadow",
                 GeneratedTableKeySemantics.Ordered,
@@ -121,7 +122,7 @@ public partial class BossShadowEffect : TransitionOffsetNode2D
         int tileBase = row.UnsignedDecimal(1);
         int palette = row.UnsignedDecimal(2);
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
+            assetRoot + $"gfx/{sprite}.png");
         var textures = new Texture2D[4];
         for (int index = 0; index < textures.Length; index++)
         {

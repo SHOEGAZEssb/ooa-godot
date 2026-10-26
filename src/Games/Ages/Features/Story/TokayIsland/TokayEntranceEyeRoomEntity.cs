@@ -16,13 +16,14 @@ internal sealed partial class TokayEntranceEyeRoomEntity : TransitionOffsetNode2
 
     internal TokayEntranceEyeRoomEntity(TokayEntranceEyeRecord record)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         Record = record;
         Name = $"TokayEntranceEye_{record.SubId:x2}";
         Position = new Vector2(record.X, record.Y);
         ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
-            EnemyVisualSource.LoadComposite([record.Sprite]),
+            EnemyVisualSource.LoadComposite([record.Sprite], AgesGameContent.AssetRoot),
             [record.Animation],
             record.TileBase,
             record.Palette);

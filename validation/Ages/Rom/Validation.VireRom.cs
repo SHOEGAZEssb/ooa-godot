@@ -327,7 +327,7 @@ public sealed partial class ValidationRoot
         }
         // Bound content verification to the long introduction and linked
         // farewell: native paging, positioning, colors and slow controls.
-        var dialogue = new VireDialogueDatabase();
+        var dialogue = new VireDialogueDatabase(AgesGameContent.AssetRoot);
         RunDialogueRom(0x2f12,dialogue.Text(0x2f12),0,false,false);
         RunDialogueRom(0x2f18,dialogue.Text(0x2f18),0,true,false);
         GD.Print("Validated clean-US Vire $75 in Mermaid room $5:$12: real floor approach, intro/text freeze/resume, HP thresholds and main attacks, native item-parent avoidance, fixed movement/counters/animation/RNG/collision enablement, bat transformation/chase/charge/death boundaries, actual sword-button high-flight height rejection with XY overlap, low-flight swing/spin kills and cancellation/reuse, harmless hidden-parent contact after one bat death, unlinked departure, linked explosion/count transfer, flag$80/portal reward, repeat entry and two major dialogue variants through split/batched gameplay updates.");

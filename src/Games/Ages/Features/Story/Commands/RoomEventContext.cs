@@ -11,7 +11,7 @@ namespace Oracles;
 internal sealed class RoomEventContext(
     RoomSession rooms,
     RoomEntityManager entities,
-    RoomTransitionController transitions,
+    AgesRoomTransitionController transitions,
     DialogueBox dialogue,
     Player player,
     RoomView roomView,
@@ -32,7 +32,7 @@ internal sealed class RoomEventContext(
 
     public RoomSession Rooms { get; } = rooms;
     public RoomEntityManager Entities { get; } = entities;
-    public RoomTransitionController Transitions { get; } = transitions;
+    public AgesRoomTransitionController Transitions { get; } = transitions;
     public Player Player { get; } = player;
     public RoomView RoomView { get; } = roomView;
     public Func<long> AnimationTick { get; } = animationTick;
@@ -51,7 +51,7 @@ internal sealed class RoomEventContext(
         _dialogue.HeartPieceSetFilled += filled;
         _dialogue.HeartPieceSetAccepted += accepted;
     }
-    internal DialogueScreenDatabase DialogueScreens { get; } = new();
+    internal DialogueScreenDatabase DialogueScreens { get; } = new(AgesGameContent.AssetRoot);
     internal Func<DialogueScreenContext?> NativeDialogueScreen { get; set; } = () => null;
     internal Func<SaveResult> SaveFile {get;set;}=()=>throw new InvalidOperationException("Room scripts have no application save binding.");
     internal Action ResetGame {get;set;}=()=>throw new InvalidOperationException("Room cutscenes have no application reset binding.");

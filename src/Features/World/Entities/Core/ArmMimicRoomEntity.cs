@@ -9,8 +9,8 @@ internal sealed class ArmMimicRoomEntity
         IScreenTransitionPreloadRoomEntity, IItemCollisionHittableRoomEntity,
         IExpertPunchHittableRoomEntity
 {
-    private readonly IReadOnlyList<EnemyBehaviorValue> _collisionEffects =
-        EnemyBehaviorTables.Shared.ArmMimicCollisionEffects;
+    private IReadOnlyList<EnemyBehaviorValue>? _collisionEffectsSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _collisionEffects => _collisionEffectsSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ArmMimicCollisionEffects;
 
     internal ArmMimicRoomEntity(
         ArmMimicCharacter mimic,

@@ -8,14 +8,14 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom180OwlStatue()
     {
-        var owlDatabase = new OwlStatueDatabase();
+        var owlDatabase = new OwlStatueDatabase(AgesGameContent.AssetRoot);
         OwlStatueRecord owlRecord = owlDatabase.Record(0x06);
-        var seedDatabase = new SeedSatchelDatabase();
+        var seedDatabase = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
         SeedRecord mystery = seedDatabase.Mystery;
-        var treeDatabase = new SeedTreeDatabase();
+        var treeDatabase = new SeedTreeDatabase(AgesGameContent.AssetRoot);
         SeedTreePlacementRecord tree =
             treeDatabase.GetRoomRecords(1, 0x80).Single();
-        var enemyDatabase = new EnemyDatabase();
+        var enemyDatabase = new EnemyDatabase(AgesGameContent.AssetRoot);
         RoomObjectRecord owlPlacement = enemyDatabase
             .GetRoomObjects(1, 0x80)
             .Single();
@@ -88,7 +88,7 @@ public sealed partial class ValidationRoot
                 record.Id == 0x13 && record.SubId == 0x09),
             "The clean-US conditional enemy-object stream was not selected.");
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var rooms = new RoomSession(
             1, 0x80, static () => 0, static () => { }, save);
         OracleRoomData room = rooms.CurrentRoom;

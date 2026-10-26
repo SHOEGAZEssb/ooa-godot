@@ -31,7 +31,7 @@ internal sealed class CleansedFairyRoomEntity : NpcCharacterRoomEntityAdapter,
         Action<int> sound, Action<string> showText, Func<bool> textActive,
         Func<bool> paletteActive, Action fade, Action clean)
         : this(data, position, runtime, sound, showText, textActive, paletteActive, fade, clean,
-            NpcCharacter.CreateFromRecord(data.Visual("fairy", position))) { }
+            NpcCharacter.CreateFromRecord(data.Visual("fairy", position), AgesGameContent.AssetRoot)) { }
     private CleansedFairyRoomEntity(SeaFairyDatabase data, Vector2 position, OracleRuntimeState runtime,
         Action<int> sound, Action<string> showText, Func<bool> textActive,
         Func<bool> paletteActive, Action fade, Action clean, NpcCharacter actor)

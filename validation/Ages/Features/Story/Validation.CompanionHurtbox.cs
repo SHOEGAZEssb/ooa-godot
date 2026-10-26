@@ -6,7 +6,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateMountedCompanionHurtbox()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         RoomObjectRecord source = RoomEnemyPlacements(database, 0, 0x74, EnemyId.Octorok, 0x00)[0];
         var texture = ImageTexture.CreateFromImage(Image.CreateEmpty(1, 1, false, Image.Format.Rgba8));
         foreach (int id in new[] { 0x0b, 0x0c, 0x0d })

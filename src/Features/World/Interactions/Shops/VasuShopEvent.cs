@@ -11,11 +11,14 @@ namespace Oracles;
 /// </summary>
 internal sealed class VasuShopEvent : IRoomEvent
 {
+    private string AssetRoot => _context.Rooms.AssetRoot;
+
 
     private readonly RoomEventContext _context;
     private RoomEventResources? _resources;
     private RoomEventResources EventResources => _resources ??= new(_context, this);
-    private readonly VasuShopDatabase _database = new();
+    private VasuShopDatabase? _databaseSourceCache;
+    private VasuShopDatabase _database => _databaseSourceCache ??= new(AssetRoot);
     private NpcCharacter? _npc;
     private GroundTreasurePickup? _reward;
     private EventStage _stage;
@@ -488,8 +491,8 @@ internal sealed class VasuShopEvent : IRoomEvent
     private void GenerateRingSecret()
     {
         OracleSaveData save = _context.Rooms.SaveData;
-        save.SetGlobalFlag(GlobalFlag.RingSecretGenerated);
-        _ringSecret = new LinkedGameNpcDatabase().GenerateRingSecretText(save);
+        save.MarkRingSecretGenerated();
+        _ringSecret = new LinkedGameNpcDatabase(AssetRoot).GenerateRingSecretText(save);
         ShowRingSecret();
     }
 

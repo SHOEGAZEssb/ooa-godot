@@ -15,7 +15,6 @@ internal sealed class EnemyBehaviorTables
 {
     private static readonly ConcurrentDictionary<string, Lazy<EnemyBehaviorTables>> Packs = new(StringComparer.Ordinal);
 
-    internal static EnemyBehaviorTables Shared => For(AgesGameContent.AssetRoot);
 
     internal static EnemyBehaviorTables For(string assetRoot)
     {

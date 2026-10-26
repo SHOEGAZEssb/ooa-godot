@@ -7,9 +7,8 @@ internal partial class ThwompCharacter : EnemyCharacter
     internal override bool InitializationPending => _state == ThwompState.Uninitialized;
 
     private const int ArmoredInvincibilityFrames = 28;
-    private readonly ArmoredSwordAttackerKnockbackProfile
-        _attackerKnockback =
-            EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+    private ArmoredSwordAttackerKnockbackProfile? _attackerKnockbackSourceCache;
+    private ArmoredSwordAttackerKnockbackProfile _attackerKnockback => _attackerKnockbackSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback;
     private OracleRoomData _room = null!;
     private ThwompState _state;
     private int _counter;
@@ -33,6 +32,7 @@ internal partial class ThwompCharacter : EnemyCharacter
         OracleRoomData room,
         Vector2 position)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _yFixed = Mathf.FloorToInt(position.Y * 256.0f);
@@ -50,7 +50,7 @@ internal partial class ThwompCharacter : EnemyCharacter
         if (BeginFrame())
             return;
         ThwompBehaviorProfile behavior =
-            EnemyBehaviorTables.Shared.Thwomp;
+            EnemyBehaviorTables.For(AssetRoot).Thwomp;
         switch (_state)
         {
             case ThwompState.Uninitialized:
@@ -131,7 +131,7 @@ internal partial class ThwompCharacter : EnemyCharacter
     internal bool IsLinkRiding(Player player, out float targetY)
     {
         ThwompBehaviorProfile behavior =
-            EnemyBehaviorTables.Shared.Thwomp;
+            EnemyBehaviorTables.For(AssetRoot).Thwomp;
         float contactPlane = Position.Y - Record.RadiusY - 6;
         targetY =
             contactPlane - behavior.RidingSlopY;

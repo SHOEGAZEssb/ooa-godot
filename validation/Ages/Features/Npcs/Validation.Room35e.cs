@@ -10,8 +10,8 @@ public sealed partial class ValidationRoot
     private void ValidateRoom35eSubrosian()
     {
         // mainData.s:group3Map5eObjectData contains only $4e:$03 at Y/X=$38/$50.
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(3, 0x5e).Single();
-        LinkedGameNpcDatabaseRecord secret = new LinkedGameNpcDatabase().Get(3, 0x5e, 0x4e, 3);
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(3, 0x5e).Single();
+        LinkedGameNpcDatabaseRecord secret = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).Get(3, 0x5e, 0x4e, 3);
         var landing = new TimeWarpLandingDatabase();
         FailIf(record is not { Id: 0x4e, SubId: 3, Var03: 0, Y: 0x38, X: 0x50,
                 TextId: 0x4d0a, CanFace: true, DefaultAnimation: 2,
@@ -173,7 +173,7 @@ public sealed partial class ValidationRoot
             FailIf(_player.CutsceneControlled || _interactions.NpcScriptsForValidation.BlocksGameplay ||
                 !_saveData.HasGlobalFlag(0x52),
                 "3:5e room-exit cancellation must release input and retain flag $52.");
-            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? restored) ||
+            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out OracleSaveData? restored) ||
                 restored is null || !restored.HasGlobalFlag(0x52) || !restored.IsLinkedGame,
                 "3:5e linked state and flag $52 did not survive save serialization.");
             LoadValidationRoom(3, 0x5e);

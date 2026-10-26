@@ -20,7 +20,7 @@ internal sealed class TuniNutDatabase
             new GeneratedTableSchema("tuniNutMain.s/$84:$07 visuals", GeneratedTableKeySemantics.Unique,
                 ["name", "sprite", "source-offset", "tile-base", "palette", "animation"], ["name"], headerRequired: true));
         foreach (var row in visuals.Rows)
-            _visuals.Add(row.RequiredString(0), new(row.RequiredString(1), row.Decimal(2, 0, 65535),
+            _visuals.Add(row.RequiredString(0), new(AgesGameContent.AssetRoot, row.RequiredString(1), row.Decimal(2, 0, 65535),
                 row.Decimal(3, 0, 255), row.Decimal(4, 0, 7), row.RequiredString(5)));
         _ = Visual("nut"); _ = Visual("sparkle");
         if (_visuals.Count != 2) throw new InvalidOperationException("tuniNutMain.s: unexpected visual count.");

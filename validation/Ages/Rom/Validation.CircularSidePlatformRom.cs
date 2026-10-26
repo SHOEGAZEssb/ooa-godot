@@ -20,7 +20,7 @@ public sealed partial class ValidationRoot
         {
             var rom = PrepareSideViewRom(6, 0x2b, new(24, 8), feather: true);
             var sounds = _sound.AttachPlayRequestAudit();
-            var visual = new DungeonInteractionVisualDatabase().Visual("circular-side-platform");
+            var visual = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("circular-side-platform");
             var platforms = rows.Select(row => new CircularSideScrollPlatformRoomEntity(
                 row, visual, SideViewInteractionData.CircularSidePlatform(row.SubId))).ToArray();
             foreach (var platform in platforms)

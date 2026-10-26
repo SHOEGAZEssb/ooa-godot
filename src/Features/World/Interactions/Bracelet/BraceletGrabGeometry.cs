@@ -10,9 +10,9 @@ internal sealed class BraceletGrabGeometry
     private readonly Vector2I[] _offsets = new Vector2I[4];
     private readonly int[] _zSubtract = new int[4];
     private readonly int[] _zRadius = new int[4];
-    internal BraceletGrabGeometry()
+    internal BraceletGrabGeometry(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/bracelet_grab_geometry.tsv",
+        var table = GeneratedTable.Load(assetRoot + "metadata/bracelet_grab_geometry.tsv",
             new GeneratedTableSchema("checkGrabbableObjects", GeneratedTableKeySemantics.Unique,
                 ["direction","x","y","z-subtract","z-radius","source"], ["direction"], headerRequired: true));
         if (table.Rows.Count != 4) throw new InvalidOperationException("checkGrabbableObjects requires four ordered direction rows.");

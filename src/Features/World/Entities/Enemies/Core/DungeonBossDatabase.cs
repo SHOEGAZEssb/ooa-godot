@@ -11,6 +11,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class DungeonBossDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int Id, int SubId), ImportedEnemyDefinition>
         _enemies = new();
     private readonly Dictionary<string, int> _constants =
@@ -18,8 +20,10 @@ internal sealed class DungeonBossDatabase
     private readonly Dictionary<int, Color[]> _headThwompPalettes = new();
     private readonly Dictionary<int, Color[]> _subterrorPalettes = new();
 
-    internal DungeonBossDatabase()
+    internal DungeonBossDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         LoadEnemies();
         LoadConstants();
         LoadHeadThwompPalettes();
@@ -47,7 +51,7 @@ internal sealed class DungeonBossDatabase
     private void LoadEnemies()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_bosses.tsv",
+            AssetRoot + "objects/dungeon_bosses.tsv",
             new GeneratedTableSchema(
                 "implemented dungeon bosses",
                 GeneratedTableKeySemantics.Unique,
@@ -60,7 +64,7 @@ internal sealed class DungeonBossDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            ImportedEnemyDefinition record = new(
+            ImportedEnemyDefinition record = new(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.SplitRequired(2, ','),
@@ -82,7 +86,7 @@ internal sealed class DungeonBossDatabase
     private void LoadHeadThwompPalettes()
     {
         Color[,] palettes = OracleGraphicsData.LoadPalette(
-            AgesGameContent.AssetRoot + "objects/dungeon_head_thwomp_palette.bin",
+            AssetRoot + "objects/dungeon_head_thwomp_palette.bin",
             1,
             6);
         var colors = new Color[4];
@@ -94,7 +98,7 @@ internal sealed class DungeonBossDatabase
     private void LoadSubterrorPalettes()
     {
         Color[,] palettes = OracleGraphicsData.LoadPalette(
-            AgesGameContent.AssetRoot + "objects/dungeon_subterror_palette.bin",
+            AssetRoot + "objects/dungeon_subterror_palette.bin",
             1,
             6);
         var colors = new Color[4];
@@ -106,7 +110,7 @@ internal sealed class DungeonBossDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_boss_constants.tsv",
+            AssetRoot + "objects/dungeon_boss_constants.tsv",
             new GeneratedTableSchema(
                 "implemented dungeon boss constants",
                 GeneratedTableKeySemantics.Unique,

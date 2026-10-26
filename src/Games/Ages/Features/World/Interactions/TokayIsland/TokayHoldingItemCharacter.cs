@@ -43,7 +43,8 @@ internal partial class TokayHoldingItemCharacter : TokayCharacter
         TokayHeldItemRecord item,
         bool itemReturned)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         if (record.Id != AgesInteractionId.Tokay || record.SubId != item.SubId ||
             record.SubId is < 0x06 or > 0x0a)
         {

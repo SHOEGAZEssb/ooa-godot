@@ -8,8 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateNewFileSecretCodecRom()
     {
-        var codec = new LinkedGameNpcDatabase();
-        byte[] glyphs = new SecretEntryDatabase().Glyphs;
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
+        byte[] glyphs = new SecretEntryDatabase(AgesGameContent.AssetRoot).Glyphs;
         int cases = 0;
         void Compare(byte[] symbols, string context)
         {
@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
         foreach (int variant in new[] { 0, 1, 2 })
         foreach (int child in new[] { 0, 1, 5, 6, 10, 11, 63 })
         {
-            var source = OracleSaveData.CreateStandardGame();
+            var source = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             source.SetLinkName("LinkZ"); source.NameChild("Pip");
             source.WriteWramByte(0xc600, (byte)(8 + ((cipher + 6) & 7)));
             source.WriteWramByte(0xc601, 0x12);
@@ -83,7 +83,7 @@ public sealed partial class ValidationRoot
                 var rom = new FrontendRom(); rom.InitializeMenu();
                 var sounds = root._sound.AttachPlayRequestAudit(); rom.Sounds.Clear();
                 var screen = root._mainMenuScreen!; var menu = root._mainMenu!;
-                var keyboard = new SecretEntryDatabase();
+                var keyboard = new SecretEntryDatabase(AgesGameContent.AssetRoot);
                 int update = 0;
                 void Step(int count = 1, int keys = 0, int? held = null)
                 {
@@ -133,13 +133,13 @@ public sealed partial class ValidationRoot
                 // Navigate the actual lower row to BACK and confirm through A.
                 while (screen.NameLowerChoice != 2) Step(keys: 0x10);
                 Step(keys: 1); Step(); Step();
-                FailIf(root.FileSlotExists(slot), "Cancelling a new-file secret wrote a save.");
+                FailIf(root.FileSlotExists(slot, OracleGame.Ages), "Cancelling a new-file secret wrote a save.");
                 Open();
-                var source = OracleSaveData.CreateStandardGame(); source.SetLinkName("LINK"); source.NameChild("PIP");
+                var source = OracleSaveData.CreateStandardGame(OracleGame.Ages); source.SetLinkName("LINK"); source.NameChild("PIP");
                 source.WriteWramByte(AgesWramAddress.wWhichGame, 0);
                 source.WriteWramByte(0xc600, 0x34); source.WriteWramByte(0xc601, 0x12);
                 source.WriteWramByte(AgesWramAddress.wChildStatus, 6); source.WriteWramByte(AgesWramAddress.wAnimalCompanion, 0x0c);
-                var codec = new LinkedGameNpcDatabase(); byte[] secret = codec.GenerateGameTransferSecretValues(source);
+                var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot); byte[] secret = codec.GenerateGameTransferSecretValues(source);
                 foreach (byte symbol in secret)
                 {
                     char target = (char)keyboard.Glyphs[symbol];
@@ -152,14 +152,14 @@ public sealed partial class ValidationRoot
                 FailIf(!screen.EnteredSecret.SequenceEqual(secret) || screen.NameEntryPosition != 19,
                     "Twenty-character keyboard entry did not reach the final slot.");
                 Step(keys: 8); Step(keys: 8);
-                FailIf(root.FileSlotExists(slot), "Secret confirmation saved before mode6 state 2.");
+                FailIf(root.FileSlotExists(slot, OracleGame.Ages), "Secret confirmation saved before mode6 state 2.");
                 Step(); Step();
-                byte[] payload = root.FileSlotSnapshot(slot);
+                byte[] payload = root.FileSlotSnapshot(slot, OracleGame.Ages);
                 for (int index = 0; index < payload.Length; index++)
                 foreach (bool backup in new[] { false, true })
                     FailIf(payload[index] != rom.SavedByte(slot, 0xc5b0 + index, backup),
                         $"Secret file ${slot:x2}: saved byte ${0xc5b0 + index:x4} differs from ROM.");
-                FailIf(!OracleSaveData.TryDeserialize(payload, out var saved) || saved!.LinkName != "LINK" ||
+                FailIf(!OracleSaveData.TryDeserialize(payload, OracleGame.Ages, out var saved) || saved!.LinkName != "LINK" ||
                     !saved.IsLinkedGame || saved.MaxHealthQuarters != 16 || saved.ReadWramByte(AgesWramAddress.wSwordLevel) != 1 ||
                     saved.ReadWramByte(AgesWramAddress.wChildStage) != 5 || saved.ReadWramByte(AgesWramAddress.wChildPersonality) != 1,
                     "New linked file did not persist its transferred identity, four hearts, sword or child state.");
@@ -178,7 +178,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateNewFileSecretSaveFailure()
     {
-        var screen = new MainMenuScreen(); AddChild(screen);
+        var screen = new MainMenuScreen { AssetRoot = AgesGameContent.AssetRoot }; AddChild(screen);
         try
         {
             OracleSaveData? stored = null;
@@ -196,10 +196,10 @@ public sealed partial class ValidationRoot
                 finally { Input.EndOriginalUpdate(); }
             }
             Tick("attack"); Tick(); Tick("move_down"); Tick("attack"); Tick();
-            var source = OracleSaveData.CreateStandardGame(); source.SetLinkName("HERO");
+            var source = OracleSaveData.CreateStandardGame(OracleGame.Ages); source.SetLinkName("HERO");
             source.WriteWramByte(AgesWramAddress.wWhichGame, 0);
-            byte[] symbols = new LinkedGameNpcDatabase().GenerateGameTransferSecretValues(source);
-            byte[] glyphs = new SecretEntryDatabase().Glyphs;
+            byte[] symbols = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateGameTransferSecretValues(source);
+            byte[] glyphs = new SecretEntryDatabase(AgesGameContent.AssetRoot).Glyphs;
             foreach (byte symbol in symbols) screen.AppendNameCharacter((char)glyphs[symbol]);
             Tick("inventory"); Tick("inventory"); Tick();
             FailIf(!screen.SaveErrorVisible || stored is not null || menu.CurrentPage != Page.SecretEntry,

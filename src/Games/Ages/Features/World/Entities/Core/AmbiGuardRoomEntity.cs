@@ -98,7 +98,7 @@ internal sealed class AmbiGuardRoomEntity : CombatEnemyRoomEntityAdapter<AmbiGua
     public override SeedHitResult ApplySeedHit(Rect2 bounds, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
         if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("ENEMY_AMBI_GUARD $54 requires Mystery's live collision type.");
-        if (!new SeedSatchelDatabase().TryGet(seedItem, out var seed)) return SeedHitResult.None;
+        if (!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(seedItem, out var seed)) return SeedHitResult.None;
         return ApplySeedCollision(bounds, origin, seed, seed.Collision & 31, spawns).Effect;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed, int collision,

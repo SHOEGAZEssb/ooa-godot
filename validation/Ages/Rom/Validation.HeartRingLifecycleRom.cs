@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
         {
             if (tile != 0x2c && (ring != (int)RingId.HeartL2 ||
                 (angle != 8 && (tile != 0xf8 || angle != 4)) || airborne)) continue;
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc6aa, 0x14); save.WriteWramByte(0xc6ab, 0x30);
             InitializeTransientSession(save);
             LoadValidationRoom(tile == 0xa0 ? 2 : tile is 0x8a or 0x54 ? 4 : 0,

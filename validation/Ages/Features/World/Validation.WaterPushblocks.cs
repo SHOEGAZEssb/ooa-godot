@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
                     "$9e started before the 30th consecutive centered push.");
                 var drop = _entities.Spawn<ItemDropEffect>(new ItemDropSpawn(ItemDropDatabase.OneRupee, new Vector2(0x78, 0x38)));
                 var puff = _entities.Spawn<PuzzlePuffEffect>(new PuzzlePuffSpawn(new Vector2(0x78, 0x38), SoundId.MusNone));
-                var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase().Data, 1, _ => { }));
+                var bomb = _entities.Spawn<BombEffect>(new BombSpawn(_player, new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data, 1, _ => { }));
                 _sound.ClearPlayRequestAudit();
                 int randomBefore = _entities.RandomCalls;
                 Vector2 initialBlock = block.Position;
@@ -179,7 +179,7 @@ public sealed partial class ValidationRoot
                 FailIf(block.State != 4 || Mathf.Abs(_player.Position.X - block.Position.X) != 12,
                     "$9e state 4 moved again or stopped being solid on a repeated approach.");
                 CheckFlags(!reverse);
-                FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) ||
+                FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var restored) ||
                     affected.Any(key => restored!.HasRoomFlag(key >> 8, key & 255, 1) != !reverse),
                     "$9e layout flags did not survive explicit save serialization and reload.");
                 foreach (int key in affected)

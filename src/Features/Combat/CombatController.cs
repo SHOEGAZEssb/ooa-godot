@@ -5,6 +5,8 @@ namespace Oracles;
 
 public sealed class CombatController
 {
+    private string AssetRoot => _rooms.AssetRoot;
+
     private readonly RoomSession _rooms;
     private readonly RoomView _roomView;
     private readonly RoomEntityManager _entities;
@@ -31,7 +33,7 @@ public sealed class CombatController
         _saveData = saveData;
         _sound = sound;
         _animationTick = animationTick;
-        _linkItems = LinkItemDatabase.Shared;
+        _linkItems = LinkItemDatabase.For(AssetRoot);
     }
 
     public bool ApplySwordHit(Player player, Rect2 hitbox)

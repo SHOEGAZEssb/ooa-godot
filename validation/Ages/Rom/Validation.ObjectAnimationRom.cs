@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var counterField = typeof(EnemyAnimationPlayer).GetField("_frameCounter", flags)!;
         var npcTicks = typeof(NpcCharacter).GetField("_animationTicks", flags)!;
-        var enemies = EnemyDatabase.Shared;
+        var enemies = EnemyDatabase.For(AgesGameContent.AssetRoot);
         int streams = 0, comparisons = 0;
         void CheckStreams(int kind, int id, string[] encoded)
         {
@@ -24,8 +24,8 @@ public sealed partial class ValidationRoot
             using var sheet = Image.CreateEmpty(256, 256, false, Image.Format.Rgba8);
             playback.Load(sheet, encoded, 0, 0);
             var npc = new NpcCharacter();
-            var record = NpcDatabase.Shared.GetRoomNpcs(0, 0x66).First();
-            npc.Initialize(record);
+            var record = NpcDatabase.For(AgesGameContent.AssetRoot).GetRoomNpcs(0, 0x66).First();
+            npc.Initialize(record, AgesGameContent.AssetRoot);
             try
             {
                 for (int animation = 0; animation < encoded.Length; animation++)

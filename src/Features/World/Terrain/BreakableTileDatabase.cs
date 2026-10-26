@@ -6,6 +6,8 @@ namespace Oracles;
 
 public sealed class BreakableTileDatabase
 {
+    public string AssetRoot { get; }
+
     // constants/common/tileIndices.s: TILEINDEX_SIGN
     private const byte SignTile = 0xf2;
     public const int SourceBracelet = 0x00;
@@ -24,10 +26,12 @@ public sealed class BreakableTileDatabase
 
     private readonly Dictionary<int, BreakableTileRecord> _records = new();
 
-    public BreakableTileDatabase()
+    public BreakableTileDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/breakable_tiles.tsv",
+            AssetRoot + "metadata/breakable_tiles.tsv",
             new GeneratedTableSchema(
                 "breakable tiles",
                 GeneratedTableKeySemantics.Unique,

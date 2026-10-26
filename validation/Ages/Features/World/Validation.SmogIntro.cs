@@ -8,7 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogIntro()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         // TX_2f26 has an explicit top position and a normal implicit terminator;
         // TX_2f27 is a separate taunt, not part of the introduction.
         const string introduction = "\\pos(2)It's time for\nour little game!\nI break apart.\nIf you can\nforce me back\ntogether and\nblow me away,\nit ends!\nBut before you\ndo, I shall\ntake a bit of\nyour soul!!!\nNow begin!";

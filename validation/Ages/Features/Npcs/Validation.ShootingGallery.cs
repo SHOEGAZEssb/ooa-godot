@@ -476,7 +476,7 @@ public sealed partial class ValidationRoot
         {
             _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, null);
+            reloadInventory.Invoke(_inventory, new object[] { _saveData });
             _random.RestoreState(randomSnapshot);
             if (_dialogue.IsOpen)
                 _dialogue.Close();

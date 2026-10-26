@@ -34,7 +34,8 @@ public partial class PushBlockController : Node2D
     private PushableTileRecord _record;
     private Texture2D? _blockTexture;
     private bool _linkMovementDisabled;
-    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase().Data;
+    private BraceletDatabaseRecord? _braceletCache;
+    private BraceletDatabaseRecord _bracelet => _braceletCache ??= new BraceletDatabase(_rooms.AssetRoot + "metadata/bracelet.tsv").Data;
     private int _activeMoveFrames = MoveFrames;
     private float _activeMoveSpeedPerFrame = MoveSpeedPerFrame;
 

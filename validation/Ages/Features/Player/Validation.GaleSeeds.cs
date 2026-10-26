@@ -17,7 +17,7 @@ public sealed partial class ValidationRoot
         _entities.ApplySwordHit(firstGale.CollisionBounds, _player.Position);
         for (int i = 0; i < 120 && !_inventory.HasTreasure(TreasureId.GaleSeeds); i++)
             base._Process(1.0 / 60.0);
-        FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != DialogueBox.PlainText(new SeedTreeDatabase().Type(3).IntroMessage) ||
+        FailIf(!_dialogue.IsOpen || _dialogue.CurrentMessage != DialogueBox.PlainText(new SeedTreeDatabase(AgesGameContent.AssetRoot).Type(3).IntroMessage) ||
             _inventory.GaleSeeds != 0x06 || firstGale.State != SeedOnTreeState.AwaitingIntroText,
             $"First tree pickup did not display TX_002c, grant six Gale Seeds, and wait for text closure: open={_dialogue.IsOpen}, seeds=${_inventory.GaleSeeds:x2}, state={firstGale.State}, text={_dialogue.CurrentMessage}.");
         _dialogue.Close();
@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateGaleSeeds()
     {
-        SeedRecord gale = new SeedSatchelDatabase().Gale;
+        SeedRecord gale = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Gale;
         FailIf(gale.SeedItem != 0x23 || gale.InitialZ != -8 || gale.SpeedRaw != 0 ||
             gale.FlameCounter != 180 || gale.CollisionEffectCounter != 50 ||
             gale.FlameSound != 0x90 || gale.Collision != 0x9e,
@@ -46,7 +46,7 @@ public sealed partial class ValidationRoot
         EmberSeedEffect NewSeed(OracleRoomData room, int group, SeedLaunchKind kind = SeedLaunchKind.Satchel)
         {
             var seed = new EmberSeedEffect();
-            seed.Initialize(gale, room, new BreakableTileDatabase(), point, Vector2I.Up,
+            seed.Initialize(gale, room, new BreakableTileDatabase(AgesGameContent.AssetRoot), point, Vector2I.Up,
                 sounds.Add, (_, _) => { }, () => { }, () => 0, _ => null, _saveData, group,
                 launchKind: kind);
             return seed;
@@ -137,7 +137,7 @@ public sealed partial class ValidationRoot
         FailIf(_player.GaleActive || _player.Position != point,
             "Gale cancel did not fall back to the original room coordinate.");
 
-        var destinations = new GaleTreeWarpDatabase();
+        var destinations = new AgesGaleTreeWarpDatabase(AgesGameContent.AssetRoot);
         _saveData.SetRoomFlag(0, 0x13, OracleSaveData.RoomFlagVisited);
         _saveData.SetRoomFlag(0, 0x78, OracleSaveData.RoomFlagVisited);
         FailIf(destinations.Get(_rooms, 0).Room != 0x13 || destinations.Move(_rooms, -1, 1) != 0 ||

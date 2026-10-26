@@ -28,13 +28,14 @@ public partial class MaskedMoblinCharacter : EnemyCharacter
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         _record = record;
         _random = random;
         _movement = new EnemyTerrainMovement(this, room);
         _state = MoblinState.Uninitialized;
         InitializeEnemy(
             position,
-            EnemyCharacterConfiguration.FromSprite(
+            EnemyCharacterConfiguration.FromSprite(record.AssetRoot,
                 record.Health,
                 record.CollisionRadiusX,
                 record.CollisionRadiusY,

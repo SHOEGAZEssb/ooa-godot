@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
         foreach(int choice in seeds>0?new[]{0,1}:new[]{0})
         foreach(int free in new[]{0,1,2})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);_saveData.WriteWramByte(AgesWramAddress.wDimitriState,heard?(byte)1:(byte)0);
             _inventory.GiveTreasure(TreasureId.Essence,2);_inventory.GiveTreasure(TreasureId.EmberSeeds,Math.Max(0,seeds));
@@ -50,7 +50,7 @@ public sealed partial class ValidationRoot
                 if(_dialogue.IsOpen)
                 {
                     int id=native.Word(0xcba2)-0x400;texts.Add(id);
-                    string expected=id==0x2100?new DimitriDatabase().Text(id):new TokayInteractionDatabase().Text(id);
+                    string expected=id==0x2100?new DimitriDatabase(AgesGameContent.AssetRoot).Text(id):new TokayInteractionDatabase().Text(id);
                     FailIf(_dialogue.CurrentMessage!=DialogueBox.PlainText(expected),source+$" update{updates}: text TX_${id:x4} differs.");
                     if(id==0x0a20)FailIf(!_dialogue.ChoiceActive||!_dialogue.CurrentMessage.Contains("Will you trade"),"Unterminated TX_0a20 must include TX_0a21's source choice.");
                 }
@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
             if(!heard)FailIf(!texts.IsSupersetOf(new[]{0x0a1d,0x0a1e,0x2100}),source+": missing original introduction text.");
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int at=0xd040+_entities.InteractionSlot(puff)*256;native[at]=1;native[at+1]=0x48;native[at+2]=0x1b;native[at+4]=1;
             }
             FailIf(!slots[0].Script!.TryInteract(new(slots[0].Npc,null),_player),source+": cannot queue first Tokay A.");native[0xd271]=1;

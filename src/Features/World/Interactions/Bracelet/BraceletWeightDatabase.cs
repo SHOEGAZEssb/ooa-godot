@@ -5,12 +5,19 @@ namespace Oracles;
 
 internal sealed class BraceletWeightDatabase
 {
-    internal static BraceletWeightDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<BraceletWeightDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static BraceletWeightDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<BraceletWeightDatabase>(() => new BraceletWeightDatabase(root))).Value;
+
     private readonly BraceletWeight[] _weights = new BraceletWeight[6];
     private readonly Vector2I[,,] _offsets = new Vector2I[5,4,4];
-    internal BraceletWeightDatabase()
+    internal BraceletWeightDatabase(string assetRoot)
     {
-        var weights = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/bracelet_weights.tsv",
+        AssetRoot = assetRoot;
+
+        var weights = GeneratedTable.Load(AssetRoot + "metadata/bracelet_weights.tsv",
             new GeneratedTableSchema("itemWeights", GeneratedTableKeySemantics.Unique,
                 ["weight","gravity","initial-speed-z","speed-raw","toss-speed-raw","source"], ["weight"], headerRequired: true));
         if (weights.Rows.Count != 6) throw new InvalidOperationException("itemWeights requires six Ages rows.");
@@ -21,7 +28,7 @@ internal sealed class BraceletWeightDatabase
             _weights[i] = new(row.Decimal(1,0,255), row.Decimal(2,-256,-1), row.Decimal(3,0,255), row.Decimal(4,0,255));
             _ = row.RequiredString(5);
         }
-        var offsets = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/bracelet_weight_offsets.tsv",
+        var offsets = GeneratedTable.Load(AssetRoot + "metadata/bracelet_weight_offsets.tsv",
             new GeneratedTableSchema("liftedObjectPositions", GeneratedTableKeySemantics.Unique,
                 ["weight","frame","direction","z","x","source"], ["weight","frame","direction"], headerRequired: true));
         if (offsets.Rows.Count != 80) throw new InvalidOperationException("liftedObjectPositions requires 80 Ages Z/X pairs.");

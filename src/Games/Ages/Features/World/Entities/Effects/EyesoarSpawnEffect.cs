@@ -13,9 +13,10 @@ internal sealed partial class EyesoarSpawnEffect : FixedEffectNode2D
     internal int Parameter => _animation.CurrentParameter;
     internal void Initialize(Vector2 position, DungeonInteractionVisual visual, Action<int> sound)
     {
+        AssetRoot = visual.AssetRoot;
         Position = position.Floor(); _sound = sound; ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new(this, 1);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations,
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations,
             visual.TileBase, visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted, positionedOam: true);
         _animation.SetAnimation(0);
     }

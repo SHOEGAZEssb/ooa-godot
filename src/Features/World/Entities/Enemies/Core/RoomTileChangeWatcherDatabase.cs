@@ -9,6 +9,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class RoomTileChangeWatcherDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly Lookup<
         (int Group, int Room),
@@ -16,10 +18,12 @@ internal sealed class RoomTileChangeWatcherDatabase
 
     internal int RecordCount { get; }
 
-    internal RoomTileChangeWatcherDatabase()
+    internal RoomTileChangeWatcherDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/tile_change_watchers.tsv",
+            AssetRoot + "objects/tile_change_watchers.tsv",
             new GeneratedTableSchema(
                 "room tile-change watchers",
                 GeneratedTableKeySemantics.Grouped,

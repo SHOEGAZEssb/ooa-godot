@@ -23,7 +23,7 @@ public partial class ValidationRoot
             FailIf(eyes.Count != 3 || eyes.Any(eye => eye.Visible),"Crown must create three initially hidden PART $46 eyes.");
             var eye = eyes.Single(eye => eye.Position == new Vector2(120,56));
             Step();
-            var seeds = new SeedSatchelDatabase();
+            var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
             FailIf(!seeds.TryGet(ItemId.EmberSeed,out var seed),"Missing Ember Seed fixture.");
             for (int repeat = 0; repeat < 2; repeat++)
             {

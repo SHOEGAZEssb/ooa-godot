@@ -9,10 +9,10 @@ internal sealed class ArmosRoomEntity
         IItemCollisionHittableRoomEntity, ILinkSwordStateAwareRoomEntity,
         ISwordAttackerKnockbackRoomEntity
 {
-    private readonly IReadOnlyList<EnemyBehaviorValue> _collisionEffects =
-        EnemyBehaviorTables.Shared.ArmosCollisionEffects;
-    private readonly ArmoredSwordAttackerKnockbackProfile _attackerKnockback =
-        EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+    private IReadOnlyList<EnemyBehaviorValue>? _collisionEffectsSourceCache;
+    private IReadOnlyList<EnemyBehaviorValue> _collisionEffects => _collisionEffectsSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ArmosCollisionEffects;
+    private ArmoredSwordAttackerKnockbackProfile? _attackerKnockbackSourceCache;
+    private ArmoredSwordAttackerKnockbackProfile _attackerKnockback => _attackerKnockbackSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback;
     private SwordActionState _swordState;
     private int _swordCollision=ItemCollisionType.L1Sword;
 

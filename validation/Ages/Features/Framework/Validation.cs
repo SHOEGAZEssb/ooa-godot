@@ -291,6 +291,10 @@ public sealed partial class ValidationRoot : GameRoot
         RunIsolatedValidation(ValidateControllerDirectionCombinations);
         RunIsolatedValidation(ValidateGeneratedTableReader);
         RunIsolatedValidation(ValidateGameContentBoundaries);
+        RunIsolatedValidation(ValidateSeasonsOpeningAssets);
+        RunIsolatedValidation(ValidateSeasonsFrontend);
+        RunIsolatedValidation(ValidateSeasonsMenuAssets);
+        RunIsolatedValidation(ValidateSeasonsOpeningFlow);
         RunIsolatedValidation(ValidateMenuLifecycleFoundation);
         RunIsolatedValidation(ValidateRepresentativeRooms);
         RunIsolatedValidation(ValidateNuunCompanionLayouts);

@@ -54,6 +54,7 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
         Func<bool> dialogueOpen,
         Action<int> soundRequested)
     {
+        AssetRoot = database.AssetRoot;
         _database = database;
         _controller = controller;
         _type = type;
@@ -69,7 +70,7 @@ internal partial class SeedOnTree : TransitionOffsetNode2D
         Visible = true;
 
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{database.Visual.Sprite}.png");
+            AssetRoot + $"gfx/{database.Visual.Sprite}.png");
         AnimationDefinition animation =
             OracleGraphicsCache.GetAnimationDefinition(database.Visual.Animation);
         if (animation.Frames.Length == 0)

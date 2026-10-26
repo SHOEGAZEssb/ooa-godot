@@ -18,9 +18,9 @@ public sealed partial class ValidationRoot
             // Isolate the actual source record through its factory boundary,
             // retaining the factory's late-bound text provider. Other room
             // objects/preload are outside this dispatch-gate comparison.
-            var factory = SomariaPrivate<RoomEntityFactory>(_entities,"_factory");
+            var factory = SomariaPrivate<AgesRoomEntityFactory>(_entities,"_factory");
             var source = factory.Resources.DungeonMechanics.GetRoomRecords(4,0x9d).Single(row => row.Id == 0x1e);
-            var create = typeof(RoomEntityFactory).GetMethod("CreateDungeonMechanic",BindingFlags.Instance|BindingFlags.NonPublic)!;
+            var create = typeof(AgesRoomEntityFactory).GetMethod("CreateDungeonMechanic",BindingFlags.Instance|BindingFlags.NonPublic)!;
             var door = (DungeonDoorRoomEntity)create.Invoke(factory,
                 [source,_currentRoom,4,true,default(EnemyPlacementContext),null])!;
             _entities.AddEntity(door);

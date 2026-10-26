@@ -596,7 +596,7 @@ public sealed partial class ValidationRoot
         int dismountJumpSounds =
             _sound.PlayRequestsFor(record.JumpSound);
         int dismountLandSounds =
-            _sound.PlayRequestsFor(TopDownAirDatabase.Shared.Parameters.LandSound);
+            _sound.PlayRequestsFor(TopDownAirDatabase.For(AgesGameContent.AssetRoot).Parameters.LandSound);
         FailIf(
             !companion.TryBeginDismount(_player),
             "Mounted Moosh rejected the B-button dismount action.");
@@ -668,7 +668,7 @@ public sealed partial class ValidationRoot
             _player.PrecisePosition != dismountStart ||
             LinkMooshManhattanDistance(companion) != 0 ||
             _sound.PlayRequestsFor(
-                TopDownAirDatabase.Shared.Parameters.LandSound) !=
+                TopDownAirDatabase.For(AgesGameContent.AssetRoot).Parameters.LandSound) !=
                     dismountLandSounds + 1,
             "companionDismount did not land vertically in place while Moosh " +
             "state $06/substate $01 retained its source-order landing delay.");

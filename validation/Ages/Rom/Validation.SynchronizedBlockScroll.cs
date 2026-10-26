@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
             bool neighbor = _rooms.TryGetNeighbor(Vector2I.Down,out int target);
             FailIf(source.IsSolid(_player.Position) || !neighbor || target != 0xa2,
                 "Outgoing blocks require source exit floor and imported neighbor4:9e ->4:a2.");
-            var graphics = new ScreenTransitionGraphicsDatabase();
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(source.TilesetId).Unique |
                 (source.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             rom.SetOutgoingInteractions(); rom.ClearRoomVariables(scrolling:true); rom[0xcd00] = 8;

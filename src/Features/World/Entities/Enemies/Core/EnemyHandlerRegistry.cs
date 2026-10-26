@@ -16,10 +16,10 @@ internal sealed class EnemyHandlerRegistry
     internal IEnumerable<EnemyHandlerDescriptor> Handlers => _handlers.Values;
 
     internal EnemyHandlerRegistry(
-        IEnumerable<IReadOnlyList<RoomObjectRecord>> roomObjectGroups)
+        string assetRoot, IEnumerable<IReadOnlyList<RoomObjectRecord>> roomObjectGroups)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/enemy_handler_registry.tsv",
+            assetRoot + "objects/enemy_handler_registry.tsv",
             new GeneratedTableSchema(
                 "enemy handler registry",
                 GeneratedTableKeySemantics.Unique,
@@ -65,7 +65,7 @@ internal sealed class EnemyHandlerRegistry
                 usedKeys.Add((descriptor.Id, descriptor.SubId));
             }
         }
-        var nativeSpawns = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/native_enemy_spawns.tsv",
+        var nativeSpawns = GeneratedTable.Load(assetRoot + "objects/native_enemy_spawns.tsv",
             new GeneratedTableSchema("native enemy creation", GeneratedTableKeySemantics.Unique,
                 ["id", "subid", "source"], ["id", "subid"], headerRequired: true));
         foreach (var row in nativeSpawns.Rows)

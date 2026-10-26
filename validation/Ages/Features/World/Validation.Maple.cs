@@ -68,7 +68,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateMapleImportedContract()
     {
-        var database = new MapleEventDatabase();
+        var database = new MapleEventDatabase(AgesGameContent.AssetRoot);
         MaplePathRecord shadow = database.Path(MaplePathKind.Shadow, 0);
         MaplePathRecord movement = database.Path(MaplePathKind.Movement, 7);
         FailIf(
@@ -267,8 +267,8 @@ public sealed partial class ValidationRoot
 
     private static void ValidateMapleInventoryDrops()
     {
-        var treasures = new TreasureDatabase();
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(treasures, save);
         inventory.GiveTreasure(TreasureId.Sword, 1);
         inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
@@ -297,7 +297,7 @@ public sealed partial class ValidationRoot
             rupeeDrop != 12 || inventory.Rupees != rupeesBefore - 1,
             "Maple's one-rupee branch did not preserve the original five-rupee output bug.");
 
-        OracleSaveData unavailableSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData unavailableSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var unavailable = new InventoryState(treasures, unavailableSave);
         unavailable.GiveTreasure(TreasureId.SeedSatchel, 1);
         FailIf(
@@ -350,7 +350,7 @@ public sealed partial class ValidationRoot
     {
         using var harness = new MapleValidationHarness(
             this, group: 0, room: 0x01);
-        var database = new MapleEventDatabase();
+        var database = new MapleEventDatabase(AgesGameContent.AssetRoot);
         var encounter = new MapleEncounterState(harness.Manager.RuntimeState);
         var random = new OracleRandom();
         MapleDroppedItem first = CreateMapleTarget(
@@ -479,7 +479,7 @@ public sealed partial class ValidationRoot
         // Arrow Darknuts whose native route changes consume the shared RNG.
         harness.Load(); // Retain the source room-parse RNG before isolating the parts.
         harness.Manager.LoadCutsceneRoom(0, harness.Rooms.CurrentRoom, includeTimePortals: false);
-        var database = new MapleEventDatabase();
+        var database = new MapleEventDatabase(AgesGameContent.AssetRoot);
 
         int swordRupeesBefore = harness.Inventory.Rupees;
         MapleDroppedItem swordDrop = SpawnGroundedMapleReward(
@@ -537,7 +537,7 @@ public sealed partial class ValidationRoot
         for (int wait = 0; !harness.Dialogue.IsOpen && wait < 6; wait++)
             harness.Step(closeDialogue: false);
         harness.Step(closeDialogue: false); // INTERAC$60 state3 queues Link's held-item state on its next visit.
-        harness.PlayerWorld.NativeTextActive = harness.Dialogue.IsOpen;
+        harness.AgesPlayerWorld.NativeTextActive = harness.Dialogue.IsOpen;
         harness.Player.AdvanceApplicationUpdate();
         harness.Player.AdvanceApplicationUpdate();
         FailIf(
@@ -550,7 +550,7 @@ public sealed partial class ValidationRoot
                 0, 0x01, OracleSaveData.RoomFlagItem),
             $"Maple Heart Piece: finished={heart.Finished}, state=${harness.Save.MapleState:x2}, hearts={harness.Inventory.HeartPieces}, held={harness.Player.IsHoldingItemTwoHands}, dialogue={harness.Dialogue.IsOpen}, flags=${harness.Save.GetRoomFlags(0, 1):x2}.");
         harness.Dialogue.Close();
-        harness.PlayerWorld.NativeTextActive = false;
+        harness.AgesPlayerWorld.NativeTextActive = false;
         harness.Player.AdvanceApplicationUpdate();
         harness.Interactions.Update(1.0 / 60.0, harness.Player);
         FailIf(
@@ -743,7 +743,7 @@ public sealed partial class ValidationRoot
         internal InventoryState Inventory { get; }
         internal RoomSession Rooms { get; }
         internal RoomEntityManager Manager { get; }
-        internal ValidationRingPlayerWorld PlayerWorld { get; }
+        internal ValidationRingPlayerWorld AgesPlayerWorld { get; }
         internal Player Player { get; }
         internal DialogueBox Dialogue { get; }
         internal InteractionController Interactions { get; }
@@ -757,8 +757,8 @@ public sealed partial class ValidationRoot
             int room)
         {
             _owner = owner;
-            Save = OracleSaveData.CreateStandardGame();
-            Treasures = new TreasureDatabase();
+            Save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
+            Treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
             Inventory = new InventoryState(Treasures, Save, () => -1);
             long tick = 0;
             Rooms = new RoomSession(
@@ -774,15 +774,15 @@ public sealed partial class ValidationRoot
                     Rooms = Rooms
                 });
             Scene = _entities.Root;
-            PlayerWorld = new ValidationRingPlayerWorld();
+            AgesPlayerWorld = new ValidationRingPlayerWorld();
             Player = new Player { Name = "MapleValidationPlayer" };
             Player.Initialize(
-                PlayerWorld, Inventory, new Vector2(80, 80),
+                AgesPlayerWorld, Inventory, new Vector2(80, 80),
                 new OracleRandom());
             Scene.AddChild(Player);
             var interfaceLayer = new Node { Name = "Interface" };
             var roomView = new RoomView { Name = "RoomView" };
-            Dialogue = new DialogueBox { Name = "Dialogue" };
+            Dialogue = new DialogueBox { AssetRoot = AgesGameContent.AssetRoot, Name = "Dialogue" };
             Dialogue.SetBackgroundPaletteProvider(
                 (palette, shade) =>
                     Rooms.CurrentRoom.ResolveBackgroundPaletteColor(
@@ -798,7 +798,7 @@ public sealed partial class ValidationRoot
                 (musicGroup, musicRoom) =>
                     RoomMusic.Add((musicGroup, musicRoom));
             Interactions = new InteractionController(
-                Rooms, Manager, new SignDatabase(), new ChestDatabase(),
+                Rooms, Manager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
                 Treasures, Dialogue, Scene, roomView,
                 static position => position, () => tick, Inventory,
                 interfaceLayer, Sounds.Add);
@@ -809,8 +809,8 @@ public sealed partial class ValidationRoot
 
         internal void Step(bool closeDialogue = true)
         {
-            PlayerWorld.FrameCounter =
-                (PlayerWorld.FrameCounter + 1) & 0xff;
+            AgesPlayerWorld.FrameCounter =
+                (AgesPlayerWorld.FrameCounter + 1) & 0xff;
             Manager.UpdateSpecialObjectsBeforePlayer(Player);
             Manager.Update(1.0 / 60.0, Player);
             Manager.ResolvePostObjectCollisions(Player);

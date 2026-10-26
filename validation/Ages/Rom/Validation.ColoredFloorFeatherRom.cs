@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
             if (room is 0x71 or 0x3b && fullPool) continue;
             ReinitializeGameplayForValidation(); LoadValidationRoom(4,room); _entities.Clear();
             _inventory.GiveTreasure(TreasureId.Feather,1); _inventory.EquipA(TreasureId.Feather); _inventory.EquipB(0);
-            var data = new DungeonInteractionDatabase();
+            var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
             byte[][] pattern = room == 0x79 ? [[0x43,0x45,0x64],[0x54,0x63,0x65],[0x44,0x53,0x55]] :
                 room == 0x7b ? [[0x54,0x58],[],[0x55,0x57]] : room == 0x3b ? [[0x79],[],[]] : [[],[0x57],[]];
             int parentAddress = 0;
@@ -108,7 +108,7 @@ public sealed partial class ValidationRoot
                 rom[0xd340] = 1; rom[0xd341] = 0x21; rom[0xd342] = 7; rom[0xd34b] = (byte)sensor.Y; rom[0xd34d] = (byte)sensor.X;
                 var record = records.Single(row => row.Id == 0x1b);
                 gate = new MinecartGateRoomEntity(record,() => _entities.ActiveRoom,_runtimeState,
-                    new DungeonInteractionVisualDatabase().Visual("minecart-gate"),_entities.OnSoundRequested,_entities.OnRoomTileChanged,() => 0);
+                    new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart-gate"),_entities.OnSoundRequested,_entities.OnRoomTileChanged,() => 0);
                 _entities.AddEntity(gate);
                 rom[0xd440] = 1; rom[0xd441] = 0x1b; rom[0xd442] = (byte)record.SubId; rom[0xd44b] = (byte)record.Y; rom[0xd44d] = (byte)record.X;
             }

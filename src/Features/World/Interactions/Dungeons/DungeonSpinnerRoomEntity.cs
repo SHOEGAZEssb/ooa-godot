@@ -84,12 +84,14 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         Action<int> playSound,
         Action<int> beginScreenShake)
         : this(placement.Group,placement.Room,placement.PackedPosition,placement.StateMask,placement.Source,
-            runtime,visual,playSound,beginScreenShake) { }
+            runtime,visual,playSound,beginScreenShake) {
+        AssetRoot = visual.AssetRoot; }
 
     internal DungeonSpinnerRoomEntity(DungeonObjectRecord record,OracleRuntimeState runtime,
         DungeonInteractionVisual visual,Action<int> playSound,Action<int> beginScreenShake)
         : this(record.Group,record.Room,record.Y,record.X,record.Source,runtime,visual,playSound,beginScreenShake)
     {
+        AssetRoot = visual.AssetRoot;
         if (record.Kind != DungeonObjectKind.Spinner || record.Id != 0x7d || record.SubId is not (0 or 1))
             throw new InvalidOperationException($"{record.Source}: unsupported direct spinner INTERAC${record.Id:x2}:${record.SubId:x2}.");
     }
@@ -97,6 +99,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
     private DungeonSpinnerRoomEntity(int group,int room,int packedPosition,int stateMask,string source,
         OracleRuntimeState runtime,DungeonInteractionVisual visual,Action<int> playSound,Action<int> beginScreenShake)
     {
+        AssetRoot = visual.AssetRoot;
         _stateMask = stateMask; _source = source;
         _runtime = runtime;
         _playSound = playSound;
@@ -109,9 +112,9 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         Visible = false;
 
-        _red = (_runtime.ReadWramByte(AgesGameContent.SpinnerStateAddress) &
+        _red = (_runtime.ReadField("wSpinnerState") &
             _stateMask) != 0;
-        Image graphics = EnemyVisualSource.LoadComposite(visual.Sprites);
+        Image graphics = EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot);
         _spinnerAnimation = CreateAnimation(graphics, visual);
         _spinnerAnimation.SetAnimation(_red ? 1 : 0);
     }
@@ -123,7 +126,7 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
     {
         if (!_initializing) return;
         _initializing = false;
-        _red = (_runtime.ReadWramByte(AgesGameContent.SpinnerStateAddress)&_stateMask) != 0;
+        _red = (_runtime.ReadField("wSpinnerState")&_stateMask) != 0;
         _spinnerAnimation.SetAnimation(_red ? 1 : 0);
         Visible = true;
         Arrow = (_createArrow ?? throw new InvalidOperationException($"INTERAC$7d missing checked arrow allocator at {_source}."))(this,_visual);
@@ -259,10 +262,10 @@ internal sealed partial class DungeonSpinnerRoomEntity : TransitionOffsetNode2D,
         if (--_exitCounter != 0)
             return;
 
-        byte state = _runtime.ReadWramByte(
-            AgesGameContent.SpinnerStateAddress);
-        _runtime.SetWramByte(
-            AgesGameContent.SpinnerStateAddress,
+        byte state = _runtime.ReadField(
+            "wSpinnerState");
+        _runtime.SetField(
+            "wSpinnerState",
             (byte)(state ^ _stateMask));
         _red = !_red;
         _phase = SpinnerPhase.Waiting;

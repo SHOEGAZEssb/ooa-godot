@@ -44,7 +44,7 @@ public sealed partial class ValidationRoot
         }
         finally { Input.EndOriginalUpdate(); }
 
-        var animations = new OracleAnimationData();
+        var animations = new OracleAnimationData(AgesGameContent.AssetRoot);
         var groups = (Dictionary<int, Frame[][]>)typeof(OracleAnimationData)
             .GetField("_groups", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(animations)!;
         foreach (var (group, tracks) in groups)

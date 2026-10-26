@@ -9,6 +9,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class VasuShopDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<string, int> _constants = new(StringComparer.Ordinal);
     private readonly Dictionary<int, string> _texts = new();
     private readonly Dictionary<(int InteractionId, int Animation), string> _animations = new();
@@ -49,8 +51,10 @@ internal sealed class VasuShopDatabase
     public int RingVictory => Constant("ring-victory");
     public int RingHundredth => Constant("ring-hundredth");
 
-    public VasuShopDatabase()
+    public VasuShopDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         LoadConstants();
         LoadTexts();
         LoadAnimations();
@@ -76,7 +80,7 @@ internal sealed class VasuShopDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/vasu_shop_constants.tsv",
+            AssetRoot + "objects/vasu_shop_constants.tsv",
             new GeneratedTableSchema(
                 "Vasu Jewelers constants",
                 GeneratedTableKeySemantics.Unique,
@@ -92,7 +96,7 @@ internal sealed class VasuShopDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/vasu_shop_texts.tsv",
+            AssetRoot + "objects/vasu_shop_texts.tsv",
             new GeneratedTableSchema(
                 "Vasu Jewelers text",
                 GeneratedTableKeySemantics.Unique,
@@ -112,7 +116,7 @@ internal sealed class VasuShopDatabase
     private void LoadAnimations()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/vasu_shop_animations.tsv",
+            AssetRoot + "objects/vasu_shop_animations.tsv",
             new GeneratedTableSchema(
                 "Vasu Jewelers animations",
                 GeneratedTableKeySemantics.Unique,

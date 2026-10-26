@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
                 "Room 0:46 lost source $41:$02, $41:$05, $3d:$02 order.");
             var lady = actors[2];
             bool present = stage == 2;
-            FailIf(NpcStoryState.GetGameProgress1(_saveData) != stage ||
+            FailIf(AgesNpcStoryState.GetGameProgress1(_saveData) != stage ||
                 lady.Active != present || lady.Visible != present ||
                 lady.Position != new Vector2(0x68, 0x38) ||
                 lady.Record is not { TextId: 0x1809, Palette: 3, DefaultAnimation: 2 },

@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateMapleDropShadows()
     {
-        var data = new MapleEventDatabase();
+        var data = new MapleEventDatabase(AgesGameContent.AssetRoot);
         foreach (bool batched in new[] { false, true })
         {
             ReinitializeGameplayForValidation();

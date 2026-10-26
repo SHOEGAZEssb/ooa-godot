@@ -31,6 +31,7 @@ internal sealed partial class TokayAttachedVisualRoomEntity : TransitionOffsetNo
 
     internal TokayAttachedVisualRoomEntity(NpcCharacter parent, NpcRecord record, Vector2 offset)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _parent = parent;
         IsNativeExclamation = record.Id == InteractionId.ExclamationMark;
         NativeAllocationEnabled=IsNativeExclamation || parent.Record is { Id:0x48,SubId:0x0c or 0x0d or 0x19 or 0x1c or 0x1d };

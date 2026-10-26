@@ -91,7 +91,7 @@ internal sealed class GoronBombRoomEntity : RoomEntityAdapter<NpcCharacter>,
         // @func_77b1 writes flags $0a: bank 1 uses resident common-sprites,
         // replacing the dynamic common-items bomb sheet before animation $01.
         var record=_owner.Database.BombExplosionRecord;
-        Entity.Initialize(record);
+        Entity.Initialize(record, AgesGameContent.AssetRoot);
         Entity.SetAnimationRate(0); Entity.SetScriptAnimation(record.DownAnimation);
         Entity.SetFixedDrawPriority(ObjectDrawPriority.FixedLowPriorityZIndex); // objectSetVisible83
         Entity.Position=_position; Entity.SetScriptDrawOffset(new(0,_z>>8));

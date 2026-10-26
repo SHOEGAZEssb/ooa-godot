@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     private void ValidateSuctionPitsRom()
     {
         // Source-derived literals, independently of the runtime table reader.
-        var data = SuctionPitDatabase.Shared;
+        var data = SuctionPitDatabase.For(AgesGameContent.AssetRoot);
         FailIf(!data.Speeds.SequenceEqual(new[] { 0x3c, 0x32, 0x28, 0x1e, 0x19, 0x14, 0x0f, 0x0a }) ||
             !data.Probes.Take(5).SequenceEqual(new (byte, byte)[] { (0, 0xf7), (10, 0), (0, 9), (0xfd, 0xfb), (0, 0) }),
             "seaEffects.s: source suction speeds or cumulative probe order differ.");

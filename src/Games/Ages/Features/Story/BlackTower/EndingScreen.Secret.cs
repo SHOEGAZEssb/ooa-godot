@@ -10,7 +10,7 @@ public partial class EndingScreen
     private IntroOamPart[]? _decorations;
     internal void UploadSecretText(ReadOnlySpan<byte> text)
     {
-        byte[] font=OracleTileRenderer.CopyTextCharacterGraphics(text,0xff);
+        byte[] font=OracleTileRenderer.CopyTextCharacterGraphics(text,0xff,AgesGameContent.AssetRoot);
         foreach(var upload in _data!.SecretRamUploads)
         {
             switch(upload.Buffer)
@@ -40,7 +40,7 @@ public partial class EndingScreen
     }
     internal void DrawFileDecorations(object owner)
     {
-        _decorations??=MenuPresentationDatabase.Shared.FileOam("decorations")
+        _decorations??=MenuPresentationDatabase.For(AgesGameContent.AssetRoot).FileOam("decorations")
             .Select(part=>new IntroOamPart(part.Y,part.X,part.Tile,part.Attributes)).ToArray();
         SetObjectOam(owner,_decorations,0,0,0);
     }

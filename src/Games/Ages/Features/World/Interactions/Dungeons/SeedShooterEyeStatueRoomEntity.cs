@@ -29,6 +29,7 @@ internal sealed partial class SeedShooterEyeStatueRoomEntity : DungeonInteractio
     internal SeedShooterEyeStatueRoomEntity(SeedShooterEyeStatueRecord record,
         SeedShooterEyeStatueDatabase data,DungeonInteractionVisual visual,Action<int,bool> setTrigger)
     {
+        AssetRoot = visual.AssetRoot;
         _record = record; _data = data;
         _state = new(record.Subid,record.ActiveCounter,setTrigger);
         Name = $"SeedShooterEyeStatue_{record.Subid:x2}_{record.Order}";

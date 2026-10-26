@@ -6,12 +6,16 @@ namespace Oracles;
 
 internal sealed class KeyholeControllerDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int Group, int Room), KeyholeControllerRecord> _records = new();
 
-    internal KeyholeControllerDatabase()
+    internal KeyholeControllerDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         foreach (GeneratedTableRow row in GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "cutscenes/keyhole_controllers.tsv",
+            AssetRoot + "cutscenes/keyhole_controllers.tsv",
             new GeneratedTableSchema("placed keyhole controllers", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "order", "id", "subid", "x", "y", "source"],
                 ["group", "room"], headerRequired: true)).Rows)

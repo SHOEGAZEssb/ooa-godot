@@ -170,19 +170,20 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
             (_collisionRadiusX + LinkCollisionRadius) * 2.0f,
             (_collisionRadiusY + LinkCollisionRadius) * 2.0f));
 
-    internal static NpcCharacter CreateFromRecord(NpcRecord record)
+    internal static NpcCharacter CreateFromRecord(NpcRecord record, string assetRoot)
     {
         var npc = new NpcCharacter
         {
             Name = $"Npc_{record.Id:x2}_{record.SubId:x2}",
             ZIndex = ObjectDrawPriority.BehindLinkZIndex
         };
-        npc.Initialize(record);
+        npc.Initialize(record, assetRoot);
         return npc;
     }
 
-    public void Initialize(NpcRecord record)
+    internal void Initialize(NpcRecord record, string assetRoot)
     {
+        AssetRoot = assetRoot;
         using var diagnostics = OracleRoomLoadDiagnostics.Begin("npc", record.Group, record.Room, record.SpriteName);
         _baseRecord = record;
         Record = record;
@@ -194,7 +195,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         _scriptDrawOffset = Vector2.Zero;
         Visible = false;
         _sourceImage = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.SpriteName}.png");
+            AssetRoot + $"gfx/{record.SpriteName}.png");
         _graphicsSourceOffset = 0;
         _sourceGrayscaleInverted = true;
         _collisionRadiusY = CollisionRadius;
@@ -872,7 +873,7 @@ public partial class NpcCharacter : TransitionOffsetNode2D, ITerrainShadowSource
         // sheets leave the remainder of their VRAM slot blank; the next
         // chained header still begins on the following slot boundary.
         _sourceImage = OracleGraphicsCache.AppendGraphics(
-            _sourceImage, AgesGameContent.AssetRoot + $"gfx/{spriteName}.png");
+            _sourceImage, AssetRoot + $"gfx/{spriteName}.png");
     }
 
     internal void SetActive(bool active)

@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidatePegasusShieldScrollRom()
     {
-        var graphics = new ScreenTransitionGraphicsDatabase();
+        var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
         int hostCase = 0;
         foreach (var route in new[] { (Group: 0, Source: 0x11, Target: 0x12), (Group: 4, Source: 0x07, Target: 0x03) })
         foreach (int direction in Enumerable.Range(0, 4))

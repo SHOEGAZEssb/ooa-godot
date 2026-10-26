@@ -9,13 +9,14 @@ namespace Oracles;
 /// </summary>
 public abstract partial class TransitionOffsetNode2D : Node2D
 {
+    internal string AssetRoot { get; set; } = string.Empty;
     private Func<Vector2, Vector2> _worldToScreen = static position => position;
     private Func<int> _shadowCounter = static () => 0;
     private Func<int> _shadowSlot = static () => 0;
     private Func<bool> _shadowTransition = static () => false;
     private OracleRoomData? _shadowRoom;
     private OracleRuntimeState _shadowMemory = null!;
-    private static LinkTerrainEffectDatabase? _groundTerrainEffects;
+    private LinkTerrainEffectDatabase? _groundTerrainEffects;
 
     private protected LinkTerrainEffectFrame? GetGroundTerrainEffect(int? zHigh)
     {
@@ -28,7 +29,7 @@ public abstract partial class TransitionOffsetNode2D : Node2D
         int xh = (int)Position.X & 0xff;
         int yh = (int)Position.Y & 0xff;
         byte position = (byte)(((yh + 5) & 0xf0) | (xh >> 4));
-        _groundTerrainEffects ??= new LinkTerrainEffectDatabase();
+        _groundTerrainEffects ??= LinkTerrainEffectDatabase.For(AssetRoot);
         return _groundTerrainEffects.FrameFor(
             _shadowRoom.ReadNativeLayoutByte(position, _shadowMemory),
             new Vector2(xh, yh), _shadowCounter());
@@ -59,7 +60,7 @@ public abstract partial class TransitionOffsetNode2D : Node2D
         _shadowSlot = slot;
         _shadowTransition = transition;
         var shadow = new ObjectTerrainShadow();
-        shadow.Initialize(() => TerrainShadowDrawn, () => SourceOamDrawOffset);
+        shadow.Initialize(AssetRoot, () => TerrainShadowDrawn, () => SourceOamDrawOffset);
         AddChild(shadow);
     }
 

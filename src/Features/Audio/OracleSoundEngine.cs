@@ -20,8 +20,8 @@ public partial class OracleSoundEngine : Node
     private const int OutputQueueHeadroomFrames = SampleRate / 30;
     private const int OutputBridgeFrames = 64;
 
-    private readonly OracleSoundData _data;
-    private readonly OracleSoundDriver _driver;
+    private OracleSoundData _data = null!;
+    private OracleSoundDriver _driver = null!;
     private readonly OracleApu _apu;
     private readonly ChannelState[] _channels = new ChannelState[8];
     private readonly byte[] _requests = new byte[16];
@@ -56,7 +56,7 @@ public partial class OracleSoundEngine : Node
     internal void SetNativeActiveMusic(int music) => NativeActiveMusic = music;
     internal void SetNativeMusicSelection(int roomMusic, int activeMusic)
     { NativeRoomMusic = roomMusic; NativeActiveMusic = activeMusic; }
-    public bool Disabled => _driver.ReadState(AgesWramAddress.wSoundDisabled) != 0;
+    public bool Disabled => _driver.ReadState(OracleWramLayout.Shared.Value.Require(_data.Game, "wSoundDisabled")) != 0;
     public int MusicVolume => _requestedVolume;
     internal OracleSoundData Data => _data;
     internal OracleSoundDriver Driver => _driver;
@@ -68,7 +68,12 @@ public partial class OracleSoundEngine : Node
     internal void WriteNativeAllocationAlias(int address, byte value) => _driver.WriteNativeAllocationAlias(address, value);
     internal bool OutputResourcesActiveForValidation => _player is not null || _playback is not null;
 
-    public OracleSoundEngine() : this(new OracleSoundData(), true) { }
+    public OracleSoundEngine()
+    {
+        _enableOutput = true;
+        _apu = new OracleApu(QueueSample);
+        _clockOrigin = _apu.Clocks;
+    }
 
     internal OracleSoundEngine(OracleSoundData data, bool enableOutput, bool allowHeadlessOutput = false)
     {
@@ -123,6 +128,7 @@ public partial class OracleSoundEngine : Node
 
     public override void _Process(double delta)
     {
+        if (_driver is null) return;
         if (!ApplicationUpdateOwned) _updates.Advance(delta, Tick);
         FillAudioBuffer();
     }
@@ -178,6 +184,18 @@ public partial class OracleSoundEngine : Node
         ActiveMusic = 0;
         NativeActiveMusic = 0xff;
         NativeRoomMusic = 0xff;
+    }
+
+    internal void SelectContent(OracleSoundData data)
+    {
+        if (_driver is not null) RestartSound();
+        _data = data;
+        _driver = new OracleSoundDriver(data, _apu);
+        for (int index = 0; index < _channels.Length; index++)
+            _channels[index] = new ChannelState(index, data, _driver);
+        _samples.Clear();
+        _requestedVolume = 3;
+        _volumePending = true;
     }
 
     // Native playSound queues a request without writing wActiveMusic.

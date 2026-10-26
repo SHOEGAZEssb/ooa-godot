@@ -22,7 +22,7 @@ internal sealed class GameCompleteDialogRoomEntity : RoomCutsceneCommandHost,
         if(State==0)
         {
             State=1;DeathRespawnPresets.Load(Context.Rooms.SaveData,1);
-            _runner.Start(CutsceneCommandCatalog.Load(AgesGameContent.AssetRoot + "cutscenes/game_complete_dialog_commands.tsv"));return;
+            _runner.Start(CutsceneCommandCatalog.Load(Context.Rooms.AssetRoot + "cutscenes/game_complete_dialog_commands.tsv"));return;
         }
         _runner.AdvanceFrame();
     }

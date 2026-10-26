@@ -8,6 +8,8 @@ revision="$3"
 wla_version="$4"
 archive_sha256="$5"
 link_version="$6"
+game="${7:-ages}"
+case "$game" in ages|seasons) ;; *) echo "Unsupported game: $game" >&2; exit 1 ;; esac
 
 case "$(uname -s)" in
   MSYS*|MINGW*)
@@ -59,4 +61,4 @@ git -C "$source_root" init --quiet
 git -C "$source_root" remote add origin "$repository"
 git -C "$source_root" fetch --quiet --depth 1 origin "$revision"
 git -C "$source_root" checkout --quiet --detach FETCH_HEAD
-make -C "$source_root" ages BUILD_VANILLA=true
+make -C "$source_root" "$game" BUILD_VANILLA=true

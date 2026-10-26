@@ -32,6 +32,7 @@ internal partial class BeetleCharacter : EnemyCharacter, ITerrainShadowSource
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, byte[] counters, Action<int> playSound)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != EnemyId.Beetle || record.SubId is not (2 or 3))
             throw new InvalidOperationException($"beetle.s: unsupported dynamic enemy ${record.Id:x2}:${record.SubId:x2}.");
         Record = record;

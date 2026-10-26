@@ -5,6 +5,8 @@ namespace Oracles;
 
 internal sealed class FaroreVisualDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int, int), (NpcRecord Record, int Offset)> _visuals = [];
     internal IReadOnlyList<FaroreSparkleRecord> Sparkles { get; }
     internal InteractionSparkleVisual UpgradeSparkle
@@ -12,13 +14,15 @@ internal sealed class FaroreVisualDatabase
         get
         {
             NpcRecord record = _visuals[(InteractionId.Sparkle, 0)].Record;
-            return new(record.SpriteName, record.TileBase, record.Palette, record.DownAnimation);
+            return new(AssetRoot, record.SpriteName, record.TileBase, record.Palette, record.DownAnimation);
         }
     }
 
-    internal FaroreVisualDatabase()
+    internal FaroreVisualDatabase(string assetRoot)
     {
-        const string root = AgesGameContent.AssetRoot + "cutscenes/";
+        AssetRoot = assetRoot;
+
+        string root = AssetRoot + "cutscenes/";
         var sparkles = new List<FaroreSparkleRecord>();
         foreach (var row in GeneratedTable.Load(root + "farore_sparkles.tsv",
             new("Farore sparkle objects", GeneratedTableKeySemantics.Ordered,
@@ -42,7 +46,7 @@ internal sealed class FaroreVisualDatabase
     internal NpcCharacter Actor(int id, int subid, Vector2 position)
     {
         var (record, offset) = _visuals[(id, id == InteractionId.FaroreMakeChest ? 1 : subid)];
-        var actor = NpcCharacter.CreateFromRecord(record with { SubId = subid, X = (int)position.X, Y = (int)position.Y });
+        var actor = NpcCharacter.CreateFromRecord(record with { SubId = subid, X = (int)position.X, Y = (int)position.Y }, AssetRoot);
         actor.SetGraphicsSourceOffset(offset);
         actor.SetScriptAnimation(record.DownAnimation);
         actor.SetAnimationRate(0);

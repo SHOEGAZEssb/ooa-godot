@@ -47,7 +47,7 @@ internal static class OracleGraphicsData
         int count,
         int firstPalette)
     {
-        Color[] fallback = LoadCommonBackgroundPalette();
+        Color[] fallback = LoadCommonBackgroundPalette(OracleAssetPack.RootFor(path));
         Color[,] result = LoadPalette(path, count, firstPalette);
         for (int palette = 0; palette < result.GetLength(0); palette++)
         for (int shade = 0; shade < result.GetLength(1); shade++)
@@ -58,8 +58,8 @@ internal static class OracleGraphicsData
         return result;
     }
 
-    public static Color[] LoadCommonBackgroundPalette() =>
-        LoadPaletteColors(AgesGameContent.AssetRoot + "metadata/commonBgPalette0.bin");
+    public static Color[] LoadCommonBackgroundPalette(string assetRoot) =>
+        LoadPaletteColors(assetRoot + "metadata/commonBgPalette0.bin");
 
     public static Color[] LoadPaletteColors(string path, bool transparentZero = false)
     {

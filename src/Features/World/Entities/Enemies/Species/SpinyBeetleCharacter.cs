@@ -12,9 +12,8 @@ namespace Oracles;
 internal partial class SpinyBeetleCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => _state == SpinyBeetleState.Uninitialized;
-
-    private readonly SpinyBeetleBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.SpinyBeetle;
+    private SpinyBeetleBehaviorProfile? _behaviorSourceCache;
+    private SpinyBeetleBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).SpinyBeetle;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -78,6 +77,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         Action<Rect2, int, int, int> applyThrownObjectHit,
         Func<SpinyBeetleCharacter, bool>? createCover = null)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         InitializeEnemy(
             position,
@@ -91,7 +91,7 @@ internal partial class SpinyBeetleCharacter : EnemyCharacter
         _applyThrownObjectHit = applyThrownObjectHit;
         _createCover = createCover;
         _coverTexture = room.BuildMimickedMetatileTexture(
-            (byte)EnemyBehaviorTables.Shared.SpinyCoverTiles[record.SubId].Value);
+            (byte)EnemyBehaviorTables.For(AssetRoot).SpinyCoverTiles[record.SubId].Value);
         _coverProtects = true;
         _coverVisualActive = true;
         _parentVisible = false;

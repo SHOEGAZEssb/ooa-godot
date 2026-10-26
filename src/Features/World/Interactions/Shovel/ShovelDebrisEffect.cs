@@ -40,11 +40,12 @@ internal partial class ShovelDebrisEffect : FixedEffectNode2D
     internal int SpeedZ => _speedZ;
     internal Vector2 PrecisePosition => _precisePosition;
 
-    internal void Initialize(Vector2 position, Vector2I direction)
+    internal void Initialize(string assetRoot, Vector2 position, Vector2I direction)
     {
+        AssetRoot = assetRoot;
         int index = DirectionIndex(direction);
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+            assetRoot + "gfx/spr_common_sprites.png");
         _texture = OracleOamCompositor.BuildOamTexture(
             source, DirectionalOam[index], tileBase: 0x42, basePalette: 3);
         _precisePosition = position;

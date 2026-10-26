@@ -59,7 +59,7 @@ public sealed partial class ValidationRoot
             Step(20, Vector2.Down); Step(20, Vector2.Up);
             FailIf(_sound.PlayRequestsFor(data.SolveSound) != 1 || _entities.Entities<BridgeSpawnerRoomEntity>().Count != 0,
                 "Repeated button pressure restarted a completed bridge.");
-            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) ||
+            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var restored) ||
                 !restored!.HasRoomFlag(5, setup.Room, 0x80), "Bridge room flag $80 did not survive explicit serialization.");
             // Interrupt halfway through construction. The original room tile
             // initializer restores the entire bridge from the allocation flag.

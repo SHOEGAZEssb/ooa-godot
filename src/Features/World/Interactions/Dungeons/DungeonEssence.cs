@@ -80,6 +80,7 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
         Action<DungeonEssence, Player> triggered,
         DungeonEssenceDefinition definition)
     {
+        AssetRoot = essence.AssetRoot;
         _record = record;
         _definition = definition;
         _triggered = triggered;
@@ -236,7 +237,7 @@ internal sealed partial class DungeonEssence : TransitionOffsetNode2D,
     {
         var player = new EnemyAnimationPlayer(this, visual.Animations.Length);
         player.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette,

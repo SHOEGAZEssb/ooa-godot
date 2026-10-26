@@ -23,10 +23,11 @@ internal sealed partial class ColoredCubeFlameRoomEntity : DungeonInteractionVis
         DungeonInteractionVisual visual,
         ColoredCubePuzzleState puzzle)
     {
+        AssetRoot = visual.AssetRoot;
         _puzzle = puzzle;
         Name = $"ColoredCubeFlame_{record.Group}_{record.Room:x2}_{record.Order}";
         Position = record.Position;
-        Image source = EnemyVisualSource.LoadComposite(visual.Sprites);
+        Image source = EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot);
         int[] sourcePalettes = { 2, 3, 1 };
         for (int index = 0; index < _palettes.Length; index++)
         {

@@ -147,7 +147,7 @@ internal partial class FrontendIntroScreen : Node2D
         yield return false;
         _castle = BuildCastle(castlePalette);
         yield return false;
-        _templeAnimations = new OracleAnimationData();
+        _templeAnimations = new OracleAnimationData(AgesGameContent.AssetRoot);
         _temple = BuildTemple(_templePalette);
         yield return false;
         _animatedTemple = ImageTexture.CreateFromImage(_temple.GetImage());

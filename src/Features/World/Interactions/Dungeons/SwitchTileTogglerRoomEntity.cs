@@ -33,8 +33,8 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
         _runtime = runtime;
         _roomTileChanged = roomTileChanged;
         _setTile = setTile;
-        _lastSwitchState = runtime.ReadWramByte(
-            AgesGameContent.SwitchStateAddress);
+        _lastSwitchState = runtime.ReadField(
+            "wSwitchState");
         Name = $"SwitchTileToggler_{record.Group}_{record.Room:x2}_{record.Order}";
     }
 
@@ -45,8 +45,8 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
             PrepareForScreenTransition(spawns);
             return;
         }
-        int switchState = _runtime.ReadWramByte(
-            AgesGameContent.SwitchStateAddress);
+        int switchState = _runtime.ReadField(
+            "wSwitchState");
         if (switchState == _lastSwitchState)
             return;
         _lastSwitchState = switchState;
@@ -60,7 +60,7 @@ internal sealed partial class SwitchTileTogglerRoomEntity : Node2D,
         if (!_initialized)
         {
             _initialized = true;
-            _lastSwitchState = _runtime.ReadWramByte(AgesGameContent.SwitchStateAddress);
+            _lastSwitchState = _runtime.ReadField("wSwitchState");
         }
         return ScreenTransitionPresentation.Visible;
     }

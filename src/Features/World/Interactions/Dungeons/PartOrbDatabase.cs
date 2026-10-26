@@ -4,7 +4,12 @@ namespace Oracles;
 
 internal sealed class PartOrbDatabase
 {
-    internal static PartOrbDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<PartOrbDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static PartOrbDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<PartOrbDatabase>(() => new PartOrbDatabase(root))).Value;
+
     private readonly int[] _lockouts = new int[32];
     internal int Speed { get; }
     internal int Right { get; }
@@ -14,9 +19,11 @@ internal sealed class PartOrbDatabase
     internal int SubidMask { get; }
     internal int RadiusY { get; }
     internal int RadiusX { get; }
-    private PartOrbDatabase()
+    private PartOrbDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/part_orb_collisions.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "objects/part_orb_collisions.tsv",
             new GeneratedTableSchema("PART_ORB collision responses", GeneratedTableKeySemantics.Unique,
                 ["item", "enabled", "effect", "lockout", "source"], ["item"], headerRequired: true));
         if (table.Rows.Count != 32) throw new InvalidOperationException("Incomplete PART_ORB collision row.");
@@ -28,12 +35,12 @@ internal sealed class PartOrbDatabase
                 throw row.Invalid(0, "ordered source orb collision responses");
             _lockouts[i] = row.Decimal(1, 0, 1) == 1 ? lockout : -1;
         }
-        var script = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/moving_orb_script.tsv",
+        var script = GeneratedTable.Load(AssetRoot + "objects/moving_orb_script.tsv",
             new GeneratedTableSchema("moving orb script", GeneratedTableKeySemantics.Unique,
                 ["subid", "speed", "initial-direction", "right", "left", "source"], ["subid"], headerRequired: true)).SingleRow();
         if (script.HexByte(0) != 0 || script.HexByte(2) != 0) throw script.Invalid(0, "orb script00/DIR_UP");
         Speed = script.HexByte(1); Right = script.HexByte(3); Left = script.HexByte(4);
-        var init = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/part_orb_initialization.tsv",
+        var init = GeneratedTable.Load(AssetRoot + "objects/part_orb_initialization.tsv",
             new GeneratedTableSchema("PART_ORB initialization", GeneratedTableKeySemantics.Unique,
                 ["id", "background-tile", "tile-collision", "subid-mask", "radius-y", "radius-x", "source"], ["id"], headerRequired: true)).SingleRow();
         if (init.HexByte(0) != 3) throw init.Invalid(0, "stationary PART_ORB $03");

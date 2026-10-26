@@ -5,9 +5,10 @@ namespace Oracles;
 internal sealed partial class BuzzBlobCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
-
-    private readonly BuzzBlobBehaviorProfile _behavior = EnemyBehaviorTables.Shared.BuzzBlob;
-    private readonly ScentSeedAttraction _scent = new();
+    private BuzzBlobBehaviorProfile? _behaviorSourceCache;
+    private BuzzBlobBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).BuzzBlob;
+    private ScentSeedAttraction? _scentCache;
+    private ScentSeedAttraction _scent => _scentCache ??= new(AssetRoot);
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -22,6 +23,7 @@ internal sealed partial class BuzzBlobCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

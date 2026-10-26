@@ -11,7 +11,8 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
     IScreenTransitionPreloadRoomEntity, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     INativePartHealthRoomEntity
 {
-    private readonly PartOrbDatabase _data = PartOrbDatabase.Shared;
+    private PartOrbDatabase? _dataSourceCache;
+    private PartOrbDatabase _data => _dataSourceCache ??= PartOrbDatabase.For(AssetRoot);
     private readonly OracleRuntimeState _runtime;
     private readonly Action<int> _sound;
     private readonly int _mask;
@@ -32,12 +33,13 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
     internal MovingOrbRoomEntity(DungeonObjectRecord record, DungeonInteractionVisual visual,
         OracleRuntimeState runtime, Action<int> sound, int switchSound)
     {
+        AssetRoot = visual.AssetRoot;
         if (record.Id != InteractionId.Id0b || record.SubId != 0 || record.Var03 == 0)
             throw new InvalidOperationException($"Unsupported moving orb at {record.Source}.");
         Position = record.Position; _mask = record.Var03; _runtime = runtime; _sound = sound; _switchSound = switchSound;
         Name = "MovingOrb"; ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations,
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations,
             visual.TileBase, visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted, paletteVariants: [1, 2]);
         _animation.SetAnimation(0); Visible = false;
     }
@@ -46,7 +48,7 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
         if (State == 0)
         {
             State = 9;
-            Palette = (_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) & _mask) == 0 ? 1 : 2;
+            Palette = (_runtime.ReadField("wToggleBlocksState") & _mask) == 0 ? 1 : 2;
             _collisionEnabled = true; _pending = false; Visible = true;
         }
         return ScreenTransitionPresentation.Visible;
@@ -58,8 +60,8 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
         if (_pending)
         {
             _pending = false;
-            _runtime.SetWramByte(AgesGameContent.ToggleBlocksStateAddress,
-                (byte)(_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) ^ _mask));
+            _runtime.SetField("wToggleBlocksState",
+                (byte)(_runtime.ReadField("wToggleBlocksState") ^ _mask));
             Palette = Palette == 1 ? 2 : 1; _sound(_switchSound);
         }
         int target = State == 9 ? _data.Right : _data.Left;
@@ -89,7 +91,7 @@ internal sealed partial class MovingOrbRoomEntity : TransitionOffsetNode2D, IRoo
     public SeedHitResult ApplySeedHit(Rect2 hitbox, Vector2 origin, int seedItem, ICollection<RoomEntitySpawn> spawns)
     {
         if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("PART_MOVING_ORB $0b requires Mystery's live collision type.");
-        return new SeedSatchelDatabase().TryGet(seedItem, out var seed)
+        return new SeedSatchelDatabase(AssetRoot).TryGet(seedItem, out var seed)
             ? ApplySeedCollision(hitbox, origin, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect : SeedHitResult.None;
     }
     public bool ApplySwordHit(Rect2 hitbox, Vector2 origin, int damage, EnemyKnockbackStrength strength,

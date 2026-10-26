@@ -9,7 +9,7 @@ public partial class ValidationRoot
     {
         // enemy0cSubidData: $11/$10 selects extraEnemyData[$11]
         // ($06,$06,$fc,$05), palette 1 and the shared four animations.
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var definition = database.ImportedEnemy(EnemyId.ArrowMoblin, 0x01);
         FailIf(definition is not
             {

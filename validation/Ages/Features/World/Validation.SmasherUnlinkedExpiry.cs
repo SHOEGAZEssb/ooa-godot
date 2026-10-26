@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     {
         var actor = new SmasherCharacter();
         var random = new OracleRandom();
-        actor.InitializePending(new EnemyDatabase().ImportedEnemy(AgesEnemyId.Smasher, 0),
+        actor.InitializePending(new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(AgesEnemyId.Smasher, 0),
             Room060MovementFixture(), new(120, 88), random, 15);
         int initializations = 0, allocations = 0;
         try
@@ -72,7 +72,7 @@ public sealed partial class ValidationRoot
         finally { actor.QueueFree(); }
 
         var immediate = new SmasherCharacter();
-        immediate.InitializePending(new EnemyDatabase().ImportedEnemy(AgesEnemyId.Smasher, 0),
+        immediate.InitializePending(new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(AgesEnemyId.Smasher, 0),
             Room060MovementFixture(), new(120, 88), new OracleRandom(), 15);
         try
         {

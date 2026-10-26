@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateEnemyAdmissionRom()
     {
-        var enemies = EnemyDatabase.Shared;
+        var enemies = EnemyDatabase.For(AgesGameContent.AssetRoot);
         var redSource = Enumerable.Range(0, 8).SelectMany(group => Enumerable.Range(0, 256)
             .SelectMany(room => enemies.GetRoomObjects(group, room))).First(row => row.Id == 0x34 && row.SubId == 1);
         foreach (bool batched in new[] { false, true })
@@ -67,14 +67,14 @@ public sealed partial class ValidationRoot
             else if (id == 0x70)
             {
                 var boss = new GiantGhiniBoss();
-                boss.Initialize(new DungeonBossDatabase().Enemy(id), _currentRoom, new(80, 72), _random,
+                boss.Initialize(new DungeonBossDatabase(AgesGameContent.AssetRoot).Enemy(id), _currentRoom, new(80, 72), _random,
                     _entities.OnSoundRequested, () => false, () => { }, () => { },_entities.ToScreen);
                 parent = new GiantGhiniBossRoomEntity(boss, Vector2I.Up);
             }
             else if (id == 0x7a)
             {
                 var boss = new ShadowHagBoss();
-                boss.Initialize(new DungeonBossDatabase().Enemy(id), _currentRoom, new(80, 72), _random,
+                boss.Initialize(new DungeonBossDatabase(AgesGameContent.AssetRoot).Enemy(id), _currentRoom, new(80, 72), _random,
                     _entities.OnSoundRequested, () => false, () => { }, () => { }, () => { }, (_, _, _) => { }, () => false, "");
                 F1Set(boss, "_initialized", true); F1Set(boss, "_introActive", false);
                 F1Set(boss, "_state", ShadowHagState.SpawningBugs); F1Set(boss, "_counter1", 0x31);

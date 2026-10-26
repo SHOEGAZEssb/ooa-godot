@@ -8,7 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogNativeDeath()
     {
-        var record = new EnemyDatabase().ImportedEnemy(AgesEnemyId.Smog,0);
+        var record = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(AgesEnemyId.Smog,0);
         var actor = new SmogCharacter();
         int randomCalls = 0, frame = 0;
         int Random() => ++randomCalls;

@@ -93,7 +93,7 @@ public sealed partial class ValidationRoot
     private void ValidateSyrupShopInteractions()
     {
         var data = new LynnaShopDatabase(syrup: true);
-        var save = OracleSaveData.CreateStandardGame();
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         SetTreasure(save, TreasureId.Bombchus, false);
         save.WriteWramByte(0xc642, 0);
         var stock = data.ResolveStock(save);

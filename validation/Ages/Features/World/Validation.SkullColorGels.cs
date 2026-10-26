@@ -10,9 +10,9 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonColorGels()
     {
-        var data = new EnemyDatabase();
+        var data = new EnemyDatabase(AgesGameContent.AssetRoot);
         var record = data.ImportedEnemy(AgesEnemyId.ColorChangingGel, 0);
-        var profile = EnemyBehaviorTables.Shared.ColorChangingGel;
+        var profile = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).ColorChangingGel;
         FailIf(record is not { Health: 1, RadiusX: 2, RadiusY: 2, Palette: 2, TileBase: 28 } ||
             !profile.FloorColors.Select(v => v.Value).SequenceEqual(new[] { 0x9d, 2, 0x9e, 6, 0x9f, 1, 0xad, 2, 0xae, 6, 0xaf, 1 }) ||
             !profile.HopOffsets.Select(v => v.Value).SequenceEqual(new[] { -16, -16, -16, 0, -16, 16, 0, -16, 0, 16, 16, -16, 16, 0, 16, 16 }) ||

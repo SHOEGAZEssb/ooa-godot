@@ -6,7 +6,8 @@ namespace Oracles;
 // handler: raw layout tiles $f9-$fd are traversable regardless of solidity.
 internal sealed partial class WaterTektiteCharacter : EnemyCharacter
 {
-    private readonly WaterTektiteBehaviorProfile _behavior = EnemyBehaviorTables.Shared.WaterTektite;
+    private WaterTektiteBehaviorProfile? _behaviorSourceCache;
+    private WaterTektiteBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).WaterTektite;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -23,6 +24,7 @@ internal sealed partial class WaterTektiteCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

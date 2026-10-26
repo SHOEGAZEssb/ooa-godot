@@ -26,7 +26,7 @@ internal sealed class ZeldaRescueActor : RoomCutsceneCommandHost, IRoomEntity, I
     {
         Context = context; _owner = owner; _data = data;
         _name = record.Id switch { 0x31 => "Impa", 0x4c => "Bird", 0xad => "Zelda", _ => throw new System.ArgumentOutOfRangeException(nameof(record)) };
-        _actor = NpcCharacter.CreateFromRecord(record with { CanFace = record.Id == 0x31 });
+        _actor = NpcCharacter.CreateFromRecord(record with { CanFace = record.Id == 0x31 }, AgesGameContent.AssetRoot);
         // Zelda's commonInit neither marks solidity nor installs an NPC hitbox.
         if (_name == "Zelda") _actor.TimeWarpSolidMarked = false;
         _actor.SetAnimationRate(0);

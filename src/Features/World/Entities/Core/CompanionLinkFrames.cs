@@ -10,10 +10,10 @@ internal static class CompanionLinkFrames
         Texture2D[] ChargeTextures,
         Texture2D[] DamageTextures,
         Vector2[] Offsets) Load(
-        string sprite, int palette, string[] frames, int[] sourceOffsets)
+        string assetRoot, string sprite, int palette, string[] frames, int[] sourceOffsets)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
+            assetRoot + $"gfx/{sprite}.png");
         var textures = new Texture2D[frames.Length];
         var chargeTextures = new Texture2D[frames.Length];
         var damageTextures = new Texture2D[frames.Length];

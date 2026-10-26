@@ -7,7 +7,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogLargeCloud()
     {
-        var record = new EnemyDatabase().ImportedEnemy(AgesEnemyId.Smog,0);
+        var record = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(AgesEnemyId.Smog,0);
         var memory = AgesGameContent.CreateRuntimeState();
         SmogCharacter Create(int phase, int random, System.Func<int,byte> collision)
         {

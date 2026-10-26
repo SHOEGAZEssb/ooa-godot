@@ -124,7 +124,7 @@ public partial class ValidationRoot
             FailIf(orb.IsOn || _entities.Entities<BridgeSpawnerRoomEntity>().Count != 0 ||
                 sounds.Requests.Count(cue => cue == SoundId.SndSolvePuzzle) != 1,
                 "Repeated real contact must turn the orb off without restarting its completed bridge.");
-            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(),out var restored) ||
+            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(),OracleGame.Ages, out var restored) ||
                 !restored!.HasRoomFlag(2,0x9e,OracleSaveData.RoomFlag40),"Bridge flag$40 must survive the explicit save-image boundary.");
             LoadValidationRoom(2,0x9f); LoadValidationRoom(2,0x9e);
             FailIf(_runtimeState.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) != 0 ||

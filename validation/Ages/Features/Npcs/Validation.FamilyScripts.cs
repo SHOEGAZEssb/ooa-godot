@@ -270,7 +270,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateFamilyChildNativeMotion()
     {
-        var motion = new FamilyChildMotionDatabase();
+        var motion = new FamilyChildMotionDatabase(AgesGameContent.AssetRoot);
         FailIf(motion.AnimationBase(0) != 0 ||
             motion.AnimationBase(1) != 2 ||
             motion.AnimationBase(2) != 5 ||

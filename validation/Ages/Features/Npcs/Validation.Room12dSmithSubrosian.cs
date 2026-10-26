@@ -8,8 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom12dSmithSubrosian()
     {
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(1, 0x2d).Single();
-        var codec = new LinkedGameNpcDatabase();
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(1, 0x2d).Single();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         LinkedGameNpcDatabaseRecord secret = codec.Get(1, 0x2d, AgesInteractionId.Subrosian, 4);
         FailIf(record is not { Id: 0x4e, SubId: 4, Y: 0x38, X: 0x88,
                 TextId: 0x4d14, DefaultAnimation: 2, CanFace: true,

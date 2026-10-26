@@ -12,12 +12,12 @@ internal static class NpcStoryState
 
     public static NpcStoryStateKind ParseKind(string value, string context) => value switch
     {
-        "game-progress-1" => NpcStoryStateKind.GameProgress1,
-        "game-progress-2" => NpcStoryStateKind.GameProgress2,
+        "game-progress-1" => NpcStoryStateKind.AgesGameProgress1,
+        "game-progress-2" => NpcStoryStateKind.AgesGameProgress2,
         "global-flag" => NpcStoryStateKind.GlobalFlag,
         "current-room-flag" => NpcStoryStateKind.CurrentRoomFlag,
-        "zora-world" => NpcStoryStateKind.ZoraWorld,
-        "water-pollution" => NpcStoryStateKind.WaterPollution,
+        "zora-world" => NpcStoryStateKind.AgesZoraWorld,
+        "water-pollution" => NpcStoryStateKind.AgesWaterPollution,
         _ => throw new InvalidOperationException(
             $"Unknown NPC {context} state kind '{value}'.")
     };
@@ -28,78 +28,22 @@ internal static class NpcStoryState
         NpcRecord npc,
         OracleSaveData save) => kind switch
     {
-        NpcStoryStateKind.GameProgress1 => GetGameProgress1(save),
-        NpcStoryStateKind.GameProgress2 => GetGameProgress2(save),
         NpcStoryStateKind.GlobalFlag => save.HasGlobalFlag(comparisonValue)
             ? comparisonValue
             : 0,
         NpcStoryStateKind.CurrentRoomFlag => save.HasRoomFlag(
             npc.Group, npc.Room, (byte)comparisonValue) ? comparisonValue : 0,
-        // zora.s:zora_getWorldState uses RET NC after BIT (which clears carry).
-        NpcStoryStateKind.ZoraWorld => !save.HasGlobalFlag(AgesGlobalFlag.KingZoraCured) ? 0 :
-            save.HasGlobalFlag(AgesGlobalFlag.WaterPollutionFixed) ? 2 : 1,
-        NpcStoryStateKind.WaterPollution => save.HasGlobalFlag(AgesGlobalFlag.WaterPollutionFixed) ? 1 : 0,
-        _ => throw new InvalidOperationException($"Unhandled NPC story state {kind}.")
+        _ => AgesNpcStoryState.GetState(kind, save)
     };
 
-    public static int GetGameProgress1(OracleSaveData save)
-    {
-        if (save.HasGlobalFlag(AgesGlobalFlag.FinishedGame))
-            return 5;
-        if (save.HasGlobalFlag(AgesGlobalFlag.SawTwinrovaBeforeEndgame))
-            return 4;
-
-        byte essences = save.ReadWramByte(AgesWramAddress.wEssencesObtained);
-        if (essences == 0)
-            return 0;
-        int highestEssence = HighestSetBit(essences);
-        if (highestEssence >= 6)
-            return 3;
-        if (save.HasGlobalFlag(AgesGlobalFlag.SavedNayru))
-            return 2;
-        return highestEssence >= 2 ? 1 : 0;
-    }
-
-    public static int GetGameProgress2(OracleSaveData save)
-    {
-        if (save.HasGlobalFlag(AgesGlobalFlag.FinishedGame))
-            return 7;
-        if (save.IsLinkedGame && save.HasRoomFlag(
-            4, 0xfc, OracleSaveData.RoomFlag80))
-        {
-            return 6;
-        }
-        if (save.HasGlobalFlag(AgesGlobalFlag.SawTwinrovaBeforeEndgame))
-            return 5;
-
-        byte essences = save.ReadWramByte(AgesWramAddress.wEssencesObtained);
-        if (essences == 0)
-            return 0;
-        int highestEssence = HighestSetBit(essences);
-        if (highestEssence >= 6)
-            return 4;
-        if (save.HasGlobalFlag(AgesGlobalFlag.SavedNayru))
-            return 3;
-        if (highestEssence >= 3)
-            return 2;
-        return highestEssence >= 1 ? 1 : 0;
-    }
-
-    private static int HighestSetBit(byte value)
-    {
-        int bit = 7;
-        while ((value & (1 << bit)) == 0)
-            bit--;
-        return bit;
-    }
 }
 
 internal enum NpcStoryStateKind
 {
-    GameProgress1,
-    GameProgress2,
+    AgesGameProgress1,
+    AgesGameProgress2,
     GlobalFlag,
     CurrentRoomFlag,
-    ZoraWorld,
-    WaterPollution
+    AgesZoraWorld,
+    AgesWaterPollution
 }

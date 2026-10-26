@@ -5,11 +5,16 @@ namespace Oracles;
 
 internal sealed class SharedEffectDatabase
 {
-    private const string Path = AgesGameContent.AssetRoot + "cutscenes/nayru_intro_effects.tsv";
+    public string AssetRoot { get; }
+
+    private readonly string Path ;
     private readonly Dictionary<string, EffectRecord> _effects = new(StringComparer.Ordinal);
 
-    internal SharedEffectDatabase()
+    internal SharedEffectDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+        Path = AssetRoot + "cutscenes/nayru_intro_effects.tsv";
+
         GeneratedTable table = GeneratedTable.Load(
             Path,
             new GeneratedTableSchema(

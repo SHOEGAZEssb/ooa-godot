@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
     private void ValidateBackgroundAnimationInitializationRom()
     {
         ReinitializeGameplayForValidation();LoadValidationRoom(0,0x38);_entities.Clear();
-        var data=new OracleAnimationData();
+        var data=new OracleAnimationData(AgesGameContent.AssetRoot);
         var baseline=OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/gfx_tileset22.png");
         foreach(bool direct in new[]{false,true})
         for(int group=0;group<22;group++)

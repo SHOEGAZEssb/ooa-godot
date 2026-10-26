@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         var database = new Room2e3Database();
         Room2e3InteractionRecord record = database.Record;
         EnemyHandlerDescriptor cuccoHandler =
-            new EnemyDatabase().EnemyHandlers.ResolveHandler(
+            new EnemyDatabase(AgesGameContent.AssetRoot).EnemyHandlers.ResolveHandler(
                 0x33, 0x00, "validation:room2e3");
         FailIf(
             record.Group != 2 ||

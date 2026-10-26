@@ -10,6 +10,8 @@ namespace Oracles;
 /// </summary>
 public sealed class MainMenuController
 {
+    private string AssetRoot => _screen.AssetRoot;
+
     public const int WhiteFadeFrames = 32;
 
     private readonly MainMenuScreen _screen;
@@ -34,6 +36,8 @@ public sealed class MainMenuController
     private bool _erasing;
     private LinkedGameNpcDatabase? _secretCodec;
     private bool _secretError;
+    private readonly Action? _advanceTitleRandom;
+    private bool _titleInitializing;
     private int _secretErrorDelay;
     private static readonly string[] ButtonActions =
         ["attack", "item", "map", "inventory", "move_right", "move_left", "move_up", "move_down"];
@@ -59,14 +63,17 @@ public sealed class MainMenuController
         Func<int, OracleSaveData, SaveResult>? save = null,
         Action<int>? erase = null,
         Action<int>? playSound = null,
-        bool startAtFileSelect = false)
+        bool startAtFileSelect = false,
+        Action? advanceTitleRandom = null)
     {
         _screen = screen;
+        _screen.Show();
         _startGame = startGame;
-        _load = load ?? OracleSaveStore.LoadSlot;
+        _load = load ?? (slot => OracleSaveStore.LoadSlot(slot, screen.Game));
         _save = save ?? OracleSaveStore.SaveSlot;
-        _erase = erase ?? OracleSaveStore.EraseSlot;
+        _erase = erase ?? (slot => OracleSaveStore.EraseSlot(slot, screen.Game));
         _playSound = playSound;
+        _advanceTitleRandom = advanceTitleRandom;
         ReloadSlots();
         // FrontendIntroController transfers this shared screen at the end of
         // the title's 32-update fade, when its palette offset is fully white.
@@ -82,7 +89,12 @@ public sealed class MainMenuController
         {
             _screen.SetWhiteFade(0.0f);
             _screen.ShowTitle();
-            _playSound?.Invoke(SoundId.MusTitlescreen);
+            if (screen.Game == OracleGame.Seasons)
+            {
+                if (_advanceTitleRandom is null) throw new ArgumentNullException(nameof(advanceTitleRandom));
+                _titleInitializing = true; _screen.SetTitleBlink(false);
+            }
+            else _playSound?.Invoke(SoundId.MusTitlescreen);
         }
     }
 
@@ -90,6 +102,12 @@ public sealed class MainMenuController
     {
         if (!IsActive)
             return;
+        if (_screen.Game == OracleGame.Seasons && CurrentPage == Page.Title) _advanceTitleRandom!();
+        if (_titleInitializing)
+        {
+            _titleInitializing = false; _titleTicks = 0x0960;
+            _playSound?.Invoke(SoundId.MusTitlescreen); return;
+        }
 
         if (_screen.SaveErrorVisible)
         {
@@ -146,6 +164,7 @@ public sealed class MainMenuController
                     OpenFileSelect();
                     break;
                 case FileMenuInitialization.FileSelect:
+                    _screen.SetWhiteFade(0);
                     ReloadSlots();
                     _screen.ShowFileSelect();
                     break;
@@ -162,7 +181,10 @@ public sealed class MainMenuController
 
         if (CurrentPage == Page.Title)
         {
-            _titleTicks += delta * 60.0;
+            if (_screen.Game == OracleGame.Seasons && Input.IsActionJustPressed("inventory"))
+            { BeginTitleStart(); return; }
+            // shortcut: retain Seasons' title until its attract cinematic is ported.
+            _titleTicks += (_screen.Game == OracleGame.Seasons ? -1 : 1) * delta * 60.0;
             _screen.SetTitleBlink((((int)_titleTicks >> 5) & 1) == 0);
             if (Input.IsActionJustPressed("inventory"))
                 BeginTitleStart();
@@ -385,6 +407,8 @@ public sealed class MainMenuController
                 {
                     _pendingInitialization = FileMenuInitialization.NameEntry;
                 }
+                else if (_screen.Cursor == 1 && _screen.Game == OracleGame.Seasons)
+                    _screen.ShowNotice("LINKED GAMES\nARE NOT AVAILABLE");
                 else if (_screen.Cursor == 1)
                     _pendingInitialization = FileMenuInitialization.SecretEntry;
                 else _screen.ShowNotice("GAME LINK\nIS NOT AVAILABLE");
@@ -408,7 +432,7 @@ public sealed class MainMenuController
                 if (_screen.Choice == 1 && _sourceSlot >= 0)
                 {
                     OracleSaveData source = _slots[_sourceSlot]!;
-                    OracleSaveData.TryDeserialize(source.Serialize(), out OracleSaveData? copy);
+                    OracleSaveData.TryDeserialize(source.Serialize(), _screen.Game, out OracleSaveData? copy);
                     if (!TrySave(_screen.SelectedSlot, copy!))
                         break;
                 }
@@ -545,7 +569,7 @@ public sealed class MainMenuController
 
     private void SaveEnteredSecret()
     {
-        _secretCodec ??= new LinkedGameNpcDatabase();
+        _secretCodec ??= new LinkedGameNpcDatabase(AssetRoot);
         if (!_secretCodec.TryCreateGameFromSecret(_screen.EnteredSecret, out var save))
         {
             _secretError = true;
@@ -570,7 +594,7 @@ public sealed class MainMenuController
             return;
         }
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(_screen.Game);
         save.SetLinkName(_screen.EnteredName);
         if (!TrySave(_screen.SelectedSlot, save))
             return;
@@ -620,7 +644,11 @@ public sealed class MainMenuController
     private void ReloadSlots()
     {
         for (int slot = 0; slot < _slots.Length; slot++)
+        {
             _slots[slot] = _load(slot);
+            if (_slots[slot] is { } save && save.Game != _screen.Game)
+                throw new InvalidOperationException($"File menu received {save.Game} in {_screen.Game} slot ${slot:x2}.");
+        }
         _screen.SetSlots(_slots);
     }
 
@@ -663,6 +691,10 @@ public sealed class MainMenuController
         if (destination == FadeDestination.FileSelect)
         {
             _playSound?.Invoke(SoundId.MusFileSelect);
+            if (_screen.Game == OracleGame.Seasons)
+            {
+                _screen.SetWhiteFade(0); ReloadSlots(); _screen.ShowFileSelect(); return;
+            }
             OpenFileSelect();
             return;
         }

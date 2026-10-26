@@ -28,6 +28,7 @@ internal sealed partial class ShootingGalleryTargetDebris
         ShootingGalleryTargetDebrisSpawn spawn,
         OracleRuntimeState? runtime = null)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (spawn.AngleIndex is < 0 or >= 4 ||
             spawn.TargetType is < 0 or >= 4)
         {

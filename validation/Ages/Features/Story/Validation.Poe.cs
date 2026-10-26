@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(tradeItemAddress, 0);
             _saveData.WriteWramByte(tradeObtainedAddress, flags);
             _saveData.CommitInventoryChange();
-            reloadInventory.Invoke(_inventory, null);
+            reloadInventory.Invoke(_inventory, new object[] { _saveData });
         }
 
         void SetPoeFlags(bool progress, bool tomb, bool item)
@@ -335,7 +335,7 @@ public sealed partial class ValidationRoot
 
         _saveData.WriteWramBytes(AgesWramAddress.wInventoryB, inventorySnapshot);
         _saveData.CommitInventoryChange();
-        reloadInventory.Invoke(_inventory, null);
+        reloadInventory.Invoke(_inventory, new object[] { _saveData });
         foreach (byte flag in new byte[] { 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 })
         {
             _saveData.SetRoomFlag(

@@ -9,9 +9,8 @@ namespace Oracles;
 internal partial class MoldormCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
-
-    private readonly MoldormBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Moldorm;
+    private MoldormBehaviorProfile? _behaviorSourceCache;
+    private MoldormBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Moldorm;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private Vector2 _preciseHeadPosition;
@@ -56,6 +55,7 @@ internal partial class MoldormCharacter : EnemyCharacter
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Animations.Length < 10)
         {
             throw new ArgumentOutOfRangeException(

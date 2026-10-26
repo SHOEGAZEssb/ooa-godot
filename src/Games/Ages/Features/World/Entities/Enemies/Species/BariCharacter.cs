@@ -5,7 +5,7 @@ namespace Oracles;
 // object_code/ages/enemies/bari.s: the shared large Bari/small Biri handler.
 internal sealed partial class BariCharacter : EnemyCharacter, ITerrainShadowSource
 {
-    private readonly BariBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Bari;
+    private readonly BariBehaviorProfile _behavior = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Bari;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private Vector2 _origin;
@@ -31,6 +31,7 @@ internal sealed partial class BariCharacter : EnemyCharacter, ITerrainShadowSour
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position,
         OracleRandom random, int angle = 0, int zHigh = 0)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

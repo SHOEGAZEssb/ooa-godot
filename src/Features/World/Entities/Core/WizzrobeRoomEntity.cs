@@ -9,7 +9,8 @@ internal sealed class WizzrobeRoomEntity : CombatEnemyRoomEntityAdapter<Wizzrobe
     IPostObjectLinkContactRoomEntity, IPostObjectMeleeCollisionRoomEntity, IPostObjectItemCollisionRoomEntity,
     IBoomerangCollisionRoomEntity, ISomariaBlockCollisionRoomEntity, ISeedCollisionTarget, IBurningEnemyTarget, IGaleSeedTarget
 {
-    private readonly WizzrobeBehaviorProfile _data = EnemyBehaviorTables.Shared.Wizzrobe;
+    private WizzrobeBehaviorProfile? _dataSourceCache;
+    private WizzrobeBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Wizzrobe;
     private readonly Func<byte> _random;
     private readonly Func<bool> _freePart;
     private bool _galeReservationPending;

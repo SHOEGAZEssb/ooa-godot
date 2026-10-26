@@ -71,8 +71,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriFlute()
     {
-        var data = new FluteDatabase();
-        var collisions = new DimitriDatabase();
+        var data = new FluteDatabase(AgesGameContent.AssetRoot);
+        var collisions = new DimitriDatabase(AgesGameContent.AssetRoot);
         FailIf(collisions.AcceptsMouthCollision(0x16) || !collisions.AcceptsMouthCollision(0x1b) ||
             !collisions.AcceptsMouthCollision(0x1d),
             "Dimitri mouth lost the Beamos/rock-cover exclusion or Spiny Beetle/Armos collision gates.");

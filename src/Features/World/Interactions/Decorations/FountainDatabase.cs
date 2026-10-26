@@ -6,15 +6,21 @@ namespace Oracles;
 
 internal sealed class FountainDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int, FountainVisual> _visuals = new();
     private readonly List<FountainPlacement> _placements = new();
     private readonly HashSet<int> _paletteRooms = new();
-    private readonly IReadOnlyDictionary<int, Color[]> _normal = Palette("normal");
-    private readonly IReadOnlyDictionary<int, Color[]> _ruined = Palette("ruined");
+    private IReadOnlyDictionary<int, Color[]>? _normalSourceCache;
+    private IReadOnlyDictionary<int, Color[]> _normal => _normalSourceCache ??= Palette("normal");
+    private IReadOnlyDictionary<int, Color[]>? _ruinedSourceCache;
+    private IReadOnlyDictionary<int, Color[]> _ruined => _ruinedSourceCache ??= Palette("ruined");
 
-    internal FountainDatabase()
+    internal FountainDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/fountain_visuals.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "objects/fountain_visuals.tsv",
             new GeneratedTableSchema("INTERAC_DECORATION fountain visuals", GeneratedTableKeySemantics.Unique,
                 ["subid", "sprite", "tile-base", "palette", "animation", "source"], ["subid"], headerRequired: true));
         foreach (var row in table.Rows)
@@ -25,13 +31,13 @@ internal sealed class FountainDatabase
                 row.UnsignedDecimal(3), row.RequiredString(4)));
             _ = row.RequiredString(5);
         }
-        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/fountain_placements.tsv",
+        table = GeneratedTable.Load(AssetRoot + "objects/fountain_placements.tsv",
             new GeneratedTableSchema("INTERAC_DECORATION fountain placements", GeneratedTableKeySemantics.Ordered,
                 ["group", "room", "subid", "y", "x", "source"], headerRequired: true));
         foreach (var row in table.Rows)
             _placements.Add(new(row.UnsignedDecimal(0), row.HexByte(1), row.HexByte(2),
                 new(row.HexByte(4), row.HexByte(3)), row.RequiredString(5)));
-        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/fountain_palette_rooms.tsv",
+        table = GeneratedTable.Load(AssetRoot + "objects/fountain_palette_rooms.tsv",
             new GeneratedTableSchema("decoration.s Symmetry City palette keys", GeneratedTableKeySemantics.Unique,
                 ["room", "source"], ["room"], headerRequired: true));
         foreach (var row in table.Rows)
@@ -48,9 +54,9 @@ internal sealed class FountainDatabase
         _paletteRooms.Contains(room) && (group != 0 || save?.HasRoomFlag(group, room, 1) != true);
     internal IReadOnlyDictionary<int, Color[]> Palettes(bool ruined) => ruined ? _ruined : _normal;
 
-    private static IReadOnlyDictionary<int, Color[]> Palette(string name) =>
+    private IReadOnlyDictionary<int, Color[]> Palette(string name) =>
         new Dictionary<int, Color[]> { [6] = OracleGraphicsData.LoadPaletteColors(
-            AgesGameContent.AssetRoot + $"objects/fountain_{name}_palette.bin", transparentZero: true) };
+            AssetRoot + $"objects/fountain_{name}_palette.bin", transparentZero: true) };
 }
 
 internal sealed record FountainVisual(string Sprite, int TileBase, int Palette, string Animation);

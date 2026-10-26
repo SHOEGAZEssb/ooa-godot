@@ -92,7 +92,7 @@ public sealed partial class ValidationRoot
             int id = weapon is DimitriMouthRoomEntity ? 0x2b : weapon is RickyTornadoRoomEntity ? 0x2a : 0x28;
             int address = slots.Single(page => rom[(page << 8) + 1] == id) << 8;
             var projectile = (IPlayerProjectileRoomEntity)weapon;
-            var attributes = CompanionWeaponDatabase.Shared.Weapon(id);
+            var attributes = CompanionWeaponDatabase.For(AgesGameContent.AssetRoot).Weapon(id);
             FailIf(projectile.Damage != -(sbyte)rom[address + 0x28] ||
                 attributes.CollisionType != (rom[address + 0x24] & 0x7f) ||
                 projectile.CollisionBounds.Size != new Vector2(rom[address + 0x27] * 2, rom[address + 0x26] * 2),

@@ -61,7 +61,7 @@ public partial class ValidationRoot
                 "AB2A891271C13C302790F6B933557626D735A7354237A4F6E8F28480B9E41AD1",
             "Clean-US treasureDisplayData: expected all 140 original seven-byte rows.");
 
-        var save = OracleSaveData.CreateStandardGame();
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(TreasureId.Bracelet, 2);
         FailIf(_treasures.GetButtonDisplay(TreasureId.CaneOfSomaria, inventory).LeftSprite != 0x97 ||
@@ -89,7 +89,7 @@ public partial class ValidationRoot
                 $"loadItemIconGfx: equipped Harp ${large[index]:x2} did not select small pair +$02.");
         FailIf(ItemIconAtlas.EquippedSprite(0x02) != 0x82,
             "No-song equipped Harp must copy spr_item_icons_1+$40.");
-        MenuPresentationDatabase layouts = MenuPresentationDatabase.Shared;
+        MenuPresentationDatabase layouts = MenuPresentationDatabase.For(AgesGameContent.AssetRoot);
         int[] tiles = [0x0e, 0x46, 0x4e, 0x56];
         int[] attributes = [0x08, 0x08, 0x0b, 0x09];
         for (int song = 0; song < 4; song++)
@@ -102,7 +102,7 @@ public partial class ValidationRoot
                     $"seedAndHarpSpriteTable+4: song ${song:x2}, part {part} differs from original OAM.");
         }
 
-        var screen = new InventoryScreen { Visible = false };
+        var screen = new AgesInventoryScreen { AssetRoot = AgesGameContent.AssetRoot, Visible = false };
         AddChild(screen);
         screen.Initialize(_treasures, inventory);
         for (int count = 1; count <= 4; count++)
@@ -138,13 +138,14 @@ public partial class ValidationRoot
         for (int layout = 0; layout < 2; layout++)
         for (int song = 0; song < 4; song++)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wSwordLevel, 1);
             save.WriteWramByte(AgesWramAddress.wSelectedHarpSong, (byte)song);
             save.WriteWramByte(AgesWramAddress.wDungeonSmallKeys, 3);
             var inventory = new InventoryState(_treasures, save);
             var hud = new Hud
             {
+                AssetRoot = AgesGameContent.AssetRoot,
                 Visible = false, MaxHealthQuarters = layout == 0 ? 20 : 60,
                 HealthQuarters = layout == 0 ? 17 : 57, Rupees = 3,
                 EquippedB = 5, EquippedA = 0x11, DungeonIndex = layout == 0 ? -1 : 0,

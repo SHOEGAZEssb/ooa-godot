@@ -6,13 +6,17 @@ namespace Oracles;
 /// <summary>PART_ITEM_DROP:$0f's ordered enemy selection and Beetle walk table.</summary>
 internal sealed class DiggingEnemyDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly EnemyCombatSourceDescriptor[] _enemies = new EnemyCombatSourceDescriptor[8];
     internal byte[] BeetleCounters { get; }
 
-    internal DiggingEnemyDatabase()
+    internal DiggingEnemyDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/digging_enemies.tsv",
+            AssetRoot + "metadata/digging_enemies.tsv",
             new GeneratedTableSchema("digging enemies", GeneratedTableKeySemantics.Unique,
                 ["index", "enemy-id", "collision-mode", "shield-l1", "shield-l2", "shield-l3", "source"],
                 ["index"], headerRequired: true));
@@ -26,9 +30,9 @@ internal sealed class DiggingEnemyDatabase
                 row.HexByte(1), 0, row.HexByte(2), 0, 0,
                 row.HexByte(1) == 0x10 ? EnemyHandlerKind.Rope : EnemyHandlerKind.Beetle,
                 row.RequiredString(6), row.HexByte(3), row.HexByte(4), row.HexByte(5),
-                "data/ages/objectCollisionTable.s");
+                $"data/{OracleAssetPack.GameFor(AssetRoot).ToString().ToLowerInvariant()}/objectCollisionTable.s");
         }
-        BeetleCounters = OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/beetle_counters.bin");
+        BeetleCounters = OracleAssetCache.ReadBytes(AssetRoot + "metadata/beetle_counters.bin");
         if (index != 8 || BeetleCounters.Length != 8)
             throw new InvalidOperationException("itemDrop_spawnEnemy / beetle_chooseRandomAngleAndCounter1: expected eight table entries.");
     }

@@ -20,8 +20,10 @@ internal sealed class CutsceneSpriteRenderer
     };
 
     private readonly Dictionary<(int SourceOffset, int Tile, int Palette, bool FlipX, bool FlipY), Texture2D> _cells = new();
-    private readonly Image _source =
-        OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_link.png");
+    private readonly Image _source;
+
+    internal CutsceneSpriteRenderer(string assetRoot) =>
+        _source = OracleGraphicsCache.LoadImage(assetRoot + "gfx/spr_link.png");
 
     public void DrawScreenFrame(
         CanvasItem target,

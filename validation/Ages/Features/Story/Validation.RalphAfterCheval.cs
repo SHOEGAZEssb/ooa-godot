@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             Ralph().Active || roomEvent.HasState,
             "Room 1:79 did not require active warp destination $17.");
 
-        var warps = new WarpDatabase();
+        var warps = new WarpDatabase(AgesGameContent.AssetRoot);
         OracleRoomData sourceRoom = _world.LoadRoom(sourceGroup, sourceRoomId);
         FailIf(
             !warps.TryGetEdgeWarp(

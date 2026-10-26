@@ -29,14 +29,14 @@ public sealed partial class ValidationRoot
             FailIf(!ValidationNodeLifetime.OrphanIds().Contains(liveOrphanId),
                 "Orphan snapshots must preserve the full 64-bit native instance ID.");
             var released = new WeakReference<RoomEventController>[64];
-            var npcRecords = NpcDatabase.Shared.AllRecords.ToArray();
-            var enemyRecords = EnemyDatabase.Shared.GetRoomObjects(4, 0x13).ToArray();
-            var treasureRecords = TreasureDatabase.Shared.Objects.ToArray();
+            var npcRecords = NpcDatabase.For(AgesGameContent.AssetRoot).AllRecords.ToArray();
+            var enemyRecords = EnemyDatabase.For(AgesGameContent.AssetRoot).GetRoomObjects(4, 0x13).ToArray();
+            var treasureRecords = TreasureDatabase.For(AgesGameContent.AssetRoot).Objects.ToArray();
             for (int index = 0; index < released.Length; index++)
                 released[index] = ReplaceSessionForLifetimeValidation();
-            FailIf(!npcRecords.SequenceEqual(NpcDatabase.Shared.AllRecords) ||
-                !enemyRecords.SequenceEqual(EnemyDatabase.Shared.GetRoomObjects(4, 0x13)) ||
-                !treasureRecords.SequenceEqual(TreasureDatabase.Shared.Objects),
+            FailIf(!npcRecords.SequenceEqual(NpcDatabase.For(AgesGameContent.AssetRoot).AllRecords) ||
+                !enemyRecords.SequenceEqual(EnemyDatabase.For(AgesGameContent.AssetRoot).GetRoomObjects(4, 0x13)) ||
+                !treasureRecords.SequenceEqual(TreasureDatabase.For(AgesGameContent.AssetRoot).Objects),
                 "Session replacement mutated shared NPC, enemy or treasure source records.");
             CollectReleasedSessions();
             int beforeFrames = released.Count(reference => reference.TryGetTarget(out _));
@@ -88,10 +88,10 @@ public sealed partial class ValidationRoot
             ReferenceEquals(previousRandom, _random) ||
             ReferenceEquals(previousEntities, _entities),
             "Session replacement reused live rooms, world, runtime, inventory, save, RNG or entities.");
-        var factory = SomariaPrivate<RoomEntityFactory>(_entities, "_factory");
-        FailIf(!ReferenceEquals(_treasures, TreasureDatabase.Shared) ||
-            !ReferenceEquals(SomariaPrivate<EnemyDatabase>(factory, "enemies"), EnemyDatabase.Shared) ||
-            !ReferenceEquals(SomariaPrivate<NpcDatabase>(_entities.FamilyStateResolver, "_npcs"), NpcDatabase.Shared),
+        var factory = SomariaPrivate<AgesRoomEntityFactory>(_entities, "_factory");
+        FailIf(!ReferenceEquals(_treasures, TreasureDatabase.For(AgesGameContent.AssetRoot)) ||
+            !ReferenceEquals(SomariaPrivate<EnemyDatabase>(factory, "enemies"), EnemyDatabase.For(AgesGameContent.AssetRoot)) ||
+            !ReferenceEquals(SomariaPrivate<NpcDatabase>(_entities.FamilyStateResolver, "_npcs"), NpcDatabase.For(AgesGameContent.AssetRoot)),
             "Session replacement rebuilt read-only NPC, enemy or treasure source tables.");
         return released;
     }

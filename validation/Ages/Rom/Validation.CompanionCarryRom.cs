@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateDimitriCarryOffsetsRom()
     {
-        var weights = BraceletWeightDatabase.Shared;
+        var weights = BraceletWeightDatabase.For(AgesGameContent.AssetRoot);
         var rom = new LinkCollisionRom();
         rom.Word(0xd018, 0xd100); // Link.relatedObj2 is the carried companion.
         for (int frame = 0; frame < 4; frame++)

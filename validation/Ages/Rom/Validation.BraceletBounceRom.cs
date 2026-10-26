@@ -24,7 +24,7 @@ public sealed partial class ValidationRoot
                 FailIf(!_inventory.SetRingBoxSlotFromList(0, ring) || !_inventory.EquipRingAt(0),
                     "Could not equip Toss Ring $12 for the Bracelet bounce fixture.");
             }
-            var db = EnemyDatabase.Shared;
+            var db = EnemyDatabase.For(AgesGameContent.AssetRoot);
             var random = new OracleRandom();
             var ball = new SmasherCharacter();
             var parent = new SmasherCharacter();

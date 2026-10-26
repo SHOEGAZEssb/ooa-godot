@@ -9,7 +9,7 @@ public partial class ValidationRoot
 {
     private void ValidateRoom043Enemies()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<RoomObjectRecord> rows = database.GetRoomObjects(0, 0x43);
         FailIf(rows.Count != 2 || rows[0] is not { Id: 0x08, SubId: 0, Count: 2, Kind: RoomObjectKind.RandomEnemy } ||
             rows[1] is not { Id: 0x18, SubId: 0, Count: 1, Kind: RoomObjectKind.RandomEnemy },
@@ -90,7 +90,7 @@ public partial class ValidationRoot
         FailIf(_player.ElectricShockCounter != 45, "Link shock did not initialize its $2d counter.");
         for (int i = 0; i < 5; i++) _player.AdvanceApplicationUpdate();
         FailIf(_player.ElectricShockCounter != 40 || _player.Position != frozenLink || _player.Material is null ||
-            room.BackgroundPalettes.Resolve(2, 2) != ElectricShockPalette.Background[2, 2],
+            room.BackgroundPalettes.Resolve(2, 2) != ElectricShockPalette.For(AgesGameContent.AssetRoot).Background[2, 2],
             "Link shock did not freeze Link and load PALH_0c on counter $28.");
         for (int i = 0; i < 8; i++) _player.AdvanceApplicationUpdate();
         FailIf(_player.ElectricShockCounter != 32 || _player.Material is not null ||

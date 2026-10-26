@@ -6,16 +6,20 @@ namespace Oracles;
 /// <summary>The imported Ages household talk programs and their text chains.</summary>
 internal sealed class FamilyNpcScriptDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<string, IReadOnlyList<CutsceneCommand>> _scripts =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, string> _texts = new();
     private readonly Dictionary<int, string> _animations = new();
     private readonly Dictionary<(int Id, int Index), string> _actorScripts = new();
 
-    internal FamilyNpcScriptDatabase()
+    internal FamilyNpcScriptDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable texts = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "cutscenes/family_npc_texts.tsv",
+            AssetRoot + "cutscenes/family_npc_texts.tsv",
             new GeneratedTableSchema("family script texts",
                 GeneratedTableKeySemantics.Unique,
                 ["text-id", "utf8-base64"], ["text-id"], headerRequired: true));
@@ -23,7 +27,7 @@ internal sealed class FamilyNpcScriptDatabase
             _texts.Add(row.HexWord(0), row.Base64Utf8(1));
 
         GeneratedTable animations = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "cutscenes/family_npc_animations.tsv",
+            AssetRoot + "cutscenes/family_npc_animations.tsv",
             new GeneratedTableSchema("family Bipin animations",
                 GeneratedTableKeySemantics.Unique,
                 ["animation", "encoded-data"], ["animation"], headerRequired: true));
@@ -31,12 +35,12 @@ internal sealed class FamilyNpcScriptDatabase
             _animations.Add(row.HexByte(0), row.Base64Utf8(1));
 
         _scripts = CutsceneCommandCatalog.LoadPrograms(
-            AgesGameContent.AssetRoot + "cutscenes/family_npc_scripts.tsv");
+            AssetRoot + "cutscenes/family_npc_scripts.tsv");
         if (_scripts.Count != 33)
             throw new InvalidOperationException($"Expected 33 household scripts, got {_scripts.Count}.");
 
         GeneratedTable actorScripts = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "cutscenes/family_actor_scripts.tsv",
+            AssetRoot + "cutscenes/family_actor_scripts.tsv",
             new GeneratedTableSchema("native family actor script tables",
                 GeneratedTableKeySemantics.Unique,
                 ["id", "index", "script"], ["id", "index"], headerRequired: true));

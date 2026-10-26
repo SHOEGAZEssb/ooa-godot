@@ -32,8 +32,8 @@ internal sealed class MakuConfettiDatabase
         var second=visuals.Single(r=>r.RequiredString(0)=="confetti-right");
         // This shared sheet uses the default inverted source shades; reversing
         // them makes the flower's transparent surround an opaque rectangle.
-        Visual=new("maku-confetti",[first.RequiredString(1)],first.UnsignedDecimal(2),first.UnsignedDecimal(3),true,[first.RequiredString(4),second.RequiredString(4)]);
+        Visual=new(AgesGameContent.AssetRoot, "maku-confetti",[first.RequiredString(1)],first.UnsignedDecimal(2),first.UnsignedDecimal(3),true,[first.RequiredString(4),second.RequiredString(4)]);
         var sparkle=visuals.Single(r=>r.RequiredString(0)=="sparkle");
-        Sparkle=new(sparkle.RequiredString(1),sparkle.UnsignedDecimal(2),sparkle.UnsignedDecimal(3),sparkle.RequiredString(4));
+        Sparkle=new(AgesGameContent.AssetRoot, sparkle.RequiredString(1),sparkle.UnsignedDecimal(2),sparkle.UnsignedDecimal(3),sparkle.RequiredString(4));
     }
 }

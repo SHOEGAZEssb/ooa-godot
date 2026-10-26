@@ -376,14 +376,14 @@ internal sealed class GoronCaveScriptHost : InteractiveCutsceneCommandHost
                     { if(generation!=_generation) return; _secretResult=valid?0:1; _secretPending=false; }))
                     throw UnsupportedCommand("open ELDER_SECRET $08 menu");
                 return;
-            case "GenerateElderSecret": _secret=new LinkedGameNpcDatabase().GenerateSecret(0x18,Context.Rooms.SaveData); return;
+            case "GenerateElderSecret": _secret=new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x18,Context.Rooms.SaveData); return;
             case "AskTroySecret":
                 _secretPending=true; int troyGeneration=_generation;
                 if(_owner.OpenSecretMenu is null||!_owner.OpenSecretMenu(2,valid=>
                     { if(troyGeneration!=_generation) return; _secretResult=valid?0:1; _secretPending=false; }))
                     throw UnsupportedCommand("open TROY_SECRET $02 menu");
                 return;
-            case "GenerateTroySecret": _secret=new LinkedGameNpcDatabase().GenerateSecret(0x12,Context.Rooms.SaveData); return;
+            case "GenerateTroySecret": _secret=new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x12,Context.Rooms.SaveData); return;
             case "shootingGallery_equipSword": Gallery!.Equip(false); return;
             case "shootingGallery_equipBiggoronSword": Gallery!.Equip(true); return;
             case "shootingGallery_restoreEquips": Gallery!.RestoreEquips(); return;

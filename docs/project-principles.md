@@ -3,7 +3,9 @@
 ## Target
 
 Reproduce each implemented Oracle game as executed by its supported clean US
-ROM. Ages is currently playable; Seasons currently has preview content only.
+ROM. Ages is currently playable; Seasons supports its standard opening through
+the return of control after Din's capture. Later Seasons progression remains
+outside the implemented scope.
 A cleaner abstraction is useful only when it preserves the
 original data, order, timing, arithmetic, and observable behavior. Visual
 similarity in one room is not enough.

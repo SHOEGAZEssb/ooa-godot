@@ -6,6 +6,8 @@ namespace Oracles;
 
 public sealed class InteractionController
 {
+    private string AssetRoot => _rooms.AssetRoot;
+
 
     private readonly RoomSession _rooms;
     private readonly RoomEntityManager _entities;
@@ -66,7 +68,7 @@ public sealed class InteractionController
     internal void SetFaroreSecretMenuOpener(Func<Action<int?>, bool> opener) =>
         _npcScripts.OpenFaroreSecretMenu = opener;
     internal void SetSecretListOpener(Func<bool> opener) => _npcScripts.OpenSecretList = opener;
-    internal void BindFaroreTransitions(RoomTransitionController transitions) => _npcScripts.FaroreTransitions = transitions;
+    internal void BindFaroreTransitions(AgesRoomTransitionController transitions) => _npcScripts.FaroreTransitions = transitions;
     internal void AdvanceFarorePaletteBeforeObjects() => _npcScripts.AdvanceFarorePaletteBeforeObjects();
 
     internal InteractionController(
@@ -93,7 +95,7 @@ public sealed class InteractionController
         _signs = signs;
         _chests = chests;
         _treasures = treasures;
-        _tileFallbacks = new TileInteractionFallbackDatabase(treasures);
+        _tileFallbacks = new TileInteractionFallbackDatabase(AssetRoot, treasures);
         _dialogue = dialogue;
         _worldRoot = worldRoot;
         _roomView = roomView;
@@ -102,7 +104,7 @@ public sealed class InteractionController
         _inventory = inventory;
         _playSound = playSound ?? (static _ => { });
         _gashaCountersCaughtUp = gashaCountersCaughtUp ?? (static () => true);
-        _kidNameEntry = new KidNameEntryController(interfaceLayer, playSound);
+        _kidNameEntry = new KidNameEntryController(AssetRoot, interfaceLayer, playSound);
         _npcScripts = new NpcInteractionScriptController(
             rooms,
             entities,
@@ -163,7 +165,7 @@ public sealed class InteractionController
         // DialogueOpen gameplay lease: held rewards and naming/menu states do
         // not select the original reduced object dispatcher by themselves.
         _entities.TextActiveSource = () => _dialogue.IsOpen ||
-            _entities.RuntimeState.ReadWramByte(AgesWramAddress.wTextIsActive) != 0;
+            _entities.RuntimeState.ReadField("wTextIsActive") != 0;
         ApplyOpenedChestState(_rooms.ActiveGroup, _rooms.CurrentRoom);
     }
 
@@ -190,8 +192,8 @@ public sealed class InteractionController
             // treasure.s:@setLinkAnimationAndDeleteIfTextClosed clears only
             // DISABLE_LINK; an enclosing script can retain the other bits.
             if (_groundTreasure.Record.GrabMode is TreasureGrabMode.OneHand or TreasureGrabMode.TwoHands)
-                _entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,
-                    (byte)(_entities.RuntimeState.ReadWramByte(AgesWramAddress.wDisabledObjects) & ~0x01));
+                _entities.RuntimeState.SetField("wDisabledObjects",
+                    (byte)(_entities.RuntimeState.ReadField("wDisabledObjects") & ~0x01));
             _groundTreasure = null;
             _groundTreasurePlayer = null;
             _groundTreasureCompletesHeartContainer = false;
@@ -213,7 +215,7 @@ public sealed class InteractionController
                 delta -= setup / 60.0;
                 if (_chestSetupTicks > 0) return;
                 _chestTreasure.Visible = true;
-                _entities.RuntimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,1);
+                _entities.RuntimeState.SetField("wDisableLinkCollisionsAndMenu",1);
                 if (delta <= 0) return;
             }
             _chestTreasure.Advance(delta);
@@ -252,8 +254,8 @@ public sealed class InteractionController
         _worldRoot.RemoveChild(_chestTreasure);
         _chestTreasure.QueueFree();
         _chestTreasure = null;
-        _entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,0);
-        _entities.RuntimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,0);
+        _entities.RuntimeState.SetField("wDisabledObjects",0);
+        _entities.RuntimeState.SetField("wDisableLinkCollisionsAndMenu",0);
     }
 
     private void OnHeartPieceSetFilled()
@@ -542,10 +544,10 @@ public sealed class InteractionController
         // nextToChestTile reads the shared override before getChestData.
         // Its first byte is the treasure ID, rather than a little-endian word.
         var runtime = _entities.RuntimeState;
-        int overrideId = runtime.ReadWramByte(AgesWramAddress.wChestContentsOverride);
+        int overrideId = runtime.ReadField("wChestContentsOverride");
         if (overrideId != 0)
         {
-            var reward = _treasures.GetObject(overrideId, runtime.ReadWramByte(AgesWramAddress.wChestContentsOverride + 1));
+            var reward = _treasures.GetObject(overrideId, runtime.ReadField("wChestContentsOverride", 1));
             chest = chest with { TreasureObject = reward.Name, TreasureId = reward.TreasureId,
                 SubId = reward.SubId, Parameter = reward.Parameter, TextId = reward.TextId,
                 Graphic = reward.Graphic, Message = reward.Message,
@@ -556,20 +558,20 @@ public sealed class InteractionController
 
         // nextToChestTile publishes the packed position before creating the
         // reserved treasure. Native reward controllers consume this same byte.
-        runtime.SetWramByte(AgesWramAddress.wcca2, (byte)position);
+        runtime.SetField("wcca2", (byte)position);
 
         _rooms.SaveData.SetRoomFlag(
             _rooms.ActiveGroup, room.Id, OracleSaveData.RoomFlagItem);
         _roomView.QueueRedraw();
         _playSound(SoundId.SndOpenChest);
-        runtime.SetWramByte(AgesWramAddress.wChestContentsOverride, 0);
-        runtime.SetWramByte(AgesWramAddress.wChestContentsOverride + 1, 0);
+        runtime.SetField("wChestContentsOverride", 0);
+        runtime.SetField("wChestContentsOverride", 0, 1);
         // Native NONE contents still open the tile/set ROOMFLAG_ITEM, but do
         // not create an INTERAC_TREASURE or acquire the chest input masks.
         if (chest.TreasureId == TreasureId.None) return true;
         _pendingChest = chest;
-        _entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,0x83);
-        _entities.RuntimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,0x83);
+        _entities.RuntimeState.SetField("wDisabledObjects",0x83);
+        _entities.RuntimeState.SetField("wDisableLinkCollisionsAndMenu",0x83);
         _chestSetupTicks = 2;
         _chestTreasure = new ChestTreasureEffect { Visible = false, ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex };
         _chestTreasure.Initialize(
@@ -694,7 +696,7 @@ public sealed class InteractionController
                 : item.NormalParameter;
         if (item.Treasure == TreasureId.Ring)
         {
-            int ring = new GashaSpotDatabase().SelectRing(
+            int ring = new GashaSpotDatabase(AssetRoot).SelectRing(
                 parameter, _entities.NextRandomValue());
             _inventory.GiveUnappraisedRing(ring);
         }

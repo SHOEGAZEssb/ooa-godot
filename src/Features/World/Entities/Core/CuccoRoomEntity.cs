@@ -45,7 +45,7 @@ internal sealed class CuccoRoomEntity(CuccoCharacter cucco, RoomObjectRecord sou
         // Unlike enemyReplaceWithID, it does not preserve killableEnemyIndex.
         replacement = new(source with
         {
-            Id = EnemyBehaviorTables.Shared.Cucco.BabyReplacementId,
+            Id = EnemyBehaviorTables.For(AssetRoot).Cucco.BabyReplacementId,
             SubId = 0, Var03 = 0,
             X = Mathf.FloorToInt(Entity.Position.X) & 0xff,
             Y = Mathf.FloorToInt(Entity.Position.Y) & 0xff,

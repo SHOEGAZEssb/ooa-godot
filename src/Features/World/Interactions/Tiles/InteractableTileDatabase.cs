@@ -7,12 +7,17 @@ namespace Oracles;
 // source lookup miss; real parameters retain their direction/handler bits.
 internal sealed class InteractableTileDatabase
 {
-    internal const byte NoEntry = 0xff;
-    private readonly byte[] _parameters =
-        OracleAssetCache.ReadBytes(AgesGameContent.AssetRoot + "metadata/interactableTiles.bin");
+    public string AssetRoot { get; }
 
-    internal InteractableTileDatabase()
+    internal const byte NoEntry = 0xff;
+    private byte[]? _parametersSourceCache;
+    private byte[] _parameters => _parametersSourceCache ??= OracleAssetCache.ReadBytes(AssetRoot + "metadata/interactableTiles.bin");
+
+    internal InteractableTileDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+        _parametersSourceCache = OracleAssetCache.ReadBytes(AssetRoot + "metadata/interactableTiles.bin");
+
         if (_parameters.Length != 6 * 256)
             throw new InvalidOperationException("interactableTiles.s: expected six complete tile lookup profiles (1536 bytes).");
         int records = 0;

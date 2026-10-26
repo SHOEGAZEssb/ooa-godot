@@ -6,6 +6,8 @@ namespace Oracles;
 
 internal sealed class CompanionTerrainDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<string, List<Vector2>> _probes = new();
     internal int[] CollisionMasks { get; } = new int[16];
     internal IReadOnlyList<Vector2> Probes(string kind) => _probes[kind];
@@ -23,9 +25,11 @@ internal sealed class CompanionTerrainDatabase
         return (CollisionMasks[kind] & (1 << ((kind < 8 ? x : y) >> 1))) != 0;
     }
 
-    internal CompanionTerrainDatabase()
+    internal CompanionTerrainDatabase(string assetRoot)
     {
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/dimitri_native_probes.tsv",
+        AssetRoot = assetRoot;
+
+        foreach (var row in GeneratedTable.Load(AssetRoot + "cutscenes/dimitri_native_probes.tsv",
             new GeneratedTableSchema("Dimitri native probes", GeneratedTableKeySemantics.Ordered,
                 ["kind", "index", "x", "y", "source"], headerRequired: true)).Rows)
         {
@@ -36,7 +40,7 @@ internal sealed class CompanionTerrainDatabase
         }
         if (_probes.Count != 3 || Probes("carry").Count != 4 || Probes("cliff").Count != 4 || Probes("collision").Count != 8)
             throw new InvalidOperationException("Dimitri/commonCode.s native probe shape changed.");
-        var masks = GeneratedTable.Load(AgesGameContent.AssetRoot + "cutscenes/companion_collision_masks.tsv",
+        var masks = GeneratedTable.Load(AssetRoot + "cutscenes/companion_collision_masks.tsv",
             new GeneratedTableSchema("Companion collision masks", GeneratedTableKeySemantics.Ordered,
                 ["index", "mask", "source"], headerRequired: true));
         if (masks.Rows.Count != 16) throw new InvalidOperationException("bank0.s companion collision masks require 16 rows.");

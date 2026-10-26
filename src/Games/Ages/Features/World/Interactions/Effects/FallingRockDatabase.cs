@@ -27,7 +27,7 @@ internal sealed class FallingRockDatabase
     internal byte[] Bytes(string name)=>_tables[name];
     internal NpcCharacter Actor(int subid,Vector2 position)
     {
-        var actor=NpcCharacter.CreateFromRecord(_actors[subid] with {X=(int)position.X,Y=(int)position.Y});
+        var actor=NpcCharacter.CreateFromRecord(_actors[subid] with {X=(int)position.X,Y=(int)position.Y}, AgesGameContent.AssetRoot);
         actor.SetAnimationRate(0);actor.SetBlocksLink(false);actor.SetScriptVisible(false);
         actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);return actor;
     }

@@ -57,7 +57,7 @@ internal sealed partial class OrbBridgeControllerRoomEntity : DungeonMechanicRoo
             Finished = true;
             return;
         }
-        if (_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) == 0)
+        if (_runtime.ReadField("wToggleBlocksState") == 0)
             return;
 
         // updateParts has already run: the new PART_BRIDGE_SPAWNER starts

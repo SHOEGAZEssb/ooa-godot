@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
             // entries; RING_1e is treasure$2d, subid$1e, parameter$11.
             int treasureId = ring ? 0x2d : 0x34;
             int treasureSubid = ring ? 0x1e : 1;
-            FailIf(!new ChestDatabase().TryGet(3, roomId, 0x35, out var chest) ||
+            FailIf(!new ChestDatabase(AgesGameContent.AssetRoot).TryGet(3, roomId, 0x35, out var chest) ||
                 chest.TreasureId != 0 || _currentRoom.GetPackedStorageMetatile(0x35) != 0xf1,
                 "Sea chest3:$e8/$ff must retain its static NONE record and source chest at $35.");
             _player.WarpTo(new(88, 104)); _player.Face(Vector2I.Up);

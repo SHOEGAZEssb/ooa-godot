@@ -24,6 +24,7 @@ internal partial class MoldormSpawnerCharacter : EnemyCharacter
         Vector2 position, OracleRandom random, EnemyCombatSourceDescriptor source,
         Func<int, bool> slots, Action<MoldormCharacter> killParts, Action<int> sound)
     {
+        AssetRoot = record.AssetRoot;
         _enemies = enemies; _room = room; _random = random; _source = source;
         _slots = slots; _killParts = killParts; _sound = sound;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));

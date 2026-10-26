@@ -66,7 +66,7 @@ public partial class DialogueBox : Node2D
     {
         "heartpiece", "rectangle", "triangle", "diamond", "circle",
         "spade", "heart", "times", "right", "left", "down", "link",
-        "club", "abtn", "bbtn", "up"
+        "club", "abtn", "bbtn", "up", "n"
     };
 
     // textbox.s:@textColorData selects either the common background palette 0
@@ -201,28 +201,33 @@ public partial class DialogueBox : Node2D
         CurrentLine(0).Glyphs.Count + CurrentLine(1).Glyphs.Count;
 
     private bool _resourcesPrepared;
-    private string _assetRoot = AgesGameContent.AssetRoot;
+    private string _assetRoot = string.Empty;
+    [Export] public string AssetRoot
+    {
+        get => _assetRoot;
+        set
+        {
+            if (_resourcesPrepared && _assetRoot != value)
+                throw new InvalidOperationException("Prepared dialogue resources cannot change game packs.");
+            _assetRoot = value;
+        }
+    }
     private static bool _textProcessingPrepared;
     private bool _diagnoseFirstDraw;
-    public override void _Ready() => PrepareResources();
+    public override void _Ready() => PrepareResources(AssetRoot);
 
-    internal void PrepareResources(string? assetRoot = null)
+    internal void PrepareResources(string assetRoot)
     {
-        if (assetRoot is not null)
-        {
-            if (OracleAssetPack.RootFor(assetRoot + "dialogue") != assetRoot)
-                throw new ArgumentException("Dialogue requires a game pack root.", nameof(assetRoot));
-            if (_resourcesPrepared && _assetRoot != assetRoot)
-                throw new InvalidOperationException("Prepared dialogue resources cannot change game packs.");
-            _assetRoot = assetRoot;
-        }
+        if (OracleAssetPack.RootFor(assetRoot + "dialogue") != assetRoot)
+            throw new ArgumentException("Dialogue requires a game pack root.", nameof(assetRoot));
+        AssetRoot = assetRoot;
         if (_resourcesPrepared) return;
         PrepareTextProcessing();
         _resourcesPrepared = true;
-        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture(_assetRoot + "gfx/gfx_font.png");
-        _symbolTexture = OracleTileRenderer.BuildMonochromeFontTexture(_assetRoot + "gfx/gfx_font_jp.png");
+        _fontTexture = OracleTileRenderer.BuildMonochromeFontTexture(AssetRoot + "gfx/gfx_font.png");
+        _symbolTexture = OracleTileRenderer.BuildMonochromeFontTexture(AssetRoot + "gfx/gfx_font_jp.png");
         _tradeItemSource = LoadSourceImage(
-            _assetRoot + "gfx/gfx_font_tradeitems.png");
+            AssetRoot + "gfx/gfx_font_tradeitems.png");
         _continueMarkerTexture = BuildHudMarkerTexture(0x03, 1);
         _choiceCursorTexture = BuildHudMarkerTexture(ChoiceCursorTile, 2);
         _heartPieceTextures = BuildHeartPieceTextures();
@@ -1683,6 +1688,11 @@ public partial class DialogueBox : Node2D
         string candidate,
         out string name)
     {
+        // parseText.py tests the numeric substitutions before its one-byte
+        // newline prefix; unsupported substitutions must still fail explicitly.
+        if (candidate.StartsWith("num1", StringComparison.OrdinalIgnoreCase) ||
+            candidate.StartsWith("num2", StringComparison.OrdinalIgnoreCase))
+        { name = string.Empty; return false; }
         foreach (string command in AdjacentTextCommandNames)
         {
             if (!candidate.StartsWith(
@@ -1741,7 +1751,7 @@ public partial class DialogueBox : Node2D
     private Image TradeItemSource()
     {
         _tradeItemSource ??= LoadSourceImage(
-            _assetRoot + "gfx/gfx_font_tradeitems.png");
+            AssetRoot + "gfx/gfx_font_tradeitems.png");
         if (_tradeItemSource.GetWidth() != 128 ||
             _tradeItemSource.GetHeight() != 16)
         {
@@ -1768,7 +1778,7 @@ public partial class DialogueBox : Node2D
     {
         // HUD tile $03's continuation arrow uses shade 1; the option
         // cursor at $04 uses shade 2. Shade 3 is transparent textbox black.
-        Image source = LoadSourceImage(_assetRoot + "gfx/gfx_hud.png");
+        Image source = LoadSourceImage(AssetRoot + "gfx/gfx_hud.png");
         using Image output = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 8; x++)
@@ -1785,7 +1795,7 @@ public partial class DialogueBox : Node2D
         // outline or filled left halves and attribute bit 5 mirrors the right
         // halves. PNG shades retain the PALH_0e background-palette-0 indices.
         Image source = LoadSourceImage(
-            _assetRoot + "gfx/gfx_font_heartpiece.png");
+            AssetRoot + "gfx/gfx_font_heartpiece.png");
         if (source.GetWidth() != 64 || source.GetHeight() != 8)
         {
             throw new InvalidOperationException(

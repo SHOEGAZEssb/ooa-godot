@@ -10,8 +10,8 @@ internal partial class TektiteCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => State == TektiteState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
-
-    private readonly TektiteBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Tektite;
+    private TektiteBehaviorProfile? _behaviorSourceCache;
+    private TektiteBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Tektite;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -34,6 +34,7 @@ internal partial class TektiteCharacter : EnemyCharacter, ITerrainShadowSource
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, Action<int> soundRequested)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

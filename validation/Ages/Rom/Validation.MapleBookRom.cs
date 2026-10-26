@@ -76,7 +76,7 @@ public sealed partial class ValidationRoot
             for (int repeat = 0; repeat < 2; repeat++)
             {
                 var book = (MapleTouchingBookRoomEntity?)_entities.TryCreateInteraction(new MapleTouchingBookSpawn(
-                    maple, new(24.75f, 80.5f), -0x1880, new MapleEventDatabase().BookVisual))
+                    maple, new(24.75f, 80.5f), -0x1880, new MapleEventDatabase(AgesGameContent.AssetRoot).BookVisual))
                     ?? throw new System.InvalidOperationException("INTERAC$a5 test admission unexpectedly failed.");
                 byte[] caller = [0x16, 0xd1, 0xcd, 0x93, 0x69, 0xc9];
                 for (int index = 0; index < caller.Length; index++) native[0xc100 + index] = caller[index];

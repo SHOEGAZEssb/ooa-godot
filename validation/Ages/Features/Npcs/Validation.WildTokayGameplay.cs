@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private WildTokayControllerRoomEntity BeginWildTokayRound(bool batched,bool present=false)
     {
-        var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
+        var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
         InitializeTransientSession(save);var data=new WildTokayGameDatabase();
         _inventory.GiveTreasure(TreasureId.Bracelet,1);_inventory.AddRupees(30);_inventory.SetScriptedEquippedItems(TreasureId.Bombs,TreasureId.Sword);
         if(present){_saveData.SetGlobalFlag(data.FinishedGameFlag);_saveData.SetGlobalFlag(data.BeganSecretFlag);}

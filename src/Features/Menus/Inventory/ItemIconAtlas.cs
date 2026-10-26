@@ -4,7 +4,7 @@ namespace Oracles;
 
 public static class ItemIconAtlas
 {
-    private const string StandardSpritePalettePath = AgesGameContent.AssetRoot + "inventory/palette_sprites.bin";
+
 
 
 
@@ -76,12 +76,13 @@ public static class ItemIconAtlas
         return false;
     }
 
-    public static Color[,] LoadStandardSpritePalettes()
+    public static Color[,] LoadStandardSpritePalettes(string assetRoot)
     {
-        byte[] bytes = OracleAssetCache.ReadBytes(StandardSpritePalettePath);
+        string path = assetRoot + "inventory/palette_sprites.bin";
+        byte[] bytes = OracleAssetCache.ReadBytes(path);
         if (bytes.Length != 6 * 4 * 3)
             throw new System.InvalidOperationException(
-                $"{StandardSpritePalettePath} should contain 72 bytes, got {bytes.Length}.");
+                $"{path} should contain 72 bytes, got {bytes.Length}.");
 
         var palettes = new Color[6, 4];
         for (int palette = 0; palette < 6; palette++)

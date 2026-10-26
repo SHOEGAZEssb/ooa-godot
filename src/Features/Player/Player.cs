@@ -5,6 +5,7 @@ namespace Oracles;
 
 public partial class Player : Node2D
 {
+    internal string AssetRoot { get; private set; } = string.Empty;
 
     private bool _enemyGrabRequested;
     private int _enemyGrabSubstate = -1;
@@ -24,7 +25,7 @@ public partial class Player : Node2D
             _minecartRideControlled || _raftRideControlled ||
             _world.NativeWarpsDisabled || _enemyGrabRequested) return false;
         _enemyGrabRequested = true;
-        var damage = EnemyBehaviorTables.Shared.LikeLike.LinkDamage;
+        var damage = EnemyBehaviorTables.For(AssetRoot).LikeLike.LinkDamage;
         _enemyInvincibilityFrames = unchecked((sbyte)damage[1].Value);
         // LINKDMG_2c plays damage audio without subtracting any health.
         _world.PlaySound(SoundId.SndDamageLink);
@@ -73,7 +74,7 @@ public partial class Player : Node2D
         else if (_enemyGrabSubstate == 3) AdvanceGrabRelease();
         else if (_enemyGrabSubstate == 4)
         {
-            _enemyInvincibilityFrames = EnemyBehaviorTables.Shared.LikeLike.ReleaseInvincibility;
+            _enemyInvincibilityFrames = EnemyBehaviorTables.For(AssetRoot).LikeLike.ReleaseInvincibility;
             _world.SetNativeWarpsDisabled(false);
             _enemyGrabSubstate = -1;
             _walking = false;
@@ -127,20 +128,25 @@ public partial class Player : Node2D
     private IPlayerWorld _world = null!;
     private InventoryState _inventory = null!;
     private OracleRandom _random = null!;
-    internal readonly PlayerSpriteLibrary Sprites = new();
+    internal PlayerSpriteLibrary Sprites { get; private set; } = null!;
     private Texture2D? _companionRideTexture;
     private Texture2D? _damageCompanionRideTexture;
     private Vector2 _companionRideTextureOffset;
     private int _companionRideZFixed;
     private Texture2D _terrainShadowTexture = null!;
     private Vector2 _terrainShadowOffset;
-    private LinkItemDatabase _linkItems = null!;
-    private SideScrollPlayerDatabase _sideScrollPlayerData = null!;
-    private TopDownSwimmingDatabase _topDownSwimmingData = null!;
-    private LinkTerrainEffectDatabase _terrainEffects = null!;
+    private LinkItemDatabase? _linkItemsCache;
+    private LinkItemDatabase _linkItems => _linkItemsCache ??= LinkItemDatabase.For(AssetRoot);
+    private SideScrollPlayerDatabase? _sideScrollPlayerDataCache;
+    private SideScrollPlayerDatabase _sideScrollPlayerData => _sideScrollPlayerDataCache ??= SideScrollPlayerDatabase.For(AssetRoot);
+    private TopDownSwimmingDatabase? _topDownSwimmingDataCache;
+    private TopDownSwimmingDatabase _topDownSwimmingData => _topDownSwimmingDataCache ??= TopDownSwimmingDatabase.For(AssetRoot);
+    private LinkTerrainEffectDatabase? _terrainEffectsCache;
+    private LinkTerrainEffectDatabase _terrainEffects => _terrainEffectsCache ??= LinkTerrainEffectDatabase.For(AssetRoot);
     private int _terrainWalkUpdates;
     private bool _terrainWalkSoundParameter;
-    private TransformedLinkDatabase _transformedLink = null!;
+    private TransformedLinkDatabase? _transformedLinkCache;
+    private TransformedLinkDatabase _transformedLink => _transformedLinkCache ??= new TransformedLinkDatabase(AssetRoot + "metadata/transformed_link.tsv");
     private Vector2 _precisePosition;
     private Vector2 _minecartMainObjectPosition;
     private Vector2 _lastSafePosition;
@@ -396,7 +402,8 @@ public partial class Player : Node2D
     internal bool IsUsingBoomerang => _world is not null && _world.BoomerangParentActive;
     internal bool IsUsingBombchu => _world is not null && _world.BombchuParentActive;
     private int _seedSatchelParentSlot = 3;
-    private readonly ParentItemUsageDatabase _parentItemUsage = new();
+    private ParentItemUsageDatabase? _parentItemUsageSourceCache;
+    private ParentItemUsageDatabase _parentItemUsage => _parentItemUsageSourceCache ??= new(AssetRoot);
     public bool IsUsingSeedShooter =>
         _world is not null && _world.SeedShooterActive;
     public bool IsUsingHarp => _usingHarp;
@@ -935,21 +942,29 @@ public partial class Player : Node2D
 
     private bool _initialPresentationPrepared;
 
-    internal System.Collections.Generic.IEnumerable<bool> PrepareInitialPresentation()
+    internal System.Collections.Generic.IEnumerable<bool> PrepareInitialPresentation(string assetRoot)
     {
+        if (Sprites is null)
+        {
+            AssetRoot = assetRoot;
+            Sprites = new PlayerSpriteLibrary(assetRoot);
+        }
+        else if (AssetRoot != assetRoot)
+            throw new InvalidOperationException("Prepared Link resources cannot change game packs.");
         if (_initialPresentationPrepared) yield break;
         Sprites.PrepareWalkTexture();
         yield return false;
-        TerrainShadowDefinition terrainShadow = TerrainShadow.Load();
+        TerrainShadowDefinition terrainShadow = TerrainShadow.Load(AssetRoot);
         _terrainShadowTexture = terrainShadow.Texture;
         _terrainShadowOffset = terrainShadow.Offset;
         yield return false;
-        _terrainEffects = new LinkTerrainEffectDatabase();
+        _ = _terrainEffects;
         yield return false;
-        _transformedLink = new TransformedLinkDatabase();
         _initialPresentationPrepared = true;
         yield return false;
     }
+
+    internal void PrepareTransformationPresentation() => _ = _transformedLink;
 
     internal void Initialize(
         IPlayerWorld world,
@@ -960,10 +975,7 @@ public partial class Player : Node2D
         _world = world;
         _inventory = inventory;
         _random = random;
-        _linkItems = LinkItemDatabase.Shared;
-        _sideScrollPlayerData = SideScrollPlayerDatabase.Shared;
-        _topDownSwimmingData = TopDownSwimmingDatabase.Shared;
-        foreach (bool _ in PrepareInitialPresentation()) { }
+        foreach (bool _ in PrepareInitialPresentation(inventory.AssetRoot)) { }
         // A later initialization still refreshes presentation as before.
         _initialPresentationPrepared = false;
         EndNewGameSlowFall();
@@ -1135,8 +1147,8 @@ public partial class Player : Node2D
 
     internal void BeginNewGameSlowFall(int initialZ)
     {
-        _newGameFallRenderer ??= new CutsceneSpriteRenderer();
-        _newGameFallFrames ??= new NewGameIntroDatabase().SpriteFrames("link-arrival");
+        _newGameFallRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
+        _newGameFallFrames ??= new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-arrival");
         if (_newGameFallFrames.Length != 3)
             throw new InvalidOperationException("Expected three LINK_ANIM_MODE_FALL frames.");
 
@@ -1197,9 +1209,9 @@ public partial class Player : Node2D
     /// </summary>
     internal void BeginRoomWarpFall(int initialZ)
     {
-        _newGameFallRenderer ??= new CutsceneSpriteRenderer();
+        _newGameFallRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
         _newGameFallFrames ??=
-            new NewGameIntroDatabase().SpriteFrames("link-arrival");
+            new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-arrival");
         if (_newGameFallFrames.Length != 3)
             throw new InvalidOperationException(
                 "Expected three LINK_ANIM_MODE_FALL frames.");
@@ -1281,9 +1293,9 @@ public partial class Player : Node2D
     /// </summary>
     internal void BeginHarpPose()
     {
-        _harpRenderer ??= new CutsceneSpriteRenderer();
+        _harpRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
         _cutsceneHarpFrames ??=
-            new NewGameIntroDatabase().SpriteFrames("link-harp");
+            new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-harp");
         _harpFrames = _cutsceneHarpFrames;
         if (_harpFrames.Length != 13)
         {
@@ -1301,10 +1313,10 @@ public partial class Player : Node2D
 
     private void BeginPlayableHarpPose(bool flute = false)
     {
-        _harpRenderer ??= new CutsceneSpriteRenderer();
+        _harpRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
         _itemHarpFrames ??=
-            new NewGameIntroDatabase().SpriteFrames("link-harp-item");
-        _harpFrames = flute ? new NewGameIntroDatabase().SpriteFrames("link-flute-item") : _itemHarpFrames;
+            new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-harp-item");
+        _harpFrames = flute ? new NewGameIntroDatabase(AssetRoot).SpriteFrames("link-flute-item") : _itemHarpFrames;
         if (_harpFrames.Length != (flute ? 7 : 17))
         {
             throw new InvalidOperationException(
@@ -1857,7 +1869,7 @@ public partial class Player : Node2D
         if ((_electricShockCounter & 7) == 0)
         {
             Material = (_electricShockCounter & 8) != 0
-                ? _electricShockMaterial ??= ElectricShockPalette.CreateLinkMaterial()
+                ? _electricShockMaterial ??= ElectricShockPalette.For(AssetRoot).CreateLinkMaterial()
                 : null;
             QueueRedraw();
         }
@@ -2775,7 +2787,7 @@ public partial class Player : Node2D
         if(mode==0x18)
         {
             _topDownAirAnimationPhase=0;
-            _topDownAirAnimationCounter=TopDownAirDatabase.Shared.Parameters.AnimationPhaseDurations[0];
+            _topDownAirAnimationCounter=TopDownAirDatabase.For(AssetRoot).Parameters.AnimationPhaseDurations[0];
         }
         _walking = false;
         _pushing = false;
@@ -2799,9 +2811,19 @@ public partial class Player : Node2D
 
     internal void SetCutsceneSpriteFrame(IntroSpriteFrame? frame)
     {
-        _cutsceneSpriteRenderer ??= new CutsceneSpriteRenderer();
+        _cutsceneSpriteRenderer ??= new CutsceneSpriteRenderer(AssetRoot);
         _cutsceneSpriteFrame = frame;
         QueueRedraw();
+    }
+    internal System.Collections.Generic.IEnumerable<bool> PrepareCutscenePresentation(
+        System.Collections.Generic.IEnumerable<IntroSpriteFrame> frames, string assetRoot)
+    {
+        _cutsceneSpriteRenderer ??= new CutsceneSpriteRenderer(assetRoot);
+        foreach (var frame in frames)
+        {
+            foreach (IntroOamPart part in frame.Parts) _ = _cutsceneSpriteRenderer.CellTexture(frame,part);
+            yield return false;
+        }
     }
 
     internal void SetCutsceneIdleAnimation(int direction)
@@ -4518,7 +4540,7 @@ public partial class Player : Node2D
         }
 
         TopDownAirParameters parameters =
-            TopDownAirDatabase.Shared.Parameters;
+            TopDownAirDatabase.For(AssetRoot).Parameters;
         _topDownAirUpdateAccumulator = 0.0;
         _topDownAirZFixed = 0;
         _topDownAirSpeedZ = parameters.JumpSpeedZ;
@@ -4564,7 +4586,7 @@ public partial class Player : Node2D
         if (_topDownJumpSoundPending)
         {
             _topDownAirAnimationPhase=0;
-            _topDownAirAnimationCounter=TopDownAirDatabase.Shared.Parameters.AnimationPhaseDurations[0];
+            _topDownAirAnimationCounter=TopDownAirDatabase.For(AssetRoot).Parameters.AnimationPhaseDurations[0];
             _airborneLinkAnimationMode=AirborneLinkAnimationMode.Jump;
         }
         AdvanceTopDownAirUpdate();
@@ -4621,7 +4643,7 @@ public partial class Player : Node2D
                 _fallInHoleInitializePending = false;
                 _pullingIntoHole = true;
                 _holePullPackedPosition = landingTerrain.PackedPosition;
-                _holePullCounter = TopDownAirDatabase.Shared.Parameters.HoleStandingCounter;
+                _holePullCounter = TopDownAirDatabase.For(AssetRoot).Parameters.HoleStandingCounter;
             }
             // A landing calls animateLinkStanding inside linkUpdateInAir, then
             // resumes the ordinary movement path in the same update. Held
@@ -4680,7 +4702,7 @@ public partial class Player : Node2D
     private void AdvanceTopDownAirUpdate()
     {
         TopDownAirParameters parameters =
-            TopDownAirDatabase.Shared.Parameters;
+            TopDownAirDatabase.For(AssetRoot).Parameters;
         // @inAir clears both var12 and var13, including on an ice launch.
         _topDownMovementVelocityCounter = _topDownMovementVelocityInterval = 0;
         if (_topDownJumpSoundPending)
@@ -4788,7 +4810,7 @@ public partial class Player : Node2D
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
         TopDownAirParameters parameters =
-            TopDownAirDatabase.Shared.Parameters;
+            TopDownAirDatabase.For(AssetRoot).Parameters;
         _topDownAirZFixed = initialZ << 8;
         _topDownAirSpeedZ = -0x01c0;
         _topDownAirAnimationPhase = 0;
@@ -4817,7 +4839,7 @@ public partial class Player : Node2D
             cartDirection,
             animationParameter,
             Vector2.Zero);
-        _world.PlaySound(TopDownAirDatabase.Shared.Parameters.LandSound);
+        _world.PlaySound(TopDownAirDatabase.For(AssetRoot).Parameters.LandSound);
     }
 
     /// <summary>
@@ -4907,7 +4929,7 @@ public partial class Player : Node2D
             throw new ArgumentOutOfRangeException(
                 nameof(companionDirection));
         }
-        TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
+        TopDownAirParameters parameters = TopDownAirDatabase.For(AssetRoot).Parameters;
         _facing = (Facing)companionDirection;
         _lastSafePosition = OracleObjectMath.ToPixelPosition(companionPosition);
         _localRespawnFacing = _facing;
@@ -4957,7 +4979,7 @@ public partial class Player : Node2D
         _pendingSwordKnockbackFrames = 0;
         _precisePosition = position;
         Position = OracleObjectMath.ToPixelPosition(position);
-        TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
+        TopDownAirParameters parameters = TopDownAirDatabase.For(AssetRoot).Parameters;
         _topDownAirZFixed = (initialZ << 8) | retainedZLow;
         _topDownAirSpeedZ = parameters.CompanionJumpSpeedZ;
         _topDownAirAnimationPhase = 0;
@@ -4984,7 +5006,7 @@ public partial class Player : Node2D
 
     private bool AdvanceCompanionJumpUpdate()
     {
-        TopDownAirParameters parameters = TopDownAirDatabase.Shared.Parameters;
+        TopDownAirParameters parameters = TopDownAirDatabase.For(AssetRoot).Parameters;
         if (_companionJumpAnimationDeferred)
         {
             _companionJumpAnimationDeferred = false;
@@ -5139,7 +5161,7 @@ public partial class Player : Node2D
     private void AdvanceMinecartJumpUpdate()
     {
         TopDownAirParameters parameters =
-            TopDownAirDatabase.Shared.Parameters;
+            TopDownAirDatabase.For(AssetRoot).Parameters;
         if (_topDownJumpSoundPending)
         {
             _topDownJumpSoundPending = false;
@@ -6255,7 +6277,7 @@ public partial class Player : Node2D
             _sideScrollSquishPending = false;
             // checkLinkForceState changes state and returns. State11's
             // initialization is dispatched on the following Link update.
-            _squishAnimation = new LinkSquishAnimation(_sideScrollSquishVertical);
+            _squishAnimation = new LinkSquishAnimation(_sideScrollSquishVertical, AssetRoot);
             return;
         }
         var squish = _squishAnimation!;
@@ -6666,7 +6688,7 @@ public partial class Player : Node2D
                 _topDownMovementSpeedRaw = NormalTopDownSpeed;
             _topDownMovementVelocityCounter = 0;
             _topDownMovementVelocityInterval = terrainMode == 0x88
-                ? TopDownAirDatabase.Shared.Parameters.IceVelocityInterval
+                ? TopDownAirDatabase.For(AssetRoot).Parameters.IceVelocityInterval
                 : terrainMode == 0x98 ? _topDownSwimmingData.Parameters.MermaidVelocityInterval : 0;
         }
         _topDownMovementTargetSpeedRaw = targetSpeed;
@@ -7221,15 +7243,15 @@ public partial class Player : Node2D
     {
         if (!IsAttacking || _swordState == SwordActionState.Poke && !_swordPokeCollisionEnabled)
             return new Rect2(Position, Vector2.Zero);
-        return GetSwordHitbox(Position, GetSwordArcIndex());
+        return GetSwordHitbox(Position, GetSwordArcIndex(), _linkItems);
     }
 
-    internal static Rect2 GetSwordHitboxForValidation(Vector2 position, int arcIndex) =>
-        GetSwordHitbox(position, arcIndex);
+    internal static Rect2 GetSwordHitboxForValidation(Vector2 position, int arcIndex, string assetRoot) =>
+        GetSwordHitbox(position, arcIndex, LinkItemDatabase.For(assetRoot));
 
-    private static Rect2 GetSwordHitbox(Vector2 position, int arcIndex)
+    private static Rect2 GetSwordHitbox(Vector2 position, int arcIndex, LinkItemDatabase items)
     {
-        SwordArc arc = LinkItemDatabase.Shared.SwordArc(arcIndex);
+        SwordArc arc = items.SwordArc(arcIndex);
         Vector2 center = position + new Vector2(arc.OffsetX, arc.OffsetY);
         return new Rect2(
             center - new Vector2(arc.RadiusX, arc.RadiusY),
@@ -7395,9 +7417,9 @@ public partial class Player : Node2D
         // A same/higher-priority B reservation replaces A even if B's own
         // state0 will fail later. Do not run A's handler or spend its ammo.
         if (_itemAllocationBlockedThisUpdate) return false;
-        ParentItemUsage primaryUsage = _inventory.EquippedA is >= 0 and < 0x20
+        ParentItemUsage primaryUsage = _inventory.EquippedA is > 0 and < 0x20
             ? _parentItemUsage.Item(_inventory.EquippedA) : default;
-        ParentItemUsage secondaryUsage = _inventory.EquippedB is >= 0 and < 0x20
+        ParentItemUsage secondaryUsage = _inventory.EquippedB is > 0 and < 0x20
             ? _parentItemUsage.Item(_inventory.EquippedB) : default;
         bool secondaryReplacesPrimary = !primaryItemInputSuppressed &&
             !SecondaryItemAllocationSuppressed &&
@@ -7901,7 +7923,7 @@ public partial class Player : Node2D
         if (!IsUsingPunch || _punchFrame >= PunchCollisionFrames)
             return;
         _world.ApplySwordHit(
-            this, GetSwordHitbox(Position, 24 + (int)_facing));
+            this, GetSwordHitbox(Position, 24 + (int)_facing, _linkItems));
     }
 
     private void CancelPunchAction()
@@ -8574,15 +8596,15 @@ public partial class Player : Node2D
 
     internal Vector2 SwordSpritePosition
     {
-        get => GetSwordSpritePosition(GetSwordArcIndex());
+        get => GetSwordSpritePosition(GetSwordArcIndex(), _linkItems);
     }
 
-    internal static Vector2 GetSwordSpritePositionForValidation(int arcIndex) =>
-        GetSwordSpritePosition(arcIndex);
+    internal static Vector2 GetSwordSpritePositionForValidation(int arcIndex, string assetRoot) =>
+        GetSwordSpritePosition(arcIndex, LinkItemDatabase.For(assetRoot));
 
-    private static Vector2 GetSwordSpritePosition(int arcIndex)
+    private static Vector2 GetSwordSpritePosition(int arcIndex, LinkItemDatabase items)
     {
-        SwordArc arc = LinkItemDatabase.Shared.SwordArc(arcIndex);
+        SwordArc arc = items.SwordArc(arcIndex);
         // itemInitializeFromLinkPosition uses the table offset for yh, then
         // gives the child sword zh = Link.zh - 2. Apply that visual height
         // separately; its collision center remains at the table's raw Y/X.

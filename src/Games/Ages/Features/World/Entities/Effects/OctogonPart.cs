@@ -39,6 +39,7 @@ internal sealed partial class OctogonPart : TransitionOffsetNode2D
     internal OctogonPart(OctogonPartSpawn spawn,OracleRoomData room,OracleRuntimeState memory,OracleRandom random,
         Func<int,bool> parentVisible,Func<RoomEntitySpawn,bool> part,Action<int> sound)
     {
+        AssetRoot = room.AssetRoot;
         if (spawn.Id is not (0x48 or 0x55) || spawn.SubId is < 0 or > 1 || spawn.Id == 0x55 && spawn.SubId != 0)
             throw new NotSupportedException($"Octogon PART${spawn.Id:x2}:${spawn.SubId:x2}.");
         Id = spawn.Id; SubId = spawn.SubId; ParentSlot = spawn.ParentSlot; Angle = spawn.Angle;
@@ -46,7 +47,7 @@ internal sealed partial class OctogonPart : TransitionOffsetNode2D
         Position = spawn.Position.Floor(); _z = unchecked((short)(spawn.ZHigh<<8)); Visible = false;
         var properties = OctogonEffectsDatabase.Shared.Properties(Id); RadiusY = properties[2]>>4; RadiusX = properties[2]&15; _health = properties[4];
         var visual = OctogonEffectsDatabase.Shared.Visual(Id); Animation = new(this,visual.Animations.Length);
-        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites),visual.Animations,visual.TileBase,visual.Palette,
+        Animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),visual.Animations,visual.TileBase,visual.Palette,
             sourceGrayscaleInverted:visual.SourceGrayscaleInverted);
     }
     internal void PublishCollision(int type) => ContactFlags = 128|type;

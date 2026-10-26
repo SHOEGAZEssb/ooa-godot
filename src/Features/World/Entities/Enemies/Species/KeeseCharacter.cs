@@ -6,8 +6,8 @@ namespace Oracles;
 public partial class KeeseCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => false;
-
-    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
+    private EnemyBehaviorTables? _behaviorSourceCache;
+    private EnemyBehaviorTables _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private KeeseState _state = KeeseState.Resting;
@@ -36,6 +36,7 @@ public partial class KeeseCharacter : EnemyCharacter
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;
@@ -46,7 +47,7 @@ public partial class KeeseCharacter : EnemyCharacter
 
         InitializeEnemy(
             position,
-            EnemyCharacterConfiguration.FromSprite(
+            EnemyCharacterConfiguration.FromSprite(record.AssetRoot,
                 record.Health,
                 record.CollisionRadiusX,
                 record.CollisionRadiusY,

@@ -22,7 +22,7 @@ internal sealed class OracleObjectMovement
     private OracleObjectMovement()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/object_relative_angles.tsv",
+            OracleAssetPack.CommonRoot + "metadata/object_relative_angles.tsv",
             new GeneratedTableSchema(
                 "bank0.pushDirectionData",
                 GeneratedTableKeySemantics.Unique,

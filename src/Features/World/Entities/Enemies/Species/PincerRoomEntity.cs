@@ -32,7 +32,7 @@ internal sealed class PincerRoomEntity : CombatEnemyRoomEntityAdapter<PincerChar
         if(player.IsUsingShield && RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds,player.ShieldCollisionBounds))
         {
             if(!player.CanAcceptShieldCollision)return;
-            int effect=EnemyBehaviorTables.Shared.PincerEffects[player.Inventory.ShieldLevel].Value;
+            int effect=EnemyBehaviorTables.For(AssetRoot).PincerEffects[player.Inventory.ShieldLevel].Value;
             var (invincibility,recoil)=effect switch
             {
                 CollisionEffect.Effect06=>(15,19),CollisionEffect.Effect07=>(22,25),
@@ -51,7 +51,7 @@ internal sealed class PincerRoomEntity : CombatEnemyRoomEntityAdapter<PincerChar
     }
     public bool ApplyItemCollision(RoomEntityItemCollision item,Rect2 bounds,Vector2 origin,int damage,ICollection<RoomEntitySpawn> spawns)
     {
-        var data=EnemyBehaviorTables.Shared;
+        var data=EnemyBehaviorTables.For(AssetRoot);
         if(!Entity.CollisionEnabled || Entity.InvincibilityCounter!=0 || Entity.NativeHitPending || data.PincerCollisionMask[(int)item].Value==0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds,bounds))return false;
         int effect=data.PincerEffects[(int)item].Value;
@@ -62,7 +62,7 @@ internal sealed class PincerRoomEntity : CombatEnemyRoomEntityAdapter<PincerChar
     public override SeedHitResult ApplySeedHit(Rect2 bounds,Vector2 origin,int item,ICollection<RoomEntitySpawn> spawns)=>throw new InvalidOperationException("Pincer requires its seed's live collision identity.");
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds,Vector2 origin,SeedRecord seed,int collision,ICollection<RoomEntitySpawn> spawns)
     {
-        var data=EnemyBehaviorTables.Shared;
+        var data=EnemyBehaviorTables.For(AssetRoot);
         if(!Entity.CollisionEnabled || Entity.InvincibilityCounter!=0 || Entity.NativeHitPending || data.PincerCollisionMask[collision].Value==0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds,bounds))return default;
         int effect=data.PincerEffects[collision].Value;

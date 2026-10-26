@@ -11,7 +11,7 @@ namespace Oracles;
 /// </summary>
 public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
 {
-    private static readonly BraceletGrabGeometry GrabGeometry = new();
+    private static readonly BraceletGrabGeometry GrabGeometry = new(AgesGameContent.AssetRoot);
     // bombs.s: visiblec1 until InitializeExplosion selects visible80.
     int? ITerrainShadowSource.TerrainShadowZHigh =>
         _state is BombState.Exploding or BombState.Finished ? null : _zFixed >> 8;
@@ -112,6 +112,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
         OracleSaveData? saveData,
         Func<Vector2I, int?>? linkedRoomNeighbor)
     {
+        AssetRoot = breakables.AssetRoot;
         _record = record;
         _room = room;
         _breakables = breakables;
@@ -602,6 +603,7 @@ public partial class BombEffect : TransitionOffsetNode2D, ITerrainShadowSource
 
     private protected void InitializeExplosion(int? initialRadius = null)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; // bombs.s: objectSetVisible80.
         _state = BombState.Exploding;
         _frameIndex = 0;

@@ -6,16 +6,22 @@ namespace Oracles;
 
 public sealed class WarpDatabase
 {
-    private static readonly Lazy<WarpDatabase> SharedSource = new(() => new WarpDatabase());
-    internal static WarpDatabase Shared => SharedSource.Value;
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<WarpDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static WarpDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<WarpDatabase>(() => new WarpDatabase(root))).Value;
+
 
     private readonly Lookup<(int Group, int Room), Warp> _warps = new();
     private readonly Lookup<(int Group, int Room), DiveWarp> _diveWarps = new();
 
-    public WarpDatabase()
+    public WarpDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/warps.tsv",
+            AssetRoot + "objects/warps.tsv",
             new GeneratedTableSchema(
                 "warps",
                 GeneratedTableKeySemantics.Grouped,
@@ -43,7 +49,7 @@ public sealed class WarpDatabase
             throw new InvalidOperationException($"Expected 529 warp records, loaded {count}.");
 
         GeneratedTable diveTable = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dive_warps.tsv",
+            AssetRoot + "objects/dive_warps.tsv",
             new GeneratedTableSchema(
                 "dive warps",
                 GeneratedTableKeySemantics.Grouped,

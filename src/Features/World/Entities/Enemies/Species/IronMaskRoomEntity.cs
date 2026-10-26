@@ -14,7 +14,7 @@ internal sealed class IronMaskRoomEntity : CombatEnemyRoomEntityAdapter<IronMask
     public bool RetainsCounter1AfterDeletion=>false;
     public bool TryGetSwordAttackerKnockback(EnemyKnockbackStrength strength,out SwordAttackerKnockback response)
     {
-        var data=EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+        var data=EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback;
         int frames= strength==EnemyKnockbackStrength.Low ? data.LowFrames : strength==EnemyKnockbackStrength.High ? data.HighFrames : data.NormalFrames;
         response=new(Entity.Position,frames); return Entity.CollisionMode==0x1d && MeleeReportsContact;
     }
@@ -38,7 +38,7 @@ internal sealed class IronMaskRoomEntity : CombatEnemyRoomEntityAdapter<IronMask
     public void SetLinkSwordState(SwordActionState state,int level,int? itemCollisionType=null)=>_sword=itemCollisionType??SwordCollision.Type(state,level);
     private bool Hit(int item,Rect2 bounds,Vector2 origin,int damage,ICollection<RoomEntitySpawn> spawns)
     {
-        var data=EnemyBehaviorTables.Shared;
+        var data=EnemyBehaviorTables.For(AssetRoot);
         if (!Entity.CollisionEnabled || Entity.NativeHitPending || Entity.InvincibilityCounter!=0 || data.IronMaskCollisionMask[item].Value==0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds,bounds)) return false;
         int effect=(Entity.CollisionMode==data.IronMaskState[2].Value ? data.IronMaskMaskedEffects : data.IronMaskUnmaskedEffects)[item].Value;
@@ -67,7 +67,7 @@ internal sealed class IronMaskRoomEntity : CombatEnemyRoomEntityAdapter<IronMask
     public override SeedHitResult ApplySeedHit(Rect2 bounds,Vector2 origin,int seedItem,ICollection<RoomEntitySpawn> spawns)=>throw new InvalidOperationException("Iron Mask requires the seed's live collision identity.");
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds,Vector2 origin,SeedRecord seed,int collision,ICollection<RoomEntitySpawn> spawns)
     {
-        var data=EnemyBehaviorTables.Shared;
+        var data=EnemyBehaviorTables.For(AssetRoot);
         if(!Entity.CollisionEnabled || Entity.InvincibilityCounter!=0 || Entity.NativeHitPending || data.IronMaskCollisionMask[collision].Value==0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds,bounds))return default;
         int effect=(Entity.CollisionMode==data.IronMaskState[2].Value ? data.IronMaskMaskedEffects : data.IronMaskUnmaskedEffects)[collision].Value;

@@ -75,6 +75,7 @@ internal sealed partial class ShootingGalleryGameController
         Action<int> playSound,
         Func<long> animationTick)
     {
+        AssetRoot = room.AssetRoot;
         _database = database;
         _record = database.Record;
         _session = session;

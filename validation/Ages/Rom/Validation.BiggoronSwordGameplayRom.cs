@@ -92,7 +92,7 @@ public sealed partial class ValidationRoot
                     "Biggoron must cast and complete again after the jinx expires.");
             }
         }
-        var collision=new ObjectCollisionRom(); var data=BiggoronSwordCollisionDatabase.Shared;
+        var collision=new ObjectCollisionRom(); var data=BiggoronSwordCollisionDatabase.For(AgesGameContent.AssetRoot);
         for(int mode=0;mode<0x7d;mode++)
             FailIf(data.Effect(mode)!=collision.Table(0x6d0a+mode*32+7),$"Biggoron native collision mode ${mode:x2} differs.");
         foreach(bool part in new[]{false,true})

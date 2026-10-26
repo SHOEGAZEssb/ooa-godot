@@ -16,7 +16,7 @@ public sealed partial class ValidationRoot
         foreach (int health in Enumerable.Range(0, maximum + 1))
         foreach (int flags in new[] { 0, 8, 0x18 })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wLinkMaxHealth, (byte)maximum);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, (byte)health);
             save.WriteWramByte(AgesWramAddress.wNumRupees, 0x98);
@@ -26,7 +26,7 @@ public sealed partial class ValidationRoot
             var rom = new MenuRom(save, _currentRoom);
             rom[0xcc34] = (byte)flags;
             rom[0xcc39] = 1;
-            var hud = new Hud();
+            var hud = new Hud { AssetRoot = AgesGameContent.AssetRoot };
             AddChild(hud);
             try
             {

@@ -21,7 +21,7 @@ public sealed partial class ValidationRoot
         for (int type = 0; type < values.Length; type++)
         foreach (bool subtract in new[] { false, true })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc6ad, (byte)((current / 10 % 10) * 16 + current % 10));
             save.WriteWramByte(0xc6ae, (byte)(current / 100));
             var inventory = new InventoryState(_treasures, save);
@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
         for (int current = 0; current <= 99; current++)
         foreach (int amount in new[] { 0, 1, 5, 0x10, 0x30, 0x50, 0x99 })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wMaxBombs, (byte)cap);
             save.WriteWramByte(AgesWramAddress.wNumBombs, (byte)(current / 10 * 16 + current % 10));
             var inventory = new InventoryState(_treasures, save);
@@ -50,7 +50,7 @@ public sealed partial class ValidationRoot
         for (int current = 0; current <= 99; current++)
         foreach (int amount in new[] { 0, 1, 5, 0x10, 0x20, 0x50, 0x99 })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wSeedSatchelLevel, (byte)level);
             save.WriteWramByte(AgesWramAddress.wNumEmberSeeds + treasure - 0x20, (byte)(current / 10 * 16 + current % 10));
             var inventory = new InventoryState(_treasures, save);
@@ -61,7 +61,7 @@ public sealed partial class ValidationRoot
         for (int health = 0; health <= max; health++)
         foreach (int amount in new[] { 0, 1, 4, 0x40 })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wLinkMaxHealth, (byte)max);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, (byte)health);
             var inventory = new InventoryState(_treasures, save);
@@ -90,7 +90,7 @@ public sealed partial class ValidationRoot
             (0x60, 0), (0x61, 1), (0x62, 2), (0x63, 3), (0x64, 4), (0x65, 5), (0x66, 6), (0x67, 7)
         })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             for (int slot = 0; slot < occupancy; slot++) save.WriteWramByte(AgesWramAddress.wInventoryB + slot, (byte)(slot + 1));
             save.WriteWramByte(AgesWramAddress.wNumHeartPieces, 2);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, 4);
@@ -114,7 +114,7 @@ public sealed partial class ValidationRoot
         foreach (bool awarded in new[] { false, true })
         for (int type = 0; type <= 0x14; type++)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc627, (byte)(total / 10 % 10 * 16 + total % 10));
             save.WriteWramByte(0xc628, (byte)(total / 1000 * 16 + total / 100 % 10));
             save.SetGlobalFlag(GlobalFlag.Flag10000RupeesCollected, awarded);

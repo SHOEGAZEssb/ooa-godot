@@ -12,6 +12,7 @@ internal sealed partial class MinibossPortal : TransitionOffsetNode2D
 
     internal void Initialize(DungeonEntranceInteractionDatabase data)
     {
+        AssetRoot = data.AssetRoot;
         Name = "MinibossPortal";
         int packed = data.PortalPosition;
         Position = new Vector2(
@@ -22,7 +23,7 @@ internal sealed partial class MinibossPortal : TransitionOffsetNode2D
 
         DungeonEntranceInteractionDatabaseVisualRecord visual = data.PortalVisual;
         Image image = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
+            AssetRoot + $"gfx/{visual.Sprite}.png");
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             image, new[] { visual.Animation }, visual.TileBase, visual.Palette);

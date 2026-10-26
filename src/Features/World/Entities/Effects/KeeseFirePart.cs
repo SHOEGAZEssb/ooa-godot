@@ -5,7 +5,7 @@ namespace Oracles;
 
 internal partial class KeeseFirePart : TransitionOffsetNode2D
 {
-    private readonly KeeseFireRecord _record = KeeseFireRecord.Shared;
+    private KeeseFireRecord _record;
     private EnemyAnimationPlayer _animation = null!;
     private Action<int> _sound = null!;
     private bool _initialized;
@@ -18,13 +18,15 @@ internal partial class KeeseFirePart : TransitionOffsetNode2D
     internal int Counter { get; private set; }
     internal int ZHigh { get; private set; }
     internal Rect2 CollisionBounds => new(Position - Vector2.One * _record.Radius, Vector2.One * (_record.Radius * 2));
-    internal void Initialize(Vector2 position, int zHigh, Action<int> sound)
+    internal void Initialize(string assetRoot, Vector2 position, int zHigh, Action<int> sound)
     {
+        AssetRoot = assetRoot;
+        _record = KeeseFireRecord.Load(assetRoot);
         Position = position;
         ZHigh = zHigh;
         _sound = sound;
         _animation = new EnemyAnimationPlayer(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{_record.Sprite}.png"), [_record.Animation], _record.TileBase, _record.Palette);
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{_record.Sprite}.png"), [_record.Animation], _record.TileBase, _record.Palette);
         _animation.SetAnimation(0);
         Visible = false;
     }

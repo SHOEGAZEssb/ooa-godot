@@ -14,7 +14,7 @@ namespace Oracles;
 internal partial class RockDebrisEffect : FixedEffectNode2D
 {
 
-    private static IReadOnlyDictionary<int, Definition>? _definitions;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, IReadOnlyDictionary<int, Definition>> Definitions = new(System.StringComparer.Ordinal);
 
     private Definition _record = null!;
     private int _animationFrame;
@@ -31,14 +31,15 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
     internal Texture2D CurrentTexture =>
         _record.Animation[AnimationFrame].Texture;
 
-    internal void Initialize(
+    internal void Initialize(string assetRoot,
         Vector2 position,
         int interactionId = InteractionId.RockDebris,
         Action<int>? playSound = null)
     {
+        AssetRoot = assetRoot;
         Position = position;
         IReadOnlyDictionary<int, Definition> definitions =
-            _definitions ??= LoadDefinitions();
+            Definitions.GetOrAdd(assetRoot, LoadDefinitions);
         if (!definitions.TryGetValue(interactionId, out Definition? record))
         {
             throw new InvalidOperationException(
@@ -95,10 +96,10 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
         }
     }
 
-    private static IReadOnlyDictionary<int, Definition> LoadDefinitions()
+    private static IReadOnlyDictionary<int, Definition> LoadDefinitions(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/rock_debris.tsv",
+            assetRoot + "effects/rock_debris.tsv",
             new GeneratedTableSchema(
                 "rock debris",
                 GeneratedTableKeySemantics.Unique,
@@ -137,7 +138,7 @@ internal partial class RockDebrisEffect : FixedEffectNode2D
             }
 
             Image source = OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{sprite}.png");
+                assetRoot + $"gfx/{sprite}.png");
             var animation = new List<RockDebrisEffectFrameRecord>();
             foreach (AnimationFrameDefinition frame in
                 OracleGraphicsCache.GetAnimationDefinition(

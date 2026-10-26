@@ -30,6 +30,7 @@ internal sealed partial class VeranBeeProjectileRoomEntity : EnemyCharacter,IRoo
     public bool AlternatesMovementWithSwordRestriction=>false;
     internal VeranBeeProjectileRoomEntity(RoomEntityManager owner,VeranFinalDatabase data,int parentSlot,Vector2 position,int z)
     {
+        AssetRoot = owner.AssetRoot;
         _owner=owner;_data=data;_parentSlot=parentSlot;_z=(z>>8)<<8;
         InitializeEnemy(position.Floor(),EnemyCharacterConfiguration.FromImported(data.Actor(0x58)),positionedOam:true);Visible=false;
     }

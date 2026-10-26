@@ -22,8 +22,9 @@ public partial class SplashEffect : FixedEffectNode2D
         _frameDuration - (int)_frames % _frameDuration;
     internal byte CurrentParameter => _frames >= DurationFrames ? (byte)0xff : (byte)0;
 
-    internal void InitializeNative(Vector2 position, HazardType hazard, Action<int> playSound)
+    internal void InitializeNative(string assetRoot, Vector2 position, HazardType hazard, Action<int> playSound)
     {
+        AssetRoot = assetRoot;
         Position = position.Floor();
         IsLava = hazard == HazardType.Lava;
         Finished = false;
@@ -33,7 +34,7 @@ public partial class SplashEffect : FixedEffectNode2D
         _frames = 0;
         _frameCount = IsLava ? LavaParts.Length : WaterParts.Length;
         _frameDuration = IsLava ? LavaFrameDuration : WaterFrameDuration;
-        _texture = BuildTexture(IsLava);
+        _texture = BuildTexture(assetRoot, IsLava);
         QueueRedraw();
     }
 
@@ -71,10 +72,10 @@ public partial class SplashEffect : FixedEffectNode2D
             new Rect2(AnimationFrame * 32, 0, 32, 32));
     }
 
-    private static Texture2D BuildTexture(bool lava)
+    private static Texture2D BuildTexture(string assetRoot, bool lava)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+            assetRoot + "gfx/spr_common_sprites.png");
         SplashPart[][] frames = lava ? LavaParts : WaterParts;
         int sourceCell = lava ? 0x26 / 2 : 0x04 / 2;
         int sourceCellX = (sourceCell % 16) * 8;

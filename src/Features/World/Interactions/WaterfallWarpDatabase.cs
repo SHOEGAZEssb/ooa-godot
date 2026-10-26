@@ -5,10 +5,14 @@ namespace Oracles;
 
 internal sealed class WaterfallWarpDatabase
 {
+    public string AssetRoot { get; }
+
     internal IReadOnlyList<WaterfallWarpRecord> Records { get; }
-    internal WaterfallWarpDatabase()
+    internal WaterfallWarpDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/waterfall_warps.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "objects/waterfall_warps.tsv",
             new GeneratedTableSchema("specialWarp.s subids $01/$02", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "subid", "y", "x", "radius-y", "radius-x", "destination-group",
                  "destination-room", "destination-position", "transition", "exit-y"], ["group", "room"], headerRequired: true));

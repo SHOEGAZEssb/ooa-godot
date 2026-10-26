@@ -9,9 +9,8 @@ namespace Oracles;
 internal partial class ArmMimicCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => !_initialized;
-
-    private readonly ArmMimicBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.ArmMimic;
+    private ArmMimicBehaviorProfile? _behaviorSourceCache;
+    private ArmMimicBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ArmMimic;
     private EnemyTerrainMovement _movement = null!;
     private bool _initialized;
     private Vector2I _preloadLinkFacing;
@@ -34,6 +33,7 @@ internal partial class ArmMimicCharacter : EnemyCharacter
         System.Collections.Generic.IReadOnlyDictionary<int,Color[]>? paletteOverrides=null,
         OracleRuntimeState? nativeMemory=null,OracleRandom? nativeRandom=null)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Animations.Length != 4)
         {
             throw new System.ArgumentOutOfRangeException(
@@ -78,7 +78,7 @@ internal partial class ArmMimicCharacter : EnemyCharacter
             InitializePresentation(linkFacing);
             return;
         }
-        if(Record.Id==0x64&&_nativeMemory!.ReadWramByte(AgesWramAddress.wDisabledObjects)!=0)return;
+        if(Record.Id==0x64&&_nativeMemory!.ReadField("wDisabledObjects")!=0)return;
 
         // wLinkAngle=$ff means Link is not supplying movement. The source
         // returns before both movement and enemyAnimate on that update.

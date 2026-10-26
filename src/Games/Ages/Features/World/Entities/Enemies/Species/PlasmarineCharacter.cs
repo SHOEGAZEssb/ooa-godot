@@ -33,12 +33,14 @@ internal sealed partial class PlasmarineCharacter : EnemyCharacter,ISwitchHookEn
     int? ITerrainShadowSource.TerrainShadowZHigh=>ZFixed>>8;
     internal void Initialize(ImportedEnemyDefinition record,Vector2 position,PlasmarineEnvironment world)
     {
+        AssetRoot = record.AssetRoot;
         Record=record;_world=world;
         InitializeEnemy(position,EnemyCharacterConfiguration.FromImported(record),positionedOam:true,paletteVariants:[1,2,4,5]);
         Visible=false;
     }
     internal void InitializeNative()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if(State!=0)return;
         _world.Random.Next();State=8;Speed=_data.State[0];Angle=_data.State[1];Counter1=_data.State[2];
         Target=new(_data.State[4],_data.State[3]);_world.InitializeRoom();Visible=true;

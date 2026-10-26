@@ -10,6 +10,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class SeedTreeDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Lookup<(int Group, int Room), SeedTreePlacementRecord>
         _placements = new();
     private readonly SeedTreeTypeRecord[] _types = new SeedTreeTypeRecord[5];
@@ -32,8 +34,10 @@ internal sealed class SeedTreeDatabase
     internal SeedTreeVisualRecord Visual { get; }
     internal int PlacementCount { get; private set; }
 
-    internal SeedTreeDatabase()
+    internal SeedTreeDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         LoadConstants();
         LoadPlacements();
         LoadRefills();
@@ -57,9 +61,7 @@ internal sealed class SeedTreeDatabase
     internal bool IsRefilled(OracleRuntimeState runtime, int index)
     {
         ValidateRefillIndex(index);
-        int address =
-            AgesWramAddress.wSeedTreeRefilledBitset + (index >> 3);
-        return (runtime.ReadWramByte(address) & (1 << (index & 7))) != 0;
+        return (runtime.ReadField("wSeedTreeRefilledBitset", index >> 3) & (1 << (index & 7))) != 0;
     }
 
     internal void SetRefilled(
@@ -68,15 +70,14 @@ internal sealed class SeedTreeDatabase
         bool refilled)
     {
         ValidateRefillIndex(index);
-        int address =
-            AgesWramAddress.wSeedTreeRefilledBitset + (index >> 3);
+        int offset = index >> 3;
         int mask = 1 << (index & 7);
-        byte current = runtime.ReadWramByte(address);
-        runtime.SetWramByte(
-            address,
+        byte current = runtime.ReadField("wSeedTreeRefilledBitset", offset);
+        runtime.SetField(
+            "wSeedTreeRefilledBitset",
             refilled
                 ? (byte)(current | mask)
-                : (byte)(current & ~mask));
+                : (byte)(current & ~mask), offset);
     }
 
     /// <summary>
@@ -162,7 +163,7 @@ internal sealed class SeedTreeDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/seed_tree_constants.tsv",
+            AssetRoot + "metadata/seed_tree_constants.tsv",
             new GeneratedTableSchema(
                 "seed-tree constants",
                 GeneratedTableKeySemantics.Unique,
@@ -176,7 +177,7 @@ internal sealed class SeedTreeDatabase
     private void LoadPlacements()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/seed_trees.tsv",
+            AssetRoot + "objects/seed_trees.tsv",
             new GeneratedTableSchema(
                 "seed-tree placements",
                 GeneratedTableKeySemantics.Grouped,
@@ -201,13 +202,13 @@ internal sealed class SeedTreeDatabase
             PlacementCount++;
         }
         _placements.SortValues(
-            static (left, right) => left.Order.CompareTo(right.Order));
+            (left, right) => left.Order.CompareTo(right.Order));
     }
 
     private void LoadRefills()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/seed_tree_refills.tsv",
+            AssetRoot + "metadata/seed_tree_refills.tsv",
             new GeneratedTableSchema(
                 "seed-tree refill locations",
                 GeneratedTableKeySemantics.Unique,
@@ -233,7 +234,7 @@ internal sealed class SeedTreeDatabase
     private void LoadTypes()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/seed_tree_types.tsv",
+            AssetRoot + "metadata/seed_tree_types.tsv",
             new GeneratedTableSchema(
                 "seed-tree types",
                 GeneratedTableKeySemantics.Unique,
@@ -264,10 +265,10 @@ internal sealed class SeedTreeDatabase
                 $"Expected {_types.Length} seed-tree types, loaded {count}.");
     }
 
-    private static SeedTreeVisualRecord LoadVisual()
+    private SeedTreeVisualRecord LoadVisual()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/seed_tree_visual.tsv",
+            AssetRoot + "metadata/seed_tree_visual.tsv",
             new GeneratedTableSchema(
                 "seed-tree visual",
                 GeneratedTableKeySemantics.Unique,

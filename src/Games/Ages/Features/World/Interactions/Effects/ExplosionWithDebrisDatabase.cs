@@ -18,7 +18,7 @@ internal sealed class ExplosionWithDebrisDatabase
     }
     internal NpcCharacter Actor(int subid,Vector2 position)
     {
-        var actor=NpcCharacter.CreateFromRecord(_visuals[subid] with {X=(int)position.X,Y=(int)position.Y});
+        var actor=NpcCharacter.CreateFromRecord(_visuals[subid] with {X=(int)position.X,Y=(int)position.Y}, AgesGameContent.AssetRoot);
         actor.SetScriptAnimation(_visuals[subid].DownAnimation);actor.SetAnimationRate(0);actor.SetBlocksLink(false);
         actor.SetFixedDrawPriority(ObjectDrawPriority.InFrontOfLinkZIndex);return actor;
     }

@@ -19,6 +19,7 @@ internal sealed partial class DungeonEssencePedestal : DungeonInteractionVisualE
     internal DungeonEssencePedestal(Vector2 position, DungeonInteractionVisual visual,
         OracleRoomData room, Func<long> animationTick)
     {
+        AssetRoot = visual.AssetRoot;
         _room = room; _animationTick = animationTick;
         InitializeVisual(visual, position);
         Name = "EssencePedestal_7f01";

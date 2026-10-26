@@ -23,6 +23,7 @@ $succeeded = $false
 
 try {
     & $ownershipAudit -Project $project
+    & (Join-Path $PSScriptRoot 'OracleImporter.Tests\Test-SourceOwnership.ps1')
 
     # The test project builds its importer reference once, before any workers.
     & dotnet build $testsProject -t:Rebuild -p:Optimize=true --nologo

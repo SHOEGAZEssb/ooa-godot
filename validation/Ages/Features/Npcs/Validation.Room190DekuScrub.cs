@@ -8,11 +8,11 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom190DekuScrub()
     {
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(1, 0x90).Single(n =>
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(1, 0x90).Single(n =>
             n.Id == 0xd6 && n.SubId == 0);
-        var codec = new LinkedGameNpcDatabase();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         LinkedGameNpcDatabaseRecord secret = codec.Get(1, 0x90, 0xd6, 0);
-        var animations = new DekuScrubDatabase();
+        var animations = new DekuScrubDatabase(AgesGameContent.AssetRoot);
         FailIf(record is not { Y: 0x18, X: 0x38, TextId: 0x4d23,
                 DefaultAnimation: 0, CanFace: false,
                 Implementation: NpcImplementationClassification.SpecializedNative } ||

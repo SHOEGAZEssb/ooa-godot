@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullPeahatCycle()
     {
-        var profile = EnemyBehaviorTables.Shared.Peahat;
+        var profile = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Peahat;
         FailIf(!profile.Speeds.Select(v => v.Value).SequenceEqual(new[] { 30,30,30,20,20,10,10,5,5 }) ||
             !profile.AnimationFrequencies.Select(v => v.Value).SequenceEqual(new[] { 255,255,255,0,0,1,3,7 }),
             "Peahat motion must retain the source SPEED_c0..SPEED_20 and ff/00/01/03/07 tables.");
@@ -95,7 +95,7 @@ public sealed partial class ValidationRoot
             if (room.GetTerrainInfo(new Vector2(x,y)).Hazard != HazardType.None) hazard = new Vector2(x,y);
         FailIf(hazard is null, "Peahat hazard fixture needs a source room hazard.");
         var overHazard = new PeahatCharacter();
-        overHazard.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.Peahat), room, hazard!.Value, new OracleRandom());
+        overHazard.Initialize(new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.Peahat), room, hazard!.Value, new OracleRandom());
         for (int i = 0; i < 60; i++) overHazard.UpdateFrame(i);
         FailIf(overHazard.IsDead || overHazard.DiedInHazard || overHazard.State != PeahatState.Accelerating ||
             overHazard.Counter != 69 || overHazard.ZHigh != 0, "Peahat incorrectly entered a hazard handler while grounded.");

@@ -30,7 +30,7 @@ internal sealed partial class RoomEntryTextRoomEntity(DungeonObjectRecord record
         if (!_initialized)
         {
             _initialized = true;
-            Finished = (runtime.ReadWramByte(AgesWramAddress.wScrollMode) & 2) == 0 ||
+            Finished = (runtime.ReadField("wScrollMode") & 2) == 0 ||
                 (unchecked((byte)(int)player.Position.Y)) < 0x78;
             return;
         }

@@ -56,7 +56,7 @@ internal sealed partial class BlackTowerEndingEvent
                 State=4;context.Transitions.BeginNativeWhiteFade(true);return;
             case 4:
                 if(context.Transitions.NativePaletteFadeActive)return;
-                State=5;var text=(_transferSecrets??=new()).GenerateGameTransferSecretText(context.Rooms.SaveData);Write(0xcbba,255);
+                State=5;var text=(_transferSecrets??=new(AgesGameContent.AssetRoot)).GenerateGameTransferSecretText(context.Rooms.SaveData);Write(0xcbba,255);
                 Screens.ApplyPalette(5,context.Rooms.World.BackgroundPalettes,context.Entities);
                 Screen.Load("ending-secret",extraProfile:context.Rooms.SaveData.IsLinkedGame?"hero-secret-text":null);
                 Screen.UploadSecretText(text);context.Entities.ClearDynamicInteractions();

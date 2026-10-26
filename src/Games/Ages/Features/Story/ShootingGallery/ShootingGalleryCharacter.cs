@@ -10,7 +10,8 @@ internal sealed partial class ShootingGalleryCharacter : NpcCharacter
 {
     internal void InitializeShootingGallery(NpcRecord record)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         SetAnimationRate(1.0f);
     }
 

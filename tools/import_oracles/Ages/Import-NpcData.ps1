@@ -338,101 +338,16 @@ foreach ($line in Read-ImportLines (Join-Path $Disassembly "data\ages\objectGfxH
 # Resolve animation indices through the original pointer tables. Animation
 # frame byte 1 is a byte offset into the interaction's OAM pointer table (the
 # engine adds it directly before reading a word), not a sprite-sheet column.
-$interactionAnimationPath =
-    Join-Path $Disassembly "data\ages\interactionAnimations.s"
+$interactionAnimationPath = Join-Path $Disassembly 'data/ages/interactionAnimations.s'
 $interactionAnimationSource = Read-ImportText $interactionAnimationPath
-$npcAnimationTables = Read-AssemblyDwTables $interactionAnimationPath 'interaction[0-9a-f]{2}Animations' 'interactionAnimation[0-9a-f]+'
-# Keep the per-label tables as an exported stage result for strict consumers;
-# the contiguous stream below additionally supports original cross-label offsets.
-$npcOamPointerTables = Read-AssemblyDwTables $interactionAnimationPath 'interaction[0-9a-f]{2}OamDataPointers' 'interactionOamData[0-9a-f]+'
 $interactionAnimationNodes = @(Read-AssemblyNodes $interactionAnimationPath)
-$npcOamPointerStarts = @{}
-$npcOamPointers = [Collections.Generic.List[string]]::new()
-foreach ($node in $interactionAnimationNodes) {
-    if ($node.Kind -eq 'Label' -and
-        $node.Name -match '^interaction[0-9a-f]{2}OamDataPointers$') {
-        # These labels are views into one contiguous pointer stream. An
-        # animation may index past the next label; INTERAC_ACCESSORY animation
-        # $03 does this to reach its two-cell held-item OAM composition.
-        $npcOamPointerStarts[$node.Name] = $npcOamPointers.Count
-        continue
-    }
-    if ($node.Kind -eq 'Data' -and $node.Name -ieq '.dw' -and
-        $node.Operands.Count -eq 1 -and
-        $node.Operands[0] -match '^interactionOamData[0-9a-f]+$') {
-        $npcOamPointers.Add($node.Operands[0])
-    }
-}
-$npcAnimationDefinitions = Read-AssemblyAnimationDefinitions `
-    $interactionAnimationPath 'interactionAnimation[0-9a-f]+(?:Loop)?'
-
-$npcOamBlocks = @{}
-$interactionOamPath =
-    Join-Path $Disassembly "data\ages\interactionOamData.s"
-$interactionOamNodes = @(Read-AssemblyNodes $interactionOamPath)
-$oamDataByLabel = @{}
-foreach ($node in $interactionOamNodes) {
-    $label = $node.EnclosingGlobalLabel
-    if ($node.Kind -ne 'Data' -or $node.Name -ine '.db' -or
-        $label -notmatch '^interactionOamData[0-9a-f]+$') { continue }
-    if (-not $oamDataByLabel.ContainsKey($label)) {
-        $oamDataByLabel[$label] = [Collections.Generic.List[object]]::new()
-    }
-    $oamDataByLabel[$label].Add($node)
-}
-foreach ($label in $oamDataByLabel.Keys) {
-    $dataLines = $oamDataByLabel[$label]
-    if ($dataLines.Count -eq 0) { continue }
-    $count = Convert-AssemblyInteger $dataLines[0].Operands[0]
-    $blocks = [Collections.Generic.List[string]]::new()
-    for ($index = 1; $index -le $count -and $index -lt $dataLines.Count; $index++) {
-        if ($dataLines[$index].Operands.Count -lt 4) { continue }
-        $blocks.Add(($dataLines[$index].Operands |
-            Select-Object -First 4 | ForEach-Object {
-            Convert-AssemblyInteger $_
-        }) -join ',')
-    }
-    $npcOamBlocks[$label] = $blocks -join ';'
-}
-
-# Encoding is shared; pointer domains and missing-frame handling stay with
-# each resolver (interactions and treasures may cross named pointer tables).
-function Format-NpcAnimationFrame($frame, [string]$oam) {
-    $metadata = "$($frame.Duration)"
-    if ([int]$frame.Parameter -ne 0) { $metadata += ",$($frame.Parameter)" }
-    return "$metadata@$oam"
-}
-
-function Join-NpcAnimationFrames($frames, [int]$loopStart) {
-    $encoded = $frames -join '|'
-    if ($loopStart -gt 0) { $encoded += "~$loopStart" }
-    return $encoded
-}
-
+$npcPresentation = Read-InteractionPresentation 'ages'
+$npcAnimationTables = $npcPresentation.Tables
+$npcOamPointerTables = $npcPresentation.OamTables
+$npcAnimationDefinitions = $npcPresentation.Definitions
+$npcOamBlocks = $npcPresentation.Blocks
 function Resolve-NpcAnimation([int]$interactionId, [int]$animationIndex, [int]$animationTableId = -1) {
-    $hex = $interactionId.ToString('x2')
-    $tableHex = if ($animationTableId -lt 0) { $hex } else { $animationTableId.ToString('x2') }
-    $animationKey = "interaction${tableHex}Animations"
-    $pointerKey = "interaction${hex}OamDataPointers"
-    if (-not $npcAnimationTables.ContainsKey($animationKey) -or
-        -not $npcOamPointerStarts.ContainsKey($pointerKey)) { return '' }
-    $animations = $npcAnimationTables[$animationKey]
-    if ($animationIndex -lt 0 -or $animationIndex -ge $animations.Count) { return '' }
-    $animationLabel = $animations[$animationIndex]
-    if (-not $npcAnimationDefinitions.ContainsKey($animationLabel)) { return '' }
-    $definition = $npcAnimationDefinitions[$animationLabel]
-    $pointerStart = $npcOamPointerStarts[$pointerKey]
-    $resolvedFrames = [Collections.Generic.List[string]]::new()
-    foreach ($frame in $definition.Frames) {
-        $pointerIndex = [int]($frame.PointerOffset / 2)
-        $absolutePointerIndex = $pointerStart + $pointerIndex
-        if ($pointerIndex -lt 0 -or
-            $absolutePointerIndex -ge $npcOamPointers.Count) { continue }
-        $oamLabel = $npcOamPointers[$absolutePointerIndex]
-        $oam = if ($npcOamBlocks.ContainsKey($oamLabel)) { $npcOamBlocks[$oamLabel] } else { '' }
-        $resolvedFrames.Add((Format-NpcAnimationFrame $frame $oam))
-    }
-    return Join-NpcAnimationFrames $resolvedFrames $definition.LoopStart
+    return Resolve-InteractionPresentation $npcPresentation $interactionId $animationIndex $animationTableId
 }
 
 # PART_TINGLE_BALLOON uses the same object-gfx sheet as Tingle, but its

@@ -21,7 +21,8 @@ internal sealed partial class KnowItAllBirdCharacter : NpcCharacter
     internal void InitializeBird(NpcRecord record, KnowItAllBirdDatabase database,
         OracleRandom random, Func<bool> textActive)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         _data = database.Get(record.SubId);
         _random = random;
         Script = new(this, database.Commands, textActive);
@@ -31,6 +32,7 @@ internal sealed partial class KnowItAllBirdCharacter : NpcCharacter
 
     internal void InitializeNative()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (Initialized) return;
         Initialized = true;
         Direction = _random.Next().Value & 1;

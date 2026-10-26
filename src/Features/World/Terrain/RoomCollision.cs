@@ -15,9 +15,10 @@ public sealed class RoomCollision
         new(-5, 0), new(-5, 5), new(4, 0), new(4, 5)
     };
 
-    private readonly RoomSession _rooms;
-    private readonly RoomEntityManager _entities;
-    private readonly PushBlockController _pushBlocks;
+    private readonly Func<OracleRoomData> _room;
+    private readonly Func<Vector2, bool, bool> _blocksLink;
+    private readonly OracleRuntimeState _memory;
+    private readonly bool _normalizeCornerWalls;
     private readonly Func<Vector2, bool> _hasNeighborFor;
 
     public RoomCollision(
@@ -25,16 +26,26 @@ public sealed class RoomCollision
         RoomEntityManager entities,
         PushBlockController pushBlocks,
         Func<Vector2, bool> hasNeighborFor)
+        : this(() => rooms.CurrentRoom,
+            (position, beforeInteractions) => beforeInteractions
+                ? entities.BlocksLink(position, beforeInteractions: true)
+                : entities.BlocksLink(position) || pushBlocks.BlocksLink(position),
+            entities.RuntimeState, hasNeighborFor, normalizeCornerWalls: true) { }
+
+    internal RoomCollision(Func<OracleRoomData> room,
+        Func<Vector2, bool, bool> blocksLink, OracleRuntimeState memory,
+        Func<Vector2, bool> hasNeighborFor, bool normalizeCornerWalls)
     {
-        _rooms = rooms;
-        _entities = entities;
-        _pushBlocks = pushBlocks;
+        _room = room;
+        _blocksLink = blocksLink;
+        _memory = memory;
         _hasNeighborFor = hasNeighborFor;
+        _normalizeCornerWalls = normalizeCornerWalls;
     }
 
     public bool Collides(Vector2 playerPosition)
     {
-        OracleRoomData room = _rooms.CurrentRoom;
+        OracleRoomData room = _room();
         foreach (Vector2 offset in LinkSamples)
         {
             Vector2 sample = playerPosition + offset;
@@ -47,13 +58,13 @@ public sealed class RoomCollision
             if (TileBlocksPoint(sample))
                 return true;
         }
-        return _entities.BlocksLink(playerPosition) || _pushBlocks.BlocksLink(playerPosition);
+        return _blocksLink(playerPosition, false);
     }
 
     internal void UpdateLinkOnChest(Vector2 position, bool airborne)
     {
-        OracleRoomData room = _rooms.CurrentRoom;
-        OracleRuntimeState state = _entities.RuntimeState;
+        OracleRoomData room = _room();
+        OracleRuntimeState state = _memory;
         // commonCode.s:linkApplyTileTypes retains the active tile while airborne.
         // @linkGetActiveTileType samples byte-wrapped Y+$05, X before movement.
         if (!airborne)
@@ -62,29 +73,29 @@ public sealed class RoomCollision
         // bank0.s:checkAndUpdateLinkOnChest. This is a shared collision-buffer
         // write, not a Link-only exception. Restore the current tile's collision
         // on departure, even if another writer replaced the chest meanwhile.
-        byte active = state.ReadWramByte(AgesWramAddress.wActiveTilePos);
-        byte chest = state.ReadWramByte(AgesWramAddress.wLinkOnChest);
+        byte active = state.ReadField("wActiveTilePos");
+        byte chest = state.ReadField("wLinkOnChest");
         if (chest == 0)
         {
-            if (state.ReadWramByte(AgesWramAddress.wActiveTileIndex) != ChestDatabase.ClosedTile) return;
-            state.SetWramByte(AgesWramAddress.wLinkOnChest, active);
+            if (state.ReadField("wActiveTileIndex") != ChestDatabase.ClosedTile) return;
+            state.SetField("wLinkOnChest", active);
             room.SetPackedTileCollision(active, 0);
         }
         else if (active != chest)
         {
             room.SetPackedTileCollision(chest, null);
-            state.SetWramByte(AgesWramAddress.wLinkOnChest, 0);
+            state.SetField("wLinkOnChest", 0);
         }
     }
 
     internal void UpdateActiveLinkTile(Vector2 position)
     {
-        OracleRoomData room = _rooms.CurrentRoom;
-        OracleRuntimeState state = _entities.RuntimeState;
+        OracleRoomData room = _room();
+        OracleRuntimeState state = _memory;
         Vector2 feet = new(unchecked((byte)Mathf.FloorToInt(position.X)),
             unchecked((byte)(Mathf.FloorToInt(position.Y)+5)));
-        state.SetWramByte(AgesWramAddress.wActiveTilePos,(byte)room.GetPackedPosition(feet));
-        state.SetWramByte(AgesWramAddress.wActiveTileIndex,room.GetMetatile(feet));
+        state.SetField("wActiveTilePos",(byte)room.GetPackedPosition(feet));
+        state.SetField("wActiveTileIndex",room.GetMetatile(feet));
     }
 
     public Vector2 ResolveMovement(Vector2 playerPosition, Vector2 movement, bool allowWallSlide)
@@ -120,7 +131,7 @@ public sealed class RoomCollision
             angle = adjustedAngle;
             walls = 0;
         }
-        var velocity = NativeObjectMovement.Velocity(_entities.RuntimeState, speed, angle);
+        var velocity = NativeObjectMovement.Velocity(_memory, speed, angle);
         Vector2 movement = new(velocity.XFixed / 256.0f, velocity.YFixed / 256.0f);
         return ResolveMaskedMovement(position, movement, angle, walls);
     }
@@ -186,7 +197,7 @@ public sealed class RoomCollision
         var wrapped = new Vector2(
             unchecked((byte)Mathf.FloorToInt(point.X)),
             unchecked((byte)Mathf.FloorToInt(point.Y)));
-        return _rooms.CurrentRoom.GetTerrainInfo(wrapped).Collision != 0;
+        return _room().GetTerrainInfo(wrapped).Collision != 0;
     }
 
     private static int GetMovementAngle(Vector2 movement)
@@ -227,6 +238,7 @@ public sealed class RoomCollision
 
         // Ages normalizes these two asymmetric patterns after calculating the
         // bitset (specialObjectUpdateAdjacentWallsBitset@data).
+        if (!_normalizeCornerWalls) return walls;
         return walls switch
         {
             0xdb => 0xc3,
@@ -237,22 +249,22 @@ public sealed class RoomCollision
 
     private bool CanApplyMovement(Vector2 position)
     {
-        OracleRoomData room = _rooms.CurrentRoom;
+        OracleRoomData room = _room();
         // Moving INTERAC$14 blocks clamp Link after objectApplySpeed in the
         // interaction pass. Rejecting movement against their old position
         // here adds a one-update lag compared with synchronized partners.
         // wScrollMode bit0 disables screenTransitionState2's boundary owner.
         // Native escape input deliberately walks Link beyond the viewport;
         // objectApplySpeed itself does not clamp him to the room rectangle.
-        bool nativeBoundsDisabled=(_entities.RuntimeState.ReadWramByte(AgesWramAddress.wScrollMode)&1)==0;
+        bool nativeBoundsDisabled=(_memory.ReadField("wScrollMode")&1)==0;
         return (nativeBoundsDisabled||position.X >= 0 && position.X < room.Width &&
             position.Y >= 0 && position.Y < room.Height) &&
-            !_entities.BlocksLink(position, beforeInteractions: true);
+            !_blocksLink(position, true);
     }
 
     private bool TileBlocksPoint(Vector2 point)
     {
-        OracleRoomData room = _rooms.CurrentRoom;
+        OracleRoomData room = _room();
         if (point.X < 0 || point.X >= room.Width || point.Y < 0 || point.Y >= room.Height)
         {
             // bank0.s:loadRoomCollisions fills the border with $ff. Link's
@@ -263,7 +275,7 @@ public sealed class RoomCollision
                 return false;
             return !_hasNeighborFor(point);
         }
-        return _entities.RuntimeState.ReadWramByte(AgesWramAddress.wLinkRaisedFloorOffset) != 0
+        return _memory.ReadField("wLinkRaisedFloorOffset") != 0
             ? room.IsSolidForRaisedFloorLink(point)
             : room.IsSolid(point);
     }

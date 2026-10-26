@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         foreach (int count in new[] { 0, 1, 17, 64 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetGlobalFlag(GlobalFlag.IntroDone); save.SetGlobalFlag(8);
             save.SetTextSpeed(4); save.WriteWramByte(AgesWramAddress.wRingBoxLevel, 3);
             InitializeTransientSession(save);

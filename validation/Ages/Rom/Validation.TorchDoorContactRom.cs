@@ -20,7 +20,7 @@ public partial class ValidationRoot
             // Use the production factory's shared torch owner and callbacks.
             // Isolate only the source door and scanner from the room's NPCs,
             // diamond and treasure; this is a bounded PART/item/door handoff.
-            var placed = SomariaPrivate<RoomEntityFactory>(_entities,"_factory")
+            var placed = SomariaPrivate<AgesRoomEntityFactory>(_entities,"_factory")
                 .CreateRoomEntities(4,_currentRoom,EnemyPlacementContext.Unrestricted).ToArray();
             foreach (var entity in placed)
                 if (entity is DungeonDoorRoomEntity or LightableTorchScannerRoomEntity) _entities.AddEntity(entity);

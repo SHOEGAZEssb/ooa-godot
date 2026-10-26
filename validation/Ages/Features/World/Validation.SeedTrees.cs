@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSeedTrees()
     {
-        var database = new SeedTreeDatabase();
+        var database = new SeedTreeDatabase(AgesGameContent.AssetRoot);
         SeedTreePlacementRecord canonical =
             database.GetRoomRecords(0, 0x78).Single();
         FailIf(
@@ -31,8 +31,8 @@ public sealed partial class ValidationRoot
             !database.IsRefilled(runtime, canonical.RefillIndex),
             "initializeSeedTreeRefillData did not restore Ages' `$f0,$ff bitset.");
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var treasures = new TreasureDatabase();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
+        var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var rooms = new RoomSession(0, 0x78, static () => 0, static () => { }, save);
         OracleRoomData room = rooms.CurrentRoom;
         FailIf(

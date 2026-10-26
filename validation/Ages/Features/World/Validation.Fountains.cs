@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateFountainDecorations()
     {
-        var data = new FountainDatabase();
+        var data = new FountainDatabase(AgesGameContent.AssetRoot);
         // mainData.s: four pairs; past $12/$14 share the volcano tail, not
         // group1Map13's preceding fountain rows.
         FailIf(data.InRoom(1, 0x12).Any() || data.InRoom(1, 0x14).Any(),

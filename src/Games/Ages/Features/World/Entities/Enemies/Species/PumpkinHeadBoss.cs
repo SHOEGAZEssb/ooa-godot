@@ -42,7 +42,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private readonly Action<int> _startScreenShake;
     private readonly Action _disableLinkCollisionsAndMenu;
     private readonly Action _restoreRoomMusic;
-    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase().Data;
+    private readonly BraceletDatabaseRecord _bracelet = new BraceletDatabase(AgesGameContent.AssetRoot + "metadata/bracelet.tsv").Data;
     private readonly int _bodyPalette;
     private readonly int _ghostPalette;
     private readonly int _headPalette;
@@ -104,7 +104,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
     private int _stompHeadSpeedZ;
     private int _stompGhostZFixed;
     private int _stompGhostSpeedZ;
-    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
+    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.For(AgesGameContent.AssetRoot);
 
     internal BossState State => _state;
     internal bool InitializationPending => !_initialized;
@@ -157,6 +157,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         int ghostPalette,
         OracleRuntimeState memory)
     {
+        AssetRoot = record.AssetRoot;
         _room = room;
         _memory = memory;
         _random = random;
@@ -174,7 +175,7 @@ internal sealed partial class PumpkinHeadBoss : TransitionOffsetNode2D
         _headPosition = position;
         _ghostPosition = position;
         Name = "PumpkinHead";
-        Image source = EnemyVisualSource.LoadComposite(record.Sprites);
+        Image source = EnemyVisualSource.LoadComposite(record.Sprites, record.AssetRoot);
         _body = BuildAnimation(source, record, _bodyPalette, 0x0d);
         _ghost = BuildAnimation(source, record, _ghostPalette, 0x0a);
         _head = BuildAnimation(source, record, _headPalette, 0x04);

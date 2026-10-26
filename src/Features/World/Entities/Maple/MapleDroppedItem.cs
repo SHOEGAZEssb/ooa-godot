@@ -69,6 +69,7 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D, ITerrainShadowSo
         Func<MapleItemRecord, Player, bool> collected,
         OracleRuntimeState? movementMemory = null)
     {
+        AssetRoot = room.AssetRoot;
         _record = record;
         _encounter = encounter;
         _room = room;
@@ -81,7 +82,7 @@ public partial class MapleDroppedItem : TransitionOffsetNode2D, ITerrainShadowSo
         _zFixed = (sourceZFixed >> 8) << 8;
         _state = MapleDroppedItemState.Initializing;
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
+            AssetRoot + $"gfx/{record.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(record.Animation);
         if (definition.Frames.Length != 1)

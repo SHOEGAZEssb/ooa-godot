@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach (int x in group == 3 && room == 0xfe || group == 1 && room == 0x58
             ? Enumerable.Range(0, 256) : new[] { 0, 0x3f, 0x40, 0x41, 0x58, 0xff })
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetDeathRespawnPoint(group, room, 0xa5, 1, 0x38, x,
                 new RememberedCompanion(0x0c, 1, 0xa7, 0x28, 0x48), 0xd1);
             for (int address = 0xc5b0; address < 0xcb00; address++) rom[address] = save.ReadWramByte(address);
@@ -22,7 +22,7 @@ public sealed partial class ValidationRoot
             rom.InitializeSavedGame();
             int notifications = 0;
             save.Changed += () => notifications++;
-            DeathRespawnInitialization.Apply(save, (byte)hardware);
+            AgesDeathRespawnInitialization.Apply(save, (byte)hardware);
             for (int address = 0xc62b; address <= 0xc637; address++)
                 FailIf(save.ReadWramByte(address) != rom[address],
                     $"Shop checkpoint hardware=${hardware:x2}, room=${group:x2}:${room:x2}, X=${x:x2}: ${address:x4} differs from native masked repair.");
@@ -32,14 +32,14 @@ public sealed partial class ValidationRoot
                 save.ReadWramByte(0xc62d) != 0xa5 || save.ReadWramByte(0xc631) != 0x0c,
                 "Shop correction lost its independently traced bounds, destination or preserved modifier/companion fields.");
             FailIf(notifications != (repaired ? 1 : 0), "Checkpoint repair did not publish exactly one completed save mutation.");
-            DeathRespawnInitialization.Apply(save, (byte)hardware);
+            AgesDeathRespawnInitialization.Apply(save, (byte)hardware);
             FailIf(notifications != (repaired ? 1 : 0), "Repeated checkpoint initialization republished unchanged state.");
         }
         int hostCase1 = 0;
         foreach (bool interior in new[] { false, true })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetLinkName("Link"); save.SetGlobalFlag(GlobalFlag.IntroDone);
             save.SetDeathRespawnPoint(interior ? 3 : 1, interior ? 0xfe : 0x58, 0, 1, 0x38, 0x40);
             InitializeTransientSession(save);

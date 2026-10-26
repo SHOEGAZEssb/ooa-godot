@@ -61,6 +61,7 @@ internal sealed partial class HeadThwompBoss : EnemyCharacter
         Action restoreRoomMusic,
         Func<long> animationTick)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

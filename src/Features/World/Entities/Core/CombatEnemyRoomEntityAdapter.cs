@@ -68,7 +68,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
     }
     public virtual BoomerangCollisionResponse ApplyBoomerangCollision(BoomerangItem item, ICollection<RoomEntitySpawn> spawns)
     {
-        var data = BoomerangCollisionDatabase.Shared;
+        var data = BoomerangCollisionDatabase.For(AssetRoot);
         if (!item.CollisionEnabled || !data.EnemyEnabled(DimitriCollisionType) || GaleCaught ||
             !Entity.CollisionEnabled || BoomerangHitPending || Entity.InvincibilityCounter != 0 ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, item.ZHigh, 7) ||
@@ -106,7 +106,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
         if (GaleCaught || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
             !combatDescriptor.Combat.Intersects(hitbox) ||
             !RoomEntityManager.ObjectCollisionZOverlaps(CollisionZ, seedZ, 7)) return false;
-        int effect = GaleSeedCollisionDatabase.Shared.Effect(GaleCollisionMode);
+        int effect = GaleSeedCollisionDatabase.For(AssetRoot).Effect(GaleCollisionMode);
         if (effect == CollisionEffect.Effect20) return true;
         if (effect != CollisionEffect.GaleSeed) return false;
         _seedBurning = false;
@@ -370,7 +370,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
 
     public virtual bool ApplyBiggoronSwordCollision(Rect2 bounds,Vector2 origin,int damage,ICollection<RoomEntitySpawn> spawns)
     {
-        var data=BiggoronSwordCollisionDatabase.Shared;
+        var data=BiggoronSwordCollisionDatabase.For(AssetRoot);
         if(!Entity.CollisionEnabled || Entity.InvincibilityCounter!=0 || Entity.NativeHitPending ||
             !data.EnemyEnabled(DimitriCollisionType) || !combatDescriptor.Combat.Intersects(bounds)) return false;
         int effect=data.Effect(DimitriCollisionMode);
@@ -412,7 +412,7 @@ internal abstract class CombatEnemyRoomEntityAdapter<T>(
             // non-Mystery seeds can reconstruct that identity from the item ID.
             if (seedItem == ItemId.MysterySeed)
                 throw new InvalidOperationException($"{combatDescriptor.Source?.Source}: ENEMY ${DimitriCollisionType:x2}:${combatDescriptor.Source?.SubId:x2} requires Mystery Seed's live collision type.");
-            return new SeedSatchelDatabase().TryGet(seedItem, out var seed)
+            return new SeedSatchelDatabase(AssetRoot).TryGet(seedItem, out var seed)
                 ? native.ApplySeedCollision(hitbox, sourcePosition, seed,
                     seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect
                 : SeedHitResult.None;

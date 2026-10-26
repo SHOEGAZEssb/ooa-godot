@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCrownWallFollowerBeam()
     {
-        var beamData = new SwordBeamDatabase().Get(0);
+        var beamData = new SwordBeamDatabase(AgesGameContent.AssetRoot + "metadata/sword_beam.tsv").Get(0);
         foreach (bool batched in new[] { false, true })
         foreach (bool whisp in new[] { false, true })
         foreach (bool exhausted in new[] { false, true })

@@ -21,13 +21,14 @@ internal sealed partial class DungeonEssenceGlow : TransitionOffsetNode2D,
 
     internal DungeonEssenceGlow(DungeonEssence owner, DungeonInteractionVisual visual)
     {
+        AssetRoot = visual.AssetRoot;
         _owner = owner;
         Position = owner.Position.Floor(); // objectCopyPosition before parent zh=-$10.
         Name = "EssenceGlow_7f02";
         ZIndex = ObjectDrawPriority.BehindLinkZIndex; // objectSetVisible82.
         Visible = false;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations,
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations,
             visual.TileBase, visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         _animation.SetAnimation(0);
     }

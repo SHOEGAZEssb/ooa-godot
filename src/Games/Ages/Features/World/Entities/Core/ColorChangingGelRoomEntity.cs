@@ -62,7 +62,7 @@ internal sealed class ColorChangingGelRoomEntity
             return Entity.TakeSeedHit(ItemCollisionType.ScentSeed, 2) ? SeedHitResult.Activate : SeedHitResult.None;
         // Matching-color seeds use effect20/ENEMYDMG44. They activate their
         // own effect without igniting, stunning or damaging the Gel.
-        if (Entity.CollisionMode == EnemyBehaviorTables.Shared.ColorChangingGel.ImmuneCollisionMode &&
+        if (Entity.CollisionMode == EnemyBehaviorTables.For(AgesGameContent.AssetRoot).ColorChangingGel.ImmuneCollisionMode &&
             seedItem is >= 0x20 and <= 0x23)
             return Entity.TakeSeedHit(seedItem - 0x20 + 0x1b, 0) ? SeedHitResult.Activate : SeedHitResult.None;
         return base.ApplySeedHit(hitbox, sourcePosition, seedItem, spawns);

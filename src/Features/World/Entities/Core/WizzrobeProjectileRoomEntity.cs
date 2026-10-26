@@ -9,7 +9,8 @@ internal sealed class WizzrobeProjectileRoomEntity(WizzrobeProjectile projectile
         IRoomEntityLifetime, IPostObjectLinkContactRoomEntity, IObjectCollisionHeightRoomEntity,
         IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, INativePartHealthRoomEntity
 {
-    private readonly WizzrobeBehaviorProfile _data = EnemyBehaviorTables.Shared.Wizzrobe;
+    private WizzrobeBehaviorProfile? _dataSourceCache;
+    private WizzrobeBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Wizzrobe;
     public bool Finished => Entity.Finished;
     public int CollisionZ => Entity.ZHigh;
     public bool UpdatesDuringDialogue => Entity.State == 0;

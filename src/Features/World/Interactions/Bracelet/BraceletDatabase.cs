@@ -12,7 +12,7 @@ internal sealed class BraceletDatabase
     internal BraceletDatabaseRecord Data { get; }
 
     internal BraceletDatabase(
-        string path = AgesGameContent.AssetRoot + "metadata/bracelet.tsv")
+        string path)
     {
         GeneratedTable table = GeneratedTable.Load(
             path,

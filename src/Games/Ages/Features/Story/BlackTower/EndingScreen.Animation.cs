@@ -8,7 +8,7 @@ public partial class EndingScreen
     private long? _nativeAnimationStart;
     private int _nativeAnimationSignature;
     internal void BeginNativeAnimation(long tick)
-    {_nativeAnimations??=new();_nativeAnimationStart=tick;_nativeAnimationSignature=0;}
+    {_nativeAnimations??=new(AgesGameContent.AssetRoot);_nativeAnimationStart=tick;_nativeAnimationSignature=0;}
     internal void UpdateNativeAnimation(long tick)
     {
         if(_nativeAnimationStart is not long start||_tiles is null)return;

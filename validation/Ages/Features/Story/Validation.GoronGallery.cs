@@ -65,7 +65,7 @@ public sealed partial class ValidationRoot
         for(int i=0;i<100&&!_secretEntry.IsActive;i++) AdvanceGoronDialogue(1);
         FailIf(!_secretEntry.IsActive,"Elder did not open the shared secret-entry screen.");
         for(int i=0;i<22;i++) _secretEntry.Update(1.0/60.0);
-        _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(0x08,_saveData));
+        _secretEntry.Submit(new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecretValues(0x08,_saveData));
         for(int i=0;i<22;i++) _secretEntry.Update(1.0/60.0);
         for(int i=0;i<1200&&elder.Gallery!.Session is null;i++) AdvanceGoronDialogue(1);
         FailIf(!_saveData.HasGlobalFlag(GlobalFlag.BeganElderSecret)||elder.Gallery!.Session is null||

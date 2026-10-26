@@ -10,8 +10,8 @@ public sealed partial class ValidationRoot
     {
         foreach (var (group, id) in new[] { (0, 0x11), (5, 0xa7), (2, 0x90) })
         {
-            var sequential = new OracleWorldData().LoadRoom(group, id);
-            var batched = new OracleWorldData().LoadRoom(group, id);
+            var sequential = new AgesWorldData().LoadRoom(group, id);
+            var batched = new AgesWorldData().LoadRoom(group, id);
             foreach (OracleRoomData room in new[] { sequential, batched })
             {
                 _ = room.UnderwaterBackgroundTexture;

@@ -58,12 +58,12 @@ internal static class OracleTileRenderer
     public static Texture2D BuildMonochromeFontTexture(string path) =>
         OracleGraphicsCache.LoadMonochromeFont(path);
 
-    internal static byte[] CopyTextCharacterGraphics(ReadOnlySpan<byte> characters,byte fontXor)
+    internal static byte[] CopyTextCharacterGraphics(ReadOnlySpan<byte> characters,byte fontXor, string assetRoot)
     {
         // bank0.s:copyTextCharacterGfx, English font (C bit0 clear).
         // gfx_font_start is gfx_font-$e0 because m_GfxDataSimple omits the
         // PNG's first fourteen blank cells from the ROM. The PNG retains them.
-        Image font=OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
+        Image font=OracleGraphicsCache.LoadImage(assetRoot + "gfx/gfx_font.png");
         byte[] pixels=font.GetData(),output=new byte[characters.Length*32];
         for(int index=0;index<characters.Length;index++)
         {

@@ -8,13 +8,20 @@ namespace Oracles;
 // these live bytes. Preview queries never advance the transition count.
 internal sealed class EyePuzzleDatabase
 {
-    internal static EyePuzzleDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<EyePuzzleDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static EyePuzzleDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<EyePuzzleDatabase>(() => new EyePuzzleDatabase(root))).Value;
+
     private readonly int _group, _room, _counter, _secondCounter, _direction;
     private readonly int _required, _excluded;
     internal int SpinUpdates { get; }
-    private EyePuzzleDatabase()
+    private EyePuzzleDatabase(string assetRoot)
     {
-        var row = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/eye_puzzle.tsv",
+        AssetRoot = assetRoot;
+
+        var row = GeneratedTable.Load(AssetRoot + "objects/eye_puzzle.tsv",
             new GeneratedTableSchema("eye puzzle", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "counter-address", "second-counter-address", "correct-direction-address",
                     "required-transitions", "spin-updates", "excluded-direction", "source"],
@@ -27,7 +34,7 @@ internal sealed class EyePuzzleDatabase
     internal bool PrepareEyes(RoomEntityManager owner)
     {
         var state = owner.RuntimeState;
-        if ((state.ReadWramByte(AgesWramAddress.wScrollMode) & 1) == 0) return false;
+        if ((state.ReadField("wScrollMode") & 1) == 0) return false;
         int direction = 0;
         if (state.ReadWramByte(_counter) < _required)
             do { direction = owner.NextRandomValue() & 3; } while (direction == _excluded);

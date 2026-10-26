@@ -11,11 +11,11 @@ public sealed partial class ValidationRoot
 {
     private void ValidateGraveyardCrowsAndDropProducers()
     {
-        var enemies = new EnemyDatabase();
-        var npcs = new NpcDatabase();
-        var visibility = new NpcVisibilityRuleDatabase();
+        var enemies = new EnemyDatabase(AgesGameContent.AssetRoot);
+        var npcs = new NpcDatabase(AgesGameContent.AssetRoot);
+        var visibility = new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot);
         var runtime = AgesGameContent.CreateRuntimeState();
-        var predicateSave = OracleSaveData.CreateStandardGame();
+        var predicateSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         NpcRecord ghini = npcs.GetRoomNpcs(0, 0x5d).Single(npc =>
             npc.Id == 0xcb && npc.SubId == 0x00);
         List<RoomObjectRecord> crowPlacements =
@@ -50,8 +50,8 @@ public sealed partial class ValidationRoot
 
         var root = new Node { Name = "GraveyardCrowAndDropValidation" };
         AddChild(root);
-        var save = OracleSaveData.CreateStandardGame();
-        var treasures = new TreasureDatabase();
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
+        var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var inventory = new InventoryState(treasures, save);
         inventory.GiveTreasure(TreasureId.Bombs, 0x04);
         inventory.GiveTreasure(TreasureId.EmberSeeds, 0x05);
@@ -173,7 +173,7 @@ public sealed partial class ValidationRoot
         RemoveChild(root);
         root.Free();
 
-        var linkedNpcData = new LinkedGameNpcDatabase();
+        var linkedNpcData = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         string cipherHash = Convert.ToHexString(SHA256.HashData(
             linkedNpcData.XorCipher.ToArray())).ToLowerInvariant();
         string symbolHash = Convert.ToHexString(SHA256.HashData(
@@ -189,7 +189,7 @@ public sealed partial class ValidationRoot
             "complete bank3.s/bank0.s source order.");
         LinkedGameNpcDatabaseRecord ghiniData =
             linkedNpcData.Get(0, 0x5d, AgesInteractionId.LinkedGameGhini, 0x00);
-        var secretSave = OracleSaveData.CreateStandardGame();
+        var secretSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         secretSave.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, 0x34);
         secretSave.WriteWramByte(0xc601, 0x12);
         byte[] secret =

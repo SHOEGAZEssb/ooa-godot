@@ -22,6 +22,7 @@ internal sealed partial class StatueEyeball : TransitionOffsetNode2D
         Vector2 position,
         DungeonEntranceInteractionDatabase data)
     {
+        AssetRoot = data.AssetRoot;
         Name = "StatueEyeball";
         Position = position;
         ZIndex = ObjectDrawPriority.FixedLowPriorityZIndex;
@@ -33,7 +34,7 @@ internal sealed partial class StatueEyeball : TransitionOffsetNode2D
             animations[index] = data.EyeVisuals[index].Animation;
         DungeonEntranceInteractionDatabaseVisualRecord visual = data.EyeVisuals[0];
         Image image = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
+            AssetRoot + $"gfx/{visual.Sprite}.png");
         _animation.Load(image, animations, visual.TileBase, visual.Palette);
         _animation.SetAnimation(4);
         QueueRedraw();

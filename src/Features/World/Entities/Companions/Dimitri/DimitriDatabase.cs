@@ -7,7 +7,9 @@ namespace Oracles;
 
 internal sealed class DimitriDatabase
 {
-    private const string Root = AgesGameContent.AssetRoot + "cutscenes/";
+    public string AssetRoot { get; }
+
+    private readonly string Root ;
     internal string[] Animations { get; }
     internal int[][] SourceOffsets { get; }
     internal Texture2D[] LinkTextures { get; }
@@ -23,12 +25,15 @@ internal sealed class DimitriDatabase
     private (int Group, int Room) _presetRoom;
     internal Vector2 PresetPosition { get; private set; }
     internal bool ShouldSpawnPreset(int group, int room, OracleSaveData save) =>
-        _presetRoom == (group, room) && (save.ReadWramByte(AgesWramAddress.wEssencesObtained) & 4) != 0 &&
-        (save.ReadWramByte(AgesWramAddress.wDimitriState) & 0x40) == 0;
+        _presetRoom == (group, room) && (save.ReadField("wEssencesObtained") & 4) != 0 &&
+        (save.ReadField("wDimitriState") & 0x40) == 0;
     internal bool IsGoodbyeRoom(int group, int room) => _goodbyeRooms.Contains((group, room));
 
-    internal DimitriDatabase()
+    internal DimitriDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+        Root = AssetRoot + "cutscenes/";
+
         var active = GeneratedTable.Load(Root + "dimitri_active_collisions.tsv",
             new GeneratedTableSchema("Dimitri enemy collision gates", GeneratedTableKeySemantics.Ordered,
                 ["collision-type", "enabled", "source"], headerRequired: true));
@@ -71,7 +76,7 @@ internal sealed class DimitriDatabase
         LinkTextures = new Texture2D[linkFrames.Length];
         LinkDamageTextures = new Texture2D[linkFrames.Length];
         LinkOffsets = new Vector2[linkFrames.Length];
-        Image source = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_link.png");
+        Image source = OracleGraphicsCache.LoadImage(AssetRoot + "gfx/spr_link.png");
         for (int i = 0; i < linkFrames.Length; i++)
         {
             string oam = OracleGraphicsCache.GetAnimationDefinition(linkFrames[i]).Frames[0].EncodedOam;

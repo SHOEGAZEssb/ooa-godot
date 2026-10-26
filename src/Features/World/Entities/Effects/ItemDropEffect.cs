@@ -129,6 +129,7 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
         Action<int, int, Vector2>? spawnEnemy = null,
         int zHigh = 0)
     {
+        AssetRoot = room.AssetRoot;
         if (angle is < 0 or >= 0x20)
             throw new ArgumentOutOfRangeException(nameof(angle));
         if (subId == ItemDropDatabase.Fairy &&
@@ -719,12 +720,12 @@ public partial class ItemDropEffect : TransitionOffsetNode2D, ITerrainShadowSour
     private bool IsSideScrolling() =>
         (_room.TilesetFlags & TilesetFlagSideScroll) != 0;
 
-    private static Texture2D BuildTexture(
+    private Texture2D BuildTexture(
         ItemDropDatabaseVisualRecord visual,
         bool flipX = false)
     {
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_items.png");
+            AssetRoot + "gfx/spr_common_items.png");
 
         AnimationFrameDefinition[] frames =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation).Frames;

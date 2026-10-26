@@ -31,11 +31,12 @@ internal sealed partial class OctogonInteractionRoomEntity : TransitionOffsetNod
     internal OctogonInteractionRoomEntity(Vector2 point,int id,int parameter,int parentSlot,OracleRandom random,
         OracleRuntimeState memory,Func<int,OctogonCharacter?> parent,Func<Vector2,int,int,int,bool> spawn,int zHigh = 0)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _id = id; _parameter = parameter; _parentSlot = parentSlot; _random = random; _memory = memory; _parent = parent; _spawn = spawn;
         Position = point.Floor(); _zHigh = zHigh; Visible = false;
         var visual = OctogonEffectsDatabase.Shared.Visual(id);
         _animation = new(this,visual.Animations.Length);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites),visual.Animations,visual.TileBase,visual.Palette,
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),visual.Animations,visual.TileBase,visual.Palette,
             sourceGrayscaleInverted:visual.SourceGrayscaleInverted);
     }
     public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)

@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach(int level in new[]{0,3})
         foreach(int delta in new[]{10,11})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);_inventory.GiveTreasure(TreasureId.Bracelet,1);_inventory.SetScriptedEquippedItems(0,0);
             var data=new WildTokayGameDatabase();_saveData.WriteWramByte(data.WildLevelAddress,(byte)level);
             LoadValidationRoom(2,0xde);var game=_roomEvents.Get<WildTokayGameEvent>();var record=_entities.Entities<TokayCharacter>().Single(a=>a.Record.SubId==0x0d).Record;

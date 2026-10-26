@@ -42,6 +42,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
         Action<int, string, Vector2> dialogue, Action music, Func<int> displayedHealth,
         Func<RoomEntitySpawn, bool> createPart, OracleRandom random)
     {
+        AssetRoot = visual.AssetRoot;
         _database = database;
         _sound = sound;
         _dialogue = dialogue;
@@ -53,7 +54,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
         Name = "FountainFairy_38_00";
         Visible = false;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites),
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations, visual.TileBase, visual.Palette,
             sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         _animation.SetAnimation(0);
@@ -85,7 +86,7 @@ internal sealed partial class FountainFairyRoomEntity : TransitionOffsetNode2D,
                 return;
             case 1:
                 _puff = new PuzzlePuffEffect { Name = "FountainFairyPuff_05_02" };
-                _puff.Initialize(Position + new Vector2(0, Height), SoundId.SndPoof,
+                _puff.Initialize(AssetRoot, Position + new Vector2(0, Height), SoundId.SndPoof,
                     playSound: _sound);
                 spawns.Add(new FountainFairyPuffSpawn(_puff));
                 _counter = 0x11;

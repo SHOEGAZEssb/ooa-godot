@@ -7,13 +7,13 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
     internal override bool InitializationPending => _state == SwordEnemyState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly SwordEnemyBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.SwordEnemy;
+    private SwordEnemyBehaviorProfile? _behaviorSourceCache;
+    private SwordEnemyBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).SwordEnemy;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private EnemyTerrainMovement _movement = null!;
-    private readonly ScentSeedAttraction _scentAttraction = new();
+    private ScentSeedAttraction? _scentAttractionCache;
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
     private SwordEnemyState _state;
     private int _counter1;
     private int _counter2;
@@ -31,8 +31,8 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
     internal bool IsDarknut => Record.Id == EnemyId.SwordDarknut;
     internal int CollisionMode => SwordBlocking ? (IsDarknut ? EnemyCollisionMode.DarknutBlockedWithSword : EnemyCollisionMode.StalfosBlockedWithSword)
         : IsDarknut ? EnemyCollisionMode.Darknut : EnemyCollisionMode.BurnableEnemy;
-    private int ChaseSpeed => IsDarknut ? EnemyBehaviorTables.Shared.SwordDarknutChase[0].Value : _behavior.ChaseSpeedRaw;
-    private int TurnIntervalMask => IsDarknut ? EnemyBehaviorTables.Shared.SwordDarknutChase[1].Value : _behavior.TurnIntervalMask;
+    private int ChaseSpeed => IsDarknut ? EnemyBehaviorTables.For(AssetRoot).SwordDarknutChase[0].Value : _behavior.ChaseSpeedRaw;
+    private int TurnIntervalMask => IsDarknut ? EnemyBehaviorTables.For(AssetRoot).SwordDarknutChase[1].Value : _behavior.TurnIntervalMask;
     internal int SwitchHookSubstate { get; private set; }
     internal override bool CollisionEnabled => base.CollisionEnabled && !_emberCollisionDisabled && _state != SwordEnemyState.SwitchHook;
     protected override Vector2 AnimationDrawOffset => base.AnimationDrawOffset + Vector2.Down * (_zFixed >> 8);
@@ -50,7 +50,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
         {
             int direction = ((_angle + 4) & ObjectAngle.CardinalMask) >> 3;
             int frame = AnimationParameter & 1;
-            var offsets = EnemyBehaviorTables.Shared.EnemySwordOffsets;
+            var offsets = EnemyBehaviorTables.For(AssetRoot).EnemySwordOffsets;
             int index = direction * 4 + frame * 2;
             Vector2 position = OracleObjectMath.ToPixelPosition(Position);
             return new Vector2(((int)position.X + offsets[index + 1].Value) & 0xff,
@@ -62,7 +62,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
         get
         {
             int direction = ((_angle + 4) & ObjectAngle.CardinalMask) >> 3;
-            var radii = EnemyBehaviorTables.Shared.EnemySwordRadii;
+            var radii = EnemyBehaviorTables.For(AssetRoot).EnemySwordRadii;
             int index = (direction & 1) * 2;
             Vector2 radius = new(radii[index + 1].Value, radii[index].Value);
             return new Rect2(
@@ -77,6 +77,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _random = random;
         _room = room;
@@ -250,7 +251,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
         if (KnockbackCounter != 0) return true;
         int sourceAngle = OracleObjectMovement.Shared.RelativeAngle(
             Position, sourcePosition);
-        int bits = EnemyBehaviorTables.Shared.SwordEnemyBlockingBits[
+        int bits = EnemyBehaviorTables.For(AssetRoot).SwordEnemyBlockingBits[
             AnimationIndex * 4 + (sourceAngle >> 3)].Value;
         return (bits & (1 << (sourceAngle & 7))) != 0;
     }
@@ -272,7 +273,7 @@ internal partial class SwordEnemyCharacter : EnemyCharacter, ISwitchHookEnemy, I
     {
         // ecom_updateAnimationFromAngle preserves the previous facing within
         // diagonal sectors when it is one of the two neighboring directions.
-        int index = EnemyBehaviorTables.Shared.SwordEnemyAngleAnimations[_angle].Value;
+        int index = EnemyBehaviorTables.For(AssetRoot).SwordEnemyAngleAnimations[_angle].Value;
         if (index >= 4)
         {
             int difference = (index - AnimationIndex) & 0xff;

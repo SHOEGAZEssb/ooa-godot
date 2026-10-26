@@ -10,14 +10,18 @@ namespace Oracles;
 /// </summary>
 internal sealed class CompanionBarrierDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Lookup<int, CompanionBarrierRecord> _records = new();
 
     internal int Count { get; private set; }
 
-    internal CompanionBarrierDatabase()
+    internal CompanionBarrierDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/companion_barriers.tsv",
+            AssetRoot + "objects/companion_barriers.tsv",
             new GeneratedTableSchema(
                 "companion barriers",
                 GeneratedTableKeySemantics.Unique,

@@ -26,6 +26,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
         Func<OwlStatueSparkleSpawn,bool> tryCreateSparkle,
         Func<long> animationTick)
     {
+        AssetRoot = room.AssetRoot;
         if (source.Kind != RoomObjectKind.ReservingPart ||
             source.Id != PartId.OwlStatue ||
             source.SubId != record.SubId ||
@@ -56,7 +57,7 @@ internal sealed partial class OwlStatueRoomEntity : TransitionOffsetNode2D,
             preserveRenderedTile: true);
 
         Image sourceImage = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png");
+            AssetRoot + $"gfx/{record.Sprite}.png");
         _animation = new EnemyAnimationPlayer(this, 2);
         _animation.Load(
             sourceImage,

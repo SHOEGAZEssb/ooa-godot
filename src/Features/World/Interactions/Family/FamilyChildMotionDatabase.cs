@@ -7,16 +7,20 @@ namespace Oracles;
 /// <summary>Native INTERAC_CHILD $35 movement and animation tables.</summary>
 internal sealed class FamilyChildMotionDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly List<int> _animationBases = new();
     private readonly List<int> _hyperactiveAngles = new();
     private readonly List<Vector2I>[] _waypoints =
         [new(), new(), new(), new(), new()];
     private readonly Dictionary<int, string> _animations = new();
 
-    internal FamilyChildMotionDatabase()
+    internal FamilyChildMotionDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable motion = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "cutscenes/family_child_motion.tsv",
+            AssetRoot + "cutscenes/family_child_motion.tsv",
             new GeneratedTableSchema("INTERAC_CHILD movement tables",
                 GeneratedTableKeySemantics.Ordered,
                 ["kind", "index", "y", "x"], headerRequired: true));
@@ -38,7 +42,7 @@ internal sealed class FamilyChildMotionDatabase
             throw new InvalidOperationException("INTERAC_CHILD movement table lengths changed.");
 
         GeneratedTable animations = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "cutscenes/family_child_animations.tsv",
+            AssetRoot + "cutscenes/family_child_animations.tsv",
             new GeneratedTableSchema("INTERAC_CHILD animation data",
                 GeneratedTableKeySemantics.Unique,
                 ["animation", "encoded-data"], ["animation"], headerRequired: true));

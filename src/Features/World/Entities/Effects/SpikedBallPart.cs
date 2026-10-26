@@ -5,7 +5,8 @@ namespace Oracles;
 
 internal partial class SpikedBallPart : TransitionOffsetNode2D
 {
-    private readonly BallChainBehaviorProfile _data = EnemyBehaviorTables.Shared.BallChain;
+    private BallChainBehaviorProfile? _dataSourceCache;
+    private BallChainBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).BallChain;
     private readonly BallChainSoldierCharacter _soldier;
     private readonly SpikedBallPart? _head;
     private readonly EnemyAnimationPlayer _animation;
@@ -31,11 +32,12 @@ internal partial class SpikedBallPart : TransitionOffsetNode2D
 
     internal SpikedBallPart(BallChainSoldierCharacter soldier, SpikedBallDatabase visual, int subid, SpikedBallPart? head = null)
     {
+        AssetRoot = visual.AssetRoot;
         if (subid is < 0 or > 3 || (subid != 0 && head is null))
             throw new ArgumentException("PART_SPIKED_BALL $2a requires head0 or linked chain1..3.");
         _soldier = soldier; _head = head; SubId = subid; _visual = visual;
         _animation = new(this, visual.Animations.Length);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{visual.Sprite}.png"),
             visual.Animations, visual.TileBase, visual.Palette);
         _animation.SetAnimation(0);
         Visible = false;

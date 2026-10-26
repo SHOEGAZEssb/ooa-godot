@@ -8,9 +8,8 @@ internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSourc
     internal override bool InitializationPending => !_initialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly WallmasterBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Wallmaster;
+    private WallmasterBehaviorProfile? _behaviorSourceCache;
+    private WallmasterBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Wallmaster;
     private WallmasterState _state;
     private int _counter;
     private int _zFixed;
@@ -41,6 +40,7 @@ internal partial class WallmasterCharacter : EnemyCharacter, ITerrainShadowSourc
         Vector2 position,
         int remaining)
     {
+        AssetRoot = record.AssetRoot;
         if (remaining <= 0)
         {
             throw new ArgumentOutOfRangeException(

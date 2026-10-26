@@ -20,6 +20,7 @@ internal sealed partial class JabuBubbleRoomEntity : DungeonInteractionVisualEnt
     public void UpdateDuringScreenTransition(RoomEntityFrame frame) => UpdateFrame(frame, []);
     internal JabuBubbleRoomEntity(Vector2 position,int subid,JabuExteriorDatabase data,OracleRandom random,OracleRuntimeState runtime)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _random=random; _position=position; _runtime=runtime;
         InitializeVisual(data.Bubble,position,subid,positionedOam:true);
         ZIndex=ObjectDrawPriority.BehindLinkZIndex; Visible=false;

@@ -5,7 +5,12 @@ namespace Oracles;
 
 internal sealed class BoomerangDatabase
 {
-    internal static BoomerangDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<BoomerangDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static BoomerangDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<BoomerangDatabase>(() => new BoomerangDatabase(root))).Value;
+
     internal int Speed { get; }
     internal int OutwardUpdates { get; }
     internal int CatchUpdates { get; }
@@ -19,9 +24,11 @@ internal sealed class BoomerangDatabase
     internal bool SourceInverted { get; }
     internal string Animation { get; }
 
-    private BoomerangDatabase()
+    private BoomerangDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/boomerang.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "metadata/boomerang.tsv",
             new GeneratedTableSchema("ITEM_BOOMERANG $06", GeneratedTableKeySemantics.Ordered,
                 ["speed-raw", "outward-updates", "catch-updates", "near-radius", "catch-radius", "sound",
                  "collision", "radius-y", "radius-x", "damage", "oam-flags", "source-inverted", "animation", "source"],

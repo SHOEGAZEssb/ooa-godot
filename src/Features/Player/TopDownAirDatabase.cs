@@ -9,9 +9,13 @@ namespace Oracles;
 /// </summary>
 internal sealed class TopDownAirDatabase
 {
-    private readonly Dictionary<string, int> _constants = new();
+    public string AssetRoot { get; }
 
-    internal static TopDownAirDatabase Shared { get; } = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<TopDownAirDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static TopDownAirDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<TopDownAirDatabase>(() => new TopDownAirDatabase(root))).Value;
+
+    private readonly Dictionary<string, int> _constants = new();
 
     internal TopDownAirParameters Parameters => new(
         Gravity: Constant("gravity"),
@@ -33,10 +37,12 @@ internal sealed class TopDownAirDatabase
         CompanionDismountZ: Constant("companion-dismount-z"),
         CompanionDismountAngle: Constant("companion-dismount-angle"));
 
-    private TopDownAirDatabase()
+    private TopDownAirDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/top_down_air_constants.tsv",
+            AssetRoot + "metadata/top_down_air_constants.tsv",
             new GeneratedTableSchema(
                 "top-down Link air constants",
                 GeneratedTableKeySemantics.Unique,

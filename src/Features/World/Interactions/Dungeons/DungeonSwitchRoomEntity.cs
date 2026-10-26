@@ -16,6 +16,8 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
     IScreenTransitionPreloadRoomEntity
 {
+    private string AssetRoot => _room.AssetRoot;
+
     private readonly DungeonMechanicDatabaseRecord _record;
     private readonly OracleRoomData _room;
     private readonly DungeonMechanicDatabase _data;
@@ -33,7 +35,8 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
     internal bool CollisionEnabled => !Finished && !_healthCleared;
     public bool MeleeReportsContact => false; // LINKDMG_1c leaves ITEM_SWORD.var2a unchanged.
     public void ClearHealthAndCollision() => _healthCleared = true;
-    private readonly PartSwitchCollisionDatabase _collisions = PartSwitchCollisionDatabase.Shared;
+    private PartSwitchCollisionDatabase? _collisionsSourceCache;
+    private PartSwitchCollisionDatabase _collisions => _collisionsSourceCache ??= PartSwitchCollisionDatabase.For(AssetRoot);
     private readonly OracleSaveData? _save;
     public bool Finished { get; private set; }
 
@@ -185,11 +188,11 @@ internal sealed partial class DungeonSwitchRoomEntity : DungeonMechanicRoomEntit
 
     private void Toggle()
     {
-        byte switchState = _runtime.ReadWramByte(
-            AgesGameContent.SwitchStateAddress);
+        byte switchState = _runtime.ReadField(
+            "wSwitchState");
         switchState ^= (byte)SwitchMask;
-        _runtime.SetWramByte(
-            AgesGameContent.SwitchStateAddress, switchState);
+        _runtime.SetField(
+            "wSwitchState", switchState);
         if (_record.Group == 0)
         {
             // switch.s writes the visible $9e tile, then clears only the

@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         foreach (string gate in new[] { "normal", "text", "palette", "throw", "thrown" })
         foreach (bool batched in RomHostSchedules(hostCase++))
         {
-            InitializeTransientSession(OracleSaveData.CreateStandardGame());
+            InitializeTransientSession(OracleSaveData.CreateStandardGame(OracleGame.Ages));
             LoadValidationRoom(4, 0xa8); _entities.Clear();
             _inventory.GiveTreasure(bomb ? TreasureId.Bombs : TreasureId.Bracelet, bomb ? 0x10 : 1);
             _inventory.EquipA(bomb ? TreasureId.Bombs : TreasureId.Bracelet); _inventory.EquipB(0);

@@ -71,7 +71,7 @@ public sealed partial class ValidationRoot
             {
             int item=spec.Collision switch {0x1a=>ItemId.MysterySeed,0x1b=>ItemId.EmberSeed,
                 0x1c=>ItemId.ScentSeed,0x1d=>ItemId.PegasusSeed,_=>ItemId.GaleSeed};
-            FailIf(!new SeedSatchelDatabase().TryGet(item,out var seed),$"Missing seed ${item:x2}.");
+            FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(item,out var seed),$"Missing seed ${item:x2}.");
             rom.HitEnemyWithItem(0,spec.Collision,-(sbyte)seed.Damage,item);
             FailIf(!spider.ApplySeedCollision(actor.CollisionBounds,actor.Position.Floor()-Vector2.Right,seed,spec.Collision,spawns).Contact,
                 $"Veran spider must accept source seed collision ${spec.Collision:x2}.");

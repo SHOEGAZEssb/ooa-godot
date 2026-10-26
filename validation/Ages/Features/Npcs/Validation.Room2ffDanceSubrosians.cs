@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         // objects/ages/mainData.s:group2MapffObjectData (US branch) places
         // green and red after the four Gorons. subrosian.s:$02 indexes the
         // scripts with var03 and both scripts check the linked byte once.
-        NpcRecord[] records = new NpcDatabase().GetRoomNpcs(2, 0xff)
+        NpcRecord[] records = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(2, 0xff)
             .Where(n => n.Id == AgesInteractionId.Subrosian && n.SubId == 2).ToArray();
         FailIf(!records.Select(n => (n.Var03, n.Y, n.X, n.TextId, n.Palette,
                 n.DefaultAnimation, n.CanFace, n.Implementation)).SequenceEqual(new[]

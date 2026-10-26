@@ -6,7 +6,7 @@ namespace Oracles;
 internal sealed class SecretListController(SecretListScreen screen, OracleMenuLifecycle lifecycle,
     OracleSaveData save, Action<int> playSound) : IOracleMenuLifecycleClient
 {
-    private readonly SecretListDatabase _data = new();
+    private readonly SecretListDatabase _data = new(OracleAssetPack.ForGame(save.Game));
     private readonly FixedUpdateAccumulator _updates = new();
     private int _cursor, _scroll, _scrollSpeed, _scrollY, _printedCursor;
     public string MenuName => "MENU_SECRET_LIST";

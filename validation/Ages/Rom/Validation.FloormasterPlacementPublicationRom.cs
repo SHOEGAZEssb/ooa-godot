@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(link);_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);
-            var data=EnemyDatabase.Shared;var parent=new FloormasterCharacter();
+            var data=EnemyDatabase.For(AgesGameContent.AssetRoot);var parent=new FloormasterCharacter();
             try
             {
             var actualWrites=new List<uint>();var expectedWrites=new List<uint>();bool capture=false;

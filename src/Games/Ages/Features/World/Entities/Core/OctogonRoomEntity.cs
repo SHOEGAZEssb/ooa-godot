@@ -66,7 +66,7 @@ internal sealed class OctogonRoomEntity(OctogonCharacter actor,OctogonRoomEnviro
         Hit(ItemCollisionType.Bomb,bomb.CollisionBounds,bomb.CollisionBounds.GetCenter(),bomb.Damage,spawns);
     public bool TryGetSwordAttackerKnockback(EnemyKnockbackStrength strength,out SwordAttackerKnockback response)
     {
-        var profile = EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+        var profile = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).ArmoredSwordAttackerKnockback;
         int frames = !_armoredHit ? 0 : strength == EnemyKnockbackStrength.High ? profile.HighFrames : strength == EnemyKnockbackStrength.Low ? profile.LowFrames : profile.NormalFrames;
         _armoredHit = false; response = new(Entity.Position,frames); return frames != 0;
     }
@@ -101,7 +101,7 @@ internal sealed class OctogonRoomEntity(OctogonCharacter actor,OctogonRoomEnviro
     public SeedHitResult ApplySeedHit(Rect2 bounds,Vector2 origin,int item,ICollection<RoomEntitySpawn> spawns)
     {
         if (item == ItemId.MysterySeed) throw new InvalidOperationException("Octogon requires Mystery's live collision type.");
-        return new SeedSatchelDatabase().TryGet(item,out var seed) ? ApplySeedCollision(bounds,origin,seed,seed.Collision&31,spawns).Effect : SeedHitResult.None;
+        return new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(item,out var seed) ? ApplySeedCollision(bounds,origin,seed,seed.Collision&31,spawns).Effect : SeedHitResult.None;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds,Vector2 origin,SeedRecord seed,int collision,ICollection<RoomEntitySpawn> spawns)
     {

@@ -46,7 +46,7 @@ public partial class ValidationRoot
 
         void Step(string? button=null) =>
             StepGameplayUpdates(1, Vector2.Zero, button is null?[]:[button], button is null?[]:[button], batched: true);
-        var bombs=new BombEffect[5]; var record=new BombDatabase().Data;
+        var bombs=new BombEffect[5]; var record=new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
         for(int i=0;i<5;i++) bombs[i]=_entities.Spawn<BombEffect>(new BombSpawn(_player,record,_rooms.ActiveGroup,_=>{}));
         FailIf(_entities.DynamicItemSlotAvailable || _entities.TrySpawnSwordBeam(_player.Position,0),
             "Live bombs must fill the shared item pool and block a sword-beam allocation.");

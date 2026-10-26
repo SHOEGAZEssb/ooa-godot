@@ -10,8 +10,8 @@ public partial class ValidationRoot
 {
     private void ValidateCrownDungeonBallChainSeeds()
     {
-        var seeds = new SeedSatchelDatabase();
-        var shooter = SeedShooterRecord.Load();
+        var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
+        var shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
         var random = CaptureOracleRandomForValidation();
         foreach (bool batch in new[] { false, true })
         foreach (int item in new[] { 0x20, 0x21, 0x22, 0x23 })
@@ -112,7 +112,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonSpikedBallCollisions()
     {
-        var visual = new SpikedBallDatabase();
+        var visual = new SpikedBallDatabase(AgesGameContent.AssetRoot);
         foreach (var (state, level, recoil, invincibility) in new[] {
             (SwordActionState.Swing, 1, 11, -28),
             // sword.s:@state4 writes $08 for every level, selecting effect $1b.
@@ -120,7 +120,7 @@ public partial class ValidationRoot
             (SwordActionState.Spin, 2, 0, -20) })
         {
             var soldier = new BallChainSoldierCharacter();
-            soldier.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), new());
+            soldier.Initialize(new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), new());
             soldier.UpdateFrame(new(64,100), new(64,100), 4, () => { });
             var ball = new SpikedBallPart(soldier, visual, 0);
             var adapter = new SpikedBallRoomEntity(ball, _ => { });
@@ -154,13 +154,13 @@ public partial class ValidationRoot
             ball.Free(); soldier.Free();
         }
         var parent = new BallChainSoldierCharacter();
-        parent.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), new());
+        parent.Initialize(new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), new());
         parent.UpdateFrame(new(64,100), new(64,100), 4, () => { });
         var head = new SpikedBallPart(parent, visual, 0);
         var target = new SpikedBallRoomEntity(head, _ => { });
         head.UpdateFrame(new(64,100));
         var effects = new List<RoomEntitySpawn>();
-        var seeds = new SeedSatchelDatabase();
+        var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
         foreach (int item in new[] { 0x20,0x21,0x22,0x23,0x24 })
         {
             FailIf(!seeds.TryGet(item, out var seed), $"Missing seed ${item:x2}.");
@@ -190,10 +190,10 @@ public partial class ValidationRoot
     {
         var random = new OracleRandom();
         var soldier = new BallChainSoldierCharacter();
-        soldier.Initialize(new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), random);
+        soldier.Initialize(new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.BallAndChainSoldier), Room060MovementFixture(), new(64,64), random);
         var movementMemory = AgesGameContent.CreateRuntimeState();
         soldier.BindMovementMemory(movementMemory);
-        var visual = new SpikedBallDatabase();
+        var visual = new SpikedBallDatabase(AgesGameContent.AssetRoot);
         SpikedBallPart[] parts = [];
         Vector2 link = new(64,100);
         void Spawn()
@@ -302,7 +302,7 @@ public partial class ValidationRoot
 
     private void ValidateCrownDungeonBallChainSourceData()
     {
-        var data = EnemyBehaviorTables.Shared.BallChain;
+        var data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).BallChain;
         FailIf(data.SpeedRaw != 15 || data.AttackDistance != 0x38 || data.WindupFrames != 90 ||
             data.RequiredEnemySlots != 4 || data.OriginOffset != -5 || data.OrbitRadius != 10 ||
             data.ReleaseRadius != 13 || data.ThrowRadius != 18 || data.ExtensionSpeed != 0x340 ||
@@ -319,14 +319,14 @@ public partial class ValidationRoot
             string.Concat(data.BallMask.Select(v => v.Value)) != "11111111110000000000011101111110" ||
             !data.PartData.Select(v => v.Value).SequenceEqual(new[] { 0x99,0x74,0x66,0xfc,0x40,8,2,0 }),
             "$4b collision$37 and PART_SPIKED_BALL $2a collision$74 source masks/effects/properties changed.");
-        var enemy = new EnemyDatabase().ImportedEnemy(EnemyId.BallAndChainSoldier);
+        var enemy = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(EnemyId.BallAndChainSoldier);
         FailIf(enemy.Health != 8 || enemy.DamageQuarters != 2 || enemy.TileBase != 0 ||
             enemy.Palette != 2 || enemy.RadiusX != 6 || enemy.RadiusY != 6 ||
             enemy.Animations.Length != 2 ||
             enemy.Animations[0] != "16@8,0,0,0;8,8,2,0|16,1@8,0,4,0;8,8,6,0" ||
             enemy.Animations[1] != "8@8,0,0,0;8,8,2,0|8@8,0,4,0;8,8,6,0",
             "$4b soldier health, graphics, OAM or animation timing changed.");
-        var weapon = new SpikedBallDatabase();
+        var weapon = new SpikedBallDatabase(AgesGameContent.AssetRoot);
         FailIf(weapon.Sprite != "spr_ballandchain_likelike" || weapon.TileBase != 8 ||
             weapon.Palette != 2 || weapon.RadiusX != 6 || weapon.RadiusY != 6 || weapon.Damage != 2 ||
             weapon.Animations[0] != "127,0@8,0,0,0;8,8,0,32" ||

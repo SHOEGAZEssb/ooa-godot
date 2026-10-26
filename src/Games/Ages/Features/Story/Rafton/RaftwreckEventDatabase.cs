@@ -83,7 +83,7 @@ internal sealed class RaftwreckEventDatabase
                 effect.RequiredString(4), effect.UnsignedDecimal(5)))
             .ToDictionary(effect => effect.SubId);
 
-        EffectRecord lightning = new SharedEffectDatabase().Effect("Lightning");
+        EffectRecord lightning = new SharedEffectDatabase(AgesGameContent.AssetRoot).Effect("Lightning");
         Lightning = new RaftwreckEffectRecord(
             1, lightning.SpriteName, lightning.TileBase,
             lightning.Palette, lightning.Animation, lightning.Duration);

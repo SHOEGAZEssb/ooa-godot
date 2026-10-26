@@ -32,7 +32,7 @@ internal sealed class GibdoRoomEntity : CombatEnemyRoomEntityAdapter<GibdoCharac
         if (!_replacementPending) return false;
         _replacementPending = false;
         Entity.Replaced = true;
-        var behavior = EnemyBehaviorTables.Shared.Gibdo;
+        var behavior = EnemyBehaviorTables.For(AssetRoot).Gibdo;
         replacement = new(_source with {
             Id = behavior[5].Value, SubId = behavior[6].Value,
             X = (int)Entity.Position.X, Y = (int)Entity.Position.Y,
@@ -45,9 +45,9 @@ internal sealed class GibdoRoomEntity : CombatEnemyRoomEntityAdapter<GibdoCharac
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
         if (GaleCaught || Entity.HasPendingHit || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
-            EnemyBehaviorTables.Shared.GibdoActiveCollisions[collisionType].Value == 0 ||
+            EnemyBehaviorTables.For(AssetRoot).GibdoActiveCollisions[collisionType].Value == 0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, hitbox)) return default;
-        int effect = EnemyBehaviorTables.Shared.GibdoCollisionEffects[collisionType].Value;
+        int effect = EnemyBehaviorTables.For(AssetRoot).GibdoCollisionEffects[collisionType].Value;
         switch (effect)
         {
             case CollisionEffect.None: return new(true, SeedHitResult.None, false);

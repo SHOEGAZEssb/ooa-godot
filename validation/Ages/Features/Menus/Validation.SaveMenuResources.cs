@@ -19,8 +19,8 @@ public sealed partial class ValidationRoot
             0x393e9f6cd4438c68UL, 0x08669956644eff11UL,
             0xd996185279c4571cUL, 0x38412527a7a8c0ddUL
         ];
-        var first = new SaveQuitScreen();
-        var second = new SaveQuitScreen();
+        var first = new SaveQuitScreen { AssetRoot = AgesGameContent.AssetRoot };
+        var second = new SaveQuitScreen { AssetRoot = AgesGameContent.AssetRoot };
         AddChild(first);
         AddChild(second);
         try

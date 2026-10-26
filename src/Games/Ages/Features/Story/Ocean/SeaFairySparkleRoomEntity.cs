@@ -16,7 +16,7 @@ internal sealed class SeaFairySparkleRoomEntity : NpcCharacterRoomEntityAdapter,
     private Vector2 _position;
     public bool Finished { get; private set; }
     internal SeaFairySparkleRoomEntity(SeaFairySparkleSpawn spawn, OracleRuntimeState runtime, Func<Vector2, Vector2> toScreen)
-        : this(spawn, runtime, toScreen, NpcCharacter.CreateFromRecord(spawn.Data.Visual(spawn.Role, spawn.Position))) { }
+        : this(spawn, runtime, toScreen, NpcCharacter.CreateFromRecord(spawn.Data.Visual(spawn.Role, spawn.Position), AgesGameContent.AssetRoot)) { }
     private SeaFairySparkleRoomEntity(SeaFairySparkleSpawn spawn, OracleRuntimeState runtime, Func<Vector2, Vector2> toScreen, NpcCharacter actor)
         : base(actor, actor.SetTransitionDrawOffset)
     {

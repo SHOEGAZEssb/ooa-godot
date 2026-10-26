@@ -89,10 +89,10 @@ public sealed partial class ValidationRoot
                     if(!checkedSecret)
                     {
                         checkedSecret=true;
-                        byte[] text=new LinkedGameNpcDatabase().GenerateGameTransferSecretText(_saveData);
+                        byte[] text=new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateGameTransferSecretText(_saveData);
                         FailIf(!text.SequenceEqual(Enumerable.Range(0,24).Select(index=>rom.BankByte(7,0xd460+index)))||text[5]!=0x20||text[11]!=0||text[17]!=0x20||text[23]!=0,
                             "Transfer text must preserve the native 5/5/5/5 groups and four gap bytes.");
-                        byte[] font=OracleTileRenderer.CopyTextCharacterGraphics(text,0xff);
+                        byte[] font=OracleTileRenderer.CopyTextCharacterGraphics(text,0xff, AgesGameContent.AssetRoot);
                         for(int index=0;index<font.Length;index++)FailIf(font[index]!=rom.VramByte(1,0x8c00+index),$"Secret font byte${index:x3} differs from native copyTextCharacterGfx/UNCMP $2b.");
                         Picture("Transfer secret");
                     }
@@ -167,7 +167,7 @@ public sealed partial class ValidationRoot
             FailIf(!menu.ResetHandoff||_saveWriteRequests-saves!=(fixture==1?0:1),"Ending reset must occur once after the white fade without another save.");
             if(committed is not null)
             {
-                FailIf(!OracleSaveData.TryDeserialize(committed,out var restored),"Completion save could not reload.");
+                FailIf(!OracleSaveData.TryDeserialize(committed,OracleGame.Ages, out var restored),"Completion save could not reload.");
                 ValidateEndingFileReload(restored!,batched:fixture==2);
             }
         }
@@ -196,7 +196,7 @@ public sealed partial class ValidationRoot
             application.Step(4,Vector2.Down,batched:batched);
             FailIf(root._player.Position.Y<=0x68||root._player.Position.X!=0x50||root._dialogue.IsOpen,
                 $"Completed-file Link cannot walk away through room 0:38's actual collision geometry: position={root._player.Position}, transition={root.IsTransitioning}, dialogue={root._dialogue.IsOpen}, event={root._roomEvents.Active}, state=${root._runtimeState.ReadWramByte(AgesWramAddress.wDisabledObjects):x2}.");
-            FailIf(!disk.SequenceEqual(root.FileSlotSnapshot(0)),"Completed-file load wrote to disk.");
+            FailIf(!disk.SequenceEqual(root.FileSlotSnapshot(0, OracleGame.Ages)),"Completed-file load wrote to disk.");
         }
         finally{root.Free();}
     }

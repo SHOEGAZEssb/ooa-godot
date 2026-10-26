@@ -6,7 +6,8 @@ namespace Oracles;
 // common/enemies/floorMaster.s: one counted spawner, separately allocated hands.
 internal sealed partial class FloormasterCharacter : EnemyCharacter, ITerrainShadowSource
 {
-    private readonly FloormasterBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Floormaster;
+    private FloormasterBehaviorProfile? _behaviorSourceCache;
+    private FloormasterBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Floormaster;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private Func<FloormasterCharacter>? _parent;
@@ -35,6 +36,7 @@ internal sealed partial class FloormasterCharacter : EnemyCharacter, ITerrainSha
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position,
         OracleRandom random, Func<FloormasterCharacter>? parent = null, Func<bool>? spawn = null)
     {
+        AssetRoot = record.AssetRoot;
         Record = record; _room = room; _random = random; _parent = parent; _spawn = spawn;
         InitializeEnemy(position, EnemyCharacterConfiguration.FromImported(record));
         ConfigureSwordKnockback(room, EnemyKnockbackMotion.ScreenBoundary, nativeSpeed: () => Speed);

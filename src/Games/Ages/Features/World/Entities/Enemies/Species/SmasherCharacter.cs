@@ -12,7 +12,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter, ITerrainShadowS
     // Both ball and parent initialize through ecom_setSpeedAndState8AndVisible.
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
 
-    private readonly SmasherBehaviorProfile _data = EnemyBehaviorTables.Shared.Smasher;
+    private readonly SmasherBehaviorProfile _data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Smasher;
     private OracleRoomData _room = null!;
     internal OracleRoomData Room => _room;
     private EnemyTerrainMovement _movement = null!;
@@ -56,6 +56,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter, ITerrainShadowS
     internal void InitializePending(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, int nativeSlot)
     {
+        AssetRoot = record.AssetRoot;
         if (record.Id != AgesEnemyId.Smasher || record.SubId is not (0 or 1))
             throw new NotSupportedException("smasher.s requires $74:$00/$01 after native slot normalization.");
         if (nativeSlot is < 0 or >= 16) throw new ArgumentOutOfRangeException(nameof(nativeSlot));
@@ -71,6 +72,7 @@ internal sealed partial class SmasherCharacter : EnemyCharacter, ITerrainShadowS
     internal void InitializeLinked(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random, SmasherCharacter related)
     {
+        AssetRoot = record.AssetRoot;
         InitializePending(record, room, position, random, record.SubId);
         _related = related; _propertiesLoaded = true;
         EnterInitializedState();

@@ -6,8 +6,8 @@ namespace Oracles;
 internal partial class CheepCheepCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
-
-    private readonly CheepCheepBehaviorProfile _behavior = EnemyBehaviorTables.Shared.CheepCheep;
+    private CheepCheepBehaviorProfile? _behaviorSourceCache;
+    private CheepCheepBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).CheepCheep;
     private Vector2 _precisePosition;
     private int _travelCounter;
     private OracleRandom _random = null!;
@@ -19,6 +19,7 @@ internal partial class CheepCheepCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, int distance, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _random = random;
         _precisePosition = position;

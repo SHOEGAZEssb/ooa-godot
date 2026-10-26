@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullSeedScan()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        OracleSaveData.TryDeserialize(_saveData.Serialize(), out var initialSave);
+        OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var initialSave);
         var random = CaptureOracleRandomForValidation();
         var entityState = _entities.CaptureDebugState();
         var first = new Dictionary<int, (int Health, int RandomCalls, Vector2 Link, Vector2 Body)>();
@@ -23,7 +23,7 @@ public sealed partial class ValidationRoot
             _saveData.RestoreFrom(initialSave!);
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
-            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
+            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
             _seedSatchel.InterruptShooter();
             _inventory.GiveTreasure(TreasureId.SeedSatchel, 1);
             _inventory.GiveTreasure(TreasureId.Shooter, 1);

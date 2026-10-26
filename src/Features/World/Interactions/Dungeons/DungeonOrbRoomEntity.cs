@@ -13,7 +13,8 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
     IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze, INativePartHealthRoomEntity
 {
     private readonly DungeonMechanicDatabase _data;
-    private readonly PartOrbDatabase _orbData = PartOrbDatabase.Shared;
+    private PartOrbDatabase? _orbDataSourceCache;
+    private PartOrbDatabase _orbData => _orbDataSourceCache ??= PartOrbDatabase.For(AssetRoot);
     private readonly OracleRoomData _room;
     private readonly Func<long> _animationTick;
     private readonly OracleRuntimeState _runtime;
@@ -35,7 +36,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
     internal int HitLockout => _hitLockout;
     internal bool PendingHit => _pending;
     internal bool IsOn =>
-        (_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) &
+        (_runtime.ReadField("wToggleBlocksState") &
          ToggleMask) != 0;
     internal Texture2D CurrentTexture =>
         _animation.CurrentTextureForPalette(Palette);
@@ -59,7 +60,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
             record.Group,
             record.Room,
             record.PackedPosition,
-            1 << (record.SubId & PartOrbDatabase.Shared.SubidMask),
+            1 << (record.SubId & PartOrbDatabase.For(roomData.AssetRoot).SubidMask),
             data,
             visual,
             roomData,
@@ -67,6 +68,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
             animationTick,
             playSound)
     {
+        AssetRoot = visual.AssetRoot;
         if (record.Id != InteractionId.Splash || record.SubId > 0x07)
             throw new ArgumentOutOfRangeException(nameof(record));
     }
@@ -83,6 +85,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         Func<long> animationTick,
         Action<int> playSound)
     {
+        AssetRoot = visual.AssetRoot;
         if (toggleMask is <= 0 or > 0x80 || (toggleMask & (toggleMask - 1)) != 0)
             throw new ArgumentOutOfRangeException(nameof(toggleMask));
         _data = data;
@@ -96,7 +99,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         ZIndex = ObjectDrawPriority.BehindLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette,
@@ -134,8 +137,8 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
             _hitLockout--;
         if (!_pending) return;
         _pending = false;
-        _runtime.SetWramByte(AgesGameContent.ToggleBlocksStateAddress,
-            (byte)(_runtime.ReadWramByte(AgesGameContent.ToggleBlocksStateAddress) ^ ToggleMask));
+        _runtime.SetField("wToggleBlocksState",
+            (byte)(_runtime.ReadField("wToggleBlocksState") ^ ToggleMask));
         Palette = (Palette & 1) + 1;
         _playSound(_data.SwitchSound);
         QueueRedraw();
@@ -168,7 +171,7 @@ internal sealed partial class DungeonOrbRoomEntity : TransitionOffsetNode2D,
         ICollection<RoomEntitySpawn> spawns)
     {
         if (seedItem == ItemId.MysterySeed) throw new InvalidOperationException("PART_ORB $03 requires Mystery's live collision type.");
-        return new SeedSatchelDatabase().TryGet(seedItem, out var seed)
+        return new SeedSatchelDatabase(AssetRoot).TryGet(seedItem, out var seed)
             ? ApplySeedCollision(hitbox, sourcePosition, seed, seed.Collision & ObjectCollisionFlags.TypeMask, spawns).Effect : SeedHitResult.None;
     }
 

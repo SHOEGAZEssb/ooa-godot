@@ -13,7 +13,7 @@ internal sealed class GameSelectPanorama
     internal GameSelectPanorama(OracleGame game)
     {
         bool ages = game == OracleGame.Ages;
-        string folder = ages ? AgesGameContent.AssetRoot + "cutscenes/" : SeasonsPreviewContent.PreviewRoot + "";
+        string folder = OracleAssetPack.ForGame(game) + (ages ? "cutscenes/" : "preview/");
         string name = ages ? "nayru_singing_cutscene" : "din_dance_cutscene";
         string palette = ages ? "nayru_singing" : "din";
         var backgrounds = OracleGraphicsData.LoadPalette(folder + palette + "_bg_palette.bin");

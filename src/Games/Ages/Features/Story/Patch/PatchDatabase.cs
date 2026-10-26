@@ -23,12 +23,12 @@ internal sealed class PatchDatabase
         ResetGroup = reset.Rows[0].Decimal(0, 0, 7); ResetRoom = reset.Rows[0].HexByte(1);
         var explosion = Table("explosion", ["sprite", "tile-base", "palette", "animation"]);
         GeneratedTableRow visual = explosion.SingleRow();
-        ExplosionVisual = new(visual.RequiredString(0), visual.Decimal(1, 0, 255), visual.Decimal(2, 0, 7), visual.RequiredString(3));
+        ExplosionVisual = new(AgesGameContent.AssetRoot, visual.RequiredString(0), visual.Decimal(1, 0, 255), visual.Decimal(2, 0, 7), visual.RequiredString(3));
         foreach (var row in Table("scripts", ["name", "entry"]).Rows) _entries.Add(row.RequiredString(0), row.Decimal(1, 0, Commands.Count - 1));
         foreach (var row in Table("constants", ["key", "value"]).Rows) _constants.Add(row.RequiredString(0), row.Decimal(1, 0, 65535));
         foreach (var row in Table("animations", ["index", "animation"]).Rows) _animations.Add(row.Decimal(0, 0, 12), row.RequiredString(1));
         foreach (var row in Table("visuals", ["subid", "sprite", "tile-base", "palette", "animation"]).Rows)
-            _visuals.Add(row.Decimal(0, 2, 7), new(row.RequiredString(1), 0, row.Decimal(2, 0, 255), row.Decimal(3, 0, 7), row.RequiredString(4)));
+            _visuals.Add(row.Decimal(0, 2, 7), new(AgesGameContent.AssetRoot, row.RequiredString(1), 0, row.Decimal(2, 0, 255), row.Decimal(3, 0, 7), row.RequiredString(4)));
         foreach (var row in Table("item_names", ["id", "text-base64"]).Rows)
             _itemNames.Add(row.HexWord(0), row.Base64Utf8(1));
         foreach (var row in Table("text_flags", ["id", "flags"]).Rows) _textFlags.Add(row.HexWord(0), row.Decimal(1, 0, 2));

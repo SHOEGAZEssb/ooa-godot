@@ -105,7 +105,7 @@ public sealed partial class ValidationRoot
         FailIf(Math.Abs(amplitude - expected) > 0.002 || audible.Any(s => s.Y != 0),
             $"Band limiting altered audible pitch/gain or stereo routing: amplitude {amplitude}, expected {expected}.");
 
-        var data = new OracleSoundData();
+        var data = new OracleSoundData(AgesGameContent.AssetRoot);
         foreach (int id in new[] { 0x66, 0x84 })
         {
             using var fixture = new SoundValidationFixture(data, true);
@@ -139,7 +139,7 @@ public sealed partial class ValidationRoot
         {
             ReinitializeGameplayForValidation();
             var audit = _sound.AttachPlayRequestAudit();
-            _mainMenuScreen = new MainMenuScreen();
+            _mainMenuScreen = new MainMenuScreen { AssetRoot = AgesGameContent.AssetRoot };
             AddChild(_mainMenuScreen);
             _mainMenu = new MainMenuController(_mainMenuScreen, (_, _) => { },
                 _ => null, (_, _) => SaveResult.Succeeded, _ => { }, _sound.PlaySound, startAtFileSelect: true);
@@ -161,7 +161,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSoundOutputTiming()
     {
-        var data = new OracleSoundData();
+        var data = new OracleSoundData(AgesGameContent.AssetRoot);
         foreach (int music in new[] { SoundId.MusTitlescreen, SoundId.MusOverworld })
         foreach (int mixFrames in new[] { 512, 1024, 2048 })
         foreach (int hostRate in new[] { 60, 30, 120, 0, -1 })
@@ -281,8 +281,8 @@ public sealed partial class ValidationRoot
 
     private void ValidateSoundDriverControls()
     {
-        var data = new OracleSoundData();
-        var save = OracleSaveData.CreateStandardGame();
+        var data = new OracleSoundData(AgesGameContent.AssetRoot);
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         save.SetRoomFlag(0, 0x03, 0x01, false);
         save.SetGlobalFlag(AgesGlobalFlag.TuniNutPlaced);
         FailIf(data.RoomMusic(0, 0x03) != 0x24 || data.RoomMusic(0, 0x03, save) != 0x1f,
@@ -364,7 +364,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSoundDriverHandoffs()
     {
-        var data = new OracleSoundData();
+        var data = new OracleSoundData(AgesGameContent.AssetRoot);
         using var fixture = new SoundValidationFixture(data);
         var sound = fixture.Sound;
         sound.PlaySound(SoundId.MusTitlescreen);
@@ -486,7 +486,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSoundDriverCatalogRange(int first, int end)
     {
-        var data = new OracleSoundData();
+        var data = new OracleSoundData(AgesGameContent.AssetRoot);
         string[] expected = FileAccess.GetFileAsString(
             "res://validation/Ages/Fixtures/Audio/sound-driver-us.tsv")
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
@@ -536,7 +536,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSoundApplicationBatching()
     {
-        var data = new OracleSoundData();
+        var data = new OracleSoundData(AgesGameContent.AssetRoot);
         using var individualFixture = new SoundValidationFixture(data, true);
         using var batchFixture = new SoundValidationFixture(data, true);
         var individual = individualFixture.Sound;

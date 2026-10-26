@@ -82,8 +82,8 @@ public sealed partial class ValidationRoot
                 MinecartRuntimeState.Reset(_runtimeState, []);
                 MinecartRuntimeState.BeginRide(_runtimeState, 0, 0x00, center, cartDirection);
                 cart = new MinecartRoomEntity(new ActiveMinecart(-1, 0x00, 72, 88, cartDirection, true),
-                    _currentRoom, new DungeonInteractionDatabase(), _runtimeState,
-                    new DungeonInteractionVisualDatabase().Visual("minecart"), _sound.PlaySound);
+                    _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
+                    new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
                 _entities.AddEntity(cart);
             }
             Vector2 linkPosition = minecart ? new(88.25f, 72.5f) : raft ? new(80.25f, 40.5f) :
@@ -186,7 +186,7 @@ public sealed partial class ValidationRoot
                 // Five ordinary native ITEM_BOMB $03 children fill the actual
                 // dynamic pool. Failed throws must clear both movement bits
                 // and the start signal, then require another button edge.
-                var bombs = new BombDatabase().Data;
+                var bombs = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
                 for (int index = 0; index < 5; index++)
                 {
                     _entities.Spawn<BombEffect>(new BombSpawn(_player, bombs, 0, _ => { }));

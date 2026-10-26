@@ -14,7 +14,7 @@ internal sealed partial class LynnaShopEvent
     private readonly Queue<(Vector2I Direction, int Counter)> _hiddenMoves = new();
     private Vector2I _hiddenDirection;
     private Action? _afterHiddenMove;
-    private readonly GashaSpotDatabase _ringTiers = new();
+    private readonly GashaSpotDatabase _ringTiers = new(AgesGameContent.AssetRoot);
     private ChestTreasureEffect? _chestPrizeVisual;
     private GroundTreasurePickup? _ringReward;
     private OracleRuntimeState ShopMemory => _context.Entities.RuntimeState;

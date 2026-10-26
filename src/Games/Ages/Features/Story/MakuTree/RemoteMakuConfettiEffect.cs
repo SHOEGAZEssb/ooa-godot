@@ -145,7 +145,7 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
             : _database.Visual("confetti-right");
         var animation = new EnemyAnimationPlayer(this, past ? 1 : 2);
         animation.Load(
-            EnemyVisualSource.LoadComposite([first.Sprite]),
+            EnemyVisualSource.LoadComposite([first.Sprite], AgesGameContent.AssetRoot),
             past
                 ? [first.Animation]
                 : [first.Animation, second.Animation],
@@ -216,7 +216,7 @@ internal sealed partial class RemoteMakuConfettiEffect : Node2D
         RemoteMakuVisualRecord visual = _database.Visual("sparkle");
         var animation = new EnemyAnimationPlayer(this, 1);
         animation.Load(
-            EnemyVisualSource.LoadComposite([visual.Sprite]),
+            EnemyVisualSource.LoadComposite([visual.Sprite], AgesGameContent.AssetRoot),
             [visual.Animation],
             visual.TileBase,
             visual.Palette);

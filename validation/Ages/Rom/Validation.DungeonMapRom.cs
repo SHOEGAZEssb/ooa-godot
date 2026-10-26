@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         foreach (int equipment in new[] { 0, 1, 2, 3 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wDungeonMaps, (byte)((equipment & 1) != 0 ? 4 : 0));
             save.WriteWramByte(AgesWramAddress.wDungeonCompasses, (byte)((equipment & 2) != 0 ? 4 : 0));
             InitializeTransientSession(save);

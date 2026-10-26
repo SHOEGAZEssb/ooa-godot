@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     private void ValidateTokayIslandWorldObjects()
     {
         var eyes = new TokayEntranceEyeDatabase();
-        var enemies = new EnemyDatabase();
+        var enemies = new EnemyDatabase(AgesGameContent.AssetRoot);
         FailIf(
             enemies.RoomObjectRecordCount != 1150 ||
             eyes.Eyes.Count != 2 ||
@@ -435,7 +435,7 @@ public sealed partial class ValidationRoot
         var seedlingDatabase = new TokaySeedlingPlotDatabase();
         var shopDatabase = new TokayShopDatabase();
         var wildDatabase = new WildTokayGameDatabase();
-        var npcDatabase = new NpcDatabase();
+        var npcDatabase = new NpcDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<NpcRecord> islandRecords = npcDatabase.AllRecords
             .Where(record =>
                 (record.Id == 0x48 && record.SubId >= 0x05) ||
@@ -591,7 +591,7 @@ public sealed partial class ValidationRoot
                     "or initial/per-reset/final RNG consumption.");
             }
         }
-        var treasures = new TreasureDatabase();
+        var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         (string Object, int Treasure, int SubId, int ObjectParameter)[]
             shopRewards =
             [

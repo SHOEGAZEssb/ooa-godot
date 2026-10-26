@@ -48,7 +48,7 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
     {
         if (value is not (0 or 0x91))
             throw UnsupportedCommand($"set disabled objects ${value:x2}");
-        Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,
+        Entities.RuntimeState.SetField("wDisabledObjects",
             (byte)value);
         _ownsDisabledMask = value != 0;
     }
@@ -79,8 +79,8 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
         "Interaction.var3a" => _var3a,
         "Interaction.var3b" => _var3b,
         "Interaction.var3c" => _var3c,
-        "wChildStatus" => _save.ReadWramByte(AgesWramAddress.wChildStatus),
-        "wChildStage8Response" => _save.ReadWramByte(AgesWramAddress.wChildStage8Response),
+        "wChildStatus" => _save.ReadField("wChildStatus"),
+        "wChildStage8Response" => _save.ReadField("wChildStage8Response"),
         "wSelectedTextOption" => TakeChoice(),
         _ => throw UnsupportedCommand($"read {binding}")
     };
@@ -155,7 +155,7 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
     {
         if (_ownsDisabledMask)
         {
-            Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
+            Entities.RuntimeState.SetField("wDisabledObjects", 0);
             _ownsDisabledMask = false;
         }
         if (_treasure is null) return;
@@ -181,19 +181,19 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
                 ShowText(textId, _data.Text(textId));
                 break;
             case "scriptHelp.checkc6e2BitSet":
-                _var3b = (_save.ReadWramByte(AgesWramAddress.wc6e2) & (1 << value)) != 0 ? 1 : 0;
+                _var3b = (_save.ReadField("wc6e2") & (1 << value)) != 0 ? 1 : 0;
                 break;
             case "scriptHelp.setc6e2Bit":
-                WriteSave(AgesWramAddress.wc6e2,
-                    _save.ReadWramByte(AgesWramAddress.wc6e2) | (1 << value));
+                WriteSave("wc6e2",
+                    _save.ReadField("wc6e2") | (1 << value));
                 break;
             case "scriptHelp.setNextChildStage":
-                WriteSave(AgesWramAddress.wNextChildStage, value);
+                WriteSave("wNextChildStage", value);
                 break;
             case "scriptHelp.blossom_addValueToChildStatus":
             case "scriptHelp.child_addValueToChildStatus":
-                WriteSave(AgesWramAddress.wChildStatus,
-                    (_save.ReadWramByte(AgesWramAddress.wChildStatus) + value) & 0xff);
+                WriteSave("wChildStatus",
+                    (_save.ReadField("wChildStatus") + value) & 0xff);
                 break;
             case "scriptHelp.blossom_checkHasRupees":
             case "scriptHelp.child_checkHasRupees":
@@ -203,10 +203,10 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
                 _inventory.AddRupees(-RupeeValue(value));
                 break;
             case "scriptHelp.child_setStage8Response":
-                WriteSave(AgesWramAddress.wChildStage8Response, value);
+                WriteSave("wChildStage8Response", value);
                 break;
             case "scriptHelp.child_setStage8ResponseToSelectedTextOption":
-                WriteSave(AgesWramAddress.wChildStage8Response, value + TakeChoice());
+                WriteSave("wChildStage8Response", value + TakeChoice());
                 break;
             case "scriptHelp.child_giveRupees":
                 _inventory.GiveTreasure(TreasureId.Rupees, value);
@@ -224,16 +224,16 @@ internal sealed class FamilyNpcScriptHost : NpcInteractionCommandHost
                 break;
             case "scriptHelp.child_playMusic":
                 // constants/common/music.s: MUS_ZELDA_SAVED $38, MUS_PRECREDITS $4a.
-                Entities.RequestSound(_save.ReadWramByte(AgesWramAddress.wChildStage8Response) == 0
+                Entities.RequestSound(_save.ReadField("wChildStage8Response") == 0
                     ? 0x38 : 0x4a);
                 break;
             default: throw UnsupportedCommand($"asm15 {name}");
         }
     }
 
-    private void WriteSave(int address, int value)
+    private void WriteSave(string symbol, int value)
     {
-        if (_save.WriteWramByte(address, (byte)value))
+        if (_save.WriteField(symbol, (byte)value))
             _save.CommitInventoryChange();
     }
 

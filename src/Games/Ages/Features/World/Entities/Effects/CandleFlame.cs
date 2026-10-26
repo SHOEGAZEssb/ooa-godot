@@ -5,7 +5,7 @@ namespace Oracles;
 
 internal sealed partial class CandleFlame : TransitionOffsetNode2D
 {
-    private readonly CandleBehaviorProfile _data = EnemyBehaviorTables.Shared.Candle;
+    private readonly CandleBehaviorProfile _data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).Candle;
     private readonly Func<CandleCharacter?> _parent;
     private readonly EnemyAnimationPlayer _animation;
     internal int State { get; private set; }
@@ -19,9 +19,10 @@ internal sealed partial class CandleFlame : TransitionOffsetNode2D
         Vector2.One * ((_data.FlameData[2].Value & 15) * 2));
     internal CandleFlame(EnemyProjectileVisualRecord visual, Func<CandleCharacter?> parent)
     {
+        AssetRoot = visual.AssetRoot;
         _parent = parent;
         _animation = new(this, visual.Animations.Length);
-        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites), visual.Animations, visual.TileBase,
+        _animation.Load(EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot), visual.Animations, visual.TileBase,
             visual.Palette, sourceGrayscaleInverted: visual.SourceGrayscaleInverted);
         Visible = false;
     }

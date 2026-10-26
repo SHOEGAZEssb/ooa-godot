@@ -162,7 +162,7 @@ public sealed partial class ValidationRoot
         var target = _entities.EntityAdapters<FloormasterRoomEntity>().Single(hand => ((FloormasterCharacter)hand.Node).State == 11);
         var actor = (FloormasterCharacter)target.Node;
         int kills = _saveData.ReadWramByte(AgesWramAddress.wTotalEnemiesKilled);
-        new SeedSatchelDatabase().TryGet(ItemId.GaleSeed, out var gale);
+        new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(ItemId.GaleSeed, out var gale);
         rom.HitWithSword(ItemCollisionType.GaleSeed, 0, target.Slot);
         FailIf(rom[0xd184] != 5, $"Declared native Gale collision must install state5, got${rom[0xd184]:x2}.");
         FailIf(!target.ApplySeedCollision(actor.CollisionBounds, actor.Position.Floor() - Vector2.Right, gale,

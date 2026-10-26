@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
     private (Player Player, ValidationRingPlayerWorld World, OracleRandom Random) CreateSwordRomPlayer(
         int direction, int level, int ring = 0xff, int seed = 0x1234, int health = 12)
     {
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         save.WriteWramByte(AgesWramAddress.wActiveRing, (byte)ring);
         save.WriteWramByte(AgesWramAddress.wLinkHealth, (byte)health);
         var inventory = new InventoryState(_treasures, save);

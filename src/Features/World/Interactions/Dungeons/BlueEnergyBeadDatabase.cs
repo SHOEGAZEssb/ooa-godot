@@ -4,16 +4,23 @@ namespace Oracles;
 
 internal sealed class BlueEnergyBeadDatabase
 {
-    internal static BlueEnergyBeadDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<BlueEnergyBeadDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static BlueEnergyBeadDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<BlueEnergyBeadDatabase>(() => new BlueEnergyBeadDatabase(root))).Value;
+
     internal int Count { get; }
     internal int Speed { get; }
     internal int Radius { get; }
     internal int DelayMask { get; }
     internal int DeleteAddress { get; }
 
-    private BlueEnergyBeadDatabase()
+    private BlueEnergyBeadDatabase(string assetRoot)
     {
-        var row = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/blue_energy_bead.tsv",
+        AssetRoot = assetRoot;
+
+        var row = GeneratedTable.Load(AssetRoot + "objects/blue_energy_bead.tsv",
             new GeneratedTableSchema("PART_BLUE_ENERGY_BEAD inward swirl", GeneratedTableKeySemantics.Unique,
                 ["id", "count", "speed", "radius", "delay-mask", "delete-address", "source"],
                 ["id"], headerRequired: true)).SingleRow();

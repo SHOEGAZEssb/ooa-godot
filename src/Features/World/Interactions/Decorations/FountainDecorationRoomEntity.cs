@@ -20,6 +20,7 @@ internal sealed partial class FountainDecorationRoomEntity : TransitionOffsetNod
 
     internal FountainDecorationRoomEntity(FountainPlacement placement, FountainDatabase data, OracleSaveData? save,System.Action? loadPalette=null)
     {
+        AssetRoot = data.AssetRoot;
         Placement = placement;
         _loadPalette=loadPalette;
         Name = $"Fountain_{placement.SubId:x2}";
@@ -30,7 +31,7 @@ internal sealed partial class FountainDecorationRoomEntity : TransitionOffsetNod
         RuinedPalette = data.UsesRuinedPalette(placement.Group, placement.Room, save);
         FountainVisual visual = data.Visual(placement.SubId);
         _animation = new(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{visual.Sprite}.png"),
             [visual.Animation], visual.TileBase, visual.Palette,
             paletteOverrides: data.Palettes(RuinedPalette), positionedOam: true);
         _animation.SetAnimation(0);

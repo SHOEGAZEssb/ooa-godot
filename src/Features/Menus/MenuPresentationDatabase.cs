@@ -9,8 +9,12 @@ namespace Oracles;
 /// </summary>
 internal sealed class MenuPresentationDatabase
 {
-    private static readonly Lazy<MenuPresentationDatabase> LazyShared =
-        new(static () => new MenuPresentationDatabase());
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<MenuPresentationDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static MenuPresentationDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<MenuPresentationDatabase>(() => new MenuPresentationDatabase(root))).Value;
+
 
     private readonly Dictionary<string, IReadOnlyList<MenuOamPart>> _fileOam =
         new(StringComparer.Ordinal);
@@ -21,16 +25,12 @@ internal sealed class MenuPresentationDatabase
     private readonly Dictionary<string, IReadOnlyList<MenuOamPart>> _mapOam =
         new(StringComparer.Ordinal);
     internal IReadOnlyList<MenuOamPart> MapOam(string layout) => _mapOam[layout];
-    internal byte[] DungeonSymbols { get; } = OracleGraphicsData.ReadBytes(
-        AgesGameContent.AssetRoot + "menu/dungeon_symbols.bin", 28);
-    internal byte[] DungeonFloorNames { get; } = OracleGraphicsData.ReadBytes(
-        AgesGameContent.AssetRoot + "menu/dungeon_floor_names.bin", 22);
+    internal byte[] DungeonSymbols { get; }
+    internal byte[] DungeonFloorNames { get; }
 
     internal IReadOnlyList<MenuOamPart> InventoryMakuSeed => _inventoryOam["maku-seed"];
     internal IReadOnlyList<MenuOamPart> InventoryHarp(int song) => _inventoryOam[$"harp-{song}"];
     internal IReadOnlyList<MenuOamPart> InventorySubmenuMask(int index) => _inventoryOam[$"submenu-mask-{index}"];
-
-    public static MenuPresentationDatabase Shared => LazyShared.Value;
 
     public IReadOnlyList<MapIconLayout> MapIcons { get; }
     public IReadOnlyList<DungeonFloorListLayout> DungeonFloorLists { get; }
@@ -44,10 +44,16 @@ internal sealed class MenuPresentationDatabase
     public IReadOnlyList<EssenceCursorLayout> EssenceCursors { get; }
     public IReadOnlyList<RingBoxOamOffset> RingBoxOffsets { get; }
 
-    public MenuPresentationDatabase()
+    public MenuPresentationDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+        DungeonSymbols = OracleGraphicsData.ReadBytes(
+        AssetRoot + "menu/dungeon_symbols.bin", 28);
+        DungeonFloorNames = OracleGraphicsData.ReadBytes(
+        AssetRoot + "menu/dungeon_floor_names.bin", 22);
+
         MapIcons = LoadMapIcons();
-        LoadOamLayouts(AgesGameContent.AssetRoot + "menu/map_oam.tsv", "map OAM", _mapOam,
+        LoadOamLayouts(AssetRoot + "menu/map_oam.tsv", "map OAM", _mapOam,
             new Dictionary<string, int>(StringComparer.Ordinal)
             {
                 ["arrow"] = 1, ["cursor"] = 2, ["portal"] = 1, ["warp"] = 1,
@@ -59,18 +65,18 @@ internal sealed class MenuPresentationDatabase
         DungeonFloorLists = LoadDungeonFloorLists();
         DungeonBlurbs = LoadDungeonBlurbs();
         InventoryItemSlots = LoadTilePositions(
-            AgesGameContent.AssetRoot + "menu/inventory_item_slots.tsv",
+            AssetRoot + "menu/inventory_item_slots.tsv",
             "inventory item slots", 16);
         InventoryItemSubmenus = LoadInventoryItemSubmenus();
         InventorySeedSubmenuSprites = LoadInventorySeedSubmenuSprites();
         PassiveTreasures = LoadPassiveTreasures();
         SecondaryCursors = LoadSecondaryCursors();
         EssenceTiles = LoadTilePositions(
-            AgesGameContent.AssetRoot + "menu/inventory_essence_tiles.tsv",
+            AssetRoot + "menu/inventory_essence_tiles.tsv",
             "inventory essence tiles", 8);
         EssenceCursors = LoadEssenceCursors();
         LoadOamLayouts(
-            AgesGameContent.AssetRoot + "menu/file_oam.tsv",
+            AssetRoot + "menu/file_oam.tsv",
             "file/save menu OAM", _fileOam,
             new Dictionary<string, int>(StringComparer.Ordinal)
             {
@@ -85,7 +91,7 @@ internal sealed class MenuPresentationDatabase
                 ["hero-file"] = 2
             });
         LoadOamLayouts(
-            AgesGameContent.AssetRoot + "menu/ring_oam.tsv",
+            AssetRoot + "menu/ring_oam.tsv",
             "ring menu OAM", _ringOam,
             new Dictionary<string, int>(StringComparer.Ordinal)
             {
@@ -97,7 +103,7 @@ internal sealed class MenuPresentationDatabase
             });
         RingBoxOffsets = LoadRingBoxOffsets();
         LoadOamLayouts(
-            AgesGameContent.AssetRoot + "menu/inventory_oam.tsv", "inventory OAM", _inventoryOam,
+            AssetRoot + "menu/inventory_oam.tsv", "inventory OAM", _inventoryOam,
             new Dictionary<string, int>(StringComparer.Ordinal)
             {
                 ["maku-seed"] = 4, ["harp-0"] = 1, ["harp-1"] = 2,
@@ -135,10 +141,10 @@ internal sealed class MenuPresentationDatabase
         return DungeonBlurbs[dungeon];
     }
 
-    private static IReadOnlyList<MapIconLayout> LoadMapIcons()
+    private IReadOnlyList<MapIconLayout> LoadMapIcons()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/map_icons.tsv",
+            AssetRoot + "menu/map_icons.tsv",
             new GeneratedTableSchema(
                 "map icon OAM",
                 GeneratedTableKeySemantics.Unique,
@@ -187,11 +193,11 @@ internal sealed class MenuPresentationDatabase
         return result.AsReadOnly();
     }
 
-    private static IReadOnlyList<DungeonFloorListLayout>
+    private IReadOnlyList<DungeonFloorListLayout>
         LoadDungeonFloorLists()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/dungeon_floor_list.tsv",
+            AssetRoot + "menu/dungeon_floor_list.tsv",
             new GeneratedTableSchema(
                 "dungeon floor-list positions",
                 GeneratedTableKeySemantics.Unique,
@@ -211,10 +217,10 @@ internal sealed class MenuPresentationDatabase
         return result.AsReadOnly();
     }
 
-    private static IReadOnlyList<DungeonBlurbLayout> LoadDungeonBlurbs()
+    private IReadOnlyList<DungeonBlurbLayout> LoadDungeonBlurbs()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/dungeon_blurbs.tsv",
+            AssetRoot + "menu/dungeon_blurbs.tsv",
             new GeneratedTableSchema(
                 "dungeon blurb selectors",
                 GeneratedTableKeySemantics.Unique,
@@ -277,10 +283,10 @@ internal sealed class MenuPresentationDatabase
         return result.AsReadOnly();
     }
 
-    private static IReadOnlyList<PassiveTreasureLayout> LoadPassiveTreasures()
+    private IReadOnlyList<PassiveTreasureLayout> LoadPassiveTreasures()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/inventory_passive_treasures.tsv",
+            AssetRoot + "menu/inventory_passive_treasures.tsv",
             new GeneratedTableSchema(
                 "inventory passive treasures",
                 GeneratedTableKeySemantics.Unique,
@@ -304,11 +310,11 @@ internal sealed class MenuPresentationDatabase
         return result.AsReadOnly();
     }
 
-    private static IReadOnlyList<InventoryItemSubmenuLayout>
+    private IReadOnlyList<InventoryItemSubmenuLayout>
         LoadInventoryItemSubmenus()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/inventory_item_submenu_layout.tsv",
+            AssetRoot + "menu/inventory_item_submenu_layout.tsv",
             new GeneratedTableSchema(
                 "inventory item submenu layouts",
                 GeneratedTableKeySemantics.Unique,
@@ -352,11 +358,11 @@ internal sealed class MenuPresentationDatabase
         return result.AsReadOnly();
     }
 
-    private static IReadOnlyList<InventorySeedSubmenuSprite>
+    private IReadOnlyList<InventorySeedSubmenuSprite>
         LoadInventorySeedSubmenuSprites()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/inventory_seed_submenu_oam.tsv",
+            AssetRoot + "menu/inventory_seed_submenu_oam.tsv",
             new GeneratedTableSchema(
                 "inventory seed submenu OAM",
                 GeneratedTableKeySemantics.Unique,
@@ -380,11 +386,11 @@ internal sealed class MenuPresentationDatabase
         return result.AsReadOnly();
     }
 
-    private static IReadOnlyList<SecondaryCursorLayout>
+    private IReadOnlyList<SecondaryCursorLayout>
         LoadSecondaryCursors()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/inventory_secondary_cursors.tsv",
+            AssetRoot + "menu/inventory_secondary_cursors.tsv",
             new GeneratedTableSchema(
                 "inventory secondary cursors",
                 GeneratedTableKeySemantics.Unique,
@@ -404,10 +410,10 @@ internal sealed class MenuPresentationDatabase
         return result.AsReadOnly();
     }
 
-    private static IReadOnlyList<EssenceCursorLayout> LoadEssenceCursors()
+    private IReadOnlyList<EssenceCursorLayout> LoadEssenceCursors()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/inventory_essence_cursors.tsv",
+            AssetRoot + "menu/inventory_essence_cursors.tsv",
             new GeneratedTableSchema(
                 "inventory essence cursors",
                 GeneratedTableKeySemantics.Unique,
@@ -427,7 +433,7 @@ internal sealed class MenuPresentationDatabase
         return result.AsReadOnly();
     }
 
-    private static void LoadOamLayouts(
+    internal static void LoadOamLayouts(
         string path,
         string name,
         Dictionary<string, IReadOnlyList<MenuOamPart>> destination,
@@ -476,10 +482,10 @@ internal sealed class MenuPresentationDatabase
         }
     }
 
-    private static IReadOnlyList<RingBoxOamOffset> LoadRingBoxOffsets()
+    private IReadOnlyList<RingBoxOamOffset> LoadRingBoxOffsets()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "menu/ring_box_oam_offsets.tsv",
+            AssetRoot + "menu/ring_box_oam_offsets.tsv",
             new GeneratedTableSchema(
                 "ring-box OAM offsets",
                 GeneratedTableKeySemantics.Unique,

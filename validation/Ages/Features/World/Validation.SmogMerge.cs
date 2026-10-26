@@ -19,7 +19,7 @@ public partial class ValidationRoot
                 new((x & 255) + 0.75f,(y & 255) + 0.25f),new(0.125f,0.875f));
             FailIf(actual != expected, $"Smog merge byte boundaries changed at wall={wall}, X={x}, Y={y}.");
         }
-        var record = new EnemyDatabase().ImportedEnemy(AgesEnemyId.Smog,0);
+        var record = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(AgesEnemyId.Smog,0);
         SmogCharacter Cloud(Vector2 position,int subid = 2)
         {
             var actor = new SmogCharacter();

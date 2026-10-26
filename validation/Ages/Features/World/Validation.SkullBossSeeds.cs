@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     private void ValidateSkullBossSeeds()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        OracleSaveData.TryDeserialize(_saveData.Serialize(), out var initialSave);
+        OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var initialSave);
         var random = CaptureOracleRandomForValidation();
         var entityState = _entities.CaptureDebugState();
         var results = new Dictionary<(bool Armos, int Item, int Effect), (int Health, int RandomCalls, Vector2 Position)>();
@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             _saveData.RestoreFrom(initialSave!);
             RestoreOracleRandomForValidation(random);
             _entities.RestoreDebugStateBeforeRoomParse(entityState);
-            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, null);
+            typeof(InventoryState).GetMethod("LoadFromSaveData", flags)!.Invoke(_inventory, new object[] { _saveData });
             _seedSatchel.InterruptShooter();
             while (_inventory.MaxHealthQuarters < 56) _inventory.GiveTreasure(TreasureId.HeartContainer, 4);
             _inventory.RefillHealth();
@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
             _saveData.SetRoomFlag(4, armos ? 0x80 : 0x6b, 0xff, false);
             LoadValidationRoom(4, armos ? 0x86 : 0x6c);
             _entities.RestoreDebugStateAfterRoomParse(entityState);
-            _inventory.GiveTreasure(new TreasureDatabase().GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
+            _inventory.GiveTreasure(new TreasureDatabase(AgesGameContent.AssetRoot).GetObject("TREASURE_OBJECT_BOSS_KEY_03"));
             _player.WarpTo(armos ? new Vector2(120, 40) : new Vector2(24, 88));
             FailIf(_collision.Collides(_player.Position), "Boss seed route must start on the real adjacent corridor floor.");
             for (int i = 0; !IsTransitioning && i < 100; i++) Step(movement: armos ? Vector2.Up : Vector2.Left);
@@ -139,7 +139,7 @@ public sealed partial class ValidationRoot
             // children. Armos mode44 accepts Scent as effect21. Ember, Scent
             // and Mystery carry damage$fe; selected Pegasus/Gale reload
             // damage$ff only after the collision.
-            var data = new SeedSatchelDatabase();
+            var data = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
             foreach (var actor in actors)
             foreach (int mode in actor is EyesoarActor e ? e.IsChild ? [0x15] : new[] { 0x4c, 0x6d } :
                 ((ArmosWarriorActor)actor).SubId switch { 1 => [0x60, 0x44], 2 => [0x61], _ => [0x62] })

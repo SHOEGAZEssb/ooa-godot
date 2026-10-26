@@ -113,7 +113,7 @@ public sealed partial class ValidationRoot
 
         // Shared state dispatch probes: scent cannot replace held state3, and
         // cancellation must preserve the counter/RNG while gravity runs.
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         LoadValidationRoom(4, 0x7c);
         Vector2 center = new(184, 88);
         var rng = new OracleRandom();

@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
             Set("State",0x0b);Set("Counter",200);Set("CollisionType",0x81);
             rom[0xd084]=0x0b;rom[0xd086]=200;rom[0xd0a4]=0x81;
             if(critical){Set("BossHealth",1);rom[0xd0b4]=1;}
-            FailIf(!new SeedSatchelDatabase().TryGet(seedItem,out var seed),"Missing Twinrova seed fixture.");
+            FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(seedItem,out var seed),"Missing Twinrova seed fixture.");
             var spawns=new List<RoomEntitySpawn>();
             // Seeds publish their harmless contact while ordinary health is
             // intact; they must not reduce the separate five-hit counter.

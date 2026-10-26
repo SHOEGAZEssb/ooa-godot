@@ -19,7 +19,7 @@ internal sealed class PodobooTowerRoomEntity(PodobooTowerCharacter enemy,
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 hitbox, Vector2 origin,
         int damage, ICollection<RoomEntitySpawn> spawns)
     {
-        int effect = EnemyBehaviorTables.Shared.PodobooTowerCollisionEffects[(int)collision].Value;
+        int effect = EnemyBehaviorTables.For(AssetRoot).PodobooTowerCollisionEffects[(int)collision].Value;
         if (effect != CollisionEffect.SwordNoKnockback)
             throw new InvalidOperationException($"podobooTower.s: collision ${(int)collision:x2} effect ${effect:x2} is unsupported.");
         return base.ApplySwordHit(hitbox, origin, damage, EnemyKnockbackStrength.Low, spawns);

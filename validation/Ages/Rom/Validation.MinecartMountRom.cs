@@ -27,11 +27,11 @@ public sealed partial class ValidationRoot
                 if (batched) _inventory.EquipB(TreasureId.Bombchus);
                 else _inventory.EquipA(TreasureId.Bombchus);
             }
-            var records = new StaticDungeonObjectDatabase().Minecarts(4);
+            var records = new StaticDungeonObjectDatabase(AgesGameContent.AssetRoot).Minecarts(4);
             MinecartRuntimeState.Reset(_runtimeState, records);
             var cart = new MinecartRoomEntity(new ActiveMinecart(2, 0x78, 0x88, 0x78, -1, false),
-                _currentRoom, new DungeonInteractionDatabase(), _runtimeState,
-                new DungeonInteractionVisualDatabase().Visual("minecart"), _sound.PlaySound);
+                _currentRoom, new DungeonInteractionDatabase(AgesGameContent.AssetRoot), _runtimeState,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart"), _sound.PlaySound);
             _entities.AddEntity(cart);
             Vector2 start = new(136.25f, 136.5f);
             _player.WarpTo(start); _player.Face(Vector2I.Left);

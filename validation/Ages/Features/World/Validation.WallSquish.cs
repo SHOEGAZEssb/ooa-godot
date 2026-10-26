@@ -81,7 +81,7 @@ public partial class ValidationRoot
                     "Detected squish must initialize local respawn on the next dispatch.");
                 FailIf(_currentRoom.GetMetatile(new(136,136)) != 0xa0,
                     "Instant respawn must execute source$05 tile break after copying local coordinates.");
-                FailIf((int)typeof(RoomTransitionController).GetField("_deactivatedWarpPosition",flags)!.GetValue(_transitions)! != 0x88,
+                FailIf((int)typeof(AgesRoomTransitionController).GetField("_deactivatedWarpPosition",flags)!.GetValue(_transitions)! != 0x88,
                     "Instant respawn must replace the old warp marker with local anchor$88 before its invisible wait.");
                 _currentRoom.SetPositionTileAndCollision(new(136,136),0x44,0,(long)_animationTicks);
                 FailIf(_entities.WarpTilesDisabled || _transitions.CheckTileWarp(_player) || IsTransitioning,

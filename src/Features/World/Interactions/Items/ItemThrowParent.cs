@@ -18,9 +18,9 @@ internal sealed class ItemThrowParent
     internal int Parameter => Active && !Pending ? _frames[Mode][_index].Parameter : 0;
     internal int Counter => _counter;
 
-    internal ItemThrowParent()
+    internal ItemThrowParent(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/item_throw_parent_animations.tsv",
+        var table = GeneratedTable.Load(assetRoot + "metadata/item_throw_parent_animations.tsv",
             new GeneratedTableSchema("parentItemGenericState1 animations", GeneratedTableKeySemantics.Unique,
                 ["mode", "frame", "duration", "graphic", "parameter", "source"],
                 ["mode", "frame"], headerRequired: true));

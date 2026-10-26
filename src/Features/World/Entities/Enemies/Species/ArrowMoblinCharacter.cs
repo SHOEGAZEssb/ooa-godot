@@ -13,12 +13,12 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy, 
     internal override bool InitializationPending => _state == ArrowMoblinState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZFixed >> 8;
-
-    private readonly ArrowMoblinBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.ArrowMoblin;
+    private ArrowMoblinBehaviorProfile? _behaviorSourceCache;
+    private ArrowMoblinBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ArrowMoblin;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
-    private readonly ScentSeedAttraction _scentAttraction = new();
+    private ScentSeedAttraction? _scentAttractionCache;
+    private ScentSeedAttraction _scentAttraction => _scentAttractionCache ??= new(AssetRoot);
     private ArrowMoblinState _state;
     private int _counter;
     private int _angle;
@@ -52,6 +52,7 @@ internal partial class ArrowMoblinCharacter : EnemyCharacter, ISwitchHookEnemy, 
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         if (!SupportsRecord(record))
         {
             throw new ArgumentOutOfRangeException(

@@ -75,6 +75,7 @@ internal sealed partial class ShadowHagBoss : EnemyCharacter
         Func<bool> dialogueOpen,
         string introMessage)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

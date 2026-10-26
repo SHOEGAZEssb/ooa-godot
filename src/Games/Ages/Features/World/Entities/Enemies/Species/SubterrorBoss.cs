@@ -82,6 +82,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
         Func<long> animationTick,
         string introMessage)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;
@@ -105,6 +106,7 @@ internal sealed partial class SubterrorBoss : EnemyCharacter
 
     private void InitializeState()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _speed = 0x3c;
         _angle = ObjectAngle.Down;
         _counter2 = 30;

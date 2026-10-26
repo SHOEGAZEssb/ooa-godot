@@ -11,7 +11,7 @@ namespace Oracles;
 public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
 {
 
-    private static EnemyDeathPuffEffectDefinition? _definition;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, EnemyDeathPuffEffectDefinition> Definitions = new(System.StringComparer.Ordinal);
 
     private List<EnemyDeathPuffEffectFrameRecord> _animation = null!;
     private int[] _palettes = null!;
@@ -28,13 +28,14 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
     internal int ElapsedFrames { get; private set; }
     internal int CurrentPalette => _palettes[_paletteIndex];
 
-    internal void Initialize(
+    internal void Initialize(string assetRoot,
         Vector2 position,
         bool highKnockback = false,
         int enemyId = -1,
         int zHigh = 0)
     {
-        EnemyDeathPuffEffectDefinition definition = _definition ??= LoadDefinition();
+        AssetRoot = assetRoot;
+        EnemyDeathPuffEffectDefinition definition = Definitions.GetOrAdd(AssetRoot, LoadDefinition);
         // enemyCreateDeathPuff uses objectCopyPosition: only YH/XH/ZH
         // reach the cleared PART slot, never the enemy's fractional bytes.
         Position = OracleObjectMath.ToPixelPosition(position);
@@ -89,10 +90,10 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
             new Vector2(-16, -16 + ZHigh) + TransitionDrawOffset);
     }
 
-    private static EnemyDeathPuffEffectDefinition LoadDefinition()
+    private static EnemyDeathPuffEffectDefinition LoadDefinition(string assetRoot)
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/enemy_death_puff.tsv",
+            assetRoot + "effects/enemy_death_puff.tsv",
             new GeneratedTableSchema(
                 "enemy death puff",
                 GeneratedTableKeySemantics.Ordered,
@@ -107,7 +108,7 @@ public partial class EnemyDeathPuffEffect : TransitionOffsetNode2D
         int paletteB = row.UnsignedDecimal(2);
 
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + "gfx/spr_common_sprites.png");
+            assetRoot + "gfx/spr_common_sprites.png");
 
         int[] palettes = { paletteA, paletteB };
         List<EnemyDeathPuffEffectFrameRecord> normal = BuildAnimation(

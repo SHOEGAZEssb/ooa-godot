@@ -35,6 +35,7 @@ internal sealed partial class VeranProjectileRoomEntity : EnemyCharacter, IRoomE
     internal VeranProjectileRoomEntity(RoomEntityManager owner,PalacePossessionDatabase data,EnemyCharacter parent,
         int subid,Vector2 position,int z,int angle)
     {
+        AssetRoot = owner.AssetRoot;
         _owner=owner; _data=data; _parent=parent; SubId=subid; _z=z; _angle=angle;
         InitializeEnemy(position,EnemyCharacterConfiguration.FromImported(data.Projectile),positionedOam:true);
         Visible=false;

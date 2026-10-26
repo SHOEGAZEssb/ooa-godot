@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             _saveData.SetRoomFlag(3,0x0f,0x80); // The source entrance was unlocked before this dungeon.
             LoadValidationRoom(5,0x37);
             var essence=_entities.Entities<DungeonEssence>().Single();
-            var visual=new DungeonInteractionVisualDatabase().Visual("bereft-peak");
+            var visual=new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("bereft-peak");
             FailIf(essence.EssenceIndex != 5 || essence.Position != new Vector2(120,40) || visual.TileBase != 0x0c ||
                 visual.Palette != 0 || !essence.Message.StartsWith("\\pos(2)",StringComparison.Ordinal) ||
                 !essence.Message.Contains("Bereft Peak",StringComparison.Ordinal) || !essence.Message.Contains("stalwart",StringComparison.Ordinal) ||

@@ -15,6 +15,8 @@ internal abstract class RoomEntityAdapter<T> : IRoomEntity where T : Node2D
     }
 
     protected T Entity { get; }
+    protected string AssetRoot => Entity is TransitionOffsetNode2D source
+        ? source.AssetRoot : throw new InvalidOperationException($"{Entity.GetType().Name} has no source pack binding.");
     public Node2D Node => Entity;
     public void SetTransitionDrawOffset(Vector2 offset) =>
         _setTransitionDrawOffset(offset);

@@ -7,10 +7,10 @@ namespace Oracles;
 /// its owner supplies the initial byte and it refreshes the target angle every 16 attraction
 /// updates, while each species retains ownership of movement and exit state.
 /// </summary>
-internal sealed class ScentSeedAttraction
+internal sealed class ScentSeedAttraction(string assetRoot)
 {
     private readonly ScentSeedAttractionBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.ScentSeedAttraction;
+        EnemyBehaviorTables.For(assetRoot).ScentSeedAttraction;
     private int _counter;
 
     internal int Counter => _counter;

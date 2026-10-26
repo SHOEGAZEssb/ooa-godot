@@ -9,7 +9,7 @@ public partial class ValidationRoot
     private void ValidatePuzzleTrapReset()
     {
         ComparePuzzleTrapResetRom();
-        var record = new PuzzleTrapResetDatabase().GetRoomRecords(4,0x9b).Single();
+        var record = new PuzzleTrapResetDatabase(AgesGameContent.AssetRoot).GetRoomRecords(4,0x9b).Single();
         byte[] offsets = [0xf0,0xe0,0x01,0x02,0x10,0x20,0xff,0xfe];
         FailIf(record.Order != 2 || record.Interval != 30 || record.Delay != 60 ||
             !record.Offsets.SequenceEqual(offsets) || record.Warp.DestinationGroup != 4 ||

@@ -18,8 +18,8 @@ public sealed partial class ValidationRoot
         var impa = new ImpaIntroEventDatabase();
         foreach (var (actual, expected, source) in new (Color[], Color[], string)[]
         {
-            (new StoneRabbitDatabase().StonePalette, stone, "PALH_a2 rabbit $4b:$06"),
-            (new Room20eNpcDatabase().StonePalette, stone, "PALH_a2 room $2:$0e"),
+            (new StoneRabbitDatabase(AgesGameContent.AssetRoot).StonePalette, stone, "PALH_a2 rabbit $4b:$06"),
+            (new Room20eNpcDatabase(AgesGameContent.AssetRoot).StonePalette, stone, "PALH_a2 room $2:$0e"),
             (new Room149FamilyDatabase().StonePalette, stone, "PALH_a2 room $1:$49"),
             (new Room5bfDatabase().BlockPalette, block, "PALH_a3 room $5:$bf"),
             (impa.StonePalette, [Colors.Transparent, new(12/31f, 18/31f, 17/31f),

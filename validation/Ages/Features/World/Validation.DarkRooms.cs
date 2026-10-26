@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 5;
         const int roomId = 0xed;
-        var database = new DarkRoomDatabase();
+        var database = new DarkRoomDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<DarkRoomDatabaseRecord> records =
             database.GetRoomRecords(group, roomId);
         FailIf(
@@ -86,7 +86,7 @@ public sealed partial class ValidationRoot
         // backed. This palette/reward fixture declares their pending hit at
         // the PART boundary, preserving its distinct dark-handler ordering.
         SeedCollisionResponse hit = left.ApplySeedCollision(left.CollisionBounds,left.Position,
-            new SeedSatchelDatabase().Ember,ItemCollisionType.EmberSeed,noSpawns);
+            new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember,ItemCollisionType.EmberSeed,noSpawns);
         FailIf(!hit.Contact || !hit.DisableCollision || hit.Effect != SeedHitResult.Activate,
             "Dark-room palette input requires the native pending Ember collision.");
         _entities.Update(1.0 / 60.0, _player);

@@ -15,6 +15,7 @@ internal sealed partial class RamrockCharacter
     }
     private void InitializeHand()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (Subid < 2)
         {
             CopyHigh(new(_data.HandX(Subid),16)); ZFixed = -7 << 8; Angle = 16; Counter1 = 8;

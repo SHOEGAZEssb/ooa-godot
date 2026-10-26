@@ -4,14 +4,17 @@ using System.Collections.Generic;
 
 namespace Oracles;
 
-internal static class ElectricShockPalette
+internal sealed class ElectricShockPalette(string assetRoot)
 {
-    private static readonly Lazy<Color[,]> BackgroundData = new(() =>
-        OracleGraphicsData.LoadPalette(AgesGameContent.AssetRoot + "metadata/electric_shock_bg_palette.bin"));
-    private static readonly Lazy<IReadOnlyDictionary<int, Color[]>> ObjectData = new(() =>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ElectricShockPalette> Packs = new(StringComparer.Ordinal);
+    internal static ElectricShockPalette For(string assetRoot) => Packs.GetOrAdd(assetRoot, static root => new(root));
+
+    private readonly Lazy<Color[,]> BackgroundData = new(() =>
+        OracleGraphicsData.LoadPalette(assetRoot + "metadata/electric_shock_bg_palette.bin"));
+    private readonly Lazy<IReadOnlyDictionary<int, Color[]>> ObjectData = new(() =>
     {
         Color[,] palettes = OracleGraphicsData.LoadPalette(
-            AgesGameContent.AssetRoot + "metadata/electric_shock_obj_palette.bin");
+            assetRoot + "metadata/electric_shock_obj_palette.bin");
         var result = new Dictionary<int, Color[]>();
         for (int slot = 0; slot < 8; slot++)
         {
@@ -23,10 +26,10 @@ internal static class ElectricShockPalette
         return result;
     });
 
-    internal static Color[,] Background => BackgroundData.Value;
-    internal static IReadOnlyDictionary<int, Color[]> Objects => ObjectData.Value;
+    internal Color[,] Background => BackgroundData.Value;
+    internal IReadOnlyDictionary<int, Color[]> Objects => ObjectData.Value;
 
-    internal static ShaderMaterial CreateLinkMaterial()
+    internal ShaderMaterial CreateLinkMaterial()
     {
         // Link's atlas retains the exact standard OBJ 0/5 colors. Map those
         // three opaque color IDs to PALH_0c without altering atlas geometry.

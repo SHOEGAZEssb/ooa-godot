@@ -60,7 +60,7 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
     public bool ApplyItemCollision(RoomEntityItemCollision collision, Rect2 bounds, Vector2 origin, int damage,
         ICollection<RoomEntitySpawn> spawns)
     {
-        var data = EnemyBehaviorTables.Shared.BallChain;
+        var data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).BallChain;
         if (data.BodyMask[(int)collision].Value == 0) return false;
         if (data.BodyEffects[(int)collision].Value != 0x0b)
             throw new NotSupportedException($"ENEMY $4b item collision ${(int)collision:x2}: expected effect$0b.");
@@ -69,7 +69,7 @@ internal sealed class BallChainSoldierRoomEntity : CombatEnemyRoomEntityAdapter<
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds, Vector2 origin, SeedRecord seed, int collision,
         ICollection<RoomEntitySpawn> spawns)
     {
-        var data = EnemyBehaviorTables.Shared.BallChain;
+        var data = EnemyBehaviorTables.For(AgesGameContent.AssetRoot).BallChain;
         if (!Overlaps(bounds) || data.BodyMask[collision].Value == 0) return default;
         int effect = data.BodyEffects[collision].Value;
         if (effect == CollisionEffect.None) return new(true, SeedHitResult.None, false);

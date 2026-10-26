@@ -6,7 +6,8 @@ namespace Oracles;
 public partial class EnemyArrowProjectile
     : TransitionOffsetNode2D, IHostileProjectile, ILinkContactEntity
 {
-    private readonly EnemyBehaviorTables _behavior = EnemyBehaviorTables.Shared;
+    private EnemyBehaviorTables? _behaviorSourceCache;
+    private EnemyBehaviorTables _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
     private Texture2D _texture = null!;
     private Texture2D _bounceTexture = null!;
     private HostileProjectileLifecycle _lifecycle = null!;
@@ -35,6 +36,7 @@ public partial class EnemyArrowProjectile
         int angle,
         int subId = 0)
     {
+        AssetRoot = record.AssetRoot;
         if (subId is < 0 or > 1) throw new System.NotSupportedException($"enemyArrow.s: PART$1a subid${subId:x2}.");
         SubId = subId;
         var wall = _behavior.WallArrowShooter;
@@ -69,7 +71,7 @@ public partial class EnemyArrowProjectile
             _ => record.LeftAnimation
         };
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{record.SpriteName}.png");
+            AssetRoot + $"gfx/{record.SpriteName}.png");
         AnimationFrameDefinition frame =
             OracleGraphicsCache.GetAnimationDefinition(animation).Frames[0];
         _texture = OracleOamCompositor.BuildOamTexture(

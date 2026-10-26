@@ -7,9 +7,9 @@ namespace Oracles;
 // but deletes on its first ground contact rather than using bomb bouncing.
 internal sealed class SomariaThrowMotion(OracleRoomData room, SomariaPlacementDatabase hazards, OracleRuntimeState? memory = null)
 {
-    private readonly BraceletWeight _weight = new BraceletWeightDatabase().Weight(0);
-    private readonly BombRecord _common = new BombDatabase().Data;
-    private readonly ItemTilePassage _passage = new();
+    private readonly BraceletWeight _weight = new BraceletWeightDatabase(AgesGameContent.AssetRoot).Weight(0);
+    private readonly BombRecord _common = new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data;
+    private readonly ItemTilePassage _passage = new(room.AssetRoot);
     private Vector2 _position;
     private int _z, _speedZ, _flags;
     internal Vector2 Position => _position.Floor();

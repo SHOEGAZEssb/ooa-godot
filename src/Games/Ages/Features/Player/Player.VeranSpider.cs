@@ -14,7 +14,7 @@ public partial class Player
     private void StartGrabRelease()
     {
         _enemyGrabSubstate=3;_enemyGrabReleaseCounter=30;_topDownAirSpeedZ=-0x1e0;Face(Vector2I.Up);
-        _galeFrames??=new NewGameIntroDatabase().SpriteFrames("link-gale");_galeFrame=0;_galeFrameTicks=_galeFrames[0].Duration;
+        _galeFrames??=new NewGameIntroDatabase(AgesGameContent.AssetRoot).SpriteFrames("link-gale");_galeFrame=0;_galeFrameTicks=_galeFrames[0].Duration;
         SetCutsceneSpriteFrame(_galeFrames[0]);
     }
     private void AdvanceGrabRelease()

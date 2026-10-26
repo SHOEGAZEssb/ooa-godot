@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach(int mode in sub==0x0d?new[]{0,1,2,3,4}:new[]{0,1,2,3})
         foreach(int free in new[]{0,1})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             save.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd,0x34);save.WriteWramByte(0xc601,0x12);
             InitializeTransientSession(save);var data=new WildTokayGameDatabase();
             _inventory.SetScriptedEquippedItems(0,0);_inventory.GiveTreasure(TreasureId.Bracelet,1);
@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
                 {
                     int id=native.Word(0xcba2)-0x400;shown.Add(id);
                     string expected=DialogueBox.PlainText(new TokayInteractionDatabase().Text(id));
-                    if(id==0x0a53)expected=expected.Replace("\\secret1",new LinkedGameNpcDatabase().GenerateSecret(0x15,_saveData),StringComparison.Ordinal);
+                    if(id==0x0a53)expected=expected.Replace("\\secret1",new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x15,_saveData),StringComparison.Ordinal);
                     FailIf(_dialogue.CurrentMessage!=expected,source+$" update{updates}: original TX_${id:x4} differs.");
                 }
                 native[0xcba0]=_dialogue.IsOpen?(byte)1:(byte)0;
@@ -47,7 +47,7 @@ public sealed partial class ValidationRoot
             Step(4);
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int p=0xd040+_entities.InteractionSlot(puff)*256;native[p]=1;native[p+1]=0x48;native[p+2]=0x1b;native[p+4]=1;
             }
             FailIf(!game.TryInteractNpc(slot.Npc),source+": original A list not ready.");native[at+0x31]=1;Step(1);

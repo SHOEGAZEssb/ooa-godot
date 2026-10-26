@@ -23,7 +23,7 @@ internal sealed class PlasmarineProjectileDatabase
         if(rows.Length!=5 || rows.Where((row,index)=>row.HexByte(0)!=0x43 || row.UnsignedDecimal(1)!=index).Any())
             throw new InvalidOperationException("plasmarineProjectile.s: PART$43 requires its two base and three fallthrough animations.");
         var first=rows[0];
-        Visual=new([first.RequiredString(2)],first.UnsignedDecimal(3),first.UnsignedDecimal(4),first.Boolean01(5),rows.Select(row=>row.RequiredString(6)).ToArray());
+        Visual=new(AgesGameContent.AssetRoot, [first.RequiredString(2)],first.UnsignedDecimal(3),first.UnsignedDecimal(4),first.Boolean01(5),rows.Select(row=>row.RequiredString(6)).ToArray());
         Properties=first.SplitRequired(7,',').Select(value=>int.Parse(value,CultureInfo.InvariantCulture)).ToArray();
         if(Properties.Count!=8)throw first.Invalid(7,"eight native PART$43 property bytes");
         foreach(var row in rows)_=row.RequiredString(8);

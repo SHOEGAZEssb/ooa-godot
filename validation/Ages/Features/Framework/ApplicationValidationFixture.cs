@@ -37,7 +37,7 @@ internal sealed class ApplicationValidationFixture(GameRoot root)
 
     internal void ResetGameplay()
     {
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         // Retail gameplay follows file naming. Individual name scenarios may
         // override this valid one-to-five-character name after initialization.
         save.SetLinkName("Link");

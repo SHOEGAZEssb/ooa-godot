@@ -35,7 +35,7 @@ public sealed partial class ValidationRoot
                     rom[address] = 2; rom[address+1] = 5; rom[address+4] = 1; rom[address+6] = 60;
                     rom[address+0xb] = 144; rom[address+0xd] = 224;
                 }
-            var data = new DungeonInteractionDatabase();
+            var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
             var filler = new TileFillerRoomEntity(record, _currentRoom, data,
                 _entities.OnSoundRequested, _rooms.TrySetTile, _entities.TryCreatePuzzlePuff);
             var chest = new DungeonPuzzleChestRoomEntity(chestRecord, _currentRoom,

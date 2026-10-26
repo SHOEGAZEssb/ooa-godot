@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach(bool fractional in new[]{false,true})
         foreach(bool batched in new[]{false,true})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");
             save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);
             InitializeTransientSession(save);_saveData.WriteWramByte(AgesWramAddress.wDimitriState,1);
             _inventory.GiveTreasure(TreasureId.Essence,2);_inventory.SetScriptedEquippedItems(0,0);

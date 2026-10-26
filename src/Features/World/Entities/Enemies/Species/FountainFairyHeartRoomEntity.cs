@@ -20,13 +20,14 @@ internal sealed partial class FountainFairyHeartRoomEntity : TransitionOffsetNod
     internal FountainFairyHeartRoomEntity(FountainFairyRoomEntity owner,
         FountainFairyDatabase database, Func<int> displayedHealth, OracleRuntimeState memory)
     {
+        AssetRoot = database.AssetRoot;
         _owner = owner;
         _displayedHealth = displayedHealth;
         _memory = memory;
         Name = "FountainFairyHeart_30";
         ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex;
         _animation = new EnemyAnimationPlayer(this, 1);
-        _animation.Load(EnemyVisualSource.LoadComposite([database.HeartSprite]),
+        _animation.Load(EnemyVisualSource.LoadComposite([database.HeartSprite], AssetRoot),
             [database.HeartAnimation], database.HeartTileBase, database.HeartPalette,
             sourceGrayscaleInverted: database.HeartInverted);
         _animation.SetAnimation(0);

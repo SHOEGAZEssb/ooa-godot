@@ -7,15 +7,22 @@ namespace Oracles;
 // Pollution and raw whirlpool metatiles are handled by the later PART pass.
 internal sealed class SuctionPitDatabase
 {
-    internal static SuctionPitDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<SuctionPitDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static SuctionPitDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<SuctionPitDatabase>(() => new SuctionPitDatabase(root))).Value;
+
     private readonly Dictionary<(int Mode, byte Tile), int> _effects = new();
     private readonly HashSet<(int Mode, byte Tile)> _spawnTiles = new();
     private readonly Dictionary<(int Mode, byte Tile), int> _currents = new();
     internal (byte Y, byte X)[] Probes { get; } = new (byte, byte)[10];
     internal int[] Speeds { get; } = new int[8];
-    private SuctionPitDatabase()
+    private SuctionPitDatabase(string assetRoot)
     {
-        var tiles = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/suction_pit_tiles.tsv",
+        AssetRoot = assetRoot;
+
+        var tiles = GeneratedTable.Load(AssetRoot + "metadata/suction_pit_tiles.tsv",
             new GeneratedTableSchema("sea effect tiles", GeneratedTableKeySemantics.Unique,
                 ["active-collisions", "order", "tile", "effect", "source"], ["active-collisions", "tile"]));
         foreach (var row in tiles.Rows)
@@ -24,19 +31,19 @@ internal sealed class SuctionPitDatabase
             if (!_effects.TryAdd((mode, (byte)row.HexByte(2)), row.Decimal(3, 0, 2)))
                 throw row.Invalid(0, "a unique sea-effect tile");
         }
-        var spawn = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/sea_effect_spawn_tiles.tsv",
+        var spawn = GeneratedTable.Load(AssetRoot + "metadata/sea_effect_spawn_tiles.tsv",
             new GeneratedTableSchema("sea effect spawn tiles", GeneratedTableKeySemantics.Unique,
                 ["active-collisions", "order", "tile", "source"], ["active-collisions", "tile"]));
         foreach (var row in spawn.Rows)
             if (!_spawnTiles.Add((row.Decimal(0, 0, 5), (byte)row.HexByte(2))))
                 throw row.Invalid(0, "a unique sea-effect spawn tile");
-        var currents = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/sea_effect_currents.tsv",
+        var currents = GeneratedTable.Load(AssetRoot + "metadata/sea_effect_currents.tsv",
             new GeneratedTableSchema("sea effect currents", GeneratedTableKeySemantics.Unique,
                 ["active-collisions", "order", "tile", "angle", "source"], ["active-collisions", "tile"]));
         foreach (var row in currents.Rows)
             if (!_currents.TryAdd((row.Decimal(0, 0, 5), (byte)row.HexByte(2)), row.HexByte(3)))
                 throw row.Invalid(0, "a unique sea-effect current");
-        var probes = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/suction_pit_probes.tsv",
+        var probes = GeneratedTable.Load(AssetRoot + "metadata/suction_pit_probes.tsv",
             new GeneratedTableSchema("dungeon suction probes", GeneratedTableKeySemantics.Ordered, ["order", "y", "x", "source"]));
         for (int index = 0; index < probes.Rows.Count; index++)
         {
@@ -44,7 +51,7 @@ internal sealed class SuctionPitDatabase
             if (row.Decimal(0, 0, 9) != index) throw row.Invalid(0, "contiguous source probe order");
             Probes[index] = ((byte)row.Decimal(1, 0, 255), (byte)row.Decimal(2, 0, 255));
         }
-        var speeds = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/suction_pit_speeds.tsv",
+        var speeds = GeneratedTable.Load(AssetRoot + "metadata/suction_pit_speeds.tsv",
             new GeneratedTableSchema("dungeon suction speeds", GeneratedTableKeySemantics.Ordered, ["order", "speed", "source"]));
         for (int index = 0; index < speeds.Rows.Count; index++)
         {

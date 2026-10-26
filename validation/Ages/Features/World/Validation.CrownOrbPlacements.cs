@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
     {
         // PART_ORB $03:$00 source placements. Isolate their projectile
         // consumer from the separately checked shooter item parent.
-        var seeds = new SeedSatchelDatabase();
+        var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
         FailIf(!seeds.TryGet(ItemId.EmberSeed, out var ember), "Missing Ember Seed data.");
         foreach (var test in new (int Room, int Packed, Vector2 Origin, Vector2I Direction)[]
         {
@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             var placement = new DungeonMechanicDatabase().GetRoomRecords(4, test.Room).Single(r => r.Id == 3);
             _entities.Clear();
             var orb = new DungeonOrbRoomEntity(placement, new DungeonMechanicDatabase(),
-                new DungeonInteractionVisualDatabase().Visual("grotto-orb"), _currentRoom,
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("grotto-orb"), _currentRoom,
                 _runtimeState, () => (long)_animationTicks, _sound.PlaySound);
             _entities.AddEntity(orb);
             _player.WarpTo(test.Origin);

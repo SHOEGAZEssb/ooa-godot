@@ -5,20 +5,24 @@ namespace Oracles;
 
 public sealed class NpcDatabase
 {
-    // Parsed source records only. Family selection and all live NPC state
-    // belong to the session's resolver and actors, never this shared table.
-    private static readonly Lazy<NpcDatabase> SharedInstance = new(() => new());
-    internal static NpcDatabase Shared => SharedInstance.Value;
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<NpcDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static NpcDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<NpcDatabase>(() => new NpcDatabase(root))).Value;
+
 
     private readonly Lookup<int, NpcRecord> _byRoom = new();
     private readonly Lookup<int, FamilyNpcRecord> _familyByRoom = new();
     private readonly List<NpcRecord> _allRecords = new();
     internal IReadOnlyList<NpcRecord> AllRecords => _allRecords;
 
-    public NpcDatabase()
+    public NpcDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable npcs = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/npcs.tsv",
+            AssetRoot + "objects/npcs.tsv",
             new GeneratedTableSchema(
                 "room NPCs",
                 GeneratedTableKeySemantics.Grouped,
@@ -39,7 +43,7 @@ public sealed class NpcDatabase
         }
 
         GeneratedTable family = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/bipin_blossom_family.tsv",
+            AssetRoot + "objects/bipin_blossom_family.tsv",
             new GeneratedTableSchema(
                 "Bipin and Blossom family NPCs",
                 GeneratedTableKeySemantics.Grouped,

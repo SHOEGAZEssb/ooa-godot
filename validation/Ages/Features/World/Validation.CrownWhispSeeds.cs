@@ -8,8 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateCrownWhispSeeds()
     {
-        var seeds = new SeedSatchelDatabase();
-        var shooter = SeedShooterRecord.Load();
+        var seeds = new SeedSatchelDatabase(AgesGameContent.AssetRoot);
+        var shooter = SeedShooterRecord.Load(AgesGameContent.AssetRoot);
         foreach (bool batched in new[] { false, true })
         foreach (int item in Enumerable.Range(0x20, 5))
         {

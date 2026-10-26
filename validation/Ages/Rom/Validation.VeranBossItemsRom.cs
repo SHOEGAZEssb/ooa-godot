@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
                 if(itemId==0)accepted=target.ApplyItemCollision((RoomEntityItemCollision)spec.Item,actor.CollisionBounds,origin,1,spawns);
                 else
                 {
-                    FailIf(!new SeedSatchelDatabase().TryGet(itemId,out var seed),"Missing boss seed fixture.");
+                    FailIf(!new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(itemId,out var seed),"Missing boss seed fixture.");
                     var result=((ISeedCollisionTarget)target).ApplySeedCollision(actor.CollisionBounds,origin,seed,spec.Item,spawns);accepted=result.Contact;
                     FailIf(result.DisableCollision!=(spec.Effect==0x20)||result.Effect!=(itemId==ItemId.MysterySeed?SeedHitResult.ActivateRandomSeed:SeedHitResult.Activate),
                         "Boss seed must retain native activation/randomization and collision-disable response.");

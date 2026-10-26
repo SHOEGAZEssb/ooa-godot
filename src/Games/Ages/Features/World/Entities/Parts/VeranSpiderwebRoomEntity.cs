@@ -31,6 +31,7 @@ internal sealed partial class VeranSpiderwebRoomEntity : EnemyCharacter,IRoomEnt
     public int CollisionZ=>_z>>8;
     internal VeranSpiderwebRoomEntity(RoomEntityManager owner,VeranFinalDatabase data,int subid,int parentSlot,Vector2 position,int z,int angle=0)
     {
+        AssetRoot = owner.AssetRoot;
         _owner=owner;_data=data;SubId=subid;_parentSlot=parentSlot;_z=(z>>8)<<8;Angle=angle;
         InitializeEnemy(position.Floor(),EnemyCharacterConfiguration.FromImported(data.Actor(0x56)),positionedOam:true);Visible=false;
     }

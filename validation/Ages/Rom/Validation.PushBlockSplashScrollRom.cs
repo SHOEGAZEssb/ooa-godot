@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             _player.WarpTo(start); _player.Face(Vector2I.Left);
             FailIf(_collision.Collides(start) || _currentRoom.GetMetatile(new(8,88)) != 0x24,
                 "Splash scroll must exit through unchanged room0:34/$50 floor.");
-            var graphics = new ScreenTransitionGraphicsDatabase();
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             var seed = _random.CaptureState();

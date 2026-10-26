@@ -6,11 +6,12 @@ namespace Oracles;
 
 public sealed class EnemyDatabase
 {
-    // These definitions (including their palette/animation arrays) are
-    // read-only inputs. Placement, handlers' live state and RNG stay private
-    // to each manager; constructing a session must not parse them again.
-    private static readonly Lazy<EnemyDatabase> SharedInstance = new(() => new());
-    internal static EnemyDatabase Shared => SharedInstance.Value;
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<EnemyDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static EnemyDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<EnemyDatabase>(() => new EnemyDatabase(root))).Value;
+
 
     private readonly Lookup<int, RoomObjectRecord> _roomObjectsByRoom = new();
     private readonly Dictionary<int, KeeseDefinition> _keeseDefinitions = new();
@@ -42,22 +43,24 @@ public sealed class EnemyDatabase
     internal string CukemanText(int id) => _cukemanTexts.TryGetValue(id, out string? text)
         ? text : throw new InvalidOperationException($"Missing Cukeman text ${id:x4}.");
 
-    public EnemyDatabase()
+    public EnemyDatabase(string assetRoot)
     {
-        var smogText = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/smog_intro_text.tsv",
+        AssetRoot = assetRoot;
+
+        var smogText = GeneratedTable.Load(AssetRoot + "objects/smog_intro_text.tsv",
             new GeneratedTableSchema("Smog intro", GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
         if (smogText.Rows.Count != 1 || smogText.Rows[0].HexWord(0) != 0x2f26)
             throw new InvalidOperationException("smog_state_uninitialized requires TX_2f26.");
         SmogIntroText = smogText.Rows[0].Base64Utf8(1);
-        var likeLikeText = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/like_like_text.tsv",
+        var likeLikeText = GeneratedTable.Load(AssetRoot + "objects/like_like_text.tsv",
             new GeneratedTableSchema("Like Like shield loss", GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
         if (likeLikeText.Rows.Count != 1 || likeLikeText.Rows[0].HexWord(0) != 0x510b)
             throw new InvalidOperationException("likelike_stateB requires TX_510b.");
         LikeLikeShieldText = likeLikeText.Rows[0].Base64Utf8(1);
         _ = likeLikeText.Rows[0].RequiredString(2);
-        GeneratedTable texts = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/cukeman_text.tsv",
+        GeneratedTable texts = GeneratedTable.Load(AssetRoot + "objects/cukeman_text.tsv",
             new GeneratedTableSchema("Cukeman dialogue", GeneratedTableKeySemantics.Unique,
                 ["text-id", "text-base64", "source"], ["text-id"], headerRequired: true));
         foreach (GeneratedTableRow row in texts.Rows)
@@ -71,7 +74,7 @@ public sealed class EnemyDatabase
         if (_cukemanTexts.Count != 8)
             throw new InvalidOperationException("Cukeman requires TX_2f1e through TX_2f25.");
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/common_enemies.tsv",
+            AssetRoot + "objects/common_enemies.tsv",
             new GeneratedTableSchema(
                 "common enemy definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -84,7 +87,7 @@ public sealed class EnemyDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            ImportedEnemyDefinition record = new ImportedEnemyDefinition(
+            ImportedEnemyDefinition record = new ImportedEnemyDefinition(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.SplitRequired(2, ','),
@@ -232,7 +235,7 @@ public sealed class EnemyDatabase
                 "Imported common-enemy contract is incomplete.");
         }
 
-        var beamPoses = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/lynel_beam.tsv",
+        var beamPoses = GeneratedTable.Load(AssetRoot + "effects/lynel_beam.tsv",
             new GeneratedTableSchema("PART_LYNEL_BEAM $1b", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
                 ["animation-index"], headerRequired: true));
@@ -247,8 +250,8 @@ public sealed class EnemyDatabase
                 throw row.Invalid(0, "ordered PART$1b directional pose with source graphics");
             beamAnimations[i] = row.RequiredString(5);
         }
-        LynelBeam = new([firstBeam.RequiredString(1)], 26, 5, firstBeam.Boolean01(4), beamAnimations);
-        var wizzrobePoses = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/wizzrobe_projectile.tsv",
+        LynelBeam = new(AssetRoot, [firstBeam.RequiredString(1)], 26, 5, firstBeam.Boolean01(4), beamAnimations);
+        var wizzrobePoses = GeneratedTable.Load(AssetRoot + "effects/wizzrobe_projectile.tsv",
             new GeneratedTableSchema("PART_WIZZROBE_PROJECTILE $1f", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
                 ["animation-index"], headerRequired: true));
@@ -263,9 +266,9 @@ public sealed class EnemyDatabase
                 pose.Boolean01(4) != firstPose.Boolean01(4)) throw pose.Invalid(0, "ordered PART$1f directional pose with matching graphics");
             poses[i] = pose.RequiredString(5);
         }
-        WizzrobeProjectile = new([firstPose.RequiredString(1)], firstPose.UnsignedDecimal(2),
+        WizzrobeProjectile = new(AssetRoot, [firstPose.RequiredString(1)], firstPose.UnsignedDecimal(2),
             firstPose.UnsignedDecimal(3), firstPose.Boolean01(4), poses);
-        var candleFlame = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/candle_flame.tsv",
+        var candleFlame = GeneratedTable.Load(AssetRoot + "effects/candle_flame.tsv",
             new GeneratedTableSchema("PART_CANDLE_FLAME $36", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
                 ["animation-index"], headerRequired: true));
@@ -280,10 +283,10 @@ public sealed class EnemyDatabase
                 row.Boolean01(4) != firstFlame.Boolean01(4)) throw row.Invalid(0, "ordered PART$36 poses with matching graphics");
             flameAnimations[i] = row.RequiredString(5);
         }
-        CandleFlame = new([firstFlame.RequiredString(1)], firstFlame.UnsignedDecimal(2), firstFlame.UnsignedDecimal(3),
+        CandleFlame = new(AssetRoot, [firstFlame.RequiredString(1)], firstFlame.UnsignedDecimal(2), firstFlame.UnsignedDecimal(3),
             firstFlame.Boolean01(4), flameAnimations);
 
-        var vireShots = GeneratedTable.Load(AgesGameContent.AssetRoot + "effects/vire_projectile.tsv",
+        var vireShots = GeneratedTable.Load(AssetRoot + "effects/vire_projectile.tsv",
             new GeneratedTableSchema("PART_VIRE_PROJECTILE $3a", GeneratedTableKeySemantics.Unique,
                 ["animation-index", "sprite", "tile-base", "palette", "source-grayscale-inverted", "animation", "source"],
                 ["animation-index"], headerRequired: true));
@@ -298,11 +301,11 @@ public sealed class EnemyDatabase
                 row.Boolean01(4) != firstShot.Boolean01(4)) throw row.Invalid(0, "ordered PART$3a animations with matching graphics");
             shotAnimations[i] = row.RequiredString(5);
         }
-        VireProjectile = new([firstShot.RequiredString(1)], firstShot.UnsignedDecimal(2), firstShot.UnsignedDecimal(3),
+        VireProjectile = new(AssetRoot, [firstShot.RequiredString(1)], firstShot.UnsignedDecimal(2), firstShot.UnsignedDecimal(3),
             firstShot.Boolean01(4), shotAnimations);
 
         Color[,] colorGelPalette = OracleGraphicsData.LoadPalette(
-            AgesGameContent.AssetRoot + "objects/color_changing_gel_palette.bin",
+            AssetRoot + "objects/color_changing_gel_palette.bin",
             1,
             6);
         var colorGelPalette6 = new Color[4];
@@ -311,7 +314,7 @@ public sealed class EnemyDatabase
         _colorChangingGelPalettes.Add(6, colorGelPalette6);
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/moblin_boomerang.tsv",
+            AssetRoot + "effects/moblin_boomerang.tsv",
             new GeneratedTableSchema(
                 "Moblin boomerang",
                 GeneratedTableKeySemantics.Ordered,
@@ -321,7 +324,7 @@ public sealed class EnemyDatabase
                 ],
                 headerRequired: true));
         GeneratedTableRow boomerang = table.SingleRow();
-        MoblinBoomerang = new EnemyProjectileVisualRecord(
+        MoblinBoomerang = new EnemyProjectileVisualRecord(AssetRoot,
             boomerang.SplitRequired(0, ','),
             boomerang.UnsignedDecimal(1),
             boomerang.UnsignedDecimal(2),
@@ -341,7 +344,7 @@ public sealed class EnemyDatabase
         }
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/keese.tsv",
+            AssetRoot + "objects/keese.tsv",
             new GeneratedTableSchema(
                 "Keese definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -354,7 +357,7 @@ public sealed class EnemyDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            KeeseDefinition definition = new KeeseDefinition(
+            KeeseDefinition definition = new KeeseDefinition(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.RequiredString(2),
@@ -377,7 +380,7 @@ public sealed class EnemyDatabase
                 $"Expected two Keese definitions, got {_keeseDefinitions.Count}.");
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/crows.tsv",
+            AssetRoot + "objects/crows.tsv",
             new GeneratedTableSchema(
                 "Crow definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -390,7 +393,7 @@ public sealed class EnemyDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            CrowDefinition definition = new CrowDefinition(
+            CrowDefinition definition = new CrowDefinition(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.RequiredString(2),
@@ -419,7 +422,7 @@ public sealed class EnemyDatabase
         }
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/octoroks.tsv",
+            AssetRoot + "objects/octoroks.tsv",
             new GeneratedTableSchema(
                 "Octorok definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -433,7 +436,7 @@ public sealed class EnemyDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            OctorokDefinition definition = new OctorokDefinition(
+            OctorokDefinition definition = new OctorokDefinition(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.RequiredString(2),
@@ -461,7 +464,7 @@ public sealed class EnemyDatabase
                 $"Expected three Octorok definitions, got {_octorokDefinitions.Count}.");
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/stalfos.tsv",
+            AssetRoot + "objects/stalfos.tsv",
             new GeneratedTableSchema(
                 "Stalfos definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -474,7 +477,7 @@ public sealed class EnemyDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            StalfosDefinition definition = new StalfosDefinition(
+            StalfosDefinition definition = new StalfosDefinition(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.RequiredString(2),
@@ -501,7 +504,7 @@ public sealed class EnemyDatabase
         }
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/zols.tsv",
+            AssetRoot + "objects/zols.tsv",
             new GeneratedTableSchema(
                 "Zol definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -515,7 +518,7 @@ public sealed class EnemyDatabase
                 headerRequired: true));
         foreach (GeneratedTableRow row in table.Rows)
         {
-            ZolDefinition definition = new ZolDefinition(
+            ZolDefinition definition = new ZolDefinition(AssetRoot,
                 row.HexByte(0),
                 row.HexByte(1),
                 row.RequiredString(2),
@@ -542,7 +545,7 @@ public sealed class EnemyDatabase
                 $"Expected two Zol definitions, got {_zolDefinitions.Count}.");
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/gels.tsv",
+            AssetRoot + "objects/gels.tsv",
             new GeneratedTableSchema(
                 "Gel definitions",
                 GeneratedTableKeySemantics.Unique,
@@ -554,7 +557,7 @@ public sealed class EnemyDatabase
                 ["id", "subid"],
                 headerRequired: true));
         GeneratedTableRow gel = table.SingleRow();
-        Gel = new GelDefinition(
+        Gel = new GelDefinition(AssetRoot,
             gel.HexByte(0),
             gel.HexByte(1),
             gel.RequiredString(2),
@@ -571,7 +574,7 @@ public sealed class EnemyDatabase
             throw gel.Invalid(0, "ENEMY_GEL $43:$00 definition");
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/enemy_object_stream.tsv",
+            AssetRoot + "objects/enemy_object_stream.tsv",
             new GeneratedTableSchema(
                 "ordered enemy object stream",
                 GeneratedTableKeySemantics.Grouped,
@@ -597,6 +600,12 @@ public sealed class EnemyDatabase
                 row.HexByteOrSentinel(9, "-1", -1),
                 row.HexByteOrSentinel(10, "-1", -1),
                 row.HexByte(11)) { Var03 = row.HexByte(12) };
+            string game = OracleAssetPack.GameFor(AssetRoot).ToString().ToLowerInvariant();
+            record = record with { SourceOverride = record.Id == 0x62
+                ? $"objects/{game}/mainData.s:group{record.Group:x1}Map{record.Room:x2}ObjectData[ENEMY_VINE_SPROUT]"
+                : record.Kind == RoomObjectKind.ReservingPart && record.Id == 0x59
+                ? $"objects/{game}/mainData.s:group{record.Group:x1}Map{record.Room:x2}ObjectData[PART_BLACK_TOWER_MOVING_FLAMES]"
+                : $"objects/{game}/enemyData.s:group{record.Group:x1}Map{record.Room:x2}EnemyObjectData[{record.Order}]" };
             List<RoomObjectRecord> roomRecords =
                 _roomObjectsByRoom.GetOrAdd(MakeKey(record.Group, record.Room));
             if (roomRecords.Count != record.Order)
@@ -611,7 +620,7 @@ public sealed class EnemyDatabase
         RoomObjectRecordCount = records;
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/octorok_projectile.tsv",
+            AssetRoot + "effects/octorok_projectile.tsv",
             new GeneratedTableSchema(
                 "Octorok projectile",
                 GeneratedTableKeySemantics.Ordered,
@@ -621,7 +630,7 @@ public sealed class EnemyDatabase
                 ],
                 headerRequired: true));
         GeneratedTableRow projectile = table.SingleRow();
-        OctorokProjectile = new OctorokProjectileRecord(
+        OctorokProjectile = new OctorokProjectileRecord(AssetRoot,
             projectile.RequiredString(0),
             projectile.UnsignedDecimal(1),
             projectile.UnsignedDecimal(2),
@@ -633,7 +642,7 @@ public sealed class EnemyDatabase
             projectile.RequiredString(8));
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/masked_moblin.tsv",
+            AssetRoot + "objects/masked_moblin.tsv",
             new GeneratedTableSchema(
                 "masked Moblin",
                 GeneratedTableKeySemantics.Ordered,
@@ -644,7 +653,7 @@ public sealed class EnemyDatabase
                 ],
                 headerRequired: true));
         GeneratedTableRow masked = table.SingleRow();
-        MaskedMoblin = new MaskedMoblinRecord(
+        MaskedMoblin = new MaskedMoblinRecord(AssetRoot,
             masked.HexByte(0), masked.HexByte(1),
             masked.RequiredString(2), masked.UnsignedDecimal(3), masked.UnsignedDecimal(4),
             masked.UnsignedDecimal(5), masked.UnsignedDecimal(6), masked.UnsignedDecimal(7),
@@ -654,7 +663,7 @@ public sealed class EnemyDatabase
             masked.RequiredString(15), masked.RequiredString(16));
 
         table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "effects/enemy_arrow.tsv",
+            AssetRoot + "effects/enemy_arrow.tsv",
             new GeneratedTableSchema(
                 "enemy arrow",
                 GeneratedTableKeySemantics.Ordered,
@@ -665,13 +674,13 @@ public sealed class EnemyDatabase
                 ],
                 headerRequired: true));
         GeneratedTableRow arrow = table.SingleRow();
-        EnemyArrow = new EnemyArrowRecord(
+        EnemyArrow = new EnemyArrowRecord(AssetRoot,
             arrow.RequiredString(0), arrow.UnsignedDecimal(1), arrow.UnsignedDecimal(2),
             arrow.UnsignedDecimal(3), arrow.UnsignedDecimal(4),
             arrow.RequiredString(5), arrow.RequiredString(6), arrow.RequiredString(7),
             arrow.RequiredString(8), arrow.RequiredString(9));
 
-        EnemyHandlers = new EnemyHandlerRegistry(_roomObjectsByRoom.Values);
+        EnemyHandlers = new EnemyHandlerRegistry(AssetRoot, _roomObjectsByRoom.Values);
         ValidateEnemyHandlerDefinitions();
     }
 
@@ -688,7 +697,7 @@ public sealed class EnemyDatabase
             record = default;
             return false;
         }
-        record = new EnemyDatabaseEnemyRecord(
+        record = new EnemyDatabaseEnemyRecord(AssetRoot,
             source.Group,
             source.Room,
             definition.Id,
@@ -716,6 +725,7 @@ public sealed class EnemyDatabase
             return false;
         }
         record = new OctorokRecord(
+            AssetRoot,
             source.Group,
             source.Room,
             definition.Id,
@@ -750,7 +760,7 @@ public sealed class EnemyDatabase
             record = default;
             return false;
         }
-        record = new ZolRecord(
+        record = new ZolRecord(AssetRoot,
             source.Group,
             source.Room,
             definition.Id,
@@ -784,7 +794,7 @@ public sealed class EnemyDatabase
             record = default;
             return false;
         }
-        record = new StalfosRecord(
+        record = new StalfosRecord(AssetRoot,
             source.Group,
             source.Room,
             definition.Id,
@@ -815,7 +825,7 @@ public sealed class EnemyDatabase
             record = default;
             return false;
         }
-        record = new CrowRecord(
+        record = new CrowRecord(AssetRoot,
             source.Group,
             source.Room,
             definition.Id,
@@ -906,11 +916,11 @@ public sealed class EnemyDatabase
     private bool HasOrderedHandlerDefinition(
         EnemyHandlerDescriptor descriptor) => descriptor.Handler switch
     {
-        EnemyHandlerKind.Twinrova => descriptor.Id == 3 && descriptor.SubId == 0 && new TwinrovaDatabase().Actor(3).Health == 3,
-        EnemyHandlerKind.VeranFinal => descriptor.Id==2&&descriptor.SubId==0&&new VeranFinalDatabase().Actor(2).Health==24,
+        EnemyHandlerKind.Twinrova => descriptor.Id == 3 && descriptor.SubId == 0 && new TwinrovaDatabase(AssetRoot).Actor(3).Health == 3,
+        EnemyHandlerKind.VeranFinal => descriptor.Id==2&&descriptor.SubId==0&&new VeranFinalDatabase(AssetRoot).Actor(2).Health==24,
         EnemyHandlerKind.AmbiGuard => descriptor.Id == 0x54 && _importedDefinitions.ContainsKey((0x54, 0)),
         EnemyHandlerKind.KingMoblin => descriptor.Id == AgesEnemyId.KingMoblin && descriptor.SubId == 0 &&
-            new KingMoblinDatabase().Actor(0x7f).Health == 6,
+            new KingMoblinDatabase(AssetRoot).Actor(0x7f).Health == 6,
         EnemyHandlerKind.CheepCheep => HasImportedDefinition(descriptor, 0x2c),
         EnemyHandlerKind.TargetCartCrystal => descriptor.Id==AgesEnemyId.TargetCartCrystal && descriptor.SubId<12 && _importedDefinitions.ContainsKey((0x63,0)),
         EnemyHandlerKind.RiverZora => HasImportedDefinition(descriptor, 0x08),
@@ -1038,35 +1048,35 @@ public sealed class EnemyDatabase
     };
 }
 
-public readonly record struct CrowRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
+public readonly record struct CrowRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
 
-public readonly record struct EnemyArrowRecord(string SpriteName, int TileBase, int Palette, int DamageQuarters, int SpeedRaw, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, string BounceAnimation);
+public readonly record struct EnemyArrowRecord(string AssetRoot, string SpriteName, int TileBase, int Palette, int DamageQuarters, int SpeedRaw, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, string BounceAnimation);
 
-public readonly record struct EnemyDatabaseEnemyRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
+public readonly record struct EnemyDatabaseEnemyRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
 
-internal readonly record struct KeeseDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
+internal readonly record struct KeeseDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string IdleAnimation, string FlyAnimation, int RawDamage);
 
-internal readonly record struct ImportedEnemyDefinition(int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations, int RawDamage = 0);
+internal readonly record struct ImportedEnemyDefinition(string AssetRoot, int Id, int SubId, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, int RadiusY, int RadiusX, int DamageQuarters, int Health, string[] Animations, int RawDamage = 0);
 
-internal readonly record struct EnemyProjectileVisualRecord(string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, string[] Animations);
+internal readonly record struct EnemyProjectileVisualRecord(string AssetRoot, string[] Sprites, int TileBase, int Palette, bool SourceGrayscaleInverted, string[] Animations);
 
-internal readonly record struct CrowDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
+internal readonly record struct CrowDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string PerchedRightAnimation, string PerchedLeftAnimation, string FlightRightAnimation, string FlightLeftAnimation);
 
-internal readonly record struct OctorokDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);
+internal readonly record struct OctorokDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);
 
-internal readonly record struct StalfosDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
+internal readonly record struct StalfosDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
 
-internal readonly record struct ZolDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation, int RawDamage);
+internal readonly record struct ZolDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation, int RawDamage);
 
-public readonly record struct GelDefinition(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string NormalAnimation, string AttachedAnimation, string ShakeAnimation, int RawDamage);
+public readonly record struct GelDefinition(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string NormalAnimation, string AttachedAnimation, string ShakeAnimation, int RawDamage);
 
-public readonly record struct MaskedMoblinRecord(int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int MoveCounterBase, int MoveCounterMask, int TurnWait, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);
+public readonly record struct MaskedMoblinRecord(string AssetRoot, int Id, int SubId, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int MoveCounterBase, int MoveCounterMask, int TurnWait, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation);
 
-public readonly record struct OctorokProjectileRecord(string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int SpeedRaw, string NormalAnimation, string BounceAnimation);
+public readonly record struct OctorokProjectileRecord(string AssetRoot, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int SpeedRaw, string NormalAnimation, string BounceAnimation);
 
-public readonly record struct ZolRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation, int RawDamage);
+public readonly record struct ZolRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, string EmergeAnimation, string WaitAnimation, string HopAnimation, string DisappearAnimation, string RedIdleAnimation, string RedShakeAnimation, int RawDamage);
 
-public readonly record struct StalfosRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
+public readonly record struct StalfosRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, string WalkAnimation, string JumpAnimation);
 
 public readonly record struct RoomObjectRecord(
     int Group,
@@ -1084,14 +1094,8 @@ public readonly record struct RoomObjectRecord(
 {
     public int Var03 { get; init; }
     internal string? SourceOverride { get; init; }
-    public string Source =>
-        SourceOverride ?? (Id == 0x62
-            ? $"objects/ages/mainData.s:" +
-                $"group{Group:x1}Map{Room:x2}ObjectData[ENEMY_VINE_SPROUT]"
-            : Kind == RoomObjectKind.ReservingPart && Id == 0x59
-            ? $"objects/ages/mainData.s:group{Group:x1}Map{Room:x2}ObjectData[PART_BLACK_TOWER_MOVING_FLAMES]"
-            : $"objects/ages/enemyData.s:" +
-                $"group{Group:x1}Map{Room:x2}EnemyObjectData[{Order}]");
+    public string Source => SourceOverride ??
+        $"room {Group:x1}:{Room:x2} object[{Order}] {Kind} ${Id:x2}:${SubId:x2}";
 }
 
 public enum RoomObjectKind
@@ -1104,4 +1108,4 @@ public enum RoomObjectKind
     ItemDrop
 }
 
-public readonly record struct OctorokRecord(int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);
+public readonly record struct OctorokRecord(string AssetRoot, int Group, int Room, int Id, int SubId, int Flags, int Count, bool FixedPosition, int Y, int X, string SpriteName, int TileBase, int Palette, int CollisionRadiusY, int CollisionRadiusX, int DamageQuarters, int Health, int SpeedRaw, int CounterMask, string UpAnimation, string RightAnimation, string DownAnimation, string LeftAnimation, int RawDamage);

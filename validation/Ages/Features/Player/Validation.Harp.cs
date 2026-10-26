@@ -88,8 +88,8 @@ public sealed partial class ValidationRoot
         FailIf(!_transitions.TimeWarpActive,
             "Room 0:cd's portal did not accept contact on the following state-3 update.");
         for (int update = 0;
-            update < RoomTransitionController.TimeWarpInitializeFrames +
-                RoomTransitionController.TimeWarpDissolveFrames;
+            update < AgesRoomTransitionController.TimeWarpInitializeFrames +
+                AgesRoomTransitionController.TimeWarpDissolveFrames;
             update++)
         {
             _transitions.UpdateWarp(HarpFrame);
@@ -231,9 +231,9 @@ public sealed partial class ValidationRoot
         // This parent-exclusion case measures already initialized targets.
         StepGameplayUpdates(1, Vector2.Zero);
         OctorokCharacter target = _entities.Entities<OctorokCharacter>()[0];
-        int firstSwingPhase = LinkItemDatabase.Shared.SwingPhase(1);
+        int firstSwingPhase = LinkItemDatabase.For(AgesGameContent.AssetRoot).SwingPhase(1);
         int firstDownArc = (int)Facing.Down + firstSwingPhase * 4;
-        SwordArc arc = LinkItemDatabase.Shared.SwordArc(firstDownArc);
+        SwordArc arc = LinkItemDatabase.For(AgesGameContent.AssetRoot).SwordArc(firstDownArc);
         _player.WarpTo(
             target.Position - new Vector2(arc.OffsetX, arc.OffsetY),
             recordSafe: false);
@@ -300,7 +300,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateHarpInventorySubmenu()
     {
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(TreasureId.Harp, 0);
         inventory.GiveTreasure(TreasureId.TuneOfEchoes, 0);
@@ -313,15 +313,15 @@ public sealed partial class ValidationRoot
             "Tune of Echoes did not grant TREASURE_HARP parameter $01.");
         inventory.SwapStorageSlotWithButton(0, isA: false);
 
-        var screen = new InventoryScreen
-        {
+        var screen = new AgesInventoryScreen
+        { AssetRoot = AgesGameContent.AssetRoot,
             Name = "HarpInventoryValidation",
             Visible = false
         };
         AddChild(screen);
         screen.Initialize(_treasures, inventory);
         screen.Open();
-        var menu = new InventoryMenuController(
+        var menu = new AgesInventoryMenuController(
             screen,
             _saveQuitScreen,
             _menuLifecycle,
@@ -376,27 +376,27 @@ public sealed partial class ValidationRoot
             "and request the source movement/selection sounds.");
         FailIf(
             !OracleSaveData.TryDeserialize(
-                save.Serialize(), out OracleSaveData? restored) ||
+                save.Serialize(), OracleGame.Ages, out OracleSaveData? restored) ||
             new InventoryState(_treasures, restored!).SelectedHarpSong != 3,
             "Selected Harp song did not persist in wSelectedHarpSong.");
         screen.QueueFree();
 
         var twoSongInventory = new InventoryState(
-            _treasures, OracleSaveData.CreateStandardGame());
+            _treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         twoSongInventory.GiveTreasure(TreasureId.Harp, 0);
         twoSongInventory.GiveTreasure(TreasureId.TuneOfEchoes, 0);
         twoSongInventory.GiveTreasure(TreasureId.TuneOfCurrents, 0);
         // TREASURE_TUNE_OF_ECHOES grants and initially equips ITEM_HARP.
         twoSongInventory.SwapStorageSlotWithButton(0, isA: false);
-        var twoSongScreen = new InventoryScreen
-        {
+        var twoSongScreen = new AgesInventoryScreen
+        { AssetRoot = AgesGameContent.AssetRoot,
             Name = "TwoSongHarpInventoryValidation",
             Visible = false
         };
         AddChild(twoSongScreen);
         twoSongScreen.Initialize(_treasures, twoSongInventory);
         twoSongScreen.Open();
-        var twoSongMenu = new InventoryMenuController(
+        var twoSongMenu = new AgesInventoryMenuController(
             twoSongScreen,
             _saveQuitScreen,
             _menuLifecycle,

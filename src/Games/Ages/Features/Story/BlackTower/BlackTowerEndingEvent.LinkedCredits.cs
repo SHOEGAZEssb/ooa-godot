@@ -47,7 +47,7 @@ internal sealed partial class BlackTowerEndingEvent
                 case 0xdf:context.Entities.AddEntity(new NayruRalphCreditsRoomEntity(context,Data,actor.SubId,actor.Position));break;
                 case 0x3c:case 0x3f:context.Entities.AddEntity(new BoyPatternRoomEntity(context,Data,actor.Id,actor.SubId,actor.Position));break;
                 case 0x80:
-                    var fountainData=_fountains??=new();
+                    var fountainData=_fountains??=new(AgesGameContent.AssetRoot);
                     var placement=new FountainPlacement(context.Rooms.ActiveGroup,context.Rooms.CurrentRoom.Id,actor.SubId,actor.Position,"objects/ages/extraData2.s:objectData5542");
                     context.Entities.AddEntity(new FountainDecorationRoomEntity(placement,fountainData,context.Rooms.SaveData,
                         ()=>Screens.ApplyPalette(fountainData.UsesRuinedPalette(placement.Group,placement.Room,context.Rooms.SaveData)?0x7c:0x7d,context.Rooms.World.BackgroundPalettes,context.Entities)));break;

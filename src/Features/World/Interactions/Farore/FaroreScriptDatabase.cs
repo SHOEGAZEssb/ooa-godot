@@ -6,28 +6,32 @@ namespace Oracles;
 /// <summary>Source command streams for INTERAC_FARORE $10 in room 5:cf.</summary>
 internal sealed class FaroreScriptDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<string, IReadOnlyList<CutsceneCommand>> _scripts = new();
     private readonly Dictionary<int, string> _texts = new();
     private readonly FaroreRewardRecord[] _rewards = new FaroreRewardRecord[10];
 
-    internal FaroreScriptDatabase()
+    internal FaroreScriptDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         foreach (GeneratedTableRow row in GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "cutscenes/farore_texts.tsv",
+            AssetRoot + "cutscenes/farore_texts.tsv",
             new GeneratedTableSchema("Farore text", GeneratedTableKeySemantics.Unique,
                 ["text-id", "utf8-base64"], ["text-id"], headerRequired: true)).Rows)
             _texts.Add(row.HexWord(0), row.Base64Utf8(1));
         if (_texts.Count != 28) throw new InvalidOperationException("Farore TX_5501-$551c import is incomplete.");
 
         _scripts = CutsceneCommandCatalog.LoadPrograms(
-            AgesGameContent.AssetRoot + "cutscenes/farore_scripts.tsv");
+            AssetRoot + "cutscenes/farore_scripts.tsv");
         if (_scripts.Count != 2 || !_scripts.ContainsKey("faroreUnlinked") ||
             !_scripts.ContainsKey("faroreLinked"))
             throw new InvalidOperationException("Farore linked/unlinked source streams are missing.");
 
         int rewardIndex = 0;
         foreach (GeneratedTableRow row in GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "cutscenes/farore_rewards.tsv",
+            AssetRoot + "cutscenes/farore_rewards.tsv",
             new GeneratedTableSchema("Farore rewards", GeneratedTableKeySemantics.Unique,
                 ["index", "treasure-symbol", "subid", "kind"], ["index"], headerRequired: true)).Rows)
         {

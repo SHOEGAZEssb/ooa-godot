@@ -142,7 +142,7 @@ public sealed partial class ValidationRoot
                 record.BreakSource != 8,
                 $"Switch Hook level {level} lost the source's speed/counters, sounds or tile identities.");
         }
-        FailIf(!LinkItemDatabase.Shared.ParentAnimationSignalsItemUse(0x0a),
+        FailIf(!LinkItemDatabase.For(AgesGameContent.AssetRoot).ParentAnimationSignalsItemUse(0x0a),
             "Switch Hook parent must retain linkItemAnimationTable's $f6 item-start bit.");
         Vector2I[] positions = [new(0, 1), new(1, 3), new(0, 1), new(-1, 3)];
         int[] placement = [16, -1, -16, 1];

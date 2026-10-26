@@ -31,12 +31,14 @@ internal sealed partial class AnglerFishCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record,Vector2 position,AnglerFishEnvironment world,bool counted,
         AnglerFishCharacter? related=null)
     {
+        AssetRoot = record.AssetRoot;
         Record=record;SubId=record.SubId;_world=world;Counted=counted;_related=related;
         InitializeEnemy(position,EnemyCharacterConfiguration.FromImported(record),positionedOam:true);
         CollisionMode=IsBubble?0x24:0x64;Visible=false;
     }
     internal void InitializeNative(bool scrolling)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if(State!=0 || IsDead)return;
         _world.Random.Next();
         if(IsBubble)

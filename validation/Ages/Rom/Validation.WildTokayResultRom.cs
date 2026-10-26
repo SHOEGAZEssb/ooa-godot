@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach(int prize in present?new[]{0}:new[]{0,1,2,3,4,5})
         foreach(int free in new[]{0,1})
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName("Link");save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);save.WriteWramByte(0xc600,0x34);save.WriteWramByte(0xc601,0x12);
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName("Link");save.SetGlobalFlag(AgesGlobalFlag.PregameIntroDone);save.SetGlobalFlag(GlobalFlag.IntroDone);save.WriteWramByte(0xc600,0x34);save.WriteWramByte(0xc601,0x12);
             InitializeTransientSession(save);var data=new WildTokayGameDatabase();int room=present?0xe5:0xde,level=Math.Min(prize,4);
             _inventory.GiveTreasure(TreasureId.Bracelet,1);_inventory.GiveTreasure(TreasureId.Bombs,1);_inventory.AddRupees(20);_inventory.SetScriptedEquippedItems(0,0);
             _saveData.SetGlobalFlag(data.FinishedGameFlag);_saveData.SetGlobalFlag(data.BeganSecretFlag);_saveData.WriteWramByte(data.WildLevelAddress,(byte)level);_saveData.SetRoomFlag(2,room,0x40);
@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             int at=0xd040+_entities.InteractionSlot(slot.Npc)*256;native[at]=1;native[at+1]=0x48;native[at+2]=(byte)slot.Npc.Record.SubId;native[at+11]=(byte)slot.Npc.Position.Y;native[at+13]=(byte)slot.Npc.Position.X;
             while(14-InteractionAdmissionPool.Count>free)
             {
-                var puff=new PuzzlePuffEffect();puff.Initialize(new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
+                var puff=new PuzzlePuffEffect();puff.Initialize(AgesGameContent.AssetRoot, new(24,24),SoundId.MusNone);_entities.AddEntity(new InteractionSlotValidationEntity(puff,static _=>{}));
                 int p=0xd040+_entities.InteractionSlot(puff)*256;native[p]=1;native[p+1]=0x48;native[p+2]=0x1b;native[p+4]=1;
             }
             string source=$"Wild result/present{present}/lost{lost}/prize{prize}/free{free}/batch{batch}";int updates=0,held=0;
@@ -54,7 +54,7 @@ public sealed partial class ValidationRoot
                         if(id>=0x0a00&&id<=0x0a6c)
                         {
                             string expected=new TokayInteractionDatabase().Text(id);
-                            if(id is 0x0a50 or 0x0a53)expected=expected.Replace("\\secret1",new LinkedGameNpcDatabase().GenerateSecret(0x15,_saveData),StringComparison.Ordinal);
+                            if(id is 0x0a50 or 0x0a53)expected=expected.Replace("\\secret1",new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x15,_saveData),StringComparison.Ordinal);
                             FailIf(_dialogue.CurrentMessage!=DialogueBox.PlainText(expected),source+$" update{updates}: source reward text TX_${id:x4} differs.");
                         }
                     }

@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
     private void ValidateCollisionMasksRom()
     {
         var rom = new ObjectCollisionRom();
-        var boomerang = BoomerangCollisionDatabase.Shared;
+        var boomerang = BoomerangCollisionDatabase.For(AgesGameContent.AssetRoot);
         var hook = SwitchHookCollisionDatabase.Shared;
         int cases = 0;
         foreach (bool part in new[] { false, true })
@@ -37,14 +37,14 @@ public sealed partial class ValidationRoot
         for (int mode = 0; mode < 0x7d; mode++)
             FailIf(boomerang.Effect(mode) != rom.Table(0x6d0a + mode * 32 + 0x17) ||
                 hook.Effect(mode) != rom.Table(0x6d0a + mode * 32 + 0x0d) ||
-                GaleSeedCollisionDatabase.Shared.Effect(mode) != rom.Table(0x6d0a + mode * 32 + 0x1e),
+                GaleSeedCollisionDatabase.For(AgesGameContent.AssetRoot).Effect(mode) != rom.Table(0x6d0a + mode * 32 + 0x1e),
                 $"ROM shared collision effect table mode=${mode:x2}.");
         GD.Print($"Validated {cases} native enemy/part mask and eligibility scans plus all 125 Boomerang, Switch Hook and Gale effect rows.");
     }
 
     private void ValidateLinkContactGeometryRom()
     {
-        var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame());
+        var inventory = new InventoryState(_treasures, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         inventory.GiveTreasure(_treasures.GetObject("TREASURE_OBJECT_SHIELD_01"));
         inventory.EquipA(TreasureId.Shield);
         var world = new ValidationRingPlayerWorld();

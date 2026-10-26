@@ -30,8 +30,8 @@ internal static class CompanionRuntimeState
     private const int RememberedX = 0xcc28;
 
     // Ages wDisallowMountingCompanion. The interaction owns its countdown.
-    internal static bool MountingDisabled(OracleRuntimeState state) => state.ReadWramByte(AgesWramAddress.wDisallowMountingCompanion) != 0;
-    internal static void SetMountingLock(OracleRuntimeState state, int frames) => state.SetWramByte(AgesWramAddress.wDisallowMountingCompanion, checked((byte)frames));
+    internal static bool MountingDisabled(OracleRuntimeState state) => state.ReadField("wDisallowMountingCompanion") != 0;
+    internal static void SetMountingLock(OracleRuntimeState state, int frames) => state.SetField("wDisallowMountingCompanion", checked((byte)frames));
 
     internal static bool IsActive(OracleRuntimeState state, int id) =>
         state.ReadWramByte(Active) != 0 &&

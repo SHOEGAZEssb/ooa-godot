@@ -30,6 +30,7 @@ internal sealed partial class HeadThwompBoulder
         DungeonInteractionVisual impactVisual,
         Action<int> playSound)
     {
+        AssetRoot = fallVisual.AssetRoot;
         _room = room;
         _random = random;
         _playSound = playSound;
@@ -161,7 +162,7 @@ internal sealed partial class HeadThwompBoulder
     {
         var animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette,

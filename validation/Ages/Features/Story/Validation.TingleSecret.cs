@@ -51,7 +51,7 @@ public sealed partial class ValidationRoot
         _secretEntry.Submit([0xff, 0xff, 0xff, 0xff, 0xff]);
         FailIf(!_secretEntry.IsActive || _saveData.HasGlobalFlag(record.BeganSecretFlag),
             "Invalid Tingle secret advanced GLOBALFLAG_BEGAN_TINGLE_SECRET $6b.");
-        var codec = new LinkedGameNpcDatabase();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         _secretEntry.Submit(codec.GenerateSecretValues(record.SecretIndex, _saveData));
         for (int frame = 0; frame < 22; frame++) _secretEntry.Update(1.0 / 60.0);
         StepGameplayUpdates(1, Vector2.Zero);

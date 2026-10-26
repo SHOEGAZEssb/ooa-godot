@@ -10,6 +10,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class LedgeJumpDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly HashSet<int> _cliffTiles = new();
     private readonly HashSet<int> _landableSolidTiles = new();
     private readonly LedgeJumpDirectionRecord[] _directions =
@@ -32,8 +34,10 @@ internal sealed class LedgeJumpDatabase
         Constant("animation-phase-2")
     ];
 
-    internal LedgeJumpDatabase()
+    internal LedgeJumpDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         LoadCliffTiles();
         LoadLandableTiles();
         LoadDirections();
@@ -71,7 +75,7 @@ internal sealed class LedgeJumpDatabase
     private void LoadCliffTiles()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/ledge_cliff_tiles.tsv",
+            AssetRoot + "metadata/ledge_cliff_tiles.tsv",
             new GeneratedTableSchema(
                 "ledge cliff tiles",
                 GeneratedTableKeySemantics.Unique,
@@ -91,7 +95,7 @@ internal sealed class LedgeJumpDatabase
     private void LoadLandableTiles()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/ledge_landable_tiles.tsv",
+            AssetRoot + "metadata/ledge_landable_tiles.tsv",
             new GeneratedTableSchema(
                 "ledge landable solid tiles",
                 GeneratedTableKeySemantics.Unique,
@@ -109,7 +113,7 @@ internal sealed class LedgeJumpDatabase
     private void LoadDirections()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/ledge_jump_directions.tsv",
+            AssetRoot + "metadata/ledge_jump_directions.tsv",
             new GeneratedTableSchema(
                 "ledge jump directions",
                 GeneratedTableKeySemantics.Unique,
@@ -139,7 +143,7 @@ internal sealed class LedgeJumpDatabase
     private void LoadSpeeds()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/ledge_jump_speeds.tsv",
+            AssetRoot + "metadata/ledge_jump_speeds.tsv",
             new GeneratedTableSchema(
                 "ledge jump speeds",
                 GeneratedTableKeySemantics.Unique,
@@ -161,7 +165,7 @@ internal sealed class LedgeJumpDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/ledge_jump_constants.tsv",
+            AssetRoot + "metadata/ledge_jump_constants.tsv",
             new GeneratedTableSchema(
                 "ledge jump constants",
                 GeneratedTableKeySemantics.Unique,

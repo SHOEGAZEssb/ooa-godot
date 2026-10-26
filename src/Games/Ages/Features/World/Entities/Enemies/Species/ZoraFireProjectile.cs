@@ -29,6 +29,7 @@ internal sealed partial class ZoraFireProjectile : TransitionOffsetNode2D
     internal ZoraFireProjectile(ZoraFireSpawn spawn, ZoraFireDatabase data,
         Func<Vector2, Vector2> worldToScreen, OracleRuntimeState memory)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _memory = memory;
         if (spawn.PartId is not (Oracles.PartId.ZoraFire or Oracles.PartId.GopongaProjectile)) throw new ArgumentOutOfRangeException(nameof(spawn), "Expected PART $19 or $31.");
         PartId = spawn.PartId;

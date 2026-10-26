@@ -1,4 +1,4 @@
-foreach ($destination in @($destination, (Split-Path $previewDestination -Parent))) {
+foreach ($destination in @($destination, (Split-Path $previewDestination -Parent), (Join-Path (Split-Path $destination -Parent) 'common'))) {
     # Final import stage: inventory every generated TSV after all producers have
     # finished, then write the deterministic version/count/content manifest used by
     # the shared runtime table reader.

@@ -40,7 +40,7 @@ internal sealed partial class InteractionExplosionEffect : FixedEffectNode2D
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
             OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png"),
+                visual.AssetRoot + $"gfx/{visual.Sprite}.png"),
             [visual.Animation],
             visual.TileBase,
             visual.Palette);
@@ -88,4 +88,4 @@ internal sealed record InteractionExplosionSpawn(
     int Var03 = 1)
     : RoomEntitySpawn(UpdateThisFrame: true);
 
-internal readonly record struct InteractionExplosionVisual(string Sprite, int TileBase, int Palette, string Animation);
+internal readonly record struct InteractionExplosionVisual(string AssetRoot, string Sprite, int TileBase, int Palette, string Animation);

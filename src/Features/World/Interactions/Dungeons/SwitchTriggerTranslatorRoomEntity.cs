@@ -25,10 +25,10 @@ internal sealed partial class SwitchTriggerTranslatorRoomEntity(DungeonObjectRec
         if (Finished) return;
         if (isOutgoing(this)) { Finished = true; return; }
         int bit = (record.SubId >> 4) & 7;
-        int address = (record.SubId & 15) switch {
-            0 => AgesGameContent.ToggleBlocksStateAddress,
-            1 => AgesGameContent.SwitchStateAddress,
+        string symbol = (record.SubId & 15) switch {
+            0 => "wToggleBlocksState",
+            1 => "wSwitchState",
             _ => throw new InvalidOperationException($"{record.Source}: unsupported translator $24:${record.SubId:x2}.") };
-        setTrigger(bit, (runtime.ReadWramByte(address) & (1 << bit)) != 0);
+        setTrigger(bit, (runtime.ReadField(symbol) & (1 << bit)) != 0);
     }
 }

@@ -48,7 +48,7 @@ internal sealed class FaroreSparkleRoomEntity : IRoomEntity, IFixedRoomEntity,
             // $84:$0c compares the related slot's ID before copying it.
             if (_spawn.Parent is not { Finished: false }) { Delete(); return; }
             _actor.SetStatePosition(_spawn.Parent.Position);
-            if ((_entities.RuntimeState.ReadWramByte(AgesWramAddress.wTmpcfc0) & 1) != 0) { Delete(); return; }
+            if ((_entities.RuntimeState.ReadField("wTmpcfc0") & 1) != 0) { Delete(); return; }
             _actor.SetScriptVisible((frame.Counter & 1) == 0);
             _actor.AdvanceAnimationUpdates(1);
             return;

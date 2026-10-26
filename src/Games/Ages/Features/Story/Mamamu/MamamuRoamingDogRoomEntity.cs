@@ -19,7 +19,7 @@ internal sealed class MamamuRoamingDogRoomEntity : NpcCharacterRoomEntityAdapter
     private readonly Action<int> _sound;
     private readonly Action<Warp> _warp;
     private readonly Func<bool> _textActive;
-    private readonly BraceletGrabGeometry _grab = new();
+    private readonly BraceletGrabGeometry _grab = new(AgesGameContent.AssetRoot);
     private Action<INativeBraceletRoomEntity>? _publish;
     private OracleObjectPosition _position;
     private Player? _holder;
@@ -124,7 +124,7 @@ internal sealed class MamamuRoamingDogRoomEntity : NpcCharacterRoomEntityAdapter
     private void Initialize()
     {
         _initialized=true;
-        if (!new NpcVisibilityRuleDatabase().ShouldShow(_actor.Record,_save,_runtime))
+        if (!new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot).ShouldShow(_actor.Record,_save,_runtime))
         { _actor.SetActive(false); return; }
         _actor.InitializeCollisionRadii();
         _actor.SetScriptVisible(true);

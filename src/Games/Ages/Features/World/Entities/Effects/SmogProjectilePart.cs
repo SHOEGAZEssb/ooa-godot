@@ -32,6 +32,7 @@ internal sealed partial class SmogProjectilePart : TransitionOffsetNode2D
 
     internal SmogProjectilePart(SmogProjectileDatabase data, OracleRoomData room, Vector2 position, int subid)
     {
+        AssetRoot = room.AssetRoot;
         if (subid is < 0 or > 255) throw new ArgumentOutOfRangeException(nameof(subid));
         _data = data; _room = room; SubId = subid;
         _position = OracleObjectMovement.Shared.PositionFromPixels(position);

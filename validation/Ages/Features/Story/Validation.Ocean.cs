@@ -7,10 +7,10 @@ public sealed partial class ValidationRoot
 {
     private void ValidateOceanZoraDialogue()
     {
-        var npcs = new NpcDatabase();
-        var dialogue = new NpcDialogueRuleDatabase();
-        var visibility = new NpcVisibilityRuleDatabase();
-        var save = OracleSaveData.CreateStandardGame();
+        var npcs = new NpcDatabase(AgesGameContent.AssetRoot);
+        var dialogue = new NpcDialogueRuleDatabase(AgesGameContent.AssetRoot);
+        var visibility = new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot);
+        var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         // Independent literals from zora.s, including its unreachable state 3.
         int[] palace = [0x3410,0x3413,0x3415,0x3417,0x341a,0x3420,0x3424,0x3425,0x3427,0x3428];
         int[] cleaned = [0x3412,0x3414,0x3416,0x3419,0x341b,0x3422,0x3424,0x3426,0x3427,0x3429];

@@ -23,7 +23,7 @@ internal sealed class CleanSeasZoraRoomEntity : CutsceneCommandHost, IRoomEntity
     {
         _data = spawn.Data; _subid = spawn.SubId; _position = spawn.Position; _runtime = runtime; _scriptTextActive = scriptTextActive;
         var record = _data.Visual("zora", _position, 0) with { SubId = _subid };
-        _actor = NpcCharacter.CreateFromRecord(record);
+        _actor = NpcCharacter.CreateFromRecord(record, AgesGameContent.AssetRoot);
         _actor.SetBlocksLink(false); _actor.TimeWarpSolidMarked = false;
         _runner = new(this);
         if (_subid >= 0x0c)

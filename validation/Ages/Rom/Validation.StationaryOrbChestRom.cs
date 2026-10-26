@@ -21,7 +21,7 @@ public partial class ValidationRoot
                 "Original room$4:$74 must place PART$03:$00 at$6a before INTERAC$20:$02 at$58/$48.");
             // Isolate the two puzzle owners from the platform and Keese;
             // retain the original room's floor, holes and solid orb tile.
-            var orb = new DungeonOrbRoomEntity(record,data,new DungeonInteractionVisualDatabase().Visual("grotto-orb"),
+            var orb = new DungeonOrbRoomEntity(record,data,new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("grotto-orb"),
                 _currentRoom,_runtimeState,() => (long)_animationTicks,_sound.PlaySound);
             var chest = new DungeonOrbChestRoomEntity(chestRecord,_runtimeState,_sound.PlaySound,_entities.IsScriptTextActive,
                 () => _saveData.HasRoomFlag(4,0x74,OracleSaveData.RoomFlagItem),() => _rooms.TrySetTile(0x54,0xf1));

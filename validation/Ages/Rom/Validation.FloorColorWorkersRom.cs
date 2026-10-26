@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             var seed = _random.CaptureState();
             var rom = new SomariaRom(_saveData,seed,_currentRoom,0,200,120);
             rom.InitializeLinkGameplay(); rom.InitializeLinkWalkingAnimation();
-            var data = new DungeonInteractionDatabase();
+            var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
             var record = new SkullDungeonDatabase().GetRoomRecords(4,0x71).Single(row => row.Id == 0x22);
             var sounds = _sound.AttachPlayRequestAudit();
             var disabled = _entities.InitializedObjectsDisabledSource;

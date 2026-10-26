@@ -4,7 +4,12 @@ namespace Oracles;
 
 internal sealed class BoomerangCollisionDatabase
 {
-    internal static BoomerangCollisionDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<BoomerangCollisionDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static BoomerangCollisionDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<BoomerangCollisionDatabase>(() => new BoomerangCollisionDatabase(root))).Value;
+
     private readonly int[] _effects = new int[0x7d];
     private readonly bool[] _enemies = new bool[128];
     private readonly bool[] _parts = new bool[0x5a];
@@ -12,9 +17,11 @@ internal sealed class BoomerangCollisionDatabase
     internal int StunInvincibility { get; }
     internal int DeflectionInvincibility { get; }
 
-    private BoomerangCollisionDatabase()
+    private BoomerangCollisionDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/boomerang_collision_effects.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "metadata/boomerang_collision_effects.tsv",
             new GeneratedTableSchema("ITEMCOLLISION_L1_BOOMERANG $17", GeneratedTableKeySemantics.Unique,
                 ["mode", "effect", "source"], ["mode"], headerRequired: true));
         if (table.Rows.Count != 0x7d) throw new InvalidOperationException("Expected $7d vanilla boomerang collision modes.");
@@ -27,7 +34,7 @@ internal sealed class BoomerangCollisionDatabase
         }
         LoadMasks("enemy", _enemies);
         LoadMasks("part", _parts);
-        table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/boomerang_status.tsv",
+        table = GeneratedTable.Load(AssetRoot + "metadata/boomerang_status.tsv",
             new GeneratedTableSchema("Boomerang damage status", GeneratedTableKeySemantics.Unique,
                 ["damage-type", "flags", "invincibility", "knockback", "stun", "source"],
                 ["damage-type"], headerRequired: true));
@@ -40,9 +47,9 @@ internal sealed class BoomerangCollisionDatabase
         DeflectionInvincibility = unchecked((sbyte)table.Rows[1].HexByte(2));
     }
 
-    private static void LoadMasks(string kind, bool[] masks)
+    private void LoadMasks(string kind, bool[] masks)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + $"metadata/boomerang_{kind}_collisions.tsv",
+        var table = GeneratedTable.Load(AssetRoot + $"metadata/boomerang_{kind}_collisions.tsv",
             new GeneratedTableSchema($"Boomerang {kind} masks", GeneratedTableKeySemantics.Unique,
                 ["id", "enabled", "source"], ["id"], headerRequired: true));
         if (table.Rows.Count != masks.Length) throw new InvalidOperationException($"Incomplete boomerang {kind} masks.");

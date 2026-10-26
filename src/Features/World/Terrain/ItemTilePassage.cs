@@ -3,10 +3,10 @@ using Godot;
 namespace Oracles;
 
 /// <summary>Per-item cache and byte elevation for itemCheckCanPassSolidTile.</summary>
-internal sealed class ItemTilePassage
+internal sealed class ItemTilePassage(string assetRoot)
 {
-    private readonly BombRecord _passableTiles = new BombDatabase().Data;
-    private readonly ItemCliffDatabase _cliffs = new();
+    private readonly BombRecord _passableTiles = new BombDatabase(assetRoot + "metadata/bomb.tsv").Data;
+    private readonly ItemCliffDatabase _cliffs = new(assetRoot);
     private int _lastPosition = -1;
     private int _lastTile = -1;
     private int _elevation;

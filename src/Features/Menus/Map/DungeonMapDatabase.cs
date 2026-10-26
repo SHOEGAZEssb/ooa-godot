@@ -6,14 +6,18 @@ namespace Oracles;
 
 public sealed class DungeonMapDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int Dungeon, int Room, Vector2I Direction), int> _neighbors = new();
     private readonly Dictionary<int, DungeonInfo> _dungeons = new();
     private readonly Dictionary<(int Group, int Room), int> _dungeonByRoom = new();
 
-    public DungeonMapDatabase()
+    public DungeonMapDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable adjacency = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_adjacency.tsv",
+            AssetRoot + "objects/dungeon_adjacency.tsv",
             new GeneratedTableSchema(
                 "dungeon adjacency",
                 GeneratedTableKeySemantics.Unique,
@@ -130,7 +134,7 @@ public sealed class DungeonMapDatabase
     private void LoadMapLayouts()
     {
         GeneratedTable maps = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/dungeon_maps.tsv",
+            AssetRoot + "objects/dungeon_maps.tsv",
             new GeneratedTableSchema(
                 "dungeon map layouts",
                 GeneratedTableKeySemantics.Grouped,

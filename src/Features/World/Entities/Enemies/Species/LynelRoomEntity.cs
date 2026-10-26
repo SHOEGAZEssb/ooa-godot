@@ -13,7 +13,8 @@ internal sealed class LynelRoomEntity(LynelCharacter enemy, EnemyCombatSourceDes
         IFixedRoomEntity, IScreenTransitionPreloadRoomEntity, ILinkSwordStateAwareRoomEntity, IItemCollisionHittableRoomEntity,
         IExpertPunchHittableRoomEntity, ISeedCollisionTarget, IBurningEnemyTarget, ISomariaBlockCollisionRoomEntity, IBoomerangCollisionRoomEntity
 {
-    private readonly EnemyBehaviorTables _data = EnemyBehaviorTables.Shared;
+    private EnemyBehaviorTables? _dataSourceCache;
+    private EnemyBehaviorTables _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot);
     private int _swordCollision = ItemCollisionType.L1Sword;
     protected override bool Stunned => Entity.StunCounter != 0;
     public override void HandleLinkContact(Player player)

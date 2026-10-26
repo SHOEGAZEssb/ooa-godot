@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             FailIf(cells.Length != (finalBattle ? 3 : 6), "Retained map fixture missed a source dungeon floor.");
             foreach (DungeonCell remembered in cells)
             {
-                var save = OracleSaveData.CreateStandardGame();
+                var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
                 save.WriteWramByte(0xc686 + index / 8, (byte)((equipment & 1) != 0 ? 1 << (index & 7) : 0));
                 save.WriteWramByte(0xc684 + index / 8, (byte)((equipment & 2) != 0 ? 1 << (index & 7) : 0));
                 InitializeTransientSession(save);
@@ -63,7 +63,7 @@ public sealed partial class ValidationRoot
                         _mapScreen.DungeonScrollY != rom[0xcbb8] || _mapScreen.IsScrolling != (rom[0xcbce] != 0) ||
                         _mapScreen.DungeonLinkIconPosition != new Vector2(80 + (cursor & 7) * 8, 32 + (cursor >> 3) * 8),
                         $"{context} update={update}: retained floor/scroll/cursor/icon position differs.");
-                    bool flicker = (bool)typeof(MapScreen).GetField("_dungeonFlicker", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_mapScreen)!;
+                    bool flicker = (bool)typeof(AgesMapScreen).GetField("_dungeonFlicker", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_mapScreen)!;
                     FailIf(flicker != (rom[0xcbb9] != 0), $"{context} update={update}: retained dungeon flicker counter differs.");
                     for (int y = 0; y < 18; y++)
                     for (int x = 0; x < 20; x++)

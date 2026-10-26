@@ -132,7 +132,7 @@ internal sealed partial class RoomOfRitesBattleEvent(RoomEventContext context) :
             }
             else if (record.Id == 0xad && record.Subid == 0)
             {
-                var source = NpcDatabase.Shared.AllRecords.Single(n => n.Group == 5 && n.Room == 0xf1 && n.Id == 0xad && n.SubId == 0);
+                var source = NpcDatabase.For(AgesGameContent.AssetRoot).AllRecords.Single(n => n.Group == 5 && n.Room == 0xf1 && n.Id == 0xad && n.SubId == 0);
                 var zelda = new RoomOfRitesZeldaActor(context, source with { X = (int)record.Position.X, Y = (int)record.Position.Y });
                 _zeldas.Add(zelda); context.Entities.AddEntity(zelda);
             }

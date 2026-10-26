@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
         for (int maximum = 0x0c; maximum <= 0x38; maximum += 4)
         for (int health = 0; health <= 0xff; health++)
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(AgesWramAddress.wLinkHealth, (byte)health);
             save.WriteWramByte(AgesWramAddress.wLinkMaxHealth, (byte)maximum);
             for (int address = 0xc5b0; address < 0xcb00; address++) rom[address] = save.ReadWramByte(address);
@@ -28,7 +28,7 @@ public sealed partial class ValidationRoot
         foreach (int maximum in new[] { 0x0c, 0x14, 0x20, 0x38 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetLinkName("Link");
             save.SetGlobalFlag(GlobalFlag.IntroDone);
             save.SetDeathRespawnPoint(1, 0xa7, 0, 3, 0x28, 0x48);
@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
             InitializeTransientSession(save);
             LoadValidationRoom(0, 0x45);
             _inventory.ApplyDamage(_inventory.HealthQuarters);
-            GameSceneGraph previousScene = _scene;
+            AgesGameSceneGraph previousScene = _scene;
             BeginGameOver();
             var menu = _inventoryMenu;
             var application = new ApplicationValidationFixture(this);

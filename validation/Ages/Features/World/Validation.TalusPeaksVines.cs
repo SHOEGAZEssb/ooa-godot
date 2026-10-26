@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         // roomSpecificTileChanges.s:$21/$22 dispatch to 0:61/0:51.
         // Both inspect wVinePositions+$01, not room flags or two sprouts.
         const int address = 0xc8f1;
-        var enemies = new EnemyDatabase();
+        var enemies = new EnemyDatabase(AgesGameContent.AssetRoot);
         FailIf(enemies.GetRoomObjects(1, 0x61) is not
             [{ Kind: RoomObjectKind.FixedEnemy, Id: 0x62, SubId: 0x01, Order: 0 }],
             "Room 1:61 lost its sole source-placed ENEMY_VINE_SPROUT $62:$01.");
@@ -64,7 +64,7 @@ public sealed partial class ValidationRoot
         // fileManagement.initializeFile calls initializeVinePositions before
         // saving: all six defaults exist before any past sprout is parsed.
         byte[] defaults = [0x41, 0x22, 0x16, 0x35, 0x18, 0x53];
-        OracleSaveData fresh = OracleSaveData.CreateStandardGame();
+        OracleSaveData fresh = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         for (int subId = 0; subId < defaults.Length; subId++)
             FailIf(fresh.ReadWramByte(0xc8f0 + subId) != defaults[subId],
                 $"New file wVinePositions+${subId:x2} must start at ${defaults[subId]:x2} before visiting the past.");
@@ -75,7 +75,7 @@ public sealed partial class ValidationRoot
         fresh.WriteWramByte(address, 0x27);
         fresh.WriteWramByte(0xc8f2, 0);
         byte[] stored = fresh.Serialize();
-        FailIf(!OracleSaveData.TryDeserialize(stored, out OracleSaveData? restored) ||
+        FailIf(!OracleSaveData.TryDeserialize(stored, OracleGame.Ages, out OracleSaveData? restored) ||
             !restored!.Serialize().SequenceEqual(stored),
             "Loading vine positions must preserve the entire saved image.");
 
@@ -92,10 +92,10 @@ public sealed partial class ValidationRoot
         foreach (bool reloaded in new[] { false, true })
         foreach (bool batched in new[] { false, true })
         {
-            OracleSaveData firstVisit = OracleSaveData.CreateStandardGame();
+            OracleSaveData firstVisit = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             if (reloaded)
             {
-                FailIf(!OracleSaveData.TryDeserialize(firstVisit.Serialize(), out restored),
+                FailIf(!OracleSaveData.TryDeserialize(firstVisit.Serialize(), OracleGame.Ages, out restored),
                     "Present-first save failed to reload.");
                 firstVisit = restored!;
             }

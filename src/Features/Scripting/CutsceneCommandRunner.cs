@@ -60,6 +60,8 @@ internal sealed class CutsceneCommandRunner(ICutsceneCommandHost host)
     internal int ActorAngle(CutsceneActorId actor) =>
         _angles.TryGetValue(actor, out int angle) ? angle : 0;
 
+    internal void SetNativeActorAngle(CutsceneActorId actor, int angle) => _angles[actor] = angle & 0xff;
+
     // counter2 belongs to a started movement operation, not an ordinary wait
     // using counter1. On movement's zero update the runner has already yielded
     // to the next instruction, so this view also reports zero to native tails.

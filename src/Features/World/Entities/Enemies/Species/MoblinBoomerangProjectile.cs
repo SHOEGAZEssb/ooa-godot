@@ -4,8 +4,8 @@ namespace Oracles;
 
 internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
 {
-    private readonly MoblinBoomerangBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.MoblinBoomerang;
+    private MoblinBoomerangBehaviorProfile? _behaviorSourceCache;
+    private MoblinBoomerangBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).MoblinBoomerang;
     private readonly BoomerangMoblinCharacter _owner;
     private readonly OracleRoomData _room;
     private readonly EnemyAnimationPlayer _animation;
@@ -25,6 +25,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
         EnemyProjectileVisualRecord visual,
         OracleRuntimeState? movementMemory = null)
     {
+        AssetRoot = visual.AssetRoot;
         _owner = owner;
         _room = room;
         _movementMemory = movementMemory;
@@ -32,7 +33,7 @@ internal partial class MoblinBoomerangProjectile : TransitionOffsetNode2D
         _angle = angle;
         _animation = new EnemyAnimationPlayer(this, visual.Animations.Length);
         _animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette,

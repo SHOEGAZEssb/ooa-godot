@@ -1,0 +1,225 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://src/Games/Ages/Application/AgesGameSceneGraph.cs" id="1_gameplay"]
+[ext_resource type="Script" path="res://src/Features/World/Rooms/RoomView.cs" id="2_room_view"]
+[ext_resource type="Script" path="res://src/Features/Player/Player.cs" id="3_player"]
+[ext_resource type="Script" path="res://src/Features/Interface/Hud.cs" id="4_hud"]
+[ext_resource type="Script" path="res://src/Features/Dialogue/DialogueBox.cs" id="5_dialogue"]
+[ext_resource type="Script" path="res://src/Games/Ages/Features/Menus/Map/AgesMapScreen.cs" id="6_map"]
+[ext_resource type="Script" path="res://src/Games/Ages/Features/Menus/Inventory/AgesInventoryScreen.cs" id="7_inventory"]
+[ext_resource type="Script" path="res://src/Features/Menus/Shell/SaveQuitScreen.cs" id="8_save_quit"]
+[ext_resource type="Script" path="res://src/Features/Development/DebugFlagScreen.cs" id="9_debug_flags"]
+[ext_resource type="Script" path="res://src/Features/Menus/Inventory/RingMenuScreen.cs" id="10_ring_menu"]
+[ext_resource type="Script" path="res://src/Features/World/Transitions/RoomLoadColumnRevealOverlay.cs" id="11_room_load_reveal"]
+[ext_resource type="Script" path="res://src/Features/Development/DebugObjectSpawnerScreen.cs" id="12_debug_spawner"]
+[ext_resource type="Script" path="res://src/Games/Ages/Features/Story/BlackTower/EndingScreen.cs" id="13_ending"]
+[ext_resource type="Script" path="res://src/Features/Menus/Shell/SecretListScreen.cs" id="14_secret_list"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_palette_fade"]
+blend_mode = 1
+
+[node name="Gameplay" type="Node2D"]
+script = ExtResource("1_gameplay")
+
+[node name="World" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="RoomView" type="Node2D" parent="World"]
+unique_name_in_owner = true
+z_index = 0
+script = ExtResource("2_room_view")
+
+[node name="Link" type="Node2D" parent="World"]
+unique_name_in_owner = true
+z_index = 10
+script = ExtResource("3_player")
+
+[node name="RoomCamera" type="Camera2D" parent="World"]
+unique_name_in_owner = true
+position_smoothing_enabled = false
+enabled = true
+
+[node name="Interface" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+layer = 10
+
+[node name="Hud" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+z_index = 20
+script = ExtResource("4_hud")
+AssetRoot = "res://assets/oracle/ages/"
+
+[node name="EndingScreen" type="Control" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+offset_right = 160.0
+offset_bottom = 144.0
+mouse_filter = 2
+clip_contents = true
+z_index = 14
+script = ExtResource("13_ending")
+
+[node name="RoomLoadColumnReveal" type="Control" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+offset_top = 16.0
+offset_right = 160.0
+offset_bottom = 144.0
+mouse_filter = 2
+z_index = 14
+script = ExtResource("11_room_load_reveal")
+
+[node name="RoomWarpFade" type="ColorRect" parent="Interface"]
+unique_name_in_owner = true
+offset_right = 160.0
+offset_top = 16.0
+offset_bottom = 144.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0)
+z_index = 15
+
+[node name="Dialogue" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 49
+script = ExtResource("5_dialogue")
+AssetRoot = "res://assets/oracle/ages/"
+
+[node name="AgesMapScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 40
+script = ExtResource("6_map")
+AssetRoot = "res://assets/oracle/ages/"
+
+[node name="AgesInventoryScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 45
+script = ExtResource("7_inventory")
+AssetRoot = "res://assets/oracle/ages/"
+
+[node name="SaveQuitScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 46
+script = ExtResource("8_save_quit")
+AssetRoot = "res://assets/oracle/ages/"
+
+[node name="RingMenuScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 47
+script = ExtResource("10_ring_menu")
+AssetRoot = "res://assets/oracle/ages/"
+
+[node name="SecretListScreen" type="Node2D" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 48
+script = ExtResource("14_secret_list")
+
+[node name="MenuFade" type="ColorRect" parent="Interface"]
+unique_name_in_owner = true
+material = SubResource("CanvasItemMaterial_palette_fade")
+offset_right = 160.0
+offset_bottom = 144.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0)
+z_index = 50
+
+[node name="DebugFlagScreen" type="Control" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+z_index = 110
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("9_debug_flags")
+
+[node name="DebugObjectSpawnerScreen" type="Control" parent="Interface"]
+unique_name_in_owner = true
+visible = false
+offset_top = 16.0
+offset_right = 160.0
+offset_bottom = 144.0
+mouse_filter = 2
+z_index = 110
+script = ExtResource("12_debug_spawner")
+
+[node name="Background" type="ColorRect" parent="Interface/DebugObjectSpawnerScreen"]
+offset_right = 160.0
+offset_bottom = 128.0
+mouse_filter = 2
+color = Color(0.027, 0.063, 0.098, 0.97)
+
+[node name="Text" type="Label" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 3.0
+offset_top = 2.0
+offset_right = 157.0
+offset_bottom = 92.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.878, 0.941, 0.91, 1)
+theme_override_font_sizes/font_size = 7
+theme_override_constants/line_spacing = -3
+clip_text = true
+
+[node name="Status" type="Label" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 3.0
+offset_top = 106.0
+offset_right = 157.0
+offset_bottom = 126.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 7
+theme_override_constants/line_spacing = -3
+autowrap_mode = 3
+clip_text = true
+max_lines_visible = 2
+
+[node name="PreviewBackground" type="ColorRect" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 119.0
+offset_top = 60.0
+offset_right = 157.0
+offset_bottom = 96.0
+mouse_filter = 2
+color = Color(0.09, 0.15, 0.20, 1)
+
+[node name="Preview" type="TextureRect" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 122.0
+offset_top = 62.0
+offset_right = 154.0
+offset_bottom = 94.0
+mouse_filter = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NoPreview" type="Label" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 119.0
+offset_top = 60.0
+offset_right = 157.0
+offset_bottom = 96.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 6
+text = "NO IMAGE"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Help" type="Label" parent="Interface/DebugObjectSpawnerScreen"]
+offset_left = 3.0
+offset_top = 95.0
+offset_right = 157.0
+offset_bottom = 105.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 7
+text = "8px steps; M/Tab: next 10 objects"
+
+[node name="RoomDebug" type="Label" parent="Interface"]
+unique_name_in_owner = true
+offset_left = 2.0
+offset_top = 16.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.972549, 0.811765, 1)
+theme_override_colors/font_outline_color = Color(0.0784314, 0.0941176, 0.0784314, 1)
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 8
+z_index = 100

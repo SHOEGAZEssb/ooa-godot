@@ -1,0 +1,12 @@
+{
+  "recipeVersion": 1,
+  "game": "seasons",
+  "repository": "https://github.com/stewmath/oracles-disasm.git",
+  "revision": "dfaba5238b102fa2b70f737a977a32219ba80c6b",
+  "wlaVersion": "10.6",
+  "wlaLinkVersion": "5.21",
+  "windowsArchiveSha256": "cbb3f8878f8028e6c2fb5cccd79dc9746518ee99def533c8e0b77cbd46a66091",
+  "romLength": 1048576,
+  "romMd5": "d109f98637a19c57af16c5e5396a8d51",
+  "cartridgeMd5": "f2dc6c4e093e4f8c6cbea80e8dbd62cb"
+}

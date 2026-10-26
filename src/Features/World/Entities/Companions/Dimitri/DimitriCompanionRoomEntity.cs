@@ -43,16 +43,20 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private CompanionHazard _hazard;
     private bool _hazardMounted;
     private DimitriPhase _phase;
-    private readonly CompanionTerrainDatabase _native = new();
-    private readonly BraceletDatabaseRecord _bracelet = DimitriBracelet();
-    private static BraceletDatabaseRecord DimitriBracelet()
+    private CompanionTerrainDatabase? _nativeSourceCache;
+    private CompanionTerrainDatabase _native => _nativeSourceCache ??= new(AssetRoot);
+    private BraceletDatabaseRecord? _braceletSourceCache;
+    private BraceletDatabaseRecord _bracelet => _braceletSourceCache ??= DimitriBracelet();
+    private BraceletDatabaseRecord DimitriBracelet()
     {
-        var weight = BraceletWeightDatabase.Shared.Weight(4);
-        return new BraceletDatabase().Data with { Gravity = weight.Gravity, InitialSpeedZ = weight.InitialSpeedZ,
+        var weight = BraceletWeightDatabase.For(AssetRoot).Weight(4);
+        return new BraceletDatabase(AssetRoot + "metadata/bracelet.tsv").Data with { Gravity = weight.Gravity, InitialSpeedZ = weight.InitialSpeedZ,
             SpeedRaw = weight.SpeedRaw, TossSpeedRaw = weight.TossSpeedRaw };
     }
-    private readonly BombRecord _throwing = new BombDatabase().Data;
-    private readonly LedgeJumpDatabase _ledges = new();
+    private BombRecord? _throwingSourceCache;
+    private BombRecord _throwing => _throwingSourceCache ??= new BombDatabase(AssetRoot + "metadata/bomb.tsv").Data;
+    private LedgeJumpDatabase? _ledgesSourceCache;
+    private LedgeJumpDatabase _ledges => _ledgesSourceCache ??= new(AssetRoot);
     private CarriedObjectMotion _carried;
     private CarriedObjectMotion _braceletChildMotion;
     private bool _braceletChildStarting;
@@ -113,6 +117,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         Action<int> sound, Action<int, string, Vector2> showText, Func<bool> dialogueOpen,
         Func<OracleRoomData, CompanionAttackTileBreaker> createTileBreaker,bool nativeRescueScript=false)
     {
+        AssetRoot = data.AssetRoot;
         _data = data; _save = save; _runtime = runtime; _sound = sound;
         _nativeRescueScript=nativeRescueScript;
         if(!spawn.Riding)CompanionRuntimeState.ClearScriptScratch(_runtime);
@@ -121,8 +126,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         _tileBreaker = createTileBreaker(room);
         _group = spawn.Group; _precisePosition = spawn.Position; _direction = spawn.Direction;
         _phase = spawn.Riding ? DimitriPhase.Riding :
-            (save.ReadWramByte(AgesWramAddress.wDimitriState) & 0x80) == 0 &&
-            ((save.ReadWramByte(AgesWramAddress.wDimitriState) & 0x40) != 0 || (save.ReadWramByte(AgesWramAddress.wDimitriState) & 0x20) == 0)
+            (save.ReadField("wDimitriState") & 0x80) == 0 &&
+            ((save.ReadField("wDimitriState") & 0x40) != 0 || (save.ReadField("wDimitriState") & 0x20) == 0)
                 ? DimitriPhase.Harassed : DimitriPhase.Waiting;
         if (spawn.FluteDestination is Vector2 destination)
         {
@@ -131,7 +136,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             CompanionRuntimeState.SetLastAnimalMountPosition(_save, destination);
         }
         _animation = new EnemyAnimationPlayer(this, data.Animations.Length);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_dimitri.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + "gfx/spr_dimitri.png"),
             data.Animations, 0, 2, positionedOam: true, animationSourceOffsets: data.SourceOffsets);
         _water = IsWater(_precisePosition) ? 4 : 0;
         _animation.SetAnimation(_phase == DimitriPhase.Harassed ? 0x24 :
@@ -143,8 +148,8 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     internal void ReleaseNativeRescueInput()
     {
         CompanionRuntimeState.WriteScriptButton(_runtime,0);
-        if(_ownsNativeRescueInput&&_runtime.ReadWramByte(AgesWramAddress.wDisabledObjects)==0x81)
-            _runtime.SetWramByte(AgesWramAddress.wDisabledObjects,0);
+        if(_ownsNativeRescueInput&&_runtime.ReadField("wDisabledObjects")==0x81)
+            _runtime.SetField("wDisabledObjects",0);
         _ownsNativeRescueInput=false;
     }
     internal void AcknowledgeNativeRescueInput()=>_ownsNativeRescueInput=false;
@@ -170,14 +175,14 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             if(CompanionRuntimeState.ReadScriptButton(_runtime)!=0)return false;
             CompanionRuntimeState.WriteScriptButton(_runtime,1);player.ApplyObjectInteractionGrace();return true;
         }
-        if ((_save.ReadWramByte(AgesWramAddress.wDimitriState) & 2) == 0)
+        if ((_save.ReadField("wDimitriState") & 2) == 0)
         {
             Show(0x2100, player);
             _phase = DimitriPhase.HarassedDialogue;
         }
         else
         {
-            Show(_save.ReadWramByte(AgesWramAddress.wAnimalCompanion) == 0x0c ? 0x2102 : 0x2101, player);
+            Show(_save.ReadField("wAnimalCompanion") == 0x0c ? 0x2102 : 0x2101, player);
             _phase = DimitriPhase.RescueDialogue;
         }
         return true;
@@ -214,7 +219,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         bool itemPressed = _itemEdge.Read(item);
         // INTERAC_COMPANION_SCRIPTS $71:$06 waits until Dimitri reaches land.
         if (!_goodbye && _data.IsGoodbyeRoom(_group, _room.Id) &&
-            (_save.ReadWramByte(AgesWramAddress.wDimitriState) & 0x40) == 0 && _water == 0 &&
+            (_save.ReadField("wDimitriState") & 0x40) == 0 && _water == 0 &&
             _phase is DimitriPhase.Riding or DimitriPhase.Waiting)
         {
             _goodbye = true;
@@ -226,7 +231,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
             case DimitriPhase.Harassed:
                 if(_nativeRescueScript&&CompanionRuntimeState.ReadScriptButton(_runtime)!=0)
                 {
-                    _runtime.SetWramByte(AgesWramAddress.wDisabledObjects,0x81);_ownsNativeRescueInput=true;
+                    _runtime.SetField("wDisabledObjects",0x81);_ownsNativeRescueInput=true;
                 }
                 _animation.Advance();
                 break;
@@ -608,7 +613,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
         _carried = new CarriedObjectMotion(_precisePosition);
         player.BraceletObjectWeight = 4; // dimitriState2Substate0: wLinkGrabState2=$40.
         player.BeginCarriedObjectPose();
-        _save.WriteWramByte(AgesWramAddress.wCompanionTutorialTextShown, (byte)(_save.ReadWramByte(AgesWramAddress.wCompanionTutorialTextShown) | 4));
+        _save.WriteField("wCompanionTutorialTextShown", (byte)(_save.ReadField("wCompanionTutorialTextShown") | 4));
         _carried.Hold(player);
         _precisePosition = _carried.GroundPosition;
         return true;
@@ -716,7 +721,7 @@ internal sealed partial class DimitriCompanionRoomEntity : TransitionOffsetNode2
     private void SetAnimation(int animationBase) => _animation.SetAnimation(animationBase + _direction + _water);
     private void SetStateBit(byte mask)
     {
-        if (_save.WriteWramByte(AgesWramAddress.wDimitriState, (byte)(_save.ReadWramByte(AgesWramAddress.wDimitriState) | mask))) _save.CommitInventoryChange();
+        if (_save.WriteField("wDimitriState", (byte)(_save.ReadField("wDimitriState") | mask))) _save.CommitInventoryChange();
     }
     private void Show(int textId, Player player) => _showText(textId, _data.Text(textId), player.Position);
     internal void Swallow() => _swallowed = true;

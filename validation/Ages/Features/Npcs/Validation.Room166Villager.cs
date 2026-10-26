@@ -30,7 +30,7 @@ public sealed partial class ValidationRoot
             var npc = _entities.Entities<NpcCharacter>().Single(n =>
                 n.Record.Id == AgesInteractionId.MaleVillager && n.Record.SubId == 8);
             bool present = stage >= 4;
-            FailIf(NpcStoryState.GetGameProgress2(_saveData) != stage ||
+            FailIf(AgesNpcStoryState.GetGameProgress2(_saveData) != stage ||
                 npc.Active != present || npc.Visible != present ||
                 npc.Position != new Vector2(0x58, 0x68) ||
                 npc.Record is not { Palette: 1, DefaultAnimation: 2 },

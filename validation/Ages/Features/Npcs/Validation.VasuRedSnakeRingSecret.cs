@@ -8,8 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateVasuRedSnakeRingSecret()
     {
-        var codec = new LinkedGameNpcDatabase();
-        OracleSaveData source = OracleSaveData.CreateStandardGame();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
+        OracleSaveData source = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         source.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, 0x34);
         source.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd + 1, 0x12);
         byte[] rings = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80];
@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
             _saveData.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd, 0x34);
             _saveData.WriteWramByte(AgesWramAddress.wUnappraisedRingsEnd + 1, 0x12);
             _saveData.SetLinkedGame(true);
-            _saveData.SetGlobalFlag(GlobalFlag.RingSecretGenerated, false);
+            _saveData.SetGlobalFlag(AgesGlobalFlag.RingSecretGenerated, false);
             _inventory.GiveTreasure(TreasureId.RingBox, 1);
             LoadValidationRoom(2, 0xee);
             StepGameplayUpdates(3, Vector2.Zero, batched: batched);
@@ -53,10 +53,10 @@ public sealed partial class ValidationRoot
                 .Replace("\\secret1", ownFirst, StringComparison.Ordinal)
                 .Replace("\\secret2", ownSecond, StringComparison.Ordinal));
             FailIf(shop.Stage != EventStage.RedSecretListen ||
-                !_saveData.HasGlobalFlag(GlobalFlag.RingSecretGenerated) ||
+                !_saveData.HasGlobalFlag(AgesGlobalFlag.RingSecretGenerated) ||
                 _dialogue.CurrentMessage.Contains("\\secret", StringComparison.Ordinal) ||
                 _dialogue.CurrentMessage != expectedText,
-                $"Red Snake did not set global flag $28 and present generated TX_301d ring text: stage={shop.Stage}, flag={_saveData.HasGlobalFlag(GlobalFlag.RingSecretGenerated)}, text={_dialogue.CurrentMessage}.");
+                $"Red Snake did not set global flag $28 and present generated TX_301d ring text: stage={shop.Stage}, flag={_saveData.HasGlobalFlag(AgesGlobalFlag.RingSecretGenerated)}, text={_dialogue.CurrentMessage}.");
             _dialogue.SubmitChoiceForValidation(0);
             StepGameplayUpdates(1, Vector2.Zero, batched: batched);
             FailIf(shop.Stage != EventStage.RedSecretListen || !_dialogue.IsOpen,

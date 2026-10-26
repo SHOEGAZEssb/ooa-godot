@@ -8,8 +8,8 @@ public sealed partial class ValidationRoot
 {
     private void ValidateRoom0a0MasterDiver()
     {
-        NpcRecord record = new NpcDatabase().GetRoomNpcs(0, 0xa0).Single();
-        var codec = new LinkedGameNpcDatabase();
+        NpcRecord record = new NpcDatabase(AgesGameContent.AssetRoot).GetRoomNpcs(0, 0xa0).Single();
+        var codec = new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         LinkedGameNpcDatabaseRecord secret = codec.Get(0, 0xa0, AgesInteractionId.MasterDiver, 0);
         FailIf(record is not { Id: 0xcd, SubId: 0, Y: 0x38, X: 0x28,
                 TextId: 0x4d0f, DefaultAnimation: 4, CanFace: false,

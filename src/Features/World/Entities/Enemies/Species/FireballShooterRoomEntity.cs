@@ -12,7 +12,8 @@ internal sealed partial class FireballShooterRoomEntity : TransitionOffsetNode2D
 {
     public bool UpdatesDuringDialogue => State == 0;
     public bool UpdatesDuringRoomEntityFreeze => State == 0;
-    private readonly FireballShooterBehaviorProfile _data = EnemyBehaviorTables.Shared.FireballShooter;
+    private FireballShooterBehaviorProfile? _dataSourceCache;
+    private FireballShooterBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).FireballShooter;
     private readonly OracleRoomData _room;
     private readonly OracleRandom _random;
     private readonly Func<int, bool> _enemySlotsAvailable;
@@ -31,6 +32,7 @@ internal sealed partial class FireballShooterRoomEntity : TransitionOffsetNode2D
         int timingIndex, OracleRandom random, Func<int, bool> enemySlotsAvailable,
         Func<bool> partSlotAvailable, Func<int> roomEnemyCount)
     {
+        AssetRoot = room.AssetRoot;
         _room = room; Position = position; SubId = subid; _timingIndex = timingIndex;
         _random = random; _enemySlotsAvailable = enemySlotsAvailable;
         _partSlotAvailable = partSlotAvailable; _roomEnemyCount = roomEnemyCount;

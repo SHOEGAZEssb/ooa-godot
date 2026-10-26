@@ -39,7 +39,7 @@ public sealed partial class ValidationRoot
             var oldState = SomariaPrivate<DoorState>(outgoing,"_state"); int counter = SomariaPrivate<int>(outgoing,"_counter");
             FailIf(!_rooms.TryGetNeighbor(Vector2I.Right,out int target) || target != 0xa6,
                 "Shutter entrance must use imported dungeon adjacency4:a5 ->4:a6.");
-            var graphics = new ScreenTransitionGraphicsDatabase();
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(_currentRoom.TilesetId).Unique |
                 (_currentRoom.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             _transitions.BeginScroll(_player,Vector2I.Right,target);

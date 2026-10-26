@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(target);_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);
             _runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
-            var data=EnemyDatabase.Shared;
+            var data=EnemyDatabase.For(AgesGameContent.AssetRoot);
             var row=data.GetRoomObjects(0,0x2b).Single(r=>r.Id==0x41&&r.SubId==1);
             data.TryGetCrowDefinition(row,out var record);
             var source=data.EnemyHandlers.ResolveHandler(row).CombatSource(row,0);

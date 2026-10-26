@@ -14,7 +14,7 @@ internal partial class BraceletLiftedObject : Node2D
     private Texture2D _texture = null!;
     private int _zFixed;
     private int _speedZ;
-    private readonly ItemTilePassage _tilePassage = new();
+    private ItemTilePassage? _tilePassage;
     private Func<bool> _shadowDrawn = static () => false;
     internal bool TerrainShadowDrawn => _shadowDrawn();
 
@@ -27,7 +27,7 @@ internal partial class BraceletLiftedObject : Node2D
             Thrown ? _zFixed >> 8 : (int)Position.Y, Visible, room.TilesetFlags,
             -(int)worldToScreen(Vector2.Zero).Y, counter(), 0xdc);
         var shadow = new ObjectTerrainShadow();
-        shadow.Initialize(() => TerrainShadowDrawn,
+        shadow.Initialize(room.AssetRoot, () => TerrainShadowDrawn,
             () => new Vector2(0, -(Thrown ? _zFixed >> 8 : (int)Position.Y)));
         AddChild(shadow);
     }
@@ -105,7 +105,7 @@ internal partial class BraceletLiftedObject : Node2D
         new(GroundX / 256.0f, GroundY / 256.0f);
 
     internal bool CanPassSolidTile(OracleRoomData room, Vector2 point) =>
-        _tilePassage.CanPass(room, point, Angle);
+        (_tilePassage ??= new ItemTilePassage(room.AssetRoot)).CanPass(room, point, Angle);
 
     internal Rect2 CollisionBounds(int radiusX, int radiusY)
     {

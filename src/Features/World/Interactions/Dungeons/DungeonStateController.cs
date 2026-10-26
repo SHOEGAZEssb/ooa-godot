@@ -139,13 +139,13 @@ internal sealed partial class DungeonStateController : Node2D,
 
     private void SetSwitchBit(int mask, bool active)
     {
-        byte current = _runtime.ReadWramByte(
-            AgesGameContent.SwitchStateAddress);
+        byte current = _runtime.ReadField(
+            "wSwitchState");
         byte replacement = active
             ? (byte)(current | mask)
             : (byte)(current & ~mask);
-        _runtime.SetWramByte(
-            AgesGameContent.SwitchStateAddress, replacement);
+        _runtime.SetField(
+            "wSwitchState", replacement);
     }
 
     private int TileAt(int packedPosition)

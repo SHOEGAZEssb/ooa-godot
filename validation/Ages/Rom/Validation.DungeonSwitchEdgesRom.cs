@@ -14,7 +14,7 @@ public partial class ValidationRoot
         var source = data.GetRoomRecords(4,0x89).Single(row => row.Id == 5);
         var rom = new SomariaRom(_saveData,_random.CaptureState(),_currentRoom,0,120,120);
         var native = SomariaPrivate<FrontendRom>(rom,"_rom");
-        var seed = new SeedSatchelDatabase().Ember;
+        var seed = new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember;
         var spawns = new List<RoomEntitySpawn>();
         // Isolate the source collision predicate at declared initialized
         // PART/ITEM state. Real item contact, delayed toggle, rail update and

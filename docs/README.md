@@ -34,6 +34,7 @@ entry point.
 | NPCs, native interactions, linked actors, or room events | [NPCs and events](npcs-and-events.md) |
 | Which imported NPC records are implemented, partial, or unsupported | [NPC interaction coverage](ages/npc-interaction-coverage.md) |
 | Source-wide interaction, room-event and cutscene inventory and missing work | [Interaction, event and cutscene coverage](ages/interaction-event-cutscene-coverage.md) |
+| Supported Seasons opening records and outstanding scope | [Seasons NPC coverage](seasons/npc-interaction-coverage.md), [Seasons cutscene coverage](seasons/interaction-event-cutscene-coverage.md) |
 | An `interactionRunScript` stream or a new script command | [Command runner](command-runner.md) |
 | Menus, dialogue/modal input, fades, or pause ownership | [Menus and input](menus-and-input.md) |
 | WRAM fields, flags, inventory, checkpoints, or disk persistence | [Saves and state](saves-and-state.md) |

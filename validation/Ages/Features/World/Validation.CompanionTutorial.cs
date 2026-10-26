@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 0;
         const int room = 0x5b;
-        var database = new CompanionTutorialDatabase();
+        var database = new CompanionTutorialDatabase(AgesGameContent.AssetRoot);
         CompanionTutorialRecord record =
             database.GetRoomRecords(group, room).Single();
         byte flagMask = (byte)(1 << record.FlagBit);

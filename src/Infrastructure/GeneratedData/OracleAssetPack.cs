@@ -5,6 +5,21 @@ namespace Oracles;
 internal static class OracleAssetPack
 {
     internal const string Root = "res://assets/oracle/";
+    internal const string CommonRoot = Root + "common/";
+
+    internal static OracleGame GameFor(string assetRoot) => assetRoot switch
+    {
+        AgesGameContent.AssetRoot => OracleGame.Ages,
+        SeasonsGameContent.AssetRoot => OracleGame.Seasons,
+        _ => throw new ArgumentException($"Not a game content pack: {assetRoot}.", nameof(assetRoot))
+    };
+
+    internal static string ForGame(OracleGame game) => game switch
+    {
+        OracleGame.Ages => AgesGameContent.AssetRoot,
+        OracleGame.Seasons => SeasonsGameContent.AssetRoot,
+        _ => throw new ArgumentOutOfRangeException(nameof(game))
+    };
 
     internal static string RootFor(string path)
     {

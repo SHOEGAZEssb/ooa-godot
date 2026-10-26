@@ -84,7 +84,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
             // with Link-relative priority.
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
-        _tingle.Initialize(record);
+        _tingle.Initialize(record, AgesGameContent.AssetRoot);
         _tingle.SetScriptAnimation(database.Animation("tingle", 0));
         _tingle.SetScriptButtonSensitive(false);
         _tingle.SetBlocksLink(false);
@@ -110,7 +110,7 @@ internal sealed partial class TingleRoomEntity : Node2D,
             Name = "TingleBalloon",
             ZIndex = ObjectDrawPriority.InFrontOfLinkZIndex
         };
-        _balloon.Initialize(balloonRecord);
+        _balloon.Initialize(balloonRecord, AgesGameContent.AssetRoot);
         _balloon.SetScriptAnimation(balloonAnimation);
         _balloon.SetBlocksLink(false);
         _balloon.SetScriptDrawOffset(new Vector2(0, _record.InitialZ));

@@ -5,7 +5,8 @@ namespace Oracles;
 // ENEMY_BUBBLE $15:$00, shared dungeon rail movement and deferred Link jinx.
 internal sealed partial class BubbleCharacter : EnemyCharacter
 {
-    private readonly BubbleBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Bubble;
+    private BubbleBehaviorProfile? _behaviorSourceCache;
+    private BubbleBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Bubble;
     private OracleRandom _random = null!;
     private OracleRuntimeState _runtime = null!;
     private EnemyTerrainMovement _movement = null!;
@@ -18,6 +19,7 @@ internal sealed partial class BubbleCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room, Vector2 position,
         OracleRandom random, OracleRuntimeState runtime)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _random = random;
         _runtime = runtime;
@@ -40,7 +42,7 @@ internal sealed partial class BubbleCharacter : EnemyCharacter
         // enemyCode15 checks var2a=$80 only after common status dispatch.
         // The Ring is sampled now, rather than during the late collision.
         if (linkHit && !RingEffects.PreventsJinx(player.Inventory))
-            _runtime.SetWramByte(AgesWramAddress.wSwordDisabledCounter, (byte)_behavior.JinxUpdates);
+            _runtime.SetField("wSwordDisabledCounter", (byte)_behavior.JinxUpdates);
         if (State == 0)
         {
             PrepareForScreenTransition();

@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
     {
         var tingleDatabase = new TingleDatabase();
         TingleRecord tingleRecord = tingleDatabase.Record;
-        var tutorialDatabase = new CompanionTutorialDatabase();
+        var tutorialDatabase = new CompanionTutorialDatabase(AgesGameContent.AssetRoot);
         CompanionTutorialRecord room079Tutorial =
             tutorialDatabase.GetRoomRecords(0, 0x79).Single();
 

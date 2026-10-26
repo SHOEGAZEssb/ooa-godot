@@ -5,10 +5,14 @@ namespace Oracles;
 
 internal sealed class VireDialogueDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int,string> _texts = new();
-    internal VireDialogueDatabase()
+    internal VireDialogueDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/vire_text.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "objects/vire_text.tsv",
             new GeneratedTableSchema("Vire dialogue",GeneratedTableKeySemantics.Unique,
                 ["id","message-base64","source"],["id"],headerRequired:true));
         foreach (var row in table.Rows) _texts.Add(row.HexWord(0),System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(row.RequiredString(1))));

@@ -52,8 +52,8 @@ internal sealed class HarpItemDatabase
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(value => Convert.ToInt32(value, 16))
             .ToArray();
-        MusicNote = new SharedEffectDatabase().Effect("MusicNote");
-        LinkFrames = new NewGameIntroDatabase().SpriteFrames("link-harp-item");
+        MusicNote = new SharedEffectDatabase(AgesGameContent.AssetRoot).Effect("MusicNote");
+        LinkFrames = new NewGameIntroDatabase(AgesGameContent.AssetRoot).SpriteFrames("link-harp-item");
         Validate();
     }
 

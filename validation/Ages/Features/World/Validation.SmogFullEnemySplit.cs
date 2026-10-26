@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
             // Isolate the terminal intro update without navigating its text.
             intro.UpdateIntro(false, _ => { }, (_, _) => { }, _ => { }, () => { }, () => 0);
             typeof(SmogCharacter).GetProperty("Counter2", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(intro, 1);
-            var db = new EnemyDatabase();
+            var db = new EnemyDatabase(AgesGameContent.AssetRoot);
             for (int slotIndex = 0; slotIndex < 15; slotIndex++)
                 _entities.TryAllocateEnemy(slot =>
                 {

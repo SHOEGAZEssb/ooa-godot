@@ -12,21 +12,29 @@ public sealed class OracleAnimationData
     private readonly Dictionary<int,int> _initialStates=[];
     private readonly Image[] _sheets = new Image[3];
 
-    public OracleAnimationData()
+    private readonly string _assetRoot;
+    private readonly int _headerCount;
+    private readonly int _groupCount;
+
+
+    internal OracleAnimationData(string assetRoot)
     {
+        _assetRoot = assetRoot;
+        _headerCount = assetRoot == SeasonsGameContent.AssetRoot ? 98 : 112;
+        _groupCount = assetRoot == SeasonsGameContent.AssetRoot ? 27 : 22;
         _headers = LoadHeaders();
         LoadTracks();
-        foreach(var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "animations/groups.tsv",new("Animation group initial state",GeneratedTableKeySemantics.Unique,
+        foreach(var row in GeneratedTable.Load(_assetRoot + "animations/groups.tsv",new("Animation group initial state",GeneratedTableKeySemantics.Unique,
             ["group","initial-state","source"],["group"],headerRequired:true)).Rows)
         {
-            int group=row.Decimal(0,0,21),state=row.HexByte(1);
+            int group=row.Decimal(0,0,_groupCount - 1),state=row.HexByte(1);
             if((state&15)!=(1<<_groups[group].Length)-1)throw row.Invalid(1,"one active bit per native animation track");
             _initialStates.Add(group,state);
         }
         if(_initialStates.Count!=_groups.Count)throw new InvalidOperationException("animationGroups.s: missing initial animation state.");
         for (int sheet = 0; sheet < _sheets.Length; sheet++)
             _sheets[sheet] = OracleGraphicsCache.LoadImage(
-                AgesGameContent.AssetRoot + $"gfx/gfx_animations_{sheet + 1}.png");
+                _assetRoot + $"gfx/gfx_animations_{sheet + 1}.png");
         ValidateHeaderRanges();
     }
 
@@ -154,10 +162,10 @@ public sealed class OracleAnimationData
             AdvanceTicks(remaining % cycleLength);
     }
 
-    private static Header[] LoadHeaders()
+    private Header[] LoadHeaders()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "animations/headers.tsv",
+            _assetRoot + "animations/headers.tsv",
             new GeneratedTableSchema(
                 "animation DMA headers",
                 GeneratedTableKeySemantics.Unique,
@@ -173,15 +181,15 @@ public sealed class OracleAnimationData
                 row.UnsignedDecimal(1), row.UnsignedDecimal(2),
                 row.UnsignedDecimal(3), row.UnsignedDecimal(4)));
         }
-        if (headers.Count != 112)
-            throw new InvalidOperationException($"Expected 112 animation headers, loaded {headers.Count}.");
+        if (headers.Count != _headerCount)
+            throw new InvalidOperationException($"Expected {_headerCount} animation headers, loaded {headers.Count}.");
         return headers.ToArray();
     }
 
     private void LoadTracks()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "animations/tracks.tsv",
+            _assetRoot + "animations/tracks.tsv",
             new GeneratedTableSchema(
                 "animation tracks",
                 GeneratedTableKeySemantics.Grouped,
@@ -216,8 +224,8 @@ public sealed class OracleAnimationData
 
         foreach ((int group, IReadOnlyList<Frame[]> tracks) in tracksByGroup)
             _groups[group] = [.. tracks];
-        if (_groups.Count != 22)
-            throw new InvalidOperationException($"Expected 22 animation groups, loaded {_groups.Count}.");
+        if (_groups.Count != _groupCount)
+            throw new InvalidOperationException($"Expected {_groupCount} animation groups, loaded {_groups.Count}.");
     }
 
     private void ValidateHeaderRanges()

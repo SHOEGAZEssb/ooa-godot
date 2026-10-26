@@ -7,9 +7,8 @@ internal partial class PeahatCharacter : EnemyCharacter, ITerrainShadowSource
     internal override bool InitializationPending => _state == PeahatState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
-
-    private readonly PeahatBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.Peahat;
+    private PeahatBehaviorProfile? _behaviorSourceCache;
+    private PeahatBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Peahat;
     private OracleRandom _random = null!;
     private OracleRoomData _room = null!;
     private PeahatState _state;
@@ -35,6 +34,7 @@ internal partial class PeahatCharacter : EnemyCharacter, ITerrainShadowSource
         Vector2 position,
         OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         _room = room;
         _random = random;

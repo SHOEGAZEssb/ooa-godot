@@ -13,14 +13,12 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter, ITerrainShadowSou
     internal override bool InitializationPending => _state == SpikedBeetleState.Uninitialized;
 
     int? ITerrainShadowSource.TerrainShadowZHigh => ZHigh;
-
-    private readonly SpikedBeetleBehaviorProfile _behavior =
-        EnemyBehaviorTables.Shared.SpikedBeetle;
-    private readonly ArmoredSwordAttackerKnockbackProfile
-        _attackerKnockback =
-            EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
-    private readonly System.Collections.Generic.IReadOnlyList<EnemyBehaviorValue>
-        _shakeXOffsets = EnemyBehaviorTables.Shared.SpikedBeetleShakeXOffsets;
+    private SpikedBeetleBehaviorProfile? _behaviorSourceCache;
+    private SpikedBeetleBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).SpikedBeetle;
+    private ArmoredSwordAttackerKnockbackProfile? _attackerKnockbackSourceCache;
+    private ArmoredSwordAttackerKnockbackProfile _attackerKnockback => _attackerKnockbackSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback;
+    private System.Collections.Generic.IReadOnlyList<EnemyBehaviorValue>? _shakeXOffsetsSourceCache;
+    private System.Collections.Generic.IReadOnlyList<EnemyBehaviorValue> _shakeXOffsets => _shakeXOffsetsSourceCache ??= EnemyBehaviorTables.For(AssetRoot).SpikedBeetleShakeXOffsets;
     private OracleRandom _random = null!;
     private EnemyTerrainMovement _movement = null!;
     private Action<int> _soundRequested = null!;
@@ -68,6 +66,7 @@ internal partial class SpikedBeetleCharacter : EnemyCharacter, ITerrainShadowSou
         OracleRandom random,
         Action<int> soundRequested)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         InitializeEnemy(
             position,

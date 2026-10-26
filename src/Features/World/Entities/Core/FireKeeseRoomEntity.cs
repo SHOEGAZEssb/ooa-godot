@@ -54,9 +54,9 @@ internal sealed class FireKeeseRoomEntity : CombatEnemyRoomEntityAdapter<FireKee
         int collisionType, ICollection<RoomEntitySpawn> spawns)
     {
         if (GaleCaught || Entity.HasPendingHit || !Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 ||
-            EnemyBehaviorTables.Shared.FireKeeseActiveCollisions[collisionType].Value == 0 ||
+            EnemyBehaviorTables.For(AssetRoot).FireKeeseActiveCollisions[collisionType].Value == 0 ||
             !RoomEntityManager.ObjectCollisionXYOverlaps(Entity.CollisionBounds, hitbox)) return default;
-        int effect = EnemyBehaviorTables.Shared.FireKeeseCollisionEffects[collisionType].Value;
+        int effect = EnemyBehaviorTables.For(AssetRoot).FireKeeseCollisionEffects[collisionType].Value;
         switch (effect)
         {
             case CollisionEffect.None: return new(true, SeedHitResult.None, false);

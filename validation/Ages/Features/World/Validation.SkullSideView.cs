@@ -12,8 +12,8 @@ public sealed partial class ValidationRoot
         bool batch = false;
         void Step(int count = 1, Vector2 move = default, bool jump = false) =>
             StepGameplayUpdates(count, move, jump ? ["attack"] : [], jump ? ["attack"] : [], batched: batch);
-        var placements = new MovingSideScrollPlatformDatabase().GetRoomRecords(4, 0x68);
-        var script = new DungeonInteractionDatabase().SidePlatform(1);
+        var placements = new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot).GetRoomRecords(4, 0x68);
+        var script = new DungeonInteractionDatabase(AgesGameContent.AssetRoot).SidePlatform(1);
         FailIf(placements is not [{ Order: 0, Id: 0xa1, SubId: 1, Y: 0x48, X: 0x58 },
                 { Order: 1, Id: 0xa1, SubId: 1, Y: 0x48, X: 0x98 }] ||
             script is not { Speed: 20, Direction: 4, RadiusY: 9, RadiusX: 7 } ||

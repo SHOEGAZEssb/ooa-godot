@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
             _inventory.SetScriptedEquippedItems(0,0);_player.WarpTo(new(80+offset.X,80+offset.Y));_player.BeginCutsceneControl();
             _entities.DisableLinkCollisionsAndMenu();_runtimeState.SetWramByte(AgesWramAddress.wWarpsDisabled,1);
             _runtimeState.SetWramByte(AgesWramAddress.wScrollMode,0);
-            var resources=new RoomEntityResources(_rooms);
+            var resources=new AgesRoomEntityResources(_rooms);
             var world=new EyesoarEnvironment(_currentRoom,resources.Eyesoar,resources.DungeonBosses,
                 resources.DungeonVisuals.Visual("eyesoar-spawn"),_random,()=>false,()=>_entities.PartSlotAvailable,
                 _entities.CanAllocateEnemies,()=>_entities.InteractionSlotAvailable,_sound.PlaySound,

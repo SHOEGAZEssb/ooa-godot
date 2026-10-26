@@ -106,7 +106,7 @@ internal sealed class WildTokayManagerScriptHost : CutsceneCommandHost
             case "ResetRoomFlag40":Context.Rooms.SaveData.SetRoomFlag(Npc.Record.Group,Npc.Record.Room,0x40,false);return;
             case "GivePrize":GivePrize();return;
             case "BombCapacity":Context.Inventory.ApplyTokayBombCapacityUpgrade();return;
-            case "GenerateSecret":_secret=new LinkedGameNpcDatabase().GenerateSecret(0x15,Context.Rooms.SaveData);return;
+            case "GenerateSecret":_secret=new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x15,Context.Rooms.SaveData);return;
             case "AskSecret":
                 _secretPending=true;int generation=_generation;
                 if(_owner.OpenSecretMenu is null||!_owner.OpenSecretMenu(5,valid=>{if(generation!=_generation)return;_secretResult=valid?0:1;_secretPending=false;}))throw UnsupportedCommand("acquire MENU_SECRET TOKAY_SECRET $05");return;
@@ -129,7 +129,7 @@ internal sealed class WildTokayManagerScriptHost : CutsceneCommandHost
         int level=ReadMemory("Level");
         if(Context.Entities.RuntimeState.ReadWramByte(0xcfdd)==5)
         {
-            int ring=new GashaSpotDatabase().SelectRing(2,(byte)Context.Entities.NextRandomValue());
+            int ring=new GashaSpotDatabase(AgesGameContent.AssetRoot).SelectRing(2,(byte)Context.Entities.NextRandomValue());
             // giveRingToLink performs its checked allocation after selecting
             // the ring, so the RNG read survives a full interaction pool.
             if(!Context.Entities.InteractionSlotAvailable)return;

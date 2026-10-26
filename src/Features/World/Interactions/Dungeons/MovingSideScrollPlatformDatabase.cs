@@ -9,13 +9,17 @@ namespace Oracles;
 /// </summary>
 internal sealed class MovingSideScrollPlatformDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Lookup<(int Group, int Room), MovingSideScrollPlatformPlacement>
         _placements = new();
 
-    internal MovingSideScrollPlatformDatabase()
+    internal MovingSideScrollPlatformDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/moving_side_scroll_platform_placements.tsv",
+            AssetRoot + "objects/moving_side_scroll_platform_placements.tsv",
             new GeneratedTableSchema(
                 "moving side-scroll platform placements",
                 GeneratedTableKeySemantics.Grouped,

@@ -26,7 +26,7 @@ internal sealed class GopongaFlowerRoomEntity(GopongaFlowerCharacter enemy,
     private bool Hit(int collision, Rect2 hitbox, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns)
     {
         if (!Entity.CollisionEnabled || Entity.InvincibilityCounter != 0 || !hitbox.Intersects(Entity.CollisionBounds)) return false;
-        int effect = EnemyBehaviorTables.Shared.GopongaFlowerCollisionEffects[collision].Value;
+        int effect = EnemyBehaviorTables.For(AssetRoot).GopongaFlowerCollisionEffects[collision].Value;
         if (effect == CollisionEffect.SwordNoKnockback) return base.ApplySwordHit(hitbox, origin, damage, EnemyKnockbackStrength.Low, spawns);
         if (effect == CollisionEffect.Effect1c)
         {

@@ -250,7 +250,7 @@ public sealed partial class ValidationRoot
                 OracleRoomData.MetatileSize + 8);
         _currentRoom.SetPositionTileAndCollision(
             grassCenter, 0xc5, null, (long)_animationTicks);
-        var breakables = new BreakableTileDatabase();
+        var breakables = new BreakableTileDatabase(AgesGameContent.AssetRoot);
         if (!breakables.TryGet(
                 _currentRoom.ActiveCollisions,
                 0xc5,

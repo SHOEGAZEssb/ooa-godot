@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         const int talkedMask = 0x01;
         const int completeMask = 0x20;
         const int glovesTreasure = 0x48;
-        var database = new GroundTreasureDatabase();
+        var database = new GroundTreasureDatabase(AgesGameContent.AssetRoot);
         GroundTreasureDatabaseRecord record =
             database.GetRoomRecords(group, room).Single();
         FailIf(

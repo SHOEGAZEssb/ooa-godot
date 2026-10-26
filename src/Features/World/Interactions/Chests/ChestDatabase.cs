@@ -5,16 +5,20 @@ namespace Oracles;
 
 public sealed class ChestDatabase
 {
+    public string AssetRoot { get; }
+
     // constants/common/tileIndices.s: TILEINDEX_CHEST
     internal const byte ClosedTile = 0xf1;
 
     private readonly Dictionary<int, ChestRecord> _records = new();
     private readonly Lookup<int, ChestRecord> _roomRecords = new();
 
-    public ChestDatabase()
+    public ChestDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/chests.tsv",
+            AssetRoot + "objects/chests.tsv",
             new GeneratedTableSchema(
                 "chests",
                 GeneratedTableKeySemantics.Unique,

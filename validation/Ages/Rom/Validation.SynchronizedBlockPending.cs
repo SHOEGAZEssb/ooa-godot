@@ -27,7 +27,7 @@ public sealed partial class ValidationRoot
             var target = _rooms.GetRoom(4,destination);
             byte sourceTarget = _currentRoom.Layout[0x27],targetTile = target.Layout[0x27];
             var source = _currentRoom;
-            var graphics = new ScreenTransitionGraphicsDatabase();
+            var graphics = new ScreenTransitionGraphicsDatabase(AgesGameContent.AssetRoot);
             int sourceUnique = graphics.ForTileset(source.TilesetId).Unique |
                 (source.LoadsUniqueGraphicsAfterScroll ? 0x80 : 0);
             var seed = _random.CaptureState();

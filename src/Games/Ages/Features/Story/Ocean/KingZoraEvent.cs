@@ -92,9 +92,9 @@ internal sealed class KingZoraEvent(RoomEventContext context, OceanInteractionDa
                 if(OpenSecretMenu is null||!OpenSecretMenu(0,valid=>{if(generation!=_generation)return;_secretResult=valid?0:1;_secretPending=false;}))
                     throw UnsupportedCommand("acquire MENU_SECRET for KING_ZORA_SECRET $00");
                 break;
-            case "GenerateSecret":_secret=new LinkedGameNpcDatabase().GenerateSecret(0x10,Context.Rooms.SaveData);break;
+            case "GenerateSecret":_secret=new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecret(0x10,Context.Rooms.SaveData);break;
             case "func_50e4":Context.Entities.CreateEnergySwirl(Context.Player.Position,0x6e);break;
-            case "createSparkle":Context.Entities.TryCreateOwlSparkle(new(RequireScriptActor("KingZora").Position,new OwlStatueDatabase().Record(0).Sparkle));break;
+            case "createSparkle":Context.Entities.TryCreateOwlSparkle(new(RequireScriptActor("KingZora").Position,new OwlStatueDatabase(AgesGameContent.AssetRoot).Record(0).Sparkle));break;
             case "fadeoutToWhite":BeginFade(true,1);break;
             case "fadeinFromWhiteWithDelay, $04":BeginFade(false,4);break;
             case "loseTreasure, TREASURE_POTION": Context.Inventory.LoseTreasure(TreasureId.Potion); break;

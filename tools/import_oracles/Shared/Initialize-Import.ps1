@@ -59,7 +59,7 @@ if (-not (Test-Path -LiteralPath $importerHost -PathType Leaf)) {
     throw "Importer source host build did not produce: $importerHost"
 }
 
-function Start-AssemblySourceHost {
+function Start-AssemblySourceHost([string]$symbols = $assemblySymbols) {
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = 'dotnet'
     $start.Arguments = "`"$importerHost`" serve"
@@ -71,7 +71,7 @@ function Start-AssemblySourceHost {
     $start.RedirectStandardError = $true
     $start.EnvironmentVariables['OOA_DISASSEMBLY_ROOT'] = (
         Resolve-Path -LiteralPath $Disassembly).Path
-    $start.EnvironmentVariables['OOA_ASSEMBLY_SYMBOLS'] = $assemblySymbols
+    $start.EnvironmentVariables['OOA_ASSEMBLY_SYMBOLS'] = $symbols
     $start.EnvironmentVariables['OOA_IMPORT_EXECUTION_ENVIRONMENT'] = (
         "$($PSVersionTable.PSEdition)/$($PSVersionTable.PSVersion)/$([Environment]::Version)/$([Globalization.CultureInfo]::CurrentCulture.Name)")
     $process = [Diagnostics.Process]::new()

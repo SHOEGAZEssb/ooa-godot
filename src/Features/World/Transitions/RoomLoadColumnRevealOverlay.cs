@@ -22,7 +22,7 @@ public partial class RoomLoadColumnRevealOverlay : Control
         _loadedColumns = Mathf.Clamp(
             loadedColumns,
             0,
-            RoomTransitionController.RoomLoadRevealColumnUpdates);
+            AgesRoomTransitionController.RoomLoadRevealColumnUpdates);
         Visible = true;
         QueueRedraw();
     }
@@ -34,7 +34,7 @@ public partial class RoomLoadColumnRevealOverlay : Control
         _loadedColumns = Mathf.Clamp(
             loadedColumns,
             0,
-            RoomTransitionController.RoomLoadRevealColumnUpdates);
+            AgesRoomTransitionController.RoomLoadRevealColumnUpdates);
         QueueRedraw();
     }
 
@@ -52,7 +52,7 @@ public partial class RoomLoadColumnRevealOverlay : Control
             return;
 
         (int left, int right) =
-            RoomTransitionController.RoomLoadRevealBounds(_loadedColumns);
+            AgesRoomTransitionController.RoomLoadRevealBounds(_loadedColumns);
         int height = Mathf.RoundToInt(Size.Y);
         if (left > 0)
         {

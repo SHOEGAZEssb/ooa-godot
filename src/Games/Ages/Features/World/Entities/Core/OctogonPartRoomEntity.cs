@@ -78,7 +78,7 @@ internal sealed class OctogonPartRoomEntity(OctogonPart part,Action<int> sound)
     public SeedHitResult ApplySeedHit(Rect2 bounds,Vector2 origin,int item,ICollection<RoomEntitySpawn> spawns)
     {
         if (item == ItemId.MysterySeed) throw new InvalidOperationException("Octogon parts require Mystery's live collision type.");
-        return new SeedSatchelDatabase().TryGet(item,out var seed) ? ApplySeedCollision(bounds,origin,seed,seed.Collision&31,spawns).Effect : SeedHitResult.None;
+        return new SeedSatchelDatabase(AgesGameContent.AssetRoot).TryGet(item,out var seed) ? ApplySeedCollision(bounds,origin,seed,seed.Collision&31,spawns).Effect : SeedHitResult.None;
     }
     public SeedCollisionResponse ApplySeedCollision(Rect2 bounds,Vector2 origin,SeedRecord seed,int collision,ICollection<RoomEntitySpawn> spawns)
     {

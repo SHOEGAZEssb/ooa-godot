@@ -10,12 +10,16 @@ namespace Oracles;
 /// </summary>
 internal sealed class SideScrollPlayerDatabase
 {
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<SideScrollPlayerDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static SideScrollPlayerDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<SideScrollPlayerDatabase>(() => new SideScrollPlayerDatabase(root))).Value;
+
     private readonly Dictionary<byte, SideScrollTileType> _tiles = new();
     private readonly Dictionary<string, int> _constants = new();
     private readonly Dictionary<(bool MermaidSuit, int Frame, int Direction),
         SideScrollSwimmingFrame> _swimmingFrames = new();
-
-    internal static SideScrollPlayerDatabase Shared { get; } = new();
 
     internal SideScrollPlayerParameters Parameters => new(
         Gravity: Constant("gravity"),
@@ -48,10 +52,12 @@ internal sealed class SideScrollPlayerDatabase
             Constant("animation-phase-2")
         ]);
 
-    internal SideScrollPlayerDatabase()
+    internal SideScrollPlayerDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable tileTable = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/side_scroll_tiles.tsv",
+            AssetRoot + "metadata/side_scroll_tiles.tsv",
             new GeneratedTableSchema(
                 "side-scrolling tile types",
                 GeneratedTableKeySemantics.Unique,
@@ -65,7 +71,7 @@ internal sealed class SideScrollPlayerDatabase
         }
 
         GeneratedTable constantTable = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/side_scroll_constants.tsv",
+            AssetRoot + "metadata/side_scroll_constants.tsv",
             new GeneratedTableSchema(
                 "side-scrolling player constants",
                 GeneratedTableKeySemantics.Unique,
@@ -76,7 +82,7 @@ internal sealed class SideScrollPlayerDatabase
             _constants.Add(row.RequiredString(0), row.Decimal(1));
 
         GeneratedTable swimmingFrameTable = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/side_scroll_swim_frames.tsv",
+            AssetRoot + "metadata/side_scroll_swim_frames.tsv",
             new GeneratedTableSchema(
                 "side-view Link swimming frames",
                 GeneratedTableKeySemantics.Unique,

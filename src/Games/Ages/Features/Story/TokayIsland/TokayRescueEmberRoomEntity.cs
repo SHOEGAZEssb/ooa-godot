@@ -24,14 +24,15 @@ internal sealed partial class TokayRescueEmberRoomEntity : TransitionOffsetNode2
 
     internal TokayRescueEmberRoomEntity(TokayRescueEmberSpawn spawn,Func<bool> textActive)
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         _textActive=textActive;
         _record = spawn.Record;
         Position = spawn.Position;
         _seed = new(this, 1);
         _flame = new(this, 1);
-        _seed.Load(EnemyVisualSource.LoadComposite([_record.Sprite]), [_record.SeedAnimation],
+        _seed.Load(EnemyVisualSource.LoadComposite([_record.Sprite], AgesGameContent.AssetRoot), [_record.SeedAnimation],
             _record.TileBase, _record.Palette, positionedOam: true);
-        _flame.Load(EnemyVisualSource.LoadComposite([_record.FlameSprite]), [_record.FlameAnimation],
+        _flame.Load(EnemyVisualSource.LoadComposite([_record.FlameSprite], AgesGameContent.AssetRoot), [_record.FlameAnimation],
             _record.FlameTileBase, _record.FlamePalette, positionedOam: true);
         _seed.SetAnimation(0);
         _flame.SetAnimation(0);

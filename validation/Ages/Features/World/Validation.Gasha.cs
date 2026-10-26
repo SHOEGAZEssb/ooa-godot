@@ -9,7 +9,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateGashaSpots()
     {
-        var database = new GashaSpotDatabase();
+        var database = new GashaSpotDatabase(AgesGameContent.AssetRoot);
         int[] expectedRanks =
             [1,2,2,1,4,1,1,0,3,2,2,1,4,3,1,0];
         FailIf(
@@ -32,8 +32,8 @@ public sealed partial class ValidationRoot
             database.MaturityClass(300) != 0 || database.MaturityClass(0xffff) != 0,
             "Gasha maturity class boundaries changed.");
 
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var treasures = new TreasureDatabase();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
+        var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var inventory = new InventoryState(treasures, save, () => -1);
         long tick = 0;
         var rooms = new RoomSession(0, 0x7b, () => tick, () => { }, save);
@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
         var plantingWorld = new Node { Name = "World" };
         var plantingInterface = new Node { Name = "Interface" };
         var plantingView = new RoomView { Name = "RoomView" };
-        var plantingDialogue = new DialogueBox { Name = "Dialogue" };
+        var plantingDialogue = new DialogueBox { AssetRoot = AgesGameContent.AssetRoot, Name = "Dialogue" };
         plantingRoot.AddChild(plantingWorld);
         plantingRoot.AddChild(plantingInterface);
         plantingRoot.AddChild(plantingView);
@@ -85,7 +85,7 @@ public sealed partial class ValidationRoot
         plantingManager.SoundRequested += sounds.Add;
         plantingManager.RoomTileChanged += () => roomRedraws++;
         var plantingInteractions = new InteractionController(
-            rooms, plantingManager, new SignDatabase(), new ChestDatabase(),
+            rooms, plantingManager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
             treasures, plantingDialogue, plantingWorld, plantingView,
             static position => position, () => tick, inventory,
             plantingInterface, sounds.Add);
@@ -275,7 +275,7 @@ public sealed partial class ValidationRoot
             save.IsGashaSpotPlanted(spot.SubId),
             "A harvested Gasha spot did not restore reusable soft soil on re-entry.");
 
-        OracleSaveData rewardSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData rewardSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var rewardInventory = new InventoryState(treasures, rewardSave, () => -1);
         rewardSave.SetGashaHarvestFlag(0);
         rewardSave.AddGashaMaturity(136);
@@ -301,7 +301,7 @@ public sealed partial class ValidationRoot
             rewardInventory.HealthQuarters != rewardInventory.MaxHealthQuarters,
             "An already-owned Gasha potion did not refill health without changing RNG use.");
 
-        OracleSaveData maturitySave = OracleSaveData.CreateStandardGame();
+        OracleSaveData maturitySave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var maturityInventory = new InventoryState(treasures, maturitySave, () => -1);
         maturityInventory.GiveTreasure(TreasureId.Essence, 1);
         maturityInventory.GiveTreasure(TreasureId.HeartPiece, 1);

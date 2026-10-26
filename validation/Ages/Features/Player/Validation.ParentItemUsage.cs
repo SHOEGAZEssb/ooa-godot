@@ -6,7 +6,7 @@ public partial class ValidationRoot
 {
     private void ValidateParentItemUsage()
     {
-        var data=new ParentItemUsageDatabase();
+        var data=new ParentItemUsageDatabase(AgesGameContent.AssetRoot);
         // Independent literals from Ages itemUsageParameterTable, not a
         // comparison of the parser's result with the table consumed by it.
         int[] source=[0x00,0x05,0x03,0x23,0x03,0x63,0x02,0x00,

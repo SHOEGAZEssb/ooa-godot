@@ -14,7 +14,7 @@ public sealed partial class ValidationRoot
         foreach (int terrain in Enumerable.Range(0, 5))
         foreach (bool batched in RomHostSchedules(hostCase++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc6aa, 0x14); save.WriteWramByte(0xc6ab, 0x30);
             InitializeTransientSession(save);
             int group = terrain >= 3 ? 7 : 6;

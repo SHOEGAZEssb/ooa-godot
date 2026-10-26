@@ -4,7 +4,8 @@ internal sealed partial class OldZoraCharacter : NpcCharacter
 {
     internal void InitializeOldZora(NpcRecord record)
     {
-        Initialize(record);
+        AssetRoot = AgesGameContent.AssetRoot;
+        Initialize(record, AgesGameContent.AssetRoot);
         SetScriptAnimation(record.UpAnimation);
         SetAnimationRate(0.0f);
     }

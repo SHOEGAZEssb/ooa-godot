@@ -8,6 +8,8 @@ namespace Oracles;
 /// </summary>
 internal sealed class BusinessScrubDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<string, int> _constants =
         new(StringComparer.Ordinal);
     private readonly Dictionary<int, BusinessScrubOffer> _offers = new();
@@ -33,11 +35,13 @@ internal sealed class BusinessScrubDatabase
     public int InsufficientText => Constant("insufficient-text");
     public int AlreadyOwnedText => Constant("already-owned-text");
 
-    public BusinessScrubDatabase()
+    public BusinessScrubDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         LoadConstants();
         LoadOffers();
-        foreach (var row in GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/business_scrub_all_offers.tsv",
+        foreach (var row in GeneratedTable.Load(AssetRoot + "objects/business_scrub_all_offers.tsv",
             new GeneratedTableSchema("Business Scrub source offers", GeneratedTableKeySemantics.Unique,
                 ["subid", "price", "treasure", "parameter", "source"], ["subid"], headerRequired: true)).Rows)
             _allOffers.Add(row.HexByte(0), new(0, row.HexByte(0), row.UnsignedDecimal(1),
@@ -90,7 +94,7 @@ internal sealed class BusinessScrubDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/business_scrub_constants.tsv",
+            AssetRoot + "objects/business_scrub_constants.tsv",
             new GeneratedTableSchema(
                 "Business Scrub constants",
                 GeneratedTableKeySemantics.Unique,
@@ -104,7 +108,7 @@ internal sealed class BusinessScrubDatabase
     private void LoadOffers()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/business_scrub.tsv",
+            AssetRoot + "objects/business_scrub.tsv",
             new GeneratedTableSchema(
                 "Business Scrub offers",
                 GeneratedTableKeySemantics.Unique,
@@ -132,7 +136,7 @@ internal sealed class BusinessScrubDatabase
     private void LoadAnimations()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/business_scrub_animations.tsv",
+            AssetRoot + "objects/business_scrub_animations.tsv",
             new GeneratedTableSchema(
                 "Business Scrub animations",
                 GeneratedTableKeySemantics.Unique,
@@ -146,7 +150,7 @@ internal sealed class BusinessScrubDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/business_scrub_texts.tsv",
+            AssetRoot + "objects/business_scrub_texts.tsv",
             new GeneratedTableSchema(
                 "Business Scrub texts",
                 GeneratedTableKeySemantics.Unique,

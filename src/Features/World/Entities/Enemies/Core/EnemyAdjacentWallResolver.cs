@@ -26,7 +26,7 @@ internal sealed class EnemyAdjacentWallResolver
     internal EnemyAdjacentWallResolver()
     {
         GeneratedTable offsets = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/enemy_adjacent_wall_offsets.tsv",
+            OracleAssetPack.CommonRoot + "metadata/enemy_adjacent_wall_offsets.tsv",
             new GeneratedTableSchema(
                 "enemy adjacent-wall offsets",
                 GeneratedTableKeySemantics.Unique,
@@ -56,7 +56,7 @@ internal sealed class EnemyAdjacentWallResolver
         }
 
         GeneratedTable topDownOffsets = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/enemy_topdown_adjacent_wall_offsets.tsv",
+            OracleAssetPack.CommonRoot + "metadata/enemy_topdown_adjacent_wall_offsets.tsv",
             new GeneratedTableSchema(
                 "top-down enemy adjacent-wall offsets",
                 GeneratedTableKeySemantics.Unique,
@@ -89,7 +89,7 @@ internal sealed class EnemyAdjacentWallResolver
         }
 
         GeneratedTable angles = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/enemy_bounce_angles.tsv",
+            OracleAssetPack.CommonRoot + "metadata/enemy_bounce_angles.tsv",
             new GeneratedTableSchema(
                 "enemy bounce angles",
                 GeneratedTableKeySemantics.Unique,

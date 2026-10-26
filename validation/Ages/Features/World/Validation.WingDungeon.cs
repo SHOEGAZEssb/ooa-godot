@@ -40,8 +40,8 @@ public sealed partial class ValidationRoot
             .Select(room => _saveData.GetRoomFlags(4, room))
             .ToArray();
         var data = new WingDungeonDatabase();
-        var interactions = new DungeonInteractionDatabase();
-        var sidePlatforms = new MovingSideScrollPlatformDatabase();
+        var interactions = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
+        var sidePlatforms = new MovingSideScrollPlatformDatabase(AgesGameContent.AssetRoot);
 
         void SetAllRoomFlags(bool value)
         {
@@ -114,7 +114,7 @@ public sealed partial class ValidationRoot
         {
             SideScrolling = true,
             AdjacentWallsBitset =
-                new SideScrollPlayerDatabase().Parameters.GroundWallMask
+                new SideScrollPlayerDatabase(AgesGameContent.AssetRoot).Parameters.GroundWallMask
         };
         var sidePhysicsPlayer = new Player
         {
@@ -283,7 +283,7 @@ public sealed partial class ValidationRoot
             "Wing Dungeon's imported native object, pattern, minecart, or " +
             "text contract is incomplete.");
 
-        var chests = new ChestDatabase();
+        var chests = new ChestDatabase(AgesGameContent.AssetRoot);
         (int Room, int Position, string Treasure)[] expectedChests =
         [
             (0x30, 0x57, "TREASURE_OBJECT_SMALL_KEY_03"),
@@ -819,7 +819,7 @@ public sealed partial class ValidationRoot
         // Link's screen-transition coordinate, persists as one object across
         // rooms, animates at 6/6 updates, and gives Link the matching exit
         // jump before restoring the stationary blocker.
-        var dungeonVisuals = new DungeonInteractionVisualDatabase();
+        var dungeonVisuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
         DungeonInteractionVisual minecartVisual =
             dungeonVisuals.Visual("minecart");
         AnimationDefinition verticalRideAnimation =
@@ -848,7 +848,7 @@ public sealed partial class ValidationRoot
         for (int phase = 0; phase < 2; phase++)
         for (int direction = 0; direction < 4; direction++)
         {
-            LinkGraphicRecord graphic = LinkItemDatabase.Shared.Graphic(
+            LinkGraphicRecord graphic = LinkItemDatabase.For(AgesGameContent.AssetRoot).Graphic(
                 "minecart", 0, phase, direction);
             FailIf(
                 graphic.GraphicsIndex !=
@@ -1577,7 +1577,7 @@ public sealed partial class ValidationRoot
                 ridingThwomp.Record.Animations[4]).Frames[0];
         using Texture2D expectedOrdinaryThwomp =
             OracleOamCompositor.BuildOamTextureUncachedForValidation(
-                EnemyVisualSource.LoadComposite(ridingThwomp.Record.Sprites),
+                EnemyVisualSource.LoadComposite(ridingThwomp.Record.Sprites, ridingThwomp.Record.AssetRoot),
                 ordinaryThwompFrame.EncodedOam,
                 ridingThwomp.Record.TileBase,
                 ridingThwomp.Record.Palette,
@@ -1685,7 +1685,7 @@ public sealed partial class ValidationRoot
             "Thwomp armor accepted a repeated sword collision before its " +
             "negative invincibility counter expired.");
 
-        TopDownAirParameters air = TopDownAirDatabase.Shared.Parameters;
+        TopDownAirParameters air = TopDownAirDatabase.For(AgesGameContent.AssetRoot).Parameters;
         FailIf(
             air.Gravity != 0x20 ||
             air.ReducedGravity != 0x0a ||
@@ -1722,7 +1722,7 @@ public sealed partial class ValidationRoot
         // fireball's tile 0 produces four repeated half-sprites.
         PrepareRoom(0x2b);
         var headThwompProjectileVisuals =
-            new DungeonInteractionVisualDatabase();
+            new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
         DungeonInteractionVisual fireballVisual =
             headThwompProjectileVisuals.Visual("head-thwomp-fireball");
         DungeonInteractionVisual fireballImpactVisual =
@@ -1843,7 +1843,7 @@ public sealed partial class ValidationRoot
         using Texture2D expectedImpactTexture =
             OracleOamCompositor.BuildOamTextureUncachedForValidation(
                 EnemyVisualSource.LoadComposite(
-                    fireballImpactVisual.Sprites),
+                    fireballImpactVisual.Sprites, fireballImpactVisual.AssetRoot),
                 impactFrame.EncodedOam,
                 fireballImpactVisual.TileBase,
                 fireballImpactVisual.Palette,
@@ -1851,7 +1851,7 @@ public sealed partial class ValidationRoot
                     fireballImpactVisual.SourceGrayscaleInverted);
         using Texture2D repeatedHalvesTexture =
             OracleOamCompositor.BuildOamTextureUncachedForValidation(
-                EnemyVisualSource.LoadComposite(fireballVisual.Sprites),
+                EnemyVisualSource.LoadComposite(fireballVisual.Sprites, fireballVisual.AssetRoot),
                 impactFrame.EncodedOam,
                 fireballVisual.TileBase,
                 fireballVisual.Palette,
@@ -1895,7 +1895,7 @@ public sealed partial class ValidationRoot
             SpawnMode = TreasureSpawnMode.Instant,
             GrabMode = TreasureGrabMode.TwoHands
         };
-        var headRewardWorld = new OracleWorldData();
+        var headRewardWorld = new AgesWorldData();
         OracleRoomData headRewardRoom = headRewardWorld.LoadRoom(6, 0x2b);
         Vector2 leftBossStair =
             PackedPoint(headRewardDefinition.StairPositions[0]);
@@ -1919,7 +1919,7 @@ public sealed partial class ValidationRoot
         // headThwomp_state8 closes $a4 with $3d when the fight starts.
         headRewardRoom.SetPositionTileAndCollision(
             leftBossStair, 0x3d, collision: null, animationTick: 0);
-        OracleSaveData headRewardSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData headRewardSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         int headRewardEnemies = 1;
         int headRewardTileChanges = 0;
         int headRewardLinkEnables = 0;
@@ -1998,7 +1998,7 @@ public sealed partial class ValidationRoot
         // ROOMFLAG $80 jumps straight to @spawnHeart on re-entry. It must
         // neither wait for enemies nor replay either staircase puff.
         OracleSaveData headRewardReentrySave =
-            OracleSaveData.CreateStandardGame();
+            OracleSaveData.CreateStandardGame(OracleGame.Ages);
         headRewardReentrySave.SetRoomFlag(
             4, 0x2b, OracleSaveData.RoomFlag80);
         var headRewardReentryRooms = new RoomSession(
@@ -2132,14 +2132,14 @@ public sealed partial class ValidationRoot
         Step();
         HeadThwompBoss head =
             _entities.Entities<HeadThwompBoss>().Single();
-        var bosses = new DungeonBossDatabase();
+        var bosses = new DungeonBossDatabase(AgesGameContent.AssetRoot);
         AnimationFrameDefinition headFrame =
             OracleGraphicsCache.GetAnimationDefinition(
                 head.Record.Animations[0]).Frames[0];
         (Texture2D expectedHeadTexture, Vector2 expectedHeadOffset) =
             OracleOamCompositor
                 .BuildPositionedOamTextureWithPaletteOverridesUncachedForValidation(
-                    EnemyVisualSource.LoadComposite(head.Record.Sprites),
+                    EnemyVisualSource.LoadComposite(head.Record.Sprites, head.Record.AssetRoot),
                     headFrame.EncodedOam,
                     head.Record.TileBase,
                     head.Record.Palette,
@@ -2247,7 +2247,7 @@ public sealed partial class ValidationRoot
         BombEffect mouthBomb = _entities.Spawn<BombEffect>(
             new BombSpawn(
                 _player,
-                new BombDatabase().Data,
+                new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,
                 4,
                 static _ => { }));
         mouthBomb.Throw(

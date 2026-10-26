@@ -5,7 +5,8 @@ namespace Oracles;
 /// <summary>PART_BEAM $29: a separately allocated segment, not a continuous ray.</summary>
 internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
 {
-    private readonly BeamosBehaviorProfile _behavior = EnemyBehaviorTables.Shared.Beamos;
+    private BeamosBehaviorProfile? _behaviorSourceCache;
+    private BeamosBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Beamos;
     private readonly BeamosBeamDatabase _data;
     private readonly OracleRoomData _room;
     private readonly OracleRuntimeState? _runtime;
@@ -25,6 +26,7 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
 
     internal BeamosBeamPart(BeamosBeamSpawn spawn, BeamosBeamDatabase data, OracleRoomData room, OracleRuntimeState? runtime = null)
     {
+        AssetRoot = data.AssetRoot;
         _data = data;
         _room = room;
         _runtime = runtime;
@@ -33,7 +35,7 @@ internal sealed partial class BeamosBeamPart : TransitionOffsetNode2D
         Angle = spawn.Angle;
         SubId = spawn.SubId;
         _animation = new EnemyAnimationPlayer(this, data.Animations.Length);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{data.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{data.Sprite}.png"),
             data.Animations, data.TileBase, data.Palette);
         _animation.SetAnimation(0);
         Visible = false;

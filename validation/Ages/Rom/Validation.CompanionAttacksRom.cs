@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateDimitriSwallowRom()
     {
-        var data = new DimitriDatabase();
+        var data = new DimitriDatabase(AgesGameContent.AssetRoot);
         int type = Enumerable.Range(0, 128).First(data.AcceptsMouthCollision);
         int mode = Enumerable.Range(0, 125).First(data.CanSwallow);
         int hostCase2 = 0;
@@ -34,7 +34,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateDimitriMouthMasksRom()
     {
-        var data = new DimitriDatabase();
+        var data = new DimitriDatabase(AgesGameContent.AssetRoot);
         var rom = new ObjectCollisionRom();
         for (int type = 0; type < 128; type++)
         foreach (int gate in new[] { 0, 1, 2, 3, 4 })

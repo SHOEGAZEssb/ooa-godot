@@ -53,6 +53,7 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
         Action roomTileChanged,
         Func<long> animationTick)
     {
+        AssetRoot = visual.AssetRoot;
         _room = room;
         _data = data;
         _puzzle = puzzle;
@@ -138,6 +139,7 @@ internal sealed partial class ColoredCubeRoomEntity : DungeonInteractionVisualEn
 
     private void InitializeCube()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         // INTERAC$19 state0 runs even under text or object freeze. Its shared
         // position/color writes belong to that first interaction pass.
         _initialized = true;

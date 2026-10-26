@@ -173,7 +173,7 @@ public sealed partial class ValidationRoot
             CheckReturnedSea(_rooms.CurrentRoom);
             LoadValidationRoom(1, 0xa2); LoadValidationRoom(1, 0xa3); Step(3);
             CheckReturnedSea(_rooms.CurrentRoom);
-            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out OracleSaveData? restored),
+            FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out OracleSaveData? restored),
                 "Fairy cleanup save serialization failed.");
             CheckReturnedSea(new RoomSession(1, 0xa3, () => 0, () => { }, restored!).CurrentRoom);
             LoadValidationRoom(3, 0xef); Step(3);

@@ -182,7 +182,7 @@ public sealed partial class ValidationRoot
             _secretEntry.Submit([0xff, 0xff, 0xff, 0xff, 0xff]);
             FailIf(!_secretEntry.IsActive || _saveData.HasGlobalFlag(GlobalFlag.BeganPlenSecret),
                 "Invalid Plen secret must remain in the menu without setting $67.");
-            _secretEntry.Submit(new LinkedGameNpcDatabase().GenerateSecretValues(3, _saveData));
+            _secretEntry.Submit(new LinkedGameNpcDatabase(AgesGameContent.AssetRoot).GenerateSecretValues(3, _saveData));
             for (int i = 0; i < 22; i++) _secretEntry.Update(1.0 / 60.0);
             FailIf(_secretEntry.IsActive || _gameplayPause.IsLeased, "Plen secret menu did not close cleanly.");
             StepGameplayUpdates(30, Vector2.Zero, batched: batched);

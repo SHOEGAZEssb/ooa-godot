@@ -8,7 +8,7 @@ public partial class ValidationRoot
 {
     private void ValidateSmogSentinel()
     {
-        var record = new EnemyDatabase().ImportedEnemy(AgesEnemyId.Smog,0);
+        var record = new EnemyDatabase(AgesGameContent.AssetRoot).ImportedEnemy(AgesEnemyId.Smog,0);
         foreach (int subid in new[] { 5,6 })
         foreach (int returnedA in new[] { 1,0,8,16,24 })
         {

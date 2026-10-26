@@ -34,6 +34,7 @@ internal abstract class NpcInteractionCommandHost : CutsceneCommandHost
     }
 
     protected RoomSession Rooms { get; }
+    protected string AssetRoot => Rooms.AssetRoot;
     protected RoomEntityManager Entities { get; }
     protected DialogueBox Dialogue { get; }
     protected IReadOnlyList<CutsceneCommand> Commands { get; }

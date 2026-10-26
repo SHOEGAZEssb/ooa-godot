@@ -12,7 +12,7 @@ public sealed partial class ValidationRoot
     {
         ReinitializeGameplayForValidation(); LoadValidationRoom(4,0x91); _entities.Clear();
         _inventory.GiveTreasure(TreasureId.BiggoronSword,1);
-        var data=new BiggoronSwordDatabase();
+        var data=new BiggoronSwordDatabase(AgesGameContent.AssetRoot);
         ReadOnlyMemory<byte> bytes=ValidationRom.LoadCleanUs();
         string Oam(SomariaRom rom,int slot)
         {

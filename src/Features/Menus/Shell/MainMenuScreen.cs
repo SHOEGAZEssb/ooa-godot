@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 using static Oracles.OracleGraphicsData;
 using static Oracles.OracleTileRenderer;
 
@@ -8,6 +9,11 @@ namespace Oracles;
 public partial class MainMenuScreen : Node2D
 {
 
+    internal string AssetRoot { get; set; } = string.Empty;
+    internal OracleGame Game => OracleAssetPack.GameFor(AssetRoot);
+    private Dictionary<string, IReadOnlyList<MenuOamPart>> _fileOam = null!;
+    private int[,] _titleLogoSprites = TitleLogoSprites, _pressStartSprites = PressStartSprites;
+    private Image? _dinSprites;
     private const int MapStride = 32;
     private static readonly int[,] TitleLogoSprites = {
         {0x48,0x90,0x62,0x06},{0x42,0x8e,0x68,0x06},{0x51,0x7a,0x56,0x04},
@@ -92,6 +98,7 @@ public partial class MainMenuScreen : Node2D
     internal int? EraseHealth => _eraseHealth;
 
     internal bool DeferPreparation { get; set; }
+    internal bool ResourcesPrepared { get; private set; }
 
     public override void _Ready()
     {
@@ -101,25 +108,41 @@ public partial class MainMenuScreen : Node2D
 
     internal System.Collections.Generic.IEnumerable<bool> PrepareResources()
     {
+        if (ResourcesPrepared) yield break;
+        _fileOam = FileMenuPresentation.LoadOam(AssetRoot);
+        if (Game == OracleGame.Seasons)
+        {
+            var titleOam = new Dictionary<string, IReadOnlyList<MenuOamPart>>(StringComparer.Ordinal);
+            MenuPresentationDatabase.LoadOamLayouts(AssetRoot + "menu/title_oam.tsv", "Seasons title OAM", titleOam,
+                new Dictionary<string,int> { ["logo"] = 18, ["press-start"] = 10 });
+            int[,] Parts(IReadOnlyList<MenuOamPart> parts)
+            {
+                var result = new int[parts.Count,4];
+                for (int i=0;i<parts.Count;i++) { result[i,0]=parts[i].Y;result[i,1]=parts[i].X;result[i,2]=parts[i].Tile;result[i,3]=parts[i].Attributes; }
+                return result;
+            }
+            _titleLogoSprites = Parts(titleOam["logo"]); _pressStartSprites = Parts(titleOam["press-start"]);
+            _dinSprites = LoadPng(AssetRoot + "gfx/spr_din_1.png");
+        }
         _fadeMaterial = FrontendPaletteMaterial.Create();
         Material = _fadeMaterial;
-        _titleSprites = LoadPng(AgesGameContent.AssetRoot + "menu/spr_titlescreen_sprites.png");
+        _titleSprites = LoadPng(AssetRoot + "menu/spr_titlescreen_sprites.png");
         yield return false;
-        _fileSprites = LoadPng(AgesGameContent.AssetRoot + "menu/spr_fileselect_decorations.png");
+        _fileSprites = LoadPng(AssetRoot + "menu/spr_fileselect_decorations.png");
         yield return false;
-        _linkSprites = LoadPng(AgesGameContent.AssetRoot + "gfx/spr_link.png");
+        _linkSprites = LoadPng(AssetRoot + "gfx/spr_link.png");
         yield return false;
-        _nayruSprites = LoadPng(AgesGameContent.AssetRoot + "menu/spr_nayru_1.png");
+        _nayruSprites = LoadPng(AssetRoot + "menu/spr_nayru_1.png");
         yield return false;
-        _hudTiles = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_hud.png");
+        _hudTiles = LoadPng(AssetRoot + "gfx/gfx_hud.png");
         yield return false;
-        _titleSpritePalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_title_sprites.bin");
+        _titleSpritePalette = LoadPalette(AssetRoot + "menu/palette_title_sprites.bin");
         yield return false;
-        _fileSpritePalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_sprites.bin");
+        _fileSpritePalette = LoadPalette(AssetRoot + "menu/palette_file_sprites.bin");
         yield return false;
-        _fileBgPalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_bg.bin");
+        _fileBgPalette = LoadPalette(AssetRoot + "menu/palette_file_bg.bin");
         yield return false;
-        _eraseBgPalette = LoadPalette(AgesGameContent.AssetRoot + "menu/palette_file_erase_bg.bin");
+        _eraseBgPalette = LoadPalette(AssetRoot + "menu/palette_file_erase_bg.bin");
         yield return false;
         _font = BuildFontTexture(new Color(0x08 / 31.0f, 0x1f / 31.0f, 0x00));
         yield return false;
@@ -155,6 +178,7 @@ public partial class MainMenuScreen : Node2D
         }
         _textSpeedMenu = BuildTextSpeedMenuTexture();
         yield return false;
+        ResourcesPrepared = true;
     }
 
     public override void _Draw()
@@ -180,7 +204,7 @@ public partial class MainMenuScreen : Node2D
         };
         DrawTexture(background, Vector2.Zero);
         FileMenuPresentation.DrawDecorations(
-            this, _fileSprites, _fileSpritePalette);
+            this, _fileSprites, _fileSpritePalette, _fileOam["decorations"]);
         switch (CurrentPage)
         {
             case Page.FileSelect: DrawFileSelect(showActorAndSummary: true); break;
@@ -245,7 +269,7 @@ public partial class MainMenuScreen : Node2D
         // func_02_465c retains the file-menu buffer when its length is unchanged.
         if (!retainInput || _secretLength != length) Array.Clear(_enteredSecret);
         _secretLength = length;
-        _secretData ??= new SecretEntryDatabase();
+        _secretData ??= new SecretEntryDatabase(AssetRoot);
         CurrentPage = Page.SecretEntry;
         ShowSecretError(false);
     }
@@ -415,15 +439,15 @@ public partial class MainMenuScreen : Node2D
             return opaque > 0 && transparent > 0;
         }
     }
-    internal static Vector2 TextSpeedCursorPositionForValidation(int speed) =>
+    internal static Vector2 TextSpeedCursorPositionForValidation(int speed, string assetRoot) =>
         FileMenuPresentation.OamScreenPosition(
-            MenuPresentationDatabase.Shared.FileOam("text-speed-cursor")[0],
+            FileMenuPresentation.LoadOam(assetRoot)["text-speed-cursor"][0],
             xOffset: Math.Clamp(speed, 0, 4) * 16);
     internal static int InterleavedSourceTileForValidation(int tile, int columns) =>
         SourceTileIndex(tile, columns, interleaved: true);
     internal Color TitleLogoSpritePixelForValidation(int x, int y) =>
         OamListPixel(
-            _titleSprites, 0x38, _titleSpritePalette, TitleLogoSprites, x, y);
+            _titleSprites, 0x38, _titleSpritePalette, _titleLogoSprites, x, y);
 
     private void DrawFileSelect(bool showActorAndSummary)
     {
@@ -468,8 +492,8 @@ public partial class MainMenuScreen : Node2D
             return;
         }
 
-        if ((save.ReadWramByte(AgesWramAddress.wFileIsHeroGame) & 1) != 0)
-            foreach (MenuOamPart part in MenuPresentationDatabase.Shared.FileOam("hero-file"))
+        if ((save.ReadField("wFileIsHeroGame") & 1) != 0)
+            foreach (MenuOamPart part in _fileOam["hero-file"])
                 DrawFileOamPart(part, Vector2.Zero);
 
         // fileSelectDrawLink checks the linked flag before completion.
@@ -477,6 +501,13 @@ public partial class MainMenuScreen : Node2D
         {
             DrawLinkPart(_actorFrame ? 0x02 : 0x00, 0x58, _actorFrame ? 0x20 : 0x00);
             DrawLinkPart(_actorFrame ? 0x00 : 0x02, 0x60, _actorFrame ? 0x20 : 0x00);
+            if (Game == OracleGame.Seasons)
+            {
+                DrawOamTileFromSource(_dinSprites!, _actorFrame ? 2 : 0, 2, new(0x60,0x3e), _actorFrame, false, _fileSpritePalette);
+                DrawOamTileFromSource(_dinSprites!, _actorFrame ? 0 : 2, 2, new(0x68,0x3e), _actorFrame, false, _fileSpritePalette);
+                DrawOamTileFromSource(_dinSprites!, 4, 2, new((_actorFrame ? 0x6b : 0x6d)-8,0x2e), _actorFrame, false, _fileSpritePalette);
+                return;
+            }
             DrawNayruPart(_actorFrame ? 0x08 : 0x06, 0x68, _actorFrame ? 0x29 : 0x09);
             DrawNayruPart(_actorFrame ? 0x06 : 0x08, 0x70, _actorFrame ? 0x29 : 0x09);
             return;
@@ -555,8 +586,7 @@ public partial class MainMenuScreen : Node2D
             if (TryGetSelectedNameCharacter(out char selectedCharacter) &&
                 selectedCharacter != ' ')
             {
-                var cursorParts = MenuPresentationDatabase.Shared.FileOam(
-                    "name-character-cursor");
+                var cursorParts = _fileOam["name-character-cursor"];
                 // Tile $2a is a solid sprite-palette-1 color-2 block with its
                 // OBJ-priority bit set. The GBC hides it behind the keyboard's
                 // nonzero black pixels, exposing blue only through the color-0
@@ -569,23 +599,21 @@ public partial class MainMenuScreen : Node2D
                     _nameKeyboardGlyphFont);
             }
             DrawFileOamPart(
-                MenuPresentationDatabase.Shared.FileOam(
-                    "name-character-cursor")[0],
+                _fileOam["name-character-cursor"][0],
                 offset);
         }
         else
         {
             int xOffset = EnteringSecret ? _secretData!.LowerOffsets[_nameLowerChoice] : new[] { 24, 48, 120 }[_nameLowerChoice];
             foreach (MenuOamPart part in
-                MenuPresentationDatabase.Shared.FileOam(
-                    "name-lower-option-cursor"))
+                _fileOam["name-lower-option-cursor"])
             {
                 DrawFileOamPart(part, new Vector2(xOffset, 0));
             }
         }
 
         DrawFileOamPart(
-            MenuPresentationDatabase.Shared.FileOam(EnteringSecret ? "secret-entry-cursor" : "name-entry-cursor")[0],
+            _fileOam[EnteringSecret ? "secret-entry-cursor" : "name-entry-cursor"][0],
             EnteringSecret
                 ? new Vector2((_nameEntryPosition % 10 + (_nameEntryPosition % 10 >= 5 ? 1 : 0)) * 8,
                     _nameEntryPosition >= 10 ? 16 : 0)
@@ -607,7 +635,7 @@ public partial class MainMenuScreen : Node2D
         // 16-pixel X offset for each wTextSpeed value. The tile is the final
         // 8x16 cell in spr_fileselect_decorations loaded for this menu.
         DrawFileOamPart(
-            MenuPresentationDatabase.Shared.FileOam("text-speed-cursor")[0],
+            _fileOam["text-speed-cursor"][0],
             new Vector2(Math.Clamp(TextSpeed, 0, 4) * 16, 0));
     }
 
@@ -684,15 +712,15 @@ public partial class MainMenuScreen : Node2D
 
     private void DrawTitleLogoSprites()
         => DrawOamList(
-            _titleSprites, 0x38, _titleSpritePalette, TitleLogoSprites);
+            _titleSprites, 0x38, _titleSpritePalette, _titleLogoSprites);
 
     private void DrawPressStartSprites()
         => DrawOamList(
-            _titleSprites, 0x38, _titleSpritePalette, PressStartSprites);
+            _titleSprites, 0x38, _titleSpritePalette, _pressStartSprites);
 
     private void DrawAcorn(Vector2 position) =>
         DrawFileOamPart(
-            MenuPresentationDatabase.Shared.FileOam("acorn-cursor")[0],
+            _fileOam["acorn-cursor"][0],
             position);
 
     private void DrawFileOamPart(MenuOamPart part, Vector2 offset)
@@ -867,72 +895,72 @@ public partial class MainMenuScreen : Node2D
     }
 
     private Texture2D BuildTitleTexture() => BuildScreenTexture(
-        ReadBytes(AgesGameContent.AssetRoot + "menu/map_titlescreen.bin", 576),
-        ReadBytes(AgesGameContent.AssetRoot + "menu/flags_titlescreen.bin", 576),
-        LoadPalette(AgesGameContent.AssetRoot + "menu/palette_title_bg.bin"),
-        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_1.png", 0x8800, 0, false),
-        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_2.png", 0x8d00, 0, false),
-        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_3.png", 0x9300, 0, false),
-        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_4.png", 0x9400, 0, false),
-        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_5.png", 0x8800, 1, false),
-        (AgesGameContent.AssetRoot + "menu/gfx_titlescreen_6.png", 0x8cd0, 1, false));
+        ReadBytes(AssetRoot + "menu/map_titlescreen.bin", 576),
+        ReadBytes(AssetRoot + "menu/flags_titlescreen.bin", 576),
+        LoadPalette(AssetRoot + "menu/palette_title_bg.bin"),
+        (AssetRoot + "menu/gfx_titlescreen_1.png", 0x8800, 0, false),
+        (AssetRoot + "menu/gfx_titlescreen_2.png", 0x8d00, 0, false),
+        (AssetRoot + "menu/gfx_titlescreen_3.png", 0x9300, 0, false),
+        (AssetRoot + "menu/gfx_titlescreen_4.png", 0x9400, 0, false),
+        (AssetRoot + "menu/gfx_titlescreen_5.png", 0x8800, 1, false),
+        (AssetRoot + "menu/gfx_titlescreen_6.png", 0x8cd0, 1, false));
 
     private Texture2D BuildFileMenuTexture()
     {
         (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
-            "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
+            "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin", assetRoot: AssetRoot);
         return BuildScreenTexture(map, flags, _fileBgPalette,
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_pickafile_2.png", 0x8800, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_copy.png", 0x8a00, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AssetRoot + "menu/gfx_pickafile_2.png", 0x8800, 1, true),
+            (AssetRoot + "menu/gfx_copy.png", 0x8a00, 1, true),
+            (AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
     }
 
     private Texture2D BuildCopyMenuTexture()
     {
         (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_file_menu_copy.bin", "flags_file_menu_copy.bin",
-            "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
+            "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin", assetRoot: AssetRoot);
         return BuildScreenTexture(map, flags, _fileBgPalette,
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_copywhatwhere.png", 0x8800, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_quit_2.png", 0x8a00, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_copy.png", 0x8aa0, 1, true));
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AssetRoot + "menu/gfx_copywhatwhere.png", 0x8800, 1, true),
+            (AssetRoot + "menu/gfx_quit_2.png", 0x8a00, 1, true),
+            (AssetRoot + "menu/gfx_copy.png", 0x8aa0, 1, true));
     }
 
     private Texture2D BuildEraseMenuTexture()
     {
         (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
-            "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
+            "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin", assetRoot: AssetRoot);
         return BuildScreenTexture(map, flags, _eraseBgPalette,
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_pickafile.png", 0x8800, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_quit_2.png", 0x8a00, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AssetRoot + "menu/gfx_pickafile.png", 0x8800, 1, true),
+            (AssetRoot + "menu/gfx_quit_2.png", 0x8a00, 1, true),
+            (AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
     }
 
     private Texture2D BuildNewFileMenuTexture()
     {
         (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_save_menu_middle.bin", "flags_save_menu_middle.bin",
-            "map_save_menu_bottom.bin", "flags_save_menu_bottom.bin", bottomLength: 128);
+            "map_save_menu_bottom.bin", "flags_save_menu_bottom.bin", bottomLength: 128, assetRoot: AssetRoot);
         return BuildScreenTexture(map, flags, _fileBgPalette,
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_newfilescreen.png", 0x8800, 1, true));
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AssetRoot + "menu/gfx_newfilescreen.png", 0x8800, 1, true));
     }
 
     private Texture2D BuildNameEntryTexture(int slot, bool secret = false, bool error = false)
@@ -940,13 +968,13 @@ public partial class MainMenuScreen : Node2D
         byte[] map = new byte[576];
         byte[] flags = new byte[576];
         string prefix = secret ? "secret" : "name";
-        Overlay(map, ReadBytes(AgesGameContent.AssetRoot + $"menu/map_{prefix}_entry_top.bin", 160), 0);
-        Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + $"menu/flags_{prefix}_entry_top.bin", 160), 0);
-        Overlay(map, ReadBytes(AgesGameContent.AssetRoot + $"menu/map_{prefix}_entry_middle.bin", 320), 0xa0);
-        Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + $"menu/flags_{prefix}_entry_middle.bin", 320), 0xa0);
-        Overlay(map, ReadBytes(AgesGameContent.AssetRoot + $"menu/map_{prefix}_entry_bottom.bin", 128),
+        Overlay(map, ReadBytes(AssetRoot + $"menu/map_{prefix}_entry_top.bin", 160), 0);
+        Overlay(flags, ReadBytes(AssetRoot + $"menu/flags_{prefix}_entry_top.bin", 160), 0);
+        Overlay(map, ReadBytes(AssetRoot + $"menu/map_{prefix}_entry_middle.bin", 320), 0xa0);
+        Overlay(flags, ReadBytes(AssetRoot + $"menu/flags_{prefix}_entry_middle.bin", 320), 0xa0);
+        Overlay(map, ReadBytes(AssetRoot + $"menu/map_{prefix}_entry_bottom.bin", 128),
             0x1e0, 96);
-        Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + $"menu/flags_{prefix}_entry_bottom.bin", 128),
+        Overlay(flags, ReadBytes(AssetRoot + $"menu/flags_{prefix}_entry_bottom.bin", 128),
             0x1e0, 96);
 
         // label_02_038 writes hActiveFileSlot+$20 into this tile before the
@@ -954,21 +982,21 @@ public partial class MainMenuScreen : Node2D
         if (!secret) map[0x49] = (byte)(0x20 + slot);
         if (error)
         {
-            Overlay(map, ReadBytes(AgesGameContent.AssetRoot + "menu/map_secret_entry_error.bin", 64), 0x140);
-            Overlay(flags, ReadBytes(AgesGameContent.AssetRoot + "menu/flags_secret_entry_error.bin", 64), 0x140);
+            Overlay(map, ReadBytes(AssetRoot + "menu/map_secret_entry_error.bin", 64), 0x140);
+            Overlay(flags, ReadBytes(AssetRoot + "menu/flags_secret_entry_error.bin", 64), 0x140);
         }
 
         Texture2D baseTexture = BuildScreenTexture(map, flags, _fileBgPalette,
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
-            (secret ? AgesGameContent.AssetRoot + "menu/gfx_secret_thatswrong.png" : AgesGameContent.AssetRoot + "menu/gfx_name.png", 0x8800, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false));
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (secret ? AssetRoot + "menu/gfx_secret_thatswrong.png" : AssetRoot + "menu/gfx_name.png", 0x8800, 1, true),
+            (AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false));
 
         // UNCMP_GFXH_0b expands characters $40-$7a from the 1bpp font into
         // paired 2bpp tiles at bank-0 $8800. Reproduce that VRAM layout so
         // the imported name-entry map supplies all five keyboard rows.
         Image output = baseTexture.GetImage();
-        Image font = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
+        Image font = LoadPng(AssetRoot + "gfx/gfx_font.png");
         for (int row = 0; row < 18; row++)
         for (int column = 0; column < 20; column++)
         {
@@ -990,24 +1018,24 @@ public partial class MainMenuScreen : Node2D
     {
         (byte[] map, byte[] flags) = FileMenuPresentation.BuildLayout(
             "map_file_menu_middle.bin", "flags_file_menu_middle.bin",
-            "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin");
+            "map_file_menu_bottom.bin", "flags_file_menu_bottom.bin", assetRoot: AssetRoot);
         Overlay(map, ReadBytes(
-            AgesGameContent.AssetRoot + "menu/map_file_menu_message_speed.bin", 128), 0x1c0);
+            AssetRoot + "menu/map_file_menu_message_speed.bin", 128), 0x1c0);
         Overlay(flags, ReadBytes(
-            AgesGameContent.AssetRoot + "menu/flags_file_menu_message_speed.bin", 128), 0x1c0);
+            AssetRoot + "menu/flags_file_menu_message_speed.bin", 128), 0x1c0);
         return BuildScreenTexture(map, flags, _fileBgPalette,
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
-            (AgesGameContent.AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
-            (AgesGameContent.AssetRoot + "menu/gfx_pickafile_2.png", 0x8800, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_copy.png", 0x8a00, 1, true),
-            (AgesGameContent.AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 0, false),
+            (AssetRoot + "gfx/gfx_hud.png", 0x9000, 1, false),
+            (AssetRoot + "menu/gfx_messagespeed.png", 0x9200, 0, false),
+            (AssetRoot + "menu/gfx_fileselect.png", 0x9200, 1, false),
+            (AssetRoot + "menu/gfx_pickafile_2.png", 0x8800, 1, true),
+            (AssetRoot + "menu/gfx_copy.png", 0x8a00, 1, true),
+            (AssetRoot + "menu/gfx_erase.png", 0x8aa0, 1, true));
     }
 
-    private static Texture2D BuildFontTexture(Color color)
+    private Texture2D BuildFontTexture(Color color)
     {
-        Image source = LoadPng(AgesGameContent.AssetRoot + "gfx/gfx_font.png");
+        Image source = LoadPng(AssetRoot + "gfx/gfx_font.png");
         using Image colors = Image.CreateEmpty(2, 1, false, Image.Format.Rgba8);
         colors.SetPixel(0, 0, Colors.Transparent);
         colors.SetPixel(1, 0, color);

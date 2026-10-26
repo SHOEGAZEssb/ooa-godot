@@ -7,7 +7,8 @@ namespace Oracles;
 // turn, then its reverse, then forward when the first two directions are solid.
 internal sealed partial class GiantBladeTrapCharacter : EnemyCharacter
 {
-    private readonly GiantBladeTrapBehaviorProfile _behavior = EnemyBehaviorTables.Shared.GiantBladeTrap;
+    private GiantBladeTrapBehaviorProfile? _behaviorSourceCache;
+    private GiantBladeTrapBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).GiantBladeTrap;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     internal ImportedEnemyDefinition Record { get; private set; }
@@ -20,6 +21,7 @@ internal sealed partial class GiantBladeTrapCharacter : EnemyCharacter
     internal void Initialize(ImportedEnemyDefinition record, OracleRoomData room,
         Vector2 position, OracleRandom random)
     {
+        AssetRoot = record.AssetRoot;
         if (record is not { Id: EnemyId.GiantBladeTrap, SubId: 3 })
             throw new ArgumentException("giantBladeTrap.s requires imported $2a:$03.", nameof(record));
         Record = record;

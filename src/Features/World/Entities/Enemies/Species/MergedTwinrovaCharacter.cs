@@ -110,7 +110,7 @@ internal sealed partial class MergedTwinrovaCharacter : EnemyCharacter
                     State = 9; CollisionType |= 128;
                     Subid = World.Entities.Random.Next().Value & 1;
                     Palette = (Subid ^ 1) + 1; RestartAnimation(Subid + 1);
-                    World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects, 0);
+                    World.Entities.RuntimeState.SetField("wDisabledObjects", 0);
                     World.Entities.RuntimeState.SetWramByte(0xcbca, 0);
                     World.Entities.SetNativeActiveMusic(SoundId.MusTwinrova);
                     World.Entities.OnSoundRequested(SoundId.MusTwinrova); return;

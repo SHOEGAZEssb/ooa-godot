@@ -27,7 +27,7 @@ internal sealed class ArrowDarknutRoomEntity(ArrowDarknutCharacter enemy,
 
     private bool Hit(int collision, Rect2 hitbox, Vector2 origin, int damage, ICollection<RoomEntitySpawn> spawns)
     {
-        int effect = EnemyBehaviorTables.Shared.ArrowDarknutCollisionEffects[collision].Value;
+        int effect = EnemyBehaviorTables.For(AssetRoot).ArrowDarknutCollisionEffects[collision].Value;
         EnemyKnockbackStrength strength = effect switch
         {
             CollisionEffect.SwordLowKnockback => EnemyKnockbackStrength.Low,

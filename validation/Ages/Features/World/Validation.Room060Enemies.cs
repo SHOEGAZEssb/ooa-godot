@@ -19,7 +19,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateTektiteSourceBehavior()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         OracleRoomData room = Room060MovementFixture();
         var sounds = new List<int>();
         for (int subid = 0; subid < 3; subid++)
@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateSwordMaskedMoblinSourceBehavior()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         OracleRoomData room = Room060MovementFixture();
         var random = new OracleRandom();
         var enemy = new SwordEnemyCharacter();
@@ -163,7 +163,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateRoom060EnemyCombat()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         OracleRoomData room = Room060MovementFixture();
         var random = new OracleRandom();
         random.RestoreState(random.CaptureState() with { Rng1 = 0, Rng2 = 0 });
@@ -247,7 +247,7 @@ public sealed partial class ValidationRoot
 
     private void ValidateRoom060Enemies()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         foreach (int id in new[] { 0x40, 0x42, 0x60 })
         {
             var placements = database.GetRoomObjects(0, id);

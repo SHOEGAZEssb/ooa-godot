@@ -64,10 +64,10 @@ internal sealed class DungeonEntranceRoomEntity : RoomEntityAdapter<Node2D>,
 
             // initializeDungeonStuff clears these three session-persistent
             // dungeon fields before the Ages table supplies wSpinnerState.
-            _runtimeState.SetWramByte(AgesGameContent.ToggleBlocksStateAddress, 0);
-            _runtimeState.SetWramByte(AgesGameContent.SwitchStateAddress, 0);
-            _runtimeState.SetWramByte(
-                AgesGameContent.SpinnerStateAddress, (byte)_record.SpinnerState);
+            _runtimeState.SetField("wToggleBlocksState", 0);
+            _runtimeState.SetField("wSwitchState", 0);
+            _runtimeState.SetField(
+                "wSpinnerState", (byte)_record.SpinnerState);
             _initializeStaticObjects(_record.Dungeon);
         }
 

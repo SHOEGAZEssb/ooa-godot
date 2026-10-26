@@ -25,7 +25,7 @@ public sealed partial class ValidationRoot
             // Inventory dispatch separately checks both button routes. Rotate
             // the selected button while retaining every slot/mask/option.
             bool toA = ((allPositions ? slot : mask) & 1) != 0;
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.WriteWramByte(0xc688, 0); save.WriteWramByte(0xc689, 0);
             for (int storage = 0; storage < 16; storage++) save.WriteWramByte(0xc68a + storage, 0);
             save.WriteWramByte(0xc68a + slot, (byte)item);

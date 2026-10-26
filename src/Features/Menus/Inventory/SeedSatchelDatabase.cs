@@ -11,12 +11,16 @@ namespace Oracles;
 /// </summary>
 public sealed class SeedSatchelDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int, SeedRecord> _records = new();
 
-    public SeedSatchelDatabase()
+    public SeedSatchelDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/seed_satchel.tsv",
+            AssetRoot + "metadata/seed_satchel.tsv",
             new GeneratedTableSchema(
                 "seed satchel",
                 GeneratedTableKeySemantics.Unique,

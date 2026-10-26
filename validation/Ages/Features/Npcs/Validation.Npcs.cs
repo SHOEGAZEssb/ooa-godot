@@ -10,7 +10,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSigns()
     {
-        var fallbacks = new TileInteractionFallbackDatabase(_treasures);
+        var fallbacks = new TileInteractionFallbackDatabase(AgesGameContent.AssetRoot, _treasures);
         FailIf(
             fallbacks.ChestWrongSide is not
                 {
@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
 
         const int unmatchedSignPosition = 0x11;
-        var signs = new SignDatabase();
+        var signs = new SignDatabase(AgesGameContent.AssetRoot);
         FailIf(
             signs.TryGetMessage(
             0, 0x2a, unmatchedSignPosition, out _),
@@ -356,6 +356,10 @@ public sealed partial class ValidationRoot
             _dialogue.GlyphCodeForValidation(0, 0, 9) != 0x14 ||
             _dialogue.GlyphCodeForValidation(0, 0, 13) != 0x20,
             "Adjacent heart text or the generated \\x20 byte escape was tokenized incorrectly.");
+        _dialogue.ShowMessage("One.\\nShe's here.", _player.Position.Y);
+        FailIf(_dialogue.GlyphCodeForValidation(0, 1, 0) != 'S' ||
+            DialogueBox.UnresolvedCommandsForValidation("\\num1").Count != 1,
+            "An adjacent newline consumed printable text or hid an unsupported numeric substitution.");
         _dialogue.ShowMessage("\\clubsY", _player.Position.Y);
         FailIf(
             _dialogue.GlyphCodeForValidation(0, 0, 0) != 0x11 ||
@@ -566,7 +570,7 @@ public sealed partial class ValidationRoot
 
     private static void ValidateNpcImplementationManifest()
     {
-        var database = new NpcDatabase();
+        var database = new NpcDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<NpcRecord> records = database.AllRecords;
         var expectedCounts =
             new Dictionary<NpcImplementationClassification, int>
@@ -628,7 +632,7 @@ public sealed partial class ValidationRoot
         static NpcCharacter CreateCharacter(NpcRecord record)
         {
             var npc = new NpcCharacter();
-            npc.Initialize(record);
+            npc.Initialize(record, AgesGameContent.AssetRoot);
             return npc;
         }
 
@@ -955,13 +959,13 @@ public sealed partial class ValidationRoot
         const double frame = 1.0 / 60.0;
         var validationRoot = new Node { Name = "Room20eNpcValidation" };
         AddChild(validationRoot);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         save.SetGlobalFlag(
             AgesGlobalFlag.SavedNayru, value: false);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = save });
         RoomEntityManager manager = managerFixture.Manager;
-        var database = new Room20eNpcDatabase();
+        var database = new Room20eNpcDatabase(AgesGameContent.AssetRoot);
         manager.LoadRoom(2, _world.LoadRoom(2, 0x0e));
 
         List<NpcCharacter> actors = manager.Entities<NpcCharacter>();
@@ -1147,7 +1151,7 @@ public sealed partial class ValidationRoot
 
         var pastGuyRoot = new Node { Name = "Room145PastGuyValidation" };
         AddChild(pastGuyRoot);
-        OracleSaveData pastGuySave = OracleSaveData.CreateStandardGame();
+        OracleSaveData pastGuySave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var pastGuyManagerFixture = RoomEntityValidationFixture.ForRoot(
             pastGuyRoot, new() { SaveData = pastGuySave });
         RoomEntityManager pastGuyManager = pastGuyManagerFixture.Manager;
@@ -1236,17 +1240,17 @@ public sealed partial class ValidationRoot
         var bipinWorldRoot = new Node { Name = "World" };
         var bipinInterface = new Node { Name = "Interface" };
         var bipinView = new RoomView { Name = "RoomView" };
-        var bipinDialogue = new DialogueBox { Name = "Dialogue" };
+        var bipinDialogue = new DialogueBox { AssetRoot = AgesGameContent.AssetRoot, Name = "Dialogue" };
         bipinRoot.AddChild(bipinWorldRoot);
         bipinRoot.AddChild(bipinInterface);
         bipinRoot.AddChild(bipinView);
         bipinRoot.AddChild(bipinDialogue);
         AddChild(bipinRoot);
-        OracleSaveData bipinSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData bipinSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long bipinTick = 0;
         var bipinRooms = new RoomSession(
             3, 0xfc, () => bipinTick, () => bipinTick = 0, bipinSave);
-        var bipinTreasures = new TreasureDatabase();
+        var bipinTreasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var bipinInventory = new InventoryState(
             bipinTreasures, bipinSave, () => bipinRooms.CurrentDungeonIndex);
         var bipinSounds = new List<int>();
@@ -1260,7 +1264,7 @@ public sealed partial class ValidationRoot
         RoomEntityManager bipinManager = bipinManagerFixture.Manager;
         bipinManager.SoundRequested += bipinSounds.Add;
         var bipinInteractions = new InteractionController(
-            bipinRooms, bipinManager, new SignDatabase(), new ChestDatabase(),
+            bipinRooms, bipinManager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
             bipinTreasures, bipinDialogue, bipinWorldRoot, bipinView,
             static position => position, () => bipinTick, bipinInventory,
             bipinInterface, bipinSounds.Add);
@@ -1404,7 +1408,7 @@ public sealed partial class ValidationRoot
         const double frame = 1.0 / 60.0;
         var validationRoot = new Node { Name = "Room148NpcValidation" };
         AddChild(validationRoot);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = save });
         RoomEntityManager manager = managerFixture.Manager;
@@ -1617,7 +1621,7 @@ public sealed partial class ValidationRoot
             Villager().Active || !Girl().Active || Girl().TextId != 0x1a07,
             "Room 1:48 re-entry did not retain getGameProgress_2 state $07.");
 
-        OracleSaveData state3Save = OracleSaveData.CreateStandardGame();
+        OracleSaveData state3Save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         if (state3Save.WriteWramByte(AgesWramAddress.wEssencesObtained, 0x08))
             state3Save.CommitInventoryChange();
         state3Save.SetGlobalFlag(AgesGlobalFlag.SavedNayru);
@@ -1673,7 +1677,7 @@ public sealed partial class ValidationRoot
         const double frame = 1.0 / 60.0;
         var validationRoot = new Node { Name = "Room149FamilyValidation" };
         AddChild(validationRoot);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = save });
         RoomEntityManager manager = managerFixture.Manager;
@@ -1903,7 +1907,7 @@ public sealed partial class ValidationRoot
         const double frame = 1.0 / 60.0;
         var validationRoot = new Node { Name = "Room157NpcValidation" };
         AddChild(validationRoot);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = save });
         RoomEntityManager manager = managerFixture.Manager;
@@ -2027,7 +2031,7 @@ public sealed partial class ValidationRoot
         const double frame = 1.0 / 60.0;
         var validationRoot = new Node { Name = "Room158NpcValidation" };
         AddChild(validationRoot);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = save });
         RoomEntityManager manager = managerFixture.Manager;
@@ -2193,7 +2197,7 @@ public sealed partial class ValidationRoot
     {
         var validationRoot = new Node { Name = "Room175NpcValidation" };
         AddChild(validationRoot);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var managerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = save });
         RoomEntityManager manager = managerFixture.Manager;
@@ -2468,11 +2472,11 @@ public sealed partial class ValidationRoot
                 _sound.PlayRequestsFor(SoundId.SndEnterCave) != 1,
                 $"Room 1:76 flag ${record.RoomFlagMask:x2}={flagSet} did not enter 4:{destination:x2} through $93/$ff/$01 with SND_ENTERCAVE.");
 
-            UpdateRoomWarpTransition(RoomTransitionController.WarpFadeInFrames / 60.0);
+            UpdateRoomWarpTransition(AgesRoomTransitionController.WarpFadeInFrames / 60.0);
             FailIf(
                 _transitions.IsTransitioning ||
                 _player.Position != new Vector2(
-                    0x78, _currentRoom.Height - RoomTransitionController.WarpEnterFrames) ||
+                    0x78, _currentRoom.Height - AgesRoomTransitionController.WarpEnterFrames) ||
                 _player.FacingVector != Vector2I.Up,
                 "The room 1:76 destination did not complete its 28-update middle-bottom entrance within the 33-update fade.");
         }
@@ -2491,7 +2495,7 @@ public sealed partial class ValidationRoot
             if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--preload-native-script") >= 0)
             {
                 var loadTimer = System.Diagnostics.Stopwatch.StartNew();
-                var script = ResourceLoader.Load<CSharpScript>("res://src/Features/World/Interactions/LynnaShop/LynnaShopItem.cs");
+                var script = ResourceLoader.Load<CSharpScript>("res://src/Games/Ages/Features/World/Interactions/LynnaShop/LynnaShopItem.cs");
                 loadTimer.Stop();
                 GD.Print($"NATIVE_SCRIPT_LOAD ms={loadTimer.Elapsed.TotalMilliseconds:F3} valid={script is not null}");
             }
@@ -2520,7 +2524,7 @@ public sealed partial class ValidationRoot
 
         // Exercise each stock predicate independently of accumulated gameplay
         // validation state.
-        OracleSaveData predicateSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData predicateSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         SetTreasure(predicateSave, TreasureId.Bombs, value: false);
         SetTreasure(predicateSave, TreasureId.SwitchHookChain, value: false);
         SetTreasure(predicateSave, TreasureId.Flute, value: false);
@@ -2653,7 +2657,7 @@ public sealed partial class ValidationRoot
         _player.WarpTo(hearts.ShelfPosition + Vector2.Down * 19, recordSafe: false);
         FailIf(
             !_playerWorld.TryInteract(_player),
-            "PlayerWorld's normal A-button interaction route did not accept shop stock.");
+            "AgesPlayerWorld's normal A-button interaction route did not accept shop stock.");
         FailIf(
             shop.Stage != LynnaShopEventStage.Holding ||
             !hearts.Held || !_player.IsCarryingObject ||
@@ -2695,7 +2699,7 @@ public sealed partial class ValidationRoot
         _player.Face(Vector2I.Up);
         FailIf(
             !_playerWorld.TrySecondaryInteract(_player),
-            "PlayerWorld's normal B-button interaction route did not return shop stock.");
+            "AgesPlayerWorld's normal B-button interaction route did not return shop stock.");
         FailIf(
             shop.HasState || hearts.Held ||
             _player.IsCarryingObject || _player.IsHoldingItemTwoHands,
@@ -3149,7 +3153,7 @@ public sealed partial class ValidationRoot
     {
         const int group = 1;
         const int roomId = 0x86;
-        var groundDatabase = new GroundTreasureDatabase();
+        var groundDatabase = new GroundTreasureDatabase(AgesGameContent.AssetRoot);
         IReadOnlyList<GroundTreasureDatabaseRecord> groundRecords =
             groundDatabase.GetRoomRecords(group, roomId);
         FailIf(
@@ -3177,7 +3181,7 @@ public sealed partial class ValidationRoot
                 completionInventory.MaxHealthQuarters,
             "The fourth Heart Piece did not clear its counter and grant/refill a four-quarter Heart Container.");
 
-        var heartDialogue = new DialogueBox { Name = "HeartPieceTextboxValidation" };
+        var heartDialogue = new DialogueBox { AssetRoot = AgesGameContent.AssetRoot, Name = "HeartPieceTextboxValidation" };
         AddChild(heartDialogue);
         var heartDialogueInventory = new InventoryState(_treasures);
         for (int piece = 0; piece < 4; piece++)
@@ -3240,7 +3244,7 @@ public sealed partial class ValidationRoot
 
         var validationRoot = new Node { Name = "Room186PredicateValidation" };
         AddChild(validationRoot);
-        OracleSaveData isolatedSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData isolatedSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var isolatedManagerFixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { SaveData = isolatedSave });
         RoomEntityManager isolatedManager = isolatedManagerFixture.Manager;
@@ -3475,7 +3479,7 @@ public sealed partial class ValidationRoot
     {
         const double frame = 1.0 / 60.0;
         var data = new BlackTowerWorkerDatabase();
-        var dungeonEntries = new DungeonEntranceInteractionDatabase();
+        var dungeonEntries = new DungeonEntranceInteractionDatabase(AgesGameContent.AssetRoot);
         var strike = new Room148PickaxeDatabase();
         FailIf(
             !Enumerable.Range(0, 8)
@@ -3542,7 +3546,7 @@ public sealed partial class ValidationRoot
         {
             var root = new Node { Name = $"BlackTower{expectedRoom.Room:x2}Validation" };
             AddChild(root);
-            OracleSaveData save = OracleSaveData.CreateStandardGame();
+            OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             using var managerFixture = RoomEntityValidationFixture.ForRoot(
                 root, new() { SaveData = save });
             RoomEntityManager manager = managerFixture.Manager;
@@ -3575,7 +3579,7 @@ public sealed partial class ValidationRoot
         // soldierSubid00/01 must never leak onto these placed construction guards.
         var predicateRoot = new Node { Name = "BlackTowerSoldierPredicateValidation" };
         AddChild(predicateRoot);
-        OracleSaveData predicateSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData predicateSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         using var predicateManagerFixture = RoomEntityValidationFixture.ForRoot(
             predicateRoot, new() { SaveData = predicateSave });
         RoomEntityManager predicateManager = predicateManagerFixture.Manager;
@@ -3642,7 +3646,7 @@ public sealed partial class ValidationRoot
         // shows TX_020f once and records the live position as the checkpoint.
         var entranceRoot = new Node { Name = "BlackTowerEntranceValidation" };
         AddChild(entranceRoot);
-        OracleSaveData entranceSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData entranceSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long entranceTick = 0;
         var entranceRooms = new RoomSession(
             4, 0xe7, () => entranceTick, () => entranceTick = 0, entranceSave);
@@ -3652,10 +3656,10 @@ public sealed partial class ValidationRoot
         // Keep the real placed population/slot counts while supplying the
         // entity-owned script lanes now required by its patrolling workers.
         _ = new NpcInteractionScriptController(entranceRooms, entranceManager,
-            _dialogue, _treasures, new BipinBlossomFamilyStateResolver(new NpcDatabase()),
+            _dialogue, _treasures, new BipinBlossomFamilyStateResolver(new NpcDatabase(AgesGameContent.AssetRoot)),
             new InventoryState(_treasures, entranceSave), static () => false,
             static () => { });
-        var respawn = new DeathRespawnPointController(entranceRooms, _player);
+        var respawn = new AgesDeathRespawnPointController(entranceRooms, _player);
         int entranceText = 0;
         string entranceMessage = string.Empty;
         entranceManager.DungeonEntranceTriggered += (textId, message) =>
@@ -3706,17 +3710,17 @@ public sealed partial class ValidationRoot
         var shovelWorldRoot = new Node { Name = "World" };
         var shovelInterface = new Node { Name = "Interface" };
         var shovelView = new RoomView { Name = "RoomView" };
-        var shovelDialogue = new DialogueBox { Name = "Dialogue" };
+        var shovelDialogue = new DialogueBox { AssetRoot = AgesGameContent.AssetRoot, Name = "Dialogue" };
         shovelRoot.AddChild(shovelWorldRoot);
         shovelRoot.AddChild(shovelInterface);
         shovelRoot.AddChild(shovelView);
         shovelRoot.AddChild(shovelDialogue);
         AddChild(shovelRoot);
-        OracleSaveData shovelSave = OracleSaveData.CreateStandardGame();
+        OracleSaveData shovelSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long shovelTick = 0;
         var shovelRooms = new RoomSession(
             4, 0xe1, () => shovelTick, () => shovelTick = 0, shovelSave);
-        var shovelTreasures = new TreasureDatabase();
+        var shovelTreasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var shovelInventory = new InventoryState(
             shovelTreasures, shovelSave, () => shovelRooms.CurrentDungeonIndex);
         var shovelSounds = new List<int>();
@@ -3730,7 +3734,7 @@ public sealed partial class ValidationRoot
         RoomEntityManager shovelManager = shovelManagerFixture.Manager;
         shovelManager.SoundRequested += shovelSounds.Add;
         var shovelInteractions = new InteractionController(
-            shovelRooms, shovelManager, new SignDatabase(), new ChestDatabase(),
+            shovelRooms, shovelManager, new SignDatabase(AgesGameContent.AssetRoot), new ChestDatabase(AgesGameContent.AssetRoot),
             shovelTreasures, shovelDialogue, shovelWorldRoot, shovelView,
             static position => position, () => shovelTick, shovelInventory,
             shovelInterface, shovelSounds.Add);
@@ -3904,8 +3908,8 @@ public sealed partial class ValidationRoot
     {
         var validationRoot = new Node { Name = "NpcFlagVisibilityValidation" };
         AddChild(validationRoot);
-        OracleSaveData save = OracleSaveData.CreateStandardGame();
-        var npcs = new NpcDatabase();
+        OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
+        var npcs = new NpcDatabase(AgesGameContent.AssetRoot);
         using var fixture = RoomEntityValidationFixture.ForRoot(
             validationRoot, new() { Npcs = npcs, SaveData = save });
         RoomEntityManager manager = fixture.Manager;
@@ -3930,9 +3934,9 @@ public sealed partial class ValidationRoot
             "movement or animation-toggle contract.");
 
         FailIf(
-            new NpcVisibilityRuleDatabase().RuleCount != 395 ||
-            new NpcDialogueRuleDatabase().RuleCount != 195 ||
-            new NpcPositionRuleDatabase().RuleCount != 2,
+            new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot).RuleCount != 395 ||
+            new NpcDialogueRuleDatabase(AgesGameContent.AssetRoot).RuleCount != 195 ||
+            new NpcPositionRuleDatabase(AgesGameContent.AssetRoot).RuleCount != 2,
             "Expected 394 NPC visibility, 195 NPC dialogue, and two NPC " +
             "position state predicates.");
 
@@ -4383,7 +4387,7 @@ public sealed partial class ValidationRoot
         if (save.WriteWramByte(AgesWramAddress.wEssencesObtained, 0))
             save.CommitInventoryChange();
 
-        var rescueVisibility = new NpcVisibilityRuleDatabase();
+        var rescueVisibility = new NpcVisibilityRuleDatabase(AgesGameContent.AssetRoot);
         var rescueRecords = npcs.GetRoomNpcs(0, 0x65);
         FailIf(
             rescueRecords.Count != 2 || rescueRecords.Any(record =>
@@ -4518,7 +4522,7 @@ public sealed partial class ValidationRoot
         changed |= _saveData.WriteWramByte(AgesWramAddress.wChildStatus, 0x00);
         changed |= _saveData.WriteWramByte(AgesWramAddress.wChildStage, 0x00);
         changed |= _saveData.WriteWramByte(AgesWramAddress.wNextChildStage, 0x00);
-        changed |= _saveData.WriteWramByte(OracleSaveData.ChildFlagsAddress, 0x00);
+        changed |= _saveData.WriteWramByte(AgesWramAddress.wc6e2, 0x00);
         changed |= _saveData.WriteWramByte(AgesWramAddress.wChildPersonality, 0x00);
         if (changed)
             _saveData.CommitInventoryChange();
@@ -4602,7 +4606,7 @@ public sealed partial class ValidationRoot
             "Naming the child did not live-switch Bipin/Blossom to TX_4301/TX_4409 with \\Child expanded.");
 
         changed = _saveData.WriteWramByte(
-            OracleSaveData.ChildFlagsAddress, 0x00);
+            AgesWramAddress.wc6e2, 0x00);
         if (changed)
             _saveData.CommitInventoryChange();
         FailIf(
@@ -4613,7 +4617,7 @@ public sealed partial class ValidationRoot
             "Clearing the child-named bit did not restore imported TX_4300/" +
             "TX_4400 through the shared family-state refresh.");
         changed = _saveData.WriteWramByte(
-            OracleSaveData.ChildFlagsAddress, 0x01);
+            AgesWramAddress.wc6e2, 0x01);
         if (changed)
             _saveData.CommitInventoryChange();
         FailIf(
@@ -4653,7 +4657,7 @@ public sealed partial class ValidationRoot
         changed |= _saveData.WriteWramByte(AgesWramAddress.wChildStatus, 0x00);
         changed |= _saveData.WriteWramByte(AgesWramAddress.wChildStage, 0x00);
         changed |= _saveData.WriteWramByte(AgesWramAddress.wNextChildStage, 0x00);
-        changed |= _saveData.WriteWramByte(OracleSaveData.ChildFlagsAddress, 0x00);
+        changed |= _saveData.WriteWramByte(AgesWramAddress.wc6e2, 0x00);
         changed |= _saveData.WriteWramByte(AgesWramAddress.wChildPersonality, 0x00);
         if (changed)
             _saveData.CommitInventoryChange();

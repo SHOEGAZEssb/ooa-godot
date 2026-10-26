@@ -6,19 +6,23 @@ namespace Oracles;
 
 internal sealed class DungeonToggleTileDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int Dungeon, int State), Dictionary<byte, byte>> _tiles = new();
     private readonly Dictionary<int, Dictionary<int, DynamicBackgroundTile>> _graphics = new();
     private readonly Dictionary<byte, (byte Tile, byte Collision)> _liveTiles = new();
     internal int Delay { get; private set; }
     internal bool Supports(int dungeon) => _tiles.ContainsKey((dungeon, 0));
 
-    internal DungeonToggleTileDatabase()
+    internal DungeonToggleTileDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/dungeon_toggle_tiles.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "metadata/dungeon_toggle_tiles.tsv",
             new GeneratedTableSchema("dungeon toggle tiles", GeneratedTableKeySemantics.Unique,
                 ["dungeon", "state", "original", "replacement", "destination-tile", "tile-count", "source-tile", "source"],
                 ["dungeon", "state", "original"], headerRequired: true));
-        Image image = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/gfx_animations_2.png");
+        Image image = OracleGraphicsCache.LoadImage(AssetRoot + "gfx/gfx_animations_2.png");
         foreach (var row in table.Rows)
         {
             int dungeon = row.Decimal(0, 0, 15), state = row.Decimal(1, 0, 1);
@@ -36,7 +40,7 @@ internal sealed class DungeonToggleTileDatabase
             }
         }
         if (table.Rows.Count != 12) throw new InvalidOperationException("Expected twelve source dungeon toggle substitutions.");
-        var live = GeneratedTable.Load(AgesGameContent.AssetRoot + "metadata/dungeon_toggle_cutscene.tsv",
+        var live = GeneratedTable.Load(AssetRoot + "metadata/dungeon_toggle_cutscene.tsv",
             new GeneratedTableSchema("dungeon toggle cutscene", GeneratedTableKeySemantics.Unique,
                 ["name", "values", "source"], ["name"], headerRequired: true));
         foreach (var row in live.Rows)

@@ -28,8 +28,8 @@ internal sealed partial class ChestContentsRoomEntity(
             return;
         }
         var reward = contents();
-        runtime.SetWramByte(AgesWramAddress.wChestContentsOverride, checked((byte)reward.TreasureId));
-        runtime.SetWramByte(AgesWramAddress.wChestContentsOverride + 1, checked((byte)reward.SubId));
+        runtime.SetField("wChestContentsOverride", checked((byte)reward.TreasureId));
+        runtime.SetField("wChestContentsOverride", checked((byte)reward.SubId), 1);
         Finished = true;
     }
 

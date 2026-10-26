@@ -13,7 +13,7 @@ public sealed partial class ValidationRoot
         foreach (int option in new[] { -1, 0, 1, 2 })
         foreach (bool batched in RomHostSchedules(hostCase1++))
         {
-            var save = OracleSaveData.CreateStandardGame();
+            var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             save.SetLinkName("Link");
             save.SetGlobalFlag(GlobalFlag.IntroDone);
             save.SetDeathRespawnPoint(0, 0x45, 0, 2, 0x58, 0x50);

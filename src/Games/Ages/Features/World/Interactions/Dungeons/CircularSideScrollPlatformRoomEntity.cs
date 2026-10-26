@@ -37,6 +37,7 @@ internal sealed partial class CircularSideScrollPlatformRoomEntity :
         DungeonInteractionVisual visual,
         CircularSideScrollPlatformRecord profile)
     {
+        AssetRoot = visual.AssetRoot;
         _record = profile;
         _precisePosition = record.Position;
         Name = $"CircularSideScrollPlatform_{record.SubId}";

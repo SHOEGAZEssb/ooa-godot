@@ -128,7 +128,7 @@ public sealed partial class ValidationRoot
             Step(1);
             boss.HitCount=2; rom[0xd080+bossSlot*256+0x35]=2;
             var grabber=_entities.Entities<RamrockCharacter>().Single(a=>a.Record.Id==5);
-            var bomb=_entities.Spawn<BombEffect>(new BombSpawn(_player,new BombDatabase().Data,5,_=>{}));
+            var bomb=_entities.Spawn<BombEffect>(new BombSpawn(_player,new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,5,_=>{}));
             bomb.Throw(_player,Vector2I.Zero,Vector2I.Zero,0,0);
             // Declare one live grounded ITEM$03 in the source grabber window.
             // The gameplay enemy pass performs the consume and phase signal.
@@ -157,7 +157,7 @@ public sealed partial class ValidationRoot
             {
                 rom.HitWithSword(0x1b,0,bossSlot);
                 FailIf(!((ISeedCollisionTarget)bossEntity).ApplySeedCollision(boss.CollisionBounds,boss.Position-Vector2.Down,
-                    new SeedSatchelDatabase().Ember,0x1b,[]).Contact,"Ramrock's exposed seed body must admit a live seed collision.");
+                    new SeedSatchelDatabase(AgesGameContent.AssetRoot).Ember,0x1b,[]).Contact,"Ramrock's exposed seed body must admit a live seed collision.");
             }
             SeedHit(); Step(1);
             FailIf(boss.State!=11 || boss.HitCount!=3,"The third seed hit must retain seed form; the source checks$03 before incrementing var35.");

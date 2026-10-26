@@ -63,6 +63,7 @@ internal sealed partial class MinecartRoomEntity : DungeonInteractionVisualEntit
         DungeonInteractionVisual visual,
         Action<int> playSound)
     {
+        AssetRoot = data.AssetRoot;
         _room = room;
         _data = data;
         _runtime = runtime;

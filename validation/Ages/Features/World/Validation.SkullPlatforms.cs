@@ -7,7 +7,7 @@ public sealed partial class ValidationRoot
 {
     private void ValidateSkullDungeonPlatforms()
     {
-        var data = new MovingPlatformDatabase();
+        var data = new MovingPlatformDatabase(AgesGameContent.AssetRoot);
         string[] sourcePrograms = [
             "00:08,08:60,00:08,0a:a0,00:08,08:a0,04:02",
             "00:08,08:20,00:08,0a:c0,00:08,08:c0,04:02",
@@ -37,8 +37,8 @@ public sealed partial class ValidationRoot
                 .Single(r=>r.SubId == c.Subid && r.Id == 0x79);
             FailIf(placed.X != c.X || placed.Y != c.Y,"INTERAC$79 lost an independently traced mainData.s placement.");
             var platform = new MovingPlatformRoomEntity(
-                new DungeonInteractionVisualDatabase().Visual($"platform-{c.Subid&7:x2}"),new(c.X,c.Y),c.Subid,
-                new DungeonInteractionDatabase().MovingPlatformCollisionRadii(c.Subid),new DungeonInteractionDatabase(),
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual($"platform-{c.Subid&7:x2}"),new(c.X,c.Y),c.Subid,
+                new DungeonInteractionDatabase(AgesGameContent.AssetRoot).MovingPlatformCollisionRadii(c.Subid),new DungeonInteractionDatabase(AgesGameContent.AssetRoot),
                 data.Script(4,c.Subid>>3),_entities.PlatformRiding,_entities.ReadPlayingInstrument);
             FailIf(platform.CollisionRadii != new Vector2(c.RX,c.RY) ||
                 platform.CurrentTexture.GetWidth() < c.RX*2 || platform.CurrentTexture.GetHeight() < c.RY*2,

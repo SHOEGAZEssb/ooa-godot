@@ -8,7 +8,7 @@ public sealed partial class ValidationRoot
     private void ValidateItemSlotAllocationRom()
     {
         var rom = new ItemUseRom();
-        var usage = new ParentItemUsageDatabase();
+        var usage = new ParentItemUsageDatabase(AgesGameContent.AssetRoot);
         int cases = 0;
         for (int item = 0; item < 32; item++)
         {
@@ -37,7 +37,7 @@ public sealed partial class ValidationRoot
     private void ValidateItemButtonDispatchRom()
     {
         var rom = new ItemUseRom();
-        var usage = new ParentItemUsageDatabase();
+        var usage = new ParentItemUsageDatabase(AgesGameContent.AssetRoot);
         int cases = 0;
         // Compare sequential A/B allocation with the runtime's imported input
         // policy and slot allocator. This observes allocation, not parent updates.

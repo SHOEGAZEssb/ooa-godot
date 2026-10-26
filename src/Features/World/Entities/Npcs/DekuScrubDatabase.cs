@@ -6,12 +6,16 @@ namespace Oracles;
 /// <summary>Source animations used by INTERAC_DEKU_SCRUB $d6:$00.</summary>
 internal sealed class DekuScrubDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<int, string> _animations = new();
 
-    public DekuScrubDatabase()
+    public DekuScrubDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/deku_scrub_animations.tsv",
+            AssetRoot + "objects/deku_scrub_animations.tsv",
             new GeneratedTableSchema(
                 "Deku Scrub $d6:$00 animations",
                 GeneratedTableKeySemantics.Unique,

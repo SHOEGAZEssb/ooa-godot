@@ -6,12 +6,16 @@ namespace Oracles;
 
 internal sealed class ScreenTransitionPaletteDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly Dictionary<(int Group, int Room, int Direction), (byte[] Source, byte[] Destination)> _routes = new();
 
-    internal ScreenTransitionPaletteDatabase()
+    internal ScreenTransitionPaletteDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/screen_transition_palettes.tsv",
+            AssetRoot + "metadata/screen_transition_palettes.tsv",
             new GeneratedTableSchema("smooth screen palettes", GeneratedTableKeySemantics.Unique,
                 ["group", "room", "direction", "source-rgb5", "destination-rgb5", "source"],
                 ["group", "room", "direction"], headerRequired: true));

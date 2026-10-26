@@ -93,10 +93,10 @@ public sealed partial class ValidationRoot
     }
     private void ValidateGameTransferSecretRom()
     {
-        var codec=new LinkedGameNpcDatabase();
+        var codec=new LinkedGameNpcDatabase(AgesGameContent.AssetRoot);
         for(int fixture=0;fixture<4;fixture++)
         {
-            var save=OracleSaveData.CreateStandardGame();save.SetLinkName(fixture==0?"Link":"AbCdE");save.NameChild(fixture==0?"Pip":"ZyXwV");
+            var save=OracleSaveData.CreateStandardGame(OracleGame.Ages);save.SetLinkName(fixture==0?"Link":"AbCdE");save.NameChild(fixture==0?"Pip":"ZyXwV");
             foreach(var pair in new[]{(0xc600,fixture==2?0:0x34+fixture),(0xc601,fixture==2?0:0x12),(0xc60f,fixture*21),(0xc610,fixture+0x0b),
                 (0xc611,1),(0xc612,fixture==3?1:0),(0xc613,fixture==1?1:0),(0xc615,fixture&1),(0xc622,0x56),(0xc623,0x23)})save.WriteWramByte(pair.Item1,(byte)pair.Item2);
             var rom=new FrontendRom();for(int address=0xc600;address<=0xc6ff;address++)rom[address]=save.ReadWramByte(address);

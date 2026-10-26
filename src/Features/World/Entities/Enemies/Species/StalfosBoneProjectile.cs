@@ -5,7 +5,8 @@ namespace Oracles;
 
 internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
 {
-    private readonly ProjectileBounceBehaviorProfile _bounce = EnemyBehaviorTables.Shared.ProjectileBounce;
+    private ProjectileBounceBehaviorProfile? _bounceSourceCache;
+    private ProjectileBounceBehaviorProfile _bounce => _bounceSourceCache ??= EnemyBehaviorTables.For(AssetRoot).ProjectileBounce;
     private OracleRoomData _room = null!;
     private StalfosBoneRecord _record;
     private EnemyAnimationPlayer _animation = null!;
@@ -32,13 +33,14 @@ internal partial class StalfosBoneProjectile : TransitionOffsetNode2D
     internal void Initialize(StalfosBoneRecord record, OracleRoomData room, Vector2 position,
         Func<Vector2, Vector2> worldToScreen, int zHigh = 0)
     {
+        AssetRoot = record.AssetRoot;
         _record = record;
         _room = room;
         _worldToScreen = worldToScreen;
         Position = position;
         _zFixed = zHigh << 8;
         _animation = new EnemyAnimationPlayer(this, 1);
-        _animation.Load(OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + $"gfx/{record.Sprite}.png"),
+        _animation.Load(OracleGraphicsCache.LoadImage(AssetRoot + $"gfx/{record.Sprite}.png"),
             [record.Animation], record.TileBase, record.Palette);
         _animation.SetAnimation(0);
         Visible = false;

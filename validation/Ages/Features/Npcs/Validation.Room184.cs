@@ -18,7 +18,7 @@ public sealed partial class ValidationRoot
         InteractionController interactions = fixture.Interactions;
         DialogueBox dialogue = fixture.Dialogue;
 
-        var database = new StoneRabbitDatabase();
+        var database = new StoneRabbitDatabase(AgesGameContent.AssetRoot);
 
         void SetEssences(byte value)
         {

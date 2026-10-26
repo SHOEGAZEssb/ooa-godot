@@ -29,7 +29,7 @@ public partial class ChestTreasureEffect : Node2D
         VisualGraphic = visual.Graphic;
 
         Image source = OracleGraphicsCache.LoadImage(
-            AgesGameContent.AssetRoot + $"gfx/{visual.Sprite}.png");
+            visual.AssetRoot + $"gfx/{visual.Sprite}.png");
         AnimationDefinition definition =
             OracleGraphicsCache.GetAnimationDefinition(visual.Animation);
         if (definition.Frames.Length == 0)

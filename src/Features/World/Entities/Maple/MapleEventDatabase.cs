@@ -11,6 +11,8 @@ namespace Oracles;
 /// </summary>
 internal sealed partial class MapleEventDatabase
 {
+    public string AssetRoot { get; }
+
     private readonly HashSet<(int Group, int Companion, int Room)> _locations = [];
     private readonly Dictionary<(MaplePathKind Kind, int Index), MaplePathRecord>
         _paths = [];
@@ -27,8 +29,10 @@ internal sealed partial class MapleEventDatabase
     internal int PathStepCount => _paths.Values.Sum(path => path.Steps.Count);
     internal int ItemCount => _items.Count;
 
-    internal MapleEventDatabase()
+    internal MapleEventDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         LoadLocations();
         LoadPaths();
         LoadMovementSelection();
@@ -89,7 +93,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadLocations()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/maple_locations.tsv",
+            AssetRoot + "objects/maple_locations.tsv",
             new GeneratedTableSchema(
                 "Maple eligible locations",
                 GeneratedTableKeySemantics.Unique,
@@ -124,7 +128,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadPaths()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/maple_paths.tsv",
+            AssetRoot + "objects/maple_paths.tsv",
             new GeneratedTableSchema(
                 "Maple flight paths",
                 GeneratedTableKeySemantics.Unique,
@@ -184,10 +188,10 @@ internal sealed partial class MapleEventDatabase
         }
     }
 
-    private static MapleVisualRecord LoadVisual()
+    private MapleVisualRecord LoadVisual()
     {
         GeneratedTableRow row = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/maple_visual.tsv",
+            AssetRoot + "objects/maple_visual.tsv",
             new GeneratedTableSchema(
                 "Maple special-object visual",
                 GeneratedTableKeySemantics.Ordered,
@@ -208,7 +212,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadMovementSelection()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/maple_movement_selection.tsv",
+            AssetRoot + "objects/maple_movement_selection.tsv",
             new GeneratedTableSchema(
                 "Maple movement path selection",
                 GeneratedTableKeySemantics.Unique,
@@ -235,7 +239,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadItems()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/maple_items.tsv",
+            AssetRoot + "objects/maple_items.tsv",
             new GeneratedTableSchema(
                 "Maple scattered items",
                 GeneratedTableKeySemantics.Unique,
@@ -276,16 +280,16 @@ internal sealed partial class MapleEventDatabase
         }
     }
 
-    private static MapleBookVisualRecord LoadBookVisual()
+    private MapleBookVisualRecord LoadBookVisual()
     {
         GeneratedTableRow row = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/maple_book.tsv",
+            AssetRoot + "objects/maple_book.tsv",
             new GeneratedTableSchema(
                 "Maple Touching Book actor",
                 GeneratedTableKeySemantics.Ordered,
                 ["sprite", "tile-base", "palette", "animation", "source"],
                 headerRequired: true)).SingleRow();
-        return new MapleBookVisualRecord(
+        return new MapleBookVisualRecord(AssetRoot,
             row.RequiredString(0),
             row.UnsignedDecimal(1),
             row.UnsignedDecimal(2),
@@ -296,7 +300,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadTexts()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/maple_text.tsv",
+            AssetRoot + "metadata/maple_text.tsv",
             new GeneratedTableSchema(
                 "Maple dialogue",
                 GeneratedTableKeySemantics.Unique,
@@ -310,7 +314,7 @@ internal sealed partial class MapleEventDatabase
     private void LoadConstants()
     {
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "metadata/maple_constants.tsv",
+            AssetRoot + "metadata/maple_constants.tsv",
             new GeneratedTableSchema(
                 "Maple constants",
                 GeneratedTableKeySemantics.Unique,
@@ -384,6 +388,7 @@ internal readonly record struct MapleVisualRecord(
     string Source);
 
 internal readonly record struct MapleBookVisualRecord(
+    string AssetRoot,
     string Sprite,
     int TileBase,
     int Palette,

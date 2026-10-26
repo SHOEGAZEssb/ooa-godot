@@ -42,6 +42,7 @@ internal sealed partial class MinecartGateRoomEntity : DungeonInteractionVisualE
         Action roomTileChanged,
         Func<long> animationTick)
     {
+        AssetRoot = visual.AssetRoot;
         _record = record;
         _activeRoom = activeRoom;
         _visual = visual;
@@ -88,6 +89,7 @@ internal sealed partial class MinecartGateRoomEntity : DungeonInteractionVisualE
 
     private bool Initialize()
     {
+        AssetRoot = AgesGameContent.AssetRoot;
         if (_initialized) return false;
         // Native state0 samples the switch after earlier physical objects,
         // including $21:$07/$08, have published during this same pass.

@@ -56,6 +56,7 @@ internal sealed partial class GiantGhiniBoss : EnemyCharacter
         Action restoreRoomMusic,
         Func<Vector2,Vector2> worldToScreen)
     {
+        AssetRoot = record.AssetRoot;
         Record = record;
         InitializeEnemy(
             position,

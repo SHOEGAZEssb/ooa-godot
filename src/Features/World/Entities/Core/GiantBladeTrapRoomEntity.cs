@@ -11,7 +11,8 @@ internal sealed class GiantBladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<Gi
     IBoomerangCollisionRoomEntity
 {
     private readonly Action<int> _sound;
-    private readonly GiantBladeTrapBehaviorProfile _behavior = EnemyBehaviorTables.Shared.GiantBladeTrap;
+    private GiantBladeTrapBehaviorProfile? _behaviorSourceCache;
+    private GiantBladeTrapBehaviorProfile _behavior => _behaviorSourceCache ??= EnemyBehaviorTables.For(AssetRoot).GiantBladeTrap;
     internal GiantBladeTrapRoomEntity(GiantBladeTrapCharacter enemy,
         EnemyCombatSourceDescriptor source, Action<int> sound)
         : base(enemy, enemy.SetTransitionDrawOffset,
@@ -61,7 +62,7 @@ internal sealed class GiantBladeTrapRoomEntity : CombatEnemyRoomEntityAdapter<Gi
 
     public bool TryGetSwordAttackerKnockback(EnemyKnockbackStrength strength, out SwordAttackerKnockback response)
     {
-        var profile = EnemyBehaviorTables.Shared.ArmoredSwordAttackerKnockback;
+        var profile = EnemyBehaviorTables.For(AssetRoot).ArmoredSwordAttackerKnockback;
         int frames = strength switch
         {
             EnemyKnockbackStrength.Low => profile.LowFrames,

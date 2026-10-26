@@ -12,16 +12,20 @@ namespace Oracles;
 /// </summary>
 public sealed class NpcPositionRuleDatabase
 {
+    public string AssetRoot { get; }
+
 
     private readonly Lookup<int, NpcPositionRuleDatabaseRule> _byInteraction =
         new();
 
     internal int RuleCount { get; private set; }
 
-    public NpcPositionRuleDatabase()
+    public NpcPositionRuleDatabase(string assetRoot)
     {
+        AssetRoot = assetRoot;
+
         GeneratedTable table = GeneratedTable.Load(
-            AgesGameContent.AssetRoot + "objects/npc_positions.tsv",
+            AssetRoot + "objects/npc_positions.tsv",
             new GeneratedTableSchema(
                 "NPC position rules",
                 GeneratedTableKeySemantics.Grouped,
@@ -44,8 +48,8 @@ public sealed class NpcPositionRuleDatabase
             int y = row.HexByte(5);
             int x = row.HexByte(6);
             if (value is < 0 or > 0xff ||
-                kind == NpcStoryStateKind.GameProgress1 ||
-                kind == NpcStoryStateKind.GameProgress2 && value > 7 ||
+                kind == NpcStoryStateKind.AgesGameProgress1 ||
+                kind == NpcStoryStateKind.AgesGameProgress2 && value > 7 ||
                 kind == NpcStoryStateKind.CurrentRoomFlag && value == 0 ||
                 y is < 0 or > 0xff ||
                 x is < 0 or > 0xff ||

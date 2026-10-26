@@ -10,34 +10,37 @@ internal partial class FrontendValidationRoot : GameRoot
     private ApplicationValidationFixture? _application;
     private ApplicationValidationFixture Application => _application ??= new(this);
     private readonly byte[]?[] _slots = new byte[OracleSaveStore.SlotCount][];
+    private readonly byte[]?[] _seasonsSlots = new byte[OracleSaveStore.SlotCount][];
+    private byte[]?[] Slots(OracleGame game) => game == OracleGame.Seasons ? _seasonsSlots : _slots;
     public override void _Ready() { }
     public override void _Process(double delta) { }
 
     protected override OracleSaveData? LoadFileSlot(int slot)
     {
-        if (_slots[slot] is not { } bytes) return null;
-        if (!OracleSaveData.TryDeserialize(bytes, out var save))
+        if (Slots(_selectedGame)[slot] is not { } bytes) return null;
+        if (!OracleSaveData.TryDeserialize(bytes, _selectedGame, out var save))
             throw new InvalidOperationException("Frontend fixture could not reload its isolated save.");
         return save;
     }
 
     protected override SaveResult StoreFileSlot(int slot, OracleSaveData save)
     {
-        _slots[slot] = save.Serialize();
+        Slots(save.Game)[slot] = save.Serialize();
         return SaveResult.Succeeded;
     }
 
-    protected override void EraseFileSlot(int slot) => _slots[slot] = null;
+    protected override void EraseFileSlot(int slot) => Slots(_selectedGame)[slot] = null;
 
-    internal byte[] FileSlotSnapshot(int slot) => (byte[])_slots[slot]!.Clone();
-    internal bool FileSlotExists(int slot) => _slots[slot] is not null;
+    internal byte[] FileSlotSnapshot(int slot, OracleGame game) => (byte[])Slots(game)[slot]!.Clone();
+    internal bool FileSlotExists(int slot, OracleGame game) => Slots(game)[slot] is not null;
+    internal void SeedFileSlot(int slot, OracleSaveData save) => StoreFileSlot(slot,save);
 
     internal GameSelectScreen InitializeGameSelect()
     {
-        _sound = new OracleSoundEngine(new OracleSoundData(), false) { ApplicationUpdateOwned = true };
+        _sound = new OracleSoundEngine(new OracleSoundData(AgesGameContent.AssetRoot), false) { ApplicationUpdateOwned = true };
         AddChild(_sound);
         _random = new OracleRandom();
-        var boot = ResourceLoader.Load<PackedScene>("res://scenes/ages/boot_loading.tscn").Instantiate<BootLoadingScreen>();
+        var boot = ResourceLoader.Load<PackedScene>("res://scenes/launcher/boot_loading.tscn").Instantiate<BootLoadingScreen>();
         AddChild(boot);
         boot.Owner = this;
         boot.UniqueNameInOwner = true;
@@ -47,12 +50,23 @@ internal partial class FrontendValidationRoot : GameRoot
         return screen;
     }
 
+    internal void CompleteBootLoading()
+    {
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (_mainMenu is null && _frontendIntro is null && deadline.Elapsed.TotalSeconds < 30)
+        {
+            AdvanceHost(1.0 / 60.0);
+            System.Threading.Thread.Sleep(1);
+        }
+        if (_mainMenu is null && _frontendIntro is null) throw new InvalidOperationException("Frontend boot did not complete.");
+    }
+
     internal void CompleteScenePreload()
     {
         // File-start scenarios stop before destination preparation. Drain the
         // owner's pending resource request before freeing this isolated root.
         const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
-        var resource = (GameplaySceneResource)typeof(GameRoot)
+        var resource = (AgesGameplaySceneResource)typeof(GameRoot)
             .GetField("_gameplaySceneResource", fields)!.GetValue(this)!;
         _ = resource.Load();
     }
@@ -70,7 +84,7 @@ internal partial class FrontendValidationRoot : GameRoot
             typeof(GameRoot).GetField("_launchOptions", fields)!.SetValue(this, new LaunchOptions());
             typeof(GameRoot).GetField("_persistSaveData", fields)!.SetValue(this, true);
         }
-        _sound = new OracleSoundEngine(new OracleSoundData(), false) { ApplicationUpdateOwned = true };
+        _sound = new OracleSoundEngine(new OracleSoundData(AgesGameContent.AssetRoot), false) { ApplicationUpdateOwned = true };
         AddChild(_sound);
         _random = new OracleRandom();
         StartFrontend(startAtTitle: false);

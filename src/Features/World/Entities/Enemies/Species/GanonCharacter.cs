@@ -81,8 +81,8 @@ internal sealed partial class GanonCharacter : EnemyCharacter
                 case 6:
                     Counter=(Counter-1)&255;if(Counter!=0){AdvanceAnimation();return;}
                     State=7;Counter=30;
-                    World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisableLinkCollisionsAndMenu,0);
-                    World.Entities.RuntimeState.SetWramByte(AgesWramAddress.wDisabledObjects,0);
+                    World.Entities.RuntimeState.SetField("wDisableLinkCollisionsAndMenu",0);
+                    World.Entities.RuntimeState.SetField("wDisabledObjects",0);
                     World.Entities.OnRoomEntityDialogueRequested(0x2f0d,World.Data.Text(0x2f0d),Position);RestartAnimation(2);return;
                 case 7:
                     World.Entities.SetNativeActiveMusic(SoundId.MusGanon);World.Entities.OnSoundRequested(SoundId.MusGanon);DecideAttack();return;

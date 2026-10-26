@@ -6,9 +6,7 @@ internal static class GameSelectTitle
 {
     internal static Texture2D Build(OracleGame game)
     {
-        string folder = game == OracleGame.Ages
-            ? AgesGameContent.AssetRoot + "menu/"
-            : SeasonsPreviewContent.PreviewRoot;
+        string folder = OracleAssetPack.ForGame(game) + (game == OracleGame.Ages ? "menu/" : "preview/");
         Color[,] palettes = OracleGraphicsData.LoadPalette(folder + "palette_title_bg.bin");
         // Isolate the name artwork from PALH_03's backdrop and animated flames.
         // Subtitle letter shadows use shade $00 in BG palettes $04/$06.

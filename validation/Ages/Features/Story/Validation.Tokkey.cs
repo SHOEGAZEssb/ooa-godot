@@ -233,7 +233,7 @@ public sealed partial class ValidationRoot
         _dialogue.Close();
         FailIf(motion is not null&&(motion.MotionVisits!=475||motion.Visited.Count!=15),
             "Tokkey's complete lesson must execute475 original motion steps across15 command sites, including repeated desk subroutines.");
-        FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), out var restored) || restored is null ||
+        FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var restored) || restored is null ||
             !restored.HasRoomFlag(3, 0x8f, 0x40) ||
             !new InventoryState(_treasures, restored).HasTreasure(TreasureId.TuneOfCurrents),
             "Tokkey's Tune of Currents and completion flag did not survive save serialization.");

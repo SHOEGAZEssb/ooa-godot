@@ -139,7 +139,7 @@ public sealed partial class ValidationRoot
         FailIf(DamageRope(false) != DamageRope(true), "Batched updates changed Rope hook damage/recoil/death.");
 
         // State-machine probes complement the real gameplay path above.
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var record = ResolveStalfos(database, RoomEnemyPlacements(database, 4, 0x7e, EnemyId.Stalfos, 2)[0]);
         LoadValidationRoom(4, 0x7e);
         Vector2 center = new(120, 88);

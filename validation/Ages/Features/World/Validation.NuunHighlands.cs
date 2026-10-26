@@ -103,7 +103,7 @@ public partial class ValidationRoot
 
     private void ValidateNuunEnemyStates()
     {
-        var database = new EnemyDatabase();
+        var database = new EnemyDatabase(AgesGameContent.AssetRoot);
         var rng = new OracleRandom();
         var spawns = new List<RoomEntitySpawn>();
         var flower = new GopongaFlowerCharacter();
@@ -135,7 +135,7 @@ public partial class ValidationRoot
             "Goponga spin damage did not use collisionEffect0b's no-recoil invincibility.");
         var edible = _entities.EntityAdapters<GopongaFlowerRoomEntity>().Last();
         var edibleNode = _entities.Entities<GopongaFlowerCharacter>().Last();
-        var dimitriData = new DimitriDatabase();
+        var dimitriData = new DimitriDatabase(AgesGameContent.AssetRoot);
         FailIf(!dimitriData.AcceptsMouthCollision(edible.DimitriCollisionType) ||
             !dimitriData.CanSwallow(edible.DimitriCollisionMode) ||
             !edible.TrySwallow(edibleNode.CollisionBounds) || !edibleNode.IsDead,
@@ -164,7 +164,7 @@ public partial class ValidationRoot
     private void ValidateNuunWaterfall()
     {
         _inventory.AssignAnimalCompanion(0x0c);
-        var tutorials = new CompanionTutorialDatabase();
+        var tutorials = new CompanionTutorialDatabase(AgesGameContent.AssetRoot);
         foreach (int room in new[] { 0x27, 0x36, 0x37 })
         {
             var record = tutorials.GetRoomRecords(0, room).Single();

@@ -10,7 +10,7 @@ internal sealed partial class PegasusDustRoomEntity : TransitionOffsetNode2D,
     IRoomEntity, IFixedRoomEntity, IRoomEntityLifetime, IAlwaysUpdateDuringScreenTransitionRoomEntity
 {
     private readonly PegasusSeedState _pegasus;
-    private readonly Image _source = EnemyVisualSource.LoadComposite(["spr_common_sprites"]);
+    private readonly Image _source;
     private readonly Dictionary<(string Oam, int Tile, int Flags), (Texture2D Texture, Vector2 Offset)> _textures = new();
     private readonly byte[] _clouds = new byte[8];
     private int _subid, _counter, _frame, _frameCounter, _z;
@@ -23,7 +23,9 @@ internal sealed partial class PegasusDustRoomEntity : TransitionOffsetNode2D,
     public Node2D Node => this;
 
     internal PegasusDustRoomEntity(PegasusSeedState pegasus)
-    { _pegasus = pegasus; Name = "PegasusDust_ItemF"; Visible = false; ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; }
+    {
+        AssetRoot = pegasus.AssetRoot; AssetRoot = pegasus.AssetRoot; _source = EnemyVisualSource.LoadComposite(["spr_common_sprites"], AssetRoot);
+        _pegasus = pegasus; Name = "PegasusDust_ItemF"; Visible = false; ZIndex = ObjectDrawPriority.FixedHighPriorityZIndex; }
     internal void Signal() => _subid = (_subid + 1) & 255;
     void IRoomEntity.SetTransitionDrawOffset(Vector2 offset) => SetTransitionDrawOffset(offset);
 

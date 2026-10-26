@@ -26,7 +26,7 @@ internal sealed class RoomOfRitesZeldaActor : RoomCutsceneCommandHost, IRoomEnti
     internal RoomOfRitesZeldaActor(RoomEventContext context, NpcRecord record)
     {
         Context = context;
-        _actor = NpcCharacter.CreateFromRecord(record with { CanFace = false });
+        _actor = NpcCharacter.CreateFromRecord(record with { CanFace = false }, AgesGameContent.AssetRoot);
         _actor.SetAnimationRate(0);
         _actor.SetBlocksLink(false);
         _actor.SetCollisionRadii(0, 0);

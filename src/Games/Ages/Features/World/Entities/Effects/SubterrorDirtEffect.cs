@@ -20,6 +20,7 @@ internal sealed partial class SubterrorDirtEffect : FixedEffectNode2D
         IReadOnlyDictionary<int, Color[]> paletteOverrides,
         Action<int> playSound)
     {
+        AssetRoot = visual.AssetRoot;
         if (visual.Key != "subterror-dirt" || visual.Animations.Length != 1)
         {
             throw new InvalidOperationException(
@@ -29,7 +30,7 @@ internal sealed partial class SubterrorDirtEffect : FixedEffectNode2D
         _playSound = playSound;
         _animation = new EnemyAnimationPlayer(this, 1);
         _animation.Load(
-            EnemyVisualSource.LoadComposite(visual.Sprites),
+            EnemyVisualSource.LoadComposite(visual.Sprites, visual.AssetRoot),
             visual.Animations,
             visual.TileBase,
             visual.Palette,

@@ -4,12 +4,19 @@ namespace Oracles;
 
 internal sealed class PartSwitchCollisionDatabase
 {
-    internal static PartSwitchCollisionDatabase Shared { get; } = new();
+    public string AssetRoot { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<PartSwitchCollisionDatabase>> Packs = new(StringComparer.Ordinal);
+    internal static PartSwitchCollisionDatabase For(string assetRoot) => Packs.GetOrAdd(assetRoot,
+        static root => new Lazy<PartSwitchCollisionDatabase>(() => new PartSwitchCollisionDatabase(root))).Value;
+
     private readonly int[] _lockouts = new int[32];
 
-    private PartSwitchCollisionDatabase()
+    private PartSwitchCollisionDatabase(string assetRoot)
     {
-        var table = GeneratedTable.Load(AgesGameContent.AssetRoot + "objects/part_switch_collisions.tsv",
+        AssetRoot = assetRoot;
+
+        var table = GeneratedTable.Load(AssetRoot + "objects/part_switch_collisions.tsv",
             new GeneratedTableSchema("PART_SWITCH collision responses", GeneratedTableKeySemantics.Unique,
                 ["item", "enabled", "effect", "lockout", "source"], ["item"], headerRequired: true));
         if (table.Rows.Count != 32) throw new InvalidOperationException("Incomplete PART_SWITCH collision row $03.");

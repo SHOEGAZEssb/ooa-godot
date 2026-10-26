@@ -11,7 +11,7 @@ public sealed partial class ValidationRoot
         foreach (bool batched in new[] { false, true })
         {
             ReinitializeGameplayForValidation();
-            _saveData.SetGlobalFlag(new VasuShopDatabase().GlobalObtainedRingBox);
+            _saveData.SetGlobalFlag(new VasuShopDatabase(AgesGameContent.AssetRoot).GlobalObtainedRingBox);
             _inventory.GiveTreasure(TreasureId.RingBox, 1);
             _inventory.GrantAppraisedRingForDebug(0);
             LoadValidationRoom(2, 0xee);

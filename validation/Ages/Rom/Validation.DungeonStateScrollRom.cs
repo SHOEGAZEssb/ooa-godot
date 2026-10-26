@@ -31,10 +31,10 @@ public sealed partial class ValidationRoot
             StepSomariaMotionRom(rom,9,batched,angle);
             var record = (test.Room < 0x70 ? new WingDungeonDatabase().GetRoomRecords(4,test.Room) :
                 new SkullDungeonDatabase().GetRoomRecords(4,test.Room)).Single(row => row.Id == test.Id && row.SubId == test.Sub);
-            var data = new DungeonInteractionDatabase();
+            var data = new DungeonInteractionDatabase(AgesGameContent.AssetRoot);
             var puzzle = new ColoredCubePuzzleState(_runtimeState,data.Constant("red-pushable-block"));
             IRoomEntity actor = test.Id == 0x1b ? new MinecartGateRoomEntity(record,() => _entities.ActiveRoom,_runtimeState,
-                new DungeonInteractionVisualDatabase().Visual("minecart-gate"),_entities.OnSoundRequested,_entities.OnRoomTileChanged,() => 0) :
+                new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot).Visual("minecart-gate"),_entities.OnSoundRequested,_entities.OnRoomTileChanged,() => 0) :
                 new DungeonStateController(record,() => _entities.ActiveRoom,data,puzzle,_runtimeState,_entities.SetTrigger);
             _entities.AddEntity(actor);
             int address = (0xd0+_entities.InteractionSlot(actor.Node))*256+0x40;

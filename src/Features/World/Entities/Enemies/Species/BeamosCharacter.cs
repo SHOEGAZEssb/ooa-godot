@@ -8,8 +8,8 @@ namespace Oracles;
 internal sealed partial class BeamosCharacter : EnemyCharacter
 {
     internal override bool InitializationPending => State == 0;
-
-    private readonly BeamosBehaviorProfile _data = EnemyBehaviorTables.Shared.Beamos;
+    private BeamosBehaviorProfile? _dataSourceCache;
+    private BeamosBehaviorProfile _data => _dataSourceCache ??= EnemyBehaviorTables.For(AssetRoot).Beamos;
     private OracleRoomData _room = null!;
     private OracleRandom _random = null!;
     private Action<int> _sound = null!;
@@ -25,6 +25,7 @@ internal sealed partial class BeamosCharacter : EnemyCharacter
         Vector2 position, OracleRandom random, Action<int> sound,
         Func<bool> partAvailable, Func<long> animationTick)
     {
+        AssetRoot = visual.AssetRoot;
         _room = room;
         _random = random;
         _sound = sound;

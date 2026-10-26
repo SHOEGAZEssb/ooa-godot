@@ -10,9 +10,9 @@ public sealed partial class ValidationRoot
     private void ValidateHeadThwompFidelity()
     {
         const double update = 1.0 / OracleSoundEngine.UpdatesPerSecond;
-        var visuals = new DungeonInteractionVisualDatabase();
+        var visuals = new DungeonInteractionVisualDatabase(AgesGameContent.AssetRoot);
         OracleRoomData isolatedRoom =
-            new OracleWorldData().LoadRoom(4, 0x2b);
+            new AgesWorldData().LoadRoom(4, 0x2b);
         DungeonInteractionVisual fireballVisual =
             visuals.Visual("head-thwomp-fireball");
         DungeonInteractionVisual fireballImpactVisual =
@@ -97,7 +97,7 @@ public sealed partial class ValidationRoot
         // Mode $06 applies PART $3c's raw damage $f8 as four quarter-hearts.
         // Its shield table rejects L1 and destroys the part for L2/L3 with
         // LINKDMG_$20's single SND_CLINK2.
-        var contactSave = OracleSaveData.CreateStandardGame();
+        var contactSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var contactInventory = new InventoryState(_treasures, contactSave);
         var contactWorld = new ValidationRingPlayerWorld();
         var contactPlayer = new Player { Name = "HeadThwompBeamContactPlayer" };
@@ -149,7 +149,7 @@ public sealed partial class ValidationRoot
         contactProjectile.Free();
         contactPlayer.Free();
 
-        var shieldSave = OracleSaveData.CreateStandardGame();
+        var shieldSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var shieldInventory = new InventoryState(_treasures, shieldSave);
         shieldInventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SHIELD_00"));
@@ -190,7 +190,7 @@ public sealed partial class ValidationRoot
         woodenShieldProjectile.Free();
         shieldPlayer.Free();
 
-        var ironSave = OracleSaveData.CreateStandardGame();
+        var ironSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var ironInventory = new InventoryState(_treasures, ironSave);
         ironInventory.GiveTreasure(
             _treasures.GetObject("TREASURE_OBJECT_SHIELD_01"));
@@ -344,7 +344,7 @@ public sealed partial class ValidationRoot
                 BombEffect bomb = _entities.Spawn<BombEffect>(
                     new BombSpawn(
                         _player,
-                        new BombDatabase().Data,
+                        new BombDatabase(AgesGameContent.AssetRoot + "metadata/bomb.tsv").Data,
                         4,
                         static _ => { }));
                 bomb.Throw(

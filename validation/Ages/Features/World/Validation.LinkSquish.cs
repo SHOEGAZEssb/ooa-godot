@@ -9,7 +9,7 @@ public partial class ValidationRoot
 {
     private void ValidateLinkSquish()
     {
-        var data = LinkSquishDatabase.Shared;
+        var data = LinkSquishDatabase.For(AgesGameContent.AssetRoot);
         var source = OracleGraphicsCache.LoadImage(AgesGameContent.AssetRoot + "gfx/spr_link.png");
         foreach (bool vertical in new[] { false,true })
         {
@@ -28,7 +28,7 @@ public partial class ValidationRoot
                 "Squish graphics must retain source OAM and the alternating graphic $02.");
             foreach (int parity in new[] { 0,1 })
             {
-                var animation = new LinkSquishAnimation(vertical);
+                var animation = new LinkSquishAnimation(vertical, AgesGameContent.AssetRoot);
                 int terminal = parity == 0 ? 83 : 84;
                 for (int tick = 1; tick <= terminal; tick++)
                 {
