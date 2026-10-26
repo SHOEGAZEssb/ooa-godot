@@ -62,7 +62,7 @@ public sealed partial class ValidationRoot
             OracleSaveData overworldSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
             overworldSave.SetRoomFlag(
                 overworldGroup, overworldRoomId, overworldFlag08);
-            var overworldRooms = new RoomSession(
+            var overworldRooms = AgesRoomContent.CreateSession(
                 overworldGroup, overworldRoomId,
                 () => 0, () => { }, overworldSave);
             var overworldTreasures = TreasureDatabase.For(AgesGameContent.AssetRoot);

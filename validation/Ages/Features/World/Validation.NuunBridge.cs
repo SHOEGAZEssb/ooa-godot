@@ -69,7 +69,7 @@ public sealed partial class ValidationRoot
                 $"Nuun companion ${companion:x2} scrolling replaced the selected terrain or mutated the outgoing room.");
             FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out var saved) || saved is null,
                 "Nuun save-image fixture could not reload.");
-            var restored = new RoomSession(0, 0x35, () => 0, () => { }, saved!, countAsRoomEntry: false);
+            var restored = AgesRoomContent.CreateSession(0, 0x35, () => 0, () => { }, saved!, countAsRoomEntry: false);
             FailIf(!restored.CurrentRoom.Layout.SequenceEqual(expected.Layout),
                 $"Nuun companion ${companion:x2} terrain did not survive save/reload.");
         }
@@ -107,7 +107,7 @@ public sealed partial class ValidationRoot
 
         // An uphill face without an earlier descent must bounce and retain
         // the original byte underflow; the cache must not erase that state.
-        var testRoom = new RoomSession(0, 0x54, () => 0, () => { }, OracleSaveData.CreateStandardGame(OracleGame.Ages)).CurrentRoom;
+        var testRoom = AgesRoomContent.CreateSession(0, 0x54, () => 0, () => { }, OracleSaveData.CreateStandardGame(OracleGame.Ages)).CurrentRoom;
         var uphill = new EmberSeedEffect();
         uphill.Initialize(ember, testRoom, new BreakableTileDatabase(AgesGameContent.AssetRoot),
             new Vector2(96, 104) - shooter.Offsets[2], Vector2I.Right,

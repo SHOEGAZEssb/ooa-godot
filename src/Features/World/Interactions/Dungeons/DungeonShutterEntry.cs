@@ -11,6 +11,15 @@ internal static class DungeonShutterEntry
     internal const int FirstMinecartShutterTile = 0x7c;
     internal const int LastMinecartShutterTile = 0x7f;
 
+    internal static void Apply(OracleRoomData room, EnemyPlacementContext placement, int openTile, long animationTick)
+    {
+        if (placement.Kind != EnemyPlacementEntryKind.Scrolling || placement.EntryPackedPosition < 0) return;
+        int packed = placement.EntryPackedPosition;
+        Vector2 position = new((packed & 15) * 16 + 8, (packed >> 4) * 16 + 8);
+        if (TryGetReplacement(placement, packed, room.GetMetatile(position), openTile, out int replacement))
+            room.SetPositionTileAndCollision(position, checked((byte)replacement), null, animationTick);
+    }
+
     internal static int MinecartOpenTile(int closedTile)
     {
         if (closedTile is < FirstMinecartShutterTile or

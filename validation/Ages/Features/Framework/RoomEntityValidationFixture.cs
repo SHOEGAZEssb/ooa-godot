@@ -33,7 +33,7 @@ internal sealed class RoomEntityValidationFixture : IDisposable
     {
         Root = root;
         _ownsRoot = ownsRoot;
-        Manager = new RoomEntityManager(
+        Manager = AgesRoomEntityFactory.CreateManager(
             root,
             options.Npcs ?? new NpcDatabase(AgesGameContent.AssetRoot),
             options.Enemies ?? new EnemyDatabase(AgesGameContent.AssetRoot),

@@ -193,9 +193,34 @@ public sealed partial class ValidationRoot
                 Vector2 after = session.Link.PrecisePosition;
                 application.Step(3, Vector2.Right);
                 FailIf(session.Link.PrecisePosition.X <= after.X || root.FileSlotExists(0, OracleGame.Ages), "After the intro, normal input must move Link without writing an Ages slot.");
-                TalkSeasons(application, session, 0, 0x9d);
+                FailIf(session.Entities.FrameCounter != session.Memory.ReadWramByte(0xcc00) ||
+                    !ReferenceEquals(session.Rooms.CurrentRoom, session.Entities.ActiveRoom) ||
+                    session.Actors.Any(actor => actor.Slot is < 2 or > 15) ||
+                    session.Actors.Count(actor => actor.Id == 0x9d) != 1,
+                    "The ordinary Seasons aftermath room must use the shared room identity and native $d2-$df interaction pool; unlinked Impa $9d:$04 deletes after allocation.");
+                TalkSeasons(application, session, 1, 0x9d);
                 FailIf(session.LastText != 0x2503 || session.DisabledObjects != 0 || !session.Complete,
                     "Impa must remain reachable and use TX_2503 after releasing control.");
+                session.LoadRoom(0xb6, 0);
+                application.Step(2, Vector2.Zero, batched: batched);
+                var impa = session.Actors.Single(actor => actor.Id == 0x9d);
+                FailIf(impa.Subid != 1 || impa.Node.Position != new Vector2(0x18, 0x28) ||
+                    !ReferenceEquals(session.Rooms.CurrentRoom, session.Entities.ActiveRoom),
+                    "impa.s:$9d:$00 must re-enter through the shared room lifecycle at $28,$18 as subid $01 after room flag $40.");
+                TalkSeasons(application, session, 1, 0x9d);
+                FailIf(session.LastText != 0x2503 || session.DisabledObjects != 0,
+                    "Impa's ordinary conversation must remain reachable after shared room reload and completion.");
+                var helpers = new List<SeasonsOpeningActor>();
+                int allocationRng = session.Random.Calls;
+                while (session.Spawn(0x9f, 0, new Vector2(80, 64), 0xff) is { } helper) helpers.Add(helper);
+                FailIf(helpers.Count != 13 || session.Random.Calls != allocationRng ||
+                    helpers.Select(actor => actor.Slot).Distinct().Count() != 13,
+                    "The shared allocator must admit exactly fourteen dynamic interactions including Impa, without construction RNG or unchecked over-allocation.");
+                int releasedSlot = helpers[0].Slot;
+                session.Delete(helpers[0]);
+                var replacement = session.Spawn(0x9f, 0, new Vector2(80, 64), 0xff);
+                FailIf(replacement is null || replacement.Slot != releasedSlot,
+                    "interactionDelete must release its native slot for the next checked shared allocation.");
             }
             finally { root.Free(); captureLayer?.Free(); ResetValidationInput(); }
         }

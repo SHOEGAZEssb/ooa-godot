@@ -29,10 +29,24 @@ Choosing Seasons preloads a detached `scenes/seasons/opening.tscn`, then shows
 the Seasons title and file menu. File selection binds the retained scene to
 the selected standard pre-intro save. The application retains its fixed-update, input, RNG and audio owners;
 the Seasons session composes shared player, collision, dialogue, script runner,
-HUD and generated-data mechanisms with its native opening controllers. The
+HUD, room session and entity manager with its native opening controllers. The
 pregame presentation is shared by both games. Native interaction and part pools
 advance in original slot order; source signals and disabled-object masks retain
 their lifetime across controller, player, part and interaction phases.
+
+Room content bindings load each game's layouts and persistent substitutions;
+the shared room session owns admission, visits, minimap state and active room
+identity. Entity factories supply ordered content and game-specific bindings;
+the shared manager owns allocation, native slot walks, freezes, outgoing sets
+and retirement. Neither owner constructs Ages content implicitly. Ages creation
+helpers select their content explicitly, and both owners reject mismatched
+content, save and runtime packs before binding live state.
+
+The shared scroll controller owns setup, fractional movement and cleanup
+counters. Game composition supplies the source graphics schedule and handles
+its presentation and native cutscene handoffs. The Seasons opening uses these
+same room, entity and scroll owners through its ordinary aftermath room;
+unsupported destinations and after-event streams fail with source context.
 
 Startup retains a detached gameplay hierarchy, prepared UI resources, a world
 data owner and save-independent room tables. The hierarchy is allocated before

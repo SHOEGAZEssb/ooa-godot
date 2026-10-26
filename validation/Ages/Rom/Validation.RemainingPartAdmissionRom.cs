@@ -84,7 +84,7 @@ public sealed partial class ValidationRoot
             var parent = _entities.EntityAdapters<HeadThwompBossRoomEntity>().Single();
             var boss = (HeadThwompBoss)parent.Node; F1Retain(parent);
             F1Set(boss, "_initialized", true); F1Set(parent, "_initialized", true); boss.Position = new(80, 72);
-            F1Set(_entities, "_enemyFrameCounter", 1);
+            _runtimeState.SetWramByte(0xcc00, 1);
             int state = mode switch { "bomb" => 9, "fireball" => 0x0d, "circular" => 0x0e, _ => 0x0f };
             F1Set(boss, "_state", mode switch { "bomb" => HeadThwompState.Spinning, "fireball" => HeadThwompState.Green,
                 "circular" => HeadThwompState.Blue, _ => HeadThwompState.Purple });

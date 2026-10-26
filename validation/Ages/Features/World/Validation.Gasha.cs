@@ -36,7 +36,7 @@ public sealed partial class ValidationRoot
         var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var inventory = new InventoryState(treasures, save, () => -1);
         long tick = 0;
-        var rooms = new RoomSession(0, 0x7b, () => tick, () => { }, save);
+        var rooms = AgesRoomContent.CreateSession(0, 0x7b, () => tick, () => { }, save);
         SpotRecord spot = database.GetSpot(3);
         if (save.GashaMaturity != 5 ||
             rooms.CurrentRoom.GetMetatile(spot.Position) != database.SoftSoilTile)

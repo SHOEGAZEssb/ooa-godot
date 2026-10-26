@@ -34,7 +34,7 @@ entry point.
 | NPCs, native interactions, linked actors, or room events | [NPCs and events](npcs-and-events.md) |
 | Which imported NPC records are implemented, partial, or unsupported | [NPC interaction coverage](ages/npc-interaction-coverage.md) |
 | Source-wide interaction, room-event and cutscene inventory and missing work | [Interaction, event and cutscene coverage](ages/interaction-event-cutscene-coverage.md) |
-| Supported Seasons opening records and outstanding scope | [Seasons NPC coverage](seasons/npc-interaction-coverage.md), [Seasons cutscene coverage](seasons/interaction-event-cutscene-coverage.md) |
+| Seasons source NPC/interaction inventory, supported opening and outstanding scope | [Seasons NPC coverage](seasons/npc-interaction-coverage.md), [Seasons interaction and cutscene coverage](seasons/interaction-event-cutscene-coverage.md) |
 | An `interactionRunScript` stream or a new script command | [Command runner](command-runner.md) |
 | Menus, dialogue/modal input, fades, or pause ownership | [Menus and input](menus-and-input.md) |
 | WRAM fields, flags, inventory, checkpoints, or disk persistence | [Saves and state](saves-and-state.md) |
@@ -51,8 +51,10 @@ class inventories, per-feature test summaries, or unowned plans.
 Fidelity audits and working findings belong in untracked `local-audits/`,
 excluded through `.git/info/exclude`. Do not link tracked guides to them.
 
-The [NPC coverage ledger](ages/npc-interaction-coverage.md) and
-[interaction, event and cutscene ledger](ages/interaction-event-cutscene-coverage.md)
+The Ages [NPC coverage ledger](ages/npc-interaction-coverage.md) and
+[interaction, event and cutscene ledger](ages/interaction-event-cutscene-coverage.md),
+and the corresponding Seasons [NPC](seasons/npc-interaction-coverage.md) and
+[interaction](seasons/interaction-event-cutscene-coverage.md) ledgers,
 are the deliberate inventory exceptions. Update affected statuses, counts and
 checklist items together. Keep the NPC ledger's updates within its tables;
 keep audit narratives out of both ledgers.

@@ -1,24 +1,251 @@
-# Seasons NPC interaction coverage
+# NPC and character interaction coverage
 
-This inventory covers the positioned characters and scenery imported for the
-standard opening. It does not inventory the rest of Seasons or claim exhaustive
-ROM parity. Records retain source placement order within each room.
+This is the current room-by-room coverage for clean-US Seasons character
+interactions. It is a source implementation inventory, not a claim that every
+listed room has been compared exhaustively against a retail playthrough.
 
-| Status | Records | Rooms |
-| --- | ---: | ---: |
-| Implemented within the standard opening | 9 | 3 |
-| Partial within this inventory | 0 | 0 |
-| Deliberately unsupported within this inventory | 0 | 0 |
-| Total | 9 | 3 |
+This ledger is maintained alongside NPC implementation work. Any change that
+implements, extends, partially supports, suppresses, or reclassifies a listed
+NPC record must update the affected table entries and counts in the same
+change. Keep diary entries, bugfix descriptions, and regression details out of
+this ledger, including its tables.
 
-| Room | Record | Character or scenery | Classification | Status |
-| --- | --- | --- | --- | --- |
-| `$00:$98` | `$4e:$00` | Troupe member | Event-owned | Implemented |
-| `$00:$98` | `$4e:$01` | Troupe member | Event-owned | Implemented |
-| `$00:$98` | `$4e:$02` | Troupe member | Event-owned | Implemented |
-| `$00:$98` | `$4e:$03` | Troupe member | Event-owned | Implemented |
-| `$00:$98` | `$4e:$04` | Impa | Event-owned | Implemented |
-| `$00:$98` | `$4e:$05` | Campfire | Event-owned | Implemented |
-| `$00:$98` | `$4e:$06` | Din | Event-owned | Implemented |
-| `$00:$a7` | `$a5:$09` | Din discovering Link | Event-owned | Implemented |
-| `$00:$b6` | `$9d:$00` | Impa after the capture | Event-owned | Implemented |
+The inventory covers:
+
+- character rows reached from every distinct room-object table in
+  [pointers.s](../../external/oracles-disasm/objects/seasons/pointers.s), including shared labels,
+  pointer expansions and conditional event lists;
+- the seven troupe actors and ten Subrosian dancers selected by placed
+  ensemble spawners from `objectData7e4e` and `objectData7e6c` in
+  [extraData3.s](../../external/oracles-disasm/objects/seasons/extraData3.s); and
+- all conditional Bipin/Blossom family rows selected by the shared
+  [family spawner](../../external/oracles-disasm/object_code/common/interactions/bipinBlossomFamilySpawner.s).
+
+Character identities come from Seasons' own interaction dispatch and native
+handlers. Characters whose positions are initialized by their handler remain
+listed even when the placement has no coordinates. The opening campfire and
+ring-help books retain the same character/scenery boundary as the existing
+ledger. Invisible controllers, shop merchandise, dungeon mechanisms, effects
+and other dynamically created actors are inventoried in the
+[interaction, event and cutscene ledger](interaction-event-cutscene-coverage.md).
+Enemies, items and parts are dependencies, not NPC records.
+
+The complete source inventory is broader than the current generated assets.
+`assets/oracle/seasons/opening/troupe.tsv` and the opening actor data support
+the standard opening; the rest of these source records are not claimed imported.
+
+## Status definitions
+
+| Code | Meaning |
+| --- | --- |
+| **I** | Implemented: the record has a traced ordinary, specialized, or event-owned production path and a named headless regression for its supported behavior. |
+| **P** | Partial: useful presentation or a bounded specialized path works, but one or more native, script, state, or external-system branches remain unavailable or unproven. |
+| **D** | Deliberately unsupported: the placed variant is explicitly suppressed because its original native/script behavior is not implemented. |
+| **M** | Missing: the source record has no Seasons production route for its placed context; it is not a deliberately suppressed imported actor. |
+
+Record notation is `$id:$subid/v$var03`. The trailing name is the file containing
+the corresponding `interactionCode` source handler in `oracles-disasm`.
+Values are the original placement inputs, before native subid/var03 rewriting.
+Rooms are sorted numerically; records within a room retain source order.
+Groups `$02/$03` share table `$01`, and `$06/$07` share `$04/$05`; aliases are
+counted once under the canonical table group. Conditional alternatives are
+listed together and are not simultaneous actors. Explicit room/season gates
+describe object-list selection; handlers can impose further story-state gates.
+
+A record with a traced bounded production path can be partial. A source row
+without a production owner remains missing even if shared Ages code or graphics
+exist. Neither status can be promoted to **I** merely because an actor looks
+plausible in one room. The implemented rows cover the standard opening only;
+linked-game and later-progression branches remain outside that supported boundary.
+
+## Coverage totals
+
+### Positioned and state-derived rows
+
+| Status | Records | Interpretation |
+| --- | ---: | --- |
+| **I** | 9 | Traced standard-opening records with named NPC/event scenarios. |
+| **P** | 1 | Standard-game deletion guard for the placed Impa `$9d:$04` record; linked activation is missing. |
+| **D** | 0 | No listed source record is classified as a deliberately suppressed import. |
+| **M** | 296 | Source records without a Seasons production route in their placed context. |
+| **Total** | **306** | **150 rooms and 265 unique ID/subid keys.** |
+
+### Implementation classifications
+
+| Classification | Positioned/state-derived rows | Family variants | Total |
+| --- | ---: | ---: | ---: |
+| Ordinary NPC adapter | 0 | 0 | 0 |
+| Specialized native interaction | 0 | 0 | 0 |
+| Event-owned actor | 10 | 0 | 10 |
+| Deliberately unsupported | 0 | 0 | 0 |
+| No production owner | 296 | 72 | 368 |
+| **Total** | **306** | **72** | **378** |
+
+## Bipin and Blossom family variants
+
+| Room | Coverage |
+| --- | --- |
+| `1:92` | **[M] 38 source variants:** Bipin `$28`, Blossom `$2b`, and child `$35`. |
+| `1:93` | **[M] 34 source variants:** Bipin `$28`, Blossom `$2b`, and child `$35`. |
+
+These are mutually selected alternatives, not 72 simultaneous actors.
+The placed `$ac:$00/$01` spawners select by child stage and personality; the
+finished-game gate suppresses the family. These source variants are not yet
+generated Seasons NPC records.
+
+## Room inventory
+
+| Room | Source records in source order |
+| --- | --- |
+| `0:08` | [M] `$52:$00/v$00` biggoron |
+| `0:0c` | [M] `$8c:$00/v$00` flyingRooster |
+| `0:1f` | [M] `$8c:$01/v$00` flyingRooster |
+| `0:2f` | [M] `$ce:$06/v$00` businessScrub |
+| `0:4d` | [M] `$36:$81/v$00` miscNpcs<br>[M] `$36:$82/v$00` miscNpcs<br>[M] `$36:$84/v$00` miscNpcs |
+| `0:5b` | [M] `$db:$00/v$00` linkedSecredGivers |
+| `0:5d` | [M] `$36:$80/v$00` miscNpcs<br>[M] `$36:$83/v$00` miscNpcs<br>[M] `$8b:$01/v$00` sunkenCityNpcs<br>[M] `$8b:$02/v$00` sunkenCityNpcs<br>[M] `$8b:$03/v$00` sunkenCityNpcs<br>[M] `$8b:$04/v$00` sunkenCityNpcs<br>[M] `$2e:$00/v$00` fickleGirl<br>[M] `$2e:$01/v$00` fickleGirl<br>[M] `$2e:$04/v$00` fickleGirl |
+| `0:5e` | [M] `$3e:$30/v$00` miscBoyNpcs<br>[M] `$3e:$31/v$00` miscBoyNpcs<br>[M] `$3e:$32/v$00` miscBoyNpcs<br>[M] `$3e:$33/v$00` miscBoyNpcs<br>[M] `$3e:$34/v$00` miscBoyNpcs<br>[M] `$8a:$01/v$00` sunkenCityNpcs<br>[M] `$b8:$01/v$00` ambi |
+| `0:6d` | [M] `$2e:$02/v$00` fickleGirl<br>[M] `$2e:$03/v$00` fickleGirl<br>[M] `$76:$00/v$00` sunkenCityBullies<br>[M] `$76:$01/v$00` sunkenCityBullies<br>[M] `$76:$02/v$00` sunkenCityBullies |
+| `0:6e` | [M] `$3e:$31/v$00` miscBoyNpcs |
+| `0:71` | [M] `$27:$02/v$00` sokra |
+| `0:80` | [M] `$ce:$00/v$00` businessScrub |
+| `0:90` | [M] `$73:$00/v$00` animalMoblinBullies<br>[M] `$73:$01/v$00` animalMoblinBullies<br>[M] `$73:$02/v$00` animalMoblinBullies |
+| `0:92` | [M] `$73:$00/v$00` animalMoblinBullies<br>[M] `$73:$01/v$00` animalMoblinBullies<br>[M] `$73:$02/v$00` animalMoblinBullies |
+| `0:98` | [I] `$4e:$00/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$01/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$02/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$03/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$04/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$05/v$00` dinDancingEvent (room flag $40 clear)<br>[I] `$4e:$06/v$00` dinDancingEvent (room flag $40 clear) |
+| `0:9b` | [M] `$27:$01/v$00` sokra |
+| `0:a7` | [I] `$a5:$09/v$00` din |
+| `0:b6` | [I] `$9d:$00/v$00` impa<br>[P] `$9d:$04/v$00` impa |
+| `0:b7` | [M] `$26:$00/v$00` mittensAndOwner<br>[M] `$26:$01/v$00` mittensAndOwner<br>[M] `$25:$00/v$00` mittensAndOwner<br>[M] `$25:$01/v$00` mittensAndOwner |
+| `0:bf` | [M] `$4d:$00/v$00` pirateSkull |
+| `0:c5` | [M] `$3c:$80/v$00` miscNpcs<br>[M] `$3e:$10/v$00` miscBoyNpcs |
+| `0:c6` | [M] `$3e:$20/v$00` miscBoyNpcs<br>[M] `$2d:$80/v$00` miscNpcs<br>[M] `$2d:$86/v$00` miscNpcs<br>[M] `$37:$81/v$00` miscNpcs<br>[M] `$80:$02/v$00` fickleOldMan<br>[M] `$9d:$05/v$00` impa<br>[M] `$2a:$0b/v$00` bird |
+| `0:d6` | [M] `$37:$80/v$00` miscNpcs<br>[M] `$2d:$81/v$00` miscNpcs<br>[M] `$2d:$83/v$00` miscNpcs<br>[M] `$2d:$85/v$00` miscNpcs<br>[M] `$3e:$04/v$00` miscBoyNpcs<br>[M] `$3e:$11/v$00` miscBoyNpcs<br>[M] `$a5:$08/v$00` din<br>[M] `$4e:$0a/v$00` dinDancingEvent |
+| `0:d8` | [M] `$8a:$04/v$00` sunkenCityNpcs |
+| `0:d9` | [M] `$2d:$84/v$00` miscNpcs<br>[M] `$37:$84/v$00` miscNpcs |
+| `0:da` | [M] `$58:$00/v$00` guruguru<br>[M] `$bc:$04/v$00` bc_bd_be |
+| `0:e2` | [M] `$b1:$10/v$00` shipPiratian |
+| `0:e6` | [M] `$2d:$82/v$00` miscNpcs |
+| `0:e7` | [M] `$3d:$80/v$00` miscNpcs<br>[M] `$d8:$00/v$00` linkedFountainLady |
+| `0:e9` | [M] `$27:$00/v$00` sokra<br>[M] `$37:$83/v$00` miscNpcs<br>[M] `$80:$01/v$00` fickleOldMan<br>[M] `$3e:$00/v$00` miscBoyNpcs<br>[M] `$3e:$01/v$00` miscBoyNpcs<br>[M] `$3e:$03/v$00` miscBoyNpcs<br>[M] `$3e:$12/v$00` miscBoyNpcs<br>[M] `$3e:$13/v$00` miscBoyNpcs |
+| `0:f2` | [M] `$b1:$11/v$00` shipPiratian |
+| `0:f6` | [M] `$3e:$02/v$00` miscBoyNpcs |
+| `0:f7` | [M] `$80:$00/v$00` fickleOldMan<br>[M] `$80:$03/v$00` fickleOldMan<br>[M] `$37:$85/v$00` miscNpcs |
+| `0:f8` | [M] `$37:$82/v$00` miscNpcs |
+| `0:fb` | [M] `$b8:$02/v$00` ambi |
+| `0:fc` | [M] `$40:$0a/v$00` piratian |
+| `1:03` | [M] `$30:$15/v$00` subrosian<br>[M] `$30:$16/v$00` subrosian |
+| `1:05` | [M] `$30:$17/v$00` subrosian<br>[M] `$30:$18/v$00` subrosian |
+| `1:06` | [M] `$33:$80/v$00` miscNpcs<br>[M] `$33:$81/v$00` miscNpcs<br>[M] `$33:$82/v$00` miscNpcs |
+| `1:0a` | [M] `$53:$00/v$00` headSmelter<br>[M] `$30:$00/v$00` subrosian |
+| `1:0b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:0c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:11` | [M] `$32:$01/v$00` subrosianWithBuckets |
+| `1:14` | [M] `$33:$83/v$00` miscNpcs<br>[M] `$33:$84/v$00` miscNpcs<br>[M] `$33:$85/v$00` miscNpcs |
+| `1:15` | [M] `$30:$19/v$00` subrosian |
+| `1:17` | [M] `$32:$02/v$00` subrosianWithBuckets |
+| `1:1a` | [M] `$32:$00/v$00` subrosianWithBuckets |
+| `1:20` | [M] `$30:$1a/v$00` subrosian |
+| `1:22` | [M] `$30:$1b/v$00` subrosian |
+| `1:25` | [M] `$30:$1c/v$00` subrosian<br>[M] `$c8:$00/v$00` boomerangSubrosian<br>[M] `$32:$03/v$00` subrosianWithBuckets |
+| `1:26` | [M] `$30:$1d/v$00` subrosian |
+| `1:2b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:2c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:2d` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:31` | [M] `$30:$1e/v$00` subrosian |
+| `1:37` | [M] `$32:$04/v$00` subrosianWithBuckets |
+| `1:41` | [M] `$30:$1f/v$00` subrosian |
+| `1:42` | [M] `$30:$20/v$00` subrosian |
+| `1:43` | [M] `$30:$0e/v$00` subrosian |
+| `1:47` | [M] `$32:$05/v$00` subrosianWithBuckets |
+| `1:52` | [M] `$30:$21/v$00` subrosian |
+| `1:54` | [M] `$30:$0f/v$00` subrosian |
+| `1:55` | [M] `$30:$22/v$00` subrosian |
+| `1:56` | [M] `$30:$0a/v$00` subrosian<br>[M] `$30:$0b/v$00` subrosian |
+| `1:5b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:5c` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:5d` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:5e` | [M] `$87:$00/v$00` makuTree |
+| `1:65` | [M] `$30:$07/v$00` subrosian |
+| `1:66` | [M] `$30:$08/v$00` subrosian |
+| `1:67` | [M] `$30:$24/v$00` subrosian |
+| `1:69` | [M] `$30:$25/v$00` subrosian |
+| `1:72` | [M] `$40:$09/v$00` piratian |
+| `1:74` | [M] `$41:$0b/v$00` piratian<br>[M] `$40:$0d/v$00` piratian<br>[M] `$40:$0e/v$00` piratian |
+| `1:75` | [M] `$30:$09/v$00` subrosian |
+| `1:76` | [M] `$30:$06/v$00` subrosian |
+| `1:77` | [M] `$31:$00/v$00` datingRosaEvent |
+| `1:7b` | [M] `$87:$00/v$00` makuTree<br>[M] `$9d:$03/v$00` impa<br>[M] `$44:$08/v$00` zelda |
+| `1:80` | [M] `$2f:$80/v$00` miscNpcs |
+| `1:82` | [M] `$9d:$01/v$00` impa<br>[M] `$44:$09/v$00` zelda |
+| `1:83` | [M] `$3f:$80/v$00` miscNpcs |
+| `1:84` | [M] `$2a:$08/v$00` bird<br>[M] `$2a:$09/v$00` bird<br>[M] `$2a:$06/v$00` bird<br>[M] `$2a:$07/v$00` bird<br>[M] `$2a:$04/v$00` bird<br>[M] `$2a:$05/v$00` bird<br>[M] `$2a:$02/v$00` bird<br>[M] `$2a:$03/v$00` bird<br>[M] `$2a:$00/v$00` bird<br>[M] `$2a:$01/v$00` bird |
+| `1:85` | [M] `$c2:$00/v$00` mayorsHouseUnlinkedGirl<br>[M] `$24:$03/v$00` miscNpcs |
+| `1:86` | [M] `$24:$00/v$00` miscNpcs |
+| `1:88` | [M] `$cb:$03/v$00` linkedGameGhini |
+| `1:8a` | [M] `$41:$00/v$00` piratian<br>[M] `$40:$01/v$00` piratian<br>[M] `$40:$02/v$00` piratian<br>[M] `$40:$03/v$00` piratian<br>[M] `$40:$04/v$00` piratian<br>[M] `$40:$05/v$00` piratian<br>[M] `$40:$06/v$00` piratian<br>[M] `$42:$01/v$00` pirateHouseSubrosian<br>[M] `$b8:$04/v$00` ambi |
+| `1:8b` | [M] `$40:$07/v$00` piratian<br>[M] `$40:$08/v$00` piratian<br>[M] `$42:$00/v$00` pirateHouseSubrosian |
+| `1:8e` | [M] `$53:$01/v$00` headSmelter<br>[M] `$30:$04/v$00` subrosian<br>[M] `$30:$05/v$00` subrosian |
+| `1:8f` | [M] `$5c:$00/v$00` lavaSoupSubrosian |
+| `1:91` | [M] `$89:$00/v$00` vasu<br>[M] `$89:$01/v$00` vasu<br>[M] `$89:$06/v$00` vasu<br>[M] `$e5:$00/v$00` ringHelpBook<br>[M] `$e5:$01/v$00` ringHelpBook |
+| `1:94` | [M] `$8f:$00/v$00` oldManWithJewel |
+| `1:95` | [M] `$6a:$01/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame<br>[M] `$6a:$02/v$00` danceHallMinigame |
+| `1:96` | [M] `$30:$23/v$00` subrosian |
+| `1:97` | [M] `$34:$00/v$00` subrosianSmiths<br>[M] `$34:$01/v$00` subrosianSmiths<br>[M] `$a4:$00/v$00` subrosianSmithy |
+| `1:99` | [M] `$57:$00/v$00` ingo |
+| `1:9a` | [M] `$99:$00/v$00` oldManWithRupees |
+| `1:9c` | [M] `$43:$80/v$00` syrup<br>[M] `$49:$80/v$00` syrupCucco |
+| `1:9d` | [M] `$8a:$00/v$00` sunkenCityNpcs<br>[M] `$8a:$02/v$00` sunkenCityNpcs<br>[M] `$8a:$03/v$00` sunkenCityNpcs |
+| `1:9e` | [M] `$30:$02/v$00` subrosian<br>[M] `$30:$03/v$00` subrosian |
+| `1:9f` | [M] `$39:$00/v$00` miscNpcs<br>[M] `$39:$01/v$00` miscNpcs<br>[M] `$39:$02/v$00` miscNpcs<br>[M] `$39:$03/v$00` miscNpcs<br>[M] `$39:$04/v$00` miscNpcs |
+| `1:a0` | [M] `$30:$0c/v$00` subrosian |
+| `1:a1` | [M] `$30:$0d/v$00` subrosian |
+| `1:a3` | [M] `$70:$00/v$00` holly<br>[M] `$db:$02/v$00` linkedSecredGivers |
+| `1:a4` | [M] `$2c:$00/v$00` miscNpcs |
+| `1:a6` | [M] `$46:$00/v$00` shopkeeper |
+| `1:a9` | [M] `$30:$26/v$00` subrosian |
+| `1:aa` | [M] `$95:$00/v$00` kingMoblin |
+| `1:ad` | [M] `$d5:$00/v$00` greatFairy |
+| `1:af` | [M] `$46:$02/v$00` shopkeeper<br>[M] `$37:$86/v$00` miscNpcs |
+| `1:b0` | [M] `$46:$01/v$00` shopkeeper |
+| `1:b2` | [M] `$30:$12/v$00` subrosian<br>[M] `$30:$13/v$00` subrosian |
+| `1:b3` | [M] `$29:$00/v$00` miscNpcs<br>[M] `$b8:$00/v$00` ambi |
+| `1:b5` | [M] `$6b:$00/v$00` miscellaneous1<br>[M] `$db:$01/v$00` linkedSecredGivers |
+| `1:b6` | [M] `$8b:$00/v$00` sunkenCityNpcs<br>[M] `$8b:$01/v$00` sunkenCityNpcs<br>[M] `$cd:$00/v$00` linkedMasterDiver |
+| `1:ba` | [M] `$cb:$00/v$00` linkedGameGhini |
+| `4:16` | [M] `$38:$00/v$00` miscNpcs |
+| `4:33` | [M] `$ce:$09/v$00` businessScrub |
+| `4:63` | [M] `$ce:$0a/v$00` businessScrub |
+| `4:6b` | [M] `$38:$00/v$00` miscNpcs |
+| `4:e8` | [M] `$10:$00/v$00` farore |
+| `4:ef` | [M] `$55:$00/v$00` subrosianAtD8<br>[M] `$55:$01/v$00` subrosianAtD8 |
+| `4:f0` | [M] `$cc:$00/v$00` goldenCaveSubrosian |
+| `4:f8` | [M] `$5b:$80/v$00` lostWoodsDekuScrub |
+| `5:01` | [M] `$99:$00/v$00` oldManWithRupees |
+| `5:02` | [M] `$99:$01/v$00` oldManWithRupees |
+| `5:03` | [M] `$99:$02/v$00` oldManWithRupees |
+| `5:04` | [M] `$99:$03/v$00` oldManWithRupees |
+| `5:05` | [M] `$99:$04/v$00` oldManWithRupees |
+| `5:06` | [M] `$99:$05/v$00` oldManWithRupees |
+| `5:07` | [M] `$99:$06/v$00` oldManWithRupees |
+| `5:08` | [M] `$99:$07/v$00` oldManWithRupees |
+| `5:0b` | [M] `$d6:$00/v$00` dekuScrub |
+| `5:0c` | [M] `$d6:$02/v$00` dekuScrub |
+| `5:0d` | [M] `$d6:$01/v$00` dekuScrub |
+| `5:0f` | [M] `$ca:$00/v$00` troy |
+| `5:11` | [M] `$dd:$00/v$00` goldenBeastOldMan |
+| `5:27` | [M] `$e4:$00/v$00` linkedHerosCaveOldMan |
+| `5:30` | [M] `$38:$00/v$00` miscNpcs |
+| `5:33` | [M] `$e7:$00/v$00` loneZora |
+| `5:9a` | [M] `$44:$00/v$00` zelda |
+| `5:b3` | [M] `$d5:$01/v$00` greatFairy |
+| `5:b6` | [M] `$45:$00/v$00` talon |
+| `5:bd` | [M] `$8d:$00/v$00` sunkenCityNpcs<br>[M] `$8d:$01/v$00` sunkenCityNpcs<br>[M] `$8d:$02/v$00` sunkenCityNpcs<br>[M] `$8d:$03/v$00` sunkenCityNpcs |
+| `5:c5` | [M] `$3b:$16/v$00` goron |
+| `5:c8` | [M] `$3b:$14/v$00` goron<br>[M] `$3b:$15/v$00` goron<br>[M] `$3b:$07/v$00` goron |
+| `5:c9` | [M] `$3b:$20/v$00` goron<br>[M] `$3b:$11/v$00` goron<br>[M] `$3b:$02/v$00` goron<br>[M] `$3b:$13/v$00` goron |
+| `5:cf` | [M] `$b1:$18/v$00` shipPiratian |
+| `5:d1` | [M] `$ce:$03/v$00` businessScrub |
+| `5:d2` | [M] `$4d:$01/v$00` pirateSkull |
+| `5:d4` | [M] `$b1:$12/v$00` shipPiratian<br>[M] `$b1:$13/v$00` shipPiratian<br>[M] `$b1:$14/v$00` shipPiratian<br>[M] `$b1:$15/v$00` shipPiratian<br>[M] `$b1:$16/v$00` shipPiratian |
+
+Implementation guidance is in [NPCs and room events](../npcs-and-events.md).

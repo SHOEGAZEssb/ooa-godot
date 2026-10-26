@@ -175,7 +175,7 @@ public sealed partial class ValidationRoot
             CheckReturnedSea(_rooms.CurrentRoom);
             FailIf(!OracleSaveData.TryDeserialize(_saveData.Serialize(), OracleGame.Ages, out OracleSaveData? restored),
                 "Fairy cleanup save serialization failed.");
-            CheckReturnedSea(new RoomSession(1, 0xa3, () => 0, () => { }, restored!).CurrentRoom);
+            CheckReturnedSea(AgesRoomContent.CreateSession(1, 0xa3, () => 0, () => { }, restored!).CurrentRoom);
             LoadValidationRoom(3, 0xef); Step(3);
             FailIf(_entities.Entities<NpcCharacter>().Any(n => n.Record.Id == 0x32 && n.Active) ||
                 _entities.EntityAdapters<FountainFairyRoomEntity>().Count() != 1,

@@ -8,9 +8,48 @@ namespace Oracles;
 // Creation shares the manager's authoritative state and named operations.
 // Live providers are sampled by the owner when actors call them, including
 // providers assigned after this factory and those actors were constructed.
-internal sealed class AgesRoomEntityFactory
+internal sealed class AgesRoomEntityFactory : IRoomEntityFactory
 {
-    internal string AssetRoot => enemies.AssetRoot;
+    internal static RoomEntityManager CreateManager(
+        Node worldRoot,
+        NpcDatabase npcs,
+        EnemyDatabase enemies,
+        OracleSaveData? saveData = null,
+        OracleRuntimeState? runtimeState = null)
+    {
+        return CreateManager(worldRoot, npcs, enemies, new ItemDropDatabase(enemies.AssetRoot),
+            new TimePortalDatabase(), new OracleRandom(), saveData, runtimeState);
+    }
+
+    internal static RoomEntityManager CreateManager(
+        Node worldRoot,
+        NpcDatabase npcs,
+        EnemyDatabase enemies,
+        ItemDropDatabase itemDrops,
+        TimePortalDatabase timePortals,
+        OracleRandom random,
+        OracleSaveData? saveData = null,
+        OracleRuntimeState? runtimeState = null,
+        InventoryState? inventory = null,
+        Func<long>? animationTick = null,
+        TreasureDatabase? treasures = null,
+        RoomSession? rooms = null)
+    {
+        return new RoomEntityManager(worldRoot, RequireAgesEntityPack(npcs, enemies, rooms),
+            owner => owner.BindAgesFactory(npcs, enemies, timePortals, rooms), random, saveData,
+            runtimeState ?? OracleRuntimeState.CreateInitialized(OracleGame.Ages),
+            inventory, treasures ?? TreasureDatabase.For(enemies.AssetRoot), itemDrops, animationTick);
+    }
+
+    private static string RequireAgesEntityPack(NpcDatabase npcs, EnemyDatabase enemies, RoomSession? rooms)
+    {
+        if (enemies.AssetRoot != AgesGameContent.AssetRoot || npcs.AssetRoot != enemies.AssetRoot || rooms is not null && rooms.AssetRoot != enemies.AssetRoot)
+            throw new ArgumentException("The Ages entity binding requires matching Ages source packs.");
+        return enemies.AssetRoot;
+    }
+
+    public string AssetRoot => enemies.AssetRoot;
+    public int OpenShutterTile => Resources.DungeonMechanics.OpenTile;
     private readonly RoomEntityManager owner;
     private readonly EnemyDatabase enemies;
     private readonly TimePortalDatabase timePortals;
@@ -49,46 +88,17 @@ internal sealed class AgesRoomEntityFactory
         EnemyFactory = new(owner, enemies, Resources, rooms);
     }
 
-    internal IEnumerable<bool> PrepareResources() => Resources.PrepareResources();
+    public IEnumerable<bool> PrepareResources() => Resources.PrepareResources();
+    public void RefreshState(IEnumerable<IRoomEntity> entities) => owner.RefreshAgesNpcState(entities);
+    public void BindEntity(IRoomEntity entity) => owner.BindAgesEntity(entity);
 
-    /// <summary>
-    /// Mirrors replaceShutterForLinkEntering for layout shutters $78-$7f.
-    /// The matching ordinary shutter becomes floor $a0; the matching minecart
-    /// shutter becomes direction-appropriate track $5d/$5e so a ridden cart
-    /// can enter the preloaded room during the scroll.
-    /// </summary>
-    internal void ApplyEntryShutterSubstitution(
-        OracleRoomData room,
-        EnemyPlacementContext placementContext)
-    {
-        if (placementContext.Kind != EnemyPlacementEntryKind.Scrolling ||
-            placementContext.EntryPackedPosition < 0)
-        {
-            return;
-        }
-
-        int packedPosition = placementContext.EntryPackedPosition;
-        Vector2 position = PointForPackedPosition(packedPosition);
-        int tile = room.GetMetatile(position);
-        if (!DungeonShutterEntry.TryGetReplacement(
-                placementContext,
-                packedPosition,
-                tile,
-                Resources.DungeonMechanics.OpenTile,
-                out int replacement))
-        {
-            return;
-        }
-
-        room.SetPositionTileAndCollision(
-            position, checked((byte)replacement), null, _animationTick());
-    }
-
-    internal void UpdateSeedTreeRefillState(
+    public void UpdateSeedTreeRefillState(
         int activeGroup,
-        int activeRoom) =>
-        Resources.SeedTrees.UpdateRefillState(
-            _runtimeState, activeGroup, activeRoom);
+        int activeRoom)
+    {
+        if ((owner.ActiveRoom.TilesetFlags & (int)TilesetFlags.Outdoors) != 0)
+            Resources.SeedTrees.UpdateRefillState(_runtimeState, activeGroup, activeRoom);
+    }
 
     public IEnumerable<IRoomEntity> CreateRoomEntities(
         int group,
@@ -1727,7 +1737,7 @@ internal sealed class AgesRoomEntityFactory
         new(producer with { Id = AgesInteractionId.Decoration, SubId = 0, Kind = DungeonObjectKind.Decoration },
             Resources.FinalDungeonEntry.Decoration);
 
-    internal IRoomEntity? CreateRoomLoadReward(int group, int room) =>
+    public IRoomEntity? CreateRoomLoadReward(int group, int room) =>
         Resources.SharedInteractions.TryGetGashaReward(group, room, out var record) && owner.InteractionSlotAvailable
             ? new MakuGashaRewardRoomEntity(record, _saveData!, _inventory!, request => owner.TryCreateGroundTreasure(request)) : null;
     internal MonkeyRoomEntity CreateSavedMonkey(DungeonObjectRecord record) => new(record, Resources.Monkeys, owner, _saveData!);
@@ -5439,7 +5449,7 @@ internal sealed class AgesRoomEntityFactory
                 if (rooms.TrySetTile(position,tile)) owner.OnRoomTileChanged();
             });
 
-    internal IEnumerable<IRoomEntity> CreateTimePortals(int group, OracleRoomData room)
+    public IEnumerable<IRoomEntity> CreateTimePortals(int group, OracleRoomData room)
     {
         foreach (PortalRecord record in timePortals.GetRoomPortals(group, room.Id))
         {
@@ -5594,7 +5604,7 @@ internal sealed class AgesRoomEntityFactory
         return hasEnemyCountConsumer && DungeonEnemyCountIsComplete(group, room);
     }
 
-    internal IEnumerable<IRoomEntity> ParseRandomEnemies(RoomObjectRecord source,OracleRoomData room,
+    public IEnumerable<IRoomEntity> ParseRandomEnemies(RoomObjectRecord source,OracleRoomData room,
         EnemyPlacementContext placementContext,EnemyPlacementReservations? reservations = null)
     {
         if (source.Kind != RoomObjectKind.RandomEnemy)

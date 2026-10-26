@@ -14,10 +14,11 @@ internal partial class SeasonsOpeningSession : Node2D
     internal OracleSaveData Save { get; private set; } = null!;
     internal OracleRuntimeState Memory { get; private set; } = null!;
     internal OracleRandom Random { get; private set; } = null!;
-    internal OracleRoomData Room { get; private set; } = null!;
+    internal RoomSession Rooms { get; private set; } = null!;
+    internal OracleRoomData Room => Rooms.CurrentRoom;
     internal RoomCollision Collision { get; private set; } = null!;
-    internal int FrameCounter => Memory.ReadWramByte(0xcc00);
-    internal int RoomId { get; private set; }
+    internal int FrameCounter => Memory.FrameCounter;
+    internal int RoomId => Room.Id;
     internal byte DisabledObjects
     {
         get => Memory.ReadField("wDisabledObjects");
@@ -26,12 +27,12 @@ internal partial class SeasonsOpeningSession : Node2D
     internal int Signal(int index) => Memory.ReadWramByte(0xcfd0 + index);
     internal void Signal(int index, int value) => Memory.SetWramByte(0xcfd0 + index, unchecked((byte)value));
     internal bool Fading => _fadeRemaining != 0;
-    internal bool Scrolling => _scrollFrames != 0;
+    internal bool Scrolling => _scroll.Active;
     internal bool Complete => Phase == SeasonsOpeningPhase.Complete;
     internal SeasonsOpeningPhase Phase { get; private set; }
-    internal SeasonsOpeningActor?[] Actors { get; } = new SeasonsOpeningActor?[16];
-    private readonly (NpcCharacter Node, LightningEffect Effect)?[] _lightning = new (NpcCharacter, LightningEffect)?[16];
-    private readonly List<SeasonsOpeningActor> _outgoingActors = [];
+    internal RoomEntityManager Entities { get; private set; } = null!;
+    internal IEnumerable<SeasonsOpeningActor> Actors => Entities is null ? [] :
+        Entities.EntityAdapters<SeasonsOpeningActor>().Where(actor => !actor.Finished);
     private Node2D _actorLayer = null!;
     private RoomView _roomView = null!;
     private Hud _hud = null!;
@@ -45,10 +46,10 @@ internal partial class SeasonsOpeningSession : Node2D
     private SeasonsOpeningLink _nativeLink = null!;
     private SeasonsOpeningSequence _sequence = null!;
     private SeasonsOpeningScreen _screen = null!;
-    private int _roomTicks, _arrivalFrames, _fadeRemaining, _fadeDuration, _scrollFrames, _scrollDirection;
+    private int _roomTicks, _arrivalFrames, _fadeRemaining, _fadeDuration;
+    private readonly RoomScrollController _scroll = new();
     private bool _fadeOut;
     private Color _fadeColor = Colors.White;
-    private Vector2 _scrollStart;
     private int _pendingExit;
     internal int LastText { get; private set; } = -1;
     internal bool ButtonConsumed { get; private set; }
@@ -62,7 +63,7 @@ internal partial class SeasonsOpeningSession : Node2D
     internal void Start(OracleSoundEngine sound, OracleRandom random, OracleSaveData? save = null)
     {
         if (!ResourcesPrepared) foreach (bool _ in PrepareResources()) { }
-        Sound = sound; Random = random; Memory = new(OracleGame.Seasons);
+        Sound = sound; Random = random; Memory = OracleRuntimeState.CreateInitialized(OracleGame.Seasons);
         Save = save ?? OracleSaveData.CreateStandardGame(OracleGame.Seasons);
         if (save is null) Save.SetLinkName("Link");
         if (Save.Game != OracleGame.Seasons || Save.IsLinkedGame || Save.HasGlobalFlag(0x21))
@@ -75,6 +76,15 @@ internal partial class SeasonsOpeningSession : Node2D
         _inventory = new(TreasureDatabase.For(SeasonsGameContent.AssetRoot), Save, runtimeState: Memory);
         _status = new(_inventory, _hud, Sound.PlaySound, () => FrameCounter);
         _hud.Initialize(TreasureDatabase.For(SeasonsGameContent.AssetRoot), _inventory);
+        Rooms = new RoomSession(new SeasonsRoomContent(Data), 0, 0xa7,
+            () => _roomTicks, () => _roomTicks = 0, Save, Memory, countAsRoomEntry: false);
+        Entities = new RoomEntityManager(_actorLayer, SeasonsGameContent.AssetRoot,
+            _ => new SeasonsRoomEntityFactory(this), Random, Save, Memory, _inventory,
+            TreasureDatabase.For(SeasonsGameContent.AssetRoot), animationTick: () => _roomTicks, advancesFrameCounter: false);
+        Entities.TextActiveSource = () => Dialogue.IsOpen;
+        Entities.PaletteFadeActiveSource = () => Fading;
+        Entities.WorldToScreen = point => _screen.Visible ?
+            point - new Vector2(_screen.CameraX, _screen.CameraY) : point;
         Collision = new(() => Room, (position, _) => Actors.Any(actor => actor?.BlocksLink(position) == true),
             Memory, HasNeighbor, normalizeCornerWalls: false);
         LoadRoom(0xa7, 0, spawn: false, preserveActors: true);
@@ -94,7 +104,7 @@ internal partial class SeasonsOpeningSession : Node2D
     internal void AdvanceFrame()
     {
         if (_pregame is { GraphicsLoadPending: true }) { _pregame.CompleteGraphicsLoad(); return; }
-        Memory.SetWramByte(0xcc00, unchecked((byte)(FrameCounter + 1)));
+        Memory.FrameCounter = unchecked((byte)(FrameCounter + 1));
         Save.AdvancePlaytime(); ButtonConsumed = false;
         if (_pregame is not null)
         {
@@ -105,21 +115,12 @@ internal partial class SeasonsOpeningSession : Node2D
         }
         AdvanceFade();
         if (Phase == SeasonsOpeningPhase.Arrival) { AdvanceArrival(); Dialogue.AdvanceApplicationUpdate(); return; }
-        if (Scrolling) { AdvanceScroll(); return; }
+        if (Scrolling) { Entities.Update(1.0 / 60, Link); AdvanceScroll(); return; }
         _sequence.AdvanceFrame();
         if (!_sequence.SkipObjects)
         {
             if (_nativeLink.Active) _nativeLink.AdvanceFrame(); else Link.AdvanceApplicationUpdate();
-            for (int slot = 0; slot < _lightning.Length; slot++)
-            {
-                if (_lightning[slot] is not { } lightning) continue;
-                lightning.Effect.UpdateFrame();
-                if (!lightning.Effect.Finished) continue;
-                lightning.Node.QueueFree(); _lightning[slot] = null;
-            }
-            bool interactionsBlocked = Dialogue.IsOpen || (DisabledObjects & 0x02) != 0;
-            for (int slot = 0; slot < Actors.Length; slot++)
-                if (Actors[slot] is { } actor && (!interactionsBlocked || actor.AlwaysUpdate || !actor.Initialized)) actor.AdvanceFrame();
+            Entities.Update(1.0 / 60, Link);
         }
         if (!_screen.Visible)
         {
@@ -158,60 +159,43 @@ internal partial class SeasonsOpeningSession : Node2D
         if (wave <= 128) return;
         _roomView.ClearHorizontalWave(); _hud.ShowStatusBar();
         DisabledObjects = 0;
-        Save.SetGlobalFlag(0x21); Random.BeginRoomParse();
-        Phase = SeasonsOpeningPhase.Forest; Spawn(0xa5, 9, new(0x48, 0xf8));
+        Save.SetGlobalFlag(0x21);
+        Phase = SeasonsOpeningPhase.Forest; Entities.LoadRoom(0, Room);
     }
 
     internal void LoadRoom(int room, int season, bool spawn = true, bool preserveActors = false)
     {
-        if (!preserveActors) ClearActors();
-        RoomId = room; _roomTicks = 0;
-        Room = Data.LoadRoom(room, season); _roomView.SetRoom(Room.Texture);
+        _roomTicks = 0;
+        Memory.SetField("wRoomStateModifier", checked((byte)season));
+        if (preserveActors) Rooms.LoadCutsceneBackground(0, room);
+        else Rooms.Load(0, room);
+        _roomView.SetRoom(Room.Texture);
         for (int y = 0; y < 8; y++)
         for (int x = 0; x < 10; x++) Memory.SetWramByte(0xcf00 + y * 16 + x, Room.GetMetatile(new(x * 16, y * 16)));
         Memory.SetField("wScrollMode", 1);
-        if (!preserveActors)
-        {
-            OrRoomFlag(OracleSaveData.RoomFlagVisited);
-            Random.BindPlacementMemory(Memory); Random.BeginRoomParse();
-        }
-        if (!spawn) return;
-        if (room == 0x98)
-        {
-            Spawn(0x4e, 0x0b, Vector2.Zero)?.AdvanceFrame();
-        }
-        else if (room == 0x97)
-        {
-            Spawn(0x85, 0, Vector2.Zero);
-        }
-        else if (room == 0xb6) Spawn(0x9d, 0, new(0x28, 0x28));
+        if (preserveActors) Entities.RebindCutsceneBackground(Room);
+        else if (spawn) Entities.LoadRoom(0, Room);
+        else { Entities.Clear(); Entities.RebindCutsceneBackground(Room); }
     }
 
     internal SeasonsOpeningActor? Spawn(int id, int subid, Vector2 position, int variable = 0)
     {
-        int slot = Array.FindIndex(Actors, actor => actor is null);
-        if (slot < 0) return null;
-        var actor = new SeasonsOpeningActor(this, slot, id, subid, position, variable);
-        Actors[slot] = actor; _actorLayer.AddChild(actor.Node);
-        if (id != 0x85) actor.Node.BindTerrainShadow(Room, () => FrameCounter, () => 0xd0 + slot, () => Scrolling, Memory);
-        return actor;
+        return Entities.TryAllocateInteraction(() => new SeasonsOpeningActor(this, id, subid, position, variable));
     }
     internal void Delete(SeasonsOpeningActor actor)
     {
-        if (Actors[actor.Slot] != actor) return;
-        Actors[actor.Slot] = null; actor.Node.NotifyRetired(); actor.Node.QueueFree();
+        Entities.RetireEntity(actor);
     }
     internal void StrikeLightning(int bits, Vector2 position)
     {
-        int slot = Array.FindIndex(_lightning, part => part is null);
-        if (slot < 0) return;
-        var node = Data.CreateActor(0x27, 0, position); _actorLayer.AddChild(node);
+        if (!Entities.PartSlotAvailable) return;
+        var node = Data.CreateActor(0x27, 0, position);
         var effect = new LightningEffect(node, () => Random.Next().Value, Sound.PlaySound,
             frames => _sequence.Shake(frames), debris => Spawn(8, 0, debris),
             SeasonsGameContent.AssetRoot, () => Signal(2, Signal(2) | bits));
-        _lightning[slot] = (node, effect);
+        Entities.AddEntity(new LightningRoomEntity(node, effect));
     }
-    internal void ClearActors() { foreach (var actor in Actors.ToArray()) if (actor is not null) Delete(actor); }
+    internal void ClearActors() => Entities.ClearDynamicInteractions();
     internal SeasonsOpeningActor? Din => Actors.FirstOrDefault(actor => actor is { Id: 0x4e, Subid: 6 });
     internal void StartNativeLink(bool dance) => _nativeLink.Begin(dance);
     internal void ReleaseLink() => _nativeLink.End();
@@ -233,9 +217,8 @@ internal partial class SeasonsOpeningSession : Node2D
     internal bool TryTalk()
     {
         if (DisabledObjects != 0 || Dialogue.IsOpen || ButtonConsumed) return false;
-        foreach (var actor in Actors)
-            if (actor is not null && actor.TryTalk()) { ButtonConsumed = true; return true; }
-        return false;
+        ButtonConsumed = Entities.TryInteract(Link);
+        return ButtonConsumed;
     }
     internal void ShowText(int id, int? position = null)
     {
@@ -286,33 +269,28 @@ internal partial class SeasonsOpeningSession : Node2D
     }
     private void BeginScroll(int direction)
     {
-        _scrollStart = new(direction > 0 ? 154 : 6, Link.PrecisePosition.Y); _scrollDirection = direction;
+        Vector2 start = new(direction > 0 ? 154 : 6, Link.PrecisePosition.Y);
+        // These spring rooms retain their unique-GFX entry: five setup and two cleanup updates.
+        _scroll.Begin(start, new(direction, 0), Room.Width, Room.Height, 5, 2);
         Texture2D previous = Room.Texture;
-        for (int slot = 0; slot < Actors.Length; slot++)
-            if (Actors[slot] is { } actor) { _outgoingActors.Add(actor); Actors[slot] = null; }
-        LoadRoom(direction > 0 ? 0x98 : 0x97, 0);
-        foreach (var actor in Actors) if (actor is { Initialized: false }) actor.AdvanceFrame();
+        OracleRoomData target = Rooms.GetRoom(0, direction > 0 ? 0x98 : 0x97);
+        Rooms.SetLoadedRoom(0, target, updateMinimap: false);
+        Entities.BeginScreenTransition(0, target, new(direction * 160, 0), Link);
         _roomView.SetRoom(previous); _roomView.StartScreenTransition(Room.Texture, new(direction, 0), 160, Vector2.Zero, Vector2.Zero);
-        Link.BeginScrollingTransition(_scrollStart);
-        _scrollFrames = 47;
-        foreach (var actor in Actors) actor?.Node.SetTransitionDrawOffset(new(direction * 160, 0));
+        Link.BeginScrollingTransition(start);
     }
     private void AdvanceScroll()
     {
-        _scrollFrames--; int elapsed = 47 - _scrollFrames;
-        // Four setup updates, the retained unique-GFX entry, forty scroll
-        // updates, and two cleanup updates for these same-tileset small rooms.
-        int steps = Math.Clamp(elapsed - 5, 0, 40);
-        _roomView.SetTransitionFrame(steps);
-        Link.SetScrollingTransitionPosition(_scrollStart + new Vector2(_scrollDirection * steps * 0.375f, 0), new(_scrollDirection * steps * 4, 0));
-        foreach (var actor in Actors) actor?.Node.SetTransitionDrawOffset(new(_scrollDirection * (160 - steps * 4), 0));
-        foreach (var actor in _outgoingActors) actor.Node.SetTransitionDrawOffset(new(-_scrollDirection * steps * 4, 0));
-        if (_scrollFrames != 0) return;
-        _roomView.FinishTransition(); Link.FinishScrollingTransition(_scrollStart + new Vector2(_scrollDirection * (15 - 160), 0));
-        foreach (var actor in _outgoingActors) { actor.Node.NotifyRetired(); actor.Node.QueueFree(); }
-        _outgoingActors.Clear();
+        if (!_scroll.Advance()) return;
+        Vector2 offset = (Vector2)_scroll.Direction * _scroll.Pixels;
+        _roomView.SetTransitionFrame(_scroll.Frame);
+        Link.SetScrollingTransitionPosition(_scroll.LinkPosition, offset);
+        Entities.SetScreenTransitionOffsets(-offset, (Vector2)_scroll.Direction * _scroll.Distance - offset);
+        if (_scroll.Active) return;
+        _roomView.FinishTransition(); Link.FinishScrollingTransition(_scroll.DestinationPosition);
+        Entities.FinishScreenTransition(); Rooms.UpdateMinimapLocation();
     }
-    public override void _ExitTree() => _status?.Dispose();
+    public override void _ExitTree() { _status?.Dispose(); Entities?.Dispose(); }
 }
 
 internal enum SeasonsOpeningPhase { Pregame, Arrival, Forest, Troupe, Dance, Capture, Imprisonment, TempleSinking, Aftermath, Complete }

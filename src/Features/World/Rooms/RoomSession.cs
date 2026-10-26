@@ -6,19 +6,16 @@ namespace Oracles;
 
 public sealed partial class RoomSession
 {
-    internal string AssetRoot => World.AssetRoot;
+    private readonly IRoomContent _content;
+    internal string AssetRoot => _content.AssetRoot;
     private readonly Func<long> _animationTick;
     private readonly Action _resetAnimationTick;
     private readonly OracleSaveData _saveData;
-    private readonly DungeonKeyDoorDatabase _keyDoors;
     private readonly Func<byte> _toggleState;
-    private readonly GashaSpotDatabase _gashaSpots;
     private readonly ChangedTileQueue _changedTiles = new();
     private readonly OracleRuntimeState _runtimeState;
     private TileInfoTextDatabase? _tileInfoTextsSourceCache;
     private TileInfoTextDatabase _tileInfoTexts => _tileInfoTextsSourceCache ??= new(AssetRoot);
-    private RoomShopDatabase? _shopRoomsSourceCache;
-    private RoomShopDatabase _shopRooms => _shopRoomsSourceCache ??= new(AssetRoot);
     internal bool InShop => _runtimeState.ReadField("wInShop") != 0;
 
     internal byte TilePushCounter
@@ -52,14 +49,49 @@ public sealed partial class RoomSession
         _changedTiles.UpdateGraphics(scrollMode,write => CurrentRoom.ApplyQueuedTileGraphics(write,_animationTick()));
 
     public event Action<int, OracleRoomData>? RoomChanged;
-    public DungeonMapDatabase DungeonMaps { get; }
+    public DungeonMapDatabase DungeonMaps => _content.DungeonMaps ??
+        throw new NotSupportedException($"{AssetRoot}: dungeon layouts are not bound.");
     public OracleSaveData SaveData => _saveData;
-    internal DungeonKeyDoorDatabase KeyDoors => _keyDoors;
+    internal DungeonKeyDoorDatabase KeyDoors => _content.KeyDoors ??
+        throw new NotSupportedException($"{AssetRoot}: dungeon key doors are not bound.");
     public int ActiveGroup { get; private set; }
     public OracleRoomData CurrentRoom { get; private set; }
-    public int CurrentDungeonIndex => World.GetDungeonIndex(ActiveGroup, CurrentRoom.Id);
+    public int CurrentDungeonIndex => _content.GetDungeonIndex(ActiveGroup, CurrentRoom.Id);
     public int MinimapGroup => _saveData.MinimapGroup;
     public int MinimapRoom => _saveData.MinimapRoom;
+
+    internal RoomSession(IRoomContent content, int startingGroup, int startingRoom,
+        Func<long> animationTick, Action resetAnimationTick, OracleSaveData saveData,
+        OracleRuntimeState runtimeState, bool countAsRoomEntry = true, Func<byte>? toggleState = null)
+    {
+        OracleGame game = OracleAssetPack.GameFor(content.AssetRoot);
+        if (saveData.Game != game || runtimeState.Game != game)
+            throw new ArgumentException("Room content, save and runtime state must belong to the same game.");
+        _content = content;
+        _animationTick = animationTick;
+        _resetAnimationTick = resetAnimationTick;
+        _saveData = saveData;
+        _runtimeState = runtimeState;
+        _toggleState = toggleState ?? (() => 0);
+        if (countAsRoomEntry) _runtimeState.SetField("wScrollMode", 1);
+        ActiveGroup = startingGroup;
+        if (countAsRoomEntry) _saveData.AddGashaMaturity(_content.RoomLoadMaturity);
+        CurrentRoom = GetRoom(startingGroup, startingRoom);
+        InitializeDungeonReturnState();
+        InitializeShopState();
+        _content.ActivateRoom(CurrentRoom);
+        if (countAsRoomEntry) MarkRoomVisited(startingGroup, startingRoom);
+        CurrentRoom.UpdateAnimation(_animationTick());
+    }
+
+    public OracleRoomData GetRoom(int group, int room)
+    {
+        OracleRoomData loaded = _content.LoadRoom(group, room, _saveData, _runtimeState,
+            _animationTick(), _toggleState());
+        if (loaded.AssetRoot != AssetRoot)
+            throw new InvalidOperationException($"Room ${group:x1}:${room:x2}: content returned a different game pack.");
+        return loaded;
+    }
 
     public OracleRoomData Load(int group, int room)
     {
@@ -69,11 +101,11 @@ public sealed partial class RoomSession
         ClearActiveTileState();
         _runtimeState.SetField("wScrollMode", 1);
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
-        _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
+        _saveData.AddGashaMaturity(_content.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
         InitializeShopState();
-        World.SetCurrentPaletteRoom(CurrentRoom);
+        _content.ActivateRoom(CurrentRoom);
         MarkRoomVisited(group, room);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
@@ -83,10 +115,10 @@ public sealed partial class RoomSession
     internal void EnterPreparedRoom()
     {
         _runtimeState.SetField("wScrollMode", 1);
-        _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
+        _saveData.AddGashaMaturity(_content.RoomLoadMaturity);
         CurrentRoom = GetRoom(ActiveGroup, CurrentRoom.Id);
         InitializeShopState();
-        World.SetCurrentPaletteRoom(CurrentRoom);
+        _content.ActivateRoom(CurrentRoom);
         MarkRoomVisited(ActiveGroup, CurrentRoom.Id);
         CurrentRoom.UpdateAnimation(_animationTick());
     }
@@ -106,7 +138,7 @@ public sealed partial class RoomSession
         ActiveGroup = group;
         CurrentRoom = GetRoom(group, room);
         InitializeShopState();
-        World.SetCurrentPaletteRoom(CurrentRoom);
+        _content.ActivateRoom(CurrentRoom);
         if(restartAnimations)_resetAnimationTick();
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         // disableLcdAndLoadRoom_body restores $01 after func_131f; scripts
@@ -120,7 +152,7 @@ public sealed partial class RoomSession
     {
         int previousAnimationGroup=CurrentRoom.AnimationGroup;
         ActiveGroup=group;CurrentRoom=GetRoom(group,room);
-        World.SetCurrentPaletteRoom(CurrentRoom);
+        _content.ActivateRoom(CurrentRoom);
         SynchronizeAnimation(previousAnimationGroup,CurrentRoom);
         return CurrentRoom;
     }
@@ -131,11 +163,11 @@ public sealed partial class RoomSession
         _changedTiles.Clear(); // Scroll-entry func_49c9 clears these indices before loading.
         ClearActiveTileState();
         int previousAnimationGroup = CurrentRoom.AnimationGroup;
-        _saveData.AddGashaMaturity(_gashaSpots.RoomLoadMaturity);
+        _saveData.AddGashaMaturity(_content.RoomLoadMaturity);
         ActiveGroup = group;
         CurrentRoom = room;
         InitializeShopState();
-        World.SetCurrentPaletteRoom(CurrentRoom);
+        _content.ActivateRoom(CurrentRoom);
         MarkRoomVisited(group, room.Id, updateMinimap);
         SynchronizeAnimation(previousAnimationGroup, CurrentRoom);
         RoomChanged?.Invoke(ActiveGroup, CurrentRoom);
@@ -162,7 +194,7 @@ public sealed partial class RoomSession
     }
 
     private void InitializeShopState() =>
-        _runtimeState.SetField("wInShop",_shopRooms.InitialFlags(ActiveGroup,CurrentRoom.Id));
+        _runtimeState.SetField("wInShop",_content.ShopFlags(ActiveGroup,CurrentRoom.Id));
 
     private void SynchronizeAnimation(int previousAnimationGroup, OracleRoomData room)
     {
@@ -219,8 +251,8 @@ public sealed partial class RoomSession
         if ((flags & 0x20) == 0 && dungeon >= 0 &&
             DungeonMaps.GetDungeon(dungeon).TryGetRoom(room, out DungeonCell cell))
         {
-            _saveData.WriteWramByte(0xc662 + dungeon,
-                (byte)(_saveData.DungeonVisitedFloors(dungeon) | (1 << cell.Floor)));
+            _saveData.WriteField("wDungeonVisitedFloors",
+                (byte)(_saveData.DungeonVisitedFloors(dungeon) | (1 << cell.Floor)), dungeon);
         }
         if (updateMinimap) UpdateMinimapLocation();
     }
@@ -261,7 +293,7 @@ public sealed partial class RoomSession
         Vector2I direction,
         out int room)
     {
-        int dungeon = World.GetDungeonIndex(group, sourceRoom);
+        int dungeon = _content.GetDungeonIndex(group, sourceRoom);
         if (dungeon >= 0)
             return DungeonMaps.TryGetNeighbor(dungeon, sourceRoom, direction, out room);
 

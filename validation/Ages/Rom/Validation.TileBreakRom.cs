@@ -67,7 +67,7 @@ public sealed partial class ValidationRoot
         foreach (byte tile in new byte[] { 0xc5, 0xcf })
         {
             var save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-            var rooms = new RoomSession(0, 0x33, () => 0, () => { }, save);
+            var rooms = AgesRoomContent.CreateSession(0, 0x33, () => 0, () => { }, save);
             bool found = false;
             for (int roomId = 0; roomId < 256 && !found; roomId++)
             {

@@ -128,7 +128,8 @@ internal sealed class SeasonsOpeningData
 
     internal OracleRoomData LoadRoom(int room, int season)
     {
-        var row = _rooms[(room, season)];
+        if (!_rooms.TryGetValue((room, season), out var row))
+            throw new NotSupportedException($"data/seasons/roomStateModifiers.s: room $0:{room:x2}, season ${season:x2} is not imported.");
         if (!_roomCache.TryGetValue((room, season), out var result))
         {
             string layout = row.RequiredString(10);
@@ -145,10 +146,17 @@ internal sealed class SeasonsOpeningData
             };
             _roomCache.Add((room, season), result);
         }
-        _currentRoom = result;
-        SpritePalettes = OracleGraphicsData.LoadPalette(Root + $"opening/rooms/{row.RequiredString(10)}-{season}-spr.bin");
+        ActivateRoom(result);
         result.LoadTilesetPalette(resetLiveGraphics: true);
         return result;
+    }
+
+    internal void ActivateRoom(OracleRoomData room)
+    {
+        var entry = _roomCache.Single(pair => ReferenceEquals(pair.Value, room));
+        var row = _rooms[entry.Key];
+        _currentRoom = room;
+        SpritePalettes = OracleGraphicsData.LoadPalette(Root + $"opening/rooms/{row.RequiredString(10)}-{entry.Key.Item2}-spr.bin");
     }
     private static Color[,] RoomPalette(string layout, int season)
     {

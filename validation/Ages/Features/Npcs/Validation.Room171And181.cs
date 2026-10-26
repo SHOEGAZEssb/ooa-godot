@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
 
         OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long tick = 0;
-        var rooms = new RoomSession(
+        var rooms = AgesRoomContent.CreateSession(
             1, 0x81, () => tick, () => tick = 0, save);
         var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var inventory = new InventoryState(

@@ -33,7 +33,7 @@ public sealed partial class ValidationRoot
 
         OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
-        var rooms = new RoomSession(0, 0x78, static () => 0, static () => { }, save);
+        var rooms = AgesRoomContent.CreateSession(0, 0x78, static () => 0, static () => { }, save);
         OracleRoomData room = rooms.CurrentRoom;
         FailIf(
             !database.TryFindTreeCenter(room, out Vector2 center) ||

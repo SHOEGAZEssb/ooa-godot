@@ -15,7 +15,7 @@ public sealed partial class ValidationRoot
             !profile.AnimationFrequencies.Select(v => v.Value).SequenceEqual(new[] { 255,255,255,0,0,1,3,7 }),
             "Peahat motion must retain the source SPEED_c0..SPEED_20 and ff/00/01/03/07 tables.");
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var frameField = typeof(RoomEntityManager).GetField("_enemyFrameCounter", flags)!;
+        var frameField = typeof(RoomEntityManager).GetProperty("_enemyFrameCounter", flags)!;
         var animationField = typeof(EnemyCharacter).GetField("_animation", flags)!;
         var animationCounter = typeof(EnemyAnimationPlayer).GetField("_frameCounter", flags)!;
         void Step(int count = 1, Vector2 movement = default) =>

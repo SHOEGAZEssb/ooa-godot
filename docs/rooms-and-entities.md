@@ -476,8 +476,11 @@ parent animation offsets and child position fractions retain their own lifetimes
 
 ## Room lifetime and transitions
 
-`AgesRoomTransitionController` owns scrolls, warps, destination placement, fades,
-and camera writes. Preload is not room entry: counters, RNG, music, checkpoints,
+The shared scroll controller owns cardinal scroll progress and the original
+setup, movement and cleanup counters. `AgesRoomTransitionController` combines
+it with Ages warps, destination placement, fades and camera writes; the Seasons
+opening binds the same scroll mechanism to its source scenes. Preload is not
+room entry: counters, RNG, music, checkpoints,
 events, and persistence change only at the original boundary.
 
 Native cutscene handlers that precede objects advance before Link and item

@@ -29,7 +29,7 @@ public sealed partial class ValidationRoot
         MethodInfo? reloadInventory = typeof(InventoryState).GetMethod(
             "LoadFromSaveData",
             BindingFlags.Instance | BindingFlags.NonPublic);
-        FieldInfo? frameCounterField = typeof(RoomEntityManager).GetField(
+        PropertyInfo? frameCounterField = typeof(RoomEntityManager).GetProperty(
             "_enemyFrameCounter",
             BindingFlags.Instance | BindingFlags.NonPublic);
         FieldInfo? frameAccumulatorField = typeof(RoomEntityManager).GetField(
@@ -376,7 +376,7 @@ public sealed partial class ValidationRoot
         byte originalRoomFlags =
             _saveData.GetRoomFlags(record.Group, record.Room);
         byte originalTombFlags = _saveData.GetRoomFlags(group, room);
-        FieldInfo? frameCounterField = typeof(RoomEntityManager).GetField(
+        PropertyInfo? frameCounterField = typeof(RoomEntityManager).GetProperty(
             "_enemyFrameCounter",
             BindingFlags.Instance | BindingFlags.NonPublic);
         FieldInfo? frameAccumulatorField = typeof(RoomEntityManager).GetField(

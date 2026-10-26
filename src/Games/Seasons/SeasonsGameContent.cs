@@ -3,6 +3,13 @@ namespace Oracles;
 // Supported US Seasons content and its isolated persistence boundary.
 internal static class SeasonsGameContent
 {
+    internal static OracleRuntimeState CreateRuntimeState()
+    {
+        var state = new OracleRuntimeState(OracleGame.Seasons);
+        // bank1.s:initializeSeedTreeRefillData starts tree/event bits $02-$07 set.
+        state.SetField("wSeedTreeRefilledBitset", 0xfc);
+        return state;
+    }
     internal const string AssetRoot = "res://assets/oracle/seasons/";
     internal const string PreviewRoot = AssetRoot + "preview/";
     internal const string SavePath = "user://oracle_of_seasons.sav";

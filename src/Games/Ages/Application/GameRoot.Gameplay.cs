@@ -164,7 +164,7 @@ public partial class GameRoot
             : useSavedSpawn
             ? _saveData.RespawnRoom
             : _launchOptions.StartingRoom;
-        _rooms = new RoomSession(
+        _rooms = AgesRoomContent.CreateSession(
             startingGroup, startingRoom,
             () => (long)_animationTicks,
             () => _animationTicks = 0.0,

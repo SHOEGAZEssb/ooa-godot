@@ -126,7 +126,7 @@ if ($seedTreeRefillMatches.Count -ne 16) {
     throw "Expected sixteen Ages seed-tree refill locations, parsed $($seedTreeRefillMatches.Count)."
 }
 $seedTreeRefillRows = [Collections.Generic.List[string]]::new()
-$seedTreeRefillRows.Add("# index`tgroup`troom")
+$seedTreeRefillRows.Add("# index`tgroup`troom`tbit-index")
 for ($index = 0; $index -lt $seedTreeRefillMatches.Count; $index++) {
     $match = $seedTreeRefillMatches[$index]
     $location = [Convert]::ToInt32($match.Groups['location'].Value, 16)
@@ -135,7 +135,7 @@ for ($index = 0; $index -lt $seedTreeRefillMatches.Count; $index++) {
         throw "Seed-tree refill index $index uses unexpected buffer offset `$$($offset.ToString('x2'))."
     }
     $seedTreeRefillRows.Add(
-        "$index`t$(($location -shr 8) -band 1)`t$(($location -band 0xff).ToString('x2'))")
+        "$index`t$(($location -shr 8) -band 1)`t$(($location -band 0xff).ToString('x2'))`t$index")
 }
 
 $seedTreeOamData = @(

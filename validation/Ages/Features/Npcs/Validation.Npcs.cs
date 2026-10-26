@@ -1248,7 +1248,7 @@ public sealed partial class ValidationRoot
         AddChild(bipinRoot);
         OracleSaveData bipinSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long bipinTick = 0;
-        var bipinRooms = new RoomSession(
+        var bipinRooms = AgesRoomContent.CreateSession(
             3, 0xfc, () => bipinTick, () => bipinTick = 0, bipinSave);
         var bipinTreasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var bipinInventory = new InventoryState(
@@ -3648,7 +3648,7 @@ public sealed partial class ValidationRoot
         AddChild(entranceRoot);
         OracleSaveData entranceSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long entranceTick = 0;
-        var entranceRooms = new RoomSession(
+        var entranceRooms = AgesRoomContent.CreateSession(
             4, 0xe7, () => entranceTick, () => entranceTick = 0, entranceSave);
         using var entranceManagerFixture = RoomEntityValidationFixture.ForRoot(
             entranceRoot, new() { SaveData = entranceSave });
@@ -3718,7 +3718,7 @@ public sealed partial class ValidationRoot
         AddChild(shovelRoot);
         OracleSaveData shovelSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long shovelTick = 0;
-        var shovelRooms = new RoomSession(
+        var shovelRooms = AgesRoomContent.CreateSession(
             4, 0xe1, () => shovelTick, () => shovelTick = 0, shovelSave);
         var shovelTreasures = new TreasureDatabase(AgesGameContent.AssetRoot);
         var shovelInventory = new InventoryState(

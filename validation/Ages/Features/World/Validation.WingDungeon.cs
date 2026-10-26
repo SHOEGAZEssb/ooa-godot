@@ -2001,7 +2001,7 @@ public sealed partial class ValidationRoot
             OracleSaveData.CreateStandardGame(OracleGame.Ages);
         headRewardReentrySave.SetRoomFlag(
             4, 0x2b, OracleSaveData.RoomFlag80);
-        var headRewardReentryRooms = new RoomSession(
+        var headRewardReentryRooms = AgesRoomContent.CreateSession(
             6, 0x2b, () => 0, () => { }, headRewardReentrySave);
         OracleRoomData headRewardReentryRoom =
             headRewardReentryRooms.CurrentRoom;

@@ -761,7 +761,7 @@ public sealed partial class ValidationRoot
             Treasures = new TreasureDatabase(AgesGameContent.AssetRoot);
             Inventory = new InventoryState(Treasures, Save, () => -1);
             long tick = 0;
-            Rooms = new RoomSession(
+            Rooms = AgesRoomContent.CreateSession(
                 group, room, () => tick, () => tick = 0, Save);
             _entities = RoomEntityValidationFixture.Attach(
                 _owner, $"MapleValidation_{group}_{room:x2}", new()

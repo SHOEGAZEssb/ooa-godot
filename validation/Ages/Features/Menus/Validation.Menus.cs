@@ -1471,7 +1471,7 @@ public sealed partial class ValidationRoot
         var presentationInventory = new InventoryState(_treasures, presentationSave);
         var presentation = new MapPresentationState(
             presentationSave, presentationInventory);
-        var presentationRooms = new RoomSession(
+        var presentationRooms = AgesRoomContent.CreateSession(
             0, 0x38, static () => 0, static () => { }, presentationSave);
         var presentationData = new AgesMapDataDatabase(AgesGameContent.AssetRoot);
 

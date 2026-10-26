@@ -280,7 +280,7 @@ public sealed partial class ValidationRoot
             "Room 3:9e $dc:$08 did not set flag $80 and delete itself " +
             "after tile $32 changed.");
 
-        var reentry = new RoomSession(
+        var reentry = AgesRoomContent.CreateSession(
             group, roomId, () => 0, () => { }, save);
         OracleRoomData persisted = reentry.CurrentRoom;
         FailIf(

@@ -74,7 +74,7 @@ public sealed partial class ValidationRoot
         OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         var inventory = new InventoryState(_treasures, save);
         inventory.GiveTreasure(TreasureId.Bombs, 0x10);
-        var rooms = new RoomSession(
+        var rooms = AgesRoomContent.CreateSession(
             0, 0x06, () => 0, () => { }, save);
         var root = new Node { Name = "BombValidationRoot" };
         AddChild(root);
@@ -283,7 +283,7 @@ public sealed partial class ValidationRoot
 
         // itemUpdateThrowingLaterally observes ordinary solidity before
         // itemCheckCanPassSolidTileAt exempts these imported dungeon fences.
-        var fenceRooms = new RoomSession(
+        var fenceRooms = AgesRoomContent.CreateSession(
             4, 0x61, () => 0, () => { }, save);
         OracleRoomData fenceRoom = fenceRooms.CurrentRoom;
         Vector2 fenceEdge = default;
@@ -405,7 +405,7 @@ public sealed partial class ValidationRoot
         bombproofBomb.Free();
         bombproofPlayer.Free();
 
-        var sideRooms = new RoomSession(
+        var sideRooms = AgesRoomContent.CreateSession(
             6, 0x29, () => 0, () => { }, save);
         OracleRoomData sideRoom = sideRooms.CurrentRoom;
         FailIf(
@@ -2120,7 +2120,7 @@ public sealed partial class ValidationRoot
             "The imported standard tile-substitution table did not retain all 50 Ages rows.");
 
         OracleSaveData watchedTreeSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-        var watchedTreeRooms = new RoomSession(
+        var watchedTreeRooms = AgesRoomContent.CreateSession(
             0, 0x48, () => 0, () => { }, watchedTreeSave);
         OracleRoomData watchedTreeRoom = watchedTreeRooms.CurrentRoom;
         Vector2 watchedTreePoint = new(0x88, 0x68);
@@ -2180,12 +2180,12 @@ public sealed partial class ValidationRoot
         FailIf(
             !OracleSaveData.TryDeserialize(
                 watchedTreeSave.Serialize(), OracleGame.Ages, out OracleSaveData? reloadedTreeSave) ||
-            new RoomSession(0, 0x48, () => 0, () => { }, reloadedTreeSave!)
+            AgesRoomContent.CreateSession(0, 0x48, () => 0, () => { }, reloadedTreeSave!)
                 .CurrentRoom.GetMetatile(watchedTreePoint) != 0x3a,
             "Room 0:48's burnt tree did not remain removed after save serialization and reload.");
 
         OracleSaveData persistentSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-        var persistentRooms = new RoomSession(
+        var persistentRooms = AgesRoomContent.CreateSession(
             0, 0x8a, () => 0, () => { }, persistentSave);
         int burnGroup = -1;
         int burnRoomId = -1;
@@ -2247,7 +2247,7 @@ public sealed partial class ValidationRoot
             !OracleSaveData.TryDeserialize(
             persistentSave.Serialize(), OracleGame.Ages, out OracleSaveData? restoredPersistentSave),
             "The burnable-tree room flag did not survive save-image serialization.");
-        var reloadedRooms = new RoomSession(
+        var reloadedRooms = AgesRoomContent.CreateSession(
             burnGroup, burnRoomId, () => 0, () => { }, restoredPersistentSave!);
         FailIf(
             reloadedRooms.CurrentRoom.GetMetatile(burnPoint) != 0xdc,
@@ -2588,7 +2588,7 @@ public sealed partial class ValidationRoot
             "ITEM_SHOOTER did not retain the union of Link and child item's " +
             "signed OAM bounds.");
 
-        var fenceRooms = new RoomSession(
+        var fenceRooms = AgesRoomContent.CreateSession(
             4, 0x59, () => 0, () => { }, _saveData);
         OracleRoomData fenceRoom = fenceRooms.CurrentRoom;
         Vector2 fencePoint = new(2 * OracleRoomData.MetatileSize + 8,
@@ -2630,7 +2630,7 @@ public sealed partial class ValidationRoot
             "without bouncing while holding its source-static flight frame.");
         fenceSeed.Free();
 
-        var bushRooms = new RoomSession(
+        var bushRooms = AgesRoomContent.CreateSession(
             0, 0x69, () => 0, () => { }, OracleSaveData.CreateStandardGame(OracleGame.Ages));
         OracleRoomData bushRoom = bushRooms.CurrentRoom;
         Vector2 bushPoint = new(24, 56);

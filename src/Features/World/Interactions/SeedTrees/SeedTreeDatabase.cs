@@ -15,8 +15,7 @@ internal sealed class SeedTreeDatabase
     private readonly Lookup<(int Group, int Room), SeedTreePlacementRecord>
         _placements = new();
     private readonly SeedTreeTypeRecord[] _types = new SeedTreeTypeRecord[5];
-    private readonly SeedTreeRefillLocation[] _refills =
-        new SeedTreeRefillLocation[OracleRuntimeState.SeedTreeRefillLocationCount];
+    private readonly SeedTreeRefillData _refillData;
     private readonly Dictionary<string, int> _constants = new();
 
     internal int TreeTopLeftTile => Constant("tree-top-left-tile");
@@ -40,7 +39,7 @@ internal sealed class SeedTreeDatabase
 
         LoadConstants();
         LoadPlacements();
-        LoadRefills();
+        _refillData = new SeedTreeRefillData(assetRoot, 16);
         LoadTypes();
         Visual = LoadVisual();
         Validate();
@@ -85,59 +84,8 @@ internal sealed class SeedTreeDatabase
     /// this to outdoor scrolling transitions; ordinary loads and warps do not
     /// advance these histories.
     /// </summary>
-    internal void UpdateRefillState(
-        OracleRuntimeState runtime,
-        int activeGroup,
-        int activeRoom)
-    {
-        if (activeGroup is < 0 or > 7 || activeRoom is < 0 or > 0xff)
-            throw new ArgumentOutOfRangeException(nameof(activeGroup));
-
-        for (int index = 0; index < _refills.Length; index++)
-        {
-            SeedTreeRefillLocation location = _refills[index];
-            if (location.Group == activeGroup && location.Room == activeRoom)
-            {
-                bool full = true;
-                for (int slot = 0;
-                     slot < OracleRuntimeState.SeedTreeRefillRoomsPerLocation;
-                     slot++)
-                {
-                    if (runtime.ReadSeedTreeRefillRoom(index, slot) == 0)
-                    {
-                        full = false;
-                        break;
-                    }
-                }
-                if (full)
-                    SetRefilled(runtime, index, true);
-                // The source clears the history on every tree-screen visit,
-                // including visits made before all eight rooms were recorded.
-                runtime.ClearSeedTreeRefillRooms(index);
-                continue;
-            }
-
-            if (IsRefilled(runtime, index))
-                continue;
-
-            for (int slot = 0;
-                 slot < OracleRuntimeState.SeedTreeRefillRoomsPerLocation;
-                 slot++)
-            {
-                byte remembered =
-                    runtime.ReadSeedTreeRefillRoom(index, slot);
-                if (remembered == activeRoom)
-                    break;
-                if (remembered != 0)
-                    continue;
-                // Only the room byte is stored. Room $00 therefore remains
-                // indistinguishable from an empty slot, matching WRAM.
-                runtime.SetSeedTreeRefillRoom(
-                    index, slot, (byte)activeRoom);
-                break;
-            }
-        }
-    }
+    internal void UpdateRefillState(OracleRuntimeState runtime, int activeGroup, int activeRoom) =>
+        _refillData.UpdateRefillState(runtime, activeGroup, activeRoom);
 
     internal bool TryFindTreeCenter(
         OracleRoomData room,
@@ -203,32 +151,6 @@ internal sealed class SeedTreeDatabase
         }
         _placements.SortValues(
             (left, right) => left.Order.CompareTo(right.Order));
-    }
-
-    private void LoadRefills()
-    {
-        GeneratedTable table = GeneratedTable.Load(
-            AssetRoot + "metadata/seed_tree_refills.tsv",
-            new GeneratedTableSchema(
-                "seed-tree refill locations",
-                GeneratedTableKeySemantics.Unique,
-                ["index", "group", "room"],
-                ["index"],
-                headerRequired: true));
-        int count = 0;
-        foreach (GeneratedTableRow row in table.Rows)
-        {
-            int index = row.UnsignedDecimal(0);
-            if (index >= _refills.Length)
-                throw new InvalidOperationException(
-                    $"Invalid seed-tree refill index {index}.");
-            _refills[index] = new SeedTreeRefillLocation(
-                index, row.UnsignedDecimal(1), row.HexByte(2));
-            count++;
-        }
-        if (count != _refills.Length)
-            throw new InvalidOperationException(
-                $"Expected {_refills.Length} seed-tree refill locations, loaded {count}.");
     }
 
     private void LoadTypes()
@@ -339,11 +261,6 @@ internal readonly record struct SeedTreeTypeRecord(
     int Palette,
     int IntroTextId,
     string IntroMessage);
-
-internal readonly record struct SeedTreeRefillLocation(
-    int Index,
-    int Group,
-    int Room);
 
 internal readonly record struct SeedTreeVisualRecord(
     string Sprite,

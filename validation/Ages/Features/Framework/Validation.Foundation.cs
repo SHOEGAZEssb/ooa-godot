@@ -514,7 +514,7 @@ public sealed partial class ValidationRoot
     {
         OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
         long animationTick = 0;
-        var rooms = new RoomSession(
+        var rooms = AgesRoomContent.CreateSession(
             0, 0x3a,
             () => animationTick,
             () => animationTick = 0,
@@ -555,7 +555,7 @@ public sealed partial class ValidationRoot
         // applySingleTileChanges treats $f0/$f1 as unlinked/linked predicates
         // and $f2 as the executed GLOBALFLAG_FINISHEDGAME check.
         var predicateSave = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-        var predicateRooms = new RoomSession(
+        var predicateRooms = AgesRoomContent.CreateSession(
             0, 0x48, () => 0, () => { }, predicateSave);
         FailIf(
             predicateRooms.CurrentRoom.GetMetatile(Point(0x28)) != 0x64,

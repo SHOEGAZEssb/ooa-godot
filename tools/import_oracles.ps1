@@ -427,6 +427,8 @@ $stageContracts = @(
         -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes', 'Normalize-DialogueText', 'Read-AssemblyCutsceneCommands', 'ConvertTo-CutsceneCommandRows', 'Read-InteractionPresentation', 'Resolve-InteractionPresentation', 'Read-IntroOamParts', 'Format-NpcAnimationFrame', 'Join-NpcAnimationFrames')
     New-ImportStageContract 'seasons-frontend' 'Seasons/Import-Frontend.ps1' `
         -functionInputs @('Start-AssemblySourceHost', 'Invoke-AssemblySourceHost', 'Read-PaletteBytes')
+    New-ImportStageContract 'seasons-room-runtime' 'Seasons/Import-RoomRuntime.ps1' `
+        -inputs @('seasonsRomBytes', 'seasonsSymbols')
     New-ImportStageContract 'cpu-graphics' 'Shared/Import-CpuGraphics.ps1'
     New-ImportStageContract 'common-engine' 'Shared/Import-CommonEngineData.ps1' -inputs @('agesSymbols', 'seasonsSymbols', 'seasonsRomBytes')
     New-ImportStageContract 'wram-fields' 'Shared/Import-WramFields.ps1' -inputs @('agesSymbols', 'seasonsSymbols')

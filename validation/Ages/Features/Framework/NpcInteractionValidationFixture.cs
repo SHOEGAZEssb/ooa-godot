@@ -32,7 +32,7 @@ internal sealed class NpcInteractionValidationFixture : IDisposable
         _root.AddChild(Dialogue);
         owner.AddChild(_root);
 
-        Rooms = new RoomSession(group, room, () => Tick, () => Tick = 0, Save);
+        Rooms = AgesRoomContent.CreateSession(group, room, () => Tick, () => Tick = 0, Save);
         Inventory = new InventoryState(Treasures, Save, () => Rooms.CurrentDungeonIndex);
         _entities = RoomEntityValidationFixture.ForRoot(world, new()
         {

@@ -12,6 +12,38 @@ namespace Oracles;
 public sealed partial class RoomEntityManager : IDisposable
 {
     internal string AssetRoot { get; }
+    private readonly IRoomEntityFactory _factory;
+    private readonly bool _advancesFrameCounter;
+
+    internal RoomEntityManager(Node worldRoot, string assetRoot,
+        Func<RoomEntityManager, IRoomEntityFactory> createFactory, OracleRandom random,
+        OracleSaveData? saveData, OracleRuntimeState runtimeState, InventoryState? inventory,
+        TreasureDatabase treasures, ItemDropDatabase? itemDrops = null, Func<long>? animationTick = null,
+        bool advancesFrameCounter = true)
+    {
+        OracleGame game = OracleAssetPack.GameFor(assetRoot);
+        if (runtimeState.Game != game || saveData is not null && saveData.Game != game ||
+            inventory is not null && inventory.AssetRoot != assetRoot || treasures.AssetRoot != assetRoot ||
+            itemDrops is not null && itemDrops.AssetRoot != assetRoot)
+            throw new ArgumentException("Entity content, save, inventory and runtime state must belong to the same game.");
+        _worldRoot = worldRoot;
+        AssetRoot = assetRoot;
+        _random = random;
+        _itemDrops = itemDrops;
+        _saveData = saveData;
+        _inventory = inventory;
+        _treasures = treasures;
+        _runtimeState = runtimeState;
+        _advancesFrameCounter = advancesFrameCounter;
+        _animationTick = animationTick ?? (() => 0);
+        _factory = createFactory(this);
+        if (_factory.AssetRoot != assetRoot)
+            throw new ArgumentException("The entity factory must match the selected game content pack.");
+        _random.BindPlacementMemory(_runtimeState);
+        if (_saveData is not null) _saveData.Changed += RefreshNpcState;
+        _runtimeState.Changed += RefreshNpcState;
+    }
+
     private DiggingEnemyDatabase? _diggingEnemiesSourceCache;
     private DiggingEnemyDatabase _diggingEnemies => _diggingEnemiesSourceCache ??= new(AssetRoot);
     private readonly MovingPlatformRidingState _platformRiding = new();
@@ -172,15 +204,6 @@ public sealed partial class RoomEntityManager : IDisposable
     internal bool MaplePresent() => _activeEntities.Any(
         entity => entity is MapleEncounterRoomEntity { Finished: false });
 
-    internal void SpawnDiggingEnemy(int roll, int subId, Vector2 position)
-    {
-        if (_runtimeState.ReadField("wDiggingUpEnemiesForbidden") != 0)
-            return;
-        TryAllocateEnemy(_ => _factory.CreateDiggingEnemy(
-            _diggingEnemies.Enemy(roll, subId), position, _roomForActiveEntities,
-            _diggingEnemies.BeetleCounters));
-    }
-
     // getFreeEnemySlot[_uncounted] scans the live pool. In particular, a
     // later slot freed during this pass cannot satisfy an earlier request.
     internal IRoomEntity? TryAllocateEnemy(Func<int, IRoomEntity> create)
@@ -197,9 +220,6 @@ public sealed partial class RoomEntityManager : IDisposable
         return null;
     }
     internal bool TryCreateEnemy(RoomEntitySpawn spawn) => TryCreateEnemyEntity(spawn) is not null;
-
-    internal TwinrovaRoomEntity? TryCreateTwinrova(Vector2 position, int var03) =>
-        (TwinrovaRoomEntity?)TryAllocateEnemy(_ => _factory.EnemyFactory.CreateTwinrova(position, var03, _roomForActiveEntities));
 
     internal void MergeTwinrova(TwinrovaCharacter parent)
     {
@@ -272,7 +292,6 @@ public sealed partial class RoomEntityManager : IDisposable
         Clear(); player.ClearNativeItemParents(); player.WarpTo(Vector2.Zero,recordSafe:false);
         PalaceRescueTriggered?.Invoke(); AddPalaceRescueActor();
     }
-    internal void AddPalaceRescueActor() => AddEntity(new PalacePossessionRoomEntity(this,_factory.Resources.PalacePossession,0x6e,0,Vector2.Zero));
     internal void CompleteBlackTowerPossessionFight(Player player)
     {
         Clear(); player.ClearNativeItemParents(); player.WarpTo(new(0x78,0x58),recordSafe:false);
@@ -288,24 +307,8 @@ public sealed partial class RoomEntityManager : IDisposable
         RuntimeState.SetField("wLoadedTreeGfxIndex",1);
         return true;
     }
-    internal PossessedNayruRoomEntity? TryCreatePalacePossessionEnemy(Vector2 position,int subid,PossessedNayruCharacter? parent=null) =>
-        (PossessedNayruRoomEntity?)TryAllocateEnemy(_ =>
-        {
-            var actor=new PossessedNayruCharacter();
-            actor.Initialize(this,_factory.Resources.PalacePossession,subid,position,parent);
-            return new PossessedNayruRoomEntity(actor);
-        });
     internal void CreatePalaceExclamation(Vector2 position,int duration) =>
         AddEntity(_factory.Create(new ExclamationMarkSpawn(position,Duration:duration),_roomForActiveEntities));
-    internal void TryCreateVeranProjectile(EnemyCharacter parent,int subid,Vector2 position,int z,int angle)
-    {
-        if (PartSlotAvailable) AddEntity(new VeranProjectileRoomEntity(this,_factory.Resources.PalacePossession,parent,subid,position.Floor(),(z>>8)<<8,angle));
-    }
-    internal IRoomEntity? TryCreateVeranSpider(Vector2 position) => TryAllocateEnemy(_ =>
-    {
-        var data=_factory.Resources.PalacePossession;
-        return new VeranSpiderRoomEntity(new VeranSpiderCharacter(this,data,_roomForActiveEntities,position.Floor()),data,this);
-    });
     internal void RequestPalacePassage() => PalacePassageTriggered?.Invoke();
     internal void RequestPalaceBoot() => PalaceBootTriggered?.Invoke();
     internal void AlertPalaceGuards(AmbiGuardCharacter source, bool sighting)
@@ -353,21 +356,14 @@ public sealed partial class RoomEntityManager : IDisposable
     public event Action<Vector2>? ScreenShakeChanged;
     private readonly Node _worldRoot;
     private readonly OracleRandom _random;
-    private readonly ItemDropDatabase _itemDrops;
+    private readonly ItemDropDatabase? _itemDrops;
     private readonly OracleSaveData? _saveData;
     private readonly InventoryState? _inventory;
     private readonly TreasureDatabase _treasures;
     private readonly OracleRuntimeState _runtimeState;
     private readonly Func<long> _animationTick;
-    private readonly BipinBlossomFamilyStateResolver _familyState;
     private readonly RecentEnemyDefeats _recentEnemyDefeats = new();
     private byte _activeTriggers;
-    private NpcVisibilityRuleDatabase? _npcVisibilitySourceCache;
-    private NpcVisibilityRuleDatabase _npcVisibility => _npcVisibilitySourceCache ??= new(AssetRoot);
-    private NpcDialogueRuleDatabase? _npcDialogueSourceCache;
-    private NpcDialogueRuleDatabase _npcDialogue => _npcDialogueSourceCache ??= new(AssetRoot);
-    private NpcPositionRuleDatabase? _npcPositionsSourceCache;
-    private NpcPositionRuleDatabase _npcPositions => _npcPositionsSourceCache ??= new(AssetRoot);
     private readonly List<IRoomEntity> _activeEntities = new();
     private readonly List<IRoomEntity> _outgoingEntities = new();
     private readonly List<RoomEntitySpawn> _pendingSpawns = new();
@@ -388,7 +384,11 @@ public sealed partial class RoomEntityManager : IDisposable
     private Vector2 _incomingTransitionDrawOffset;
     private double _enemyFrameAccumulator;
     private double _screenTransitionFrameAccumulator;
-    private int _enemyFrameCounter;
+    private int _enemyFrameCounter
+    {
+        get => _runtimeState.FrameCounter;
+        set => _runtimeState.FrameCounter = checked((byte)value);
+    }
     private int _screenShakeCounter;
     private int _horizontalScreenShakeCounter;
     private int _screenShakeMagnitude;
@@ -639,7 +639,7 @@ public sealed partial class RoomEntityManager : IDisposable
         return new(DynamicItemId(entity), entity.Node.Position, z);
     }
     // Dependency references shared with the manager-owned entity factory.
-    internal ItemDropDatabase ItemDrops => _itemDrops;
+    internal ItemDropDatabase ItemDrops => _itemDrops ?? throw new NotSupportedException($"{AssetRoot}: item-drop content is not bound.");
     internal OracleRandom Random => _random;
     internal OracleSaveData? SaveData => _saveData;
     internal InventoryState? Inventory => _inventory;
@@ -687,8 +687,6 @@ public sealed partial class RoomEntityManager : IDisposable
     internal Func<NpcRecord, IRoomEntity>? PostD7AmbiFactory { get; set; }
     private ObjectGraphicsLoadState? _objectGraphics;
     internal ObjectGraphicsLoadState ObjectGraphics => _objectGraphics ??= new(_runtimeState);
-    internal BipinBlossomFamilyStateResolver FamilyStateResolver =>
-        _familyState;
     internal int ActiveTriggers => _activeTriggers;
     internal int FrameCounter => _enemyFrameCounter;
     // statueEyeball.s:$04 intentionally increments the global byte while
@@ -857,8 +855,6 @@ public sealed partial class RoomEntityManager : IDisposable
     }
 
     internal IEnumerable<bool> PrepareResources() => _factory.PrepareResources();
-    internal KeyholeControllerDatabase KeyholeControllers => _factory.Resources.KeyholeControllers;
-    internal JabuExteriorDatabase JabuExterior => _factory.Resources.JabuExterior;
 
     public List<T> Entities<T>() where T : Node2D => SelectNodes<T>(_activeEntities);
     internal IEnumerable<T> EntityAdapters<T>() where T : IRoomEntity =>
@@ -886,20 +882,6 @@ public sealed partial class RoomEntityManager : IDisposable
         AddRoomEntities(group, room, placementContext);
     }
 
-    /// <summary>
-    /// Mirrors disableLcdAndLoadRoom followed by parseGivenObjectData: change
-    /// the room backing the entity set without parsing its ordinary object list.
-    /// The caller may retain time portals explicitly present in the cutscene set.
-    /// </summary>
-    public void LoadCutsceneRoom(int group, OracleRoomData room, bool includeTimePortals)
-    {
-        Clear();
-        _roomForActiveEntities = room;
-        if (!includeTimePortals)
-            return;
-        foreach (IRoomEntity portal in _factory.CreateTimePortals(group, room))
-            AddEntity(portal);
-    }
     internal void RebindCutsceneBackground(OracleRoomData room)
     {
         _roomForActiveEntities=room;
@@ -939,8 +921,7 @@ public sealed partial class RoomEntityManager : IDisposable
         ReservedPushBlock?.BeginScreenTransition();
         // updateSeedTreeRefillData runs after getNextActiveRoom only when the
         // outgoing tileset is outdoors. Warp/direct loads bypass this path.
-        if ((_roomForActiveEntities.TilesetFlags & (int)TilesetFlags.Outdoors) != 0)
-            _factory.UpdateSeedTreeRefillState(group, room.Id);
+        _factory.UpdateSeedTreeRefillState(group, room.Id);
         ClearEntities(_outgoingEntities);
         _reservedEnemySlots.ExceptWith(_unownedOutgoingEnemySlots);
         _unownedOutgoingEnemySlots.Clear();
@@ -1147,7 +1128,7 @@ public sealed partial class RoomEntityManager : IDisposable
             // consumed the previous update's rider. Interactions claim anew.
             _platformRiding.BeginUpdate(PlayingInstrumentSource());
             _enemyFrameAccumulator -= 1.0;
-            _enemyFrameCounter = (_enemyFrameCounter + 1) & 0xff;
+            if (_advancesFrameCounter) IncrementNativeFrameCounter();
             var frame = new RoomEntityFrame(
                 player, _enemyFrameCounter, anyButtonJustPressed, null);
             foreach (IRoomEntity entity in _activeEntities.ToArray())
@@ -2001,29 +1982,6 @@ public sealed partial class RoomEntityManager : IDisposable
             AddEntity(entity);
     }
 
-    internal bool TrySpawnEnemy(int id, int subId, Vector2 position, string source, out string error)
-    {
-        // Native interaction state zero can create enemies during scrolling
-        // (goron_targetCarts_loadCrystals). The preload pass initializes these
-        // later children; the debug UI's transition restriction does not apply.
-        if (!CanSpawnRoomObject(position, out error))
-            return false;
-        int slot = Enumerable.Range(0, 16).FirstOrDefault(
-            candidate => !_reservedEnemySlots.Contains(candidate), -1);
-        if (slot < 0)
-        {
-            error = $"Enemy ${id:x2}:${subId:x2}: all $10 enemy slots are occupied.";
-            return false;
-        }
-        IRoomEntity? entity = _factory.EnemyFactory.CreateStandaloneEnemy(
-            id, subId, _roomForActiveEntities, position, source, out error);
-        if (entity is null)
-            return false;
-        RegisterEnemySlot(entity, slot);
-        AddEntity(entity);
-        return true;
-    }
-
     internal bool TrySpawnDebugItemDrop(int subId, Vector2 position, out string error)
     {
         if (!CanSpawnDebugObject(position, out error))
@@ -2120,13 +2078,6 @@ public sealed partial class RoomEntityManager : IDisposable
         return replacement;
     }
 
-    internal TimePortal SpawnTemporaryTimePortal(Vector2 position)
-    {
-        IRoomEntity entity = AddEntity(
-            _factory.CreateTemporaryTimePortal(_roomForActiveEntities, position));
-        return (TimePortal)entity.Node;
-    }
-
     internal GroundTreasurePickup SpawnGroundTreasure(
         GroundTreasureGrantRequest request) =>
         Spawn<GroundTreasurePickup>(new GroundTreasureGrantSpawn(request));
@@ -2164,7 +2115,7 @@ public sealed partial class RoomEntityManager : IDisposable
         Vector2 position,
         Vector2I shovelDirection)
     {
-        int? subId = _itemDrops.DecideBreakableDrop(
+        int? subId = ItemDrops.DecideBreakableDrop(
             dropType, _random, _inventory, _saveData);
         // decideItemDropForBrokenTile consumes RNG before getFreePartSlot.
         if (subId.HasValue && PartSlotAvailable)
@@ -2181,7 +2132,7 @@ public sealed partial class RoomEntityManager : IDisposable
 
     internal void SpawnBreakableDrop(int dropType, Vector2 position)
     {
-        int? subId = _itemDrops.DecideBreakableDrop(
+        int? subId = ItemDrops.DecideBreakableDrop(
             dropType, _random, _inventory, _saveData);
         if (subId.HasValue && PartSlotAvailable)
         {
@@ -2216,8 +2167,8 @@ public sealed partial class RoomEntityManager : IDisposable
         Shovel?.ClearChild();
         Somaria?.Cancel();
         Biggoron?.Cancel();
-        BoomerangParent.Clear();
-        BombchuParent.Clear();
+        BoomerangParentSourceCache?.Clear();
+        BombchuParentSourceCache?.Clear();
         foreach (IRoomEntity entity in _activeEntities.ToArray())
         {
             if (entity is SomariaBlockRoomEntity somaria)
@@ -2317,8 +2268,8 @@ public sealed partial class RoomEntityManager : IDisposable
         SwitchHook?.Cancel();
         Somaria?.Cancel();
         Biggoron?.Cancel();
-        BoomerangParent.Clear();
-        BombchuParent.Clear();
+        BoomerangParentSourceCache?.Clear();
+        BombchuParentSourceCache?.Clear();
         _specialObjectsUpdatedBeforePlayer.Clear();
         _preShockBackgroundPalettes = null;
         _activeObjectPaletteOverride = null;
@@ -2373,7 +2324,7 @@ public sealed partial class RoomEntityManager : IDisposable
         // loadTilesetAndRoomLayout runs the common tile substitutions before
         // parseObjectData. Layout shutters $78-$7f can exist only in that
         // layout and therefore must be opened before placed entities are read.
-        _factory.ApplyEntryShutterSubstitution(room, placementContext);
+        DungeonShutterEntry.Apply(room, placementContext, _factory.OpenShutterTile, _animationTick());
         // wActiveTriggers is room-local scratch state cleared by room loading.
         _activeTriggers = 0;
         _platformRiding.BeginUpdate(0);
@@ -2581,49 +2532,7 @@ public sealed partial class RoomEntityManager : IDisposable
         GashaSpotInteraction interaction,
         Player player) => GashaNutCaught?.Invoke(interaction, player);
 
-    private void RefreshNpcState(IEnumerable<IRoomEntity> entities)
-    {
-        if (_saveData is null)
-            return;
-        foreach (IRoomEntity entity in entities)
-        {
-            if (entity is IRoomSaveStateEntity stateEntity)
-                stateEntity.RefreshSaveState();
-            if (entity is IOrdinaryNpcEntity { RefreshStoryState: true } ordinary)
-            {
-                NpcCharacter npc = ordinary.Npc;
-                if (ordinary.RefreshVisibility)
-                    npc.SetFlagVisible(_npcVisibility.ShouldShow(
-                        npc.BaseRecord, _saveData, _runtimeState));
-                if (_familyState.TryResolveDialogue(
-                    npc.BaseRecord, _saveData, out Dialogue familyDialogue))
-                {
-                    npc.SetDialogue(
-                        familyDialogue.TextId,
-                        familyDialogue.Message,
-                        npc.BaseRecord.CanFace);
-                }
-                else if (_npcDialogue.TryResolve(
-                    npc.BaseRecord, _saveData,
-                    out NpcDialogueRuleDatabaseDialogue dialogue))
-                {
-                    npc.SetDialogue(
-                        dialogue.TextId, dialogue.Message, dialogue.CanFace);
-                }
-                if (ordinary.RefreshPosition && _npcPositions.TryResolve(
-                    npc.BaseRecord, _saveData, out Vector2 position))
-                {
-                    npc.SetStatePosition(position);
-                }
-                // Ordinary state-zero behavior is fully represented by these
-                // imported visibility, dialogue and position rules. Publish
-                // only after all of them have selected the source pose.
-                if (npc.Record.Implementation == NpcImplementationClassification.OrdinaryGeneric)
-                    npc.ShowInitializedPresentation();
-                ordinary.CompleteStoryInitialization();
-            }
-        }
-    }
+    private void RefreshNpcState(IEnumerable<IRoomEntity> entities) => _factory.RefreshState(entities);
 
     internal void InitializeCompanionRoomEntity(IRoomEntity entity,OracleRoomData room)
     {
@@ -2635,30 +2544,7 @@ public sealed partial class RoomEntityManager : IDisposable
     }
     internal IRoomEntity AddEntity(IRoomEntity entity)
     {
-        if (entity is TokayNpcRoomEntity tokaySlot)
-        {
-            tokaySlot.CreateShieldAccessory = parent =>
-            {
-                var record = parent.Record;
-                // tokay.s @initSubid1d returns on flag $40 or failed
-                // getFreeInteractionSlot before constructing accessory $63.
-                if (_saveData is null || _inventory is null ||
-                    _saveData.HasRoomFlag(record.Group, record.Room, OracleSaveData.RoomFlag40) ||
-                    !InteractionSlotAvailable) return;
-                var accessory = new TokayAttachedVisualRoomEntity(parent,
-                    _factory.Resources.TokayNative.Visual(_inventory.ShieldLevel < 2 ? "shield1" : "shield2", record.Group, record.Room),
-                    new Vector2(0, -12));
-                parent.Accessory = accessory;
-                parent.SetScriptAnimation(_factory.Resources.TokayInteractions.Animation(6));
-                AddEntity(accessory);
-            };
-            tokaySlot.CreateHeldAccessory = parent =>
-            {
-                if (!InteractionSlotAvailable) return false;
-                AddEntity(new TokayHeldAccessoryRoomEntity(parent) { Visible=false });
-                return true;
-            };
-        }
+        _factory.BindEntity(entity);
         if (entity.PresentationNode is EnemyCharacter enemy)
         {
             enemy.TryCreateKnockbackDust = TryCreateKnockbackDust;
@@ -2753,7 +2639,7 @@ public sealed partial class RoomEntityManager : IDisposable
         }
         if (UsesInteractionSlot(entity) && entity is NpcCharacterRoomEntityAdapter or RaftonRoomEntity && entity.PresentationNode is NpcCharacter npcActor)
             npcActor.NativeActivationChanged = active => SetNpcInteractionActive(entity, active);
-        if (UsesInteractionSlot(entity) && !_interactionSlots.ContainsKey(entity) && (entity.PresentationNode is not NpcCharacter { Active: false }||entity is TokayNpcRoomEntity{ReservesInitializationSlot:true}))
+        if (UsesInteractionSlot(entity) && !_interactionSlots.ContainsKey(entity) && (entity is INativeInteractionRoomEntity || entity.PresentationNode is not NpcCharacter { Active: false }||entity is TokayNpcRoomEntity{ReservesInitializationSlot:true}))
         {
             int slot = entity is PirateShipRoomEntity { Reserved: true } ? 1 : FindFreeInteractionSlot();
             if (slot < 0) throw new InvalidOperationException($"{entity.GetType().Name}: native dynamic INTERACTION pool is full ($d2-$df).");
@@ -3149,22 +3035,6 @@ public sealed partial class RoomEntityManager : IDisposable
         return true;
     }
 
-    private void ReplaceEnemy(IRoomEntity original, RoomEnemyReplacement replacement)
-    {
-        if (!_enemySlots.TryGetValue(original, out int slot))
-            throw new InvalidOperationException($"{replacement.Source.Source}: enemy replacement has no original slot.");
-        int index = _activeEntities.IndexOf(original);
-        var next = _factory.EnemyFactory.CreateEnemyReplacement(replacement, _roomForActiveEntities);
-        _activeEntities.RemoveAt(index);
-        FreeEntity(original);
-        RegisterEnemySlot(next, slot);
-        AddEntity(next);
-        _activeEntities.Remove(next);
-        _activeEntities.Insert(index, next);
-        // The live enemy walk has consumed this physical slot's dispatch.
-        // Its replacement starts state0 next update, without a death outcome.
-    }
-
     internal void KillMoldormRelatedParts(MoldormCharacter head)
     {
         // Clean US moldorm.s leaves L in $c0..$ff after its conveyor lookup.
@@ -3210,6 +3080,7 @@ public sealed partial class RoomEntityManager : IDisposable
     // phase also contains logical controllers and ITEM/SPECIALOBJECT owners,
     // which must not consume one of the fourteen dynamic allocations.
     private static bool UsesInteractionSlot(IRoomEntity entity) => entity is
+        INativeInteractionRoomEntity or
         FaroreMemoryRoomEntity or FaroreRewardRoomEntity or FaroreMakeChestRoomEntity or FaroreSparkleRoomEntity or ZeldaRescueActor or RoomOfRitesZeldaActor or ZeldaEndingRoomEntity or DinRoomEntity or KissHeartRoomEntity or MakuConfettiRoomEntity or
         PatchBeetleManagerRoomEntity or SideScrollBubbleRoomEntity or TimedSparkleRoomEntity or EraInfoRoomEntity or MapleTouchingBookRoomEntity or
         MoonlitGrottoArmosEventRoomEntity or EnemyClearChestRoomEntity or VolcanoRoomEntity or
@@ -3233,13 +3104,6 @@ public sealed partial class RoomEntityManager : IDisposable
             or GreenPoofRoomEntity or StonePanelRoomEntity or SarcophagusRoomEntity or EnemyAttachedKeyRoomEntity or SlateSlotRoomEntity or PanelStairsRoomEntity or DungeonTileScriptRoomEntity or JabuWaterControllerRoomEntity or JabuLadderRoomEntity or OctogonInteractionRoomEntity or OctogonEncounterInitializerRoomEntity or PushBlockSynchronizerRoomEntity or SynchronizedPushBlockRoomEntity or PuzzleTrapResetRoomEntity or WallSquishRoomEntity or DungeonTilePatternFallingKeyRoomEntity or MoonlitGrottoFallingKeyRoomEntity
             or DungeonSpinnerRoomEntity or DungeonSpinnerArrowRoomEntity or DungeonBossKeyMirrorRoomEntity or ChestContentsRoomEntity or MovingPlatformRoomEntity or CircularSideScrollPlatformRoomEntity or HeadThwompRewardScript or SpiritsGraveMovingPlatformSpawner or TileFillerRoomEntity or DungeonPatternTriggerRoomEntity or DungeonPatternKeyRoomEntity or GroundTreasureRoomEntity or ToggleFloorRoomEntity or ToggleFloorTileRoomEntity or FloorColorChangerRoomEntity or FloorColorWorkerRoomEntity;
 
-    internal bool TryCreateMermaidChangingFloorWorker(int subid)
-    {
-        if (!InteractionSlotAvailable) return false;
-        AddEntity(_factory.CreateMermaidChangingFloorWorker(subid));
-        return true;
-    }
-
     internal LeverChildAllocation TryCreateLeverConnection(LeverRoomEntity parent,NpcRecord record,LeverProfile profile)
     {
         int slot = FindFreeInteractionSlot();
@@ -3254,30 +3118,7 @@ public sealed partial class RoomEntityManager : IDisposable
         return LeverChildAllocation.EarlierSlot;
     }
 
-    internal bool TryCreateFloorColorWorker(Vector2 position,byte tile)
-    {
-        if (!InteractionSlotAvailable) return false;
-        AddEntity(_factory.CreateFloorColorWorker(position,tile));
-        return true;
-    }
-
-    internal bool TryCreateFloorToggleTile(byte position,byte takeoff)
-    {
-        if (!InteractionSlotAvailable) return false;
-        AddEntity(_factory.CreateFloorToggleTile(position,takeoff));
-        return true;
-    }
-
     internal bool InteractionSlotAvailable => FindFreeInteractionSlot() >= 0;
-    internal void TryCreatePortalDecoration(DungeonObjectRecord producer)
-    {
-        if (InteractionSlotAvailable) AddEntity(_factory.CreatePortalDecoration(producer));
-    }
-    internal bool TryCreateSavedMonkey(DungeonObjectRecord record)
-    {
-        if (!InteractionSlotAvailable) return false;
-        AddEntity(_factory.CreateSavedMonkey(record)); return true;
-    }
     internal bool TryCreateMovingPlatform(Vector2 position, int subId)
     {
         if (!InteractionSlotAvailable) return false;
@@ -3298,12 +3139,6 @@ public sealed partial class RoomEntityManager : IDisposable
         return true;
     }
     internal bool PartSlotAvailable => FindFreePartSlot() >= 0;
-    internal bool TryCreateFallingFire(Vector2 position)
-    {
-        if (!PartSlotAvailable) return false;
-        AddEntity(new FallingFireRoomEntity(this, _factory.Resources.PlacedParts, 2, position));
-        return true;
-    }
     internal int AdvanceFallingFireCycle(int slot)
     {
         if (slot is < 0 or >= 16) throw new ArgumentOutOfRangeException(nameof(slot));
@@ -3351,6 +3186,8 @@ public sealed partial class RoomEntityManager : IDisposable
     }
     internal bool EnemySlotAvailable => _reservedEnemySlots.Count<16;
     internal int NativeInteractionSlot(IRoomEntity entity) => _interactionSlots[entity];
+    internal T? TryAllocateInteraction<T>(Func<T> create) where T : class, INativeInteractionRoomEntity =>
+        InteractionSlotAvailable ? (T)AddEntity(create()) : null;
 
     internal int InteractionSlot(Node2D actor) =>
         _interactionSlots.Single(pair => ReferenceEquals(pair.Key.PresentationNode, actor)).Value;
@@ -3527,14 +3364,6 @@ public sealed partial class RoomEntityManager : IDisposable
         return false;
     }
 
-    internal bool TryMergeSmogClouds(int phase) => SmogCloudMerge.TryMerge(
-        _enemySlots.OrderBy(pair => pair.Value).Select(pair => pair.Key.PresentationNode).OfType<SmogCharacter>(),
-        phase, spawn =>
-        {
-            if (TryAllocateEnemy(_ => _factory.Create(spawn,_roomForActiveEntities)) is null)
-                _factory.ApplyFailedSmogControllerAllocation(spawn, merged: true);
-        });
-
     internal void ReleaseSmogSentinelCount()
     {
         var sentinels = _activeEntities.OfType<SmogRoomEntity>().Where(entity => entity.IsRoomSentinel).ToArray();
@@ -3694,13 +3523,6 @@ public sealed partial class RoomEntityManager : IDisposable
     }
     internal int TryCreateCandleExplosion(Vector2 position)
         => TryCreateInteractionExplosion(position,var03:0);
-    internal int TryCreateInteractionExplosion(Vector2 position,int zHigh=0,int var03=1)
-    {
-        if (!InteractionSlotAvailable) return -1;
-        var entity = AddEntity(_factory.Create(new InteractionExplosionSpawn(position, zHigh,
-            _factory.Resources.Patch.ExplosionVisual, Var03: var03), _roomForActiveEntities));
-        return _interactionSlots[entity];
-    }
     internal void ConsumeCandleExplosionSignal(int slot, int radius)
     {
         var entity = _interactionSlots.FirstOrDefault(pair => pair.Value == slot).Key;
@@ -3738,11 +3560,6 @@ public sealed partial class RoomEntityManager : IDisposable
     {
         if (!InteractionSlotAvailable) return;
         AddEntity(_factory.Create(new EnemyClinkSpawn(position, InitializeOnUpdate: true, zHigh), _roomForActiveEntities));
-    }
-    internal bool TryCreateFallingRock(int subid,int var03,Vector2 position,int counter=0,int angle=0)
-    {
-        if(!InteractionSlotAvailable)return false;
-        AddEntity(new FallingRockRoomEntity(this,_factory.Resources.FallingRocks,subid,var03,position,counter,angle));return true;
     }
 
     internal bool TryCreateOwlSparkle(OwlStatueSparkleSpawn spawn)
@@ -3786,16 +3603,6 @@ public sealed partial class RoomEntityManager : IDisposable
         if (FindFreePartSlot() < 0) return false;
         AddEntity(_factory.Create(new LightableTorchSpawn(state,packedPosition),_roomForActiveEntities));
         return true;
-    }
-
-    internal void RecreateLightableTorches(LightableTorchState state)
-    {
-        // Native $90:$07 clears all PART$06 slots before its checked C7
-        // interaction allocation. It does not clear wNumTorchesLit.
-        foreach (var entity in _activeEntities.OfType<LightableTorchRoomEntity>().ToArray())
-        { _activeEntities.Remove(entity); FreeEntity(entity); }
-        if (!InteractionSlotAvailable) return;
-        AddEntity(_factory.CreateLightableTorchScanner(state));
     }
 
     // Rideable INTERACTIONs retain their category under enemy/item-only masks;
@@ -3867,7 +3674,7 @@ public sealed partial class RoomEntityManager : IDisposable
             _screenTransitionFrameAccumulator -= 1.0;
             // bank0 mainThread advances wFrameCounter before runGameLogic,
             // including scroll updates that dispatch enabled bit-$80 objects.
-            AdvanceFrozenRoomFrame();
+            if (_advancesFrameCounter) AdvanceFrozenRoomFrame();
             var frame = new RoomEntityFrame(player, _enemyFrameCounter, false, null);
             foreach (IRoomEntity entity in _outgoingEntities.Concat(_activeEntities))
                 if (entity.PresentationNode is EnemyCharacter statusEnemy)

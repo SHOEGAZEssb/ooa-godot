@@ -260,7 +260,7 @@ public partial class GameRoot
         var timePortals = new TimePortalDatabase();
         var enemies = EnemyDatabase.For(AgesGameContent.AssetRoot);
         yield return false;
-        _entities = new RoomEntityManager(
+        _entities = AgesRoomEntityFactory.CreateManager(
             _scene.WorldRoot, NpcDatabase.For(AgesGameContent.AssetRoot), enemies,
             new ItemDropDatabase(AgesGameContent.AssetRoot), timePortals, _random, _saveData,
             runtimeState: _runtimeState,

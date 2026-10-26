@@ -11,6 +11,12 @@ compiled bytes are checked against both supported ROMs before sharing them.
 Production runtime
 code consumes those assets and never opens assembly files.
 
+Seed-tree refill records retain native history order and a separate flag-bit
+index. Ages' sixteen histories and Seasons' eight histories use different bit
+orders; consumers must not infer the flag bit from the row index. Room object
+streams likewise retain source order and conditional pointers, including
+branches whose runtime handlers are explicitly unsupported.
+
 The output root must contain only current generated packs and Godot import
 metadata. When changing the pack layout, start with an empty output directory
 and regenerate; preserve or remove obsolete generated output directly rather

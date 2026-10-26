@@ -89,7 +89,7 @@ public sealed partial class ValidationRoot
             "The clean-US conditional enemy-object stream was not selected.");
 
         OracleSaveData save = OracleSaveData.CreateStandardGame(OracleGame.Ages);
-        var rooms = new RoomSession(
+        var rooms = AgesRoomContent.CreateSession(
             1, 0x80, static () => 0, static () => { }, save);
         OracleRoomData room = rooms.CurrentRoom;
         Vector2 owlPosition = new(0x38, 0x38);

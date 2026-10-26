@@ -69,18 +69,10 @@ public sealed class AgesRoomTransitionController
     private ScreenTransitionRenderer? _scrollRenderer;
     private int _loadedUniqueGraphics;
 
+    private readonly RoomScrollController _scroll = new();
     private bool _scrollActive;
     private Vector2I _scrollDirection;
-    private Vector2 _scrollLinkStart;
-    private Vector2 _scrollLinkStep;
-    private Vector2 _scrollFinishOffset;
     private Vector2 _scrollIncomingStartOffset;
-    private float _scrollDistance;
-    private float _scrollFrame;
-    private int _scrollFrames;
-    private int _scrollTotalFrames;
-    private int _scrollSetupFrames;
-    private int _scrollCleanupFrames;
     private double _scrollTickAccumulator;
     private int _screenTransitionDelay;
     private Vector2I _pendingRoomExit;
@@ -148,10 +140,10 @@ public sealed class AgesRoomTransitionController
     internal Vector2I ScreenEntryDirection =>
         _scrollActive || _roomPackArrival is not null ? _scrollDirection : Vector2I.Zero;
     internal Vector2 ScrollLinkPositionInDestination =>
-        _scrollLinkStart + _scrollLinkStep * _scrollFrame + _scrollFinishOffset;
-    public float ScrollDistance => _scrollDistance;
-    public int ScrollFrames => _scrollFrames;
-    internal int ScrollTotalFrames => _scrollTotalFrames;
+        _scroll.LinkPosition + _scroll.FinishOffset;
+    public float ScrollDistance => _scroll.Distance;
+    public int ScrollFrames => _scroll.Frames;
+    internal int ScrollTotalFrames => _scroll.TotalFrames;
     internal int ScreenTransitionDelay => _screenTransitionDelay;
     internal int ActiveWarpDestinationPosition =>
         _warpActive ? _pendingWarp.DestinationPosition : -1;
@@ -934,15 +926,12 @@ public sealed class AgesRoomTransitionController
         _scrollActive = true;
         _screenTransitionDelay = 0;
         _scrollDirection = direction;
-        _scrollLinkStart = start;
-        _scrollDistance = direction.X != 0 ? OracleRoomData.ViewportWidth : OracleRoomData.ViewportHeight;
-        _scrollFrame = 0.0f;
         // State 3, state 5 substate 0, row initialization, and the first
         // offscreen row draw precede transitionUpdateScrollAndLinkPosition.
-        _scrollSetupFrames = 4;
+        int setupFrames = 4;
         // State 3 draws the destination's offscreen rows, then advances to
         // state 5 on a separate update; state 5 owns the actual finisher.
-        _scrollCleanupFrames = 2 + (direction.X != 0
+        int cleanupFrames = 2 + (direction.X != 0
             ? (target.Width - OracleRoomData.ViewportWidth) / 8
             : (target.Height - OracleRoomData.ViewportHeight) / 8);
         (int unique, int entries) = _scrollGraphics.ForTileset(target.TilesetId);
@@ -952,29 +941,20 @@ public sealed class AgesRoomTransitionController
         {
             int updates = unique == _loadedUniqueGraphics ? 1 : entries;
             if ((unique & 0x80) == 0)
-                _scrollSetupFrames += updates;
+                setupFrames += updates;
             else
                 // The last post-scroll graphics update falls through into
                 // state 5 instead of consuming a separate finisher update.
-                _scrollCleanupFrames += updates - 1;
+                cleanupFrames += updates - 1;
             _loadedUniqueGraphics = unique;
         }
         _scrollTickAccumulator = 0;
-        _scrollFrames = Mathf.Max(1, Mathf.RoundToInt(_scrollDistance / 4.0f));
-        _scrollTotalFrames = _scrollSetupFrames + _scrollFrames + _scrollCleanupFrames;
-        _scrollLinkStep = direction == Vector2I.Up ? new Vector2(0.0f, -0.5f)
-            : direction == Vector2I.Right ? new Vector2(0.375f, 0.0f)
-            : direction == Vector2I.Down ? new Vector2(0.0f, 0.5f)
-            : new Vector2(-0.375f, 0.0f);
-        _scrollFinishOffset = direction == Vector2I.Up ? new Vector2(0.0f, source.Height)
-            : direction == Vector2I.Right ? new Vector2(-source.Width, 0.0f)
-            : direction == Vector2I.Down ? new Vector2(0.0f, -source.Height)
-            : new Vector2(source.Width, 0.0f);
+        _scroll.Begin(start, direction, source.Width, source.Height, setupFrames, cleanupFrames);
 
-        Vector2 transitionEnd = start + _scrollLinkStep * _scrollFrames + _scrollFinishOffset;
+        Vector2 transitionEnd = _scroll.DestinationPosition;
         Vector2 destinationCameraOrigin = GetCameraOrigin(target, transitionEnd);
         _scrollIncomingStartOffset = sourceCameraOrigin - destinationCameraOrigin +
-            (Vector2)direction * _scrollDistance;
+            (Vector2)direction * _scroll.Distance;
         _entities.ReservedKeyDoor?.BeginScreenTransition();
         _entities.ReservedPushBlock?.BeginScreenTransition();
         _rooms.SetLoadedRoom(_rooms.ActiveGroup, target, updateMinimap: false);
@@ -984,14 +964,14 @@ public sealed class AgesRoomTransitionController
             player.SetScriptedPosition(start);
         _deathRespawnPoints.RecordRoomInitialization();
         _roomView.StartScreenTransition(
-            target.Texture, direction, _scrollDistance, sourceCameraOrigin, destinationCameraOrigin);
+            target.Texture, direction, _scroll.Distance, sourceCameraOrigin, destinationCameraOrigin);
         _entities.BeginScreenTransition(
             _rooms.ActiveGroup, target, _scrollIncomingStartOffset, direction,
             target.GetPackedPosition(transitionEnd), player);
         diagnostics?.Mark("destination-objects");
-        int beforeGraphics = _scrollSetupFrames - 4;
+        int beforeGraphics = setupFrames - 4;
         int uploadStart = target.LoadsUniqueGraphicsAfterScroll
-            ? _scrollTotalFrames - entries + 1 : 2;
+            ? _scroll.TotalFrames - entries + 1 : 2;
         (byte[] Source, byte[] Destination)? smooth = null;
         bool paletteRoutePresent = _scrollPalettes.TryGet(
             _rooms.ActiveGroup, targetId, direction, _rooms.SaveData, out var paletteRoute);
@@ -1000,7 +980,7 @@ public sealed class AgesRoomTransitionController
         _scrollRenderer = new ScreenTransitionRenderer(source, target, sourceGraphics, sourceColors,
             uploadGraphics ? _scrollGraphics.Uploads(unique) : Array.Empty<ScreenGraphicsUpload>(),
             uploadStart, beforeGraphics > 0 && !paletteRoutePresent ? beforeGraphics + 1 : -1,
-            _scrollSetupFrames - 2, smooth);
+            setupFrames - 2, smooth);
         diagnostics?.Mark("transition-graphics");
         _scrollPlayerOwner = transitionOwner;
         _scrollPlayerOwner?.BeginScreenTransition(target);
@@ -1010,7 +990,7 @@ public sealed class AgesRoomTransitionController
         // coordinates; it does not restore the pre-initialization position.
         if (_scrollPlayerOwner is null)
             start = player.PrecisePosition;
-        _scrollLinkStart = start;
+        _scroll.SetStart(start);
         if (_scrollPlayerOwner is null)
         {
             player.BeginScrollingTransition(start);
@@ -1045,24 +1025,11 @@ public sealed class AgesRoomTransitionController
         if (!_scrollActive)
             return;
         _scrollRenderer?.Advance();
-        if (_scrollSetupFrames > 0)
-        {
-            _scrollSetupFrames--;
-            return;
-        }
-        if (_scrollFrame == _scrollFrames)
-        {
-            if (--_scrollCleanupFrames > 0)
-                return;
-        }
-        else
-        {
-            _scrollFrame++;
-        }
-        Vector2 linkPosition = _scrollLinkStart + _scrollLinkStep * _scrollFrame;
-        float scrollPixels = Mathf.Min(Mathf.Floor(_scrollFrame) * 4.0f, _scrollDistance);
+        if (!_scroll.Advance()) return;
+        Vector2 linkPosition = _scroll.LinkPosition;
+        float scrollPixels = _scroll.Pixels;
         Vector2 screenScroll = new(_scrollDirection.X * scrollPixels, _scrollDirection.Y * scrollPixels);
-        _roomView.SetTransitionFrame(_scrollFrame);
+        _roomView.SetTransitionFrame(_scroll.Frame);
         _entities.SetScreenTransitionOffsets(-screenScroll, _scrollIncomingStartOffset - screenScroll);
         if (_scrollPlayerOwner is null)
         {
@@ -1074,7 +1041,7 @@ public sealed class AgesRoomTransitionController
             _scrollPlayerOwner.SetScreenTransitionPosition(
                 linkPosition, -screenScroll, _player);
         }
-        if (_scrollFrame < _scrollFrames || _scrollCleanupFrames > 0)
+        if (_scroll.Active)
             return;
 
         _scrollActive = false;
@@ -1083,7 +1050,7 @@ public sealed class AgesRoomTransitionController
         _player.DisableInstruments(8);
         _roomView.FinishTransition();
         Vector2 destinationPosition =
-            linkPosition + _scrollFinishOffset;
+            linkPosition + _scroll.FinishOffset;
         if (_scrollPlayerOwner is null)
         {
             _player.FinishScrollingTransition(destinationPosition);

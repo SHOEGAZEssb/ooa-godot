@@ -9,10 +9,16 @@ namespace Oracles;
 public sealed class OracleRuntimeState
 {
     internal OracleGame Game { get; }
+    // Clock ticks do not invalidate NPC story-state bindings.
+    internal byte FrameCounter
+    {
+        get => _wram[FieldAddress("wFrameCounter") - WramStart];
+        set => _wram[FieldAddress("wFrameCounter") - WramStart] = value;
+    }
     internal static OracleRuntimeState CreateInitialized(OracleGame game) => game switch
     {
         OracleGame.Ages => AgesGameContent.CreateRuntimeState(),
-        OracleGame.Seasons => new OracleRuntimeState(game),
+        OracleGame.Seasons => SeasonsGameContent.CreateRuntimeState(),
         _ => throw new ArgumentOutOfRangeException(nameof(game))
     };
     internal OracleRuntimeState(OracleGame game)

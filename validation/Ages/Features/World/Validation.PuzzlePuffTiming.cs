@@ -9,7 +9,7 @@ public partial class ValidationRoot
     private void ValidatePuzzlePuffTiming()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        var counter = typeof(RoomEntityManager).GetField("_enemyFrameCounter", flags)!;
+        var counter = typeof(RoomEntityManager).GetProperty("_enemyFrameCounter", flags)!;
         foreach (bool batch in new[] { false, true })
         foreach (int initialFrame in new[] { 0xfe, 0xff })
         foreach (string mode in new[] { "normal", "text", "freeze", "scroll" })

@@ -11,6 +11,10 @@ internal sealed class LightningRoomEntity : IRoomEntity,IFixedRoomEntity,IRoomEn
     private readonly bool _signalCutscene;
     public Node2D Node {get;}
     public bool Finished => _effect.Finished;
+    internal LightningRoomEntity(NpcCharacter actor, LightningEffect effect)
+    {
+        Node = actor; _effect = effect; _owner = null!;
+    }
     internal LightningRoomEntity(RoomEventContext context,Vector2 position,bool signalCutscene = true)
     {
         _owner=context.Entities;_signalCutscene=signalCutscene;

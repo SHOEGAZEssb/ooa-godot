@@ -119,6 +119,12 @@ original treasure-loss routine clears the regular ownership bit without
 clearing this separate upgrade byte. Additional treasure grants follow the
 imported clean-US table once, in source order, within the same transaction.
 
+The native frame counter is the single live `wFrameCounter` byte. Composition
+selects whether the application or the object dispatcher advances it; they
+must not both tick it in one original update. Clock writes retain byte wrapping
+and avoid invalidating unrelated NPC story-state bindings. Native object writes
+to the counter use that same byte and remain visible to later phases.
+
 One grant, loss, purchase, ring operation, or other item mutation is one
 transaction. Internal byte changes complete before observers receive one
 notification, so the HUD and menus never see a partial state. Saved values are

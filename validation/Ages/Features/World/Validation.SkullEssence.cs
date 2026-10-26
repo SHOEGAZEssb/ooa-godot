@@ -38,7 +38,7 @@ public sealed partial class ValidationRoot
         Step(8);
         FailIf(_roomEvents.Get<DungeonEssenceEvent>().HasState,
             "Essence distance must be Manhattan: delta(3,18) lies outside the source distance20 gate.");
-        var counterField = typeof(RoomEntityManager).GetField("_enemyFrameCounter", flags)!;
+        var counterField = typeof(RoomEntityManager).GetProperty("_enemyFrameCounter", flags)!;
         while (((int)counterField.GetValue(_entities)! & 3) != 0) Step();
         _player.WarpTo(new Vector2(124, 55));
         Step(3);

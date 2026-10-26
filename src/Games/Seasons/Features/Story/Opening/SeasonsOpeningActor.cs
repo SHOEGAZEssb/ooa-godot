@@ -1,14 +1,17 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace Oracles;
 
-internal sealed partial class SeasonsOpeningActor
+internal sealed partial class SeasonsOpeningActor : INativeInteractionRoomEntity, IFixedRoomEntity,
+    IRoomEntityLifetime, IUpdatesDuringDialogueRoomEntity, IUpdatesDuringRoomEntityFreeze,
+    IScreenTransitionPreloadRoomEntity, IAlwaysUpdateDuringScreenTransitionRoomEntity, IPlayerInteractable
 {
     private readonly SeasonsOpeningSession _session;
-    internal int Slot { get; }
+    internal int Slot => _session.Entities.NativeInteractionSlot(this);
     internal int Id { get; }
-    internal int Subid { get; }
+    internal int Subid { get; private set; }
     internal int Variable { get; }
     internal NpcCharacter Node { get; }
     internal CutsceneCommandRunner Runner { get; }
@@ -22,10 +25,27 @@ internal sealed partial class SeasonsOpeningActor
     private int _counter, _counter2, _savedX, _angle, _speed, _lightningRow;
     private bool _scriptStarted, _deleted;
 
-    internal SeasonsOpeningActor(SeasonsOpeningSession session, int slot, int id, int subid, Vector2 position, int variable)
+    Node2D IRoomEntity.Node => Node;
+    public bool Finished => _deleted;
+    public bool UpdatesDuringDialogue => !Initialized || AlwaysUpdate;
+    public bool UpdatesDuringRoomEntityFreeze => !Initialized || AlwaysUpdate;
+    public void SetTransitionDrawOffset(Vector2 offset) => Node.SetTransitionDrawOffset(offset);
+    public void UpdateFrame(RoomEntityFrame frame, ICollection<RoomEntitySpawn> spawns) => AdvanceFrame();
+    public void UpdateDuringScreenTransition(RoomEntityFrame frame)
     {
-        _session = session; Slot = slot; Id = id; Subid = subid; Variable = variable;
-        Node = id == 0x85 ? new NpcCharacter() : session.Data.CreateActor(id, subid, position);
+        if (AlwaysUpdate || !Initialized) AdvanceFrame();
+    }
+    public ScreenTransitionPresentation PrepareForScreenTransition(ICollection<RoomEntitySpawn> spawns)
+    {
+        if (!Initialized) AdvanceFrame();
+        return Finished || !Node.Visible ? ScreenTransitionPresentation.Hidden : ScreenTransitionPresentation.Visible;
+    }
+    public bool TryInteract(Player player) => TryTalk();
+
+    internal SeasonsOpeningActor(SeasonsOpeningSession session, int id, int subid, Vector2 position, int variable)
+    {
+        _session = session; Id = id; Subid = subid; Variable = variable;
+        Node = id == 0x85 ? new NpcCharacter { AssetRoot = SeasonsGameContent.AssetRoot } : session.Data.CreateActor(id, subid, position);
         Node.ZIndex = id switch {
             0x4e => subid == 7 ? ObjectDrawPriority.FixedHighPriorityZIndex : ObjectDrawPriority.FixedLowPriorityZIndex,
             0x4f => subid switch { 2 => ObjectDrawPriority.InFrontOfLinkZIndex, 3 => ObjectDrawPriority.FixedHighPriorityZIndex,
@@ -64,7 +84,7 @@ internal sealed partial class SeasonsOpeningActor
         _scriptStarted = true;
     }
     private bool Tick() { _counter = (_counter - 1) & 0xff; return _counter == 0; }
-    private void Delete() { _deleted = true; Runner.Clear(); _session.Delete(this); }
+    private void Delete() { _deleted = true; Runner.Clear(); Node.Hide(); _session.Delete(this); }
     internal void AdvanceFrame()
     {
         if (Id == 0x85) { MusicController(); return; }
@@ -92,7 +112,12 @@ internal sealed partial class SeasonsOpeningActor
                             4 => "troupeScript_Impa", 6 => "troupeScript_Din", 7 => "tornadoScript_startDestruction", _ => throw Unsupported() });
                     else Node.SetCollisionRadii(6, 6);
                     break;
-                case 0x9d: Script("impaScript_afterOnoxTakesDin"); _session.Sound.PlaySound(0x1f); return;
+                case 0x9d:
+                    if (Subid == 4 && !_session.Save.IsLinkedGame) { Delete(); return; }
+                    if (Subid != 0) throw Unsupported();
+                    if (_session.RoomFlag(0x40)) { Node.Position = new(0x18, 0x28); Subid = 1; }
+                    else _session.Sound.PlaySound(0x1f);
+                    Script("impaScript_afterOnoxTakesDin"); return;
                 case 0x4f: InitializeImprisonment(); return;
                 case 0x9f: _counter = Variable; return;
                 case 0x05: _session.Sound.PlaySound(SoundId.SndPoof); return;
@@ -123,8 +148,12 @@ internal sealed partial class SeasonsOpeningActor
             case 0x4e: Troupe(); break;
             case 0x9d:
                 Runner.AdvanceFrame();
-                if (_session.RoomFlag(0x40)) Node.FaceLinkImmediatelyAndAnimateAsNpcOneUpdate(_session.Link);
-                else { Node.AdvanceAnimationUpdates(1); Node.PushPlayerAwayAndUpdateDrawPriority(_session.Link); }
+                if (Subid == 1) Node.FaceLinkImmediatelyAndAnimateAsNpcOneUpdate(_session.Link);
+                else
+                {
+                    if (_session.RoomFlag(0x40)) Subid = 1;
+                    Node.AdvanceAnimationUpdates(1); Node.PushPlayerAwayAndUpdateDrawPriority(_session.Link);
+                }
                 break;
             case 0x4f: Imprisonment(); break;
             case 0x9f:
