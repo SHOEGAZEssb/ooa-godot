@@ -37,7 +37,8 @@ internal sealed partial class SeasonsOpeningActor
         if (id == 0xa5 || id == 0x4f && subid == 0)
             Node.SetFixedDrawPriority(ObjectDrawPriority.BehindLinkZIndex, withTerrainEffects: true);
         Node.SetWorldToScreen(point => session.NativeScreen.Visible
-            ? point - new Vector2(session.NativeScreen.CameraX, session.NativeScreen.CameraY) : point);
+            ? point - new Vector2(session.NativeScreen.CameraX, session.NativeScreen.CameraY) : point,
+            () => session.Scrolling);
         Runner = new(new SeasonsOpeningScriptHost(session, this));
         Node.Hide();
     }

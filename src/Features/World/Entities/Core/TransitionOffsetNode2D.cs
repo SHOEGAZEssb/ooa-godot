@@ -11,6 +11,7 @@ public abstract partial class TransitionOffsetNode2D : Node2D
 {
     internal string AssetRoot { get; set; } = string.Empty;
     private Func<Vector2, Vector2> _worldToScreen = static position => position;
+    private Func<bool> _usesTransitionProjection = static () => false;
     private Func<int> _shadowCounter = static () => 0;
     private Func<int> _shadowSlot = static () => 0;
     private Func<bool> _shadowTransition = static () => false;
@@ -67,21 +68,24 @@ public abstract partial class TransitionOffsetNode2D : Node2D
     public Vector2 TransitionDrawOffset { get; private set; }
     internal void SetTerrainShadowRoom(OracleRoomData room) => _shadowRoom = room;
     internal Vector2 SourceOamWrapOffset =>
-        OracleObjectMath.SourceOamWrapOffset(_worldToScreen(Position));
+        // bank0's scroll projection retains 16-bit coordinates before culling.
+        _usesTransitionProjection() ? Vector2.Zero :
+            OracleObjectMath.SourceOamWrapOffset(_worldToScreen(Position));
     protected Vector2 SourceOamDrawOffset =>
         TransitionDrawOffset + SourceOamWrapOffset;
 
-    internal void SetWorldToScreen(Func<Vector2, Vector2> worldToScreen)
+    internal void SetWorldToScreen(Func<Vector2, Vector2> worldToScreen, Func<bool> usesTransitionProjection)
     {
         _worldToScreen = worldToScreen ??
             throw new ArgumentNullException(nameof(worldToScreen));
+        _usesTransitionProjection = usesTransitionProjection ??
+            throw new ArgumentNullException(nameof(usesTransitionProjection));
         QueueRedraw();
     }
 
     internal void SetTransitionDrawOffset(Vector2 offset)
     {
-        if (TransitionDrawOffset.IsEqualApprox(offset))
-            return;
+        // Projection mode can change at scroll boundaries with a zero offset.
         TransitionDrawOffset = offset;
         QueueRedraw();
     }

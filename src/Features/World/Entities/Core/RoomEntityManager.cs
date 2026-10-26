@@ -986,11 +986,7 @@ public sealed partial class RoomEntityManager : IDisposable
             IRoomEntity entity = _outgoingEntities[index];
             // enabled=$03 bypasses setObjectsEnabledTo2 and survives
             // clearItemsWithEnabled2. Its raw cloud coordinates also survive.
-            if (entity is not BombRoomEntity { Bomb.State: BombState.Held } &&
-                entity is not PegasusDustRoomEntity && entity is not IScrollPersistentRoomEntity { PersistsAcrossScroll: true } && entity is not IPlayerScreenTransitionRoomEntity
-                {
-                    ControlsPlayerScreenTransition: true
-                })
+            if (!PersistsAcrossScroll(entity))
             {
                 continue;
             }
@@ -2820,7 +2816,8 @@ public sealed partial class RoomEntityManager : IDisposable
         }
         if (entity.PresentationNode is TransitionOffsetNode2D drawable)
         {
-            drawable.SetWorldToScreen(position => WorldToScreen(position));
+            drawable.SetWorldToScreen(position => WorldToScreen(position),
+                () => _screenTransitionActive && !PersistsAcrossScroll(entity));
             drawable.BindTerrainShadow(_roomForActiveEntities, () => _enemyFrameCounter,
                 () => NativeDrawOrder(entity) ?? 0, () => _screenTransitionActive, RuntimeState);
         }
@@ -3366,6 +3363,12 @@ public sealed partial class RoomEntityManager : IDisposable
             if (!_interactionSlots.Any(pair => pair.Value == slot && pair.Key is not IRoomEntityLifetime { Finished: true })) return slot;
         return -1;
     }
+
+    // enabled=$03 retains the ordinary byte projection and survives scrolling.
+    private static bool PersistsAcrossScroll(IRoomEntity entity) =>
+        entity is BombRoomEntity { Bomb.State: BombState.Held } or PegasusDustRoomEntity or
+            IScrollPersistentRoomEntity { PersistsAcrossScroll: true } or
+            IPlayerScreenTransitionRoomEntity { ControlsPlayerScreenTransition: true };
 
     private void PrepareIncomingEntitiesForScreenTransition(Player? player)
     {

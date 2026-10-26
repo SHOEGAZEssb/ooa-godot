@@ -346,6 +346,13 @@ internal sealed class PreBlackTowerEvent :
 
         if (_nayruRunner.Active)
             _nayruRunner.AdvanceFrame();
+        if (!_nayruRunner.Active && _actors.TryGetValue("Nayru", out NpcCharacter? nayru) &&
+            !_nayruEnded)
+        {
+            _nayruEnded = true;
+            nayru.SetActive(false);
+            _context.Rooms.SaveData.SetGlobalFlag(_record.CompletionFlag);
+        }
         if (!_impaRunner.Active)
             _actors["Impa"].SetActive(false);
         if (_nayruEnded)
@@ -381,14 +388,6 @@ internal sealed class PreBlackTowerEvent :
                     _impaVar38 = 4;
                 }
                 break;
-        }
-
-        if (!_nayruRunner.Active && _actors.TryGetValue("Nayru", out NpcCharacter? nayru) &&
-            !_nayruEnded)
-        {
-            _nayruEnded = true;
-            nayru.SetActive(false);
-            _context.Rooms.SaveData.SetGlobalFlag(_record.CompletionFlag);
         }
     }
 
